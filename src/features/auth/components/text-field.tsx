@@ -9,10 +9,10 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { DISPLAY_NAME_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/features/auth/schemas'
 
-interface TextFieldProps<TValues extends FieldValues, TOut extends FieldValues = TValues> extends Omit<
-  ComponentProps<typeof Input>,
-  'name' | 'defaultValue' | 'value'
-> {
+interface TextFieldProps<
+  TValues extends FieldValues,
+  TOut extends FieldValues = TValues,
+> extends Omit<ComponentProps<typeof Input>, 'name' | 'defaultValue' | 'value'> {
   control: Control<TValues, unknown, TOut>
   name: FieldPath<TValues>
   label: string

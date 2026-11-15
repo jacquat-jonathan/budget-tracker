@@ -88,7 +88,7 @@ export function IncomePage() {
       </div>
     )
   }
-  if (incomes.isPending || members.isPending || current.isPending) {
+  if (!incomes.data || !members.data || current.data === undefined) {
     return (
       <div className="flex flex-col gap-6">
         {header}
@@ -97,6 +97,8 @@ export function IncomePage() {
     )
   }
 
+  const memberList = members.data
+  const currentPeriod = current.data
   const active = incomes.data.filter((income) => income.is_active)
   const endedIncomes = incomes.data.filter((income) => !income.is_active)
 
@@ -110,12 +112,12 @@ export function IncomePage() {
           <AlertDescription>{t('income.endedDescription')}</AlertDescription>
         </Alert>
       )}
-      {current.data && (
+      {currentPeriod && (
         <Card size="sm">
           <CardContent className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-muted-foreground">{t('income.monthlyTotal')}</span>
             <span className="text-2xl font-semibold tabular-nums" data-testid="monthly-total">
-              {formatMoney(current.data.income_total ?? 0)}
+              {formatMoney(currentPeriod.income_total ?? 0)}
             </span>
           </CardContent>
         </Card>
@@ -128,7 +130,7 @@ export function IncomePage() {
             <IncomeCard
               key={income.id}
               income={income}
-              members={members.data}
+              members={memberList}
               ended={ended}
               onEdit={() => setDialog({ kind: 'edit', income })}
               onRemove={() => {
@@ -140,7 +142,7 @@ export function IncomePage() {
         </ul>
       )}
       {endedIncomes.length > 0 && (
-        <EndedIncomes incomes={endedIncomes} members={members.data} periods={periods.data ?? []} />
+        <EndedIncomes incomes={endedIncomes} members={memberList} periods={periods.data ?? []} />
       )}
 
       <IncomeFormDialog
@@ -150,9 +152,9 @@ export function IncomePage() {
           if (!open) setDialog({ kind: 'closed' })
         }}
         income={dialog.kind === 'edit' ? dialog.income : undefined}
-        members={members.data}
+        members={memberList}
         periods={periods.data ?? []}
-        currentPeriod={current.data}
+        currentPeriod={currentPeriod}
       />
       <ConfirmDialog
         open={dialog.kind === 'remove'}
@@ -245,9 +247,7 @@ function IncomeCard({
             </div>
             <div>
               <dt className="text-muted-foreground">{t('income.nextPayDate')}</dt>
-              <dd>
-                {income.next_pay_date ? <CalendarDate value={income.next_pay_date} /> : '–'}
-              </dd>
+              <dd>{income.next_pay_date ? <CalendarDate value={income.next_pay_date} /> : '–'}</dd>
             </div>
           </dl>
           <DropdownMenu>

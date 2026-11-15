@@ -45,22 +45,24 @@ export function MembersSettings() {
   const [pending, setPending] = useState<Pending>({ kind: 'none' })
   const close = () => setPending({ kind: 'none' })
 
-  const remove = useAppMutation<void, BudgetMember>({
+  const remove = useAppMutation<null, BudgetMember>({
     errorDisplay: 'inline',
     mutationFn: async (member) => {
       unwrap(
         await supabase.rpc('remove_member', { p_budget_id: budgetId, p_user_id: member.user_id }),
       )
+      return null
     },
     success: (_data, member) =>
       t('members.removed', { name: memberName(member) ?? t('members.unknownName') }),
     onSuccess: close,
     invalidate: () => [budgetKeys.budget(budgetId)],
   })
-  const leave = useAppMutation<void>({
+  const leave = useAppMutation<null>({
     errorDisplay: 'inline',
     mutationFn: async () => {
       unwrap(await supabase.rpc('leave_budget', { p_budget_id: budgetId }))
+      return null
     },
     success: () => t('members.left', { name: budget.name }),
     onSuccess: () => {
@@ -160,11 +162,7 @@ export function MembersSettings() {
           </ul>
         )}
 
-        {isOwner ? (
-          <Invitations />
-        ) : (
-          <OwnerOnlyNote>{t('members.manageOwnerOnly')}</OwnerOnlyNote>
-        )}
+        {isOwner ? <Invitations /> : <OwnerOnlyNote>{t('members.manageOwnerOnly')}</OwnerOnlyNote>}
       </CardContent>
 
       <ConfirmDialog
@@ -231,12 +229,13 @@ function Invitations() {
     onSuccess: () => form.reset({ email: '' }),
     invalidate: () => [budgetKeys.invitations(budgetId)],
   })
-  const cancel = useAppMutation<void, BudgetInvitation>({
+  const cancel = useAppMutation<null, BudgetInvitation>({
     mutationFn: async (invitation) => {
       const rows = unwrap(
         await supabase.from('budget_invitations').delete().eq('id', invitation.id).select('id'),
       )
       if (rows.length === 0) throw new DbError('invitation_not_found')
+      return null
     },
     success: (_data, invitation) => t('invitations.cancelled', { email: invitation.email }),
     invalidate: () => [budgetKeys.invitations(budgetId)],

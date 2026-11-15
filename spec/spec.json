@@ -556,7 +556,15 @@
           "actor": "A-USER",
           "iWant": "an email link opened on our shared computer never to change or expose the wrong account",
           "soThat": "two people can share one browser safely",
-          "rules": ["R-AUTH-019", "R-AUTH-020", "R-AUTH-021", "R-AUTH-023", "R-AUTH-025"]
+          "rules": [
+            "R-AUTH-019",
+            "R-AUTH-020",
+            "R-AUTH-021",
+            "R-AUTH-023",
+            "R-AUTH-025",
+            "R-AUTH-026",
+            "R-AUTH-027"
+          ]
         },
         {
           "id": "US-AUTH-005",
@@ -619,7 +627,9 @@
             "R-BUDGET-012",
             "R-PERIOD-015",
             "R-PERIOD-016",
-            "R-PERIOD-019"
+            "R-PERIOD-019",
+            "R-BUDGET-050",
+            "R-APP-004"
           ]
         },
         {
@@ -627,7 +637,13 @@
           "actor": "A-USER",
           "iWant": "to belong to several budgets",
           "soThat": "I can keep a personal budget next to the household one",
-          "rules": ["R-BUDGET-004", "R-SECURITY-002", "R-SECURITY-003", "R-SECURITY-004"]
+          "rules": [
+            "R-BUDGET-004",
+            "R-SECURITY-002",
+            "R-SECURITY-003",
+            "R-SECURITY-004",
+            "R-BUDGET-051"
+          ]
         },
         {
           "id": "US-BUDGET-003",
@@ -655,7 +671,7 @@
           "actor": "A-OWNER",
           "iWant": "to delete a budget with everything in it",
           "soThat": "I can remove one I no longer use",
-          "rules": ["R-BUDGET-001", "R-BUDGET-009", "R-MEMBER-002"]
+          "rules": ["R-BUDGET-001", "R-BUDGET-009", "R-MEMBER-002", "R-BUDGET-052"]
         }
       ]
     },
@@ -677,7 +693,8 @@
             "R-INVITE-005",
             "R-INVITE-006",
             "R-MEMBER-004",
-            "R-MEMBER-010"
+            "R-MEMBER-010",
+            "R-MEMBER-050"
           ]
         },
         {
@@ -685,7 +702,7 @@
           "actor": "A-INVITEE",
           "iWant": "to see the invitations addressed to my verified email and accept or decline them",
           "soThat": "I join only the budgets I want",
-          "rules": ["R-INVITE-003", "R-INVITE-004"]
+          "rules": ["R-INVITE-003", "R-INVITE-004", "R-BUDGET-050"]
         },
         {
           "id": "US-MEMBERS-003",
@@ -699,7 +716,7 @@
           "actor": "A-OWNER",
           "iWant": "to remove a member",
           "soThat": "only the right people share the budget",
-          "rules": ["R-MEMBER-004", "R-MEMBER-007", "R-MEMBER-008", "R-MEMBER-009"]
+          "rules": ["R-MEMBER-004", "R-MEMBER-007", "R-MEMBER-008", "R-MEMBER-009", "R-MEMBER-050"]
         },
         {
           "id": "US-MEMBERS-005",
@@ -738,7 +755,8 @@
             "R-PAYDATE-004",
             "R-PAYDATE-005",
             "R-PAYDATE-006",
-            "R-PAYDATE-007"
+            "R-PAYDATE-007",
+            "R-INCOME-050"
           ]
         },
         {
@@ -787,7 +805,8 @@
             "R-PERIOD-009",
             "R-PERIOD-010",
             "R-PERIOD-017",
-            "R-PERIOD-018"
+            "R-PERIOD-018",
+            "R-PERIOD-050"
           ]
         },
         {
@@ -1038,6 +1057,16 @@
       "status": "active",
       "enforcement": "test",
       "source": ["README.md: Setup", "code: src/main.tsx"]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-004",
+      "area": "app",
+      "feature": "F-BUDGET",
+      "statement": "A refused or failed database call is shown as a translated message: each stable error code of the contract has its own text, and anything else a generic one; the raw error is never shown.",
+      "related": ["D-027", "D-047"],
+      "source": ["docs/database.md: Error messages", "code: src/lib/db-errors.ts"]
     },
     {
       "id": "R-I18N-001",
@@ -1337,6 +1366,28 @@
       "source": ["code: src/features/auth/auth-provider.tsx"]
     },
     {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-AUTH-026",
+      "area": "auth",
+      "feature": "F-AUTH",
+      "statement": "When a valid email link for one account is opened while another account is signed in, the app says that the browser is now signed in as the link's account, and that the other account was signed out here.",
+      "source": [
+        "code: src/features/auth/auth-bootstrap.ts",
+        "code: src/features/auth/components/account-switched-alert.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-AUTH-027",
+      "area": "auth",
+      "feature": "F-AUTH",
+      "statement": "The new-password form is emptied whenever the signed-in user changes, so text typed for one account is never saved as another account's password.",
+      "related": ["R-AUTH-017"],
+      "source": ["code: src/features/auth/pages/reset-password-page.tsx"]
+    },
+    {
       "id": "R-PROFILE-001",
       "area": "profile",
       "statement": "Every user has a profile, created when they sign up.",
@@ -1608,6 +1659,35 @@
       "source": ["docs/database.md: RPCs"]
     },
     {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-BUDGET-050",
+      "area": "budget",
+      "feature": "F-BUDGET",
+      "statement": "A signed-in user who belongs to no budget is shown the first-run setup (create a budget, or accept an invitation addressed to them) instead of the app pages.",
+      "related": ["D-046"],
+      "source": ["code: src/features/budgets/budget-routes.tsx"]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-BUDGET-051",
+      "area": "budget",
+      "feature": "F-BUDGET",
+      "statement": "The budget a user works in is remembered for that user in this browser; when it is no longer one of theirs (deleted, left, or they were removed), the app moves to another of their budgets, or to the first-run setup when none is left.",
+      "related": ["D-046", "C-QUERY-001"],
+      "source": ["code: src/features/budgets/current-budget-provider.tsx"]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-BUDGET-052",
+      "area": "budget",
+      "feature": "F-BUDGET",
+      "statement": "Deleting a budget asks the owner to type the budget's name first.",
+      "source": ["code: src/features/settings/budget-settings.tsx"]
+    },
+    {
       "id": "R-MEMBER-001",
       "area": "member",
       "statement": "Every member can read and edit everything in the budget.",
@@ -1741,6 +1821,19 @@
       "source": ["docs/database.md: RPCs"]
     },
     {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-MEMBER-050",
+      "area": "member",
+      "feature": "F-MEMBERS",
+      "statement": "The app offers owner-only actions (change the end date, delete the budget, invite, cancel an invitation, remove a member) only to the owner; a plain member is told that only the owner can do them. The database still enforces this on its own.",
+      "related": ["R-MEMBER-002", "R-MEMBER-003", "R-MEMBER-004"],
+      "source": [
+        "code: src/features/settings/budget-settings.tsx",
+        "code: src/features/settings/members-settings.tsx"
+      ]
+    },
+    {
       "id": "R-INVITE-001",
       "area": "invite",
       "statement": "The owner adds people to a budget by inviting an email address.",
@@ -1831,13 +1924,15 @@
     {
       "id": "R-INCOME-002",
       "area": "income",
-      "statement": "Each member adds their own incomes (person A adds income A, person B adds income B).",
-      "rationale": "Review until Q-001 is answered: the code also lets a member add an income for another member.",
+      "statement": "Any member can add, edit and remove any income of the budget, including one that belongs to another member; a new income belongs to the member who adds it unless they choose another member.",
       "feature": "F-INCOME",
       "status": "active",
-      "enforcement": "review",
-      "related": ["Q-001"],
-      "source": ["domain: Income"]
+      "enforcement": "test",
+      "related": ["D-045", "Q-001", "R-INCOME-050"],
+      "source": [
+        "owner-request: product owner decision on Q-001, 2026-11-15",
+        "code: src/features/income/components/income-form-dialog.tsx"
+      ]
     },
     {
       "id": "R-INCOME-003",
@@ -1994,6 +2089,23 @@
       },
       "related": ["D-029"],
       "source": ["docs/database.md: Conventions"]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-INCOME-050",
+      "area": "income",
+      "feature": "F-INCOME",
+      "statement": "The database lets any member of a budget add an income for another member and change or remove another member's income.",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-045", "R-INCOME-002"],
+      "source": [
+        "owner-request: product owner decision on Q-001, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
     },
     {
       "id": "R-PAYDATE-001",
@@ -2352,6 +2464,19 @@
       },
       "related": ["D-029"],
       "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-050",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "When a budget is opened, the app asks the database to create its missing periods (ensure_periods) and refreshes what depends on them when any were created.",
+      "related": ["R-PERIOD-009"],
+      "source": [
+        "docs/database.md: Reading",
+        "code: src/features/budgets/current-budget-provider.tsx"
+      ]
     },
     {
       "id": "R-VERSION-001",
@@ -3286,6 +3411,52 @@
       "rejected": [],
       "status": "accepted",
       "source": ["README.md: Environment variables", "code: public/.htaccess"]
+    },
+    {
+      "status": "accepted",
+      "id": "D-045",
+      "title": "Members manage every income of the budget",
+      "decision": "Any member of a budget can add, edit and remove any income in that budget, including one belonging to another member. A new income belongs to the member who adds it by default; the form lets them choose another member. Decided by the product owner on 2026-11-15.",
+      "why": "It matches \"every member can read and edit everything in the budget\" and what the database already does.",
+      "rejected": ["Members can only add and edit their own incomes."],
+      "related": ["Q-001", "R-INCOME-002", "R-INCOME-050", "R-MEMBER-001"],
+      "source": ["owner-request: product owner decision on Q-001, 2026-11-15"]
+    },
+    {
+      "status": "accepted",
+      "id": "D-046",
+      "title": "The current budget is a per-user browser preference",
+      "decision": "The budget a user works in is kept in localStorage under a key that names the user; when it is missing or no longer in my_budgets, the first budget by name is used (and not stored until the user chooses). my_budgets is refetched on window focus and after any \"not found\" answer. Users without a budget are routed to /welcome; app pages require a budget.",
+      "why": "Reloads keep the choice, two people sharing a browser keep their own, and a budget that disappears is replaced at once.",
+      "rejected": [
+        "Storing the choice in the database: a per-browser convenience, not budget data.",
+        "Putting the budget id in every URL: longer links and more routing for a household app."
+      ],
+      "related": ["R-BUDGET-050", "R-BUDGET-051"],
+      "source": [
+        "code: src/features/budgets/current-budget-provider.tsx",
+        "code: src/features/budgets/budget-routes.tsx"
+      ]
+    },
+    {
+      "status": "accepted",
+      "id": "D-047",
+      "title": "One mutation pattern with one error mapping",
+      "decision": "Writes go through useAppMutation: pending state, a translated success toast, the error either inline (forms, dialogs) or as a toast (one-click actions), and invalidation of the affected queries (everything of a budget sits under [\"budget\", id]). Errors are mapped in src/lib/db-errors.ts only, with a generic translated fallback; a \"not found\" answer is always toasted and refetches my budgets.",
+      "why": "Later features copy one pattern; a new error code is one line plus its two translations.",
+      "rejected": [],
+      "related": ["R-APP-004", "D-027", "C-QUERY-001"],
+      "source": ["code: src/hooks/use-app-mutation.ts", "code: src/lib/db-errors.ts"]
+    },
+    {
+      "status": "accepted",
+      "id": "D-048",
+      "title": "Day N of M uses the browser's date, display only",
+      "decision": "The dashboard's \"day N of M\" counts calendar days from the current period's start to the browser's local date, clamped to the period. Which period is current, its dates and its totals come from the database. To be replaced if the contract provides today (Q-016).",
+      "why": "The contract gives no \"today\"; the number is cosmetic and never sent back.",
+      "rejected": [],
+      "related": ["Q-016", "R-PERIOD-017", "C-LOGIC-003"],
+      "source": ["code: src/features/dashboard/period-progress.ts"]
     }
   ],
   "conventions": [
@@ -3536,9 +3707,10 @@
       "id": "Q-001",
       "question": "May a member add, edit or remove an income that belongs to another member?",
       "context": "The source says \"Each member adds their own incomes (person A adds income A, person B adds income B)\" and also \"every member can read and edit everything in the budget\". The step 2 code lets any member add an income for another member (add_income p_user_id) and change any income's terms.",
-      "status": "open",
+      "status": "resolved",
       "related": ["R-INCOME-002", "R-MEMBER-001"],
-      "source": ["domain: Income", "domain: Budget", "docs/database.md: RPCs"]
+      "source": ["domain: Income", "domain: Budget", "docs/database.md: RPCs"],
+      "resolvedBy": "D-045"
     },
     {
       "id": "Q-002",
@@ -3654,6 +3826,22 @@
         "domain: Versioning: edits never rewrite the past",
         "domain: Account and planned transfer (money flow)"
       ]
+    },
+    {
+      "status": "open",
+      "id": "Q-016",
+      "question": "Should the database return \"today\" (or the day number within the current period) so that the client never uses the browser's date?",
+      "context": "The dashboard shows \"day N of M\" of the current period; the contract returns the period but not the Europe/Zurich date the database decided it with, so N comes from the browser (D-048) and can differ around midnight or in another time zone.",
+      "related": ["D-048", "R-PERIOD-017"],
+      "source": ["code: src/features/dashboard/period-progress.ts", "docs/database.md: Conventions"]
+    },
+    {
+      "status": "open",
+      "id": "Q-017",
+      "question": "Should create_budget take the end date, so that a budget with an end date is created in one atomic step?",
+      "context": "The first-run form asks for an optional end date; create_budget has no such argument, so the client calls set_budget_end_date afterwards. If that second call fails, the budget exists without its end date and the user is told so.",
+      "related": ["R-BUDGET-010", "R-BUDGET-005"],
+      "source": ["code: src/features/budgets/budget-mutations.ts", "docs/database.md: RPCs"]
     }
   ]
 }

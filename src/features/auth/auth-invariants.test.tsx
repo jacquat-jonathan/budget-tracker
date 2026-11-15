@@ -432,3 +432,82 @@ describe('E. every state of /reset-password has one message and one way on [R-AU
     expect(router.state.location.pathname).toBe('/sign-in')
   })
 })
+
+describe('a valid link for X opened while Y is signed in says the browser is now X’s [R-AUTH-026]', () => {
+  it('a confirmation link: the app names the account it switched to and the one it left', async () => {
+    browserWith(sessionFor(userY, 'y-1'))
+    renderRoutes(
+      routes,
+      landOn(`/#access_token=${fakeToken(userX, 'x-1')}&refresh_token=rt-x&type=signup`),
+    )
+
+    const notice = await screen.findByTestId('account-switched')
+    expect(notice).toHaveTextContent(`You are now signed in as ${userX.email}`)
+    expect(notice).toHaveTextContent(`${userY.email} is no longer signed in here.`)
+    await userEvent.click(screen.getByRole('button', { name: 'Got it' }))
+    expect(screen.queryByTestId('account-switched')).not.toBeInTheDocument()
+  })
+
+  it('a recovery link: the new-password form for X comes with the same notice', async () => {
+    browserWith(sessionFor(userY, 'y-1'))
+    renderRoutes(routes, landOn(recoveryLink(userX, 'x-rec')))
+
+    expect(
+      await screen.findByText(`Enter a new password for the account ${userX.email}.`),
+    ).toBeInTheDocument()
+    expect(screen.getByTestId('account-switched')).toHaveTextContent(
+      `You are now signed in as ${userX.email}`,
+    )
+  })
+
+  it('says nothing when the link is for the user who is already signed in', async () => {
+    browserWith(sessionFor(userX, 'x-1'))
+    renderRoutes(
+      routes,
+      landOn(`/#access_token=${fakeToken(userX, 'x-2')}&refresh_token=rt-x&type=signup`),
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByTestId('account-switched')).not.toBeInTheDocument()
+  })
+
+  it('says nothing when nobody was signed in', async () => {
+    browserWith(null)
+    renderRoutes(
+      routes,
+      landOn(`/#access_token=${fakeToken(userX, 'x-1')}&refresh_token=rt-x&type=signup`),
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByTestId('account-switched')).not.toBeInTheDocument()
+  })
+})
+
+describe('the new-password form is emptied when the signed-in user changes [R-AUTH-027]', () => {
+  it('text typed for X never becomes Y’s password after another tab switches the session', async () => {
+    const recoveringX = sessionFor(userX, 'x-rec')
+    startRecovery(recoveringX)
+    const browser = browserWith(recoveringX)
+    renderRoutes(routes, '/reset-password')
+    await userEvent.type(await screen.findByLabelText('New password'), 'typed-for-x')
+    await userEvent.type(screen.getByLabelText('Confirm password'), 'typed-for-x')
+
+    // Another tab follows Y's recovery link: the shared session becomes Y's, in recovery.
+    const recoveringY = sessionFor(userY, 'y-rec')
+    // Both changes reach this tab together, so it never renders a state in between.
+    act(() => {
+      const flag = JSON.stringify({ userId: userY.id, sessionKey: 'session:y-rec' })
+      localStorage.setItem(RECOVERY_KEY, flag)
+      window.dispatchEvent(new StorageEvent('storage', { key: RECOVERY_KEY, newValue: flag }))
+      browser.emit('SIGNED_IN', recoveringY)
+    })
+
+    expect(
+      await screen.findByText(`Enter a new password for the account ${userY.email}.`),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('New password')).toHaveValue('')
+    expect(screen.getByLabelText('Confirm password')).toHaveValue('')
+    await userEvent.click(screen.getByRole('button', { name: 'Save new password' }))
+    expect(browser.client.auth.updateUser).not.toHaveBeenCalled()
+  })
+})

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, type WeekendRule } from '@/features/budgets/budget-queries'
+import { setBudgetEndDate } from '@/features/budgets/period-rpcs'
 import { useAppMutation } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { DbError } from '@/lib/db-errors'
@@ -45,11 +46,11 @@ export function useCreateBudget(options: { onCreated: (result: CreateBudgetResul
         }),
       )
       if (input.endDate) {
-        const { error } = await supabase.rpc('set_budget_end_date', {
-          p_budget_id: budgetId,
-          p_end_date: input.endDate,
-        })
-        if (error) return { budgetId, endDateError: error }
+        try {
+          await setBudgetEndDate(budgetId, input.endDate)
+        } catch (endDateError) {
+          return { budgetId, endDateError }
+        }
       }
       return { budgetId }
     },
@@ -62,13 +63,14 @@ export function useCreateBudget(options: { onCreated: (result: CreateBudgetResul
 /** Rename a budget: a direct update of budgets.name (members). */
 export function useRenameBudget(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<void, string>({
+  return useAppMutation<null, string>({
     errorDisplay: 'inline',
     mutationFn: async (name) => {
       const rows = unwrap(
         await supabase.from('budgets').update({ name }).eq('id', budgetId).select('id'),
       )
       if (rows.length === 0) throw new DbError('budget_not_found')
+      return null
     },
     success: () => t('settings.budget.renamed'),
     invalidate: () => [budgetKeys.list],
@@ -80,14 +82,7 @@ export function useSetBudgetEndDate(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<string | null, string | null>({
     errorDisplay: 'inline',
-    mutationFn: async (endDate) =>
-      unwrap(
-        await supabase.rpc('set_budget_end_date', {
-          p_budget_id: budgetId,
-          // The contract takes null to clear the end date; the generated type says string.
-          p_end_date: endDate as string,
-        }),
-      ),
+    mutationFn: (endDate) => setBudgetEndDate(budgetId, endDate),
     success: (stored) =>
       stored
         ? t('settings.budget.endDateSet', { date: formatCalendarDate(stored) })
@@ -99,11 +94,12 @@ export function useSetBudgetEndDate(budgetId: string) {
 /** Delete a budget and everything in it; owner only (a member's delete affects 0 rows). */
 export function useDeleteBudget(budgetId: string, options: { onDeleted: () => void }) {
   const { t } = useTranslation()
-  return useAppMutation<void, string>({
+  return useAppMutation<null, string>({
     errorDisplay: 'inline',
     mutationFn: async () => {
       const rows = unwrap(await supabase.from('budgets').delete().eq('id', budgetId).select('id'))
       if (rows.length === 0) throw new DbError('not_owner')
+      return null
     },
     success: (_data, name) => t('settings.budget.deleted', { name }),
     onSuccess: () => options.onDeleted(),

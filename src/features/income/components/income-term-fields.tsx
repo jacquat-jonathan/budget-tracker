@@ -12,7 +12,7 @@ import {
   FieldSet,
 } from '@/components/ui/field'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { WEEKEND_RULES, type WeekendRule } from '@/features/budgets/budget-queries'
+import { WEEKEND_RULES } from '@/features/budgets/budget-queries'
 
 const PAY_DAYS = Array.from({ length: 31 }, (_, index) => String(index + 1))
 
@@ -57,7 +57,7 @@ export function WeekendRuleField<TValues extends FieldValues, TOut extends Field
       <RadioGroup
         name={field.name}
         value={typeof value === 'string' ? value : 'nearest'}
-        onValueChange={(next) => field.onChange(next as WeekendRule)}
+        onValueChange={(next) => field.onChange(next)}
         className="gap-2"
       >
         {WEEKEND_RULES.map((rule) => (

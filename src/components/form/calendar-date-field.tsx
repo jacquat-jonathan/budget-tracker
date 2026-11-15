@@ -33,8 +33,11 @@ export function CalendarDateField<TValues extends FieldValues, TOut extends Fiel
 }: CalendarDateFieldProps<TValues, TOut>) {
   const { t } = useTranslation()
   const id = useId()
-  const { field, fieldState } = useController({ control, name })
-  const value: unknown = field.value
+  const {
+    field: { ref: inputRef, name: fieldName, onChange, onBlur, value: fieldValue },
+    fieldState,
+  } = useController({ control, name })
+  const value: unknown = fieldValue
   const [text, setText] = useState(() => toText(value))
   const emitted = useRef<unknown>(value)
 
@@ -55,8 +58,8 @@ export function CalendarDateField<TValues extends FieldValues, TOut extends Fiel
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Input
         id={id}
-        ref={field.ref}
-        name={field.name}
+        ref={inputRef}
+        name={fieldName}
         inputMode="numeric"
         autoComplete="off"
         autoFocus={autoFocus}
@@ -71,13 +74,11 @@ export function CalendarDateField<TValues extends FieldValues, TOut extends Fiel
           const trimmed = next.trim()
           const parsed = trimmed === '' ? '' : (parseDate(trimmed) ?? trimmed)
           emitted.current = parsed
-          field.onChange(parsed)
+          onChange(parsed)
         }}
-        onBlur={field.onBlur}
+        onBlur={onBlur}
       />
-      {description && (
-        <FieldDescription id={`${id}-description`}>{description}</FieldDescription>
-      )}
+      {description && <FieldDescription id={`${id}-description`}>{description}</FieldDescription>}
       {message && <FieldError id={`${id}-error`}>{t(message as ParseKeys)}</FieldError>}
     </Field>
   )

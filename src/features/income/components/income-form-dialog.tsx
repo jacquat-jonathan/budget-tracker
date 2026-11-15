@@ -183,7 +183,9 @@ function IncomeForm({
           <AlertDescription>
             {income
               ? currentPeriod
-                ? t('income.editAppliesFrom', { date: formatCalendarDate(currentPeriod.start_date) })
+                ? t('income.editAppliesFrom', {
+                    date: formatCalendarDate(currentPeriod.start_date),
+                  })
                 : t('income.editAppliesFromNoPeriod')
               : t('income.addAppliesFrom')}
             {income?.is_primary && <p className="mt-1">{t('income.editPrimaryNote')}</p>}

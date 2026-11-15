@@ -7,7 +7,7 @@ import {
   RotateCcwIcon,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
@@ -33,32 +33,25 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { FieldGroup } from '@/components/ui/field'
 import { budgetKeys } from '@/features/budgets/budget-keys'
-import { unwrap, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
+import { usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { movePeriodBoundary } from '@/features/budgets/period-rpcs'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { addDays, formatCalendarDate } from '@/lib/date'
 import { calendarDateSchema } from '@/lib/form-schemas'
 import { formatMoney } from '@/lib/money'
-import { supabase } from '@/lib/supabase'
 
 /** move_period_boundary: a new last day for the period, or null to re-project the current one. */
 function useMoveBoundary(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<void, { period: PeriodSummary; newEnd: string | null }>({
+  return useAppMutation<null, { period: PeriodSummary; newEnd: string | null }>({
     errorDisplay: 'inline',
     mutationFn: async ({ period, newEnd }) => {
-      unwrap(
-        await supabase.rpc('move_period_boundary', {
-          p_period_id: period.id,
-          // The contract takes null to clear a manual end; the generated type says string.
-          p_new_end: newEnd as string,
-        }),
-      )
+      await movePeriodBoundary(period.id, newEnd)
+      return null
     },
     success: (_data, { newEnd }) =>
-      newEnd
-        ? t('periods.moved', { date: formatCalendarDate(newEnd) })
-        : t('periods.resetDone'),
+      newEnd ? t('periods.moved', { date: formatCalendarDate(newEnd) }) : t('periods.resetDone'),
     invalidate: () => [budgetKeys.budget(budgetId)],
   })
 }
@@ -76,9 +69,7 @@ export function PeriodsPage() {
   const move = useMoveBoundary(budgetId)
   const close = () => setDialog({ kind: 'closed' })
 
-  const header = (
-    <PageHeader title={t('nav.periods')} description={t('periods.description')} />
-  )
+  const header = <PageHeader title={t('nav.periods')} description={t('periods.description')} />
 
   if (periods.isError) {
     return (
@@ -138,9 +129,7 @@ export function PeriodsPage() {
                     {period.end_is_manual && (
                       <Badge variant="outline">{t('periods.manualEnd')}</Badge>
                     )}
-                    {isBudgetEnd && (
-                      <Badge variant="secondary">{t('periods.budgetEnd')}</Badge>
-                    )}
+                    {isBudgetEnd && <Badge variant="secondary">{t('periods.budgetEnd')}</Badge>}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {t('periods.number', { seq: period.seq })}
@@ -284,7 +273,7 @@ function MoveBoundaryForm({
       .mutateAsync({ period, newEnd: values.newEnd }, { onSuccess: onClose })
       .catch(() => undefined),
   )
-  const newEnd = form.watch('newEnd')
+  const newEnd = useWatch({ control: form.control, name: 'newEnd' })
   const nextStart = /^\d{4}-\d{2}-\d{2}$/.test(newEnd) ? safeAddDay(newEnd) : null
 
   return (

@@ -62,9 +62,10 @@ function InvitationRow({
     invalidate: () => [budgetKeys.myInvitations, budgetKeys.list],
   })
   const decline = useAppMutation<null>({
-    mutationFn: async () =>
-      unwrap(await supabase.rpc('decline_invitation', { p_invitation_id: invitation.id })) ??
-      null,
+    mutationFn: async () => {
+      unwrap(await supabase.rpc('decline_invitation', { p_invitation_id: invitation.id }))
+      return null
+    },
     success: () => t('invitations.mine.declined', { name: invitation.budget_name }),
     invalidate: () => [budgetKeys.myInvitations],
   })

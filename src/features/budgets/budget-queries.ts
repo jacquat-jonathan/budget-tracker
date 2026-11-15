@@ -19,6 +19,7 @@ type SuccessData<R> = R extends { error: null; data: infer D } ? D : never
 
 /** Throw the error of a supabase-js call, return its data otherwise. */
 export function unwrap<R extends { data: unknown; error: unknown }>(result: R): SuccessData<R> {
+  // eslint-disable-next-line @typescript-eslint/only-throw-error -- a PostgrestError, mapped by dbErrorKey
   if (result.error) throw result.error
   return result.data as SuccessData<R>
 }
@@ -128,8 +129,7 @@ export function useMyInvitations() {
   return useQuery({
     queryKey: budgetKeys.myInvitations,
     refetchOnWindowFocus: true,
-    queryFn: async (): Promise<MyInvitation[]> =>
-      unwrap(await supabase.rpc('list_my_invitations')),
+    queryFn: async (): Promise<MyInvitation[]> => unwrap(await supabase.rpc('list_my_invitations')),
   })
 }
 

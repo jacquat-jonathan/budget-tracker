@@ -20,6 +20,17 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
+// jsdom lacks these too; Radix (radio group, select, dialogs) uses them.
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+Object.defineProperty(window, 'ResizeObserver', { writable: true, value: ResizeObserverStub })
+Element.prototype.scrollIntoView = vi.fn()
+Element.prototype.hasPointerCapture = vi.fn(() => false)
+Element.prototype.releasePointerCapture = vi.fn()
+
 beforeAll(async () => {
   await i18n.changeLanguage('en')
 })

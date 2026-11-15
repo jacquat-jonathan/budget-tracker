@@ -212,15 +212,13 @@ export const en = {
       invalid_pay_day: 'The pay day must be between 1 and 31.',
       invalid_weekend_rule: 'Choose one of the weekend rules.',
       invalid_email: 'Enter a valid email address.',
-      invalid_start_month:
-        'Choose a month whose pay day has already come, at most 60 months back.',
+      invalid_start_month: 'Choose a month whose pay day has already come, at most 60 months back.',
       invalid_end_date: 'The end date can be at most ten years from now.',
       invalid_boundary:
         'This date does not work: a period cannot be empty, longer than 70 days, or run over the next period.',
       end_date_before_last_period:
         'This end date is before periods that already exist. Choose a later date.',
-      boundary_is_budget_end:
-        'This is the budget’s end date. Change it in the settings instead.',
+      boundary_is_budget_end: 'This is the budget’s end date. Change it in the settings instead.',
       income_is_primary: 'This is the primary income. Make another income primary first.',
       income_ended: 'This income has ended and can no longer be changed.',
       budget_ended: 'This budget has ended: there is no current period to apply this to.',
@@ -260,8 +258,7 @@ export const en = {
       endDateOptional: 'End date (optional)',
       endDateHelp:
         'Leave empty to run the budget indefinitely. An end date moves to the end of the period it falls in.',
-      month: 'Month',
-      year: 'Year',
+      startMonth: 'First month',
     },
     create: {
       description: 'A new budget with its first income. It becomes your current budget.',
@@ -271,11 +268,11 @@ export const en = {
         'Your income, and the primary one: its pay day starts each period. You can change this later.',
       startSection: 'Start tracking from',
       startCurrent: 'The current period',
-      startCurrentHelp: 'From the last pay day until the next one.',
-      startEarlier: 'An earlier month',
-      startEarlierHelp: 'To enter past spending. Up to 60 months back.',
+      startCurrentOnly:
+        'Tracking starts with the current period: from the last pay day until the next one.',
+      startMonthOption: '{{month}} (from {{date}})',
       earlierHelp:
-        'The first period starts on that month’s pay day; the periods since then are created too.',
+        'Choose an earlier month to enter past spending; the periods since then are created too.',
       submit: 'Create budget',
       success: 'Budget “{{name}}” created.',
       endDateFailed: 'The budget was created, but its end date could not be set: {{reason}}',
@@ -484,7 +481,8 @@ export const en = {
       endDateCleared: 'The budget now runs indefinitely.',
       endDateOwnerOnly: 'Only the owner can change the end date.',
       deleteTitle: 'Delete the budget',
-      deleteHelp: 'Deletes the budget and everything in it, for every member. This cannot be undone.',
+      deleteHelp:
+        'Deletes the budget and everything in it, for every member. This cannot be undone.',
       delete: 'Delete budget',
       deleteConfirmTitle: 'Delete “{{name}}”?',
       deleteConfirmDescription:

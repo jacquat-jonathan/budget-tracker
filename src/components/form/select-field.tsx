@@ -43,23 +43,26 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
 }: SelectFieldProps<TValues, TOut>) {
   const { t } = useTranslation()
   const id = useId()
-  const { field, fieldState } = useController({ control, name })
-  const value: unknown = field.value
+  const {
+    field: { ref: inputRef, name: fieldName, onChange, onBlur, value: fieldValue },
+    fieldState,
+  } = useController({ control, name })
+  const value: unknown = fieldValue
   const message = fieldState.error?.message
 
   return (
     <Field data-invalid={fieldState.invalid || undefined} className={className}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select
-        name={field.name}
-        value={value === null || value === undefined ? '' : String(value)}
+        name={fieldName}
+        value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
         disabled={disabled}
-        onValueChange={(next) => field.onChange(numeric ? Number(next) : next)}
+        onValueChange={(next) => onChange(numeric ? Number(next) : next)}
       >
         <SelectTrigger
           id={id}
-          ref={field.ref}
-          onBlur={field.onBlur}
+          ref={inputRef}
+          onBlur={onBlur}
           className={cn('w-full')}
           aria-invalid={fieldState.invalid || undefined}
           aria-describedby={description ? `${id}-description` : undefined}
@@ -74,9 +77,7 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
           ))}
         </SelectContent>
       </Select>
-      {description && (
-        <FieldDescription id={`${id}-description`}>{description}</FieldDescription>
-      )}
+      {description && <FieldDescription id={`${id}-description`}>{description}</FieldDescription>}
       {message && <FieldError>{t(message as ParseKeys)}</FieldError>}
     </Field>
   )

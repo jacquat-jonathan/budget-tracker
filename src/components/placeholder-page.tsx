@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { allNavItems, type NavKey } from '@/app/navigation'
 
 /** Title and "coming soon" empty state for a section that is not built yet. */
-export function PlaceholderPage({ nav }: { nav: NavKey }) {
+export function PlaceholderPage({ nav }: { nav: Exclude<NavKey, 'newBudget'> }) {
   const { t } = useTranslation()
   const Icon = allNavItems.find((item) => item.key === nav)?.icon
 

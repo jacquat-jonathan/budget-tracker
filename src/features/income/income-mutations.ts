@@ -57,7 +57,7 @@ export function useEditIncome(
   options: { onDone: () => void },
 ) {
   const { t } = useTranslation()
-  return useAppMutation<void, IncomeTerms>({
+  return useAppMutation<null, IncomeTerms>({
     errorDisplay: 'inline',
     mutationFn: async (input) => {
       if (!income) throw new DbError('income_not_found')
@@ -77,10 +77,15 @@ export function useEditIncome(
       }
       if (input.name !== income.name) {
         const rows = unwrap(
-          await supabase.from('incomes').update({ name: input.name }).eq('id', income.id).select('id'),
+          await supabase
+            .from('incomes')
+            .update({ name: input.name })
+            .eq('id', income.id)
+            .select('id'),
         )
         if (rows.length === 0) throw new DbError('income_not_found')
       }
+      return null
     },
     success: (_data, input) => t('income.saved', { name: input.name }),
     onSuccess: () => options.onDone(),
@@ -90,9 +95,10 @@ export function useEditIncome(
 
 export function useSetPrimaryIncome(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<void, IncomeOverview>({
+  return useAppMutation<null, IncomeOverview>({
     mutationFn: async (income) => {
       unwrap(await supabase.rpc('set_primary_income', { p_income_id: income.id }))
+      return null
     },
     success: (_data, income) => t('income.madePrimary', { name: income.name }),
     invalidate: () => [...affected(budgetId), budgetKeys.list],

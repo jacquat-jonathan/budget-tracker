@@ -67,7 +67,9 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         {typeToConfirm !== undefined && (
           <Field>
-            <FieldLabel htmlFor={id}>{t('confirm.typeToConfirm', { text: typeToConfirm })}</FieldLabel>
+            <FieldLabel htmlFor={id}>
+              {t('confirm.typeToConfirm', { text: typeToConfirm })}
+            </FieldLabel>
             <Input
               id={id}
               value={typed}

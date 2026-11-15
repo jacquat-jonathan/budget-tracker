@@ -69,7 +69,7 @@ interface ErrorLike {
 }
 
 function asErrorLike(error: unknown): ErrorLike | null {
-  return typeof error === 'object' && error !== null ? (error as ErrorLike) : null
+  return typeof error === 'object' && error !== null ? error : null
 }
 
 function isDbErrorCode(value: unknown): value is DbErrorCode {

@@ -8,6 +8,10 @@ export const fr: Translation = {
   },
   common: {
     loading: 'Chargement…',
+    saving: 'Enregistrement…',
+    save: 'Enregistrer',
+    cancel: 'Annuler',
+    actions: 'Actions',
     comingSoon: {
       title: 'Bientôt disponible',
       description: 'Cette section est en préparation. Elle apparaîtra ici dès qu’elle sera prête.',
@@ -24,6 +28,7 @@ export const fr: Translation = {
     moneyFlow: 'Flux financiers',
     income: 'Revenus',
     settings: 'Paramètres',
+    newBudget: 'Nouveau budget',
   },
   pages: {
     dashboard: { description: 'Votre période en cours en un coup d’œil.' },
@@ -35,12 +40,14 @@ export const fr: Translation = {
     debts: {
       description: 'Ce que vous devez, son évolution et la date prévue du dernier remboursement.',
     },
-    periods: { description: 'Les périodes passées et leur comparaison.' },
+    periods: {
+      description: 'D’un jour de paie au suivant, de la plus récente à la plus ancienne.',
+    },
     moneyFlow: {
       description: 'La répartition de votre argent entre vos comptes après le jour de paie.',
     },
     income: { description: 'Les revenus qui composent votre budget mensuel.' },
-    settings: { description: 'Votre profil et vos préférences.' },
+    settings: { description: 'Le budget, les personnes qui le partagent et votre compte.' },
   },
   userMenu: {
     open: 'Ouvrir le menu du compte',
@@ -68,6 +75,7 @@ export const fr: Translation = {
     displayNamePlaceholder: 'Comment souhaitez-vous qu’on vous appelle ?',
     showPassword: 'Afficher le mot de passe',
     hidePassword: 'Masquer le mot de passe',
+    datePlaceholder: 'jj.mm.aaaa',
   },
   validation: {
     emailRequired: 'Saisissez votre adresse e-mail.',
@@ -77,6 +85,14 @@ export const fr: Translation = {
     passwordsDontMatch: 'Les mots de passe ne correspondent pas.',
     displayNameRequired: 'Saisissez un nom affiché.',
     displayNameTooLong: 'Utilisez au maximum {{max}} caractères.',
+    nameRequired: 'Saisissez un nom.',
+    nameTooLong: 'Utilisez au maximum 100 caractères.',
+    amountRequired: 'Saisissez un montant.',
+    amountInvalid: 'Saisissez un montant comme 5200 ou 5’200.50.',
+    amountTooSmall: 'Le montant doit être supérieur à zéro.',
+    amountTooLarge: 'Le montant ne peut pas dépasser CHF 10’000’000.',
+    dateRequired: 'Saisissez une date.',
+    dateInvalid: 'Saisissez une date au format jj.mm.aaaa, par exemple 25.01.2027.',
   },
   auth: {
     signIn: {
@@ -156,6 +172,15 @@ export const fr: Translation = {
       network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
       generic: 'Une erreur s’est produite. Veuillez réessayer.',
     },
+    accountSwitched: {
+      title: 'Vous êtes maintenant connecté·e en tant que {{email}}',
+      description:
+        'Le lien que vous avez ouvert était destiné à {{email}} : ce navigateur est donc passé sur ce compte. {{previous}} n’est plus connecté·e ici.',
+      descriptionNoPrevious:
+        'Le lien que vous avez ouvert était destiné à {{email}} : ce navigateur est donc passé sur ce compte.',
+      unknownAccount: 'un autre compte',
+      dismiss: 'Compris',
+    },
   },
   notFound: {
     title: 'Page introuvable',
@@ -171,6 +196,333 @@ export const fr: Translation = {
     missingTitle: 'L’application n’est pas configurée',
     missingDescription:
       'Ces variables d’environnement sont manquantes : {{names}}. Copiez .env.example vers .env.local, renseignez-les, puis redémarrez le serveur de développement ou relancez le build.',
+  },
+  states: {
+    loadFailed: 'Impossible de charger ces données',
+    retry: 'Réessayer',
+  },
+  errors: {
+    forbidden: 'Vous n’avez pas le droit de faire cela.',
+    invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
+    network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+    generic: 'Une erreur s’est produite. Veuillez réessayer.',
+    db: {
+      not_authenticated: 'Votre session a expiré. Reconnectez-vous.',
+      budget_not_found: 'Ce budget n’existe plus, ou vous n’en êtes plus membre.',
+      income_not_found: 'Ce revenu n’existe plus.',
+      period_not_found: 'Cette période n’existe plus.',
+      member_not_found: 'Cette personne n’est pas membre du budget.',
+      invitation_not_found: 'Cette invitation n’existe plus.',
+      not_owner: 'Seul·e le ou la propriétaire du budget peut faire cela.',
+      owner_cannot_leave:
+        'Le ou la propriétaire ne peut pas quitter le budget. Supprimez-le plutôt.',
+      member_has_primary_income:
+        'Le revenu de ce membre est le revenu principal. Désignez d’abord un autre revenu principal.',
+      already_member: 'Cette personne est déjà membre du budget.',
+      invalid_name: 'Saisissez un nom de 1 à 100 caractères.',
+      invalid_amount: 'Le montant doit être compris entre CHF 0.01 et CHF 10’000’000.',
+      invalid_pay_day: 'Le jour de paie doit être compris entre 1 et 31.',
+      invalid_weekend_rule: 'Choisissez une des règles de week-end.',
+      invalid_email: 'Saisissez une adresse e-mail valide.',
+      invalid_start_month:
+        'Choisissez un mois dont le jour de paie est déjà passé, au plus 60 mois en arrière.',
+      invalid_end_date: 'La date de fin peut être au plus dans dix ans.',
+      invalid_boundary:
+        'Cette date ne convient pas : une période ne peut être ni vide, ni plus longue que 70 jours, ni empiéter sur la suivante.',
+      end_date_before_last_period:
+        'Cette date de fin précède des périodes qui existent déjà. Choisissez une date plus tardive.',
+      boundary_is_budget_end:
+        'C’est la date de fin du budget. Modifiez-la plutôt dans les paramètres.',
+      income_is_primary: 'C’est le revenu principal. Désignez d’abord un autre revenu principal.',
+      income_ended: 'Ce revenu a pris fin et ne peut plus être modifié.',
+      budget_ended:
+        'Ce budget est terminé : il n’y a pas de période en cours à laquelle appliquer ce changement.',
+      budget_limit_reached: 'Vous possédez déjà 20 budgets, le maximum autorisé.',
+      member_limit_reached: 'Ce budget compte déjà 20 membres, le maximum autorisé.',
+      invitation_limit_reached:
+        'Ce budget a déjà 20 invitations en attente. Annulez-en une avant d’inviter quelqu’un d’autre.',
+      income_limit_reached: 'Ce budget compte déjà 50 revenus, le maximum autorisé.',
+    },
+  },
+  confirm: {
+    typeToConfirm: 'Saisissez « {{text}} » pour confirmer',
+  },
+  budgetSwitcher: {
+    open: 'Budget actuel : {{name}}. Changer de budget',
+    label: 'Vos budgets',
+    current: 'Budget actuel',
+    create: 'Créer un budget',
+  },
+  budgetEnded: {
+    title: 'Ce budget est terminé',
+  },
+  welcome: {
+    title: 'Bienvenue',
+    greeting: 'Bienvenue, {{name}}',
+    greetingNoName: 'Bienvenue',
+    description:
+      'Créez votre premier budget pour commencer, ou rejoignez celui auquel on vous a invité·e.',
+    signedInAs: 'Connecté·e en tant que {{email}}.',
+    createTitle: 'Créer votre budget',
+    createDescription:
+      'Un budget part de votre revenu et va d’un jour de paie au suivant. Vous pourrez ensuite ajouter d’autres revenus et inviter d’autres personnes.',
+  },
+  budgets: {
+    fields: {
+      name: 'Nom du budget',
+      namePlaceholder: 'Ménage',
+      endDateOptional: 'Date de fin (facultative)',
+      endDateHelp:
+        'Laissez vide pour un budget sans fin. Une date de fin est repoussée à la fin de la période qui la contient.',
+      startMonth: 'Premier mois',
+    },
+    create: {
+      description: 'Un nouveau budget avec son premier revenu. Il devient votre budget actuel.',
+      budgetSection: 'Budget',
+      incomeSection: 'Premier revenu',
+      incomeHelp:
+        'Votre revenu, qui sera le revenu principal : son jour de paie ouvre chaque période. Vous pourrez le changer plus tard.',
+      startSection: 'Commencer le suivi',
+      startCurrent: 'La période en cours',
+      startCurrentOnly:
+        'Le suivi commence avec la période en cours : du dernier jour de paie jusqu’au prochain.',
+      startMonthOption: '{{month}} (dès le {{date}})',
+      earlierHelp:
+        'Choisissez un mois antérieur pour saisir des dépenses passées ; les périodes depuis ce mois sont aussi créées.',
+      submit: 'Créer le budget',
+      success: 'Budget « {{name}} » créé.',
+      endDateFailed:
+        'Le budget a été créé, mais sa date de fin n’a pas pu être enregistrée : {{reason}}',
+    },
+  },
+  invitations: {
+    title: 'Inviter quelqu’un',
+    noEmailTitle: 'Aucun e-mail n’est envoyé',
+    noEmailDescription:
+      'Prévenez la personne vous-même. Elle verra l’invitation dans l’application dès qu’elle se connectera avec un compte dont l’adresse confirmée est celle-ci, et pourra alors l’accepter ou la refuser.',
+    email: 'Adresse e-mail',
+    invite: 'Inviter',
+    sent: 'Invitation pour {{email}} enregistrée. Prévenez la personne.',
+    pending: 'Invitations en attente',
+    none: 'Aucune invitation en attente.',
+    invitedOn: 'Invitée le {{date}}',
+    cancel: 'Annuler l’invitation',
+    cancelFor: 'Annuler l’invitation de {{email}}',
+    cancelled: 'Invitation de {{email}} annulée.',
+    mine: {
+      title: 'Invitations pour vous',
+      description: 'On vous a invité·e à partager ces budgets.',
+      from: 'De {{name}}, le {{date}}',
+      accept: 'Accepter',
+      decline: 'Refuser',
+      accepted: 'Vous avez rejoint « {{name}} ».',
+      declined: 'Invitation à « {{name}} » refusée.',
+    },
+  },
+  members: {
+    title: 'Membres',
+    description: 'Chaque membre voit et modifie tout le contenu du budget.',
+    you: '{{name}} (vous)',
+    unknownName: 'Membre sans nom',
+    role: {
+      owner: 'Propriétaire',
+      member: 'Membre',
+    },
+    remove: 'Retirer',
+    removeTitle: 'Retirer {{name}} ?',
+    removeDescription:
+      'Cette personne n’aura plus accès au budget. Ses revenus cessent de compter dès la période en cours ; les périodes passées les conservent.',
+    removed: '{{name}} a été retiré·e du budget.',
+    removePrimaryHelp:
+      'Son revenu est le revenu principal : désignez d’abord un autre revenu principal.',
+    leave: 'Quitter le budget',
+    leaveTitle: 'Quitter « {{name}} » ?',
+    leaveDescription:
+      'Vous n’aurez plus accès à ce budget. Vos revenus cessent de compter dès la période en cours ; les périodes passées les conservent. Pour revenir, il faudra une nouvelle invitation.',
+    left: 'Vous avez quitté « {{name}} ».',
+    leavePrimaryHelp:
+      'Votre revenu est le revenu principal : désignez d’abord un autre revenu principal.',
+    ownerCannotLeave:
+      'En tant que propriétaire, vous ne pouvez pas quitter ce budget ; vous pouvez le supprimer.',
+    manageOwnerOnly:
+      'Seul·e le ou la propriétaire peut inviter des personnes et retirer des membres.',
+  },
+  dashboard: {
+    period: {
+      title: 'Période en cours',
+      allPeriods: 'Toutes les périodes',
+      dayOf: 'Jour {{day}} sur {{total}}',
+      daysLeft_one: 'Encore {{count}} jour',
+      daysLeft_other: 'Encore {{count}} jours',
+      incomeTotal: 'Revenus de la période',
+      nextPayDay: 'Prochain jour de paie',
+      nextPayDayOf: '{{name}}',
+    },
+    ended: {
+      title: 'Ce budget est terminé',
+      description:
+        'Sa dernière période s’est terminée le {{date}}. Aucune nouvelle période n’est créée.',
+      descriptionNoDate: 'Il n’a pas de période en cours : aucune nouvelle période n’est créée.',
+      seePeriods: 'Voir les périodes passées',
+      settings: 'Paramètres du budget',
+    },
+  },
+  income: {
+    add: 'Ajouter un revenu',
+    addTitle: 'Ajouter un revenu',
+    addDescription: 'Un revenu mensuel qui compte dans le total du budget.',
+    editTitle: 'Modifier le revenu',
+    editDescription: 'Changez le nom ou les conditions de ce revenu.',
+    added: 'Revenu « {{name}} » ajouté.',
+    saved: 'Revenu « {{name}} » enregistré.',
+    edit: 'Modifier',
+    makePrimary: 'Définir comme principal',
+    madePrimary: '« {{name}} » est maintenant le revenu principal.',
+    remove: 'Supprimer',
+    removeTitle: 'Supprimer « {{name}} » ?',
+    removeDescription: 'Il cesse de compter dans le budget dès la période en cours.',
+    removeHistory:
+      'S’il a déjà compté dans une période passée, il y est conservé et prend simplement fin ; sinon, il est effacé.',
+    removedEnded: '« {{name}} » a pris fin. Les périodes passées le comptent toujours.',
+    removedDeleted: '« {{name}} » effacé.',
+    primary: 'Principal',
+    primaryCannotRemove:
+      'Le revenu principal ne peut pas être supprimé. Désignez d’abord un autre revenu principal.',
+    monthlyTotal: 'Total mensuel',
+    nextPayDate: 'Prochaine paie',
+    actionsFor: 'Actions pour {{name}}',
+    empty: 'Aucun revenu pour l’instant',
+    payDayOption: 'Le {{day}}',
+    payDayWithRule: 'Le {{day}}, {{rule}}',
+    endedTitle: 'Revenus terminés',
+    endedHelp: 'Ils ne comptent plus, mais les périodes passées les conservent.',
+    endedLabel: 'Terminé',
+    lastCounted: 'Compté pour la dernière fois dans la période close le {{date}}',
+    endedDescription:
+      'Pas de période en cours : les revenus ne peuvent plus être ajoutés ni modifiés. Le ou la propriétaire peut supprimer ou déplacer la date de fin dans les paramètres.',
+    endedNoAdd: 'Le budget est terminé.',
+    endedNoEdit: 'Le budget est terminé : les conditions ne peuvent plus changer.',
+    addAppliesFrom:
+      'Il compte dès la période en cours, sauf si vous en choisissez une plus ancienne. Les périodes passées ne changent pas autrement.',
+    editAppliesFrom:
+      'Les nouvelles conditions s’appliquent dès la période en cours, commencée le {{date}}. Les périodes passées gardent leurs conditions.',
+    editAppliesFromNoPeriod:
+      'Les nouvelles conditions s’appliquent dès la période en cours. Les périodes passées gardent les leurs.',
+    editPrimaryNote:
+      'C’est le revenu principal : la période en cours garde son début, et sa fin passe à la veille de la prochaine paie (sauf si vous l’avez fixée à la main).',
+    owner: {
+      deletedAccount: 'Compte supprimé',
+      formerMember: 'Ancien membre',
+    },
+    fields: {
+      name: 'Nom',
+      namePlaceholder: 'Salaire',
+      owner: 'Revenu de',
+      ownerHelp: 'Le vôtre, sauf si vous choisissez un autre membre.',
+      amount: 'Montant mensuel',
+      payDay: 'Jour de paie',
+      payDayHelp:
+        'Le jour du mois où il est versé. 29, 30 ou 31 signifie le dernier jour des mois plus courts.',
+      weekendRule: 'Quand le jour de paie tombe un week-end',
+      weekendRuleHelp:
+        'La plupart des employeurs paient un jour ouvrable. Choisissez ce que fait le vôtre.',
+      from: 'Compte à partir de',
+      fromCurrent: 'La période en cours',
+      fromPeriod: 'La période du {{start}} au {{end}}',
+      fromHelp:
+        'Choisissez une période plus ancienne si ce revenu était déjà versé à ce moment-là.',
+    },
+    weekendRule: {
+      nearest: {
+        label: 'Jour ouvrable le plus proche',
+        short: 'jour ouvrable le plus proche',
+        description: 'Le samedi passe au vendredi d’avant, le dimanche au lundi d’après.',
+      },
+      previous: {
+        label: 'Vendredi d’avant',
+        short: 'vendredi d’avant',
+        description: 'Le samedi et le dimanche passent tous deux au vendredi d’avant.',
+      },
+      next: {
+        label: 'Lundi d’après',
+        short: 'lundi d’après',
+        description: 'Le samedi et le dimanche passent tous deux au lundi d’après.',
+      },
+      none: {
+        label: 'Le jour même',
+        short: 'même le week-end',
+        description: 'Versé ce jour-là, même un samedi ou un dimanche.',
+      },
+    },
+  },
+  periods: {
+    description: 'Chaque période va du jour de paie du revenu principal à la veille du suivant.',
+    empty: 'Aucune période pour l’instant',
+    current: 'En cours',
+    manualEnd: 'Fin fixée à la main',
+    budgetEnd: 'Fin du budget',
+    budgetEndHelp: 'C’est la date de fin du budget ; modifiez-la dans les paramètres.',
+    number: 'Période {{seq}}',
+    projectedEnd: 'fin prévue d’après la prochaine paie',
+    incomeTotal: 'Revenus',
+    actionsFor: 'Actions pour la période commençant le {{start}}',
+    moveEnd: 'Déplacer la date de fin',
+    changeEnd: 'Modifier la fin prévue',
+    moveEndTitle: 'Déplacer la fin de cette période',
+    moveEndDescription:
+      'Quand le salaire est arrivé un autre jour, par exemple à cause d’un jour férié. La période suivante commence alors le lendemain.',
+    changeEndTitle: 'Modifier la fin de la période en cours',
+    changeEndDescription:
+      'Fixez vous-même le dernier jour de la période en cours, par exemple quand le prochain salaire arrive plus tôt. Elle n’est alors plus recalculée.',
+    startsOn: 'Cette période commence le',
+    fields: {
+      lastDay: 'Dernier jour de la période',
+    },
+    nextStartsOn: 'La période suivante commence le {{date}}.',
+    closeEarlyHelp:
+      'Une date antérieure à aujourd’hui clôt cette période maintenant, et la suivante commence le lendemain.',
+    moved: 'La période se termine maintenant le {{date}}.',
+    reset: 'Revenir à la fin prévue',
+    resetTitle: 'Revenir à la fin prévue de la période en cours ?',
+    resetDescription:
+      'La fin revient à la veille de la prochaine paie du revenu principal, et la suit de nouveau.',
+    resetDone: 'La période en cours suit de nouveau la date de paie.',
+    endedDescription:
+      'Sa dernière période s’est terminée le {{date}} ; aucune nouvelle période n’est créée.',
+  },
+  settings: {
+    budget: {
+      title: 'Budget',
+      description: 'Nom, date de fin et suppression du budget actuel.',
+      rename: 'Renommer',
+      renamed: 'Budget renommé.',
+      endDate: 'Date de fin',
+      endsOn: 'Le suivi s’arrête après le',
+      noEndDate: 'Pas de date de fin : le budget continue indéfiniment.',
+      endDateHelp:
+        'La date est repoussée à la fin de la période qui la contient. Laissez vide et enregistrez, ou supprimez-la, pour un budget sans fin.',
+      saveEndDate: 'Enregistrer la date de fin',
+      clearEndDate: 'Continuer indéfiniment',
+      endDateSet: 'Le budget se termine maintenant le {{date}}.',
+      endDateCleared: 'Le budget continue maintenant indéfiniment.',
+      endDateOwnerOnly: 'Seul·e le ou la propriétaire peut modifier la date de fin.',
+      deleteTitle: 'Supprimer le budget',
+      deleteHelp:
+        'Supprime le budget et tout son contenu, pour tous les membres. Cette action est irréversible.',
+      delete: 'Supprimer le budget',
+      deleteConfirmTitle: 'Supprimer « {{name}} » ?',
+      deleteConfirmDescription:
+        'Ses revenus, ses périodes et tout le reste sont supprimés pour tous les membres. Cette action est irréversible.',
+      deleted: 'Budget « {{name}} » supprimé.',
+      deleteOwnerOnly: 'Seul·e le ou la propriétaire peut supprimer le budget.',
+    },
+    account: {
+      title: 'Mon compte',
+      description:
+        'Connecté·e en tant que {{email}}. Votre nom affiché est celui que voient les autres membres.',
+      descriptionNoEmail: 'Votre nom affiché est celui que voient les autres membres.',
+      saved: 'Nom affiché enregistré.',
+    },
   },
   ui: {
     close: 'Fermer',

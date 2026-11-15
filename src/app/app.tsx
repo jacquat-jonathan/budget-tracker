@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router'
 
 import { routes } from '@/app/routes'
 import { ThemeProvider } from '@/components/theme/theme-provider'
+import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/features/auth/auth-provider'
 import { routerBasename } from '@/lib/base-path'
 import { createQueryClient } from '@/lib/query-client'
@@ -18,6 +19,7 @@ export function App() {
       <ThemeProvider>
         <AuthProvider>
           <RouterProvider router={router} />
+          <Toaster />
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

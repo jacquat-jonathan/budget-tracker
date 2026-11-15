@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-159 rules (117 active, 42 planned), 24 conventions, 44 decisions, 15 open questions. 82 rules and conventions are marked **TEST PENDING**.
+168 rules (126 active, 42 planned), 24 conventions, 48 decisions, 16 open questions. 83 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -46,7 +46,7 @@ Sign-up with email confirmation, sign-in, password reset by email link, sign-out
 - **US-AUTH-003** As an anonymous visitor, I want to reset a forgotten password from an email link, so that I can get back into my account.
   Rules: R-AUTH-013, R-AUTH-016, R-AUTH-017, R-AUTH-018, R-AUTH-022, R-AUTH-024
 - **US-AUTH-004** As a signed-in user, I want an email link opened on our shared computer never to change or expose the wrong account, so that two people can share one browser safely.
-  Rules: R-AUTH-019, R-AUTH-020, R-AUTH-021, R-AUTH-023, R-AUTH-025
+  Rules: R-AUTH-019, R-AUTH-020, R-AUTH-021, R-AUTH-023, R-AUTH-025, R-AUTH-026, R-AUTH-027
 - **US-AUTH-005** As an anonymous visitor, I want to be told clearly when an email link has expired and to get a new one, so that I am not stuck with a dead link.
   Rules: R-AUTH-014, R-AUTH-015
 
@@ -71,28 +71,28 @@ Local Supabase stack, row-level security baseline, CI, and the manual deploy to 
 Create, rename, end and delete a budget, created atomically with its first income and period.
 
 - **US-BUDGET-001** As a signed-in user, I want to create a budget with its first income in one step, so that I can start tracking at once and the budget is never half set up.
-  Rules: R-BUDGET-002, R-BUDGET-003, R-BUDGET-010, R-BUDGET-011, R-BUDGET-012, R-PERIOD-015, R-PERIOD-016, R-PERIOD-019
+  Rules: R-BUDGET-002, R-BUDGET-003, R-BUDGET-010, R-BUDGET-011, R-BUDGET-012, R-PERIOD-015, R-PERIOD-016, R-PERIOD-019, R-BUDGET-050, R-APP-004
 - **US-BUDGET-002** As a signed-in user, I want to belong to several budgets, so that I can keep a personal budget next to the household one.
-  Rules: R-BUDGET-004, R-SECURITY-002, R-SECURITY-003, R-SECURITY-004
+  Rules: R-BUDGET-004, R-SECURITY-002, R-SECURITY-003, R-SECURITY-004, R-BUDGET-051
 - **US-BUDGET-003** As a budget owner, I want to give a budget an end date or run it indefinitely, so that tracking stops when the budget is no longer needed.
   Rules: R-BUDGET-005, R-BUDGET-006, R-BUDGET-007, R-BUDGET-008, R-BUDGET-013, R-MEMBER-003
 - **US-BUDGET-004** As a budget member, I want to rename a budget, so that its name stays meaningful.
   Rules: R-BUDGET-009, R-MEMBER-001
 - **US-BUDGET-005** As a budget owner, I want to delete a budget with everything in it, so that I can remove one I no longer use.
-  Rules: R-BUDGET-001, R-BUDGET-009, R-MEMBER-002
+  Rules: R-BUDGET-001, R-BUDGET-009, R-MEMBER-002, R-BUDGET-052
 
 #### F-MEMBERS Members and invitations (in-progress)
 
 Invite people by email, accept or decline, leave, remove members.
 
 - **US-MEMBERS-001** As a budget owner, I want to invite someone by email address, so that we can run the household budget together.
-  Rules: R-INVITE-001, R-INVITE-002, R-INVITE-005, R-INVITE-006, R-MEMBER-004, R-MEMBER-010
+  Rules: R-INVITE-001, R-INVITE-002, R-INVITE-005, R-INVITE-006, R-MEMBER-004, R-MEMBER-010, R-MEMBER-050
 - **US-MEMBERS-002** As an invited person, I want to see the invitations addressed to my verified email and accept or decline them, so that I join only the budgets I want.
-  Rules: R-INVITE-003, R-INVITE-004
+  Rules: R-INVITE-003, R-INVITE-004, R-BUDGET-050
 - **US-MEMBERS-003** As a budget member, I want to leave a budget, so that I stop sharing it without affecting its history.
   Rules: R-MEMBER-005, R-MEMBER-006, R-MEMBER-007, R-MEMBER-008
 - **US-MEMBERS-004** As a budget owner, I want to remove a member, so that only the right people share the budget.
-  Rules: R-MEMBER-004, R-MEMBER-007, R-MEMBER-008, R-MEMBER-009
+  Rules: R-MEMBER-004, R-MEMBER-007, R-MEMBER-008, R-MEMBER-009, R-MEMBER-050
 - **US-MEMBERS-005** As a budget member, I want to see who the other members are, so that I know with whom I share the budget.
   Rules: R-PROFILE-003, R-MEMBER-001
 
@@ -101,7 +101,7 @@ Invite people by email, accept or decline, leave, remove members.
 Versioned monthly incomes per member, one of them primary, with a weekend rule.
 
 - **US-INCOME-001** As a budget member, I want to add my income with its amount, pay day and weekend rule, so that it counts in the budget's monthly total.
-  Rules: R-INCOME-002, R-INCOME-003, R-INCOME-004, R-INCOME-005, R-INCOME-010, R-INCOME-011, R-INCOME-013, R-INCOME-014, R-MONEY-002, R-PAYDATE-001, R-PAYDATE-002, R-PAYDATE-003, R-PAYDATE-004, R-PAYDATE-005, R-PAYDATE-006, R-PAYDATE-007
+  Rules: R-INCOME-002, R-INCOME-003, R-INCOME-004, R-INCOME-005, R-INCOME-010, R-INCOME-011, R-INCOME-013, R-INCOME-014, R-MONEY-002, R-PAYDATE-001, R-PAYDATE-002, R-PAYDATE-003, R-PAYDATE-004, R-PAYDATE-005, R-PAYDATE-006, R-PAYDATE-007, R-INCOME-050
 - **US-INCOME-002** As a budget member, I want to change an income's terms when my salary changes, so that the change applies from now on and past periods stay as they were.
   Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006
 - **US-INCOME-003** As a budget member, I want to make another income the primary one, so that periods follow the salary that really sets our rhythm.
@@ -114,7 +114,7 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 
 - **US-PERIOD-001** As a budget member, I want periods to run from pay day to pay day of the primary income, so that the salary is always day one of the period.
-  Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018
+  Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018, R-PERIOD-050
 - **US-PERIOD-002** As a budget member, I want to move a period boundary when the salary arrived on another day, so that public holidays do not put transactions in the wrong period.
   Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
@@ -217,6 +217,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-APP-003** The app refuses to start without its Supabase settings and names the missing variables.
   _active · enforced by test · F-SHELL_
   - Source: README.md: Setup; code: src/main.tsx
+- **R-APP-004** A refused or failed database call is shown as a translated message: each stable error code of the contract has its own text, and anything else a generic one; the raw error is never shown.
+  _active · enforced by test · F-BUDGET_
+  - Related: D-027, D-047
+  - Source: docs/database.md: Error messages; code: src/lib/db-errors.ts
 
 ### Accounts and sign-in
 
@@ -300,6 +304,13 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-AUTH_
   - Related: D-017
   - Source: code: src/features/auth/auth-provider.tsx
+- **R-AUTH-026** When a valid email link for one account is opened while another account is signed in, the app says that the browser is now signed in as the link's account, and that the other account was signed out here.
+  _active · enforced by test · F-AUTH_
+  - Source: code: src/features/auth/auth-bootstrap.ts; code: src/features/auth/components/account-switched-alert.tsx
+- **R-AUTH-027** The new-password form is emptied whenever the signed-in user changes, so text typed for one account is never saved as another account's password.
+  _active · enforced by test · F-AUTH_
+  - Related: R-AUTH-017
+  - Source: code: src/features/auth/pages/reset-password-page.tsx
 
 ### Profiles
 
@@ -408,6 +419,17 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-BUDGET_ · **TEST PENDING** (supabase/tests)
   - Related: D-029
   - Source: docs/database.md: RPCs
+- **R-BUDGET-050** A signed-in user who belongs to no budget is shown the first-run setup (create a budget, or accept an invitation addressed to them) instead of the app pages.
+  _active · enforced by test · F-BUDGET_
+  - Related: D-046
+  - Source: code: src/features/budgets/budget-routes.tsx
+- **R-BUDGET-051** The budget a user works in is remembered for that user in this browser; when it is no longer one of theirs (deleted, left, or they were removed), the app moves to another of their budgets, or to the first-run setup when none is left.
+  _active · enforced by test · F-BUDGET_
+  - Related: D-046, C-QUERY-001
+  - Source: code: src/features/budgets/current-budget-provider.tsx
+- **R-BUDGET-052** Deleting a budget asks the owner to type the budget's name first.
+  _active · enforced by test · F-BUDGET_
+  - Source: code: src/features/settings/budget-settings.tsx
 
 ### Members and roles
 
@@ -444,6 +466,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MEMBERS_ · **TEST PENDING** (supabase/tests)
   - Related: D-029
   - Source: docs/database.md: RPCs
+- **R-MEMBER-050** The app offers owner-only actions (change the end date, delete the budget, invite, cancel an invitation, remove a member) only to the owner; a plain member is told that only the owner can do them. The database still enforces this on its own.
+  _active · enforced by test · F-MEMBERS_
+  - Related: R-MEMBER-002, R-MEMBER-003, R-MEMBER-004
+  - Source: code: src/features/settings/budget-settings.tsx; code: src/features/settings/members-settings.tsx
 
 ### Invitations
 
@@ -472,11 +498,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-INCOME-001** A budget has at least one income.
   _active · enforced by test · F-INCOME_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Income
-- **R-INCOME-002** Each member adds their own incomes (person A adds income A, person B adds income B).
-  _active · enforced by review · F-INCOME_
-  - Why: Review until Q-001 is answered: the code also lets a member add an income for another member.
-  - Related: Q-001
-  - Source: domain: Income
+- **R-INCOME-002** Any member can add, edit and remove any income of the budget, including one that belongs to another member; a new income belongs to the member who adds it unless they choose another member.
+  _active · enforced by test · F-INCOME_
+  - Related: D-045, Q-001, R-INCOME-050
+  - Source: owner-request: product owner decision on Q-001, 2026-11-15; code: src/features/income/components/income-form-dialog.tsx
 - **R-INCOME-003** All incomes of the budget sum into the budget's monthly total.
   _active · enforced by test · F-INCOME_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Income
@@ -517,6 +542,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_ · **TEST PENDING** (supabase/tests)
   - Related: D-029
   - Source: docs/database.md: Conventions
+- **R-INCOME-050** The database lets any member of a budget add an income for another member and change or remove another member's income.
+  _active · enforced by test · F-INCOME_ · **TEST PENDING** (supabase/tests)
+  - Related: D-045, R-INCOME-002
+  - Source: owner-request: product owner decision on Q-001, 2026-11-15; docs/database.md: RPCs
 
 ### Pay dates and the weekend rule
 
@@ -611,6 +640,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_ · **TEST PENDING** (supabase/tests)
   - Related: D-029
   - Source: docs/database.md: RPCs
+- **R-PERIOD-050** When a budget is opened, the app asks the database to create its missing periods (ensure_periods) and refreshes what depends on them when any were created.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-009
+  - Source: docs/database.md: Reading; code: src/features/budgets/current-budget-provider.tsx
 
 ### Versioning: edits never rewrite the past
 
@@ -1455,9 +1488,62 @@ VITE_BASE_PATH sets both Vite's base and the router basename at build time; .hta
 
 Source: README.md: Environment variables; code: public/.htaccess
 
+### D-045 Members manage every income of the budget (accepted)
+
+Any member of a budget can add, edit and remove any income in that budget, including one belonging to another member. A new income belongs to the member who adds it by default; the form lets them choose another member. Decided by the product owner on 2026-11-15.
+
+**Why:** It matches "every member can read and edit everything in the budget" and what the database already does.
+
+**Rejected:**
+
+- Members can only add and edit their own incomes.
+
+Related: Q-001, R-INCOME-002, R-INCOME-050, R-MEMBER-001
+
+Source: owner-request: product owner decision on Q-001, 2026-11-15
+
+### D-046 The current budget is a per-user browser preference (accepted)
+
+The budget a user works in is kept in localStorage under a key that names the user; when it is missing or no longer in my_budgets, the first budget by name is used (and not stored until the user chooses). my_budgets is refetched on window focus and after any "not found" answer. Users without a budget are routed to /welcome; app pages require a budget.
+
+**Why:** Reloads keep the choice, two people sharing a browser keep their own, and a budget that disappears is replaced at once.
+
+**Rejected:**
+
+- Storing the choice in the database: a per-browser convenience, not budget data.
+- Putting the budget id in every URL: longer links and more routing for a household app.
+
+Related: R-BUDGET-050, R-BUDGET-051
+
+Source: code: src/features/budgets/current-budget-provider.tsx; code: src/features/budgets/budget-routes.tsx
+
+### D-047 One mutation pattern with one error mapping (accepted)
+
+Writes go through useAppMutation: pending state, a translated success toast, the error either inline (forms, dialogs) or as a toast (one-click actions), and invalidation of the affected queries (everything of a budget sits under ["budget", id]). Errors are mapped in src/lib/db-errors.ts only, with a generic translated fallback; a "not found" answer is always toasted and refetches my budgets.
+
+**Why:** Later features copy one pattern; a new error code is one line plus its two translations.
+
+**Rejected:** none recorded.
+
+Related: R-APP-004, D-027, C-QUERY-001
+
+Source: code: src/hooks/use-app-mutation.ts; code: src/lib/db-errors.ts
+
+### D-048 Day N of M uses the browser's date, display only (accepted)
+
+The dashboard's "day N of M" counts calendar days from the current period's start to the browser's local date, clamped to the period. Which period is current, its dates and its totals come from the database. To be replaced if the contract provides today (Q-016).
+
+**Why:** The contract gives no "today"; the number is cosmetic and never sent back.
+
+**Rejected:** none recorded.
+
+Related: Q-016, R-PERIOD-017, C-LOGIC-003
+
+Source: code: src/features/dashboard/period-progress.ts
+
 ## Open questions
 
-- **Q-001** May a member add, edit or remove an income that belongs to another member?
+- **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
   - Context: The source says "Each member adds their own incomes (person A adds income A, person B adds income B)" and also "every member can read and edit everything in the budget". The step 2 code lets any member add an income for another member (add_income p_user_id) and change any income's terms.
   - Related: R-INCOME-002, R-MEMBER-001
   - Source: domain: Income; domain: Budget; docs/database.md: RPCs
@@ -1517,6 +1603,14 @@ Source: README.md: Environment variables; code: public/.htaccess
   - Context: The versioning rule lists incomes, category expectations, subscriptions and debts; it does not mention accounts or planned transfers, which also appear on a per-period checklist.
   - Related: R-ACCOUNT-002, R-ACCOUNT-005
   - Source: domain: Versioning: edits never rewrite the past; domain: Account and planned transfer (money flow)
+- **Q-016** Should the database return "today" (or the day number within the current period) so that the client never uses the browser's date?
+  - Context: The dashboard shows "day N of M" of the current period; the contract returns the period but not the Europe/Zurich date the database decided it with, so N comes from the browser (D-048) and can differ around midnight or in another time zone.
+  - Related: D-048, R-PERIOD-017
+  - Source: code: src/features/dashboard/period-progress.ts; docs/database.md: Conventions
+- **Q-017** Should create_budget take the end date, so that a budget with an end date is created in one atomic step?
+  - Context: The first-run form asks for an optional end date; create_budget has no such argument, so the client calls set_budget_end_date afterwards. If that second call fails, the budget exists without its end date and the user is told so.
+  - Related: R-BUDGET-010, R-BUDGET-005
+  - Source: code: src/features/budgets/budget-mutations.ts; docs/database.md: RPCs
 
 ## Glossary
 

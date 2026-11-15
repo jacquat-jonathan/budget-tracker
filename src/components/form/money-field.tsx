@@ -35,8 +35,11 @@ export function MoneyField<TValues extends FieldValues, TOut extends FieldValues
 }: MoneyFieldProps<TValues, TOut>) {
   const { t } = useTranslation()
   const id = useId()
-  const { field, fieldState } = useController({ control, name })
-  const value: unknown = field.value
+  const {
+    field: { ref: inputRef, name: fieldName, onChange, onBlur, value: fieldValue },
+    fieldState,
+  } = useController({ control, name })
+  const value: unknown = fieldValue
   const [text, setText] = useState(() => toText(value))
   // The value this field last emitted; anything else came from outside (form.reset).
   const emitted = useRef<unknown>(value)
@@ -50,7 +53,7 @@ export function MoneyField<TValues extends FieldValues, TOut extends FieldValues
 
   const emit = (next: number | null) => {
     emitted.current = next
-    field.onChange(next)
+    onChange(next)
   }
 
   const message = fieldState.error?.message
@@ -70,8 +73,8 @@ export function MoneyField<TValues extends FieldValues, TOut extends FieldValues
         </span>
         <Input
           id={id}
-          ref={field.ref}
-          name={field.name}
+          ref={inputRef}
+          name={fieldName}
           inputMode="decimal"
           autoComplete="off"
           autoFocus={autoFocus}
@@ -88,13 +91,11 @@ export function MoneyField<TValues extends FieldValues, TOut extends FieldValues
           onBlur={() => {
             const parsed = text.trim() === '' ? null : parseMoney(text)
             if (parsed !== null) setText(toText(parsed))
-            field.onBlur()
+            onBlur()
           }}
         />
       </div>
-      {description && (
-        <FieldDescription id={`${id}-description`}>{description}</FieldDescription>
-      )}
+      {description && <FieldDescription id={`${id}-description`}>{description}</FieldDescription>}
       {message && <FieldError id={`${id}-error`}>{t(message as ParseKeys)}</FieldError>}
     </Field>
   )

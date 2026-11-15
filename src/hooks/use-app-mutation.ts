@@ -51,10 +51,10 @@ export function useAppMutation<TData, TVariables = void>({
       await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
     },
     onError: (error) => {
-      if (errorDisplay === 'toast') toast.error(errorMessage(error))
-      if (isNotFoundError(error)) {
-        void queryClient.invalidateQueries({ queryKey: budgetKeys.list })
-      }
+      const notFound = isNotFoundError(error)
+      // A "not found" can take the whole page away (the budget is gone), inline errors too.
+      if (errorDisplay === 'toast' || notFound) toast.error(errorMessage(error))
+      if (notFound) void queryClient.invalidateQueries({ queryKey: budgetKeys.list })
     },
   })
 }

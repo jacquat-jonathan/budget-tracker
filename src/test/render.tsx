@@ -3,6 +3,7 @@ import { render } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router'
 
 import { ThemeProvider } from '@/components/theme/theme-provider'
+import { Toaster } from '@/components/ui/sonner'
 import { resetAuthBootstrap } from '@/features/auth/auth-bootstrap'
 import { AuthProvider } from '@/features/auth/auth-provider'
 
@@ -18,6 +19,7 @@ export function renderRoutes(routes: RouteObject[], path: string) {
       <ThemeProvider>
         <AuthProvider>
           <RouterProvider router={router} />
+          <Toaster />
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>,

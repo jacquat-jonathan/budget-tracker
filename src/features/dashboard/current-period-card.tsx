@@ -100,10 +100,7 @@ export function CurrentPeriodCard() {
               {t('dashboard.period.daysLeft', { count: total - day })}
             </span>
           </div>
-          <Progress
-            value={percent}
-            aria-label={t('dashboard.period.dayOf', { day, total })}
-          />
+          <Progress value={percent} aria-label={t('dashboard.period.dayOf', { day, total })} />
         </div>
         <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">

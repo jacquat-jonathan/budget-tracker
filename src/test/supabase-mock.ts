@@ -1,6 +1,9 @@
 import type { AuthError, Session, User } from '@supabase/supabase-js'
 import { vi } from 'vitest'
 
+import { DEFAULT_USER_ID, householdDb } from '@/test/budget-fixtures'
+import { mockDataClient, type MockDb } from '@/test/mock-db'
+
 interface AuthResult<TData> {
   data: TData
   error: AuthError | null
@@ -12,7 +15,10 @@ type SessionData = { session: Session | null; user: User | null }
  * `vi.mock('@/lib/supabase', () => ({ supabase: supabaseMock }))` (inside vi.hoisted when
  * needed) so tests never reach a backend.
  */
-export function createSupabaseMock(initialSession: Session | null = null) {
+export function createSupabaseMock(
+  initialSession: Session | null = null,
+  db: MockDb = householdDb(initialSession?.user.id ?? DEFAULT_USER_ID),
+) {
   let session = initialSession
   type Listener = (event: string, session: Session | null) => void
   const listeners = new Set<Listener>()
@@ -59,14 +65,9 @@ export function createSupabaseMock(initialSession: Session | null = null) {
     ),
   }
 
-  const query = {
-    select: vi.fn(() => query),
-    eq: vi.fn(() => query),
-    maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
-  }
-
   return {
-    client: { auth, from: vi.fn(() => query) },
+    client: { auth, ...mockDataClient(db) },
+    db,
     /** Simulate Supabase reporting a sign-in (or any auth event) to listeners. */
     emit,
   }
@@ -83,7 +84,7 @@ export function fakeSession(
     expires_in: 3600,
     expires_at: Math.floor(Date.now() / 1000) + 3600,
     user: {
-      id: '00000000-0000-0000-0000-000000000001',
+      id: DEFAULT_USER_ID,
       aud: 'authenticated',
       email: 'alex@example.com',
       app_metadata: {},

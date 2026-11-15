@@ -34,13 +34,18 @@ export function AccountSettings() {
     values: { displayName: displayName ?? '' },
   })
 
-  const save = useAppMutation<void, string>({
+  const save = useAppMutation<null, string>({
     errorDisplay: 'inline',
     mutationFn: async (name) => {
       const rows = unwrap(
-        await supabase.from('profiles').update({ display_name: name }).eq('id', userId).select('id'),
+        await supabase
+          .from('profiles')
+          .update({ display_name: name })
+          .eq('id', userId)
+          .select('id'),
       )
       if (rows.length === 0) throw new DbError('member_not_found')
+      return null
     },
     success: () => t('settings.account.saved'),
     invalidate: () => [profileQueryKey(userId), budgetKeys.members(budgetId)],
