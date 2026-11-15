@@ -22,6 +22,17 @@ English and French.
 - A budget runs indefinitely or until an end date. It is always the monthly budget; an end
   date just stops period generation, and it falls on a period boundary.
 - Budgets can be created, modified and deleted.
+- Roles: every member can read and edit everything in the budget. Only the owner can
+  delete the budget, change its end date, or manage members and invitations. A member can
+  leave; the owner cannot leave (they delete the budget instead).
+- Adding people: the owner invites by email address. The app sends no email. The invited
+  person sees the invitation after signing in with an account whose verified email matches,
+  and accepts or declines it. Inviting never reveals whether an address has an account.
+- Removing a member (or a member leaving) ends their incomes from the current period;
+  past periods keep them. A member whose income is the primary income cannot be removed
+  until another income is made primary.
+- Creating a budget is one atomic step that also creates its first income (the primary)
+  and its first period, so a budget never exists without them.
 
 ### Income
 
@@ -32,7 +43,16 @@ English and French.
 - Weekend rule, per income, default: if the nominal day is a Saturday the income is paid
   the Friday before; if it is a Sunday it is paid the Monday after. A period's actual pay
   date can be overridden manually (public holidays).
-- Exactly one income of the budget is the primary income. It defines the periods.
+- Exactly one income of the budget is the primary income. It defines the periods. The
+  primary can be switched to another income; the last income of a budget cannot be removed.
+- Incomes are monthly for now (a 13th salary or one-off income comes later). Each income
+  in force counts once per period, whatever its own pay day.
+- A pay day of 29, 30 or 31 is clamped to the last day of shorter months before the weekend
+  rule is applied.
+- Weekend rule options: `nearest` (Saturday -> Friday, Sunday -> Monday; the default),
+  `previous` (both -> Friday), `next` (both -> Monday), `none`.
+- Removing an income that has already counted in a past period ends it from the current
+  period instead of deleting it.
 
 ### Period
 
@@ -40,8 +60,21 @@ English and French.
   the day before the next actual pay date. Example with a nominal 25th: if 25 January is a
   Saturday, the period starts Friday 24 January. The salary is therefore always day one of
   its period.
-- Periods are stored rows with a start and end date. They are not recomputed when the
-  income's pay day later changes.
+- Periods are stored rows with a start and end date. They are contiguous and never
+  overlap. Past periods are not recomputed when the income's pay day later changes.
+- Only periods up to the current one exist as rows; they are created on demand. The
+  current period's end date is a projection (the day before the next actual pay date of
+  the primary income); it is recomputed when the primary income's terms change, unless the
+  user has set it by hand.
+- The user can move the boundary between two consecutive periods, and the projected end of
+  the current period, to match when the salary really arrived (public holidays). A manual
+  boundary is never overwritten by recomputation.
+- When creating a budget the user chooses the month to start tracking from: the current
+  period by default, or an earlier month so that past transactions can be entered.
+- "Today" is the calendar date in Europe/Zurich, decided by the database, not by the
+  browser's clock or UTC.
+- A period's income total is the sum of the incomes in force in that period, each at the
+  version in force for that period.
 - A transaction belongs to the period whose date range contains its date, so a back-dated
   transaction lands in the right past period. Past periods stay editable.
 - At the end of a period, category balances reset. The period's surplus or deficit is
@@ -92,7 +125,11 @@ English and French.
 
 Any edit to an income, a category expectation, a subscription or a debt's terms creates a
 new version effective from the current period. Past periods keep reading the version that
-was in force at the time.
+was in force at the time. Several edits within the same period overwrite that period's
+version rather than piling up.
+
+A change to the primary income's pay day or weekend rule does not move the start of the
+current period, which has already happened; it applies from the next pay date.
 
 ### Money
 

@@ -31,7 +31,11 @@ source of truth for product behaviour and the decisions already taken.
 - Money is integer rappen in the database and in code; format only at the edge.
 - Every table has row-level security enabled, with policies, in the same migration that
   creates it.
-- Period, pay-date and versioning logic is pure and unit-tested.
+- Period, pay-date and versioning logic has one implementation, in the database (SQL
+  functions, tested with pgTAP). The client reads the results; it never recomputes them.
+- Access rules use the shared membership helpers in the `private` schema; a new table's
+  policies call them rather than re-deriving membership.
+- Client queries for budget data are keyed by budget id.
 - Database tests (pgTAP, `supabase/tests/`) must pass on a database that already holds
   data: scope assertions to the test's own rows. Every table gets tests proving what
   another user and an anonymous visitor cannot do.
