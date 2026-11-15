@@ -48,6 +48,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       css: false,
       env: {
+        // A non-UTC zone with summer time, so date tests catch time-zone shifts.
+        TZ: 'Europe/Zurich',
         VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
         VITE_SUPABASE_PUBLISHABLE_KEY: 'test-publishable-key',
       },

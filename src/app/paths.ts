@@ -12,6 +12,7 @@ export const paths = {
   signIn: '/sign-in',
   signUp: '/sign-up',
   forgotPassword: '/forgot-password',
+  resendConfirmation: '/resend-confirmation',
   resetPassword: '/reset-password',
 } as const
 
@@ -30,6 +31,7 @@ export function redirectTarget(state: unknown): string {
     paths.signIn,
     paths.signUp,
     paths.forgotPassword,
+    paths.resendConfirmation,
     paths.resetPassword,
   ]
   const pathname = from.split(/[?#]/)[0] ?? ''

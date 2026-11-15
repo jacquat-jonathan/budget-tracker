@@ -11,6 +11,7 @@ import { FieldGroup } from '@/components/ui/field'
 import { authErrorKey, type AuthErrorKey } from '@/features/auth/auth-errors'
 import { AuthLayout } from '@/features/auth/components/auth-layout'
 import { TextField } from '@/features/auth/components/text-field'
+import type { ResendConfirmationState } from '@/features/auth/pages/resend-confirmation-page'
 import { signInSchema, type SignInValues } from '@/features/auth/schemas'
 import { supabase } from '@/lib/supabase'
 
@@ -57,7 +58,20 @@ export function SignInPage() {
         <FieldGroup>
           {errorKey && (
             <Alert variant="destructive">
-              <AlertDescription>{t(errorKey)}</AlertDescription>
+              <AlertDescription>
+                <p>{t(errorKey)}</p>
+                {errorKey === 'auth.errors.emailNotConfirmed' && (
+                  <Link
+                    to={paths.resendConfirmation}
+                    state={
+                      { email: form.getValues('email').trim() } satisfies ResendConfirmationState
+                    }
+                    className="mt-1 font-medium text-foreground underline underline-offset-4"
+                  >
+                    {t('auth.actions.resendConfirmation')}
+                  </Link>
+                )}
+              </AlertDescription>
             </Alert>
           )}
           <TextField

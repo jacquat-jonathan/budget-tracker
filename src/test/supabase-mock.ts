@@ -38,6 +38,17 @@ export function createSupabaseMock(initialSession: Session | null = null) {
       emit('SIGNED_OUT', null)
       return Promise.resolve({ error: null })
     }),
+    setSession: vi.fn(
+      (tokens: {
+        access_token: string
+        refresh_token: string
+      }): Promise<AuthResult<SessionData>> => {
+        const next = fakeSession({}, tokens.access_token)
+        emit('SIGNED_IN', next)
+        return Promise.resolve({ data: { session: next, user: next.user }, error: null })
+      },
+    ),
+    resend: vi.fn((): Promise<AuthResult<object>> => Promise.resolve({ data: {}, error: null })),
     resetPasswordForEmail: vi.fn((): Promise<AuthResult<object>> =>
       Promise.resolve({ data: {}, error: null }),
     ),
@@ -59,9 +70,12 @@ export function createSupabaseMock(initialSession: Session | null = null) {
   }
 }
 
-export function fakeSession(overrides: Partial<Session['user']> = {}): Session {
+export function fakeSession(
+  overrides: Partial<Session['user']> = {},
+  accessToken = 'test-access-token',
+): Session {
   return {
-    access_token: 'test-access-token',
+    access_token: accessToken,
     refresh_token: 'test-refresh-token',
     token_type: 'bearer',
     expires_in: 3600,

@@ -1,10 +1,20 @@
 /**
- * Date helpers. Calendar dates travel as ISO strings ("2026-01-25", the Postgres `date`
- * format) and are shown as dd.mm.yyyy. ISO date strings are read as calendar dates, never
- * through UTC, so a date never shifts by a day because of the time zone.
+ * Date helpers. Displayed as dd.mm.yyyy. Two kinds of value, with one formatter each, so
+ * they cannot be mixed up at the call site:
+ *
+ * - Calendar dates, "YYYY-MM-DD" (Postgres `date`, periods, pay dates): a day, not an
+ *   instant. `formatCalendarDate` prints it as written, with no time-zone conversion.
+ * - Instants (Postgres `timestamptz`, e.g. created_at, or a Date): `formatTimestamp` prints
+ *   the user's local calendar date of that instant.
+ *
+ * Each formatter rejects the other kind and any invalid input with a RangeError, rather than
+ * printing a plausible-looking wrong date.
  */
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})/
+const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
+// A timestamp needs a time part and an explicit zone (Z or ±hh:mm), as Postgres timestamptz
+// and Date.toISOString() produce; without a zone, browsers disagree on how to read it.
+const TIMESTAMP = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}(:?\d{2})?)$/i
 const SWISS_DATE = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/
 
 function pad(value: number, length = 2): string {
@@ -17,29 +27,62 @@ function isValidCalendarDate(year: number, month: number, day: number): boolean 
   return day <= daysInMonth
 }
 
-/** Local calendar date of a Date as an ISO string, e.g. "2026-01-25". */
-export function toIsoDate(date: Date): string {
+function formatLocal(date: Date): string {
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${pad(date.getFullYear(), 4)}`
+}
+
+/** True for a real calendar date written "YYYY-MM-DD". */
+export function isCalendarDate(value: string): boolean {
+  const match = CALENDAR_DATE.exec(value)
+  return match !== null && isValidCalendarDate(Number(match[1]), Number(match[2]), Number(match[3]))
+}
+
+/**
+ * Format a calendar date "YYYY-MM-DD" as dd.mm.yyyy, exactly as written: no time-zone shift.
+ * Throws a RangeError for anything else, including timestamps.
+ */
+export function formatCalendarDate(value: string): string {
+  const match = CALENDAR_DATE.exec(value)
+  if (!match || !isCalendarDate(value)) {
+    throw new RangeError(`Not a calendar date (YYYY-MM-DD): ${value}`)
+  }
+  const [, year, month, day] = match
+  return `${day ?? ''}.${month ?? ''}.${year ?? ''}`
+}
+
+/**
+ * Format an instant as the user's local calendar date, dd.mm.yyyy. Accepts a Date or an ISO
+ * timestamp with a time and a zone ("2026-03-01T23:30:00+00:00"). Throws a RangeError for
+ * invalid input and for a bare "YYYY-MM-DD" (use formatCalendarDate for those).
+ */
+export function formatTimestamp(value: Date | string): string {
+  let date: Date
+  if (typeof value === 'string') {
+    if (!TIMESTAMP.test(value)) {
+      throw new RangeError(`Not a timestamp with time and zone: ${value}`)
+    }
+    // Reject impossible dates that Date would otherwise roll over (2026-02-30 -> 02.03).
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+    if (!isValidCalendarDate(year ?? 0, month ?? 0, day ?? 0)) {
+      throw new RangeError(`Invalid date: ${value}`)
+    }
+    date = new Date(value)
+  } else {
+    date = value
+  }
+  if (Number.isNaN(date.getTime())) throw new RangeError(`Invalid date: ${String(value)}`)
+  return formatLocal(date)
+}
+
+/** The local calendar date of a Date as "YYYY-MM-DD", e.g. today's date for a new record. */
+export function toCalendarDate(date: Date): string {
+  if (Number.isNaN(date.getTime())) throw new RangeError('Invalid Date')
   return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 /**
- * Format a date as dd.mm.yyyy. Accepts a Date (local calendar date) or an ISO date or
- * timestamp string (its date part is used as written).
- */
-export function formatDate(value: Date | string): string {
-  if (typeof value === 'string') {
-    const match = ISO_DATE.exec(value)
-    if (!match) throw new RangeError(`Not an ISO date: ${value}`)
-    const [, year, month, day] = match
-    return `${day}.${month}.${year}`
-  }
-  if (Number.isNaN(value.getTime())) throw new RangeError('Invalid Date')
-  return `${pad(value.getDate())}.${pad(value.getMonth() + 1)}.${pad(value.getFullYear(), 4)}`
-}
-
-/**
- * Parse a date typed as dd.mm.yyyy (one-digit day and month allowed) into an ISO date
- * string. Returns null when the input is not a real calendar date.
+ * Parse a date typed as dd.mm.yyyy (one-digit day and month allowed) into a calendar date
+ * "YYYY-MM-DD". Returns null when the input is not a real calendar date.
  */
 export function parseDate(input: string): string | null {
   const match = SWISS_DATE.exec(input.trim())

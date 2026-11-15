@@ -17,14 +17,14 @@ import { resetPasswordSchema, type ResetPasswordValues } from '@/features/auth/s
 import { supabase } from '@/lib/supabase'
 
 /**
- * Reached from the password-reset email. Supabase signs the user in from the link (a
- * recovery session), and this page then lets them set a new password. It also works for a
- * signed-in user who simply wants to change theirs.
+ * Reached from the password-reset email. The link signs the user in (a recovery
+ * session) and the route guards send them here, wherever the link landed, until a new
+ * password is saved. It also works for a signed-in user who simply wants to change theirs.
  */
 export function ResetPasswordPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { session, loading } = useAuth()
+  const { session, loading, recovery, completeRecovery, signOut } = useAuth()
   const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
 
   const form = useForm<ResetPasswordValues>({
@@ -37,7 +37,10 @@ export function ResetPasswordPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) setErrorKey(authErrorKey(error))
-      else void navigate(paths.dashboard, { replace: true })
+      else {
+        completeRecovery()
+        void navigate(paths.dashboard, { replace: true })
+      }
     } catch (error) {
       setErrorKey(authErrorKey(error))
     }
@@ -70,6 +73,17 @@ export function ResetPasswordPage() {
     <AuthLayout
       title={t('auth.resetPassword.title')}
       description={t('auth.resetPassword.description')}
+      footer={
+        recovery ? (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t('auth.resetPassword.cancel')}
+          </button>
+        ) : undefined
+      }
     >
       <form onSubmit={(event) => void onSubmit(event)} noValidate>
         <FieldGroup>

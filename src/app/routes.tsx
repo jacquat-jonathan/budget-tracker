@@ -20,6 +20,11 @@ const ForgotPasswordPage = lazy(() =>
     default: m.ForgotPasswordPage,
   })),
 )
+const ResendConfirmationPage = lazy(() =>
+  import('@/features/auth/pages/resend-confirmation-page').then((m) => ({
+    default: m.ResendConfirmationPage,
+  })),
+)
 const ResetPasswordPage = lazy(() =>
   import('@/features/auth/pages/reset-password-page').then((m) => ({
     default: m.ResetPasswordPage,
@@ -81,6 +86,7 @@ export const routes: RouteObject[] = [
           { path: paths.signIn, element: <SignInPage /> },
           { path: paths.signUp, element: <SignUpPage /> },
           { path: paths.forgotPassword, element: <ForgotPasswordPage /> },
+          { path: paths.resendConfirmation, element: <ResendConfirmationPage /> },
         ],
       },
       // Reached from the reset email with a recovery session, so it sits outside both guards.

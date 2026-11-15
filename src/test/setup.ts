@@ -26,4 +26,6 @@ beforeAll(async () => {
 
 afterEach(() => {
   cleanup()
+  sessionStorage.clear()
+  localStorage.clear()
 })

@@ -112,8 +112,29 @@ export const en = {
           'Password reset links expire after a while and work only once. Request a new one.',
         action: 'Request a new link',
       },
+      cancel: 'Cancel and sign out',
     },
     backToSignIn: 'Back to sign in',
+    actions: {
+      resendConfirmation: 'Resend the confirmation email',
+      requestPasswordReset: 'Request a new password reset link',
+    },
+    linkError: {
+      title: 'This link no longer works',
+      expired: 'Email links expire after a while and work only once. Request a new one below.',
+      invalid: 'This link is incomplete or not valid. Request a new one below.',
+    },
+    resendConfirmation: {
+      title: 'Resend the confirmation email',
+      description:
+        'Enter the email address you signed up with and we will send you a new confirmation link.',
+      submit: 'Send the link',
+      sent: {
+        title: 'Check your inbox',
+        description:
+          'If an account for {{email}} is waiting for confirmation, a new link is on its way.',
+      },
+    },
     errors: {
       invalidCredentials: 'Incorrect email or password.',
       emailNotConfirmed: 'Confirm your email address first: open the link we sent you.',

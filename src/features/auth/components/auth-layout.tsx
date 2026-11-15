@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { LinkErrorAlert } from '@/features/auth/components/link-error-alert'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 
 interface AuthLayoutProps {
@@ -48,7 +49,10 @@ export function AuthLayout({ title, description, children, footer }: AuthLayoutP
             </CardTitle>
             {description && <CardDescription>{description}</CardDescription>}
           </CardHeader>
-          {children && <CardContent>{children}</CardContent>}
+          <CardContent className="flex flex-col gap-4 empty:hidden">
+            <LinkErrorAlert />
+            {children}
+          </CardContent>
           {footer && (
             <CardFooter className="flex-col gap-2 text-center text-sm text-muted-foreground">
               {footer}

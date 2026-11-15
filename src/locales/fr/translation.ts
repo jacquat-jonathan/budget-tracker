@@ -120,8 +120,30 @@ export const fr: Translation = {
           'Les liens de réinitialisation expirent au bout d’un certain temps et ne servent qu’une fois. Demandez-en un nouveau.',
         action: 'Demander un nouveau lien',
       },
+      cancel: 'Annuler et se déconnecter',
     },
     backToSignIn: 'Retour à la connexion',
+    actions: {
+      resendConfirmation: 'Renvoyer l’e-mail de confirmation',
+      requestPasswordReset: 'Demander un nouveau lien de réinitialisation',
+    },
+    linkError: {
+      title: 'Ce lien ne fonctionne plus',
+      expired:
+        'Les liens envoyés par e-mail expirent au bout d’un certain temps et ne servent qu’une fois. Demandez-en un nouveau ci-dessous.',
+      invalid: 'Ce lien est incomplet ou n’est pas valable. Demandez-en un nouveau ci-dessous.',
+    },
+    resendConfirmation: {
+      title: 'Renvoyer l’e-mail de confirmation',
+      description:
+        'Indiquez l’adresse e-mail utilisée lors de l’inscription et nous vous enverrons un nouveau lien de confirmation.',
+      submit: 'Envoyer le lien',
+      sent: {
+        title: 'Consultez votre boîte de réception',
+        description:
+          'Si un compte associé à {{email}} attend une confirmation, un nouveau lien est en route.',
+      },
+    },
     errors: {
       invalidCredentials: 'E-mail ou mot de passe incorrect.',
       emailNotConfirmed:
