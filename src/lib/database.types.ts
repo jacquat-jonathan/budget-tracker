@@ -23,16 +23,172 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "profiles": {
+            "budget_invitations": {
                   Row: {
-                    "created_at": string,"display_name": string | null,"id": string,"updated_at": string
+                    "budget_id": string,"created_at": string,"email": string,"id": string,"invited_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"display_name"?: string | null,"id": string,"updated_at"?: string
+                    "budget_id": string,"created_at"?: string,"email": string,"id"?: string,"invited_by"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"display_name"?: string | null,"id"?: string,"updated_at"?: string
+                    "budget_id"?: string,"created_at"?: string,"email"?: string,"id"?: string,"invited_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "budget_invitations_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "budget_invitations_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"budget_members": {
+                  Row: {
+                    "budget_id": string,"created_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "budget_id": string,"created_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "budget_id"?: string,"created_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "budget_members_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "budget_members_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"budgets": {
+                  Row: {
+                    "created_at": string,"end_date": string | null,"id": string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name"?: string,"owner_id"?: string,"primary_income_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "budgets_primary_income_fk"
+      columns: ["primary_income_id","id"]
+isOneToOne: false
+      referencedRelation: "income_overview"
+      referencedColumns: ["id","budget_id"]
+    },{
+      foreignKeyName: "budgets_primary_income_fk"
+      columns: ["primary_income_id","id"]
+isOneToOne: false
+      referencedRelation: "incomes"
+      referencedColumns: ["id","budget_id"]
+    }
+                  ]
+                },"income_versions": {
+                  Row: {
+                    "amount": number,"budget_id": string,"created_at": string,"effective_from_seq": number,"id": string,"income_id": string,"pay_day": number,"updated_at": string,"weekend_rule": Database["public"]['Enums']["weekend_rule"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"budget_id": string,"created_at"?: string,"effective_from_seq": number,"id"?: string,"income_id": string,"pay_day": number,"updated_at"?: string,"weekend_rule"?: Database["public"]['Enums']["weekend_rule"]
+                  }
+                  Update: {
+                    "amount"?: number,"budget_id"?: string,"created_at"?: string,"effective_from_seq"?: number,"id"?: string,"income_id"?: string,"pay_day"?: number,"updated_at"?: string,"weekend_rule"?: Database["public"]['Enums']["weekend_rule"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "income_versions_income_fk"
+      columns: ["income_id","budget_id"]
+isOneToOne: false
+      referencedRelation: "income_overview"
+      referencedColumns: ["id","budget_id"]
+    },{
+      foreignKeyName: "income_versions_income_fk"
+      columns: ["income_id","budget_id"]
+isOneToOne: false
+      referencedRelation: "incomes"
+      referencedColumns: ["id","budget_id"]
+    }
+                  ]
+                },"incomes": {
+                  Row: {
+                    "budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"name": string,"updated_at": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"name": string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"name"?: string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "incomes_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "incomes_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"periods": {
+                  Row: {
+                    "budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"seq": number,"start_date": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"seq": number,"start_date": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"seq"?: number,"start_date"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "periods_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "periods_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"profiles": {
+                  Row: {
+                    "created_at": string,"display_name": string | null,"email": string | null,"id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"display_name"?: string | null,"email"?: string | null,"id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"display_name"?: string | null,"email"?: string | null,"id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -40,13 +196,162 @@ export type Database = {
                 }
           }
           Views: {
-            [_ in never]: never
+            "budget_member_list": {
+                  Row: {
+                    "budget_id": string,"display_name": string | null,"email": string | null,"joined_at": string,"role": string | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "budget_members_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "budget_members_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"income_overview": {
+                  Row: {
+                    "amount": number,"budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"is_active": boolean | null,"is_primary": boolean | null,"name": string,"next_pay_date": string | null,"pay_day": number,"terms_from_seq": number,"updated_at": string,"user_id": string | null,"weekend_rule": Database["public"]['Enums']["weekend_rule"]
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "incomes_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "incomes_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"my_budgets": {
+                  Row: {
+                    "created_at": string,"end_date": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "budgets_primary_income_fk"
+      columns: ["primary_income_id","id"]
+isOneToOne: false
+      referencedRelation: "income_overview"
+      referencedColumns: ["id","budget_id"]
+    },{
+      foreignKeyName: "budgets_primary_income_fk"
+      columns: ["primary_income_id","id"]
+isOneToOne: false
+      referencedRelation: "incomes"
+      referencedColumns: ["id","budget_id"]
+    }
+                  ]
+                },"period_summaries": {
+                  Row: {
+                    "budget_id": string,"end_date": string,"end_is_manual": boolean,"id": string,"income_total": number | null,"is_current": boolean | null,"seq": number,"start_date": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"seq"?: number | null,"start_date"?: string | null
+                         }
+                        Update: {
+                           "budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"seq"?: number | null,"start_date"?: string | null
+                         }
+                        Relationships: [
+                    {
+      foreignKeyName: "periods_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "periods_budget_id_fkey"
+      columns: ["budget_id"]
+isOneToOne: false
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                }
           }
           Functions: {
-            [_ in never]: never
+            "accept_invitation":
+{ Args: { "p_invitation_id": string }; Returns: string
+                           },
+"add_income":
+{ Args: { "p_amount": number,"p_budget_id": string,"p_from_period_id"?: string,"p_name": string,"p_pay_day": number,"p_user_id"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
+                           },
+"create_budget":
+{ Args: { "p_amount": number,"p_income_name": string,"p_name": string,"p_pay_day": number,"p_start_month"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
+                           },
+"decline_invitation":
+{ Args: { "p_invitation_id": string }; Returns: undefined
+                           },
+"ensure_periods":
+{ Args: { "p_budget_id": string }; Returns: number
+                           },
+"get_current_period":
+{ Args: { "p_budget_id": string }; Returns: {
+              "budget_id": string,
+"end_date": string,
+"end_is_manual": boolean,
+"id": string,
+"income_total": number | null,
+"is_current": boolean | null,
+"seq": number,
+"start_date": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "period_summaries"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"invite_member":
+{ Args: { "p_budget_id": string,"p_email": string }; Returns: string
+                           },
+"leave_budget":
+{ Args: { "p_budget_id": string }; Returns: undefined
+                           },
+"list_my_invitations":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "budget_id": string,"budget_name": string,"created_at": string,"id": string,"invited_by_name": string
+            }[]
+                           },
+"move_period_boundary":
+{ Args: { "p_new_end": string,"p_period_id": string }; Returns: undefined
+                           },
+"pay_date":
+{ Args: { "p_month": number,"p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"],"p_year": number }; Returns: string
+                           },
+"remove_income":
+{ Args: { "p_income_id": string }; Returns: string
+                           },
+"remove_member":
+{ Args: { "p_budget_id": string,"p_user_id": string }; Returns: undefined
+                           },
+"set_budget_end_date":
+{ Args: { "p_budget_id": string,"p_end_date": string }; Returns: string
+                           },
+"set_primary_income":
+{ Args: { "p_income_id": string }; Returns: undefined
+                           },
+"update_income_terms":
+{ Args: { "p_amount": number,"p_income_id": string,"p_pay_day": number,"p_weekend_rule": Database["public"]['Enums']["weekend_rule"] }; Returns: undefined
+                           }
           }
           Enums: {
-            [_ in never]: never
+            "weekend_rule": "nearest"|"previous"|"next"|"none"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -166,7 +471,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            
+            "weekend_rule": ["nearest", "previous", "next", "none"]
           }
         }
 } as const

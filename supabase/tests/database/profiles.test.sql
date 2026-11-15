@@ -7,7 +7,7 @@ select plan(24);
 select has_table('public', 'profiles', 'profiles table exists');
 select policies_are(
   'public', 'profiles',
-  array['Users can read their own profile', 'Users can update their own profile'],
+  array['Users can read their own and co-members'' profiles', 'Users can update their own profile'],
   'profiles has exactly the select and update policies'
 );
 
