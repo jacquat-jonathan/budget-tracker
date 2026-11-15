@@ -91,7 +91,23 @@ select tests.authenticate_as('alice');        -- act as Alice (role authenticate
 select tests.authenticate_as_anon();          -- act as a signed-out visitor
 select tests.clear_authentication();          -- back to postgres (bypasses RLS)
 select tests.get_user_id('alice');
+select tests.get_user_email('alice');         -- for invitations
+select tests.create_user('eve', 'Eve', false);  -- an account whose email is not verified
+select tests.set_today('2026-11-15');         -- pin the database's "today" (as postgres)
+select tests.remember('budget', public.create_budget(...));  -- name an id ...
+select tests.id('budget');                    -- ... and use it under any role
 ```
+
+Deferred constraint triggers (period contiguity, one primary income, ...) only fire at
+commit, and tests roll back, so assert them with
+`select lives_ok('set constraints all immediate', '...')` followed by
+`set constraints all deferred;`. The client contract the tests protect is in
+`docs/database.md`.
+
+`60_periods_concurrency.test.sql` is the exception to the rollback rule: it opens extra
+connections with `dblink` (local credentials `postgres`/`postgres`) to race two callers,
+commits a throwaway user and budget, and deletes them at the end (and at the start, should
+an earlier run have failed half-way).
 
 Test at least: the owner can do what the policies allow; another user cannot read or
 change the row; anon gets nothing. Scope every assertion to rows the test created

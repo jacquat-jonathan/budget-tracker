@@ -45,7 +45,7 @@ insert into cases values
   ('31 Dec 2028 (Sun), next -> 1 Jan 2029',  2028, 12, 31, 'next',    '2029-01-01'),
   ('31 Dec 2028 (Sun), previous -> 29 Dec',  2028, 12, 31, 'previous', '2028-12-29');
 
-select plan((select count(*)::integer from cases) + 3);
+select plan((select count(*)::integer from cases) + 5);
 
 select is(public.pay_date(year, month, pay_day, rule), expected, label) from cases;
 
@@ -65,6 +65,18 @@ select throws_ok(
   'P0001',
   'invalid_pay_day',
   'a month above 12 is rejected'
+);
+
+-- "Today" is the Europe/Zurich calendar date, decided by the database.
+select is(
+  private.today(),
+  (now() at time zone 'Europe/Zurich')::date,
+  'private.today() is the current date in Europe/Zurich'
+);
+select matches(
+  (select prosrc from pg_proc where oid = 'private.today()'::regprocedure),
+  'Europe/Zurich',
+  'private.today() is defined in the Europe/Zurich time zone, not the server''s or UTC'
 );
 
 select * from finish();
