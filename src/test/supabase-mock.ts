@@ -38,12 +38,14 @@ export function createSupabaseMock(initialSession: Session | null = null) {
       emit('SIGNED_OUT', null)
       return Promise.resolve({ error: null })
     }),
+    // Accepts tokens made by fakeToken() (the session is for the user they name) and any
+    // other string (the default test user).
     setSession: vi.fn(
       (tokens: {
         access_token: string
         refresh_token: string
       }): Promise<AuthResult<SessionData>> => {
-        const next = fakeSession({}, tokens.access_token)
+        const next = sessionFromToken(tokens.access_token)
         emit('SIGNED_IN', next)
         return Promise.resolve({ data: { session: next, user: next.user }, error: null })
       },
@@ -90,4 +92,52 @@ export function fakeSession(
       ...overrides,
     },
   }
+}
+
+export interface TestUser {
+  id: string
+  email: string
+}
+
+export const userX: TestUser = {
+  id: '00000000-0000-0000-0000-00000000000a',
+  email: 'xavier@example.ch',
+}
+export const userY: TestUser = {
+  id: '00000000-0000-0000-0000-00000000000b',
+  email: 'yasmine@example.ch',
+}
+
+const base64url = (value: object) =>
+  btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+
+/** An unsigned JWT-shaped access token naming a user and a sign-in (session_id). */
+export function fakeToken(user: TestUser, sessionId: string): string {
+  const payload = { sub: user.id, email: user.email, session_id: sessionId }
+  return `${base64url({ alg: 'none' })}.${base64url(payload)}.sig`
+}
+
+/** A session for `user` from one particular sign-in. */
+export function sessionFor(user: TestUser, sessionId: string): Session {
+  return fakeSession(
+    { id: user.id, email: user.email, user_metadata: {} },
+    fakeToken(user, sessionId),
+  )
+}
+
+function sessionFromToken(accessToken: string): Session {
+  try {
+    const payload = JSON.parse(
+      atob((accessToken.split('.')[1] ?? '').replace(/-/g, '+').replace(/_/g, '/')),
+    ) as {
+      sub?: string
+      email?: string
+    }
+    if (payload.sub && payload.email) {
+      return fakeSession({ id: payload.sub, email: payload.email, user_metadata: {} }, accessToken)
+    }
+  } catch {
+    // Not a fake JWT.
+  }
+  return fakeSession({}, accessToken)
 }

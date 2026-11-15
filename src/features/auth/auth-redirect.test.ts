@@ -1,7 +1,7 @@
 import {
   captureAuthRedirect,
   parseAuthRedirect,
-  settleAuthRedirect,
+  dropParkedLink,
   stripAuthParams,
   takeAuthRedirect,
 } from '@/features/auth/auth-redirect'
@@ -64,14 +64,17 @@ describe('captureAuthRedirect', () => {
     expect(takeAuthRedirect()).toEqual({
       tokens: { access_token: 'a', refresh_token: 'b' },
       type: 'recovery',
+      fromParking: false,
     })
-    // Kept for this tab (not in any URL) until the bootstrap settles it, so a reload after a
-    // network failure can retry.
+    // Kept for this tab (never in a URL) until the attempt is settled, so a reload while it
+    // is undecided can retry.
     expect(takeAuthRedirect()).toEqual({
       tokens: { access_token: 'a', refresh_token: 'b' },
       type: 'recovery',
+      sessionKeyAtPark: undefined,
+      fromParking: true,
     })
-    settleAuthRedirect()
+    dropParkedLink()
     expect(takeAuthRedirect()).toBeNull()
   })
 

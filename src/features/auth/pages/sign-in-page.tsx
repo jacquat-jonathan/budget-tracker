@@ -12,6 +12,7 @@ import { authErrorKey, type AuthErrorKey } from '@/features/auth/auth-errors'
 import { AuthLayout } from '@/features/auth/components/auth-layout'
 import { TextField } from '@/features/auth/components/text-field'
 import type { ResendConfirmationState } from '@/features/auth/pages/resend-confirmation-page'
+import { endRecovery } from '@/features/auth/recovery'
 import { signInSchema, type SignInValues } from '@/features/auth/schemas'
 import { supabase } from '@/lib/supabase'
 
@@ -28,6 +29,11 @@ export function SignInPage() {
   const onSubmit = form.handleSubmit(async (values) => {
     setErrorKey(null)
     try {
+      // Knowing the password makes a pending password recovery moot (invariant D). The new
+      // session would not match the recovery flag anyway (recovery.ts); this also covers
+      // tokens without a session_id claim. Nobody is signed in on this page, so the flag
+      // cannot belong to a live session here.
+      endRecovery()
       const { error } = await supabase.auth.signInWithPassword(values)
       // On success the auth listener updates the session and the public-only route
       // sends the user to the page they originally asked for.

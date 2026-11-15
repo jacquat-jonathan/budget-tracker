@@ -112,14 +112,8 @@ export const fr: Translation = {
     },
     resetPassword: {
       title: 'Choisir un nouveau mot de passe',
-      description: 'Saisissez le nouveau mot de passe de votre compte.',
+      description: 'Saisissez un nouveau mot de passe pour le compte {{email}}.',
       submit: 'Enregistrer le mot de passe',
-      invalidLink: {
-        title: 'Ce lien n’est plus valable',
-        description:
-          'Les liens de réinitialisation expirent au bout d’un certain temps et ne servent qu’une fois. Demandez-en un nouveau.',
-        action: 'Demander un nouveau lien',
-      },
       cancel: 'Annuler et se déconnecter',
     },
     backToSignIn: 'Retour à la connexion',
@@ -130,12 +124,15 @@ export const fr: Translation = {
     linkError: {
       title: 'Ce lien ne fonctionne plus',
       expired:
-        'Les liens envoyés par e-mail expirent au bout d’un certain temps et ne servent qu’une fois. Demandez-en un nouveau ci-dessous.',
-      invalid: 'Ce lien est incomplet ou n’est pas valable. Demandez-en un nouveau ci-dessous.',
+        'Les liens envoyés par e-mail expirent au bout d’un certain temps et ne servent qu’une fois.',
+      invalid: 'Ce lien est incomplet ou n’est pas valable.',
       networkTitle: 'Impossible de vérifier ce lien',
       network:
         'Le serveur est injoignable, votre lien n’a donc pas été utilisé. Vérifiez votre connexion, puis réessayez.',
       retry: 'Réessayer',
+      signedInAs: 'La session de {{email}} reste ouverte. Ce lien n’a rien modifié sur ce compte.',
+      continue: 'Continuer vers l’application',
+      signOutForNew: 'Se déconnecter pour demander un nouveau lien',
     },
     resendConfirmation: {
       title: 'Renvoyer l’e-mail de confirmation',

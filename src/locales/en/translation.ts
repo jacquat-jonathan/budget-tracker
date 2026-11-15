@@ -104,14 +104,8 @@ export const en = {
     },
     resetPassword: {
       title: 'Choose a new password',
-      description: 'Enter the new password for your account.',
+      description: 'Enter a new password for the account {{email}}.',
       submit: 'Save new password',
-      invalidLink: {
-        title: 'This link is no longer valid',
-        description:
-          'Password reset links expire after a while and work only once. Request a new one.',
-        action: 'Request a new link',
-      },
       cancel: 'Cancel and sign out',
     },
     backToSignIn: 'Back to sign in',
@@ -121,12 +115,16 @@ export const en = {
     },
     linkError: {
       title: 'This link no longer works',
-      expired: 'Email links expire after a while and work only once. Request a new one below.',
-      invalid: 'This link is incomplete or not valid. Request a new one below.',
+      expired: 'Email links expire after a while and work only once.',
+      invalid: 'This link is incomplete or not valid.',
       networkTitle: 'We could not check this link',
       network:
         'The server could not be reached, so your link has not been used. Check your connection, then try again.',
       retry: 'Try again',
+      signedInAs:
+        'You are still signed in as {{email}}. This link changed nothing for that account.',
+      continue: 'Continue to the app',
+      signOutForNew: 'Sign out to request a new link',
     },
     resendConfirmation: {
       title: 'Resend the confirmation email',

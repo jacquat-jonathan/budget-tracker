@@ -20,10 +20,18 @@ interface AuthLayoutProps {
   description?: ReactNode
   children?: ReactNode
   footer?: ReactNode
+  /** The page shows the email-link notice itself (reset-password). */
+  hideLinkNotice?: boolean
 }
 
 /** Centered card used by every signed-out page, with language and theme controls. */
-export function AuthLayout({ title, description, children, footer }: AuthLayoutProps) {
+export function AuthLayout({
+  title,
+  description,
+  children,
+  footer,
+  hideLinkNotice = false,
+}: AuthLayoutProps) {
   const { t } = useTranslation()
   useDocumentTitle(title)
 
@@ -50,7 +58,7 @@ export function AuthLayout({ title, description, children, footer }: AuthLayoutP
             {description && <CardDescription>{description}</CardDescription>}
           </CardHeader>
           <CardContent className="flex flex-col gap-4 empty:hidden">
-            <LinkErrorAlert />
+            {!hideLinkNotice && <LinkErrorAlert />}
             {children}
           </CardContent>
           {footer && (

@@ -2,42 +2,44 @@ import type { Session } from '@supabase/supabase-js'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
-import {
-  bootstrapAuth,
-  clearRecovery,
-  isRecoveryFor,
-  markRecovery,
-  RECOVERY_KEY,
-} from '@/features/auth/auth-bootstrap'
+import { bootstrapAuth } from '@/features/auth/auth-bootstrap'
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
-import type { AuthLinkError } from '@/features/auth/auth-redirect'
+import { dropParkedLink, type AuthLinkError } from '@/features/auth/auth-redirect'
+import { endRecovery, isRecoveryFor, RECOVERY_KEY, startRecovery } from '@/features/auth/recovery'
+import { sessionKey } from '@/features/auth/session-identity'
 import { supabase } from '@/lib/supabase'
 
+/**
+ * Session state for the app, plus the two pieces of email-link state:
+ *
+ * - `recovery` is derived, never stored here: it is true only while the recovery flag names
+ *   the current session (recovery.ts). It is recomputed whenever the session changes or
+ *   another tab changes the flag.
+ * - `linkError` is the outcome of the link this page load landed with. It stays until the
+ *   user dismisses it or the session identity changes (someone signs in, out, or as someone
+ *   else), which also ends any parked attempt (invariant C).
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const [recovery, setRecovery] = useState(false)
   const [linkError, setLinkError] = useState<AuthLinkError | null>(null)
-  // Id of the user whose data the query cache holds; undefined until first known.
+  // Bumped when the recovery flag changes, so `recovery` is recomputed.
+  const [recoveryVersion, setRecoveryVersion] = useState(0)
+  // Session identity (sessionKey) of the current session; undefined until first known.
+  const currentKey = useRef<string | null | undefined>(undefined)
+  // User whose data the query cache holds; undefined until first known.
   const cachedUserId = useRef<string | null | undefined>(undefined)
-  const currentUserId = useRef<string | undefined>(undefined)
 
   const applySession = useCallback(
     (next: Session | null) => {
       const nextUserId = next?.user.id ?? null
-      // Never show one user's cached data to another: clear on sign-out and whenever the
-      // session switches to a different user (e.g. another household member's email link
-      // opened in a signed-in tab).
+      // Never show one user's cached data to another.
       if (cachedUserId.current !== undefined && cachedUserId.current !== nextUserId) {
         queryClient.clear()
       }
       cachedUserId.current = nextUserId
-      currentUserId.current = next?.user.id
       setSession(next)
-      // A dead-link notice is moot once someone is signed in; it must not resurface on the
-      // sign-in page after a later sign-out.
-      if (next) setLinkError(null)
     },
     [queryClient],
   )
@@ -46,31 +48,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true
     let ready = false
 
-    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      // Before the bootstrap finishes, its result is the source of truth (INITIAL_SESSION may
-      // still be null while an email link's session is being set).
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
+      // Before the bootstrap finishes, its result is the source of truth.
       if (!active || !ready) return
-      applySession(nextSession)
-      if (event === 'PASSWORD_RECOVERY' && nextSession) {
-        markRecovery(nextSession.user.id)
-        setRecovery(true)
-      } else if (event === 'SIGNED_OUT') {
-        clearRecovery()
-        setRecovery(false)
-      } else {
-        setRecovery(isRecoveryFor(nextSession?.user.id))
+      const nextKey = sessionKey(next)
+      if (nextKey !== currentKey.current) {
+        // A different sign-in (or none) took over, in this tab or another: the link this
+        // page landed with is no longer the story, and a parked attempt is over (C).
+        dropParkedLink()
+        setLinkError(null)
       }
+      currentKey.current = nextKey
+      if (event === 'SIGNED_OUT') endRecovery()
+      if (event === 'PASSWORD_RECOVERY' && next) startRecovery(next)
+      applySession(next)
+      setRecoveryVersion((version) => version + 1)
     })
 
     bootstrapAuth()
       .then((result) => {
         if (!active) return
+        currentKey.current = sessionKey(result.session)
         applySession(result.session)
-        setRecovery(result.recovery)
-        setLinkError(result.session ? null : result.linkError)
+        setLinkError(result.linkError)
+        setRecoveryVersion((version) => version + 1)
       })
       .catch(() => {
-        if (active) applySession(null)
+        if (!active) return
+        currentKey.current = null
+        applySession(null)
       })
       .finally(() => {
         if (!active) return
@@ -88,23 +94,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === RECOVERY_KEY || event.key === null) {
-        setRecovery(isRecoveryFor(currentUserId.current))
+        setRecoveryVersion((version) => version + 1)
       }
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recoveryVersion signals a storage change
+  const recovery = useMemo(() => isRecoveryFor(session), [session, recoveryVersion])
+
   const completeRecovery = useCallback(() => {
-    clearRecovery()
-    setRecovery(false)
+    endRecovery()
+    setRecoveryVersion((version) => version + 1)
   }, [])
 
-  const dismissLinkError = useCallback(() => setLinkError(null), [])
+  // Dismissing a notice ends that link attempt: parked tokens are not retried later.
+  const dismissLinkError = useCallback(() => {
+    dropParkedLink()
+    setLinkError(null)
+  }, [])
 
   const signOut = useCallback(async () => {
-    clearRecovery()
-    setRecovery(false)
+    endRecovery()
+    dropParkedLink()
+    setRecoveryVersion((version) => version + 1)
     const { error } = await supabase.auth.signOut()
     if (error) {
       // The server session may already be gone; drop the local one regardless.

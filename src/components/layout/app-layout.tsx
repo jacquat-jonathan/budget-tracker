@@ -17,6 +17,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { LinkErrorAlert } from '@/features/auth/components/link-error-alert'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 
 /** Same cookie the shadcn sidebar writes when it is toggled. */
@@ -78,7 +79,9 @@ export function AppLayout() {
             />
             <AppBreadcrumb />
           </header>
-          <div className="flex flex-1 flex-col p-4 md:p-6">
+          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+            {/* An email link that landed while signed in and did not sign anyone in. */}
+            <LinkErrorAlert />
             <Suspense fallback={<FullPageSpinner inline />}>
               <Outlet />
             </Suspense>

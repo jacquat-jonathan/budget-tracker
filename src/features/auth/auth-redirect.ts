@@ -94,42 +94,60 @@ export function stripAuthParams(href: string): string {
 const PENDING_LINK_KEY = 'budget-tracker-pending-link'
 const PENDING_LINK_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
-interface StoredLink {
+/**
+ * Link tokens waiting for a definite answer, kept for this tab only (sessionStorage), never
+ * in a URL. They belong to one attempt made while one particular session (or none) was
+ * current: `sessionKeyAtPark` records it once the first attempt fails for a transient
+ * reason (undefined while the first attempt is still running). If the current session is
+ * different later, someone signed in or out in between and the tokens are dropped
+ * (invariant C).
+ */
+interface ParkedLink {
   tokens: AuthRedirectTokens
   type?: string
   capturedAt: number
+  sessionKeyAtPark?: string | null
 }
 
-function storeLink(redirect: AuthRedirect): void {
-  if (!redirect.tokens) return
+export interface TakenRedirect extends AuthRedirect {
+  /** Present for tokens parked by an earlier page load (see ParkedLink). */
+  sessionKeyAtPark?: string | null
+  /** True when the tokens come from an earlier page load rather than this URL. */
+  fromParking: boolean
+}
+
+function writeParked(link: ParkedLink): void {
   try {
-    const stored: StoredLink = {
-      tokens: redirect.tokens,
-      type: redirect.type,
-      capturedAt: Date.now(),
-    }
-    sessionStorage.setItem(PENDING_LINK_KEY, JSON.stringify(stored))
+    sessionStorage.setItem(PENDING_LINK_KEY, JSON.stringify(link))
   } catch {
-    // Without storage a failed attempt cannot be retried by reloading; the link still works.
+    // Without storage a failed attempt cannot be retried by reloading.
   }
 }
 
-function readStoredLink(): AuthRedirect | null {
+function readParked(): ParkedLink | null {
   try {
     const raw = sessionStorage.getItem(PENDING_LINK_KEY)
     if (!raw) return null
-    const stored = JSON.parse(raw) as Partial<StoredLink>
-    const tokens = stored.tokens
+    const link = JSON.parse(raw) as Partial<ParkedLink>
+    const tokens = link.tokens
     if (
       typeof tokens?.access_token !== 'string' ||
       typeof tokens.refresh_token !== 'string' ||
-      typeof stored.capturedAt !== 'number' ||
-      Date.now() - stored.capturedAt > PENDING_LINK_MAX_AGE_MS
+      typeof link.capturedAt !== 'number' ||
+      Date.now() - link.capturedAt > PENDING_LINK_MAX_AGE_MS
     ) {
       sessionStorage.removeItem(PENDING_LINK_KEY)
       return null
     }
-    return { tokens, type: typeof stored.type === 'string' ? stored.type : undefined }
+    return {
+      tokens,
+      type: typeof link.type === 'string' ? link.type : undefined,
+      capturedAt: link.capturedAt,
+      sessionKeyAtPark:
+        typeof link.sessionKeyAtPark === 'string' || link.sessionKeyAtPark === null
+          ? link.sessionKeyAtPark
+          : undefined,
+    }
   } catch {
     return null
   }
@@ -143,26 +161,55 @@ export function captureAuthRedirect(): void {
   const redirect = parseAuthRedirect(window.location.href)
   if (!redirect) return
   pending = redirect
-  storeLink(redirect)
+  // A newly landed link replaces anything parked earlier in this tab.
+  dropParkedLink()
+  // Kept from the start, so a reload while the first check is running does not lose it.
+  if (redirect.tokens) {
+    writeParked({ tokens: redirect.tokens, type: redirect.type, capturedAt: Date.now() })
+  }
   const cleaned = stripAuthParams(window.location.href)
   window.history.replaceState(window.history.state, '', cleaned)
 }
 
 /**
  * The redirect to process at start-up: the one captured from this page's URL, or else link
- * tokens from an earlier load whose validation failed for a transient reason.
+ * tokens parked by an earlier load whose check failed for a transient reason.
  */
-export function takeAuthRedirect(): AuthRedirect | null {
-  const redirect = pending ?? readStoredLink()
+export function takeAuthRedirect(): TakenRedirect | null {
+  const fresh = pending
   pending = null
-  return redirect
+  if (fresh) return { ...fresh, fromParking: false }
+  const parked = readParked()
+  if (!parked) return null
+  return {
+    tokens: parked.tokens,
+    type: parked.type,
+    sessionKeyAtPark: parked.sessionKeyAtPark,
+    fromParking: true,
+  }
 }
 
-/** The link tokens got a definite answer (accepted or rejected): stop retrying them. */
-export function settleAuthRedirect(): void {
+/** The check failed for a transient reason while `currentKey` was the current session. */
+export function parkLink(redirect: AuthRedirect, currentKey: string | null): void {
+  if (!redirect.tokens) return
+  writeParked({
+    tokens: redirect.tokens,
+    type: redirect.type,
+    capturedAt: Date.now(),
+    sessionKeyAtPark: currentKey,
+  })
+}
+
+/** Forget parked link tokens: definite answer, sign-out, or another sign-in. */
+export function dropParkedLink(): void {
   try {
     sessionStorage.removeItem(PENDING_LINK_KEY)
   } catch {
     // Nothing stored.
   }
+}
+
+/** True while link tokens are parked in this tab. */
+export function hasParkedLink(): boolean {
+  return readParked() !== null
 }
