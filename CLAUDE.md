@@ -16,6 +16,7 @@ source of truth for product behaviour and the decisions already taken.
 
 ## Layout
 
+- `src/app/` router, route guards, paths, sidebar navigation config, providers.
 - `src/components/ui/` shadcn components (generated, keep edits minimal).
 - `src/components/` shared app components (layout, sidebar).
 - `src/features/<feature>/` pages, components, hooks and queries of one feature.
@@ -31,6 +32,12 @@ source of truth for product behaviour and the decisions already taken.
 - Every table has row-level security enabled, with policies, in the same migration that
   creates it.
 - Period, pay-date and versioning logic is pure and unit-tested.
+- Database tests (pgTAP, `supabase/tests/`) must pass on a database that already holds
+  data: scope assertions to the test's own rows. Every table gets tests proving what
+  another user and an anonymous visitor cannot do.
+- Calendar dates (`YYYY-MM-DD`) and timestamps are different things; never run a calendar
+  date through a time zone.
+- The production Content-Security-Policy is `script-src 'self'`: no inline scripts.
 - Every user-facing string exists in both `en` and `fr`.
 - Never commit secrets. Only the Supabase URL and publishable (anon) key reach the browser,
   through `VITE_` variables.
