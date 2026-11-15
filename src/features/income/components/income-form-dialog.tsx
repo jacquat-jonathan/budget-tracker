@@ -191,7 +191,7 @@ function IncomeForm({
             {income?.is_primary && <p className="mt-1">{t('income.editPrimaryNote')}</p>}
           </AlertDescription>
         </Alert>
-        <DialogFooter>
+        <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>

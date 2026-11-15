@@ -137,7 +137,7 @@ export function PeriodsPage() {
                   </p>
                 </div>
                 <div className="flex items-center justify-between gap-4 sm:justify-end">
-                  <div className="text-right">
+                  <div className="sm:text-right">
                     <p className="text-xs text-muted-foreground">{t('periods.incomeTotal')}</p>
                     <p className="font-medium tabular-nums">
                       {formatMoney(period.income_total ?? 0)}
