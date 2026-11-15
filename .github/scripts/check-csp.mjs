@@ -3,6 +3,12 @@
 //
 // Usage: node .github/scripts/check-csp.mjs <path/to/.htaccess> <supabase-url>
 //
+// Every Content-Security-Policy header directive in the file is checked (set, append, add,
+// merge, setifempty; with or without "always"), and any one that blocks the project fails.
+// Which of several would really be sent depends on Apache's section merging (<If>,
+// <FilesMatch>, ...), and a browser enforcing several policies applies all of them, so
+// checking all of them is the safe reading.
+//
 // Matching is deliberately strict (CSP Level 2 rules): an https source does not count for
 // wss, so both must be allowed explicitly, as the shipped policy does.
 
@@ -30,18 +36,24 @@ if (url.protocol !== 'https:') {
 }
 
 const htaccess = readFileSync(htaccessPath, 'utf8')
-const match = htaccess.match(/^\s*Header\s+(?:always\s+)?set\s+Content-Security-Policy\s+"([^"]*)"/im)
-if (!match) {
+const headerPattern =
+  /^[ \t]*Header[ \t]+(?:always[ \t]+|onsuccess[ \t]+)?(?:set|append|add|merge|setifempty)[ \t]+Content-Security-Policy[ \t]+"([^"]*)"/gim
+const policies = [...htaccess.matchAll(headerPattern)].map((m) => m[1])
+if (policies.length === 0) {
   fail(`No Content-Security-Policy header found in ${htaccessPath}.`)
 }
 
-const directives = new Map()
-for (const part of match[1].split(';')) {
-  const [name, ...sources] = part.trim().split(/\s+/)
-  if (name && !directives.has(name.toLowerCase())) directives.set(name.toLowerCase(), sources)
+function connectSources(policy) {
+  const directives = new Map()
+  for (const part of policy.split(';')) {
+    const [name, ...sources] = part.trim().split(/\s+/)
+    if (name && !directives.has(name.toLowerCase())) directives.set(name.toLowerCase(), sources)
+  }
+  const directiveName = directives.has('connect-src') ? 'connect-src' : 'default-src'
+  // No connect-src and no default-src: the policy does not restrict connections.
+  const sources = directives.get(directiveName) ?? ['*', 'https:', 'wss:']
+  return { directiveName, sources }
 }
-const directiveName = directives.has('connect-src') ? 'connect-src' : 'default-src'
-const sources = directives.get(directiveName) ?? []
 
 const defaultPorts = { 'https:': '443', 'wss:': '443' }
 
@@ -67,19 +79,28 @@ function sourceAllows(source, target) {
   return true
 }
 
-const targets = [
-  new URL(`https://${url.host}/`),
-  new URL(`wss://${url.host}/`),
-]
-const blocked = targets.filter((t) => !sources.some((s) => sourceAllows(s, t)))
+const targets = [new URL(`https://${url.host}/`), new URL(`wss://${url.host}/`)]
+const describe = (t) => `${t.protocol}//${t.host}`
 
-if (blocked.length > 0) {
+const failures = []
+policies.forEach((policy, index) => {
+  const { directiveName, sources } = connectSources(policy)
+  const blocked = targets.filter((t) => !sources.some((s) => sourceAllows(s, t)))
+  if (blocked.length > 0) {
+    failures.push(
+      `Content-Security-Policy header ${index + 1} of ${policies.length} in ${htaccessPath} ` +
+        `(${directiveName} ${sources.join(' ')}) blocks ${blocked.map(describe).join(' and ')}`,
+    )
+  }
+})
+
+if (failures.length > 0) {
   fail(
-    `The Content-Security-Policy in public/.htaccess (${directiveName} ${sources.join(' ')}) ` +
-      `blocks ${blocked.map((t) => t.origin.replace(/\/$/, '')).join(' and ')}, so the deployed ` +
-      `app could not reach Supabase. Add them to connect-src (see docs/deployment.md) or fix ` +
-      `VITE_SUPABASE_URL.`,
+    `${failures.join('; ')}. The deployed app could not reach Supabase. Allow them in ` +
+      `connect-src in public/.htaccess (see docs/deployment.md) or fix VITE_SUPABASE_URL.`,
   )
 }
 
-console.log(`CSP ${directiveName} allows ${targets.map((t) => `${t.protocol}//${t.host}`).join(' and ')}.`)
+console.log(
+  `All ${policies.length} Content-Security-Policy header(s) allow ${targets.map(describe).join(' and ')}.`,
+)
