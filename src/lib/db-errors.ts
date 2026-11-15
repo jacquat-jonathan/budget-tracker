@@ -1,3 +1,5 @@
+import type { ParseKeys } from 'i18next'
+
 /**
  * Errors from the database, mapped to translation keys. RPCs raise SQLSTATE P0001 with a
  * stable snake_case message (docs/database.md, "Error messages"); a few other codes can
@@ -25,10 +27,12 @@ export const DB_ERROR_CODES = [
   'invalid_start_month',
   'invalid_end_date',
   'invalid_boundary',
+  'invalid_period',
   'end_date_before_last_period',
-  'boundary_is_budget_end',
+  'boundary_after_today',
   'income_is_primary',
   'income_ended',
+  'income_not_in_force',
   'budget_ended',
   'budget_limit_reached',
   'member_limit_reached',
@@ -90,10 +94,19 @@ function isNetworkError(error: unknown): boolean {
   return typeof message === 'string' && /failed to fetch|networkerror|load failed/i.test(message)
 }
 
+/**
+ * A call's own wording for some codes, where the generic text would be vague: for example
+ * "already deleted" for delete_budget's budget_not_found.
+ */
+export type DbErrorOverrides = Partial<Record<DbErrorCode, ParseKeys>>
+
 /** Translation key for any error a database call can produce. */
-export function dbErrorKey(error: unknown): DbErrorKey {
+export function dbErrorKey(
+  error: unknown,
+  overrides: DbErrorOverrides = {},
+): DbErrorKey | ParseKeys {
   const code = dbErrorCode(error)
-  if (code) return `errors.db.${code}`
+  if (code) return overrides[code] ?? `errors.db.${code}`
   const like = asErrorLike(error)
   if (like?.code === '42501') return 'errors.forbidden'
   if (like?.code === '23514') return 'errors.invalidValue'

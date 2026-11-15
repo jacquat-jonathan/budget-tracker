@@ -43,6 +43,16 @@ function sharedBudget() {
         next_pay_date: '2026-11-30',
       }),
       incomeRow({
+        id: 'income-4',
+        user_id: 'former-member',
+        user_display_name: 'Robin',
+        name: 'Lodger rent',
+        is_primary: false,
+        is_active: false,
+        end_seq: 2,
+        next_pay_date: null,
+      }),
+      incomeRow({
         id: 'income-3',
         user_id: null,
         name: 'Old side job',
@@ -99,7 +109,8 @@ describe('income page', () => {
     expect(screen.getByTestId('monthly-total')).toHaveTextContent("CHF 6'500.00")
     expect(screen.getByRole('heading', { name: 'Ended incomes' })).toBeInTheDocument()
     expect(screen.getByText('Deleted account')).toBeInTheDocument()
-    expect(screen.getByText('Last counted in the period ending 22.10.2026')).toBeInTheDocument()
+    expect(screen.getByText('Robin (former member)')).toBeInTheDocument()
+    expect(screen.getAllByText('Last counted in the period ending 22.10.2026')).toHaveLength(2)
   })
 
   it('a new income is mine by default, and any member’s if I choose them [R-INCOME-002]', async () => {
@@ -166,6 +177,66 @@ describe('income page', () => {
         p_pay_day: 31,
         p_weekend_rule: 'next',
       })
+    })
+  })
+
+  it('corrects the terms from an earlier period only when asked, with a warning [R-INCOME-051] [R-VERSION-010]', async () => {
+    const db = await openIncomePage()
+
+    await userEvent.click(
+      within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
+    expect(within(dialog).getByText(/This changes past periods/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('combobox', { name: 'Apply from' })).toHaveTextContent(
+      'September 2026',
+    )
+    // Same terms: a correction is still sent, to apply them to the earlier periods too.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(db.rpc.update_income_terms).toHaveBeenCalledWith({
+        p_income_id: 'income-2',
+        p_amount: 210_000,
+        p_pay_day: 31,
+        p_weekend_rule: 'next',
+        p_from_period_id: 'period-1',
+      })
+    })
+  })
+
+  it('warns before a new pay day of the primary income closes the current period [R-INCOME-052]', async () => {
+    const db = await openIncomePage()
+    // November's pay date under the new terms, from the database: already past (today 15.11).
+    db.rpc.pay_date.mockImplementation((args) =>
+      args.p_pay_day === 10 ? '2026-11-10' : '2026-11-25',
+    )
+
+    await userEvent.click(
+      within(card('Salary')).getByRole('button', { name: 'Actions for Salary' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).queryByTestId('closes-current-period')).not.toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Pay day' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Day 10' }))
+    expect(await within(dialog).findByTestId('closes-current-period')).toHaveTextContent(
+      'the November 2026 salary is due on 10.11.2026, which has already come',
+    )
+    expect(db.rpc.pay_date).toHaveBeenCalledWith({
+      p_year: 2026,
+      p_month: 11,
+      p_pay_day: 10,
+      p_weekend_rule: 'nearest',
+    })
+
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Pay day' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Day 28' }))
+    await waitFor(() => {
+      expect(within(dialog).queryByTestId('closes-current-period')).not.toBeInTheDocument()
     })
   })
 
@@ -237,6 +308,30 @@ describe('income page', () => {
       await screen.findByText('“Part-time job” ended. Past periods still count it.'),
     ).toBeInTheDocument()
     expect(db.rpc.remove_income).toHaveBeenCalledWith({ p_income_id: 'income-2' })
+  })
+
+  it('removes an income from an earlier period only when asked, with a warning [R-INCOME-051] [R-INCOME-015]', async () => {
+    const db = await openIncomePage()
+
+    await userEvent.click(
+      within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }))
+    const confirm = await screen.findByRole('alertdialog')
+    expect(within(confirm).queryByText(/This changes past periods/)).not.toBeInTheDocument()
+    await userEvent.click(within(confirm).getByLabelText('Remove it from an earlier period'))
+    expect(within(confirm).getByText(/This changes past periods/)).toBeInTheDocument()
+    expect(within(confirm).getByRole('combobox', { name: 'Remove from' })).toHaveTextContent(
+      'September 2026 (25.09.2026 – 22.10.2026)',
+    )
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() => {
+      expect(db.rpc.remove_income).toHaveBeenCalledWith({
+        p_income_id: 'income-2',
+        p_from_period_id: 'period-1',
+      })
+    })
   })
 
   it('shows a refused action as a translated message, in French too [R-APP-004]', async () => {

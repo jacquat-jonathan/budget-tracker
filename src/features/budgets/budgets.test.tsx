@@ -80,7 +80,7 @@ describe('first-run setup [R-BUDGET-050]', () => {
     expect(await screen.findByText('Budget “Our home” created.')).toBeInTheDocument()
   })
 
-  it('sets the optional end date right after creating the budget', async () => {
+  it('offers the start months the database gives, and sends start month and end date in one call [R-PERIOD-027] [R-BUDGET-017]', async () => {
     const db = createMockDb()
     mock.current = createSupabaseMock(fakeSession(), db)
     db.rpc.create_budget.mockImplementation(() => {
@@ -89,18 +89,46 @@ describe('first-run setup [R-BUDGET-050]', () => {
     })
     renderRoutes(routes, '/')
 
-    await userEvent.type(await screen.findByLabelText('Budget name'), 'Trip')
+    // The default is the current period's month, with the date the database computed.
+    expect(await screen.findByTestId('first-period-start')).toHaveTextContent(
+      'The first period starts on 23.10.2026.',
+    )
+    expect(db.rpc.get_start_months).toHaveBeenLastCalledWith({
+      p_pay_day: 25,
+      p_weekend_rule: 'nearest',
+    })
+    // Other terms: the database is asked again.
+    await userEvent.click(screen.getByRole('radio', { name: /^Monday after/ }))
+    await waitFor(() => {
+      expect(db.rpc.get_start_months).toHaveBeenLastCalledWith({
+        p_pay_day: 25,
+        p_weekend_rule: 'next',
+      })
+    })
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'First month' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'September 2026' }))
+    expect(screen.getByTestId('first-period-start')).toHaveTextContent(
+      'The first period starts on 25.09.2026.',
+    )
+    await userEvent.type(screen.getByLabelText('Budget name'), 'Trip')
     await userEvent.type(screen.getByLabelText('End date (optional)'), '31.3.2027')
     await userEvent.type(screen.getByLabelText('Name'), 'Savings')
     await userEvent.type(screen.getByLabelText('Amount per month'), '800')
     await userEvent.click(screen.getByRole('button', { name: 'Create budget' }))
 
     await waitFor(() => {
-      expect(db.rpc.set_budget_end_date).toHaveBeenCalledWith({
-        p_budget_id: 'created',
+      expect(db.rpc.create_budget).toHaveBeenCalledWith({
+        p_name: 'Trip',
+        p_income_name: 'Savings',
+        p_amount: 80_000,
+        p_pay_day: 25,
+        p_weekend_rule: 'next',
+        p_start_month: '2026-09-01',
         p_end_date: '2027-03-31',
       })
     })
+    expect(db.rpc.set_budget_end_date).not.toHaveBeenCalled()
   })
 
   it('validates before calling the database, and shows a refusal as translated text [R-APP-004]', async () => {
@@ -137,6 +165,8 @@ describe('first-run setup [R-BUDGET-050]', () => {
         budget_id: SECOND_ID,
         budget_name: 'Family',
         invited_by_name: 'Sam',
+        invited_by_email: 'sam@example.com',
+        expires_at: '2026-12-10T09:00:00+00:00',
         created_at: '2026-11-10T09:00:00+00:00',
       },
     ])
@@ -149,12 +179,45 @@ describe('first-run setup [R-BUDGET-050]', () => {
 
     const invitations = await screen.findByTestId('my-invitations')
     expect(within(invitations).getByText('Family')).toBeInTheDocument()
-    expect(within(invitations).getByText('From Sam, 10.11.2026')).toBeInTheDocument()
+    // Who is asking, by name and email, and until when [R-INVITE-008].
+    expect(within(invitations).getByText('From Sam (sam@example.com)')).toBeInTheDocument()
+    expect(
+      within(invitations).getByText('Sent on 10.11.2026, valid until 10.12.2026'),
+    ).toBeInTheDocument()
     await userEvent.click(within(invitations).getByRole('button', { name: 'Accept' }))
 
     expect(await screen.findByRole('heading', { name: 'Dashboard', level: 1 })).toBeInTheDocument()
     expect(db.rpc.accept_invitation).toHaveBeenCalledWith({ p_invitation_id: 'inv-1' })
     expect(screen.getByTestId('current-budget-name')).toHaveTextContent('Family')
+  })
+
+  it('an invitation that expired meanwhile is explained and the list refreshed', async () => {
+    const db = createMockDb()
+    mock.current = createSupabaseMock(fakeSession(), db)
+    db.rpc.list_my_invitations.mockImplementation(() => [
+      {
+        id: 'inv-1',
+        budget_id: SECOND_ID,
+        budget_name: 'Family',
+        invited_by_name: 'Sam',
+        invited_by_email: 'sam@example.com',
+        created_at: '2026-10-10T09:00:00+00:00',
+        expires_at: '2026-11-09T09:00:00+00:00',
+      },
+    ])
+    db.rpc.accept_invitation.mockImplementation(() => {
+      db.rpc.list_my_invitations.mockImplementation(() => [])
+      return rpcError('invitation_not_found')
+    })
+    renderRoutes(routes, '/')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Accept' }))
+    expect(
+      await screen.findByText('This invitation has expired or was cancelled.'),
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByTestId('my-invitations')).not.toBeInTheDocument()
+    })
   })
 
   it('declining an invitation removes it from the list', async () => {
@@ -166,6 +229,8 @@ describe('first-run setup [R-BUDGET-050]', () => {
         budget_id: SECOND_ID,
         budget_name: 'Family',
         invited_by_name: 'Sam',
+        invited_by_email: 'sam@example.com',
+        expires_at: '2026-12-10T09:00:00+00:00',
         created_at: '2026-11-10T09:00:00+00:00',
       },
     ])

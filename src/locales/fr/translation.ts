@@ -212,7 +212,7 @@ export const fr: Translation = {
       income_not_found: 'Ce revenu n’existe plus.',
       period_not_found: 'Cette période n’existe plus.',
       member_not_found: 'Cette personne n’est pas membre du budget.',
-      invitation_not_found: 'Cette invitation n’existe plus.',
+      invitation_not_found: 'Cette invitation n’existe plus ou a expiré.',
       not_owner: 'Seul·e le ou la propriétaire du budget peut faire cela.',
       owner_cannot_leave:
         'Le ou la propriétaire ne peut pas quitter le budget. Supprimez-le plutôt.',
@@ -228,20 +228,24 @@ export const fr: Translation = {
         'Choisissez un mois dont le jour de paie est déjà passé, au plus 60 mois en arrière.',
       invalid_end_date: 'La date de fin peut être au plus dans dix ans.',
       invalid_boundary:
-        'Cette date ne convient pas : une période ne peut être ni vide, ni plus longue que 70 jours, ni empiéter sur la suivante.',
+        'Cette date ne convient pas : un salaire peut être au plus à 14 jours de sa date prévue, et une période ne peut être ni vide ni empiéter sur la suivante.',
+      invalid_period:
+        'Ce revenu n’existait pas encore pendant cette période. Choisissez-en une plus récente.',
       end_date_before_last_period:
         'Cette date de fin précède des périodes qui existent déjà. Choisissez une date plus tardive.',
-      boundary_is_budget_end:
-        'C’est la date de fin du budget. Modifiez-la plutôt dans les paramètres.',
+      boundary_after_today: 'Cette limite ne peut pas être déplacée à aujourd’hui ou plus tard.',
       income_is_primary: 'C’est le revenu principal. Désignez d’abord un autre revenu principal.',
       income_ended: 'Ce revenu a pris fin et ne peut plus être modifié.',
+      income_not_in_force:
+        'Ce revenu ne commence que dans une période ultérieure : il ne peut pas encore être le revenu principal.',
       budget_ended:
         'Ce budget est terminé : il n’y a pas de période en cours à laquelle appliquer ce changement.',
       budget_limit_reached: 'Vous possédez déjà 20 budgets, le maximum autorisé.',
       member_limit_reached: 'Ce budget compte déjà 20 membres, le maximum autorisé.',
       invitation_limit_reached:
         'Ce budget a déjà 20 invitations en attente. Annulez-en une avant d’inviter quelqu’un d’autre.',
-      income_limit_reached: 'Ce budget compte déjà 50 revenus, le maximum autorisé.',
+      income_limit_reached:
+        'Ce budget compte déjà le maximum de revenus autorisé (50 en vigueur, ou 500 au total).',
     },
   },
   confirm: {
@@ -273,7 +277,7 @@ export const fr: Translation = {
       namePlaceholder: 'Ménage',
       endDateOptional: 'Date de fin (facultative)',
       endDateHelp:
-        'Laissez vide pour un budget sans fin. Une date de fin est repoussée à la fin de la période qui la contient.',
+        'Laissez vide pour un budget sans fin. Le budget se termine avec la période du mois de cette date.',
       startMonth: 'Premier mois',
     },
     create: {
@@ -283,16 +287,13 @@ export const fr: Translation = {
       incomeHelp:
         'Votre revenu, qui sera le revenu principal : son jour de paie ouvre chaque période. Vous pourrez le changer plus tard.',
       startSection: 'Commencer le suivi',
-      startCurrent: 'La période en cours',
-      startCurrentOnly:
-        'Le suivi commence avec la période en cours : du dernier jour de paie jusqu’au prochain.',
-      startMonthOption: '{{month}} (dès le {{date}})',
+      startMonthCurrent: '{{month}} (la période en cours)',
+      startMonthOption: '{{month}}',
+      firstPeriodStarts: 'La première période commence le {{date}}.',
       earlierHelp:
         'Choisissez un mois antérieur pour saisir des dépenses passées ; les périodes depuis ce mois sont aussi créées.',
       submit: 'Créer le budget',
       success: 'Budget « {{name}} » créé.',
-      endDateFailed:
-        'Le budget a été créé, mais sa date de fin n’a pas pu être enregistrée : {{reason}}',
     },
   },
   invitations: {
@@ -305,14 +306,20 @@ export const fr: Translation = {
     sent: 'Invitation pour {{email}} enregistrée. Prévenez la personne.',
     pending: 'Invitations en attente',
     none: 'Aucune invitation en attente.',
-    invitedOn: 'Invitée le {{date}}',
+    invitedOn: 'Invitée le {{date}}, valable jusqu’au {{expires}}',
+    renew: 'Renouveler',
+    renewFor: 'Renouveler l’invitation de {{email}} pour 30 jours',
+    renewed: 'L’invitation de {{email}} est valable 30 jours de plus.',
+    alreadyGone: 'Cette invitation a déjà été acceptée, refusée ou annulée.',
     cancel: 'Annuler l’invitation',
     cancelFor: 'Annuler l’invitation de {{email}}',
     cancelled: 'Invitation de {{email}} annulée.',
     mine: {
       title: 'Invitations pour vous',
       description: 'On vous a invité·e à partager ces budgets.',
-      from: 'De {{name}}, le {{date}}',
+      from: 'De {{name}} ({{email}})',
+      dates: 'Envoyée le {{sent}}, valable jusqu’au {{expires}}',
+      gone: 'Cette invitation a expiré ou a été annulée.',
       accept: 'Accepter',
       decline: 'Refuser',
       accepted: 'Vous avez rejoint « {{name}} ».',
@@ -381,6 +388,22 @@ export const fr: Translation = {
     remove: 'Supprimer',
     removeTitle: 'Supprimer « {{name}} » ?',
     removeDescription: 'Il cesse de compter dans le budget dès la période en cours.',
+    removeFromEarlier:
+      'Il cesse de compter à partir de la période choisie, ce qui modifie des totaux passés.',
+    correctionAppliesFrom:
+      'Les nouvelles conditions s’appliquent dès la période choisie : les totaux de cette période et des suivantes changent.',
+    closesNowTitle: 'Enregistrer clôt la période en cours maintenant',
+    closesNow:
+      'Avec ce jour de paie, le salaire de {{month}} est dû le {{date}}, date déjà passée : la période en cours se termine et celle de {{month}} commence ce jour-là.',
+    correction: {
+      label: 'Corriger une période passée',
+      removeLabel: 'Le supprimer depuis une période passée',
+      help: 'Seulement pour corriger une erreur : normalement, un changement s’applique dès la période en cours.',
+      from: 'Appliquer dès',
+      removeFrom: 'Supprimer dès',
+      warning:
+        'Cela modifie des périodes passées : leurs totaux de revenus sont recalculés dès la période choisie.',
+    },
     removeHistory:
       'S’il a déjà compté dans une période passée, il y est conservé et prend simplement fin ; sinon, il est effacé.',
     removedEnded: '« {{name}} » a pris fin. Les périodes passées le comptent toujours.',
@@ -413,6 +436,7 @@ export const fr: Translation = {
     owner: {
       deletedAccount: 'Compte supprimé',
       formerMember: 'Ancien membre',
+      formerMemberNamed: '{{name}} (ancien membre)',
     },
     fields: {
       name: 'Nom',
@@ -428,7 +452,7 @@ export const fr: Translation = {
         'La plupart des employeurs paient un jour ouvrable. Choisissez ce que fait le vôtre.',
       from: 'Compte à partir de',
       fromCurrent: 'La période en cours',
-      fromPeriod: 'La période du {{start}} au {{end}}',
+      fromPeriod: '{{month}} (du {{start}} au {{end}})',
       fromHelp:
         'Choisissez une période plus ancienne si ce revenu était déjà versé à ce moment-là.',
     },
@@ -456,37 +480,50 @@ export const fr: Translation = {
     },
   },
   periods: {
-    description: 'Chaque période va du jour de paie du revenu principal à la veille du suivant.',
+    description:
+      'Une période par mois : chacune commence le jour du salaire de ce mois et se termine la veille du suivant.',
     empty: 'Aucune période pour l’instant',
     current: 'En cours',
+    manualStart: 'Début fixé à la main',
     manualEnd: 'Fin fixée à la main',
-    budgetEnd: 'Fin du budget',
-    budgetEndHelp: 'C’est la date de fin du budget ; modifiez-la dans les paramètres.',
-    number: 'Période {{seq}}',
-    projectedEnd: 'fin prévue d’après la prochaine paie',
+    budgetEnd: 'Dernier mois',
+    projectedEnd: 'se termine la veille du prochain salaire prévu',
     incomeTotal: 'Revenus',
-    actionsFor: 'Actions pour la période commençant le {{start}}',
-    moveEnd: 'Déplacer la date de fin',
-    changeEnd: 'Modifier la fin prévue',
-    moveEndTitle: 'Déplacer la fin de cette période',
-    moveEndDescription:
-      'Quand le salaire est arrivé un autre jour, par exemple à cause d’un jour férié. La période suivante commence alors le lendemain.',
-    changeEndTitle: 'Modifier la fin de la période en cours',
-    changeEndDescription:
-      'Fixez vous-même le dernier jour de la période en cours, par exemple quand le prochain salaire arrive plus tôt. Elle n’est alors plus recalculée.',
-    startsOn: 'Cette période commence le',
-    fields: {
-      lastDay: 'Dernier jour de la période',
+    actionsFor: 'Actions pour {{month}}',
+    actions: {
+      arrived: 'Le salaire de {{month}} est arrivé un autre jour',
+      notYet: 'Le salaire de {{month}} n’est pas encore arrivé',
+      nextEarly: 'Le salaire de {{month}} est arrivé en avance',
+      resetStart: 'Rétablir le début selon le calendrier',
+      resetEnd: 'Rétablir la fin selon le calendrier',
     },
-    nextStartsOn: 'La période suivante commence le {{date}}.',
-    closeEarlyHelp:
-      'Une date antérieure à aujourd’hui clôt cette période maintenant, et la suivante commence le lendemain.',
-    moved: 'La période se termine maintenant le {{date}}.',
-    reset: 'Revenir à la fin prévue',
-    resetTitle: 'Revenir à la fin prévue de la période en cours ?',
+    dialogDescription:
+      'Quand un salaire n’arrive pas le jour habituel, par exemple à cause d’un jour férié. Chaque période commence le jour où arrive son salaire.',
+    scheduledOn: 'Le salaire de {{month}} est prévu le {{date}}.',
+    fields: {
+      arrivedOn: 'Jour d’arrivée du salaire de {{month}}',
+      expectedOn: 'Jour où le salaire de {{month}} est désormais attendu',
+    },
+    fourteenDays: 'Au plus 14 jours avant ou après la date prévue.',
+    preview: {
+      moved: '{{previous}} se terminera le {{end}}, et {{month}} commencera le {{start}}.',
+      notYet:
+        'La période de {{month}} est retirée pour l’instant, et {{previous}} redevient la période en cours jusqu’au {{end}}. Elle reviendra à l’arrivée du salaire.',
+      closes:
+        'Cette période se terminera le {{end}}, et la période de {{next}} commence le {{start}}.',
+      endsEarlier:
+        'Cette période se terminera le {{end}} : le salaire de {{next}} est attendu le {{start}}.',
+    },
+    saved: 'Périodes mises à jour.',
+    reset: 'Rétablir selon le calendrier',
+    resetTitle: 'Rétablir cette limite selon le calendrier ?',
     resetDescription:
-      'La fin revient à la veille de la prochaine paie du revenu principal, et la suit de nouveau.',
-    resetDone: 'La période en cours suit de nouveau la date de paie.',
+      'La période de {{month}} recommence à sa date de paie prévue, le {{date}}, et la période précédente se termine la veille.',
+    resetDescriptionLatest:
+      'La période en cours se termine de nouveau la veille du prochain salaire prévu, et suit le calendrier désormais.',
+    resetComesBack:
+      'Une période close en avance est rouverte, et une période retirée parce que son salaire n’était pas arrivé revient une fois cette date passée.',
+    resetDone: 'La limite suit de nouveau le calendrier.',
     endedDescription:
       'Sa dernière période s’est terminée le {{date}} ; aucune nouvelle période n’est créée.',
   },
@@ -497,10 +534,10 @@ export const fr: Translation = {
       rename: 'Renommer',
       renamed: 'Budget renommé.',
       endDate: 'Date de fin',
-      endsOn: 'Le suivi s’arrête après le',
+      endsWith: 'Le budget se termine avec la période de {{month}}, le {{date}}.',
       noEndDate: 'Pas de date de fin : le budget continue indéfiniment.',
       endDateHelp:
-        'La date est repoussée à la fin de la période qui la contient. Laissez vide et enregistrez, ou supprimez-la, pour un budget sans fin.',
+        'Le budget se termine avec la période du mois de cette date ; son dernier jour suit le salaire de ce mois. Laissez vide et enregistrez, ou supprimez-la, pour un budget sans fin.',
       saveEndDate: 'Enregistrer la date de fin',
       clearEndDate: 'Continuer indéfiniment',
       endDateSet: 'Le budget se termine maintenant le {{date}}.',
@@ -514,6 +551,7 @@ export const fr: Translation = {
       deleteConfirmDescription:
         'Ses revenus, ses périodes et tout le reste sont supprimés pour tous les membres. Cette action est irréversible.',
       deleted: 'Budget « {{name}} » supprimé.',
+      alreadyDeleted: 'Ce budget a déjà été supprimé.',
       deleteOwnerOnly: 'Seul·e le ou la propriétaire peut supprimer le budget.',
     },
     account: {

@@ -128,3 +128,10 @@ export function calendarMonth(value: string): { year: number; month: number } {
   const [year, month] = calendarParts(value)
   return { year, month }
 }
+
+/** The first day of the month `months` after the month of `value` ("2026-12-15", 1 -> "2027-01-01"). */
+export function addMonths(value: string, months: number): string {
+  const { year, month } = calendarMonth(value)
+  const index = year * 12 + (month - 1) + months
+  return `${pad(Math.floor(index / 12), 4)}-${pad((index % 12) + 1)}-01`
+}

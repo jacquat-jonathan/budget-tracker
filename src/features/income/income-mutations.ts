@@ -46,10 +46,18 @@ export function useAddIncome(budgetId: string, options: { onDone: () => void }) 
   })
 }
 
+export interface EditIncomeInput extends IncomeTerms {
+  /**
+   * An explicit correction: the terms apply from this earlier period on, changing past
+   * totals (R-VERSION-010). Null for the normal edit, from the current period.
+   */
+  fromPeriodId: string | null
+}
+
 /**
  * Edit an income: new terms through update_income_terms (a new version from the current
- * period), a new name through a direct update. Terms go first, so a refused change of terms
- * leaves the income as it was.
+ * period, or from an earlier one as a correction), a new name through a direct update.
+ * Terms go first, so a refused change of terms leaves the income as it was.
  */
 export function useEditIncome(
   budgetId: string,
@@ -57,7 +65,7 @@ export function useEditIncome(
   options: { onDone: () => void },
 ) {
   const { t } = useTranslation()
-  return useAppMutation<null, IncomeTerms>({
+  return useAppMutation<null, EditIncomeInput>({
     errorDisplay: 'inline',
     mutationFn: async (input) => {
       if (!income) throw new DbError('income_not_found')
@@ -65,13 +73,15 @@ export function useEditIncome(
         input.amount !== income.amount ||
         input.payDay !== income.pay_day ||
         input.weekendRule !== income.weekend_rule
-      if (termsChanged) {
+      // A correction is always sent: it can also re-apply today's terms to earlier periods.
+      if (termsChanged || input.fromPeriodId) {
         unwrap(
           await supabase.rpc('update_income_terms', {
             p_income_id: income.id,
             p_amount: input.amount,
             p_pay_day: input.payDay,
             p_weekend_rule: input.weekendRule,
+            ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
           }),
         )
       }
@@ -105,12 +115,24 @@ export function useSetPrimaryIncome(budgetId: string) {
   })
 }
 
+export interface RemoveIncomeInput {
+  income: IncomeOverview
+  /** An explicit correction: removed from this earlier period on (R-INCOME-015). */
+  fromPeriodId: string | null
+}
+
 export function useRemoveIncome(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<string, IncomeOverview>({
-    mutationFn: async (income) =>
-      unwrap(await supabase.rpc('remove_income', { p_income_id: income.id })),
-    success: (outcome, income) =>
+  return useAppMutation<string, RemoveIncomeInput>({
+    errorDisplay: 'inline',
+    mutationFn: async ({ income, fromPeriodId }) =>
+      unwrap(
+        await supabase.rpc('remove_income', {
+          p_income_id: income.id,
+          ...(fromPeriodId ? { p_from_period_id: fromPeriodId } : {}),
+        }),
+      ),
+    success: (outcome, { income }) =>
       outcome === 'ended'
         ? t('income.removedEnded', { name: income.name })
         : t('income.removedDeleted', { name: income.name }),

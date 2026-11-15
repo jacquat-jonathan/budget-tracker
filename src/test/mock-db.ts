@@ -88,6 +88,26 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
   db.rpc = {
     accept_invitation: handler(() => 'accepted-budget-id'),
     add_income: handler(() => 'new-income-id'),
+    cancel_invitation: handler((args) => {
+      const before = db.tables.budget_invitations.length
+      db.tables.budget_invitations = db.tables.budget_invitations.filter(
+        (invitation) => invitation.id !== args.p_invitation_id,
+      )
+      if (db.tables.budget_invitations.length === before) rpcError('invitation_not_found')
+      return null
+    }),
+    delete_budget: handler((args) => {
+      const before = db.tables.my_budgets.length
+      db.tables.my_budgets = db.tables.my_budgets.filter((budget) => budget.id !== args.p_budget_id)
+      if (db.tables.my_budgets.length === before) rpcError('budget_not_found')
+      return null
+    }),
+    get_start_months: handler(() => [
+      { today: '2026-11-15', month: '2026-10-01', start_date: '2026-10-23', is_default: true },
+      { today: '2026-11-15', month: '2026-09-01', start_date: '2026-09-25', is_default: false },
+      { today: '2026-11-15', month: '2026-08-01', start_date: '2026-08-25', is_default: false },
+    ]),
+    get_today: handler(() => '2026-11-15'),
     create_budget: handler(() => 'new-budget-id'),
     decline_invitation: handler(() => null),
     ensure_periods: handler(() => 0),
@@ -103,7 +123,16 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     pay_date: handler(() => rpcError('not_mocked')),
     remove_income: handler(() => 'ended'),
     remove_member: handler(() => null),
-    set_budget_end_date: handler((args) => args.p_end_date ?? null),
+    set_budget_end_date: handler((args) => {
+      const budget = db.tables.my_budgets.find((row) => row.id === args.p_budget_id)
+      if (!budget) rpcError('budget_not_found')
+      const endDate = typeof args.p_end_date === 'string' ? args.p_end_date : null
+      Object.assign(budget, {
+        end_date: endDate,
+        end_month: endDate ? `${endDate.slice(0, 7)}-01` : null,
+      })
+      return [{ ...budget }]
+    }),
     set_primary_income: handler(() => null),
     update_income_terms: handler(() => null),
   }

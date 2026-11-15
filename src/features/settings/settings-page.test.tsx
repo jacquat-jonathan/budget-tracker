@@ -28,7 +28,7 @@ const budgetsTableRow = {
   name: 'Household',
   owner_id: DEFAULT_USER_ID,
   primary_income_id: 'income-1',
-  end_date: null,
+  end_month: null,
   created_at: '2026-10-01T10:00:00+00:00',
   updated_at: '2026-10-01T10:00:00+00:00',
 }
@@ -61,6 +61,7 @@ function sharedBudget({ asOwner }: { asOwner: boolean }) {
             email: 'kim@example.com',
             invited_by: DEFAULT_USER_ID,
             created_at: '2026-11-12T08:00:00+00:00',
+            expires_at: '2026-12-12T08:00:00+00:00',
           },
         ]
       : [],
@@ -169,7 +170,25 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     ).toBeInTheDocument()
   })
 
-  it('cancels an invitation', async () => {
+  it('shows when each invitation expires and renews it by inviting again [R-INVITE-009]', async () => {
+    const { db } = await openSettings(true)
+
+    expect(screen.getByText('Invited on 12.11.2026, valid until 12.12.2026')).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Renew the invitation for kim@example.com for 30 days' }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.invite_member).toHaveBeenCalledWith({
+        p_budget_id: BUDGET_ID,
+        p_email: 'kim@example.com',
+      })
+    })
+    expect(
+      await screen.findByText('The invitation for kim@example.com is valid for 30 more days.'),
+    ).toBeInTheDocument()
+  })
+
+  it('cancels an invitation through the database [R-BUDGET-018]', async () => {
     const { db } = await openSettings(true)
 
     await userEvent.click(
@@ -178,7 +197,25 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('invitation-list')).not.toBeInTheDocument()
     })
-    expect(db.tables.budget_invitations).toEqual([])
+    expect(db.rpc.cancel_invitation).toHaveBeenCalledWith({ p_invitation_id: 'inv-1' })
+  })
+
+  it('says when the invitation was already gone, and when cancelling is not allowed [R-BUDGET-018]', async () => {
+    const { db } = await openSettings(true)
+
+    db.rpc.cancel_invitation.mockImplementationOnce(() => rpcError('invitation_not_found'))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Cancel the invitation for kim@example.com' }),
+    )
+    expect(
+      await screen.findByText('This invitation was already accepted, declined or cancelled.'),
+    ).toBeInTheDocument()
+
+    db.rpc.cancel_invitation.mockImplementationOnce(() => rpcError('not_owner'))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Cancel the invitation for kim@example.com' }),
+    )
+    expect(await screen.findByText('Only the owner of the budget can do this.')).toBeInTheDocument()
   })
 
   it('removes a member after confirming', async () => {
@@ -199,15 +236,33 @@ describe('settings as the owner [R-MEMBER-050]', () => {
 
   it('sets and clears the end date, showing the date the database stored', async () => {
     const { db } = await openSettings(true)
-    db.rpc.set_budget_end_date.mockImplementation(() => '2027-04-23')
+    // The budget ends with its April period, which ends the day before May's salary.
+    db.rpc.set_budget_end_date.mockImplementationOnce(() => {
+      db.tables.my_budgets = [budgetRow({ end_month: '2027-04-01', end_date: '2027-05-24' })]
+      return db.tables.my_budgets
+    })
 
     await userEvent.type(screen.getByLabelText('End date (optional)'), '10.04.2027')
     await userEvent.click(screen.getByRole('button', { name: 'Save end date' }))
-    expect(await screen.findByText('The budget now ends on 23.04.2027.')).toBeInTheDocument()
+    expect(await screen.findByText('The budget now ends on 24.05.2027.')).toBeInTheDocument()
     expect(db.rpc.set_budget_end_date).toHaveBeenCalledWith({
       p_budget_id: BUDGET_ID,
       p_end_date: '2027-04-10',
     })
+
+    db.rpc.set_budget_end_date.mockImplementationOnce(() => {
+      db.tables.my_budgets = [budgetRow()]
+      return db.tables.my_budgets
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByText('The budget ends with the April 2027 period, on 24.05.2027.'),
+      ).toBeInTheDocument()
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Run indefinitely' }))
+    expect(await screen.findByText('The budget now runs indefinitely.')).toBeInTheDocument()
+    // Clearing omits the argument.
+    expect(db.rpc.set_budget_end_date).toHaveBeenLastCalledWith({ p_budget_id: BUDGET_ID })
   })
 
   it('deletes the budget only once its name is typed [R-BUDGET-052]', async () => {
@@ -222,11 +277,24 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     await userEvent.type(within(dialog).getByLabelText('Type “Household” to confirm'), 'd')
     expect(confirm).toBeEnabled()
 
-    db.tables.my_budgets = []
     await userEvent.click(confirm)
     await waitFor(() => {
-      expect(db.tables.budgets).toEqual([])
+      expect(db.rpc.delete_budget).toHaveBeenCalledWith({ p_budget_id: BUDGET_ID })
     })
+  })
+
+  it('says when the budget was already deleted [R-BUDGET-018]', async () => {
+    const { db } = await openSettings(true)
+    db.rpc.delete_budget.mockImplementation(() => rpcError('budget_not_found'))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete budget' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await userEvent.type(within(dialog).getByLabelText('Type “Household” to confirm'), 'Household')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete budget' }))
+
+    expect((await screen.findAllByText('This budget was already deleted.')).length).toBeGreaterThan(
+      0,
+    )
   })
 
   it('saves my display name', async () => {

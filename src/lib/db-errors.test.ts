@@ -2,6 +2,19 @@ import { DB_ERROR_CODES, DbError, dbErrorKey, isNotFoundError } from '@/lib/db-e
 import i18n from '@/lib/i18n'
 import { en } from '@/locales/en/translation'
 import { fr } from '@/locales/fr/translation'
+import contract from '../../docs/database.md?raw'
+
+/** The stable messages listed in the "Error messages" table of the contract. */
+function contractCodes(): string[] {
+  const table = contract.slice(contract.indexOf('## Error messages'))
+  const end = table.indexOf('\n## ', 4)
+  const rows = (end === -1 ? table : table.slice(0, end))
+    .split('\n')
+    .filter((line) => line.startsWith('| `'))
+  return rows.flatMap((row) =>
+    [...(row.split('|')[1] ?? '').matchAll(/`([a-z_]+)`/g)].map((match) => match[1] ?? ''),
+  )
+}
 
 describe('database errors are shown as translated text [R-APP-004]', () => {
   it('maps every stable message of the contract to its own key, in both languages', () => {
@@ -10,6 +23,21 @@ describe('database errors are shown as translated text [R-APP-004]', () => {
       expect(en.errors.db[code], code).toBeTruthy()
       expect(fr.errors.db[code], code).toBeTruthy()
     }
+  })
+
+  it('knows every error code of docs/database.md, and no code the contract dropped', () => {
+    const codes = contractCodes()
+    expect(codes.length).toBeGreaterThan(20)
+    expect([...DB_ERROR_CODES].sort()).toEqual([...new Set(codes)].sort())
+  })
+
+  it('lets a call word some codes its own way', () => {
+    expect(
+      dbErrorKey(
+        { code: 'P0001', message: 'budget_not_found' },
+        { budget_not_found: 'settings.budget.alreadyDeleted' },
+      ),
+    ).toBe('settings.budget.alreadyDeleted')
   })
 
   it('falls back to a generic translated message for anything unknown', () => {

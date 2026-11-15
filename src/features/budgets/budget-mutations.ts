@@ -1,8 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
-import { unwrap, type WeekendRule } from '@/features/budgets/budget-queries'
-import { setBudgetEndDate } from '@/features/budgets/period-rpcs'
+import { unwrap, type MyBudget, type WeekendRule } from '@/features/budgets/budget-queries'
 import { useAppMutation } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { DbError } from '@/lib/db-errors'
@@ -19,23 +18,13 @@ export interface CreateBudgetInput {
   startMonth: string | null
 }
 
-export interface CreateBudgetResult {
-  budgetId: string
-  /** Set when an end date was asked for but could not be stored. */
-  endDateError?: unknown
-}
-
-/**
- * create_budget, then the end date if one was given. create_budget takes no end date, so
- * this is two calls: when the second fails, the budget exists without an end date and the
- * caller says so (see the report: contract gap).
- */
-export function useCreateBudget(options: { onCreated: (result: CreateBudgetResult) => void }) {
+/** create_budget: the budget, its first income, its periods and its end date, in one step. */
+export function useCreateBudget(options: { onCreated: (budgetId: string) => void }) {
   const { t } = useTranslation()
-  return useAppMutation<CreateBudgetResult, CreateBudgetInput>({
+  return useAppMutation<string, CreateBudgetInput>({
     errorDisplay: 'inline',
-    mutationFn: async (input) => {
-      const budgetId = unwrap(
+    mutationFn: async (input) =>
+      unwrap(
         await supabase.rpc('create_budget', {
           p_name: input.name,
           p_income_name: input.incomeName,
@@ -43,20 +32,12 @@ export function useCreateBudget(options: { onCreated: (result: CreateBudgetResul
           p_pay_day: input.payDay,
           p_weekend_rule: input.weekendRule,
           ...(input.startMonth ? { p_start_month: input.startMonth } : {}),
+          ...(input.endDate ? { p_end_date: input.endDate } : {}),
         }),
-      )
-      if (input.endDate) {
-        try {
-          await setBudgetEndDate(budgetId, input.endDate)
-        } catch (endDateError) {
-          return { budgetId, endDateError }
-        }
-      }
-      return { budgetId }
-    },
-    success: (_result, input) => t('budgets.create.success', { name: input.name }),
+      ),
+    success: (_budgetId, input) => t('budgets.create.success', { name: input.name }),
     invalidate: () => [budgetKeys.list],
-    onSuccess: (result) => options.onCreated(result),
+    onSuccess: (budgetId) => options.onCreated(budgetId),
   })
 }
 
@@ -77,28 +58,40 @@ export function useRenameBudget(budgetId: string) {
   })
 }
 
-/** Set (or with null, clear) the end date; owner only. Returns the stored date. */
+/**
+ * Set the end date (the budget then ends with the period of that date's month), or with
+ * null clear it; owner only. Returns the budget as stored, whose end_date is the final
+ * period's last day.
+ */
 export function useSetBudgetEndDate(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<string | null, string | null>({
+  return useAppMutation<MyBudget | null, string | null>({
     errorDisplay: 'inline',
-    mutationFn: (endDate) => setBudgetEndDate(budgetId, endDate),
+    mutationFn: async (endDate) => {
+      const rows = unwrap(
+        await supabase.rpc('set_budget_end_date', {
+          p_budget_id: budgetId,
+          ...(endDate ? { p_end_date: endDate } : {}),
+        }),
+      )
+      return rows[0] ?? null
+    },
     success: (stored) =>
-      stored
-        ? t('settings.budget.endDateSet', { date: formatCalendarDate(stored) })
+      stored?.end_date
+        ? t('settings.budget.endDateSet', { date: formatCalendarDate(stored.end_date) })
         : t('settings.budget.endDateCleared'),
     invalidate: () => [budgetKeys.list, budgetKeys.budget(budgetId)],
   })
 }
 
-/** Delete a budget and everything in it; owner only (a member's delete affects 0 rows). */
+/** Delete a budget and everything in it; owner only. */
 export function useDeleteBudget(budgetId: string, options: { onDeleted: () => void }) {
   const { t } = useTranslation()
   return useAppMutation<null, string>({
     errorDisplay: 'inline',
+    errorMessages: { budget_not_found: 'settings.budget.alreadyDeleted' },
     mutationFn: async () => {
-      const rows = unwrap(await supabase.from('budgets').delete().eq('id', budgetId).select('id'))
-      if (rows.length === 0) throw new DbError('not_owner')
+      unwrap(await supabase.rpc('delete_budget', { p_budget_id: budgetId }))
       return null
     },
     success: (_data, name) => t('settings.budget.deleted', { name }),

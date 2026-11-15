@@ -201,7 +201,7 @@ export const en = {
       income_not_found: 'This income no longer exists.',
       period_not_found: 'This period no longer exists.',
       member_not_found: 'This person is not a member of the budget.',
-      invitation_not_found: 'This invitation no longer exists.',
+      invitation_not_found: 'This invitation no longer exists or has expired.',
       not_owner: 'Only the owner of the budget can do this.',
       owner_cannot_leave: 'The owner cannot leave the budget. Delete it instead.',
       member_has_primary_income:
@@ -215,18 +215,22 @@ export const en = {
       invalid_start_month: 'Choose a month whose pay day has already come, at most 60 months back.',
       invalid_end_date: 'The end date can be at most ten years from now.',
       invalid_boundary:
-        'This date does not work: a period cannot be empty, longer than 70 days, or run over the next period.',
+        'This date does not work: a salary can be at most 14 days from its scheduled date, and a period can be neither empty nor run over the next one.',
+      invalid_period: 'This income did not exist yet in that period. Choose a later one.',
       end_date_before_last_period:
         'This end date is before periods that already exist. Choose a later date.',
-      boundary_is_budget_end: 'This is the budget’s end date. Change it in the settings instead.',
+      boundary_after_today: 'This boundary cannot move to today or later.',
       income_is_primary: 'This is the primary income. Make another income primary first.',
       income_ended: 'This income has ended and can no longer be changed.',
+      income_not_in_force:
+        'This income only starts in a later period, so it cannot be the primary one yet.',
       budget_ended: 'This budget has ended: there is no current period to apply this to.',
       budget_limit_reached: 'You already own 20 budgets, the most you can have.',
       member_limit_reached: 'This budget already has 20 members, the most it can have.',
       invitation_limit_reached:
         'This budget already has 20 pending invitations. Cancel one before inviting someone else.',
-      income_limit_reached: 'This budget already has 50 incomes, the most it can have.',
+      income_limit_reached:
+        'This budget already has the most incomes it can hold (50 in force, or 500 in all).',
     },
   },
   confirm: {
@@ -257,7 +261,7 @@ export const en = {
       namePlaceholder: 'Household',
       endDateOptional: 'End date (optional)',
       endDateHelp:
-        'Leave empty to run the budget indefinitely. An end date moves to the end of the period it falls in.',
+        'Leave empty to run the budget indefinitely. The budget ends with the period of that date’s month.',
       startMonth: 'First month',
     },
     create: {
@@ -267,15 +271,13 @@ export const en = {
       incomeHelp:
         'Your income, and the primary one: its pay day starts each period. You can change this later.',
       startSection: 'Start tracking from',
-      startCurrent: 'The current period',
-      startCurrentOnly:
-        'Tracking starts with the current period: from the last pay day until the next one.',
-      startMonthOption: '{{month}} (from {{date}})',
+      startMonthCurrent: '{{month}} (the current period)',
+      startMonthOption: '{{month}}',
+      firstPeriodStarts: 'The first period starts on {{date}}.',
       earlierHelp:
         'Choose an earlier month to enter past spending; the periods since then are created too.',
       submit: 'Create budget',
       success: 'Budget “{{name}}” created.',
-      endDateFailed: 'The budget was created, but its end date could not be set: {{reason}}',
     },
   },
   invitations: {
@@ -288,14 +290,20 @@ export const en = {
     sent: 'Invitation for {{email}} saved. Let them know.',
     pending: 'Pending invitations',
     none: 'No pending invitations.',
-    invitedOn: 'Invited on {{date}}',
+    invitedOn: 'Invited on {{date}}, valid until {{expires}}',
+    renew: 'Renew',
+    renewFor: 'Renew the invitation for {{email}} for 30 days',
+    renewed: 'The invitation for {{email}} is valid for 30 more days.',
+    alreadyGone: 'This invitation was already accepted, declined or cancelled.',
     cancel: 'Cancel invitation',
     cancelFor: 'Cancel the invitation for {{email}}',
     cancelled: 'Invitation for {{email}} cancelled.',
     mine: {
       title: 'Invitations for you',
       description: 'You were invited to share these budgets.',
-      from: 'From {{name}}, {{date}}',
+      from: 'From {{name}} ({{email}})',
+      dates: 'Sent on {{sent}}, valid until {{expires}}',
+      gone: 'This invitation has expired or was cancelled.',
       accept: 'Accept',
       decline: 'Decline',
       accepted: 'You joined “{{name}}”.',
@@ -359,6 +367,21 @@ export const en = {
     remove: 'Remove',
     removeTitle: 'Remove “{{name}}”?',
     removeDescription: 'It stops counting in the budget from the current period.',
+    removeFromEarlier: 'It stops counting from the period you choose, which changes past totals.',
+    correctionAppliesFrom:
+      'The new terms apply from the period you chose: the totals of that period and the ones after it change.',
+    closesNowTitle: 'Saving closes the current period now',
+    closesNow:
+      'With this pay day, the {{month}} salary is due on {{date}}, which has already come: the current period closes and the {{month}} period starts on that day.',
+    correction: {
+      label: 'Correct an earlier period',
+      removeLabel: 'Remove it from an earlier period',
+      help: 'Only to fix a mistake: normally a change applies from the current period.',
+      from: 'Apply from',
+      removeFrom: 'Remove from',
+      warning:
+        'This changes past periods: their income totals are recomputed from the period you choose.',
+    },
     removeHistory:
       'If it already counted in a past period, it is kept there and only ended; otherwise it is deleted.',
     removedEnded: '“{{name}}” ended. Past periods still count it.',
@@ -389,6 +412,7 @@ export const en = {
     owner: {
       deletedAccount: 'Deleted account',
       formerMember: 'Former member',
+      formerMemberNamed: '{{name}} (former member)',
     },
     fields: {
       name: 'Name',
@@ -403,7 +427,7 @@ export const en = {
       weekendRuleHelp: 'Most employers pay on a working day. Choose what yours does.',
       from: 'Counts from',
       fromCurrent: 'The current period',
-      fromPeriod: 'The period {{start}} – {{end}}',
+      fromPeriod: '{{month}} ({{start}} – {{end}})',
       fromHelp: 'Choose an earlier period if this income was already coming in then.',
     },
     weekendRule: {
@@ -431,37 +455,47 @@ export const en = {
   },
   periods: {
     description:
-      'Each period runs from the primary income’s pay day to the day before the next one.',
+      'One period per month: each starts on that month’s salary and ends the day before the next one.',
     empty: 'No periods yet',
     current: 'Current',
+    manualStart: 'Start set by hand',
     manualEnd: 'End set by hand',
-    budgetEnd: 'Budget end',
-    budgetEndHelp: 'This is the budget’s end date; change it in the settings.',
-    number: 'Period {{seq}}',
-    projectedEnd: 'the end is projected from the next pay date',
+    budgetEnd: 'Final month',
+    projectedEnd: 'ends the day before the next salary is due',
     incomeTotal: 'Income',
-    actionsFor: 'Actions for the period starting {{start}}',
-    moveEnd: 'Move the end date',
-    changeEnd: 'Change the projected end',
-    moveEndTitle: 'Move the end of this period',
-    moveEndDescription:
-      'For when the salary arrived on another day, for example because of a public holiday. The next period then starts the day after.',
-    changeEndTitle: 'Change the end of the current period',
-    changeEndDescription:
-      'Set the last day of the current period yourself, for example when the next salary comes early. It is then no longer recomputed.',
-    startsOn: 'This period starts on',
-    fields: {
-      lastDay: 'Last day of the period',
+    actionsFor: 'Actions for {{month}}',
+    actions: {
+      arrived: 'The {{month}} salary arrived on another day',
+      notYet: 'The {{month}} salary has not arrived yet',
+      nextEarly: 'The {{month}} salary arrived early',
+      resetStart: 'Reset the start to the schedule',
+      resetEnd: 'Reset the end to the schedule',
     },
-    nextStartsOn: 'The next period starts on {{date}}.',
-    closeEarlyHelp:
-      'A date before today closes this period now, and the next one starts the day after.',
-    moved: 'The period now ends on {{date}}.',
-    reset: 'Reset to the projected end',
-    resetTitle: 'Reset the end of the current period?',
+    dialogDescription:
+      'For when a salary does not come on its usual day, for example because of a public holiday. Each period starts on the day its salary arrives.',
+    scheduledOn: 'The {{month}} salary is scheduled for {{date}}.',
+    fields: {
+      arrivedOn: 'Day the {{month}} salary arrived',
+      expectedOn: 'Day the {{month}} salary is now expected',
+    },
+    fourteenDays: 'At most 14 days before or after its scheduled date.',
+    preview: {
+      moved: '{{previous}} will end on {{end}}, and {{month}} will start on {{start}}.',
+      notYet:
+        'The {{month}} period will be removed for now, and {{previous}} is current again until {{end}}. It comes back once the salary arrives.',
+      closes: 'This period will close on {{end}}, and the {{next}} period starts on {{start}}.',
+      endsEarlier: 'This period will end on {{end}}: the {{next}} salary is expected on {{start}}.',
+    },
+    saved: 'Periods updated.',
+    reset: 'Reset to the schedule',
+    resetTitle: 'Reset this boundary to the schedule?',
     resetDescription:
-      'The end goes back to the day before the next pay date of the primary income, and follows it again.',
-    resetDone: 'The current period follows the pay date again.',
+      'The {{month}} period starts again on its scheduled pay date, {{date}}, and the period before it ends the day before.',
+    resetDescriptionLatest:
+      'The current period ends again the day before the next salary is due, and follows the schedule from now on.',
+    resetComesBack:
+      'A period closed early is reopened, and a period removed because its salary had not arrived comes back once that date has passed.',
+    resetDone: 'The boundary follows the schedule again.',
     endedDescription: 'Its last period ended on {{date}}; no new periods are created.',
   },
   settings: {
@@ -471,10 +505,10 @@ export const en = {
       rename: 'Rename',
       renamed: 'Budget renamed.',
       endDate: 'End date',
-      endsOn: 'Tracking stops after',
+      endsWith: 'The budget ends with the {{month}} period, on {{date}}.',
       noEndDate: 'No end date: the budget runs indefinitely.',
       endDateHelp:
-        'The date moves forward to the end of the period it falls in. Leave empty and save, or clear it, to run indefinitely.',
+        'The budget ends with the period of this date’s month; its last day follows that month’s salary. Leave empty and save, or clear it, to run indefinitely.',
       saveEndDate: 'Save end date',
       clearEndDate: 'Run indefinitely',
       endDateSet: 'The budget now ends on {{date}}.',
@@ -488,6 +522,7 @@ export const en = {
       deleteConfirmDescription:
         'Its incomes, periods and everything else in it are deleted for every member. This cannot be undone.',
       deleted: 'Budget “{{name}}” deleted.',
+      alreadyDeleted: 'This budget was already deleted.',
       deleteOwnerOnly: 'Only the owner can delete the budget.',
     },
     account: {

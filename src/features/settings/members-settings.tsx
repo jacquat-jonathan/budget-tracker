@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { InfoIcon, LogOutIcon, UserMinusIcon, XIcon } from 'lucide-react'
+import { InfoIcon, LogOutIcon, RefreshCwIcon, UserMinusIcon, XIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -30,7 +30,6 @@ import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { OwnerOnlyNote } from '@/features/settings/budget-settings'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatTimestamp } from '@/lib/date'
-import { DbError } from '@/lib/db-errors'
 import { supabase } from '@/lib/supabase'
 
 type Pending = { kind: 'none' } | { kind: 'remove'; member: BudgetMember } | { kind: 'leave' }
@@ -230,14 +229,21 @@ function Invitations() {
     invalidate: () => [budgetKeys.invitations(budgetId)],
   })
   const cancel = useAppMutation<null, BudgetInvitation>({
+    errorMessages: { invitation_not_found: 'invitations.alreadyGone' },
     mutationFn: async (invitation) => {
-      const rows = unwrap(
-        await supabase.from('budget_invitations').delete().eq('id', invitation.id).select('id'),
-      )
-      if (rows.length === 0) throw new DbError('invitation_not_found')
+      unwrap(await supabase.rpc('cancel_invitation', { p_invitation_id: invitation.id }))
       return null
     },
     success: (_data, invitation) => t('invitations.cancelled', { email: invitation.email }),
+    invalidate: () => [budgetKeys.invitations(budgetId)],
+  })
+  // Inviting the same address again renews the invitation for 30 days (R-INVITE-009).
+  const renew = useAppMutation<string, BudgetInvitation>({
+    mutationFn: async (invitation) =>
+      unwrap(
+        await supabase.rpc('invite_member', { p_budget_id: budgetId, p_email: invitation.email }),
+      ),
+    success: (_id, invitation) => t('invitations.renewed', { email: invitation.email }),
     invalidate: () => [budgetKeys.invitations(budgetId)],
   })
 
@@ -288,19 +294,34 @@ function Invitations() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{invitation.email}</p>
                   <p className="text-xs text-muted-foreground">
-                    {t('invitations.invitedOn', { date: formatTimestamp(invitation.created_at) })}
+                    {t('invitations.invitedOn', {
+                      date: formatTimestamp(invitation.created_at),
+                      expires: formatTimestamp(invitation.expires_at),
+                    })}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={cancel.isPending}
-                  onClick={() => cancel.mutate(invitation)}
-                  aria-label={t('invitations.cancelFor', { email: invitation.email })}
-                >
-                  <XIcon />
-                  <span className="hidden sm:inline">{t('invitations.cancel')}</span>
-                </Button>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={renew.isPending}
+                    onClick={() => renew.mutate(invitation)}
+                    aria-label={t('invitations.renewFor', { email: invitation.email })}
+                  >
+                    <RefreshCwIcon />
+                    <span className="hidden sm:inline">{t('invitations.renew')}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={cancel.isPending}
+                    onClick={() => cancel.mutate(invitation)}
+                    aria-label={t('invitations.cancelFor', { email: invitation.email })}
+                  >
+                    <XIcon />
+                    <span className="hidden sm:inline">{t('invitations.cancel')}</span>
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

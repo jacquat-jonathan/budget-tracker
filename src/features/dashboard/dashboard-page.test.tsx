@@ -19,9 +19,10 @@ afterEach(() => {
 })
 
 describe('dashboard', () => {
-  it('shows the current period: dates, day N of M, income total and next pay day', async () => {
+  it('shows the current period: dates, day N of M, income total and next pay day [R-PERIOD-028]', async () => {
+    // The browser's clock says otherwise: the day number follows the database's today.
     vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date('2026-11-15T12:00:00+01:00'))
+    vi.setSystemTime(new Date('2026-11-02T12:00:00+01:00'))
     mock.current = createSupabaseMock(fakeSession(), householdDb())
     renderRoutes(routes, '/')
 

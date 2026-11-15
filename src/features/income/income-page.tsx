@@ -11,7 +11,6 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CalendarDate } from '@/components/form/calendar-date-field'
-import { ConfirmDialog } from '@/components/confirm-dialog'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +35,7 @@ import {
 } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { IncomeFormDialog } from '@/features/income/components/income-form-dialog'
+import { RemoveIncomeDialog } from '@/features/income/components/remove-income-dialog'
 import { useRemoveIncome, useSetPrimaryIncome } from '@/features/income/income-mutations'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -156,28 +156,11 @@ export function IncomePage() {
         periods={periods.data ?? []}
         currentPeriod={currentPeriod}
       />
-      <ConfirmDialog
-        open={dialog.kind === 'remove'}
-        onOpenChange={(open) => {
-          if (!open) setDialog({ kind: 'closed' })
-        }}
-        title={t('income.removeTitle', {
-          name: dialog.kind === 'remove' ? dialog.income.name : '',
-        })}
-        description={
-          <>
-            <p>{t('income.removeDescription')}</p>
-            <p>{t('income.removeHistory')}</p>
-          </>
-        }
-        confirmLabel={t('income.remove')}
-        destructive
-        pending={remove.isPending}
-        error={remove.error}
-        onConfirm={() => {
-          if (dialog.kind !== 'remove') return
-          remove.mutate(dialog.income, { onSuccess: () => setDialog({ kind: 'closed' }) })
-        }}
+      <RemoveIncomeDialog
+        income={dialog.kind === 'remove' ? dialog.income : null}
+        periods={periods.data ?? []}
+        mutation={remove}
+        onClose={() => setDialog({ kind: 'closed' })}
       />
     </div>
   )
@@ -190,7 +173,12 @@ function useOwnerLabel(): (income: IncomeOverview, members: BudgetMember[]) => s
   return (income, members) => {
     if (!income.user_id) return t('income.owner.deletedAccount')
     const member = members.find((item) => item.user_id === income.user_id)
-    if (!member) return t('income.owner.formerMember')
+    // A former member: the database still gives their name (user_display_name).
+    if (!member) {
+      return income.user_display_name
+        ? t('income.owner.formerMemberNamed', { name: income.user_display_name })
+        : t('income.owner.formerMember')
+    }
     const name = memberName(member) ?? t('members.unknownName')
     return income.user_id === user?.id ? t('members.you', { name }) : name
   }

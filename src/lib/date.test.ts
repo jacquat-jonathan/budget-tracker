@@ -1,5 +1,6 @@
 import {
   addDays,
+  addMonths,
   calendarMonth,
   daysInclusive,
   formatCalendarDate,
@@ -120,6 +121,12 @@ describe('calendar date arithmetic [C-DATE-002]', () => {
     expect(daysInclusive('2026-03-25', '2026-03-25')).toBe(1)
     expect(daysInclusive('2026-03-25', '2026-04-23')).toBe(30)
     expect(daysInclusive('2026-03-01', '2026-03-31')).toBe(31)
+  })
+
+  it('steps by whole months from the month of a date', () => {
+    expect(addMonths('2026-12-15', 1)).toBe('2027-01-01')
+    expect(addMonths('2026-01-31', -1)).toBe('2025-12-01')
+    expect(addMonths('2026-11-01', 0)).toBe('2026-11-01')
   })
 
   it('reads the month from the string', () => {

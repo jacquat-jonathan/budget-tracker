@@ -19,7 +19,7 @@ import { Progress } from '@/components/ui/progress'
 import { useCurrentPeriod, useIncomes } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { periodProgress } from '@/features/dashboard/period-progress'
-import { formatCalendarDate, toCalendarDate } from '@/lib/date'
+import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 
 /** The dashboard's first card: the current period at a glance. */
@@ -67,7 +67,7 @@ export function CurrentPeriodCard() {
     )
   }
 
-  const { day, total, percent } = periodProgress(period, toCalendarDate(new Date()))
+  const { day, total, percent } = periodProgress(period, period.today ?? period.start_date)
   const primary = incomes.data?.find((income) => income.is_primary)
   const nextPayDate = primary?.next_pay_date ?? null
 

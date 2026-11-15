@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { CalendarDateField } from '@/components/form/calendar-date-field'
@@ -17,8 +16,8 @@ import {
   FieldSet,
 } from '@/components/ui/field'
 import { TextField } from '@/features/auth/components/text-field'
-import { useCreateBudget, type CreateBudgetResult } from '@/features/budgets/budget-mutations'
-import { monthLabel, useStartMonthOptions } from '@/features/budgets/start-months'
+import { useCreateBudget } from '@/features/budgets/budget-mutations'
+import { monthLabel, useStartMonths } from '@/features/budgets/start-months'
 import { PayDayField, WeekendRuleField } from '@/features/income/components/income-term-fields'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
@@ -38,7 +37,7 @@ const createBudgetSchema = z.object({
   amount: rappenSchema(),
   payDay: payDaySchema,
   weekendRule: weekendRuleSchema,
-  /** "" for the current period, else a month offered by the database. */
+  /** "" for the default (the current period's month), else a month from get_start_months. */
   startMonth: z.string(),
 })
 type CreateBudgetInput = z.input<typeof createBudgetSchema>
@@ -66,18 +65,14 @@ export function CreateBudgetForm({
       startMonth: '',
     },
   })
-  const startMonths = useStartMonthOptions()
-
-  const create = useCreateBudget({
-    onCreated: (result: CreateBudgetResult) => {
-      if (result.endDateError) {
-        toast.error(
-          t('budgets.create.endDateFailed', { reason: errorMessage(result.endDateError) }),
-        )
-      }
-      onCreated(result.budgetId)
-    },
+  const [payDay, weekendRule, startMonth] = useWatch({
+    control: form.control,
+    name: ['payDay', 'weekendRule', 'startMonth'],
   })
+  // The months depend on the pay day and weekend rule: the database works them out.
+  const startMonths = useStartMonths(payDay, weekendRule)
+
+  const create = useCreateBudget({ onCreated })
 
   const onSubmit = form.handleSubmit((values) =>
     create
@@ -94,16 +89,19 @@ export function CreateBudgetForm({
   )
 
   const language = currentLanguage()
-  const startOptions = [
-    { value: '', label: t('budgets.create.startCurrent') },
-    ...(startMonths ?? []).map((option) => ({
-      value: option.month,
-      label: t('budgets.create.startMonthOption', {
-        month: monthLabel(option.month, language),
-        date: formatCalendarDate(option.startDate),
-      }),
-    })),
-  ]
+  const months = startMonths.data ?? []
+  const optionLabel = (option: (typeof months)[number]) =>
+    t(option.is_default ? 'budgets.create.startMonthCurrent' : 'budgets.create.startMonthOption', {
+      month: monthLabel(option.month, language),
+    })
+  // The default month is sent as null ("the current period"), the others as their month.
+  const startOptions = months.map((option) => ({
+    value: option.is_default ? '' : option.month,
+    label: optionLabel(option),
+  }))
+  const chosen = months.find((option) =>
+    startMonth ? option.month === startMonth : option.is_default,
+  )
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
@@ -147,16 +145,26 @@ export function CreateBudgetForm({
         <FieldSeparator />
         <FieldSet>
           <FieldLegend>{t('budgets.create.startSection')}</FieldLegend>
-          {startMonths ? (
+          {startMonths.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{errorMessage(startMonths.error)}</AlertDescription>
+            </Alert>
+          ) : (
             <SelectField
               control={form.control}
               name="startMonth"
               label={t('budgets.fields.startMonth')}
               description={t('budgets.create.earlierHelp')}
               options={startOptions}
+              disabled={months.length === 0}
             />
-          ) : (
-            <FieldDescription>{t('budgets.create.startCurrentOnly')}</FieldDescription>
+          )}
+          {chosen && (
+            <p className="text-sm" data-testid="first-period-start">
+              {t('budgets.create.firstPeriodStarts', {
+                date: formatCalendarDate(chosen.start_date),
+              })}
+            </p>
           )}
         </FieldSet>
         <Button type="submit" className="w-full sm:w-auto" disabled={create.isPending}>

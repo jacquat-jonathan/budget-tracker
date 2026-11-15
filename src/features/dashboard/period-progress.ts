@@ -2,9 +2,8 @@ import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { daysInclusive } from '@/lib/date'
 
 /**
- * Day N of M of a period. The contract gives no "today", so N uses the browser's date,
- * clamped to the period: it is display only, while which period is current, its dates and
- * its totals all come from the database (C-LOGIC-003).
+ * Day N of M of a period, counted to the database's "today" (period_summaries.today,
+ * R-PERIOD-028) and clamped to the period. Calendar arithmetic only, no time zone.
  */
 export function periodProgress(
   period: Pick<PeriodSummary, 'start_date' | 'end_date'>,

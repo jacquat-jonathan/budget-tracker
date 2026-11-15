@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-193 rules (151 active, 42 planned), 24 conventions, 63 decisions, 15 open questions. 0 rules and conventions are marked **TEST PENDING**.
+196 rules (154 active, 42 planned), 24 conventions, 63 decisions, 15 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -103,11 +103,11 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 - **US-INCOME-001** As a budget member, I want to add my income with its amount, pay day and weekend rule, so that it counts in the budget's monthly total.
   Rules: R-INCOME-002, R-INCOME-003, R-INCOME-004, R-INCOME-005, R-INCOME-010, R-INCOME-011, R-INCOME-013, R-INCOME-014, R-MONEY-002, R-PAYDATE-001, R-PAYDATE-002, R-PAYDATE-003, R-PAYDATE-004, R-PAYDATE-005, R-PAYDATE-006, R-PAYDATE-007, R-INCOME-050
 - **US-INCOME-002** As a budget member, I want to change an income's terms when my salary changes, so that the change applies from now on and past periods stay as they were.
-  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006
+  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-052
 - **US-INCOME-003** As a budget member, I want to make another income the primary one, so that periods follow the salary that really sets our rhythm.
   Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008
 - **US-INCOME-004** As a budget member, I want to remove an income, so that it stops counting without rewriting past periods.
-  Rules: R-INCOME-001, R-INCOME-009, R-INCOME-012
+  Rules: R-INCOME-001, R-INCOME-009, R-INCOME-012, R-INCOME-051
 
 #### F-PERIOD Periods (in-progress)
 
@@ -116,7 +116,7 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 - **US-PERIOD-001** As a budget member, I want periods to run from pay day to pay day of the primary income, so that the salary is always day one of the period.
   Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018, R-PERIOD-050
 - **US-PERIOD-002** As a budget member, I want to move a period boundary when the salary arrived on another day, so that public holidays do not put transactions in the wrong period.
-  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020
+  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
   Rules: R-PERIOD-007, R-PERIOD-011, R-VERSION-007, R-VERSION-008
 
@@ -609,6 +609,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-066
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
+- **R-INCOME-051** Changing or removing an income from an earlier period is offered only as an explicit option, off by default, with a warning that past periods' totals change.
+  _active · enforced by test · F-INCOME_
+  - Related: R-VERSION-010, R-INCOME-015, D-065
+  - Source: code: src/features/income/components/income-form-dialog.tsx; code: src/features/income/components/remove-income-dialog.tsx
+- **R-INCOME-052** Before new terms of the primary income are saved, the form warns when they would close the current period at once (the next month's pay date under the new terms has already come).
+  _active · enforced by test · F-INCOME_
+  - Related: R-PERIOD-026, R-VERSION-008
+  - Source: code: src/features/income/components/income-form-dialog.tsx
 
 ### Pay dates and the weekend rule
 
@@ -745,6 +753,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-070, Q-016
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
+- **R-PERIOD-051** The periods page offers boundary changes as what happened to a salary (it arrived on another day, it has not arrived yet, the next one arrived early), shows the resulting dates before saving, and offers a reset to the schedule for every boundary set by hand.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-023, R-PERIOD-025, D-063
+  - Source: code: src/features/periods/periods-page.tsx
 
 ### Versioning: edits never rewrite the past
 
@@ -1629,7 +1641,7 @@ Source: code: src/features/budgets/current-budget-provider.tsx; code: src/featur
 
 ### D-047 One mutation pattern with one error mapping (accepted)
 
-Writes go through useAppMutation: pending state, a translated success toast, the error either inline (forms, dialogs) or as a toast (one-click actions), and invalidation of the affected queries (everything of a budget sits under ["budget", id]). Errors are mapped in src/lib/db-errors.ts only, with a generic translated fallback; a "not found" answer is always toasted and refetches my budgets.
+Writes go through useAppMutation: pending state, a translated success toast, the error either inline (forms, dialogs) or as a toast (one-click actions), and invalidation of the affected queries (everything of a budget sits under ["budget", id]). Errors are mapped in src/lib/db-errors.ts only, with a generic translated fallback, and a call may word some codes its own way (for example "already deleted" for delete_budget); the list of codes is checked against the contract's error table; a "not found" answer is always toasted and refetches my budgets.
 
 **Why:** Later features copy one pattern; a new error code is one line plus its two translations.
 

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
-import { dbErrorKey, isNotFoundError, type DbErrorKey } from '@/lib/db-errors'
+import { dbErrorKey, isNotFoundError, type DbErrorOverrides } from '@/lib/db-errors'
 
 export interface AppMutationOptions<TData, TVariables> {
   mutationFn: (variables: TVariables) => Promise<TData>
@@ -22,6 +22,10 @@ export interface AppMutationOptions<TData, TVariables> {
    * forms and dialogs that show `useErrorMessage()(mutation.error)` next to their fields.
    */
   errorDisplay?: 'toast' | 'inline'
+  /** Queries to refetch when the write fails (the data it acted on may have changed). */
+  invalidateOnError?: readonly QueryKey[]
+  /** This call's own wording for some error codes (see dbErrorKey). */
+  errorMessages?: DbErrorOverrides
 }
 
 /**
@@ -37,9 +41,11 @@ export function useAppMutation<TData, TVariables = void>({
   success,
   onSuccess,
   errorDisplay = 'toast',
+  errorMessages,
+  invalidateOnError = [],
 }: AppMutationOptions<TData, TVariables>): UseMutationResult<TData, unknown, TVariables> {
   const queryClient = useQueryClient()
-  const errorMessage = useErrorMessage()
+  const errorMessage = useErrorMessage(errorMessages)
 
   return useMutation<TData, unknown, TVariables>({
     mutationFn,
@@ -55,12 +61,13 @@ export function useAppMutation<TData, TVariables = void>({
       // A "not found" can take the whole page away (the budget is gone), inline errors too.
       if (errorDisplay === 'toast' || notFound) toast.error(errorMessage(error))
       if (notFound) void queryClient.invalidateQueries({ queryKey: budgetKeys.list })
+      for (const queryKey of invalidateOnError) void queryClient.invalidateQueries({ queryKey })
     },
   })
 }
 
 /** Translate any database or network error; never shows the raw message. */
-export function useErrorMessage(): (error: unknown) => string {
+export function useErrorMessage(overrides?: DbErrorOverrides): (error: unknown) => string {
   const { t } = useTranslation()
-  return (error: unknown) => t(dbErrorKey(error) satisfies DbErrorKey)
+  return (error: unknown) => t(dbErrorKey(error, overrides))
 }

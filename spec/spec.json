@@ -764,7 +764,13 @@
           "actor": "A-MEMBER",
           "iWant": "to change an income's terms when my salary changes",
           "soThat": "the change applies from now on and past periods stay as they were",
-          "rules": ["R-VERSION-001", "R-VERSION-005", "R-VERSION-006"]
+          "rules": [
+            "R-VERSION-001",
+            "R-VERSION-005",
+            "R-VERSION-006",
+            "R-INCOME-051",
+            "R-INCOME-052"
+          ]
         },
         {
           "id": "US-INCOME-003",
@@ -778,7 +784,7 @@
           "actor": "A-MEMBER",
           "iWant": "to remove an income",
           "soThat": "it stops counting without rewriting past periods",
-          "rules": ["R-INCOME-001", "R-INCOME-009", "R-INCOME-012"]
+          "rules": ["R-INCOME-001", "R-INCOME-009", "R-INCOME-012", "R-INCOME-051"]
         }
       ]
     },
@@ -814,7 +820,7 @@
           "actor": "A-MEMBER",
           "iWant": "to move a period boundary when the salary arrived on another day",
           "soThat": "public holidays do not put transactions in the wrong period",
-          "rules": ["R-PERIOD-012", "R-PERIOD-013", "R-PERIOD-014", "R-PERIOD-020"]
+          "rules": ["R-PERIOD-012", "R-PERIOD-013", "R-PERIOD-014", "R-PERIOD-020", "R-PERIOD-051"]
         },
         {
           "id": "US-PERIOD-003",
@@ -2732,6 +2738,16 @@
       ]
     },
     {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-051",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "The periods page offers boundary changes as what happened to a salary (it arrived on another day, it has not arrived yet, the next one arrived early), shows the resulting dates before saving, and offers a reset to the schedule for every boundary set by hand.",
+      "related": ["R-PERIOD-023", "R-PERIOD-025", "D-063"],
+      "source": ["code: src/features/periods/periods-page.tsx"]
+    },
+    {
       "id": "R-BUDGET-014",
       "area": "budget",
       "statement": "When the terms change after an end date is set, the final period still ends on a normal boundary of its month, never a stub carrying a full month's income.",
@@ -2926,6 +2942,29 @@
         "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
         "docs/database.md: RPCs"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-INCOME-051",
+      "area": "income",
+      "feature": "F-INCOME",
+      "statement": "Changing or removing an income from an earlier period is offered only as an explicit option, off by default, with a warning that past periods' totals change.",
+      "related": ["R-VERSION-010", "R-INCOME-015", "D-065"],
+      "source": [
+        "code: src/features/income/components/income-form-dialog.tsx",
+        "code: src/features/income/components/remove-income-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-INCOME-052",
+      "area": "income",
+      "feature": "F-INCOME",
+      "statement": "Before new terms of the primary income are saved, the form warns when they would close the current period at once (the next month's pay date under the new terms has already come).",
+      "related": ["R-PERIOD-026", "R-VERSION-008"],
+      "source": ["code: src/features/income/components/income-form-dialog.tsx"]
     },
     {
       "id": "R-VERSION-009",
@@ -3460,7 +3499,7 @@
       "status": "accepted",
       "id": "D-047",
       "title": "One mutation pattern with one error mapping",
-      "decision": "Writes go through useAppMutation: pending state, a translated success toast, the error either inline (forms, dialogs) or as a toast (one-click actions), and invalidation of the affected queries (everything of a budget sits under [\"budget\", id]). Errors are mapped in src/lib/db-errors.ts only, with a generic translated fallback; a \"not found\" answer is always toasted and refetches my budgets.",
+      "decision": "Writes go through useAppMutation: pending state, a translated success toast, the error either inline (forms, dialogs) or as a toast (one-click actions), and invalidation of the affected queries (everything of a budget sits under [\"budget\", id]). Errors are mapped in src/lib/db-errors.ts only, with a generic translated fallback, and a call may word some codes its own way (for example \"already deleted\" for delete_budget); the list of codes is checked against the contract's error table; a \"not found\" answer is always toasted and refetches my budgets.",
       "why": "Later features copy one pattern; a new error code is one line plus its two translations.",
       "rejected": [],
       "related": ["R-APP-004", "D-027", "C-QUERY-001"],

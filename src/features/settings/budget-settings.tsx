@@ -20,8 +20,11 @@ import {
   useSetBudgetEndDate,
 } from '@/features/budgets/budget-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { monthLabel } from '@/features/budgets/start-months'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
+import { currentLanguage } from '@/lib/i18n'
 
 /** "Only the owner can …": shown instead of an owner-only control for a plain member. */
 export function OwnerOnlyNote({ children }: { children: string }) {
@@ -138,13 +141,12 @@ function EndDateForm() {
         <div className="flex flex-col gap-1">
           <h3 className="font-medium">{t('settings.budget.endDate')}</h3>
           <p className="text-sm text-muted-foreground">
-            {budget.end_date ? (
-              <>
-                {t('settings.budget.endsOn')} <CalendarDate value={budget.end_date} />
-              </>
-            ) : (
-              t('settings.budget.noEndDate')
-            )}
+            {budget.end_date && budget.end_month
+              ? t('settings.budget.endsWith', {
+                  month: monthLabel(budget.end_month, currentLanguage()),
+                  date: formatCalendarDate(budget.end_date),
+                })
+              : t('settings.budget.noEndDate')}
           </p>
         </div>
         {setEndDate.isError && (

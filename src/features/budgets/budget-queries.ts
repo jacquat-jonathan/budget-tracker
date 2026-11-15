@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
+import { calendarMonth } from '@/lib/date'
 import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
@@ -47,6 +48,44 @@ export function useEnsurePeriods(budgetId: string | undefined) {
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<number> =>
       unwrap(await supabase.rpc('ensure_periods', { p_budget_id: budgetId ?? '' })),
+  })
+}
+
+/**
+ * The database's "today" (get_today), for any "is this in the past" question that has no
+ * period row at hand. Never the browser's clock (R-PERIOD-028).
+ */
+export function useToday() {
+  return useQuery({
+    queryKey: ['today'] as const,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: async (): Promise<string> => unwrap(await supabase.rpc('get_today')),
+  })
+}
+
+/** The actual pay date of a pay day in a month (pay_date), for previews in forms. */
+export function usePayDate(
+  month: string | null,
+  payDay: number,
+  weekendRule: WeekendRule,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['pay-date', month, payDay, weekendRule] as const,
+    enabled: enabled && month !== null,
+    staleTime: Infinity,
+    queryFn: async (): Promise<string> => {
+      const { year, month: monthNumber } = calendarMonth(month ?? '')
+      return unwrap(
+        await supabase.rpc('pay_date', {
+          p_year: year,
+          p_month: monthNumber,
+          p_pay_day: payDay,
+          p_weekend_rule: weekendRule,
+        }),
+      )
+    },
   })
 }
 

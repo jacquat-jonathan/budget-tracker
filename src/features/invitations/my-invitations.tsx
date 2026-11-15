@@ -51,7 +51,12 @@ function InvitationRow({
   const { t } = useTranslation()
   const { selectBudget } = useBudgets()
 
+  // An invitation that expired or was cancelled meanwhile answers "not found".
+  const gone = { invitation_not_found: 'invitations.mine.gone' } as const
   const accept = useAppMutation<string>({
+    errorMessages: gone,
+    // A refusal means the list changed meanwhile (expired, cancelled): show the fresh one.
+    invalidateOnError: [budgetKeys.myInvitations],
     mutationFn: async () =>
       unwrap(await supabase.rpc('accept_invitation', { p_invitation_id: invitation.id })),
     success: () => t('invitations.mine.accepted', { name: invitation.budget_name }),
@@ -62,6 +67,9 @@ function InvitationRow({
     invalidate: () => [budgetKeys.myInvitations, budgetKeys.list],
   })
   const decline = useAppMutation<null>({
+    errorMessages: gone,
+    // A refusal means the list changed meanwhile (expired, cancelled): show the fresh one.
+    invalidateOnError: [budgetKeys.myInvitations],
     mutationFn: async () => {
       unwrap(await supabase.rpc('decline_invitation', { p_invitation_id: invitation.id }))
       return null
@@ -78,7 +86,13 @@ function InvitationRow({
         <p className="text-sm text-muted-foreground">
           {t('invitations.mine.from', {
             name: invitation.invited_by_name || t('members.unknownName'),
-            date: formatTimestamp(invitation.created_at),
+            email: invitation.invited_by_email,
+          })}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t('invitations.mine.dates', {
+            sent: formatTimestamp(invitation.created_at),
+            expires: formatTimestamp(invitation.expires_at),
           })}
         </p>
       </div>
