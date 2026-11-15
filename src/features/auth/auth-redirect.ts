@@ -10,6 +10,10 @@
  * token-bearing URL one step back. Here the current entry is *replaced* instead, before the
  * Supabase client is even created, and the auth bootstrap hands the tokens to supabase-js.
  *
+ * Until the bootstrap has a definite answer for the tokens, they are kept in sessionStorage
+ * (this tab only, never in a URL or history entry), so a network failure while validating
+ * them does not burn the link: reloading the page retries.
+ *
  * `captureAuthRedirect()` runs once, synchronously, at start-up (see main.tsx).
  */
 
@@ -87,6 +91,50 @@ export function stripAuthParams(href: string): string {
   return url.toString()
 }
 
+const PENDING_LINK_KEY = 'budget-tracker-pending-link'
+const PENDING_LINK_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+interface StoredLink {
+  tokens: AuthRedirectTokens
+  type?: string
+  capturedAt: number
+}
+
+function storeLink(redirect: AuthRedirect): void {
+  if (!redirect.tokens) return
+  try {
+    const stored: StoredLink = {
+      tokens: redirect.tokens,
+      type: redirect.type,
+      capturedAt: Date.now(),
+    }
+    sessionStorage.setItem(PENDING_LINK_KEY, JSON.stringify(stored))
+  } catch {
+    // Without storage a failed attempt cannot be retried by reloading; the link still works.
+  }
+}
+
+function readStoredLink(): AuthRedirect | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_LINK_KEY)
+    if (!raw) return null
+    const stored = JSON.parse(raw) as Partial<StoredLink>
+    const tokens = stored.tokens
+    if (
+      typeof tokens?.access_token !== 'string' ||
+      typeof tokens.refresh_token !== 'string' ||
+      typeof stored.capturedAt !== 'number' ||
+      Date.now() - stored.capturedAt > PENDING_LINK_MAX_AGE_MS
+    ) {
+      sessionStorage.removeItem(PENDING_LINK_KEY)
+      return null
+    }
+    return { tokens, type: typeof stored.type === 'string' ? stored.type : undefined }
+  } catch {
+    return null
+  }
+}
+
 /**
  * Take any auth redirect out of the current URL (replacing the history entry) and keep it
  * for the auth bootstrap. Call once, before the Supabase client is created.
@@ -95,13 +143,26 @@ export function captureAuthRedirect(): void {
   const redirect = parseAuthRedirect(window.location.href)
   if (!redirect) return
   pending = redirect
+  storeLink(redirect)
   const cleaned = stripAuthParams(window.location.href)
   window.history.replaceState(window.history.state, '', cleaned)
 }
 
-/** Hand over the captured redirect, once. */
+/**
+ * The redirect to process at start-up: the one captured from this page's URL, or else link
+ * tokens from an earlier load whose validation failed for a transient reason.
+ */
 export function takeAuthRedirect(): AuthRedirect | null {
-  const redirect = pending
+  const redirect = pending ?? readStoredLink()
   pending = null
   return redirect
+}
+
+/** The link tokens got a definite answer (accepted or rejected): stop retrying them. */
+export function settleAuthRedirect(): void {
+  try {
+    sessionStorage.removeItem(PENDING_LINK_KEY)
+  } catch {
+    // Nothing stored.
+  }
 }

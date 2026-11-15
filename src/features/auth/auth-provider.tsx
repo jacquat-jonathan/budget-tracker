@@ -7,6 +7,7 @@ import {
   clearRecovery,
   isRecoveryFor,
   markRecovery,
+  RECOVERY_KEY,
 } from '@/features/auth/auth-bootstrap'
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import type { AuthLinkError } from '@/features/auth/auth-redirect'
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [linkError, setLinkError] = useState<AuthLinkError | null>(null)
   // Id of the user whose data the query cache holds; undefined until first known.
   const cachedUserId = useRef<string | null | undefined>(undefined)
+  const currentUserId = useRef<string | undefined>(undefined)
 
   const applySession = useCallback(
     (next: Session | null) => {
@@ -31,7 +33,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queryClient.clear()
       }
       cachedUserId.current = nextUserId
+      currentUserId.current = next?.user.id
       setSession(next)
+      // A dead-link notice is moot once someone is signed in; it must not resurface on the
+      // sign-in page after a later sign-out.
+      if (next) setLinkError(null)
     },
     [queryClient],
   )
@@ -61,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!active) return
         applySession(result.session)
         setRecovery(result.recovery)
-        setLinkError(result.linkError)
+        setLinkError(result.session ? null : result.linkError)
       })
       .catch(() => {
         if (active) applySession(null)
@@ -77,6 +83,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data.subscription.unsubscribe()
     }
   }, [applySession])
+
+  // Recovery started, finished or cancelled in another tab of this browser.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === RECOVERY_KEY || event.key === null) {
+        setRecovery(isRecoveryFor(currentUserId.current))
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   const completeRecovery = useCallback(() => {
     clearRecovery()
