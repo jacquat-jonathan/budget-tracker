@@ -1,6 +1,6 @@
 -- Members, roles and invitations.
 begin;
-select plan(60);
+select plan(66);
 
 select tests.create_user('alice', 'Alice');
 select tests.create_user('bob', 'Bob');
@@ -137,19 +137,20 @@ select is_empty(
   'R-PROFILE-003: non-members cannot read the members'' profiles'
 );
 
--- Owner cancels an invitation; a member cannot.
+-- Owner cancels an invitation; a member cannot; each refusal says why.
 select tests.authenticate_as('bob');
-delete from public.budget_invitations where id = tests.id('inv_eve');
+select throws_ok(format('select public.cancel_invitation(%L)', tests.id('inv_eve')),
+  'P0001', 'not_owner', 'R-MEMBER-004 R-BUDGET-018: a member cannot cancel an invitation, and is told why');
+select throws_ok(format('delete from public.budget_invitations where id = %L', tests.id('inv_eve')),
+  '42501', null, 'R-MEMBER-004: nor delete it directly');
 select tests.authenticate_as('alice');
-select isnt_empty(
-  format('select 1 from public.budget_invitations where id = %L', tests.id('inv_eve')),
-  'R-MEMBER-004: a member''s delete of an invitation does nothing'
-);
-delete from public.budget_invitations where id = tests.id('inv_eve');
+select lives_ok(format('select public.cancel_invitation(%L)', tests.id('inv_eve')), 'R-MEMBER-004: the owner cancels it');
 select is_empty(
   format('select 1 from public.budget_invitations where id = %L', tests.id('inv_eve')),
-  'R-MEMBER-004: the owner cancels it'
+  'R-MEMBER-004: and it is gone'
 );
+select throws_ok(format('select public.cancel_invitation(%L)', tests.id('inv_eve')),
+  'P0001', 'invitation_not_found', 'R-BUDGET-018: cancelling it again says it is gone');
 
 -- ---------------------------------------------------------------------------
 -- Roles: what a plain member cannot do
@@ -161,9 +162,10 @@ select throws_ok(format('select public.remove_member(%L, %L)', tests.id('b'), te
   'P0001', 'not_owner', 'R-MEMBER-004: a member cannot remove members');
 select throws_ok(format('select public.set_budget_end_date(%L, %L)', tests.id('b'), '2027-01-01'),
   'P0001', 'not_owner', 'R-MEMBER-003: a member cannot set the end date');
-delete from public.budgets where id = tests.id('b');
-select isnt_empty(format('select 1 from public.budgets where id = %L', tests.id('b')),
-  'R-MEMBER-002: a member''s delete of the budget does nothing');
+select throws_ok(format('select public.delete_budget(%L)', tests.id('b')),
+  'P0001', 'not_owner', 'R-MEMBER-002 R-BUDGET-018: a member cannot delete the budget, and is told why');
+select throws_ok(format('delete from public.budgets where id = %L', tests.id('b')),
+  '42501', null, 'R-MEMBER-002: nor delete it directly');
 select throws_ok(
   format('update public.budgets set owner_id = %L where id = %L', tests.get_user_id('bob'), tests.id('b')),
   '42501', null, 'R-BUDGET-002: a member cannot make themselves owner');
@@ -305,7 +307,9 @@ where id = (select primary_income_id from public.budgets where id = tests.id('ov
 -- Deleting
 -- ---------------------------------------------------------------------------
 select tests.authenticate_as('alice');
-delete from public.budgets where id = tests.id('b');
+select lives_ok(format('select public.delete_budget(%L)', tests.id('b')), 'R-BUDGET-009: the owner deletes the budget');
+select throws_ok(format('select public.delete_budget(%L)', tests.id('b')),
+  'P0001', 'budget_not_found', 'R-BUDGET-018: deleting it again says it is gone');
 select tests.clear_authentication();
 select is_empty(
   format($$select 1 from public.budgets where id = %1$L

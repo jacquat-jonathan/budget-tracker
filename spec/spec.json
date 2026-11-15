@@ -1103,10 +1103,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["C-MONEY-002"],
       "source": ["domain: Money"]
     },
@@ -1394,10 +1390,6 @@
       "feature": "F-PROFILE",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["code: supabase/migrations/20261115151317_create_profiles.sql"]
     },
     {
@@ -1407,10 +1399,6 @@
       "feature": "F-PROFILE",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["code: supabase/migrations/20261115151317_create_profiles.sql"]
     },
     {
@@ -1420,10 +1408,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["docs/database.md: Reading"]
     },
     {
@@ -1434,10 +1418,6 @@
       "feature": "F-PLATFORM",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-003"],
       "source": ["domain: Security"]
     },
@@ -1448,10 +1428,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Security"]
     },
     {
@@ -1461,10 +1437,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["docs/database.md: Conventions", "CLAUDE.md: Rules"]
     },
     {
@@ -1474,10 +1446,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-028"],
       "source": ["docs/database.md: Conventions"]
     },
@@ -1497,10 +1465,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1510,10 +1474,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1523,10 +1483,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1536,10 +1492,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1549,10 +1501,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1571,24 +1519,16 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
       "id": "R-BUDGET-008",
       "area": "budget",
-      "statement": "A budget's end date falls on a period boundary.",
+      "statement": "A budget's end date is the end of its final month's period: always a normal period boundary.",
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "related": ["D-032"],
+      "related": ["D-032", "D-067"],
       "source": ["domain: Budget"]
     },
     {
@@ -1598,10 +1538,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1611,10 +1547,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1624,10 +1556,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1637,10 +1565,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-029"],
       "source": ["docs/database.md: RPCs"]
     },
@@ -1651,10 +1575,6 @@
       "feature": "F-BUDGET",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-029"],
       "source": ["docs/database.md: RPCs"]
     },
@@ -1694,10 +1614,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1707,11 +1623,8 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Budget"]
+      "source": ["domain: Budget"],
+      "related": ["R-BUDGET-018"]
     },
     {
       "id": "R-MEMBER-003",
@@ -1720,10 +1633,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1733,10 +1642,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1746,10 +1651,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1759,10 +1660,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1772,10 +1669,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-030"],
       "source": ["domain: Budget"]
     },
@@ -1786,10 +1679,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1799,10 +1688,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-031"],
       "source": ["domain: Budget"]
     },
@@ -1813,10 +1698,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-029"],
       "source": ["docs/database.md: RPCs"]
     },
@@ -1840,10 +1721,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1862,24 +1739,17 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
       "id": "R-INVITE-004",
       "area": "invite",
-      "statement": "The invited person accepts or declines the invitation.",
+      "statement": "The invited person accepts or declines an unexpired invitation.",
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Budget"]
+      "source": ["domain: Budget"],
+      "related": ["R-INVITE-007"]
     },
     {
       "id": "R-INVITE-005",
@@ -1888,10 +1758,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Budget"]
     },
     {
@@ -1901,10 +1767,6 @@
       "feature": "F-MEMBERS",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-029"],
       "source": ["docs/database.md: RPCs"]
     },
@@ -1915,10 +1777,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -1941,10 +1799,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -1954,10 +1808,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -1967,10 +1817,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -1980,10 +1826,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -1993,10 +1835,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2006,10 +1844,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2019,10 +1853,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2042,38 +1872,26 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
       "id": "R-INCOME-012",
       "area": "income",
-      "statement": "Removing an income that has already counted in a past period ends it from the current period instead of deleting it.",
+      "statement": "Removing an income that has already counted in a past period ends it from the current period instead of deleting it (unless the removal is an explicit correction from an earlier period, R-INCOME-015).",
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "related": ["D-030"],
+      "related": ["D-030", "R-INCOME-015"],
       "source": ["domain: Income"]
     },
     {
       "id": "R-INCOME-013",
       "area": "income",
-      "statement": "A budget has at most 50 incomes, ended ones included.",
+      "statement": "A budget has at most 50 incomes in force; ended incomes do not count.",
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "related": ["D-029"],
+      "related": ["D-029", "D-066"],
       "source": ["docs/database.md: RPCs"]
     },
     {
@@ -2083,10 +1901,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-029"],
       "source": ["docs/database.md: Conventions"]
     },
@@ -2097,10 +1911,6 @@
       "area": "income",
       "feature": "F-INCOME",
       "statement": "The database lets any member of a budget add an income for another member and change or remove another member's income.",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-045", "R-INCOME-002"],
       "source": [
         "owner-request: product owner decision on Q-001, 2026-11-15",
@@ -2114,10 +1924,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2127,10 +1933,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2140,10 +1942,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2153,10 +1951,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2166,10 +1960,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2179,10 +1969,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2192,10 +1978,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Income"]
     },
     {
@@ -2206,24 +1988,17 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
       "id": "R-PERIOD-002",
       "area": "period",
-      "statement": "A period ends the day before the next actual pay date of the primary income.",
+      "statement": "A period ends the day before the next period starts: by default, the day before the actual pay date of the primary income for the next month.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Period"]
+      "source": ["domain: Period"],
+      "related": ["D-060"]
     },
     {
       "id": "R-PERIOD-003",
@@ -2232,10 +2007,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2245,10 +2016,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2258,10 +2025,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2271,10 +2034,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2284,10 +2043,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2297,10 +2052,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2310,65 +2061,49 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
       "id": "R-PERIOD-010",
       "area": "period",
-      "statement": "The current period's end date is a projection: the day before the next actual pay date of the primary income.",
+      "statement": "The current period's end date is a projection: the day before the actual pay date of the primary income for the next month, under the terms in force for the next period.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Period"]
+      "source": ["domain: Period"],
+      "related": ["D-060"]
     },
     {
       "id": "R-PERIOD-011",
       "area": "period",
-      "statement": "The current period's projected end is recomputed when the primary income's terms change, unless the user has set it by hand.",
+      "statement": "The current period's projected end is recomputed when the primary income's terms change or another income becomes primary, unless the user has set it by hand (see R-PERIOD-026).",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Period"]
+      "source": ["domain: Period"],
+      "related": ["R-PERIOD-026"]
     },
     {
       "id": "R-PERIOD-012",
       "area": "period",
-      "statement": "The user can move the boundary between two consecutive periods to match when the salary really arrived, overriding the actual pay date.",
+      "statement": "The user can move the boundary between two consecutive periods to match when the salary really arrived, overriding the scheduled pay date; each period keeps its month.",
       "rationale": "Public holidays.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Period", "domain: Income"]
+      "source": ["domain: Period", "domain: Income"],
+      "related": ["D-061"]
     },
     {
       "id": "R-PERIOD-013",
       "area": "period",
-      "statement": "The user can move the projected end of the current period.",
+      "statement": "The user can move the end of the current period, including the final period of a budget with an end date, in one call.",
       "rationale": "Public holidays.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Period"]
+      "source": ["domain: Period"],
+      "related": ["D-061"]
     },
     {
       "id": "R-PERIOD-014",
@@ -2377,10 +2112,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2390,10 +2121,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2404,10 +2131,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2417,10 +2140,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-026"],
       "source": ["domain: Period"]
     },
@@ -2431,10 +2150,6 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Period"]
     },
     {
@@ -2444,25 +2159,17 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-029"],
       "source": ["docs/database.md: RPCs"]
     },
     {
       "id": "R-PERIOD-020",
       "area": "period",
-      "statement": "A moved boundary never leaves a period empty or longer than 70 days, and never swallows the next period.",
+      "statement": "A boundary set by hand lies within 14 days of the scheduled pay date of the salary that starts the next period, never leaves a period empty and never swallows the next period.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "related": ["D-029"],
+      "related": ["D-029", "D-061", "D-066"],
       "source": ["docs/database.md: RPCs"]
     },
     {
@@ -2485,10 +2192,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Versioning: edits never rewrite the past"]
     },
     {
@@ -2525,10 +2228,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Versioning: edits never rewrite the past"]
     },
     {
@@ -2538,10 +2237,6 @@
       "feature": "F-INCOME",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Versioning: edits never rewrite the past"]
     },
     {
@@ -2551,24 +2246,17 @@
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["domain: Versioning: edits never rewrite the past"]
     },
     {
       "id": "R-VERSION-008",
       "area": "version",
-      "statement": "A change to the primary income's pay day or weekend rule applies from the next pay date.",
+      "statement": "A change to the primary income's pay day or weekend rule applies from the next month's pay date.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
-      "source": ["domain: Versioning: edits never rewrite the past"]
+      "source": ["domain: Versioning: edits never rewrite the past"],
+      "related": ["D-060"]
     },
     {
       "id": "R-CATEGORY-001",
@@ -2937,6 +2625,333 @@
       "enforcement": "review",
       "related": ["D-040"],
       "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-PERIOD-021",
+      "area": "period",
+      "statement": "There is one period per calendar month: each period belongs to one month and starts on that month's salary, consecutive periods have consecutive months, and no month has two periods, so a month's salary never counts twice.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-060"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PERIOD-022",
+      "area": "period",
+      "statement": "No period ever starts after today.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-062"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PERIOD-023",
+      "area": "period",
+      "statement": "Moving the boundary before the latest period to today or later means the salary has not arrived yet: the latest period is removed and the previous one is current again, with that end.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-062"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PERIOD-024",
+      "area": "period",
+      "statement": "A boundary that is not the one before the latest period cannot move to today or later.",
+      "rationale": "With the 14-day rule (R-PERIOD-020) no such move can be requested; the database still refuses it (boundary_after_today) as a defence.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-062"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PERIOD-025",
+      "area": "period",
+      "statement": "Every manual boundary operation has an inverse: a boundary can be moved back or reset to the schedule, which also reopens a period closed early or brings back a period removed for a late salary.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-063"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PERIOD-026",
+      "area": "period",
+      "statement": "When the primary income's terms change or another income becomes primary, a manual end of the current period is kept while it lies within 14 days of the new schedule, and is reset to the schedule otherwise.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-073"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PERIOD-027",
+      "area": "period",
+      "statement": "The database gives the valid months to start a budget from, with the date each first period would start, so the client never computes them.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-070"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PERIOD-028",
+      "area": "period",
+      "statement": "The database gives its \"today\" for display, with the current period and on its own, so the client never uses the browser's clock.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-070", "Q-016"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-BUDGET-014",
+      "area": "budget",
+      "statement": "When the terms change after an end date is set, the final period still ends on a normal boundary of its month, never a stub carrying a full month's income.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-067"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-BUDGET-015",
+      "area": "budget",
+      "statement": "The final boundary of a budget with an end date can be adjusted by hand in one call, and the end date follows it.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-067"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-BUDGET-016",
+      "area": "budget",
+      "statement": "Deleting the owner's account deletes their budgets, for every member.",
+      "rationale": "Current behaviour, recorded so it is not changed by accident; open question Q-030.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["Q-030"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-BUDGET-017",
+      "area": "budget",
+      "statement": "A budget can be created with its end date in the same atomic step.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-071", "Q-017"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-BUDGET-018",
+      "area": "budget",
+      "statement": "Deleting a budget or cancelling an invitation that does not happen says why: not found (or already gone), or not the owner.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-072"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PROFILE-004",
+      "area": "profile",
+      "statement": "Members can read the profile of anyone who has an income in their budget, so a former member's income keeps its owner's name.",
+      "feature": "F-PROFILE",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-074"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-PROFILE-005",
+      "area": "profile",
+      "statement": "A profile's email is the account's email and follows it when it changes; the user cannot change it on the profile.",
+      "feature": "F-PROFILE",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-074"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-SECURITY-006",
+      "area": "security",
+      "statement": "Reading a budget's current period never waits for other members' writes.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-069"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-SECURITY-007",
+      "area": "security",
+      "statement": "Operations that race each other answer with a contract error, never a raw database error.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-069"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-INVITE-007",
+      "area": "invite",
+      "statement": "An invitation expires 30 days after it was last sent; an expired invitation is not shown and cannot be accepted or declined.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-068"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-INVITE-008",
+      "area": "invite",
+      "statement": "The invited person sees who invited them by name and email.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-068"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-INVITE-009",
+      "area": "invite",
+      "statement": "Inviting the same address again returns the same invitation and renews it.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-033", "D-068"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-INVITE-010",
+      "area": "invite",
+      "statement": "A cancelled or expired invitation can never be accepted, even by an accept that races the cancel.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-069"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-INCOME-015",
+      "area": "income",
+      "statement": "An income can be removed from an earlier period as an explicit correction; removed from the period it started in, it is deleted.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-065"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-INCOME-016",
+      "area": "income",
+      "statement": "A budget holds at most 500 incomes in all, ended ones included.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-066"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-VERSION-009",
+      "area": "version",
+      "statement": "Writing a version for a period discards the versions keyed to later periods, so terms just saved hold from that period on and are never shadowed.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-064"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "R-VERSION-010",
+      "area": "version",
+      "statement": "An income's terms can be corrected from an earlier period of the income, as an explicit correction; normal edits never change past periods.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-065"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs"
+      ]
     }
   ],
   "decisions": [
@@ -3240,7 +3255,7 @@
       "decision": "At most 20 owned budgets per user, 20 members per budget, 20 pending invitations per budget, 50 incomes per budget (ended ones included). Income amounts from 1 to 1 000 000 000 rappen. A budget starts at most 60 months back; an end date at most ten years ahead; a period is never empty and at most 70 days long. The limits are defined in one place in the migration.",
       "why": "Bound the work of every RPC and keep abuse cheap.",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": [
         "R-BUDGET-012",
         "R-BUDGET-013",
@@ -3251,7 +3266,8 @@
         "R-PERIOD-019",
         "R-PERIOD-020"
       ],
-      "source": ["docs/database.md"]
+      "source": ["docs/database.md"],
+      "supersededBy": "D-066"
     },
     {
       "id": "D-030",
@@ -3279,9 +3295,10 @@
       "decision": "Setting an end date moves it forward to the end of the period that contains it, projected with the primary income's current terms. Clearing it resumes period generation. An end date that would delete existing periods is refused, and a boundary that is the budget's end date is changed through the end date.",
       "why": "The end date always falls on a period boundary without deleting history.",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-BUDGET-008"],
-      "source": ["docs/database.md: RPCs"]
+      "source": ["docs/database.md: RPCs"],
+      "supersededBy": "D-067"
     },
     {
       "id": "D-033",
@@ -3333,11 +3350,12 @@
       "decision": "Every function that creates or moves periods first locks the budget row; ensure_periods is idempotent and safe under concurrent calls.",
       "why": "Concurrent callers run one after the other and cannot create duplicate periods.",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "source": [
         "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql",
         "docs/database.md: RPCs"
-      ]
+      ],
+      "supersededBy": "D-069"
     },
     {
       "id": "D-038",
@@ -3449,14 +3467,241 @@
       "source": ["code: src/hooks/use-app-mutation.ts", "code: src/lib/db-errors.ts"]
     },
     {
-      "status": "accepted",
+      "status": "superseded",
       "id": "D-048",
       "title": "Day N of M uses the browser's date, display only",
       "decision": "The dashboard's \"day N of M\" counts calendar days from the current period's start to the browser's local date, clamped to the period. Which period is current, its dates and its totals come from the database. To be replaced if the contract provides today (Q-016).",
       "why": "The contract gives no \"today\"; the number is cosmetic and never sent back.",
       "rejected": [],
       "related": ["Q-016", "R-PERIOD-017", "C-LOGIC-003"],
-      "source": ["code: src/features/dashboard/period-progress.ts"]
+      "source": ["code: src/features/dashboard/period-progress.ts"],
+      "supersededBy": "D-070"
+    },
+    {
+      "id": "D-060",
+      "title": "One period per calendar month",
+      "decision": "Each period belongs to one calendar month (periods.month) and starts on that month's salary (anchor_date, the scheduled actual pay date). Consecutive periods have consecutive months. A period's projected end is the day before the actual pay date of the next month's nominal pay day under the terms in force for the next period. A mid-period change of the primary's pay day or weekend rule therefore applies to the next month's pay date.",
+      "why": "An early salary, a close-by nominal date or a pay-day change could otherwise cut a period short and count a month's salary twice.",
+      "rejected": [
+        "Projecting the end from the first pay date after the period start: an early salary created a 2-day period and a second salary in the same month (review finding 1)."
+      ],
+      "status": "accepted",
+      "related": ["R-PERIOD-021", "R-PERIOD-002", "R-PERIOD-010", "R-VERSION-008"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-061",
+      "title": "A manual boundary lies within 14 days of its salary",
+      "decision": "A boundary set by hand must leave the next period starting within 14 days of the scheduled pay date of its month. This bound replaces the 70-day period length limit as the abuse limit.",
+      "why": "It covers public holidays and late or early salaries, and stops repeated early closes from creating periods without salaries.",
+      "rejected": [
+        "A maximum period length of 70 days: allowed several 1-day periods each with the full income."
+      ],
+      "status": "accepted",
+      "related": ["R-PERIOD-020", "R-PERIOD-012", "R-PERIOD-013"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-062",
+      "title": "No period starts after today",
+      "decision": "Periods exist only up to the one containing today. Moving the boundary before the latest period to today or later means the salary has not arrived yet: the latest period is removed and the previous one is current again with that end. Moving any earlier boundary to today or later is refused.",
+      "why": "A future period made an earlier one current again and let an edit be written to a closed period while the next one kept stale terms (review finding 2).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-PERIOD-022", "R-PERIOD-023", "R-PERIOD-024"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-063",
+      "title": "Every manual boundary operation has an inverse",
+      "decision": "move_period_boundary(period, null) resets the boundary after a period to the schedule; any move can be moved back. Closing a period early is undone by moving or resetting that boundary, which removes the period started early if its salary is still to come.",
+      "why": "One-way operations any member can trigger turn a mistake into permanent damage.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-PERIOD-025"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-064",
+      "title": "Writing a version discards later versions",
+      "decision": "Writing a version for period s deletes the versions of the same entity keyed to later periods, through one generic trigger (private.discard_later_versions) that every versioned table (incomes now; categories, subscriptions and debts later) uses.",
+      "why": "A version left for a later period (after a late salary removed that period) would otherwise shadow the edit just saved.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-VERSION-009"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-065",
+      "title": "Explicit corrections of the past are allowed, implicit ones never",
+      "decision": "Normal edits and removals apply from the current period. update_income_terms and remove_income take an optional from-period (default current) so a mistake, including a back-dated one, can be corrected or the income removed from the period it started in (which deletes it).",
+      "why": "A back-dated typo otherwise stayed in every past total for good (review finding 3a).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-VERSION-010", "R-INCOME-015"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-066",
+      "title": "Limits (revised)",
+      "decision": "At most 20 owned budgets per user, 20 members per budget, 20 pending (unexpired) invitations per budget, 50 incomes in force and 500 incomes in all per budget. Income amounts from 1 to 1 000 000 000 rappen. A budget starts at most 60 months back; an end date at most ten years ahead. A manual boundary lies within 14 days of its salary (D-061). The limits are defined in one place in the migration.",
+      "why": "Counting ended incomes made the income limit a lifetime limit (review finding 3b); the period-length limit did not stop abuse (D-061).",
+      "rejected": [],
+      "status": "accepted",
+      "related": [
+        "R-BUDGET-012",
+        "R-BUDGET-013",
+        "R-MEMBER-010",
+        "R-INVITE-006",
+        "R-INCOME-013",
+        "R-INCOME-016",
+        "R-INCOME-014",
+        "R-PERIOD-019",
+        "R-PERIOD-020"
+      ],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-067",
+      "title": "The end date is a final month",
+      "decision": "A budget stores its final month (end_month). Setting an end date picks the month whose period contains it; the end date shown is that period's end (projected while it does not exist), so it follows later changes of the terms and is always a normal boundary. The final boundary is adjusted like any other, in one call. An end date that would delete existing periods is refused.",
+      "why": "A stored end date became a stub period with a full month's income when the terms changed (review finding 10).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-BUDGET-008", "R-BUDGET-014", "R-BUDGET-015"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-068",
+      "title": "Invitations expire and name the inviter",
+      "decision": "Invitations expire 30 days after they were last sent; re-inviting renews the same invitation. list_my_invitations returns the inviter's name and email. Invitation security depends on Supabase Auth \"Confirm email\" staying on in the hosted project (docs/deployment.md).",
+      "why": "A display name is chosen by its owner and proves nothing; an invitation should not stay valid for ever.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-INVITE-007", "R-INVITE-008", "R-INVITE-009", "D-021"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-069",
+      "title": "Budget writes take an advisory lock; reads take none",
+      "decision": "Every RPC that changes a budget's periods, incomes or members takes a transaction-level advisory lock for the budget and only then reads the rows it checks. ensure_periods and get_current_period take no lock when there is nothing to create. Accepting an invitation locks the invitation row.",
+      "why": "A row lock on the budget blocked page loads behind any transaction inserting rows of the budget (review finding 6); reading before locking gave raw errors and let a cancelled invitation be accepted (findings 4 and 7).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-SECURITY-006", "R-SECURITY-007", "R-INVITE-010", "R-PERIOD-009"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-070",
+      "title": "The database gives \"today\" and the start months",
+      "decision": "period_summaries (and so get_current_period) carry the database's today; get_today() returns it on its own; get_start_months(pay day, weekend rule) returns today and the valid start months with the date each first period would start.",
+      "why": "The client must never use the browser's clock for what the database decides (Q-016).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-PERIOD-027", "R-PERIOD-028", "R-PERIOD-017", "Q-016"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-071",
+      "title": "create_budget takes the end date",
+      "decision": "create_budget has an optional end date, applied in the same transaction.",
+      "why": "A second call could fail and leave a budget without the end date the user asked for (Q-017).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-BUDGET-017", "Q-017"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-072",
+      "title": "Deletes go through RPCs that say why",
+      "decision": "Deleting a budget and cancelling an invitation are RPCs (delete_budget, cancel_invitation) that answer budget_not_found / invitation_not_found or not_owner; the client has no direct delete privilege on these tables.",
+      "why": "A direct delete affecting no rows cannot tell \"not allowed\" from \"already gone\".",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-BUDGET-018", "R-MEMBER-002", "R-MEMBER-004"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-073",
+      "title": "A manual end survives a terms change only within 14 days",
+      "decision": "When the primary's terms change or the primary is switched, a manual end of the current period is kept while it lies within 14 days of the new schedule, and reset to the schedule otherwise.",
+      "why": "Keeping it unconditionally would let the next period start more than 14 days from its salary (D-061).",
+      "rejected": [
+        "Refusing the terms change: blocks the user for a boundary they may have forgotten."
+      ],
+      "status": "accepted",
+      "related": ["R-PERIOD-026", "R-PERIOD-014"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-074",
+      "title": "Profiles carry the email and stay readable for income labels",
+      "decision": "profiles.email mirrors the account email (trigger on auth.users). Members can read the profiles of co-members and of anyone with an income in their budgets.",
+      "why": "Member lists show emails; a former member's ended income must keep its owner's name.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-PROFILE-004", "R-PROFILE-005"],
+      "source": [
+        "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
     }
   ],
   "conventions": [
@@ -3475,10 +3720,6 @@
       "statement": "Money is integer rappen in the database.",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-007", "R-MONEY-002"],
       "source": ["CLAUDE.md: Rules"]
     },
@@ -3496,10 +3737,6 @@
       "statement": "Every table has row-level security enabled.",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "source": ["CLAUDE.md: Rules"]
     },
     {
@@ -3534,10 +3771,6 @@
       "statement": "Period, pay-date and versioning logic is tested with pgTAP.",
       "status": "active",
       "enforcement": "test",
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
-      },
       "related": ["D-024"],
       "source": ["CLAUDE.md: Rules"]
     },
@@ -3828,20 +4061,33 @@
       ]
     },
     {
-      "status": "open",
+      "status": "resolved",
       "id": "Q-016",
       "question": "Should the database return \"today\" (or the day number within the current period) so that the client never uses the browser's date?",
       "context": "The dashboard shows \"day N of M\" of the current period; the contract returns the period but not the Europe/Zurich date the database decided it with, so N comes from the browser (D-048) and can differ around midnight or in another time zone.",
       "related": ["D-048", "R-PERIOD-017"],
-      "source": ["code: src/features/dashboard/period-progress.ts", "docs/database.md: Conventions"]
+      "source": [
+        "code: src/features/dashboard/period-progress.ts",
+        "docs/database.md: Conventions"
+      ],
+      "resolvedBy": "D-070"
     },
     {
-      "status": "open",
+      "status": "resolved",
       "id": "Q-017",
       "question": "Should create_budget take the end date, so that a budget with an end date is created in one atomic step?",
       "context": "The first-run form asks for an optional end date; create_budget has no such argument, so the client calls set_budget_end_date afterwards. If that second call fails, the budget exists without its end date and the user is told so.",
       "related": ["R-BUDGET-010", "R-BUDGET-005"],
-      "source": ["code: src/features/budgets/budget-mutations.ts", "docs/database.md: RPCs"]
+      "source": ["code: src/features/budgets/budget-mutations.ts", "docs/database.md: RPCs"],
+      "resolvedBy": "D-071"
+    },
+    {
+      "id": "Q-030",
+      "question": "What should happen to a budget and its incomes when a member's or the owner's account is deleted?",
+      "context": "No client path deletes accounts yet. Today, deleting the owner's account deletes their budgets for every member (R-BUDGET-016), and deleting a member's account keeps their incomes with a null owner without the member rules: an income that is primary stays active and primary (review finding 8). Settle before any account-deletion feature.",
+      "status": "open",
+      "related": ["R-BUDGET-016", "R-MEMBER-007", "R-MEMBER-009"],
+      "source": ["owner-request: coordinator decisions on the step 2 database review, 2026-11-15"]
     }
   ]
 }

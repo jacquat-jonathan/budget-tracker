@@ -49,7 +49,7 @@ select results_eq(
 -- ---------------------------------------------------------------------------
 select lives_ok(
   format('select public.update_income_terms(%L, 600000, 25, %L)', tests.id('primary'), 'nearest'),
-  'R-MEMBER-001: a member edits the primary amount in the current period'
+  'R-MEMBER-001 R-INCOME-050: a member edits another member''s income (the primary) in the current period'
 );
 select results_eq(
   format('select * from pg_temp.totals(%L)', tests.id('b')),
@@ -97,7 +97,7 @@ select tests.remember('for_bob', public.add_income(tests.id('b'), 'Bob bonus', 5
 select is(
   (select user_id from public.incomes where id = tests.id('for_bob')),
   tests.get_user_id('bob'),
-  'R-MEMBER-001: a member can add an income for another member'
+  'R-MEMBER-001 R-INCOME-050: a member can add an income for another member'
 );
 select throws_ok(
   format('select public.add_income(%L, %L, 1000, 25, %L, %L)', tests.id('b'), 'X', 'nearest', tests.get_user_id('carol')),
@@ -113,7 +113,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- Removing incomes from the current period
 -- ---------------------------------------------------------------------------
-select is(public.remove_income(tests.id('bob_past')), 'ended', 'R-INCOME-012: an income that counted in the past is ended');
+select is(public.remove_income(tests.id('bob_past')), 'ended', 'R-INCOME-012 R-INCOME-050: an income that counted in the past is ended (here one member removes another member''s income)');
 select results_eq(
   format('select first_seq, end_seq, is_active, next_pay_date from public.income_overview where id = %L', tests.id('bob_past')),
   $$values (4, 10, false, null::date)$$,

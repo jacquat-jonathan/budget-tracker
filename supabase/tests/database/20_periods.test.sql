@@ -7,7 +7,7 @@
 -- commit and tests roll back, so the tests force them with `set constraints all immediate`.
 -- "Today" only moves forward in this file, as in real life.
 begin;
-select plan(81);
+select plan(87);
 
 select tests.create_user('alice', 'Alice');
 
@@ -42,6 +42,7 @@ select results_eq(
   $$values (1, '2026-01-01'::date, '2026-01-26'::date, '2026-02-24'::date)$$,
   'R-BUDGET-010 R-PERIOD-001 R-PERIOD-015: created at the end of January, the budget has one period, January''s, from its actual pay date (25 Jan is a Sunday: Monday 26)'
 );
+select is(public.get_today(), '2026-01-30'::date, 'R-PERIOD-028: get_today follows the database''s today, not a clock');
 
 -- ===========================================================================
 -- 15 November 2026
@@ -60,7 +61,7 @@ select is(public.ensure_periods(tests.id('catchup')), 0, 'R-PERIOD-009: a second
 select is(
   (select max(start_date) from public.periods where budget_id = tests.id('catchup')),
   '2026-10-26'::date,
-  'R-PERIOD-008: only periods up to the current one exist'
+  'R-PERIOD-004 R-PERIOD-008: periods are stored rows, and only those up to the current one exist'
 );
 
 -- First period: the current one by default, or an earlier month.
@@ -71,10 +72,26 @@ select results_eq(
   'R-PERIOD-015 R-PERIOD-003: by default the first period is the current one (October''s), starting on its salary'
 );
 select results_eq(
-  format('select start_date, is_current from public.get_current_period(%L)', tests.id('current')),
-  $$values ('2026-10-26'::date, true)$$,
-  'R-PERIOD-010: get_current_period returns it'
+  format('select start_date, is_current, today from public.get_current_period(%L)', tests.id('current')),
+  $$values ('2026-10-26'::date, true, '2026-11-15'::date)$$,
+  'R-PERIOD-010 R-PERIOD-028: get_current_period returns it, with the database''s today'
 );
+select is(public.get_today(), '2026-11-15'::date, 'R-PERIOD-028: get_today gives the database''s today');
+
+-- An end date can be given at creation: one atomic step.
+select tests.remember('with_end', public.create_budget('With end', 'Salary', 500000, 25, 'nearest', null, '2027-02-10'));
+select results_eq(
+  format('select end_month, end_date from public.my_budgets where id = %L', tests.id('with_end')),
+  $$values ('2027-01-01'::date, '2027-02-24'::date)$$,
+  'R-BUDGET-017: create_budget takes the end date'
+);
+select throws_ok(
+  $$select public.create_budget('Bad end', 'Salary', 500000, 25, 'nearest', null, '2026-10-01')$$,
+  'P0001', 'end_date_before_last_period',
+  'R-BUDGET-017: an invalid end date fails the creation'
+);
+select is_empty($$select 1 from public.my_budgets where name = 'Bad end'$$,
+  'R-BUDGET-017 R-BUDGET-010: and no budget is left half-created');
 select tests.remember('jan', public.create_budget('From January', 'Salary', 500000, 25, 'nearest', '2026-01-15'));
 select results_eq(
   format('select * from pg_temp.periods_of(%L)', tests.id('jan')),
@@ -490,6 +507,8 @@ set constraints all deferred;
 delete from public.periods where budget_id = tests.id('ended')
   and seq = (select max(seq) from public.periods where budget_id = tests.id('ended'));
 
+select lives_ok('set constraints all immediate', 'R-PERIOD-005: invariants hold again after the direct writes');
+set constraints all deferred;
 update public.budgets set end_month = '2026-06-01' where id = tests.id('jan');
 select throws_ok('set constraints all immediate', '23514', 'periods_invalid',
   'R-BUDGET-007: no period may lie after the final month');

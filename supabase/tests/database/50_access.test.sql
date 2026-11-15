@@ -60,6 +60,8 @@ insert into carol_calls values
   (format('select public.move_period_boundary(%L, null)', tests.id('a_period')), 'period_not_found'),
   (format('select public.accept_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
   (format('select public.decline_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
+  (format('select public.delete_budget(%L)', tests.id('a')), 'budget_not_found'),
+  (format('select public.cancel_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
   -- hostile arguments
   ('select public.ensure_periods(null)', 'budget_not_found'),
   ('select public.move_period_boundary(null, null)', 'period_not_found'),
@@ -91,6 +93,9 @@ insert into carol_denied values
   (format('delete from public.incomes where budget_id = %L', tests.id('a'))),
   (format('delete from public.periods where budget_id = %L', tests.id('a'))),
   (format('delete from public.budget_members where budget_id = %L', tests.id('a'))),
+  (format('delete from public.budgets where id = %L', tests.id('a'))),
+  (format('delete from public.budget_invitations where budget_id = %L', tests.id('a'))),
+  (format('delete from public.budgets where id = %L', tests.id('c'))),
   -- internal helpers are not callable
   (format('select private.ensure_periods(%L)', tests.id('a'))),
   (format('select private.end_member_incomes(%L, %L)', tests.id('a'), tests.get_user_id('bob'))),
@@ -102,6 +107,9 @@ create temp table anon_calls (sql text) on commit drop;
 insert into anon_calls values
   ('select public.pay_date(2026, 1, 1)'),
   ('select public.get_start_months(25)'),
+  ('select public.get_today()'),
+  (format('select public.delete_budget(%L)', tests.id('a'))),
+  (format('select public.cancel_invitation(%L)', tests.id('a_inv_dave'))),
   ($$select public.create_budget('x', 'x', 1, 1)$$),
   (format('select public.set_budget_end_date(%L, null)', tests.id('a'))),
   (format('select public.invite_member(%L, %L)', tests.id('a'), 'x@test.local')),
@@ -144,9 +152,7 @@ select throws_ok(sql, '42501', null, 'R-SECURITY-001 R-SECURITY-002: non-member,
 
 -- Writes that are granted but filtered by RLS change nothing.
 update public.budgets set name = 'Hacked' where id = tests.id('a');
-delete from public.budgets where id = tests.id('a');
 update public.incomes set name = 'Hacked' where budget_id = tests.id('a');
-delete from public.budget_invitations where budget_id = tests.id('a');
 
 select tests.clear_authentication();
 select is(

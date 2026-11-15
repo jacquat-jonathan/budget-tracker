@@ -3,7 +3,7 @@
 -- commits throwaway users and budgets, and deletes them at the end (and at the start, should
 -- an earlier run have failed half-way). The main transaction only observes and rolls back.
 begin;
-select plan(19);
+select plan(21);
 
 create extension if not exists dblink with schema extensions;
 
@@ -57,11 +57,23 @@ begin
 end;
 $$;
 
--- The result of the sent query: its value, or 'error: <message>'.
+-- The result of the sent query: its value, or 'error: <message>'. A query still waiting
+-- after 10 seconds is cancelled ('timeout'), so a broken lock fails the test instead of
+-- hanging it.
 create or replace function pg_temp.result(c text) returns text language plpgsql as $$
 declare
   v text;
 begin
+  for i in 1..100 loop
+    exit when extensions.dblink_is_busy(c) = 0;
+    perform pg_sleep(0.1);
+  end loop;
+  if extensions.dblink_is_busy(c) = 1 then
+    perform extensions.dblink_cancel_query(c);
+    perform 1 from extensions.dblink_get_result(c, false) as t (v text);
+    perform 1 from extensions.dblink_get_result(c, false) as t (v text);
+    return 'timeout';
+  end if;
   begin
     select t.v into v from extensions.dblink_get_result(c) as t (v text);
   exception when others then
@@ -151,7 +163,7 @@ select extensions.dblink_exec('setup', 'reset role');
 
 select pg_temp.act_as('one', (select id from ids where name = 'owner'));
 select extensions.dblink_exec('one', 'begin');
-select extensions.dblink_exec('one', format('delete from public.budget_invitations where id = %L', (select id from ids where name = 'inv')));
+select pg_temp.q('one', format('select public.cancel_invitation(%L)::text', (select id from ids where name = 'inv')));
 select pg_temp.act_as('two', (select id from ids where name = 'invitee'));
 select is(
   pg_temp.send_and_wait('two', format('select public.accept_invitation(%L)::text', (select id from ids where name = 'inv'))),
@@ -220,6 +232,30 @@ select is(
 );
 select extensions.dblink_exec('one', 'commit');
 select is(pg_temp.result('two'), 'error: budget_limit_reached', 'R-BUDGET-012: and finds the limit reached');
+
+-- ===========================================================================
+-- Income operations racing each other get contract errors
+-- ===========================================================================
+select pg_temp.act_as('setup', (select id from ids where name = 'owner'));
+insert into ids values
+  ('side', pg_temp.q('setup', format($$select public.add_income(%L, 'Side', 1000, 1)::text$$, (select id from ids where name = 'budget')))::uuid),
+  ('extra', pg_temp.q('setup', format($$select public.add_income(%L, 'Extra', 1000, 1, 'nearest', null,
+      (select id from public.periods where budget_id = %1$L and seq = 1))::text$$, (select id from ids where name = 'budget')))::uuid);
+select pg_temp.act_as(c, (select id from ids where name = 'owner')) from unnest(array['one', 'two']) as c;
+
+select extensions.dblink_exec('one', 'begin');
+select pg_temp.q('one', format('select public.remove_income(%L)', (select id from ids where name = 'extra')));
+select pg_temp.send_and_wait('two', format('select public.set_primary_income(%L)::text', (select id from ids where name = 'extra')));
+select extensions.dblink_exec('one', 'commit');
+select is(pg_temp.result('two'), 'error: income_ended',
+  'R-SECURITY-007: making an income primary while another member ends it gives the contract error income_ended');
+
+select extensions.dblink_exec('one', 'begin');
+select pg_temp.q('one', format('select public.remove_income(%L)', (select id from ids where name = 'side')));
+select pg_temp.send_and_wait('two', format($$select public.update_income_terms(%L, 2000, 1, 'nearest')::text$$, (select id from ids where name = 'side')));
+select extensions.dblink_exec('one', 'commit');
+select is(pg_temp.result('two'), 'error: income_not_found',
+  'R-SECURITY-007: editing an income while another member deletes it gives the contract error income_not_found');
 
 -- Clean up what was committed.
 select extensions.dblink_exec('setup', 'reset role');

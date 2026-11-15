@@ -99,7 +99,9 @@ In the Supabase dashboard, Authentication > URL Configuration:
   and `https://budget.example.ch/**`.
 
 Also under Authentication: keep email confirmation on for production (Sign In / Providers
-> Email). The built-in email sender of the free tier sends only a few emails per hour; for
+> Email > "Confirm email"). **It must stay on**: invitations are matched to accounts by
+verified email, and with confirmation off any sign-up counts as verified, so anyone could
+register an invited address and accept that invitation. The built-in email sender of the free tier sends only a few emails per hour; for
 real use, set a custom SMTP server (Authentication > Emails > SMTP Settings), for example
 your Infomaniak mail account.
 

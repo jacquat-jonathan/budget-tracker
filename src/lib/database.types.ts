@@ -25,14 +25,14 @@ export type Database = {
           Tables: {
             "budget_invitations": {
                   Row: {
-                    "budget_id": string,"created_at": string,"email": string,"id": string,"invited_by": string | null
+                    "budget_id": string,"created_at": string,"email": string,"expires_at": string,"id": string,"invited_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"email": string,"id"?: string,"invited_by"?: string | null
+                    "budget_id": string,"created_at"?: string,"email": string,"expires_at"?: string,"id"?: string,"invited_by"?: string | null
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"email"?: string,"id"?: string,"invited_by"?: string | null
+                    "budget_id"?: string,"created_at"?: string,"email"?: string,"expires_at"?: string,"id"?: string,"invited_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -77,14 +77,14 @@ isOneToOne: false
                   ]
                 },"budgets": {
                   Row: {
-                    "created_at": string,"end_date": string | null,"id": string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
+                    "created_at": string,"end_month": string | null,"id": string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at"?: string
+                    "created_at"?: string,"end_month"?: string | null,"id"?: string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name"?: string,"owner_id"?: string,"primary_income_id"?: string,"updated_at"?: string
+                    "created_at"?: string,"end_month"?: string | null,"id"?: string,"name"?: string,"owner_id"?: string,"primary_income_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -155,14 +155,14 @@ isOneToOne: false
                   ]
                 },"periods": {
                   Row: {
-                    "budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"seq": number,"start_date": string,"updated_at": string
+                    "anchor_date": string,"budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"month": string,"seq": number,"start_date": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"seq": number,"start_date": string,"updated_at"?: string
+                    "anchor_date": string,"budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"month": string,"seq": number,"start_date": string,"updated_at"?: string
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"seq"?: number,"start_date"?: string,"updated_at"?: string
+                    "anchor_date"?: string,"budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"month"?: string,"seq"?: number,"start_date"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -218,7 +218,7 @@ isOneToOne: false
                   ]
                 },"income_overview": {
                   Row: {
-                    "amount": number,"budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"is_active": boolean | null,"is_primary": boolean | null,"name": string,"next_pay_date": string | null,"pay_day": number,"terms_from_seq": number,"updated_at": string,"user_id": string | null,"weekend_rule": Database["public"]['Enums']["weekend_rule"]
+                    "amount": number,"budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"is_active": boolean | null,"is_primary": boolean | null,"name": string,"next_pay_date": string | null,"pay_day": number,"terms_from_seq": number,"updated_at": string,"user_display_name": string | null,"user_id": string | null,"weekend_rule": Database["public"]['Enums']["weekend_rule"]
                   }
                   ComputedFields: never
                   Relationships: [
@@ -238,7 +238,7 @@ isOneToOne: false
                   ]
                 },"my_budgets": {
                   Row: {
-                    "created_at": string,"end_date": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
+                    "created_at": string,"end_date": string | null,"end_month": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -258,14 +258,14 @@ isOneToOne: false
                   ]
                 },"period_summaries": {
                   Row: {
-                    "budget_id": string,"end_date": string,"end_is_manual": boolean,"id": string,"income_total": number | null,"is_current": boolean | null,"seq": number,"start_date": string
+                    "anchor_date": string,"budget_id": string,"end_date": string,"end_is_manual": boolean,"id": string,"income_total": number | null,"is_current": boolean | null,"month": string,"seq": number,"start_date": string,"today": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                           "budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"seq"?: number | null,"start_date"?: string | null
+                           "anchor_date"?: string | null,"budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"month"?: string | null,"seq"?: number | null,"start_date"?: string | null,"today"?: never
                          }
                         Update: {
-                           "budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"seq"?: number | null,"start_date"?: string | null
+                           "anchor_date"?: string | null,"budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"month"?: string | null,"seq"?: number | null,"start_date"?: string | null,"today"?: never
                          }
                         Relationships: [
                     {
@@ -291,25 +291,34 @@ isOneToOne: false
 "add_income":
 { Args: { "p_amount": number,"p_budget_id": string,"p_from_period_id"?: string,"p_name": string,"p_pay_day": number,"p_user_id"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
                            },
+"cancel_invitation":
+{ Args: { "p_invitation_id": string }; Returns: undefined
+                           },
 "create_budget":
-{ Args: { "p_amount": number,"p_income_name": string,"p_name": string,"p_pay_day": number,"p_start_month"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
+{ Args: { "p_amount": number,"p_end_date"?: string,"p_income_name": string,"p_name": string,"p_pay_day": number,"p_start_month"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
                            },
 "decline_invitation":
 { Args: { "p_invitation_id": string }; Returns: undefined
+                           },
+"delete_budget":
+{ Args: { "p_budget_id": string }; Returns: undefined
                            },
 "ensure_periods":
 { Args: { "p_budget_id": string }; Returns: number
                            },
 "get_current_period":
 { Args: { "p_budget_id": string }; Returns: {
-              "budget_id": string,
+              "anchor_date": string,
+"budget_id": string,
 "end_date": string,
 "end_is_manual": boolean,
 "id": string,
 "income_total": number | null,
 "is_current": boolean | null,
+"month": string,
 "seq": number,
-"start_date": string
+"start_date": string,
+"today": string | null
             }[]
                           SetofOptions: {
         from: "*"
@@ -317,6 +326,14 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"get_start_months":
+{ Args: { "p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
+              "is_default": boolean,"month": string,"start_date": string,"today": string
+            }[]
+                           },
+"get_today":
+{ Args: Record<PropertyKey, never>; Returns: string
+                           },
 "invite_member":
 { Args: { "p_budget_id": string,"p_email": string }; Returns: string
                            },
@@ -325,29 +342,44 @@ isOneToOne: false
                            },
 "list_my_invitations":
 { Args: Record<PropertyKey, never>; Returns: {
-              "budget_id": string,"budget_name": string,"created_at": string,"id": string,"invited_by_name": string
+              "budget_id": string,"budget_name": string,"created_at": string,"expires_at": string,"id": string,"invited_by_email": string,"invited_by_name": string
             }[]
                            },
 "move_period_boundary":
-{ Args: { "p_new_end": string,"p_period_id": string }; Returns: undefined
+{ Args: { "p_new_end"?: string,"p_period_id": string }; Returns: undefined
                            },
 "pay_date":
 { Args: { "p_month": number,"p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"],"p_year": number }; Returns: string
                            },
 "remove_income":
-{ Args: { "p_income_id": string }; Returns: string
+{ Args: { "p_from_period_id"?: string,"p_income_id": string }; Returns: string
                            },
 "remove_member":
 { Args: { "p_budget_id": string,"p_user_id": string }; Returns: undefined
                            },
 "set_budget_end_date":
-{ Args: { "p_budget_id": string,"p_end_date": string }; Returns: string
-                           },
+{ Args: { "p_budget_id": string,"p_end_date"?: string }; Returns: {
+              "created_at": string,
+"end_date": string | null,
+"end_month": string | null,
+"id": string,
+"is_owner": boolean | null,
+"name": string,
+"owner_id": string,
+"primary_income_id": string,
+"updated_at": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "my_budgets"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "set_primary_income":
 { Args: { "p_income_id": string }; Returns: undefined
                            },
 "update_income_terms":
-{ Args: { "p_amount": number,"p_income_id": string,"p_pay_day": number,"p_weekend_rule": Database["public"]['Enums']["weekend_rule"] }; Returns: undefined
+{ Args: { "p_amount": number,"p_from_period_id"?: string,"p_income_id": string,"p_pay_day": number,"p_weekend_rule": Database["public"]['Enums']["weekend_rule"] }; Returns: undefined
                            }
           }
           Enums: {

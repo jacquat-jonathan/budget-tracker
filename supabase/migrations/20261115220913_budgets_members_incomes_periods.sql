@@ -11,8 +11,8 @@
 --     helper runs once per statement (initPlan) and, being security definer, never
 --     re-enters the policies of budget_members (no recursion).
 --   * Writes that touch several rows or need invariants go through security definer RPCs in
---     `public`, which check membership themselves. The client can write directly only:
---     budgets.name, incomes.name (members), delete budgets and invitations (owner).
+--     `public`, which check membership themselves. The client can write directly only
+--     budgets.name and incomes.name (members); deletes go through RPCs that say why.
 --   * RPC errors are raised with SQLSTATE P0001 and a stable snake_case message code.
 --   * Every RPC that changes a budget's periods, incomes or members first takes the
 --     budget's advisory lock (private.lock_budget) and only then reads the rows it checks.
@@ -1091,7 +1091,17 @@ create view public.income_overview with (security_invoker = true) as
   from public.incomes as i
   join public.budgets as b on b.id = i.budget_id
   left join public.profiles as p on p.id = i.user_id
-  cross join lateral private.terms_at(i.id, private.reading_seq(i.budget_id)) as t;
+  -- the terms in force for the period being read (as private.terms_at, inlined so the
+  -- columns keep their table types)
+  join lateral (
+    select v.amount, v.pay_day, v.weekend_rule, v.effective_from_seq
+    from public.income_versions as v
+    where v.income_id = i.id
+    order by (v.effective_from_seq <= private.reading_seq(i.budget_id)) desc,
+             case when v.effective_from_seq <= private.reading_seq(i.budget_id)
+                  then -v.effective_from_seq else v.effective_from_seq end
+    limit 1
+  ) as t on true;
 
 -- Periods with the total of the incomes in force in each, at the version in force.
 create view public.period_summaries with (security_invoker = true) as
@@ -1105,6 +1115,7 @@ create view public.period_summaries with (security_invoker = true) as
     p.end_date,
     p.end_is_manual,
     (private.today() between p.start_date and p.end_date) as is_current,
+    private.today() as today,
     coalesce((
       select pg_catalog.sum(v.amount)
       from public.incomes as i
@@ -1162,7 +1173,8 @@ create or replace function public.create_budget(
   p_amount bigint,
   p_pay_day integer,
   p_weekend_rule public.weekend_rule default 'nearest',
-  p_start_month date default null
+  p_start_month date default null,
+  p_end_date date default null
 )
 returns uuid
 language plpgsql
@@ -1221,17 +1233,19 @@ begin
   values (v_budget_id, 1, v_month, v_first.start_date, v_first.start_date,
           private.scheduled_end(v_budget_id, v_first));
   perform private.ensure_periods(v_budget_id);
+  if p_end_date is not null then
+    perform private.apply_end_date(v_budget_id, p_end_date);
+  end if;
   return v_budget_id;
 end;
 $$;
 
 -- Set the final month to the one whose period contains p_end_date (projected with the
--- current terms), or clear it with null. Returns the budget as my_budgets shows it.
-create or replace function public.set_budget_end_date(p_budget_id uuid, p_end_date date default null)
-returns setof public.my_budgets
+-- current terms), or clear it with null. No access check; the caller holds the lock.
+create or replace function private.apply_end_date(p_budget_id uuid, p_end_date date)
+returns void
 language plpgsql
 volatile
-security definer
 set search_path = ''
 as $$
 declare
@@ -1239,12 +1253,9 @@ declare
   v_probe public.periods;
   v_steps integer := 0;
 begin
-  perform private.assert_owner(p_budget_id);
-  perform private.lock_budget(p_budget_id);
   if p_end_date is null then
     update public.budgets set end_month = null where id = p_budget_id;
     perform private.ensure_periods(p_budget_id);
-    return query select * from public.my_budgets where id = p_budget_id;
     return;
   end if;
   if not private.is_sane_date(p_end_date) or p_end_date > private.today() + 3660 then
@@ -1270,8 +1281,73 @@ begin
   end loop;
   update public.budgets set end_month = v_probe.month where id = p_budget_id;
   perform private.ensure_periods(p_budget_id);
+end;
+$$;
+
+-- Owner: set the end date (see private.apply_end_date) or clear it with null. Returns the
+-- budget as my_budgets shows it.
+create or replace function public.set_budget_end_date(p_budget_id uuid, p_end_date date default null)
+returns setof public.my_budgets
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.assert_owner(p_budget_id);
+  perform private.lock_budget(p_budget_id);
+  perform private.apply_end_date(p_budget_id, p_end_date);
   return query select * from public.my_budgets where id = p_budget_id;
 end;
+$$;
+
+-- Owner: delete the budget with everything in it.
+create or replace function public.delete_budget(p_budget_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.assert_owner(p_budget_id);
+  perform private.lock_budget(p_budget_id);
+  delete from public.budgets where id = p_budget_id;
+end;
+$$;
+
+-- Owner: cancel a pending invitation.
+create or replace function public.cancel_invitation(p_invitation_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_budget_id uuid;
+begin
+  select i.budget_id into v_budget_id from public.budget_invitations as i where i.id = p_invitation_id;
+  if v_budget_id is null or not private.is_budget_member(v_budget_id) then
+    raise exception 'invitation_not_found' using errcode = 'P0001';
+  end if;
+  perform private.assert_owner(v_budget_id);
+  delete from public.budget_invitations where id = p_invitation_id;
+  if not found then
+    raise exception 'invitation_not_found' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+-- The database's today (Europe/Zurich), for display.
+create or replace function public.get_today()
+returns date
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select private.today()
 $$;
 
 create or replace function public.invite_member(p_budget_id uuid, p_email text)
@@ -1717,9 +1793,7 @@ grant select on table
   public.my_budgets, public.budget_member_list, public.income_overview, public.period_summaries
 to authenticated;
 grant update (name) on table public.budgets to authenticated;
-grant delete on table public.budgets to authenticated;
 grant update (name) on table public.incomes to authenticated;
-grant delete on table public.budget_invitations to authenticated;
 
 grant select, insert, update, delete on table
   public.budgets, public.budget_members, public.budget_invitations,
@@ -1754,10 +1828,14 @@ revoke all on function
   private.end_member_incomes(uuid, uuid),
   private.assert_income_terms(bigint, integer, public.weekend_rule),
   private.clean_name(text), private.period_seq(uuid, uuid), private.lock_income(uuid),
+  private.apply_end_date(uuid, date),
   public.pay_date(integer, integer, integer, public.weekend_rule),
   public.get_start_months(integer, public.weekend_rule),
-  public.create_budget(text, text, bigint, integer, public.weekend_rule, date),
+  public.create_budget(text, text, bigint, integer, public.weekend_rule, date, date),
   public.set_budget_end_date(uuid, date),
+  public.delete_budget(uuid),
+  public.cancel_invitation(uuid),
+  public.get_today(),
   public.invite_member(uuid, text),
   public.list_my_invitations(),
   public.accept_invitation(uuid),
@@ -1785,8 +1863,11 @@ to authenticated;
 grant execute on function
   public.pay_date(integer, integer, integer, public.weekend_rule),
   public.get_start_months(integer, public.weekend_rule),
-  public.create_budget(text, text, bigint, integer, public.weekend_rule, date),
+  public.create_budget(text, text, bigint, integer, public.weekend_rule, date, date),
   public.set_budget_end_date(uuid, date),
+  public.delete_budget(uuid),
+  public.cancel_invitation(uuid),
+  public.get_today(),
   public.invite_member(uuid, text),
   public.list_my_invitations(),
   public.accept_invitation(uuid),
@@ -1819,9 +1900,6 @@ create policy "Members can rename their budgets"
   on public.budgets for update to authenticated
   using (id in (select private.member_budget_ids()))
   with check (id in (select private.member_budget_ids()));
-create policy "Owners can delete their budgets"
-  on public.budgets for delete to authenticated
-  using (id in (select private.owned_budget_ids()));
 
 create policy "Members can read the members of their budgets"
   on public.budget_members for select to authenticated
@@ -1829,9 +1907,6 @@ create policy "Members can read the members of their budgets"
 
 create policy "Owners can read their budgets' invitations"
   on public.budget_invitations for select to authenticated
-  using (budget_id in (select private.owned_budget_ids()));
-create policy "Owners can cancel their budgets' invitations"
-  on public.budget_invitations for delete to authenticated
   using (budget_id in (select private.owned_budget_ids()));
 
 create policy "Members can read their budgets' incomes"
