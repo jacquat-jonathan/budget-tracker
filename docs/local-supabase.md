@@ -94,6 +94,7 @@ select tests.get_user_id('alice');
 select tests.get_user_email('alice');         -- for invitations
 select tests.create_user('eve', 'Eve', false);  -- an account whose email is not verified
 select tests.set_today('2026-11-15');         -- pin the database's "today" (as postgres)
+select * from tests.period_violations(<budget id>);  -- independent period invariant check
 select tests.remember('budget', public.create_budget(...));  -- name an id ...
 select tests.id('budget');                    -- ... and use it under any role
 ```
@@ -102,9 +103,12 @@ Deferred constraint triggers (period contiguity, one primary income, ...) only f
 commit, and tests roll back, so assert them with
 `select lives_ok('set constraints all immediate', '...')` followed by
 `set constraints all deferred;`. The client contract the tests protect is in
-`docs/database.md`.
+`docs/database.md`. Name the spec rule id a test proves in its description
+(`'R-PERIOD-021: ...'`); `npm run spec:check` checks every test-enforced rule has one.
+`70_properties.test.sql` runs a seeded random sequence of operations and checks the
+invariants after each.
 
-`60_periods_concurrency.test.sql` is the exception to the rollback rule: it opens extra
+`60_concurrency.test.sql` is the exception to the rollback rule: it opens extra
 connections with `dblink` (local credentials `postgres`/`postgres`) to race two callers,
 commits a throwaway user and budget, and deletes them at the end (and at the start, should
 an earlier run have failed half-way).
