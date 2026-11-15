@@ -1,0 +1,94 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+import { Link, useLocation } from 'react-router'
+
+import { paths } from '@/app/paths'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { FieldGroup } from '@/components/ui/field'
+import { authErrorKey, type AuthErrorKey } from '@/features/auth/auth-errors'
+import { AuthLayout } from '@/features/auth/components/auth-layout'
+import { TextField } from '@/features/auth/components/text-field'
+import { signInSchema, type SignInValues } from '@/features/auth/schemas'
+import { supabase } from '@/lib/supabase'
+
+export function SignInPage() {
+  const { t } = useTranslation()
+  const location = useLocation()
+  const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
+
+  const form = useForm<SignInValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: { email: '', password: '' },
+  })
+
+  const onSubmit = form.handleSubmit(async (values) => {
+    setErrorKey(null)
+    try {
+      const { error } = await supabase.auth.signInWithPassword(values)
+      // On success the auth listener updates the session and the public-only route
+      // sends the user to the page they originally asked for.
+      if (error) setErrorKey(authErrorKey(error))
+    } catch (error) {
+      setErrorKey(authErrorKey(error))
+    }
+  })
+
+  return (
+    <AuthLayout
+      title={t('auth.signIn.title')}
+      description={t('auth.signIn.description')}
+      footer={
+        <p>
+          {t('auth.signIn.noAccount')}{' '}
+          <Link
+            to={paths.signUp}
+            state={location.state as unknown}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t('auth.signIn.signUpLink')}
+          </Link>
+        </p>
+      }
+    >
+      <form onSubmit={(event) => void onSubmit(event)} noValidate>
+        <FieldGroup>
+          {errorKey && (
+            <Alert variant="destructive">
+              <AlertDescription>{t(errorKey)}</AlertDescription>
+            </Alert>
+          )}
+          <TextField
+            control={form.control}
+            name="email"
+            label={t('fields.email')}
+            type="email"
+            autoComplete="email"
+            placeholder={t('fields.emailPlaceholder')}
+            autoFocus
+          />
+          <div className="flex flex-col gap-2">
+            <TextField
+              control={form.control}
+              name="password"
+              label={t('fields.password')}
+              type="password"
+              autoComplete="current-password"
+            />
+            <Link
+              to={paths.forgotPassword}
+              className="self-end text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {t('auth.signIn.forgotPassword')}
+            </Link>
+          </div>
+          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? t('common.loading') : t('auth.signIn.submit')}
+          </Button>
+        </FieldGroup>
+      </form>
+    </AuthLayout>
+  )
+}

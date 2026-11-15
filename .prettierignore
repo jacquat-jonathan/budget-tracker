@@ -1,0 +1,12 @@
+dist
+coverage
+node_modules
+package-lock.json
+# Generated: shadcn/ui components and Supabase types.
+src/components/ui
+src/lib/database.types.ts
+# Owned and formatted by the backend side.
+supabase
+.github
+docs
+CLAUDE.md
