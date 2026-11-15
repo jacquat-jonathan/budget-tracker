@@ -1,5 +1,5 @@
 begin;
-select plan(22);
+select plan(24);
 
 -- ---------------------------------------------------------------------------
 -- Structure
@@ -14,10 +14,26 @@ select policies_are(
 -- ---------------------------------------------------------------------------
 -- Sign-up trigger
 -- ---------------------------------------------------------------------------
-select tests.create_user('alice', 'Alice');
+-- tests.create_user inserts into auth.users with no privileges on public tables, like the
+-- Auth server's supabase_auth_admin, so these calls fail if the trigger only works for a
+-- privileged role.
+select lives_ok(
+  $$select tests.create_user('alice', 'Alice')$$,
+  'a sign-up inserted with the Auth server''s privileges succeeds'
+);
 select tests.create_user('bob', 'Bob');
 select tests.create_user('nameless');
 select tests.create_user('blank', '   ');
+
+select is(
+  (
+    select p.prosecdef and p.proconfig @> array['search_path=""']
+    from pg_catalog.pg_proc as p
+    where p.oid = 'private.handle_new_user()'::regprocedure
+  ),
+  true,
+  'handle_new_user is security definer with an empty search_path'
+);
 
 select is(
   (select display_name from public.profiles where id = tests.get_user_id('alice')),
@@ -169,15 +185,20 @@ select tests.clear_authentication();
 -- ---------------------------------------------------------------------------
 delete from auth.users where id = tests.get_user_id('bob');
 select is_empty(
-  $$select 1 from public.profiles p
-    where not exists (select 1 from auth.users u where u.id = p.id)$$,
+  format('select 1 from public.profiles where id = %L', tests.get_user_id('bob')),
   'deleting an auth user deletes their profile'
 );
 
 select is(
-  (select count(*)::int from public.profiles),
+  (
+    select count(*)::int
+    from public.profiles
+    where id in (
+      tests.get_user_id('alice'), tests.get_user_id('nameless'), tests.get_user_id('blank')
+    )
+  ),
   3,
-  'the remaining users still have their profiles'
+  'the other test users keep their profiles'
 );
 
 select * from finish();

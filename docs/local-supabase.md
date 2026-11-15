@@ -49,7 +49,7 @@ hosted project.
 
 Email confirmation is off locally, so signing up signs you in at once. Auth redirects are
 allowed to the Vite dev server (http://localhost:5173 and 127.0.0.1:5173, including
-`/auth/update-password`) and the preview server on port 4173. Changes to `config.toml`
+`/reset-password`) and the preview server on port 4173. Changes to `config.toml`
 need `npm run db:stop && npm run db:start`.
 
 ## Add a migration
@@ -94,7 +94,12 @@ select tests.get_user_id('alice');
 ```
 
 Test at least: the owner can do what the policies allow; another user cannot read or
-change the row; anon gets nothing. `01_rls_enabled.test.sql` fails if any table in
+change the row; anon gets nothing. Scope every assertion to rows the test created
+(`where id = tests.get_user_id('alice')`), never count or scan a whole table: your local
+database may hold users you signed up through the app, and the tests must still pass.
+`tests.create_user` inserts users with no privileges on public tables, like the Auth
+server's `supabase_auth_admin`, so a sign-up trigger that needs more privileges fails the
+tests as it would fail real sign-ups. `01_rls_enabled.test.sql` fails if any table in
 `public` lacks RLS. CI also runs `npx supabase db advisors --fail-on warn` (Supabase's
 security and performance linter); run it yourself after a schema change.
 

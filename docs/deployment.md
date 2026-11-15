@@ -95,7 +95,7 @@ In the Supabase dashboard, Authentication > URL Configuration:
 
 - **Site URL**: the production address, for example `https://budget.example.ch` (with the
   subfolder if any: `https://example.ch/budget`).
-- **Redirect URLs**: add `https://budget.example.ch/auth/update-password` (password reset)
+- **Redirect URLs**: add `https://budget.example.ch/reset-password` (password reset)
   and `https://budget.example.ch/**`.
 
 Also under Authentication: keep email confirmation on for production (Sign In / Providers
@@ -118,13 +118,18 @@ with your project only:
 connect-src 'self' https://abcdefghijklmnopqrst.supabase.co wss://abcdefghijklmnopqrst.supabase.co;
 ```
 
-commit, and deploy. After deploying, open the site with the browser developer tools
-console: CSP violations are reported there.
+commit, and deploy. If the project is served from a custom domain instead of
+`*.supabase.co`, list that domain (https and wss) the same way, or the app cannot reach
+Supabase. The Deploy workflow checks this and stops before building when
+`VITE_SUPABASE_URL` is not allowed by `connect-src`. After deploying, open the site with
+the browser developer tools console: other CSP violations are reported there.
 
 ## Deploy
 
-GitHub > Actions > **Deploy** > Run workflow, choose `main`, Run. The job builds with the
-variables above and syncs `dist/` to the site folder: changed files are replaced, files no
+GitHub > Actions > **Deploy** > Run workflow, choose `main`, Run. The job first checks the
+variables and that the CSP allows `VITE_SUPABASE_URL`, then runs the same checks as CI
+(`npm run lint`, `npm run typecheck`, `npm test`); any failure stops it before anything is
+uploaded. It then builds with the variables above and syncs `dist/` to the site folder: changed files are replaced, files no
 longer in the build are deleted (the server's `.well-known/` folder is kept). Its log
 lists every file it changed.
 

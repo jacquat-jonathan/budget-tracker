@@ -8,11 +8,15 @@
 --
 -- Usage in a test file:
 --
---   select tests.create_user('alice', 'Alice');      -- returns the new user's id
+--   select tests.create_user('alice', 'Alice');      -- returns the new user's id; inserts
+--                                                    -- with Auth's privileges (see below)
 --   select tests.authenticate_as('alice');           -- act as Alice (role authenticated)
 --   select tests.authenticate_as_anon();             -- act as a signed-out visitor
 --   select tests.clear_authentication();             -- back to postgres (bypasses RLS)
---   select tests.get_user_id('alice');
+--   select tests.get_user_id('alice');               -- works after the user is deleted too
+--
+-- Scope every assertion to rows the test created (by tests.get_user_id); never count or
+-- scan whole tables, since the local database may hold users signed up through the app.
 --
 -- authenticate_as* use transaction-local settings, so they only last until the end of
 -- the surrounding transaction.
@@ -26,21 +30,59 @@ drop schema if exists tests cascade;
 create schema tests;
 grant usage on schema tests to anon, authenticated;
 
--- Create an auth user (which fires the profile trigger). The identifier names the user
--- in later helper calls; the email is derived from it.
+-- Users created by the helpers in the current test. Rows are inserted inside each test's
+-- transaction, so they disappear with its rollback. Tests look users up here, never by
+-- scanning auth.users or public.profiles, so they pass on a database that already holds
+-- other users.
+create table tests.users (
+  identifier text primary key,
+  id uuid not null unique
+);
+
+-- Stand-in for supabase_auth_admin, the role the Auth server inserts users with. The test
+-- session (postgres) cannot switch to supabase_auth_admin itself, so tests insert users
+-- as this role instead. Like supabase_auth_admin it has no privileges on public tables, so
+-- sign-up triggers run exactly as in a real sign-up: a trigger function that only works
+-- for a privileged role (for example one made security invoker) fails here.
+do $$
+begin
+  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'tests_auth_admin') then
+    create role tests_auth_admin nologin;
+  end if;
+end;
+$$;
+-- postgres created the role, so it may grant itself membership (needed to switch to it).
+grant tests_auth_admin to postgres;
+
+-- Lets tests_auth_admin insert into auth.users without a grant on auth.users itself. The
+-- view checks its owner's privileges on the table; triggers on auth.users still run as
+-- the role that issued the insert.
+create view tests.auth_users with (security_invoker = false) as
+  select * from auth.users;
+revoke all on tests.auth_users from public, anon, authenticated;
+grant usage on schema tests to tests_auth_admin;
+grant insert on tests.auth_users to tests_auth_admin;
+
+-- Create an auth user the way a sign-up does (see tests_auth_admin above).
+-- The identifier names the user in later helper calls; the email gets a unique suffix.
+-- Must be called as postgres (the default, or after tests.clear_authentication()).
 create or replace function tests.create_user(
   identifier text,
   display_name text default null
 )
 returns uuid
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 declare
-  user_id uuid := extensions.gen_random_uuid();
+  user_id uuid := pg_catalog.gen_random_uuid();
+  previous_role text := pg_catalog.current_setting('role');
 begin
-  insert into auth.users (
+  insert into tests.users (identifier, id) values (identifier, user_id);
+
+  perform pg_catalog.set_config('role', 'tests_auth_admin', true);
+  insert into tests.auth_users (
     instance_id, id, aud, role, email, encrypted_password,
     email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   )
@@ -49,7 +91,7 @@ begin
     user_id,
     'authenticated',
     'authenticated',
-    identifier || '@test.local',
+    identifier || '+' || user_id || '@test.local',
     '',
     pg_catalog.now(),
     '{"provider": "email", "providers": ["email"]}'::jsonb,
@@ -60,6 +102,8 @@ begin
     pg_catalog.now(),
     pg_catalog.now()
   );
+  perform pg_catalog.set_config('role', previous_role, true);
+
   return user_id;
 end;
 $$;
@@ -74,7 +118,7 @@ as $$
 declare
   user_id uuid;
 begin
-  select u.id into user_id from auth.users as u where u.email = identifier || '@test.local';
+  select u.id into user_id from tests.users as u where u.identifier = get_user_id.identifier;
   if user_id is null then
     raise exception 'tests.get_user_id: no test user "%"', identifier;
   end if;
@@ -99,7 +143,7 @@ begin
       'sub', user_id,
       'role', 'authenticated',
       'aud', 'authenticated',
-      'email', identifier || '@test.local'
+      'email', identifier || '+' || user_id || '@test.local'
     )::text,
     true
   );

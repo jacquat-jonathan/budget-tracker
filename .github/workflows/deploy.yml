@@ -22,7 +22,7 @@ jobs:
   deploy:
     name: Build and upload to Infomaniak
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: production
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,8 +35,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci
-
+      # Fail fast on configuration problems, before installing anything.
       - name: Check build configuration
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
@@ -49,7 +48,16 @@ jobs:
               missing=1
             fi
           done
-          exit "$missing"
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          # The browser may only talk to origins the CSP in public/.htaccess allows.
+          node .github/scripts/check-csp.mjs public/.htaccess "$VITE_SUPABASE_URL"
+
+      - run: npm ci
+
+      # The same frontend checks as CI, so a manual run on a broken ref cannot ship it.
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
 
       - name: Build
         env:
@@ -59,9 +67,13 @@ jobs:
         run: npm run build
 
       - name: Check build output
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
         run: |
           test -f dist/index.html || { echo "::error::dist/index.html is missing"; exit 1; }
           test -f dist/.htaccess || { echo "::error::dist/.htaccess is missing"; exit 1; }
+          # Check the policy that actually ships.
+          node .github/scripts/check-csp.mjs dist/.htaccess "$VITE_SUPABASE_URL"
 
       - name: Configure SSH
         env:
