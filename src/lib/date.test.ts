@@ -1,4 +1,7 @@
 import {
+  addDays,
+  calendarMonth,
+  daysInclusive,
   formatCalendarDate,
   formatTimestamp,
   isCalendarDate,
@@ -101,5 +104,30 @@ describe('toCalendarDate', () => {
     // 00:30 local on 25 January is still 24 January in UTC.
     expect(toCalendarDate(new Date(2026, 0, 25, 0, 30))).toBe('2026-01-25')
     expect(toCalendarDate(new Date(2026, 0, 25, 23, 59))).toBe('2026-01-25')
+  })
+})
+
+describe('calendar date arithmetic [C-DATE-002]', () => {
+  it('adds days without a time zone, across summer time and month ends', () => {
+    expect(addDays('2026-03-28', 2)).toBe('2026-03-30')
+    expect(addDays('2026-10-24', 2)).toBe('2026-10-26')
+    expect(addDays('2026-01-31', 1)).toBe('2026-02-01')
+    expect(addDays('2028-03-01', -1)).toBe('2028-02-29')
+    expect(addDays('2026-12-31', 0)).toBe('2026-12-31')
+  })
+
+  it('counts days inclusively', () => {
+    expect(daysInclusive('2026-03-25', '2026-03-25')).toBe(1)
+    expect(daysInclusive('2026-03-25', '2026-04-23')).toBe(30)
+    expect(daysInclusive('2026-03-01', '2026-03-31')).toBe(31)
+  })
+
+  it('reads the month from the string', () => {
+    expect(calendarMonth('2026-11-01')).toEqual({ year: 2026, month: 11 })
+  })
+
+  it.each(['2026-02-30', '2026-01-01T00:00:00Z', ''])('rejects %j', (value) => {
+    expect(() => addDays(value, 1)).toThrow(RangeError)
+    expect(() => daysInclusive(value, '2026-01-01')).toThrow(RangeError)
   })
 })

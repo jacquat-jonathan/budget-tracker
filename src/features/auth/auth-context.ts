@@ -1,6 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js'
 import { createContext, useContext } from 'react'
 
+import type { AccountSwitch } from '@/features/auth/auth-bootstrap'
 import type { AuthLinkError } from '@/features/auth/auth-redirect'
 
 export interface AuthContextValue {
@@ -18,6 +19,9 @@ export interface AuthContextValue {
   /** The email link the user arrived through was expired, already used or invalid. */
   linkError: AuthLinkError | null
   dismissLinkError: () => void
+  /** The email link this page load landed with signed in another account than before. */
+  accountSwitch: AccountSwitch | null
+  dismissAccountSwitch: () => void
   signOut: () => Promise<void>
 }
 

@@ -9,23 +9,23 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { DISPLAY_NAME_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/features/auth/schemas'
 
-interface TextFieldProps<TValues extends FieldValues> extends Omit<
+interface TextFieldProps<TValues extends FieldValues, TOut extends FieldValues = TValues> extends Omit<
   ComponentProps<typeof Input>,
   'name' | 'defaultValue' | 'value'
 > {
-  control: Control<TValues>
+  control: Control<TValues, unknown, TOut>
   name: FieldPath<TValues>
   label: string
 }
 
 /** A labelled input bound to react-hook-form; shows its translated validation error. */
-export function TextField<TValues extends FieldValues>({
+export function TextField<TValues extends FieldValues, TOut extends FieldValues = TValues>({
   control,
   name,
   label,
   type = 'text',
   ...inputProps
-}: TextFieldProps<TValues>) {
+}: TextFieldProps<TValues, TOut>) {
   const { t } = useTranslation()
   const id = useId()
   const errorId = `${id}-error`

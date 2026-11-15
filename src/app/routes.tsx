@@ -7,6 +7,7 @@ import { ProtectedRoute, PublicOnlyRoute } from '@/app/route-guards'
 import { FullPageSpinner } from '@/components/full-page-spinner'
 import { AppLayout } from '@/components/layout/app-layout'
 import { RouteError } from '@/components/route-error'
+import { BudgetsRoute, RequireBudget, RequireNoBudget } from '@/features/budgets/budget-routes'
 
 // Every page is its own chunk, loaded on first visit.
 const SignInPage = lazy(() =>
@@ -61,6 +62,12 @@ const MoneyFlowPage = lazy(() =>
 const IncomePage = lazy(() =>
   import('@/features/income/income-page').then((m) => ({ default: m.IncomePage })),
 )
+const WelcomePage = lazy(() =>
+  import('@/features/budgets/pages/welcome-page').then((m) => ({ default: m.WelcomePage })),
+)
+const NewBudgetPage = lazy(() =>
+  import('@/features/budgets/pages/new-budget-page').then((m) => ({ default: m.NewBudgetPage })),
+)
 const SettingsPage = lazy(() =>
   import('@/features/settings/settings-page').then((m) => ({ default: m.SettingsPage })),
 )
@@ -95,21 +102,49 @@ export const routes: RouteObject[] = [
         element: <ProtectedRoute />,
         children: [
           {
-            element: <AppLayout />,
+            // My budgets and the current one, for every signed-in page.
+            element: <BudgetsRoute />,
             children: [
-              { index: true, element: <DashboardPage />, ...page('dashboard') },
-              { path: paths.budget, element: <BudgetPage />, ...page('budget') },
-              { path: paths.transactions, element: <TransactionsPage />, ...page('transactions') },
               {
-                path: paths.subscriptions,
-                element: <SubscriptionsPage />,
-                ...page('subscriptions'),
+                element: <RequireNoBudget />,
+                children: [{ path: paths.welcome, element: <WelcomePage /> }],
               },
-              { path: paths.debts, element: <DebtsPage />, ...page('debts') },
-              { path: paths.periods, element: <PeriodsPage />, ...page('periods') },
-              { path: paths.moneyFlow, element: <MoneyFlowPage />, ...page('moneyFlow') },
-              { path: paths.income, element: <IncomePage />, ...page('income') },
-              { path: paths.settings, element: <SettingsPage />, ...page('settings') },
+              {
+                element: <RequireBudget />,
+                children: [
+                  {
+                    element: <AppLayout />,
+                    children: [
+                      { index: true, element: <DashboardPage />, ...page('dashboard') },
+                      { path: paths.budget, element: <BudgetPage />, ...page('budget') },
+                      {
+                        path: paths.transactions,
+                        element: <TransactionsPage />,
+                        ...page('transactions'),
+                      },
+                      {
+                        path: paths.subscriptions,
+                        element: <SubscriptionsPage />,
+                        ...page('subscriptions'),
+                      },
+                      { path: paths.debts, element: <DebtsPage />, ...page('debts') },
+                      { path: paths.periods, element: <PeriodsPage />, ...page('periods') },
+                      {
+                        path: paths.moneyFlow,
+                        element: <MoneyFlowPage />,
+                        ...page('moneyFlow'),
+                      },
+                      { path: paths.income, element: <IncomePage />, ...page('income') },
+                      { path: paths.settings, element: <SettingsPage />, ...page('settings') },
+                      {
+                        path: paths.newBudget,
+                        element: <NewBudgetPage />,
+                        ...page('newBudget'),
+                      },
+                    ],
+                  },
+                ],
+              },
             ],
           },
         ],

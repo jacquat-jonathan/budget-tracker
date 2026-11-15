@@ -33,27 +33,7 @@ export function ResetPasswordPage() {
   const navigate = useNavigate()
   const { session, loading, recovery, completeRecovery, signOut } = useAuth()
   const notice = useLinkNotice()
-  const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
   const [leaving, setLeaving] = useState(false)
-
-  const form = useForm<ResetPasswordValues>({
-    resolver: zodResolver(resetPasswordSchema),
-    defaultValues: { password: '', confirmPassword: '' },
-  })
-
-  const onSubmit = form.handleSubmit(async ({ password }) => {
-    setErrorKey(null)
-    try {
-      const { error } = await supabase.auth.updateUser({ password })
-      if (error) setErrorKey(authErrorKey(error))
-      else {
-        completeRecovery()
-        void navigate(paths.dashboard, { replace: true })
-      }
-    } catch (error) {
-      setErrorKey(authErrorKey(error))
-    }
-  })
 
   const cancelRecovery = async () => {
     setLeaving(true)
@@ -94,33 +74,67 @@ export function ResetPasswordPage() {
         </button>
       }
     >
-      <form onSubmit={(event) => void onSubmit(event)} noValidate>
-        <FieldGroup>
-          {errorKey && (
-            <Alert variant="destructive">
-              <AlertDescription>{t(errorKey)}</AlertDescription>
-            </Alert>
-          )}
-          <TextField
-            control={form.control}
-            name="password"
-            label={t('fields.newPassword')}
-            type="password"
-            autoComplete="new-password"
-            autoFocus
-          />
-          <TextField
-            control={form.control}
-            name="confirmPassword"
-            label={t('fields.confirmPassword')}
-            type="password"
-            autoComplete="new-password"
-          />
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? t('common.loading') : t('auth.resetPassword.submit')}
-          </Button>
-        </FieldGroup>
-      </form>
+      {/* Keyed by user: text typed for one account never carries over to another
+          (another tab's link can switch the session while this form is open). */}
+      <NewPasswordForm
+        key={session.user.id}
+        onSaved={() => {
+          completeRecovery()
+          void navigate(paths.dashboard, { replace: true })
+        }}
+      />
     </AuthLayout>
+  )
+}
+
+/** The new-password fields; remounted (so emptied) whenever the signed-in user changes. */
+function NewPasswordForm({ onSaved }: { onSaved: () => void }) {
+  const { t } = useTranslation()
+  const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
+
+  const form = useForm<ResetPasswordValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { password: '', confirmPassword: '' },
+  })
+
+  const onSubmit = form.handleSubmit(async ({ password }) => {
+    setErrorKey(null)
+    try {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) setErrorKey(authErrorKey(error))
+      else onSaved()
+    } catch (error) {
+      setErrorKey(authErrorKey(error))
+    }
+  })
+
+  return (
+    <form onSubmit={(event) => void onSubmit(event)} noValidate>
+      <FieldGroup>
+        {errorKey && (
+          <Alert variant="destructive">
+            <AlertDescription>{t(errorKey)}</AlertDescription>
+          </Alert>
+        )}
+        <TextField
+          control={form.control}
+          name="password"
+          label={t('fields.newPassword')}
+          type="password"
+          autoComplete="new-password"
+          autoFocus
+        />
+        <TextField
+          control={form.control}
+          name="confirmPassword"
+          label={t('fields.confirmPassword')}
+          type="password"
+          autoComplete="new-password"
+        />
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? t('common.loading') : t('auth.resetPassword.submit')}
+        </Button>
+      </FieldGroup>
+    </form>
   )
 }

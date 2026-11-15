@@ -1,0 +1,70 @@
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+
+import { useAuth } from '@/features/auth/auth-context'
+import { budgetKeys } from '@/features/budgets/budget-keys'
+import { useEnsurePeriods, type MyBudget } from '@/features/budgets/budget-queries'
+import { BudgetsContext, type BudgetsContextValue } from '@/features/budgets/current-budget-context'
+import {
+  pickCurrentBudget,
+  readStoredBudget,
+  storeBudget,
+} from '@/features/budgets/current-budget-storage'
+import { isNotFoundError } from '@/lib/db-errors'
+
+interface CurrentBudgetProviderProps {
+  budgets: MyBudget[]
+  children: ReactNode
+}
+
+/** Provides my budgets and "the budget I am working in", remembered per user. */
+export function CurrentBudgetProvider({ budgets, children }: CurrentBudgetProviderProps) {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+  const queryClient = useQueryClient()
+  // Keyed by user: another user signing in on this tab starts from their own choice.
+  const [choice, setChoice] = useState(() => ({ userId, budgetId: readStoredBudget(userId) }))
+  const wanted = choice.userId === userId ? choice.budgetId : readStoredBudget(userId)
+  const current = pickCurrentBudget(budgets, wanted)
+
+  const selectBudget = useCallback(
+    (budgetId: string) => {
+      storeBudget(userId, budgetId)
+      setChoice({ userId, budgetId })
+    },
+    [userId],
+  )
+
+  useEnsurePeriodsFor(current?.id)
+
+  // A budget that was removed elsewhere makes every query about it fail with "not found".
+  useEffect(() => {
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'error') return
+      if (isNotFoundError(event.action.error)) {
+        void queryClient.invalidateQueries({ queryKey: budgetKeys.list })
+      }
+    })
+  }, [queryClient])
+
+  const value = useMemo<BudgetsContextValue>(
+    () => ({ budgets, current, selectBudget }),
+    [budgets, current, selectBudget],
+  )
+
+  return <BudgetsContext.Provider value={value}>{children}</BudgetsContext.Provider>
+}
+
+/** Make sure periods exist up to today when a budget is opened; refetch what they feed. */
+function useEnsurePeriodsFor(budgetId: string | undefined) {
+  const queryClient = useQueryClient()
+  const ensured = useEnsurePeriods(budgetId)
+  const created = ensured.data ?? 0
+
+  useEffect(() => {
+    if (!budgetId || created === 0) return
+    void queryClient.invalidateQueries({ queryKey: budgetKeys.periods(budgetId) })
+    void queryClient.invalidateQueries({ queryKey: budgetKeys.currentPeriod(budgetId) })
+    void queryClient.invalidateQueries({ queryKey: budgetKeys.incomes(budgetId) })
+  }, [budgetId, created, ensured.dataUpdatedAt, queryClient])
+}

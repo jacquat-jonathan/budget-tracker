@@ -1,9 +1,10 @@
 import type { ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, NavLink, useMatch } from 'react-router'
+import { NavLink, useMatch } from 'react-router'
 
-import { AppIcon, mainNavItems, secondaryNavItems, type NavItem } from '@/app/navigation'
+import { mainNavItems, secondaryNavItems, type NavItem } from '@/app/navigation'
 import { paths } from '@/app/paths'
+import { BudgetSwitcher } from '@/components/layout/budget-switcher'
 import { NavPreferences } from '@/components/layout/nav-preferences'
 import { NavUser } from '@/components/layout/nav-user'
 import {
@@ -62,21 +63,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild tooltip={t('app.name')}>
-              <Link to={paths.dashboard}>
-                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <AppIcon className="size-4" />
-                </span>
-                <span className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{t('app.name')}</span>
-                  <span className="truncate text-xs text-muted-foreground">CHF</span>
-                </span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <BudgetSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

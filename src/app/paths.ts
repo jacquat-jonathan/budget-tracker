@@ -9,6 +9,9 @@ export const paths = {
   moneyFlow: '/money-flow',
   income: '/income',
   settings: '/settings',
+  newBudget: '/budgets/new',
+  /** First-run setup for a signed-in user without a budget. */
+  welcome: '/welcome',
   signIn: '/sign-in',
   signUp: '/sign-up',
   forgotPassword: '/forgot-password',

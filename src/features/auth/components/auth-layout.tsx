@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { AccountSwitchedAlert } from '@/features/auth/components/account-switched-alert'
 import { LinkErrorAlert } from '@/features/auth/components/link-error-alert'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 
@@ -58,6 +59,7 @@ export function AuthLayout({
             {description && <CardDescription>{description}</CardDescription>}
           </CardHeader>
           <CardContent className="flex flex-col gap-4 empty:hidden">
+            <AccountSwitchedAlert />
             {!hideLinkNotice && <LinkErrorAlert />}
             {children}
           </CardContent>

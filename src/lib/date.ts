@@ -93,3 +93,38 @@ export function parseDate(input: string): string | null {
   if (!isValidCalendarDate(year, month, day)) return null
   return `${pad(year, 4)}-${pad(month)}-${pad(day)}`
 }
+
+function calendarParts(value: string): [number, number, number] {
+  const match = CALENDAR_DATE.exec(value)
+  if (!match || !isCalendarDate(value)) {
+    throw new RangeError(`Not a calendar date (YYYY-MM-DD): ${value}`)
+  }
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+/** Day number of a calendar date on a time-zone-free axis (days since 1970-01-01). */
+function dayNumber(value: string): number {
+  const [year, month, day] = calendarParts(value)
+  return Date.UTC(year, month - 1, day) / 86_400_000
+}
+
+/**
+ * Calendar date arithmetic, with no time zone involved: "2026-03-28" + 2 -> "2026-03-30",
+ * also across a change to summer time.
+ */
+export function addDays(value: string, days: number): string {
+  if (!Number.isSafeInteger(days)) throw new RangeError(`Not a whole number of days: ${days}`)
+  const date = new Date((dayNumber(value) + days) * 86_400_000)
+  return `${pad(date.getUTCFullYear(), 4)}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
+}
+
+/** Days from `start` to `end`, counting both: the same day is 1, the next day is 2. */
+export function daysInclusive(start: string, end: string): number {
+  return dayNumber(end) - dayNumber(start) + 1
+}
+
+/** Year and month (1-12) of a calendar date, read from the string. */
+export function calendarMonth(value: string): { year: number; month: number } {
+  const [year, month] = calendarParts(value)
+  return { year, month }
+}

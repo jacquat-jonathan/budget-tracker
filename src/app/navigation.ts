@@ -24,6 +24,7 @@ export type NavKey =
   | 'moneyFlow'
   | 'income'
   | 'settings'
+  | 'newBudget'
 
 export interface NavItem {
   key: NavKey

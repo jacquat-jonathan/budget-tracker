@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
-import { bootstrapAuth } from '@/features/auth/auth-bootstrap'
+import { bootstrapAuth, type AccountSwitch } from '@/features/auth/auth-bootstrap'
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import { dropParkedLink, type AuthLinkError } from '@/features/auth/auth-redirect'
 import { endRecovery, isRecoveryFor, RECOVERY_KEY, startRecovery } from '@/features/auth/recovery'
@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [linkError, setLinkError] = useState<AuthLinkError | null>(null)
+  const [accountSwitch, setAccountSwitch] = useState<AccountSwitch | null>(null)
   // Bumped when the recovery flag changes, so `recovery` is recomputed.
   const [recoveryVersion, setRecoveryVersion] = useState(0)
   // Session identity (sessionKey) of the current session; undefined until first known.
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // page landed with is no longer the story, and a parked attempt is over (C).
         dropParkedLink()
         setLinkError(null)
+        setAccountSwitch(null)
       }
       currentKey.current = nextKey
       if (event === 'SIGNED_OUT') endRecovery()
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         currentKey.current = sessionKey(result.session)
         applySession(result.session)
         setLinkError(result.linkError)
+        setAccountSwitch(result.accountSwitch)
         setRecoveryVersion((version) => version + 1)
       })
       .catch(() => {
@@ -115,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLinkError(null)
   }, [])
 
+  const dismissAccountSwitch = useCallback(() => setAccountSwitch(null), [])
+
   const signOut = useCallback(async () => {
     endRecovery()
     dropParkedLink()
@@ -135,9 +140,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeRecovery,
       linkError,
       dismissLinkError,
+      accountSwitch,
+      dismissAccountSwitch,
       signOut,
     }),
-    [session, loading, recovery, completeRecovery, linkError, dismissLinkError, signOut],
+    [
+      session,
+      loading,
+      recovery,
+      completeRecovery,
+      linkError,
+      dismissLinkError,
+      accountSwitch,
+      dismissAccountSwitch,
+      signOut,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

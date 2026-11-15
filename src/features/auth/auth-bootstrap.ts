@@ -22,6 +22,18 @@ export interface AuthBootstrap {
    * whether or not another session exists (invariant B).
    */
   linkError: AuthLinkError | null
+  /**
+   * A valid email link signed in a different user than the one who was signed in: the
+   * browser now belongs to the link's account, and the user must be told (R-AUTH-026).
+   */
+  accountSwitch: AccountSwitch | null
+}
+
+export interface AccountSwitch {
+  /** Email of the account that was signed in before the link, when known. */
+  from: string | null
+  /** Email of the account the link signed in. */
+  to: string | null
 }
 
 function isTransient(error: unknown): boolean {
@@ -51,7 +63,7 @@ async function run(): Promise<AuthBootstrap> {
       redirect.sessionKeyAtPark !== beforeKey
     ) {
       dropParkedLink()
-      return { session: before, linkError: null }
+      return { session: before, linkError: null, accountSwitch: null }
     }
 
     let failure: unknown
@@ -62,7 +74,11 @@ async function run(): Promise<AuthBootstrap> {
         // This tab established the session: the recovery flag now belongs to it or to nobody.
         if (redirect.type === 'recovery') startRecovery(data.session)
         else pruneRecovery(data.session)
-        return { session: data.session, linkError: null }
+        const switched = before !== null && before.user.id !== data.session.user.id
+        const accountSwitch = switched
+          ? { from: before.user.email ?? null, to: data.session.user.email ?? null }
+          : null
+        return { session: data.session, linkError: null, accountSwitch }
       }
       failure = error
     } catch (error) {
@@ -75,13 +91,17 @@ async function run(): Promise<AuthBootstrap> {
     const session = await currentSession()
     if (transient) parkLink(redirect, sessionKey(session))
     else dropParkedLink()
-    return { session, linkError: { code: transient ? LINK_NETWORK : LINK_INVALID } }
+    return {
+      session,
+      linkError: { code: transient ? LINK_NETWORK : LINK_INVALID },
+      accountSwitch: null,
+    }
   }
 
   // A leftover recovery flag needs no clean-up here: it is inert unless it names the
   // current session (see recovery.ts). Pruning it from a tab that is merely starting could
   // race with another tab that is entering recovery right now.
-  return { session: before, linkError: redirect?.error ?? null }
+  return { session: before, linkError: redirect?.error ?? null, accountSwitch: null }
 }
 
 let bootstrap: Promise<AuthBootstrap> | null = null
