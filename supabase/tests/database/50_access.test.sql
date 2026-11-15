@@ -23,6 +23,9 @@ select tests.remember('a_bob_income', public.add_income(tests.id('a'), 'Bob sala
 -- Budget C: carol's own.
 select tests.authenticate_as('carol');
 select tests.remember('c', public.create_budget('C', 'Carol salary', 400000, 1));
+select tests.remember('c_income', (select primary_income_id from public.budgets where id = tests.id('c')));
+select tests.remember('c_second', public.add_income(tests.id('c'), 'Second', 1000, 1));
+select tests.remember('c_period', (select id from public.periods where budget_id = tests.id('c') and seq = 1));
 select tests.clear_authentication();
 
 -- Every relation the client can read, with its budget column.
@@ -45,6 +48,10 @@ insert into carol_calls values
   (format('select public.add_income(%L, %L, 1000, 1, %L, %L)', tests.id('a'), 'Mine', 'nearest', tests.get_user_id('carol')), 'budget_not_found'),
   (format('select public.add_income(%L, %L, 1000, 1, %L, null, %L)', tests.id('c'), 'Mine', 'nearest', tests.id('a_period')), 'period_not_found'),
   (format('select public.update_income_terms(%L, 1, 1, %L)', tests.id('a_income'), 'nearest'), 'income_not_found'),
+  (format('select public.update_income_terms(%L, 1, 1, %L, %L)', tests.id('a_income'), 'nearest', tests.id('a_period')), 'income_not_found'),
+  (format('select public.remove_income(%L, %L)', tests.id('a_bob_income'), tests.id('a_period')), 'income_not_found'),
+  (format('select public.update_income_terms(%L, 1, 1, %L, %L)', tests.id('c_income'), 'nearest', tests.id('a_period')), 'period_not_found'),
+  (format('select public.remove_income(%L, %L)', tests.id('c_second'), tests.id('a_period')), 'period_not_found'),
   (format('select public.set_primary_income(%L)', tests.id('a_bob_income')), 'income_not_found'),
   (format('select public.remove_income(%L)', tests.id('a_bob_income')), 'income_not_found'),
   (format('select public.ensure_periods(%L)', tests.id('a')), 'budget_not_found'),
@@ -62,7 +69,11 @@ insert into carol_calls values
   ($$select public.create_budget('x', 'x', 1, null)$$, 'invalid_pay_day'),
   ($$select public.create_budget('x', 'x', 1, 1, null)$$, 'invalid_weekend_rule'),
   ($$select public.create_budget('x', 'x', 1, 1, 'nearest', '1900-01-01')$$, 'invalid_start_month'),
-  ($$select public.create_budget(repeat('x', 101), 'x', 1, 1)$$, 'invalid_name');
+  ($$select public.create_budget(repeat('x', 101), 'x', 1, 1)$$, 'invalid_name'),
+  ($$select public.get_start_months(32)$$, 'invalid_pay_day'),
+  ($$select public.get_start_months(1, null)$$, 'invalid_weekend_rule'),
+  (format('select public.move_period_boundary(%L, %L)', tests.id('c_period'), 'infinity'), 'invalid_boundary'),
+  (format('select public.set_budget_end_date(%L, %L)', tests.id('c'), '-infinity'), 'invalid_end_date');
 
 -- Direct writes carol must not be able to make at all (no privilege).
 create temp table carol_denied (sql text) on commit drop;
@@ -75,7 +86,7 @@ insert into carol_denied values
   (format($$insert into public.periods (budget_id, seq, start_date, end_date) values (%L, 9, '2030-01-01', '2030-01-30')$$, tests.id('a'))),
   (format('update public.periods set end_date = end_date where budget_id = %L', tests.id('a'))),
   (format('update public.income_versions set amount = 1 where budget_id = %L', tests.id('a'))),
-  (format('update public.budgets set end_date = null where id = %L', tests.id('a'))),
+  (format('update public.budgets set end_month = null where id = %L', tests.id('a'))),
   (format('update public.incomes set end_seq = 1 where budget_id = %L', tests.id('a'))),
   (format('delete from public.incomes where budget_id = %L', tests.id('a'))),
   (format('delete from public.periods where budget_id = %L', tests.id('a'))),
@@ -90,6 +101,7 @@ insert into carol_denied values
 create temp table anon_calls (sql text) on commit drop;
 insert into anon_calls values
   ('select public.pay_date(2026, 1, 1)'),
+  ('select public.get_start_months(25)'),
   ($$select public.create_budget('x', 'x', 1, 1)$$),
   (format('select public.set_budget_end_date(%L, null)', tests.id('a'))),
   (format('select public.invite_member(%L, %L)', tests.id('a'), 'x@test.local')),
@@ -123,12 +135,12 @@ select tests.authenticate_as('carol');
 
 select is_empty(
   format('select 1 from public.%I where %I = %L', name, budget_column, tests.id('a')),
-  'a non-member reads nothing of budget A from ' || name
+  'R-SECURITY-002 C-RLS-001: a non-member reads nothing of budget A from ' || name
 ) from relations;
 
-select throws_ok(sql, 'P0001', message, 'non-member: ' || sql) from carol_calls;
+select throws_ok(sql, 'P0001', message, 'R-SECURITY-002 R-SECURITY-004: non-member: ' || sql) from carol_calls;
 
-select throws_ok(sql, '42501', null, 'non-member, no privilege: ' || sql) from carol_denied;
+select throws_ok(sql, '42501', null, 'R-SECURITY-001 R-SECURITY-002: non-member, no privilege: ' || sql) from carol_denied;
 
 -- Writes that are granted but filtered by RLS change nothing.
 update public.budgets set name = 'Hacked' where id = tests.id('a');
@@ -139,19 +151,19 @@ delete from public.budget_invitations where budget_id = tests.id('a');
 select tests.clear_authentication();
 select is(
   (select name from public.budgets where id = tests.id('a')), 'A',
-  'a non-member cannot rename or delete budget A'
+  'R-SECURITY-002: a non-member cannot rename or delete budget A'
 );
 select is(
   (select count(*)::integer from public.incomes where budget_id = tests.id('a') and name = 'Hacked'), 0,
-  'nor rename its incomes'
+  'R-SECURITY-002: nor rename its incomes'
 );
 select is(
   (select count(*)::integer from public.budget_invitations where id = tests.id('a_inv_dave')), 1,
-  'nor cancel its invitations'
+  'R-SECURITY-002: nor cancel its invitations'
 );
 select is(
   (select count(*)::integer from public.budget_members where budget_id = tests.id('a')), 2,
-  'and has not become a member'
+  'R-SECURITY-002: and has not become a member'
 );
 
 -- The non-member's own budget is unaffected by their failed attempts and still theirs.
@@ -159,7 +171,7 @@ select tests.authenticate_as('carol');
 select results_eq(
   'select id, is_owner from public.my_budgets',
   format('values (%L::uuid, true)', tests.id('c')),
-  'carol sees exactly her own budget'
+  'R-SECURITY-002: carol sees exactly her own budget'
 );
 
 -- ---------------------------------------------------------------------------
@@ -169,10 +181,10 @@ select tests.authenticate_as_anon();
 
 select throws_ok(
   format('select 1 from public.%I', name), '42501', null,
-  'anon cannot read ' || name
+  'R-SECURITY-003: anon cannot read ' || name
 ) from relations;
 
-select throws_ok(sql, '42501', null, 'anon cannot call: ' || sql) from anon_calls;
+select throws_ok(sql, '42501', null, 'R-SECURITY-003: anon cannot call: ' || sql) from anon_calls;
 
 select tests.clear_authentication();
 
@@ -182,19 +194,19 @@ select tests.clear_authentication();
 select tests.authenticate_as('bob');
 select throws_ok(
   format('update public.incomes set budget_id = %L where id = %L', tests.id('c'), tests.id('a_bob_income')),
-  '42501', null, 'a member cannot move an income to another budget'
+  '42501', null, 'R-BUDGET-001: a member cannot move an income to another budget'
 );
 select throws_ok(
   format('update public.incomes set user_id = %L where id = %L', tests.get_user_id('carol'), tests.id('a_bob_income')),
-  '42501', null, 'nor reassign it'
+  '42501', null, 'R-SECURITY-001: nor reassign it'
 );
 select throws_ok(
   format('update public.budgets set primary_income_id = %L where id = %L', tests.id('a_bob_income'), tests.id('a')),
-  '42501', null, 'nor switch the primary income without the RPC'
+  '42501', null, 'R-INCOME-006: nor switch the primary income without the RPC'
 );
 select throws_ok(
-  format('update public.budgets set end_date = %L where id = %L', '2027-01-01', tests.id('a')),
-  '42501', null, 'nor set the end date without the RPC'
+  format('update public.budgets set end_month = %L where id = %L', '2027-01-01', tests.id('a')),
+  '42501', null, 'R-MEMBER-003: nor set the end date without the RPC'
 );
 
 select * from finish();

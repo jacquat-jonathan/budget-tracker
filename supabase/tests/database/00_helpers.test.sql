@@ -248,6 +248,41 @@ begin
 end;
 $$;
 
+-- Independent check of the period invariants of one budget, written without the
+-- migration's helpers: returns one line per violation (no rows: all hold).
+--   one period per calendar month, consecutive months, numbered 1..n, contiguous,
+--   none starting after today, none after the final month, each start within 14 days of
+--   its month's salary (anchor_date).
+create or replace function tests.period_violations(budget uuid)
+returns setof text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with p as (
+    select seq, month, anchor_date, start_date, end_date,
+           lag(end_date) over (order by seq) as prev_end,
+           lag(month) over (order by seq) as prev_month,
+           row_number() over (order by seq) as rn
+    from public.periods where budget_id = period_violations.budget
+  ), b as (select end_month from public.budgets where id = period_violations.budget)
+  select format('period %s: %s', p.seq, v.what)
+  from p cross join b
+  cross join lateral (values
+    (case when p.seq <> p.rn then 'numbering gap' end),
+    (case when p.month <> date_trunc('month', p.month)::date then 'month not a first day' end),
+    (case when p.prev_month is not null and p.month <> (p.prev_month + interval '1 month')::date
+          then 'months not consecutive' end),
+    (case when p.prev_end is not null and p.start_date <> p.prev_end + 1 then 'not contiguous' end),
+    (case when p.end_date < p.start_date then 'empty' end),
+    (case when p.start_date > private.today() then 'starts after today' end),
+    (case when b.end_month is not null and p.month > b.end_month then 'after the final month' end),
+    (case when abs(p.start_date - p.anchor_date) > 14 then 'start more than 14 days from its salary' end)
+  ) as v (what)
+  where v.what is not null
+$$;
+
 grant execute on all functions in schema tests to anon, authenticated;
 
 select has_function('tests', 'authenticate_as', array['text'], 'test helpers are installed');

@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(27);
 
 -- ---------------------------------------------------------------------------
 -- Structure
@@ -8,7 +8,7 @@ select has_table('public', 'profiles', 'profiles table exists');
 select policies_are(
   'public', 'profiles',
   array['Users can read their own and co-members'' profiles', 'Users can update their own profile'],
-  'profiles has exactly the select and update policies'
+  'R-PROFILE-002 R-PROFILE-003: profiles has exactly the select and update policies'
 );
 
 -- ---------------------------------------------------------------------------
@@ -19,7 +19,7 @@ select policies_are(
 -- privileged role.
 select lives_ok(
   $$select tests.create_user('alice', 'Alice')$$,
-  'a sign-up inserted with the Auth server''s privileges succeeds'
+  'R-PROFILE-001: a sign-up inserted with the Auth server''s privileges succeeds'
 );
 select tests.create_user('bob', 'Bob');
 select tests.create_user('nameless');
@@ -32,23 +32,23 @@ select is(
     where p.oid = 'private.handle_new_user()'::regprocedure
   ),
   true,
-  'handle_new_user is security definer with an empty search_path'
+  'R-PROFILE-001: handle_new_user is security definer with an empty search_path'
 );
 
 select is(
   (select display_name from public.profiles where id = tests.get_user_id('alice')),
   'Alice',
-  'sign-up creates a profile with display_name from user metadata'
+  'R-PROFILE-001: sign-up creates a profile with display_name from user metadata'
 );
 select is(
   (select display_name from public.profiles where id = tests.get_user_id('nameless')),
   null,
-  'sign-up without display_name creates a profile with a null name'
+  'R-PROFILE-001: sign-up without display_name creates a profile with a null name'
 );
 select is(
   (select display_name from public.profiles where id = tests.get_user_id('blank')),
   null,
-  'a blank display_name is stored as null'
+  'R-PROFILE-001: a blank display_name is stored as null'
 );
 
 -- ---------------------------------------------------------------------------
@@ -59,11 +59,11 @@ select tests.authenticate_as('alice');
 select results_eq(
   'select id from public.profiles',
   array[tests.get_user_id('alice')],
-  'a user sees only their own profile'
+  'R-PROFILE-003: a user who shares no budget sees only their own profile'
 );
 select is_empty(
   format('select 1 from public.profiles where id = %L', tests.get_user_id('bob')),
-  'a user cannot read another user''s profile by id'
+  'R-PROFILE-003: a user cannot read another user''s profile by id'
 );
 
 select lives_ok(
@@ -71,12 +71,12 @@ select lives_ok(
     'update public.profiles set display_name = %L where id = %L',
     'Hacked', tests.get_user_id('bob')
   ),
-  'updating another user''s profile runs but matches no row'
+  'R-PROFILE-002: updating another user''s profile runs but matches no row'
 );
 
 select lives_ok(
   $$update public.profiles set display_name = 'Alice Smith' where id = (select auth.uid())$$,
-  'a user can update their own display_name'
+  'R-PROFILE-002: a user can update their own display_name'
 );
 
 select throws_ok(
@@ -86,13 +86,13 @@ select throws_ok(
   ),
   '42501',
   null,
-  'a user cannot change the id of their profile'
+  'R-PROFILE-002: a user cannot change the id of their profile'
 );
 select throws_ok(
   $$update public.profiles set created_at = now() - interval '1 day'$$,
   '42501',
   null,
-  'a user cannot change created_at'
+  'R-PROFILE-002: a user cannot change created_at'
 );
 select throws_ok(
   format(
@@ -101,7 +101,7 @@ select throws_ok(
   ),
   '23514',
   null,
-  'display_name longer than 100 characters is rejected'
+  'R-PROFILE-002: display_name longer than 100 characters is rejected'
 );
 
 select throws_ok(
@@ -111,13 +111,20 @@ select throws_ok(
   ),
   '42501',
   null,
-  'a user cannot insert a profile'
+  'R-PROFILE-001: a user cannot insert a profile'
 );
 select throws_ok(
   'delete from public.profiles',
   '42501',
   null,
-  'a user cannot delete profiles'
+  'R-PROFILE-002: a user cannot delete profiles'
+);
+
+select throws_ok(
+  $$update public.profiles set email = 'spoof@test.local' where id = (select auth.uid())$$,
+  '42501',
+  null,
+  'R-PROFILE-002: a user cannot change the email on their profile'
 );
 
 select tests.clear_authentication();
@@ -125,12 +132,12 @@ select tests.clear_authentication();
 select is(
   (select display_name from public.profiles where id = tests.get_user_id('bob')),
   'Bob',
-  'the other user''s profile is unchanged'
+  'R-PROFILE-002: the other user''s profile is unchanged'
 );
 select is(
   (select display_name from public.profiles where id = tests.get_user_id('alice')),
   'Alice Smith',
-  'the own update was applied'
+  'R-PROFILE-002: the own update was applied'
 );
 
 -- ---------------------------------------------------------------------------
@@ -148,7 +155,7 @@ select tests.clear_authentication();
 select is(
   (select updated_at from public.profiles where id = tests.get_user_id('alice')),
   now(),
-  'updating a profile sets updated_at'
+  'R-PROFILE-002: updating a profile sets updated_at'
 );
 
 -- ---------------------------------------------------------------------------
@@ -160,13 +167,13 @@ select throws_ok(
   'select * from public.profiles',
   '42501',
   null,
-  'anon cannot read profiles'
+  'R-SECURITY-003: anon cannot read profiles'
 );
 select throws_ok(
   $$update public.profiles set display_name = 'Anon'$$,
   '42501',
   null,
-  'anon cannot update profiles'
+  'R-SECURITY-003: anon cannot update profiles'
 );
 select throws_ok(
   format(
@@ -175,10 +182,25 @@ select throws_ok(
   ),
   '42501',
   null,
-  'anon cannot insert profiles'
+  'R-SECURITY-003: anon cannot insert profiles'
 );
 
 select tests.clear_authentication();
+
+-- ---------------------------------------------------------------------------
+-- The profile's email follows the account's email.
+-- ---------------------------------------------------------------------------
+select is(
+  (select email from public.profiles where id = tests.get_user_id('alice')),
+  tests.get_user_email('alice'),
+  'R-PROFILE-005: a new profile has the account''s email'
+);
+update auth.users set email = 'alice-new+' || id || '@test.local' where id = tests.get_user_id('alice');
+select is(
+  (select email from public.profiles where id = tests.get_user_id('alice')),
+  'alice-new+' || tests.get_user_id('alice') || '@test.local',
+  'R-PROFILE-005: when the account''s email changes, the profile follows'
+);
 
 -- ---------------------------------------------------------------------------
 -- Deleting the auth user removes the profile.
@@ -186,7 +208,7 @@ select tests.clear_authentication();
 delete from auth.users where id = tests.get_user_id('bob');
 select is_empty(
   format('select 1 from public.profiles where id = %L', tests.get_user_id('bob')),
-  'deleting an auth user deletes their profile'
+  'R-PROFILE-001: deleting an auth user deletes their profile'
 );
 
 select is(
@@ -198,7 +220,7 @@ select is(
     )
   ),
   3,
-  'the other test users keep their profiles'
+  'R-PROFILE-001: the other test users keep their profiles'
 );
 
 select * from finish();
