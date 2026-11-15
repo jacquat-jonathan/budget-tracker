@@ -57,16 +57,16 @@ without saying so.
 
 <!-- BEGIN GENERATED: conventions from spec/spec.json. Do not edit by hand: change the spec, then run `npm run spec:render`. -->
 - Money is integer rappen in code. (`C-MONEY-001`, test)
-- Money is integer rappen in the database. (`C-MONEY-002`, test pending)
+- Money is integer rappen in the database. (`C-MONEY-002`, test)
 - Money is formatted only at the edge. (`C-MONEY-003`, review)
-- Every table has row-level security enabled. (`C-RLS-001`, test pending)
+- Every table has row-level security enabled. (`C-RLS-001`, test)
 - A table's row-level security is enabled, with policies, in the same migration that creates
   it. (`C-RLS-002`, review)
 - Access rules use the shared membership helpers in the `private` schema; a new table's
   policies call them rather than re-deriving membership. (`C-RLS-003`, review)
 - Period, pay-date and versioning logic has one implementation, in the database (SQL
   functions). (`C-LOGIC-001`, review)
-- Period, pay-date and versioning logic is tested with pgTAP. (`C-LOGIC-002`, test pending)
+- Period, pay-date and versioning logic is tested with pgTAP. (`C-LOGIC-002`, test)
 - The client reads period, pay-date and versioning results; it never recomputes them.
   (`C-LOGIC-003`, review)
 - Client queries for budget data are keyed by budget id. (`C-QUERY-001`, review)
