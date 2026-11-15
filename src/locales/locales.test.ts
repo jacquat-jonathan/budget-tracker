@@ -18,7 +18,7 @@ function valueAt(source: unknown, path: string): unknown {
     .reduce<unknown>((node, key) => (node as Record<string, unknown>)[key], source)
 }
 
-describe('locales', () => {
+describe('locales [C-I18N-001] [R-I18N-001]', () => {
   const enKeys = flattenKeys(en).sort()
   const frKeys = flattenKeys(fr).sort()
 

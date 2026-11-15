@@ -1,7 +1,31 @@
 # Budget Tracker
 
-Household budget tracker. Read `docs/domain.md` before touching domain logic: it is the
-source of truth for product behaviour and the decisions already taken.
+Household budget tracker. **`spec/spec.json` is the source of truth** for product behaviour,
+the rules that constrain it, the decisions already taken and the conventions below. Read
+the parts you need before touching domain logic, and do not reopen an accepted decision
+without saying so.
+
+## The spec
+
+- Read `docs/spec.md` (generated, grouped by build step and area), or query
+  `spec/spec.json` directly: `glossary`, `actors`, `features` (by build step, with status
+  and `userStories`), `rules`, `decisions`, `conventions`, `openQuestions`. Its shape is
+  `spec/spec.schema.json`.
+- Ids are stable and never renumbered: `R-<AREA>-NNN` business rules, `C-<AREA>-NNN`
+  conventions, `D-NNN` decisions, `Q-NNN` open questions, `US-<FEATURE>-NNN` user stories.
+  A rule is `active` when its feature is done or in progress, `planned` otherwise.
+- Enforcement `test`: a test names the id in its `describe`/`it` title (or its pgTAP
+  description), so `grep -rn R-PERIOD-003 src supabase/tests` finds the proof. `lint`: a
+  named npm script, ESLint rule or CI step. `review`: checked by people.
+- **Standing rule:** a change in behaviour or a new decision updates `spec/spec.json` in the
+  same change (a new rule, decision or open question gets the next free id), and tests for a
+  new or changed rule name its id. Where the spec is ambiguous, add an open question rather
+  than deciding silently.
+- **Generated files are never edited by hand:** `docs/spec.md` and the block between the
+  `BEGIN GENERATED` / `END GENERATED` comments below. Change the spec, run
+  `npm run spec:render`, commit both.
+- `testPending` on a rule is a temporary marker (its pgTAP tests are not tagged yet);
+  `npm run spec:check` reports it as a warning. Remove it once a test names the id.
 
 ## Stack
 
@@ -24,29 +48,52 @@ source of truth for product behaviour and the decisions already taken.
 - `src/locales/{en,fr}/` translation files.
 - `supabase/` config, migrations, seed. Schema changes go in a new migration, never by
   editing an applied one.
-- `docs/` domain model, local Supabase and deployment notes.
+- `spec/` the specification (`spec.json`) and its schema.
+- `scripts/spec/` the spec checker and renderer (`npm run spec:check`, `npm run spec:render`).
+- `docs/` generated spec view (`spec.md`), database API contract, local Supabase and
+  deployment notes.
 
 ## Rules
 
-- Money is integer rappen in the database and in code; format only at the edge.
-- Every table has row-level security enabled, with policies, in the same migration that
-  creates it.
-- Period, pay-date and versioning logic has one implementation, in the database (SQL
-  functions, tested with pgTAP). The client reads the results; it never recomputes them.
+<!-- BEGIN GENERATED: conventions from spec/spec.json. Do not edit by hand: change the spec, then run `npm run spec:render`. -->
+- Money is integer rappen in code. (`C-MONEY-001`, test)
+- Money is integer rappen in the database. (`C-MONEY-002`, test pending)
+- Money is formatted only at the edge. (`C-MONEY-003`, review)
+- Every table has row-level security enabled. (`C-RLS-001`, test pending)
+- A table's row-level security is enabled, with policies, in the same migration that creates
+  it. (`C-RLS-002`, review)
 - Access rules use the shared membership helpers in the `private` schema; a new table's
-  policies call them rather than re-deriving membership.
-- Client queries for budget data are keyed by budget id.
-- Database tests (pgTAP, `supabase/tests/`) must pass on a database that already holds
-  data: scope assertions to the test's own rows. Every table gets tests proving what
-  another user and an anonymous visitor cannot do.
-- Calendar dates (`YYYY-MM-DD`) and timestamps are different things; never run a calendar
-  date through a time zone.
-- The production Content-Security-Policy is `script-src 'self'`: no inline scripts.
-- Every user-facing string exists in both `en` and `fr`.
-- Never commit secrets. Only the Supabase URL and publishable (anon) key reach the browser,
-  through `VITE_` variables.
+  policies call them rather than re-deriving membership. (`C-RLS-003`, review)
+- Period, pay-date and versioning logic has one implementation, in the database (SQL
+  functions). (`C-LOGIC-001`, review)
+- Period, pay-date and versioning logic is tested with pgTAP. (`C-LOGIC-002`, test pending)
+- The client reads period, pay-date and versioning results; it never recomputes them.
+  (`C-LOGIC-003`, review)
+- Client queries for budget data are keyed by budget id. (`C-QUERY-001`, review)
+- Database tests (pgTAP, `supabase/tests/`) must pass on a database that already holds data:
+  scope assertions to the test's own rows. (`C-DBTEST-001`, review)
+- Every table gets tests proving what another user cannot do. (`C-DBTEST-002`, review)
+- Every table gets tests proving what an anonymous visitor cannot do. (`C-DBTEST-003`,
+  review)
+- Calendar dates (`YYYY-MM-DD`) and timestamps are different things. (`C-DATE-001`, test)
+- Never run a calendar date through a time zone. (`C-DATE-002`, test)
+- The production Content-Security-Policy is `script-src 'self'`. (`C-CSP-001`, test)
+- No inline scripts. (`C-CSP-002`, test)
+- Every user-facing string exists in both `en` and `fr`. (`C-I18N-001`, test)
+- Never commit secrets. (`C-SECRET-001`, review)
+- Only the Supabase URL and publishable (anon) key reach the browser, through `VITE_`
+  variables. (`C-SECRET-002`, review)
+- A change in behaviour or a new decision updates `spec/spec.json` in the same change.
+  (`C-SPEC-001`, review)
+- Generated files (`docs/spec.md` and the generated block of `CLAUDE.md`) are never edited
+  by hand: change `spec/spec.json` and run `npm run spec:render`. (`C-SPEC-002`, lint)
+- Every active rule or convention with enforcement `test` has a test whose description names
+  its id, and no test names an id that is unknown or not active. (`C-SPEC-003`, lint)
+- Ids are stable: never renumber or reuse one; retire a rule or supersede a decision instead
+  of deleting it. (`C-SPEC-004`, review)
+<!-- END GENERATED: conventions -->
 
 ## Checks
 
 Run before reporting work as done: `npm run lint`, `npm run typecheck`, `npm test`,
-`npm run build`.
+`npm run build`, `npm run spec:check`.

@@ -82,8 +82,8 @@ afterEach(async () => {
   await i18n.changeLanguage('en')
 })
 
-describe('A. the new-password form needs recovery mode for the current session', () => {
-  it('names the account and locks the app until the password is saved', async () => {
+describe('A. the new-password form needs recovery mode for the current session [R-AUTH-016]', () => {
+  it('names the account and locks the app until the password is saved [R-AUTH-017] [R-AUTH-018]', async () => {
     const browser = browserWith(null)
     const { router } = renderRoutes(routes, landOn(recoveryLink(userX, 'x-rec', '/budget')))
 
@@ -126,8 +126,8 @@ describe('A. the new-password form needs recovery mode for the current session',
   })
 })
 
-describe('B. a link outcome is never discarded because another session exists', () => {
-  it('[reported] a used reset link opened while Y is signed in never offers to change Y’s password', async () => {
+describe('B. a link outcome is never discarded because another session exists [R-AUTH-019]', () => {
+  it('[reported] a used reset link opened while Y is signed in never offers to change Y’s password [R-AUTH-020]', async () => {
     const browser = browserWith(sessionFor(userY, 'y-1'))
     browser.client.auth.setSession.mockResolvedValueOnce({
       data: { session: null, user: null },
@@ -144,7 +144,7 @@ describe('B. a link outcome is never discarded because another session exists', 
     expect(browser.client.auth.updateUser).not.toHaveBeenCalled()
   })
 
-  it('[reported] a valid link that hits a network failure while Y is signed in shows no form either', async () => {
+  it('[reported] a valid link that hits a network failure while Y is signed in shows no form either [R-AUTH-020]', async () => {
     const browser = browserWith(sessionFor(userY, 'y-1'))
     browser.client.auth.setSession.mockResolvedValueOnce({
       data: { session: null, user: null },
@@ -194,8 +194,8 @@ describe('B. a link outcome is never discarded because another session exists', 
   })
 })
 
-describe('C. parked tokens and the recovery flag belong to one user and one attempt', () => {
-  it('a network failure parks the link; a reload of the same tab retries it', async () => {
+describe('C. parked tokens and the recovery flag belong to one user and one attempt [R-AUTH-021]', () => {
+  it('a network failure parks the link; a reload of the same tab retries it [R-AUTH-022]', async () => {
     const browser = browserWith(null)
     browser.client.auth.setSession.mockResolvedValueOnce({
       data: { session: null, user: null },
@@ -322,7 +322,7 @@ describe('C. parked tokens and the recovery flag belong to one user and one atte
   })
 })
 
-describe('D. signing in with a password ends recovery mode', () => {
+describe('D. signing in with a password ends recovery mode [R-AUTH-023]', () => {
   it('[reported] a stale recovery flag does not hold a later password sign-in on the form', async () => {
     // Recovery starts for X, then the session disappears without the app signing out.
     const browser = browserWith(null)
@@ -368,7 +368,7 @@ describe('D. signing in with a password ends recovery mode', () => {
   })
 })
 
-describe('E. every state of /reset-password has one message and one way on', () => {
+describe('E. every state of /reset-password has one message and one way on [R-AUTH-024]', () => {
   it('[reported] an undecided link shows only the network message and "Try again"', async () => {
     const browser = browserWith(null)
     browser.client.auth.setSession.mockResolvedValueOnce({

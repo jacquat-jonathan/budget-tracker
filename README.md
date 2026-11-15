@@ -10,7 +10,8 @@ It is a static single-page app (Vite, React, TypeScript, Tailwind, shadcn/ui) th
 directly to [Supabase](https://supabase.com) (Postgres, Auth, row-level security). There is
 no custom server: the build output is plain files that any static host can serve.
 
-- Product rules and decisions: [`docs/domain.md`](docs/domain.md)
+- Product rules, decisions and conventions: [`spec/spec.json`](spec/spec.json), the source of
+  truth, rendered for reading as [`docs/spec.md`](docs/spec.md)
 - Running Supabase locally: [`docs/local-supabase.md`](docs/local-supabase.md)
 - Building and deploying: [`docs/deployment.md`](docs/deployment.md)
 - Conventions for contributors (and Claude): [`CLAUDE.md`](CLAUDE.md)
@@ -50,23 +51,25 @@ and deep links work under a subfolder.
 
 ## Scripts
 
-| Script              | What it does                                                                    |
-| ------------------- | ------------------------------------------------------------------------------- |
-| `npm run dev`       | Start the dev server with hot reload.                                           |
-| `npm run build`     | Type-check and build the static site into `dist/`.                              |
-| `npm run preview`   | Serve the built `dist/` locally.                                                |
-| `npm run lint`      | ESLint (type-aware).                                                            |
-| `npm run typecheck` | TypeScript, no output.                                                          |
-| `npm test`          | Unit and component tests (Vitest, Testing Library). No backend needed.          |
-| `npm run format`    | Format the code with Prettier.                                                  |
-| `npm run db:start`  | Start the local Supabase stack.                                                 |
-| `npm run db:stop`   | Stop it.                                                                        |
-| `npm run db:reset`  | Recreate the local database from `supabase/migrations` and `supabase/seed.sql`. |
-| `npm run db:test`   | Run the database tests in `supabase/tests`.                                     |
-| `npm run db:types`  | Regenerate `src/lib/database.types.ts` from the local database schema.          |
+| Script                | What it does                                                                    |
+| --------------------- | ------------------------------------------------------------------------------- |
+| `npm run dev`         | Start the dev server with hot reload.                                           |
+| `npm run build`       | Type-check and build the static site into `dist/`.                              |
+| `npm run preview`     | Serve the built `dist/` locally.                                                |
+| `npm run lint`        | ESLint (type-aware).                                                            |
+| `npm run typecheck`   | TypeScript, no output.                                                          |
+| `npm test`            | Unit and component tests (Vitest, Testing Library). No backend needed.          |
+| `npm run format`      | Format the code with Prettier.                                                  |
+| `npm run db:start`    | Start the local Supabase stack.                                                 |
+| `npm run db:stop`     | Stop it.                                                                        |
+| `npm run db:reset`    | Recreate the local database from `supabase/migrations` and `supabase/seed.sql`. |
+| `npm run db:test`     | Run the database tests in `supabase/tests`.                                     |
+| `npm run db:types`    | Regenerate `src/lib/database.types.ts` from the local database schema.          |
+| `npm run spec:check`  | Check `spec/spec.json`: schema, ids, tests naming each rule, generated views.   |
+| `npm run spec:render` | Regenerate `docs/spec.md` and the Rules section of `CLAUDE.md` from the spec.   |
 
-Before considering a change done, run `npm run lint`, `npm run typecheck`, `npm test` and
-`npm run build`.
+Before considering a change done, run `npm run lint`, `npm run typecheck`, `npm test`,
+`npm run build` and `npm run spec:check`.
 
 ## Project layout
 
@@ -80,7 +83,9 @@ src/
   locales/{en,fr}/  translations; every string exists in both languages
   test/             test setup and the Supabase mock
 supabase/           Supabase config, migrations, seed and database tests
-docs/               domain model, local Supabase and deployment notes
+spec/               the specification (spec.json) and its JSON Schema
+scripts/spec/       spec checker and renderer
+docs/               generated spec view, database contract, local Supabase and deployment notes
 ```
 
 Add shadcn/ui components with `npx shadcn@latest add <component>`.

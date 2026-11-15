@@ -1,0 +1,3659 @@
+{
+  "$schema": "./spec.schema.json",
+  "meta": {
+    "title": "Budget Tracker specification",
+    "product": "A personal / household budget tracker. A budget starts from the monthly total of its incomes, is split into categories and subcategories with a monthly expectation each, and is tracked period by period against the transactions the user records. It also tracks subscriptions, debts, and the planned flow of money between accounts. CHF only. UI in English and French.",
+    "sources": {
+      "domain": "docs/domain.md, the prose domain model this spec replaced (last version: commit 0ea3e1b). Section names after the colon follow that file.",
+      "CLAUDE.md": "The project instructions, Rules section, before the spec took it over.",
+      "README.md": "The repository README.",
+      "docs/database.md": "The database API contract written with step 2 (backend).",
+      "docs/deployment.md": "Build and deployment notes.",
+      "code": "Behaviour or a choice visible only in the code or its comments; the path follows.",
+      "owner-request": "The product owner's request that introduced this structured spec and its check."
+    }
+  },
+  "areas": [
+    {
+      "id": "app",
+      "title": "App shell"
+    },
+    {
+      "id": "auth",
+      "title": "Accounts and sign-in"
+    },
+    {
+      "id": "profile",
+      "title": "Profiles"
+    },
+    {
+      "id": "security",
+      "title": "Security"
+    },
+    {
+      "id": "money",
+      "title": "Money"
+    },
+    {
+      "id": "date",
+      "title": "Dates"
+    },
+    {
+      "id": "i18n",
+      "title": "Languages"
+    },
+    {
+      "id": "budget",
+      "title": "Budgets"
+    },
+    {
+      "id": "member",
+      "title": "Members and roles"
+    },
+    {
+      "id": "invite",
+      "title": "Invitations"
+    },
+    {
+      "id": "income",
+      "title": "Incomes"
+    },
+    {
+      "id": "paydate",
+      "title": "Pay dates and the weekend rule"
+    },
+    {
+      "id": "period",
+      "title": "Periods"
+    },
+    {
+      "id": "version",
+      "title": "Versioning: edits never rewrite the past"
+    },
+    {
+      "id": "category",
+      "title": "Categories and subcategories"
+    },
+    {
+      "id": "transaction",
+      "title": "Transactions"
+    },
+    {
+      "id": "progress",
+      "title": "Period progress and result"
+    },
+    {
+      "id": "subscription",
+      "title": "Subscriptions"
+    },
+    {
+      "id": "debt",
+      "title": "Debts"
+    },
+    {
+      "id": "compare",
+      "title": "Browsing and comparing periods"
+    },
+    {
+      "id": "import",
+      "title": "Import"
+    },
+    {
+      "id": "account",
+      "title": "Accounts and planned transfers (money flow)"
+    },
+    {
+      "id": "rls",
+      "title": "Row-level security"
+    },
+    {
+      "id": "logic",
+      "title": "Where domain logic lives"
+    },
+    {
+      "id": "query",
+      "title": "Client queries"
+    },
+    {
+      "id": "dbtest",
+      "title": "Database tests"
+    },
+    {
+      "id": "csp",
+      "title": "Content-Security-Policy"
+    },
+    {
+      "id": "secret",
+      "title": "Secrets and configuration"
+    },
+    {
+      "id": "spec",
+      "title": "This specification"
+    }
+  ],
+  "glossary": [
+    {
+      "id": "G-BUDGET",
+      "term": "Budget",
+      "definition": "The container of everything else: incomes, categories, subscriptions, debts, transactions, periods and accounts. Always a monthly budget.",
+      "fr": "Budget"
+    },
+    {
+      "id": "G-OWNER",
+      "term": "Owner",
+      "definition": "The member who created the budget. Only the owner can delete it, change its end date, or manage members and invitations."
+    },
+    {
+      "id": "G-MEMBER",
+      "term": "Member",
+      "definition": "A person who belongs to a budget (the owner included). Every member can read and edit everything in the budget."
+    },
+    {
+      "id": "G-INVITATION",
+      "term": "Invitation",
+      "definition": "An offer to join a budget, addressed by the owner to an email address. The invited person accepts or declines it after signing in with a matching verified email."
+    },
+    {
+      "id": "G-INCOME",
+      "term": "Income",
+      "definition": "A monthly amount with a nominal pay day, belonging to one member of the budget. The incomes of a budget sum into its monthly total.",
+      "fr": "Revenus"
+    },
+    {
+      "id": "G-PRIMARY",
+      "term": "Primary income",
+      "definition": "The one income of a budget whose pay dates define the periods."
+    },
+    {
+      "id": "G-PAYDAY",
+      "term": "Nominal pay day",
+      "definition": "The day of the month an income is due, for example the 25th, before clamping to the month length and before the weekend rule.",
+      "fr": "jour de paie"
+    },
+    {
+      "id": "G-PAYDATE",
+      "term": "Actual pay date",
+      "definition": "The date an income is really paid in a given month: the nominal pay day clamped to the month length, then moved by the weekend rule (or overridden by hand)."
+    },
+    {
+      "id": "G-WEEKEND",
+      "term": "Weekend rule",
+      "definition": "Per income: how a pay day that falls on a Saturday or Sunday moves. One of nearest (default), previous, next, none."
+    },
+    {
+      "id": "G-PERIOD",
+      "term": "Period",
+      "definition": "The span from one actual pay date of the primary income to the day before the next one. A stored row with a start and an end date.",
+      "fr": "Périodes"
+    },
+    {
+      "id": "G-CURRENT",
+      "term": "Current period",
+      "definition": "The period that contains today. The last period that exists as a row; its end date is a projection."
+    },
+    {
+      "id": "G-BOUNDARY",
+      "term": "Period boundary",
+      "definition": "The point between the end of one period and the start of the next. It can be moved by hand; a manual boundary is never recomputed."
+    },
+    {
+      "id": "G-PROJECTED",
+      "term": "Projected end",
+      "definition": "The current period end computed as the day before the next actual pay date of the primary income."
+    },
+    {
+      "id": "G-SEQ",
+      "term": "Period number (seq)",
+      "definition": "The 1-based number of a period within its budget. Income validity and versions refer to it, not to dates."
+    },
+    {
+      "id": "G-INFORCE",
+      "term": "In force",
+      "definition": "An income is in force in a period when it started at or before that period and has not ended before it; a version is in force when it is the latest one effective at or before that period."
+    },
+    {
+      "id": "G-INCOMETOTAL",
+      "term": "Income total",
+      "definition": "Of a period: the sum of the incomes in force in that period, each at the version in force for that period."
+    },
+    {
+      "id": "G-MONTHLYTOTAL",
+      "term": "Monthly total",
+      "definition": "The sum of all incomes of the budget; the amount the budget starts from."
+    },
+    {
+      "id": "G-VERSION",
+      "term": "Version",
+      "definition": "The terms of an income (and later of a category expectation, a subscription or a debt) in force from a given period on. Edits create versions; they never rewrite the past."
+    },
+    {
+      "id": "G-CATEGORY",
+      "term": "Category",
+      "definition": "The first level of the budget split, for example insurance. Holds the monthly expectation when it has no subcategories.",
+      "fr": "Catégories"
+    },
+    {
+      "id": "G-SUBCATEGORY",
+      "term": "Subcategory",
+      "definition": "The optional second (and last) level under a category, for example insurance/car.",
+      "fr": "sous-catégories"
+    },
+    {
+      "id": "G-EXPECTATION",
+      "term": "Monthly expectation",
+      "definition": "The amount planned for a category or subcategory per month, entered per month or per year.",
+      "fr": "montants prévus"
+    },
+    {
+      "id": "G-LEFT",
+      "term": "Amount left to assign",
+      "definition": "Budget total minus the sum of expectations."
+    },
+    {
+      "id": "G-BALANCE",
+      "term": "Category balance",
+      "definition": "What is left of a category within a period. Reset at the end of each period."
+    },
+    {
+      "id": "G-RESULT",
+      "term": "Period result",
+      "definition": "The surplus or deficit of a period."
+    },
+    {
+      "id": "G-TRANSACTION",
+      "term": "Transaction",
+      "definition": "An amount on a date, in a category or subcategory, with an optional description and an optional link to a debt or a subscription.",
+      "fr": "Transactions"
+    },
+    {
+      "id": "G-SUBSCRIPTION",
+      "term": "Subscription",
+      "definition": "A recurring charge with a price, a pay date, a cadence and a category.",
+      "fr": "Abonnements"
+    },
+    {
+      "id": "G-CHARGE",
+      "term": "Next charge",
+      "definition": "When a subscription will next be charged.",
+      "fr": "prochain prélèvement"
+    },
+    {
+      "id": "G-DEBT",
+      "term": "Debt",
+      "definition": "Money owed, with a principal, an optional interest rate and a planned monthly payment.",
+      "fr": "Dettes"
+    },
+    {
+      "id": "G-REMAINING",
+      "term": "Remaining amount",
+      "definition": "What is still owed on a debt; transactions assigned to the debt reduce it."
+    },
+    {
+      "id": "G-ACCOUNT",
+      "term": "Account",
+      "definition": "A place money is kept (salary account, savings, third pillar, tax reserve), possibly at different banks.",
+      "fr": "comptes"
+    },
+    {
+      "id": "G-TRANSFER",
+      "term": "Planned transfer",
+      "definition": "A planned movement of money between two accounts relative to payday, such as \"payday + 2 days: 1000 CHF from A to Savings\". Flagged automatic or manual."
+    },
+    {
+      "id": "G-AUTOMATIC",
+      "term": "Automatic transfer",
+      "definition": "A planned transfer done by a standing order; assumed done."
+    },
+    {
+      "id": "G-MANUAL",
+      "term": "Manual transfer",
+      "definition": "A planned transfer the user makes by hand; shown as a per-period checklist."
+    },
+    {
+      "id": "G-MONEYFLOW",
+      "term": "Money flow",
+      "definition": "The plan of transfers between accounts after payday, drawn as a diagram.",
+      "fr": "Flux financiers"
+    },
+    {
+      "id": "G-IMPORT",
+      "term": "Import",
+      "definition": "Bulk creation of transactions through the one import function in the database, from a paste/CSV screen, a repository script a Claude session can run, and later a connector."
+    },
+    {
+      "id": "G-TOREVIEW",
+      "term": "To review",
+      "definition": "The mark an imported transaction carries until the user has checked it."
+    },
+    {
+      "id": "G-MERCHANTRULE",
+      "term": "Merchant-to-category rule",
+      "definition": "A saved mapping from a merchant to a category, so categorisation of imports improves over time."
+    },
+    {
+      "id": "G-RAPPEN",
+      "term": "Rappen",
+      "definition": "The hundredth of a Swiss franc (centime). Every amount is an integer number of rappen."
+    },
+    {
+      "id": "G-CHF",
+      "term": "CHF",
+      "definition": "Swiss franc, the only currency."
+    },
+    {
+      "id": "G-TODAY",
+      "term": "Today",
+      "definition": "The calendar date in Europe/Zurich, decided by the database."
+    },
+    {
+      "id": "G-CALENDARDATE",
+      "term": "Calendar date",
+      "definition": "A day written YYYY-MM-DD (Postgres date): not an instant, never converted through a time zone."
+    },
+    {
+      "id": "G-TIMESTAMP",
+      "term": "Timestamp",
+      "definition": "An instant with a time and a zone (Postgres timestamptz), shown as the local calendar date of that instant."
+    },
+    {
+      "id": "G-EDGE",
+      "term": "Edge",
+      "definition": "The point where money or dates enter or leave the app as text: display and input. Formatting and parsing happen only there."
+    },
+    {
+      "id": "G-RLS",
+      "term": "Row-level security (RLS)",
+      "definition": "Postgres policies deciding which rows each user may read or change. The only access control of the app."
+    },
+    {
+      "id": "G-RECOVERY",
+      "term": "Recovery mode",
+      "definition": "The state after a password-recovery link signed a user in: they must choose a new password before using the app. Tied to that exact sign-in."
+    },
+    {
+      "id": "G-EMAILLINK",
+      "term": "Email link",
+      "definition": "A link Supabase Auth sends by email (sign-up confirmation, password recovery, email change) that brings the user back to the app with a session or an error."
+    },
+    {
+      "id": "G-PARKED",
+      "term": "Parked link",
+      "definition": "Email-link tokens kept for one tab (sessionStorage, never a URL) after their check failed for a transient reason, so a reload retries."
+    },
+    {
+      "id": "G-SESSIONKEY",
+      "term": "Session key",
+      "definition": "The identity of one sign-in: the session_id claim of the access token, or the user id when there is none."
+    },
+    {
+      "id": "G-PUBLISHABLE",
+      "term": "Publishable key",
+      "definition": "The Supabase anon key meant for the browser. With the project URL, the only configuration that reaches the browser."
+    },
+    {
+      "id": "G-DISPLAYNAME",
+      "term": "Display name",
+      "definition": "The name a user chooses at sign-up, kept in their profile.",
+      "fr": "Nom affiché"
+    },
+    {
+      "id": "G-PROFILE",
+      "term": "Profile",
+      "definition": "One row per user, created on sign-up, with their display name and email."
+    },
+    {
+      "id": "G-DASHBOARD",
+      "term": "Dashboard",
+      "definition": "The home page of the app: the current period at a glance.",
+      "fr": "Tableau de bord"
+    }
+  ],
+  "actors": [
+    {
+      "id": "A-VISITOR",
+      "name": "anonymous visitor",
+      "description": "Someone who is not signed in. Can sign up, sign in, follow email links and nothing else; reads and changes no data."
+    },
+    {
+      "id": "A-USER",
+      "name": "signed-in user",
+      "description": "Anyone signed in, before or regardless of belonging to a given budget. Relative to a budget they are not a member of, they are \"another user\" and can see or change nothing in it."
+    },
+    {
+      "id": "A-OWNER",
+      "name": "budget owner",
+      "description": "The member who created a budget. Everything a member can do, plus delete the budget, change its end date, and manage members and invitations."
+    },
+    {
+      "id": "A-MEMBER",
+      "name": "budget member",
+      "description": "A person who belongs to a budget, the owner included unless stated. Reads and edits everything in the budget."
+    },
+    {
+      "id": "A-INVITEE",
+      "name": "invited person",
+      "description": "Someone whose email address the owner invited. Sees the invitation after signing in with an account whose verified email matches, then accepts or declines it."
+    },
+    {
+      "id": "A-CLAUDE",
+      "name": "Claude session",
+      "description": "A Claude Code session that imports transactions by running the import script of this repository. Never gets raw database access to real data."
+    }
+  ],
+  "buildSteps": [
+    {
+      "step": 1,
+      "title": "Scaffold: app shell, auth, sidebar layout, local Supabase, CI and deploy pipeline"
+    },
+    {
+      "step": 2,
+      "title": "Budgets and members, incomes, periods"
+    },
+    {
+      "step": 3,
+      "title": "Categories, transactions, period progress view"
+    },
+    {
+      "step": 4,
+      "title": "Subscriptions and debts"
+    },
+    {
+      "step": 5,
+      "title": "Period comparison charts"
+    },
+    {
+      "step": 6,
+      "title": "Import (CSV and Claude)"
+    },
+    {
+      "step": 7,
+      "title": "Accounts and the money flow diagram"
+    }
+  ],
+  "features": [
+    {
+      "id": "F-SHELL",
+      "step": 1,
+      "title": "App shell",
+      "status": "done",
+      "description": "Sidebar layout and navigation, English and French UI, theme, money and date formatting helpers, error and not-found pages.",
+      "userStories": [
+        {
+          "id": "US-SHELL-001",
+          "actor": "A-USER",
+          "iWant": "to move between the sections of the app from a sidebar",
+          "soThat": "I always know where I am and how to get elsewhere",
+          "rules": ["R-APP-001", "R-APP-002"]
+        },
+        {
+          "id": "US-SHELL-002",
+          "actor": "A-USER",
+          "iWant": "to use the app in English or in French and have it remember my choice",
+          "soThat": "everyone in the household can read it in their language",
+          "rules": ["R-I18N-001", "R-I18N-002"]
+        },
+        {
+          "id": "US-SHELL-003",
+          "actor": "A-USER",
+          "iWant": "to see amounts in Swiss francs with Swiss formatting and dates as dd.mm.yyyy",
+          "soThat": "figures read the way I am used to",
+          "rules": ["R-MONEY-001", "R-MONEY-003", "R-DATE-001"]
+        }
+      ]
+    },
+    {
+      "id": "F-AUTH",
+      "step": 1,
+      "title": "Accounts and sign-in",
+      "status": "done",
+      "description": "Sign-up with email confirmation, sign-in, password reset by email link, sign-out; safe on a shared household computer.",
+      "userStories": [
+        {
+          "id": "US-AUTH-001",
+          "actor": "A-VISITOR",
+          "iWant": "to create an account with my display name, email and password",
+          "soThat": "I can keep my own budgets",
+          "rules": [
+            "R-AUTH-004",
+            "R-AUTH-005",
+            "R-AUTH-006",
+            "R-AUTH-007",
+            "R-AUTH-008",
+            "R-AUTH-012"
+          ]
+        },
+        {
+          "id": "US-AUTH-002",
+          "actor": "A-VISITOR",
+          "iWant": "to sign in and land on the page I was trying to open",
+          "soThat": "I can carry on where I wanted to go",
+          "rules": [
+            "R-AUTH-001",
+            "R-AUTH-002",
+            "R-AUTH-003",
+            "R-AUTH-009",
+            "R-AUTH-010",
+            "R-AUTH-011",
+            "R-AUTH-015"
+          ]
+        },
+        {
+          "id": "US-AUTH-003",
+          "actor": "A-VISITOR",
+          "iWant": "to reset a forgotten password from an email link",
+          "soThat": "I can get back into my account",
+          "rules": [
+            "R-AUTH-013",
+            "R-AUTH-016",
+            "R-AUTH-017",
+            "R-AUTH-018",
+            "R-AUTH-022",
+            "R-AUTH-024"
+          ]
+        },
+        {
+          "id": "US-AUTH-004",
+          "actor": "A-USER",
+          "iWant": "an email link opened on our shared computer never to change or expose the wrong account",
+          "soThat": "two people can share one browser safely",
+          "rules": ["R-AUTH-019", "R-AUTH-020", "R-AUTH-021", "R-AUTH-023", "R-AUTH-025"]
+        },
+        {
+          "id": "US-AUTH-005",
+          "actor": "A-VISITOR",
+          "iWant": "to be told clearly when an email link has expired and to get a new one",
+          "soThat": "I am not stuck with a dead link",
+          "rules": ["R-AUTH-014", "R-AUTH-015"]
+        }
+      ]
+    },
+    {
+      "id": "F-PROFILE",
+      "step": 1,
+      "title": "Profiles",
+      "status": "done",
+      "description": "One profile per user, created on sign-up, holding the display name.",
+      "userStories": [
+        {
+          "id": "US-PROFILE-001",
+          "actor": "A-USER",
+          "iWant": "my display name to be kept in my profile and changeable only by me",
+          "soThat": "the people I share a budget with know who I am",
+          "rules": ["R-PROFILE-001", "R-PROFILE-002"]
+        }
+      ]
+    },
+    {
+      "id": "F-PLATFORM",
+      "step": 1,
+      "title": "Local Supabase, CI and deployment",
+      "status": "done",
+      "description": "Local Supabase stack, row-level security baseline, CI, and the manual deploy to Infomaniak.",
+      "userStories": [
+        {
+          "id": "US-PLATFORM-001",
+          "actor": "A-USER",
+          "iWant": "my data to be protected by the database itself",
+          "soThat": "nobody reaches it by going around the app",
+          "rules": ["R-SECURITY-001", "R-SECURITY-005"]
+        }
+      ]
+    },
+    {
+      "id": "F-BUDGET",
+      "step": 2,
+      "title": "Budgets",
+      "status": "in-progress",
+      "description": "Create, rename, end and delete a budget, created atomically with its first income and period.",
+      "userStories": [
+        {
+          "id": "US-BUDGET-001",
+          "actor": "A-USER",
+          "iWant": "to create a budget with its first income in one step",
+          "soThat": "I can start tracking at once and the budget is never half set up",
+          "rules": [
+            "R-BUDGET-002",
+            "R-BUDGET-003",
+            "R-BUDGET-010",
+            "R-BUDGET-011",
+            "R-BUDGET-012",
+            "R-PERIOD-015",
+            "R-PERIOD-016",
+            "R-PERIOD-019"
+          ]
+        },
+        {
+          "id": "US-BUDGET-002",
+          "actor": "A-USER",
+          "iWant": "to belong to several budgets",
+          "soThat": "I can keep a personal budget next to the household one",
+          "rules": ["R-BUDGET-004", "R-SECURITY-002", "R-SECURITY-003", "R-SECURITY-004"]
+        },
+        {
+          "id": "US-BUDGET-003",
+          "actor": "A-OWNER",
+          "iWant": "to give a budget an end date or run it indefinitely",
+          "soThat": "tracking stops when the budget is no longer needed",
+          "rules": [
+            "R-BUDGET-005",
+            "R-BUDGET-006",
+            "R-BUDGET-007",
+            "R-BUDGET-008",
+            "R-BUDGET-013",
+            "R-MEMBER-003"
+          ]
+        },
+        {
+          "id": "US-BUDGET-004",
+          "actor": "A-MEMBER",
+          "iWant": "to rename a budget",
+          "soThat": "its name stays meaningful",
+          "rules": ["R-BUDGET-009", "R-MEMBER-001"]
+        },
+        {
+          "id": "US-BUDGET-005",
+          "actor": "A-OWNER",
+          "iWant": "to delete a budget with everything in it",
+          "soThat": "I can remove one I no longer use",
+          "rules": ["R-BUDGET-001", "R-BUDGET-009", "R-MEMBER-002"]
+        }
+      ]
+    },
+    {
+      "id": "F-MEMBERS",
+      "step": 2,
+      "title": "Members and invitations",
+      "status": "in-progress",
+      "description": "Invite people by email, accept or decline, leave, remove members.",
+      "userStories": [
+        {
+          "id": "US-MEMBERS-001",
+          "actor": "A-OWNER",
+          "iWant": "to invite someone by email address",
+          "soThat": "we can run the household budget together",
+          "rules": [
+            "R-INVITE-001",
+            "R-INVITE-002",
+            "R-INVITE-005",
+            "R-INVITE-006",
+            "R-MEMBER-004",
+            "R-MEMBER-010"
+          ]
+        },
+        {
+          "id": "US-MEMBERS-002",
+          "actor": "A-INVITEE",
+          "iWant": "to see the invitations addressed to my verified email and accept or decline them",
+          "soThat": "I join only the budgets I want",
+          "rules": ["R-INVITE-003", "R-INVITE-004"]
+        },
+        {
+          "id": "US-MEMBERS-003",
+          "actor": "A-MEMBER",
+          "iWant": "to leave a budget",
+          "soThat": "I stop sharing it without affecting its history",
+          "rules": ["R-MEMBER-005", "R-MEMBER-006", "R-MEMBER-007", "R-MEMBER-008"]
+        },
+        {
+          "id": "US-MEMBERS-004",
+          "actor": "A-OWNER",
+          "iWant": "to remove a member",
+          "soThat": "only the right people share the budget",
+          "rules": ["R-MEMBER-004", "R-MEMBER-007", "R-MEMBER-008", "R-MEMBER-009"]
+        },
+        {
+          "id": "US-MEMBERS-005",
+          "actor": "A-MEMBER",
+          "iWant": "to see who the other members are",
+          "soThat": "I know with whom I share the budget",
+          "rules": ["R-PROFILE-003", "R-MEMBER-001"]
+        }
+      ]
+    },
+    {
+      "id": "F-INCOME",
+      "step": 2,
+      "title": "Incomes",
+      "status": "in-progress",
+      "description": "Versioned monthly incomes per member, one of them primary, with a weekend rule.",
+      "userStories": [
+        {
+          "id": "US-INCOME-001",
+          "actor": "A-MEMBER",
+          "iWant": "to add my income with its amount, pay day and weekend rule",
+          "soThat": "it counts in the budget's monthly total",
+          "rules": [
+            "R-INCOME-002",
+            "R-INCOME-003",
+            "R-INCOME-004",
+            "R-INCOME-005",
+            "R-INCOME-010",
+            "R-INCOME-011",
+            "R-INCOME-013",
+            "R-INCOME-014",
+            "R-MONEY-002",
+            "R-PAYDATE-001",
+            "R-PAYDATE-002",
+            "R-PAYDATE-003",
+            "R-PAYDATE-004",
+            "R-PAYDATE-005",
+            "R-PAYDATE-006",
+            "R-PAYDATE-007"
+          ]
+        },
+        {
+          "id": "US-INCOME-002",
+          "actor": "A-MEMBER",
+          "iWant": "to change an income's terms when my salary changes",
+          "soThat": "the change applies from now on and past periods stay as they were",
+          "rules": ["R-VERSION-001", "R-VERSION-005", "R-VERSION-006"]
+        },
+        {
+          "id": "US-INCOME-003",
+          "actor": "A-MEMBER",
+          "iWant": "to make another income the primary one",
+          "soThat": "periods follow the salary that really sets our rhythm",
+          "rules": ["R-INCOME-006", "R-INCOME-007", "R-INCOME-008"]
+        },
+        {
+          "id": "US-INCOME-004",
+          "actor": "A-MEMBER",
+          "iWant": "to remove an income",
+          "soThat": "it stops counting without rewriting past periods",
+          "rules": ["R-INCOME-001", "R-INCOME-009", "R-INCOME-012"]
+        }
+      ]
+    },
+    {
+      "id": "F-PERIOD",
+      "step": 2,
+      "title": "Periods",
+      "status": "in-progress",
+      "description": "Pay-day-to-pay-day periods, created on demand, with manual boundaries.",
+      "userStories": [
+        {
+          "id": "US-PERIOD-001",
+          "actor": "A-MEMBER",
+          "iWant": "periods to run from pay day to pay day of the primary income",
+          "soThat": "the salary is always day one of the period",
+          "rules": [
+            "R-PERIOD-001",
+            "R-PERIOD-002",
+            "R-PERIOD-003",
+            "R-PERIOD-004",
+            "R-PERIOD-005",
+            "R-PERIOD-006",
+            "R-PERIOD-008",
+            "R-PERIOD-009",
+            "R-PERIOD-010",
+            "R-PERIOD-017",
+            "R-PERIOD-018"
+          ]
+        },
+        {
+          "id": "US-PERIOD-002",
+          "actor": "A-MEMBER",
+          "iWant": "to move a period boundary when the salary arrived on another day",
+          "soThat": "public holidays do not put transactions in the wrong period",
+          "rules": ["R-PERIOD-012", "R-PERIOD-013", "R-PERIOD-014", "R-PERIOD-020"]
+        },
+        {
+          "id": "US-PERIOD-003",
+          "actor": "A-MEMBER",
+          "iWant": "past periods to stay as they were when the primary income's terms change",
+          "soThat": "history does not shift under me",
+          "rules": ["R-PERIOD-007", "R-PERIOD-011", "R-VERSION-007", "R-VERSION-008"]
+        }
+      ]
+    },
+    {
+      "id": "F-CATEGORY",
+      "step": 3,
+      "title": "Categories and expectations",
+      "status": "planned",
+      "description": "Two-level categories with monthly or yearly expectations, and the amount left to assign.",
+      "userStories": [
+        {
+          "id": "US-CATEGORY-001",
+          "actor": "A-MEMBER",
+          "iWant": "to split the budget into categories and subcategories with a monthly expectation each",
+          "soThat": "I know how much I plan to spend on what",
+          "rules": ["R-CATEGORY-001", "R-CATEGORY-002", "R-VERSION-002"]
+        },
+        {
+          "id": "US-CATEGORY-002",
+          "actor": "A-MEMBER",
+          "iWant": "to enter a yearly amount for a yearly cost",
+          "soThat": "it is spread as one twelfth per month",
+          "rules": ["R-CATEGORY-003", "R-CATEGORY-004", "R-CATEGORY-005"]
+        },
+        {
+          "id": "US-CATEGORY-003",
+          "actor": "A-MEMBER",
+          "iWant": "to see the amount left to assign",
+          "soThat": "every franc of the budget has a purpose",
+          "rules": ["R-CATEGORY-006"]
+        }
+      ]
+    },
+    {
+      "id": "F-TRANSACTION",
+      "step": 3,
+      "title": "Transactions",
+      "status": "planned",
+      "description": "Manual transactions, landing in the period that contains their date.",
+      "userStories": [
+        {
+          "id": "US-TRANSACTION-001",
+          "actor": "A-MEMBER",
+          "iWant": "to record a transaction with an amount, a date and a category",
+          "soThat": "spending is tracked against the budget",
+          "rules": [
+            "R-TRANSACTION-001",
+            "R-TRANSACTION-002",
+            "R-TRANSACTION-003",
+            "R-TRANSACTION-004",
+            "R-TRANSACTION-006"
+          ]
+        },
+        {
+          "id": "US-TRANSACTION-002",
+          "actor": "A-MEMBER",
+          "iWant": "to enter or correct a transaction in a past period",
+          "soThat": "late receipts still land in the right period",
+          "rules": ["R-TRANSACTION-007", "R-TRANSACTION-008"]
+        }
+      ]
+    },
+    {
+      "id": "F-PROGRESS",
+      "step": 3,
+      "title": "Period progress view",
+      "status": "planned",
+      "description": "Each period tracked against its expectations, with its result.",
+      "userStories": [
+        {
+          "id": "US-PROGRESS-001",
+          "actor": "A-MEMBER",
+          "iWant": "to see how the current period is going against the expectations",
+          "soThat": "I can adjust before the period ends",
+          "rules": ["R-PROGRESS-001"]
+        },
+        {
+          "id": "US-PROGRESS-002",
+          "actor": "A-MEMBER",
+          "iWant": "to see a period's surplus or deficit",
+          "soThat": "I know how the period went",
+          "rules": ["R-PROGRESS-002"]
+        }
+      ]
+    },
+    {
+      "id": "F-SUBSCRIPTION",
+      "step": 4,
+      "title": "Subscriptions",
+      "status": "planned",
+      "description": "Recurring charges and their next charge date.",
+      "userStories": [
+        {
+          "id": "US-SUBSCRIPTION-001",
+          "actor": "A-MEMBER",
+          "iWant": "to track subscriptions and see when each will next be charged",
+          "soThat": "recurring costs do not surprise me",
+          "rules": ["R-SUBSCRIPTION-001", "R-SUBSCRIPTION-002", "R-VERSION-003"]
+        }
+      ]
+    },
+    {
+      "id": "F-DEBT",
+      "step": 4,
+      "title": "Debts",
+      "status": "planned",
+      "description": "Debts with planned payments, their evolution and expected end date.",
+      "userStories": [
+        {
+          "id": "US-DEBT-001",
+          "actor": "A-MEMBER",
+          "iWant": "to record a debt with its principal, interest rate and planned monthly payment",
+          "soThat": "I can follow it down to zero",
+          "rules": ["R-DEBT-001", "R-DEBT-002", "R-VERSION-004"]
+        },
+        {
+          "id": "US-DEBT-002",
+          "actor": "A-MEMBER",
+          "iWant": "payments assigned to a debt to reduce what remains, and to see its evolution and expected end date",
+          "soThat": "I know when it will be paid off",
+          "rules": ["R-DEBT-003", "R-DEBT-004", "R-DEBT-005"]
+        }
+      ]
+    },
+    {
+      "id": "F-COMPARE",
+      "step": 5,
+      "title": "Period comparison",
+      "status": "planned",
+      "description": "Browsing past periods and comparing them in charts.",
+      "userStories": [
+        {
+          "id": "US-COMPARE-001",
+          "actor": "A-MEMBER",
+          "iWant": "to browse past periods and compare them, for example over a year",
+          "soThat": "I see how our spending evolves",
+          "rules": ["R-COMPARE-001", "R-COMPARE-002"]
+        }
+      ]
+    },
+    {
+      "id": "F-IMPORT",
+      "step": 6,
+      "title": "Import",
+      "status": "planned",
+      "description": "Bulk import of transactions from CSV or by a Claude session, through one database function.",
+      "userStories": [
+        {
+          "id": "US-IMPORT-001",
+          "actor": "A-MEMBER",
+          "iWant": "to paste or upload a CSV of transactions",
+          "soThat": "I do not type them one by one",
+          "rules": [
+            "R-IMPORT-001",
+            "R-IMPORT-002",
+            "R-IMPORT-003",
+            "R-IMPORT-004",
+            "R-IMPORT-005",
+            "R-TRANSACTION-005"
+          ]
+        },
+        {
+          "id": "US-IMPORT-002",
+          "actor": "A-CLAUDE",
+          "iWant": "to import transactions by running the import script of this repository",
+          "soThat": "a member can delegate the import without giving Claude raw database access",
+          "rules": ["R-IMPORT-001", "R-IMPORT-006", "R-SECURITY-005"]
+        },
+        {
+          "id": "US-IMPORT-003",
+          "actor": "A-MEMBER",
+          "iWant": "imported transactions to be marked to review and categorised from saved merchant rules",
+          "soThat": "I check them quickly and categorisation improves over time",
+          "rules": ["R-IMPORT-004", "R-IMPORT-007"]
+        }
+      ]
+    },
+    {
+      "id": "F-MONEYFLOW",
+      "step": 7,
+      "title": "Accounts and money flow",
+      "status": "planned",
+      "description": "Accounts, planned transfers after payday, a per-period checklist and the money flow diagram.",
+      "userStories": [
+        {
+          "id": "US-MONEYFLOW-001",
+          "actor": "A-MEMBER",
+          "iWant": "to define my accounts and the transfers planned between them after payday",
+          "soThat": "the money goes where it should every period",
+          "rules": ["R-ACCOUNT-001", "R-ACCOUNT-002", "R-ACCOUNT-003", "R-ACCOUNT-004"]
+        },
+        {
+          "id": "US-MONEYFLOW-002",
+          "actor": "A-MEMBER",
+          "iWant": "a per-period checklist of the manual transfers",
+          "soThat": "I do not forget one",
+          "rules": ["R-ACCOUNT-005"]
+        },
+        {
+          "id": "US-MONEYFLOW-003",
+          "actor": "A-MEMBER",
+          "iWant": "a diagram of the planned flow of money",
+          "soThat": "I see the whole plan at a glance",
+          "rules": ["R-ACCOUNT-006", "R-ACCOUNT-007"]
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "R-APP-001",
+      "area": "app",
+      "statement": "A signed-in user sees the app shell: the sidebar navigation and the page they opened.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/app/routes.tsx"]
+    },
+    {
+      "id": "R-APP-002",
+      "area": "app",
+      "statement": "An unknown path shows a \"page not found\" page.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/app/routes.tsx"]
+    },
+    {
+      "id": "R-APP-003",
+      "area": "app",
+      "statement": "The app refuses to start without its Supabase settings and names the missing variables.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["README.md: Setup", "code: src/main.tsx"]
+    },
+    {
+      "id": "R-I18N-001",
+      "area": "i18n",
+      "statement": "The UI is available in English and in French.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["domain: Product in one paragraph"]
+    },
+    {
+      "id": "R-I18N-002",
+      "area": "i18n",
+      "statement": "The UI language the user chooses is remembered in the browser and set as the page language.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/lib/i18n.ts"]
+    },
+    {
+      "id": "R-MONEY-001",
+      "area": "money",
+      "statement": "CHF is the only currency.",
+      "rationale": "Nothing in the data model carries a currency, so a test cannot prove the absence of a second one.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["domain: Money"]
+    },
+    {
+      "id": "R-MONEY-002",
+      "area": "money",
+      "statement": "Money amounts are stored as integer rappen (centimes), never as floats.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["C-MONEY-002"],
+      "source": ["domain: Money"]
+    },
+    {
+      "id": "R-MONEY-003",
+      "area": "money",
+      "statement": "Money is displayed with Swiss formatting.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-009"],
+      "source": ["domain: Money"]
+    },
+    {
+      "id": "R-DATE-001",
+      "area": "date",
+      "statement": "Dates are displayed as dd.mm.yyyy.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["domain: Money"]
+    },
+    {
+      "id": "R-AUTH-001",
+      "area": "auth",
+      "statement": "A signed-out visitor who opens an app page is sent to sign-in, and back to the page they asked for once signed in.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/app/route-guards.tsx"]
+    },
+    {
+      "id": "R-AUTH-002",
+      "area": "auth",
+      "statement": "A signed-in user who opens the sign-in or sign-up page is sent on into the app.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/app/route-guards.tsx"]
+    },
+    {
+      "id": "R-AUTH-003",
+      "area": "auth",
+      "statement": "The page to return to after sign-in is always an in-app path, never an auth page and never another site.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/app/paths.ts"]
+    },
+    {
+      "id": "R-AUTH-004",
+      "area": "auth",
+      "statement": "Sign-up asks for a display name, an email address and a password, and stores the display name with the new account.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/pages/sign-up-page.tsx"]
+    },
+    {
+      "id": "R-AUTH-005",
+      "area": "auth",
+      "statement": "A new password has at least 8 characters.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/schemas.ts"]
+    },
+    {
+      "id": "R-AUTH-006",
+      "area": "auth",
+      "statement": "A display name is required and has at most 80 characters.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/schemas.ts"]
+    },
+    {
+      "id": "R-AUTH-007",
+      "area": "auth",
+      "statement": "When the account needs email confirmation, sign-up tells the user to check their inbox instead of signing them in.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/pages/sign-up-page.tsx"]
+    },
+    {
+      "id": "R-AUTH-008",
+      "area": "auth",
+      "statement": "When sign-up returns a session, the user goes straight into the app.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/pages/sign-up-page.tsx"]
+    },
+    {
+      "id": "R-AUTH-009",
+      "area": "auth",
+      "statement": "Sign-in validates the email and password fields before calling Supabase.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/pages/sign-in-page.tsx"]
+    },
+    {
+      "id": "R-AUTH-010",
+      "area": "auth",
+      "statement": "The email address is submitted trimmed.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/schemas.ts"]
+    },
+    {
+      "id": "R-AUTH-011",
+      "area": "auth",
+      "statement": "An error from Supabase Auth is shown as a translated message, never as the raw error.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/auth-errors.ts"]
+    },
+    {
+      "id": "R-AUTH-012",
+      "area": "auth",
+      "statement": "A confirmation (non-recovery) email link signs the user straight in.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/auth-bootstrap.ts"]
+    },
+    {
+      "id": "R-AUTH-013",
+      "area": "auth",
+      "statement": "Email-link tokens are removed from the address bar and from browser history: the token-bearing history entry is replaced, not followed by a new one.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-013"],
+      "source": ["code: src/features/auth/auth-redirect.ts"]
+    },
+    {
+      "id": "R-AUTH-014",
+      "area": "auth",
+      "statement": "An expired, used or invalid email link is explained, with a way to request a new confirmation email or a new password-reset link.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/components/link-error-alert.tsx"]
+    },
+    {
+      "id": "R-AUTH-015",
+      "area": "auth",
+      "statement": "When sign-in fails because the email is not confirmed, the app offers to resend the confirmation email, with the address filled in.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/pages/sign-in-page.tsx"]
+    },
+    {
+      "id": "R-AUTH-016",
+      "area": "auth",
+      "statement": "The new-password form shows only while recovery mode is active for the signed-in session (invariant A).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-014"],
+      "source": [
+        "code: src/features/auth/recovery.ts",
+        "code: src/features/auth/auth-invariants.test.tsx"
+      ]
+    },
+    {
+      "id": "R-AUTH-017",
+      "area": "auth",
+      "statement": "The new-password form names the account whose password it changes (invariant A).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/auth-invariants.test.tsx"]
+    },
+    {
+      "id": "R-AUTH-018",
+      "area": "auth",
+      "statement": "In recovery mode every app page leads to the new-password form, wherever the link landed, until the password is saved or the user signs out (invariant A).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/app/route-guards.tsx"]
+    },
+    {
+      "id": "R-AUTH-019",
+      "area": "auth",
+      "statement": "The outcome of an email link that just landed is never discarded because another session exists (invariant B).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/auth-bootstrap.ts"]
+    },
+    {
+      "id": "R-AUTH-020",
+      "area": "auth",
+      "statement": "An email link never falls through to the new-password form for a different account (invariant B).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/auth-bootstrap.ts"]
+    },
+    {
+      "id": "R-AUTH-021",
+      "area": "auth",
+      "statement": "Parked link tokens and the recovery flag belong to one user and one attempt: they are dropped on a definite answer, on sign-out, when the user dismisses the notice, and when another sign-in takes over (invariant C).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-015"],
+      "source": [
+        "code: src/features/auth/auth-redirect.ts",
+        "code: src/features/auth/auth-provider.tsx"
+      ]
+    },
+    {
+      "id": "R-AUTH-022",
+      "area": "auth",
+      "statement": "When an email link cannot be checked for a transient reason, it is kept for this tab only, never in a URL, and reloading the tab retries it.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-015"],
+      "source": ["code: src/features/auth/auth-redirect.ts"]
+    },
+    {
+      "id": "R-AUTH-023",
+      "area": "auth",
+      "statement": "Signing in with a password ends recovery mode (invariant D).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/recovery.ts"]
+    },
+    {
+      "id": "R-AUTH-024",
+      "area": "auth",
+      "statement": "Every state of the reset-password page has one consistent message and one way on (invariant E).",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["code: src/features/auth/pages/reset-password-page.tsx"]
+    },
+    {
+      "id": "R-AUTH-025",
+      "area": "auth",
+      "statement": "One user's cached data is never shown to another: the query cache is cleared when the signed-in user changes or signs out, and kept across a token refresh of the same user.",
+      "feature": "F-AUTH",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-017"],
+      "source": ["code: src/features/auth/auth-provider.tsx"]
+    },
+    {
+      "id": "R-PROFILE-001",
+      "area": "profile",
+      "statement": "Every user has a profile, created when they sign up.",
+      "feature": "F-PROFILE",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["code: supabase/migrations/20261115151317_create_profiles.sql"]
+    },
+    {
+      "id": "R-PROFILE-002",
+      "area": "profile",
+      "statement": "A user can change only their own display name, and no other column of their profile.",
+      "feature": "F-PROFILE",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["code: supabase/migrations/20261115151317_create_profiles.sql"]
+    },
+    {
+      "id": "R-PROFILE-003",
+      "area": "profile",
+      "statement": "A user can read their own profile and the profiles of people who share a budget with them, and no others.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["docs/database.md: Reading"]
+    },
+    {
+      "id": "R-SECURITY-001",
+      "area": "security",
+      "statement": "All access control is row-level security in Postgres.",
+      "rationale": "The browser talks to Supabase directly, so RLS is the only line of defence.",
+      "feature": "F-PLATFORM",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-003"],
+      "source": ["domain: Security"]
+    },
+    {
+      "id": "R-SECURITY-002",
+      "area": "security",
+      "statement": "A user sees and changes only the data of budgets they are a member of.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Security"]
+    },
+    {
+      "id": "R-SECURITY-003",
+      "area": "security",
+      "statement": "An anonymous visitor can read or change no budget data.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["docs/database.md: Conventions", "CLAUDE.md: Rules"]
+    },
+    {
+      "id": "R-SECURITY-004",
+      "area": "security",
+      "statement": "A request for a budget, income, period or invitation the caller cannot see is answered as \"not found\", never as \"forbidden\".",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-028"],
+      "source": ["docs/database.md: Conventions"]
+    },
+    {
+      "id": "R-SECURITY-005",
+      "area": "security",
+      "statement": "Claude does not get raw database access to real data.",
+      "feature": "F-PLATFORM",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-BUDGET-001",
+      "area": "budget",
+      "statement": "Everything else (incomes, categories, subscriptions, debts, transactions, periods, accounts) belongs to exactly one budget.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-002",
+      "area": "budget",
+      "statement": "The creator of a budget is its owner.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-003",
+      "area": "budget",
+      "statement": "The owner is a member of the budget, assigned by default when it is created.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-004",
+      "area": "budget",
+      "statement": "A user can belong to several budgets.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-005",
+      "area": "budget",
+      "statement": "A budget runs indefinitely or until an end date.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-006",
+      "area": "budget",
+      "statement": "A budget is always a monthly budget.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-007",
+      "area": "budget",
+      "statement": "An end date only stops period generation.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-008",
+      "area": "budget",
+      "statement": "A budget's end date falls on a period boundary.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-032"],
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-009",
+      "area": "budget",
+      "statement": "Budgets can be created, modified and deleted.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-010",
+      "area": "budget",
+      "statement": "Creating a budget is one atomic step that also creates its first income, as the primary income, and its first period.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-011",
+      "area": "budget",
+      "statement": "A budget never exists without an income and a period.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-BUDGET-012",
+      "area": "budget",
+      "statement": "A user can own at most 20 budgets.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "R-BUDGET-013",
+      "area": "budget",
+      "statement": "An end date can be set at most ten years ahead.",
+      "feature": "F-BUDGET",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "R-MEMBER-001",
+      "area": "member",
+      "statement": "Every member can read and edit everything in the budget.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-002",
+      "area": "member",
+      "statement": "Only the owner can delete the budget.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-003",
+      "area": "member",
+      "statement": "Only the owner can change the budget's end date.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-004",
+      "area": "member",
+      "statement": "Only the owner can manage members and invitations.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-005",
+      "area": "member",
+      "statement": "A member can leave a budget.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-006",
+      "area": "member",
+      "statement": "The owner cannot leave the budget; they delete it instead.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-007",
+      "area": "member",
+      "statement": "Removing a member, or a member leaving, ends their incomes from the current period.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-030"],
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-008",
+      "area": "member",
+      "statement": "Past periods keep the incomes of a member who was removed or left.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-009",
+      "area": "member",
+      "statement": "A member whose income is the primary income cannot be removed until another income is made primary.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-031"],
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-MEMBER-010",
+      "area": "member",
+      "statement": "A budget has at most 20 members.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "R-INVITE-001",
+      "area": "invite",
+      "statement": "The owner adds people to a budget by inviting an email address.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-INVITE-002",
+      "area": "invite",
+      "statement": "The app sends no email for an invitation.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-INVITE-003",
+      "area": "invite",
+      "statement": "The invited person sees the invitation after signing in with an account whose verified email matches the invited address, and not otherwise.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-INVITE-004",
+      "area": "invite",
+      "statement": "The invited person accepts or declines the invitation.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-INVITE-005",
+      "area": "invite",
+      "statement": "Inviting never reveals whether an address has an account.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Budget"]
+    },
+    {
+      "id": "R-INVITE-006",
+      "area": "invite",
+      "statement": "A budget has at most 20 pending invitations.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "R-INCOME-001",
+      "area": "income",
+      "statement": "A budget has at least one income.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-002",
+      "area": "income",
+      "statement": "Each member adds their own incomes (person A adds income A, person B adds income B).",
+      "rationale": "Review until Q-001 is answered: the code also lets a member add an income for another member.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["Q-001"],
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-003",
+      "area": "income",
+      "statement": "All incomes of the budget sum into the budget's monthly total.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-004",
+      "area": "income",
+      "statement": "An income has an amount and a nominal pay day of the month.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-005",
+      "area": "income",
+      "statement": "Each income has its own weekend rule; the default is `nearest`.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-006",
+      "area": "income",
+      "statement": "Exactly one income of the budget is the primary income.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-007",
+      "area": "income",
+      "statement": "The primary income defines the periods.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-008",
+      "area": "income",
+      "statement": "The primary income can be switched to another income.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-009",
+      "area": "income",
+      "statement": "The last income of a budget cannot be removed.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-010",
+      "area": "income",
+      "statement": "Incomes are monthly.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-038"],
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-011",
+      "area": "income",
+      "statement": "Each income in force counts once per period, whatever its own pay day.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-012",
+      "area": "income",
+      "statement": "Removing an income that has already counted in a past period ends it from the current period instead of deleting it.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-030"],
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-INCOME-013",
+      "area": "income",
+      "statement": "A budget has at most 50 incomes, ended ones included.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "R-INCOME-014",
+      "area": "income",
+      "statement": "An income amount is from 1 rappen to CHF 10 million (1 000 000 000 rappen).",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: Conventions"]
+    },
+    {
+      "id": "R-PAYDATE-001",
+      "area": "paydate",
+      "statement": "With the weekend rule `nearest`, a pay day that falls on a Saturday is paid the Friday before.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-PAYDATE-002",
+      "area": "paydate",
+      "statement": "With the weekend rule `nearest`, a pay day that falls on a Sunday is paid the Monday after.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-PAYDATE-003",
+      "area": "paydate",
+      "statement": "With the weekend rule `previous`, a pay day that falls on a Saturday or a Sunday is paid the Friday before.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-PAYDATE-004",
+      "area": "paydate",
+      "statement": "With the weekend rule `next`, a pay day that falls on a Saturday or a Sunday is paid the Monday after.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-PAYDATE-005",
+      "area": "paydate",
+      "statement": "With the weekend rule `none`, a pay day is paid on its day even on a weekend.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-PAYDATE-006",
+      "area": "paydate",
+      "statement": "A pay day of 29, 30 or 31 is clamped to the last day of shorter months before the weekend rule is applied.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-PAYDATE-007",
+      "area": "paydate",
+      "statement": "The weekend rule is one of `nearest`, `previous`, `next` and `none`.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "R-PERIOD-001",
+      "area": "period",
+      "statement": "A period starts on the actual (weekend-adjusted) pay date of the primary income.",
+      "rationale": "Example with a nominal 25th: if 25 January is a Saturday, the period starts Friday 24 January.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-002",
+      "area": "period",
+      "statement": "A period ends the day before the next actual pay date of the primary income.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-003",
+      "area": "period",
+      "statement": "The salary (the primary income) is always day one of its period.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-004",
+      "area": "period",
+      "statement": "Periods are stored rows with a start and an end date.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-005",
+      "area": "period",
+      "statement": "The periods of a budget are contiguous.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-006",
+      "area": "period",
+      "statement": "The periods of a budget never overlap.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-007",
+      "area": "period",
+      "statement": "Past periods are not recomputed when the income's pay day later changes.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-008",
+      "area": "period",
+      "statement": "Only periods up to the current one exist as rows.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-009",
+      "area": "period",
+      "statement": "Periods are created on demand.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-010",
+      "area": "period",
+      "statement": "The current period's end date is a projection: the day before the next actual pay date of the primary income.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-011",
+      "area": "period",
+      "statement": "The current period's projected end is recomputed when the primary income's terms change, unless the user has set it by hand.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-012",
+      "area": "period",
+      "statement": "The user can move the boundary between two consecutive periods to match when the salary really arrived, overriding the actual pay date.",
+      "rationale": "Public holidays.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period", "domain: Income"]
+    },
+    {
+      "id": "R-PERIOD-013",
+      "area": "period",
+      "statement": "The user can move the projected end of the current period.",
+      "rationale": "Public holidays.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-014",
+      "area": "period",
+      "statement": "A manual boundary is never overwritten by recomputation.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-015",
+      "area": "period",
+      "statement": "When creating a budget the user chooses the month to start tracking from; the default is the current period.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-016",
+      "area": "period",
+      "statement": "The month to start tracking from can be earlier than the current period.",
+      "rationale": "So that past transactions can be entered.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-017",
+      "area": "period",
+      "statement": "\"Today\" is the calendar date in Europe/Zurich, decided by the database, not by the browser's clock or UTC.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-026"],
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-018",
+      "area": "period",
+      "statement": "A period's income total is the sum of the incomes in force in that period, each at the version in force for that period.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PERIOD-019",
+      "area": "period",
+      "statement": "A budget can start tracking at most 60 months back.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "R-PERIOD-020",
+      "area": "period",
+      "statement": "A moved boundary never leaves a period empty or longer than 70 days, and never swallows the next period.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-029"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "R-VERSION-001",
+      "area": "version",
+      "statement": "An edit to an income's terms creates a new version effective from the current period.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-VERSION-002",
+      "area": "version",
+      "statement": "An edit to a category expectation creates a new version effective from the current period.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-VERSION-003",
+      "area": "version",
+      "statement": "An edit to a subscription creates a new version effective from the current period.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-VERSION-004",
+      "area": "version",
+      "statement": "An edit to a debt's terms creates a new version effective from the current period.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-VERSION-005",
+      "area": "version",
+      "statement": "Past periods keep reading the version that was in force at the time.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-VERSION-006",
+      "area": "version",
+      "statement": "Several edits within the same period overwrite that period's version rather than piling up.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-VERSION-007",
+      "area": "version",
+      "statement": "A change to the primary income's pay day or weekend rule does not move the start of the current period, which has already happened.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-VERSION-008",
+      "area": "version",
+      "statement": "A change to the primary income's pay day or weekend rule applies from the next pay date.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "R-CATEGORY-001",
+      "area": "category",
+      "statement": "Categories have two levels at most: a category and optional subcategories.",
+      "rationale": "Example: insurance -> insurance/car, insurance/health, insurance/home.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Category and subcategory"]
+    },
+    {
+      "id": "R-CATEGORY-002",
+      "area": "category",
+      "statement": "The monthly expectation is set on each subcategory, or on the category itself when it has no subcategories.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Category and subcategory"]
+    },
+    {
+      "id": "R-CATEGORY-003",
+      "area": "category",
+      "statement": "An expectation amount is entered per month or per year.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Category and subcategory"]
+    },
+    {
+      "id": "R-CATEGORY-004",
+      "area": "category",
+      "statement": "Yearly amounts are stored as yearly.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Category and subcategory"]
+    },
+    {
+      "id": "R-CATEGORY-005",
+      "area": "category",
+      "statement": "Yearly amounts are shown as one twelfth per month.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-002"],
+      "source": ["domain: Category and subcategory"]
+    },
+    {
+      "id": "R-CATEGORY-006",
+      "area": "category",
+      "statement": "Budget total minus the sum of expectations is the amount left to assign.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-003"],
+      "source": ["domain: Category and subcategory"]
+    },
+    {
+      "id": "R-TRANSACTION-001",
+      "area": "transaction",
+      "statement": "A transaction has an amount, a date, and a category or subcategory.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-004"],
+      "source": ["domain: Transaction"]
+    },
+    {
+      "id": "R-TRANSACTION-002",
+      "area": "transaction",
+      "statement": "A transaction has an optional description.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Transaction"]
+    },
+    {
+      "id": "R-TRANSACTION-003",
+      "area": "transaction",
+      "statement": "A transaction has an optional link to a debt or a subscription.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-005"],
+      "source": ["domain: Transaction"]
+    },
+    {
+      "id": "R-TRANSACTION-004",
+      "area": "transaction",
+      "statement": "Transactions are created manually in the UI.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Transaction"]
+    },
+    {
+      "id": "R-TRANSACTION-005",
+      "area": "transaction",
+      "statement": "Transactions are also importable in bulk.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Transaction"]
+    },
+    {
+      "id": "R-TRANSACTION-006",
+      "area": "transaction",
+      "statement": "A transaction belongs to the period whose date range contains its date.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-TRANSACTION-007",
+      "area": "transaction",
+      "statement": "A back-dated transaction lands in the right past period.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-TRANSACTION-008",
+      "area": "transaction",
+      "statement": "Past periods stay editable.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-011"],
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PROGRESS-001",
+      "area": "progress",
+      "statement": "At the end of a period, category balances reset.",
+      "feature": "F-PROGRESS",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-039"],
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-PROGRESS-002",
+      "area": "progress",
+      "statement": "The period's surplus or deficit is shown as its result.",
+      "feature": "F-PROGRESS",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-012"],
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-001",
+      "area": "subscription",
+      "statement": "A subscription has a price, a pay date, a cadence, and a category.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-006"],
+      "source": ["domain: Subscription"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-002",
+      "area": "subscription",
+      "statement": "The app shows when the next charge of a subscription will occur.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Subscription"]
+    },
+    {
+      "id": "R-DEBT-001",
+      "area": "debt",
+      "statement": "Debts can be created, updated and deleted.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Debt"]
+    },
+    {
+      "id": "R-DEBT-002",
+      "area": "debt",
+      "statement": "A debt has a principal, an optional interest rate, and a planned monthly payment.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Debt"]
+    },
+    {
+      "id": "R-DEBT-003",
+      "area": "debt",
+      "statement": "A transaction assigned to a debt reduces its remaining amount.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-007"],
+      "source": ["domain: Debt"]
+    },
+    {
+      "id": "R-DEBT-004",
+      "area": "debt",
+      "statement": "The app shows the evolution of a debt.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Debt"]
+    },
+    {
+      "id": "R-DEBT-005",
+      "area": "debt",
+      "statement": "The app shows the expected end date of a debt.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-007"],
+      "source": ["domain: Debt"]
+    },
+    {
+      "id": "R-COMPARE-001",
+      "area": "compare",
+      "statement": "Users can browse past periods.",
+      "feature": "F-COMPARE",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-010"],
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-COMPARE-002",
+      "area": "compare",
+      "statement": "Users can compare periods, for example in a yearly chart.",
+      "feature": "F-COMPARE",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "R-IMPORT-001",
+      "area": "import",
+      "statement": "There is one import function, in the database, behind every way of importing.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-IMPORT-002",
+      "area": "import",
+      "statement": "The import function validates rows.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-IMPORT-003",
+      "area": "import",
+      "statement": "The import function skips duplicates.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-009"],
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-IMPORT-004",
+      "area": "import",
+      "statement": "The import function marks imported transactions \"to review\".",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-IMPORT-005",
+      "area": "import",
+      "statement": "The import is reachable from a paste/CSV screen in the app.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-IMPORT-006",
+      "area": "import",
+      "statement": "The import is reachable from a script in this repository that a Claude Code session can run.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-013"],
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-IMPORT-007",
+      "area": "import",
+      "statement": "Merchant-to-category rules are saved so categorisation improves over time.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-014"],
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "R-ACCOUNT-001",
+      "area": "account",
+      "statement": "The user defines accounts (salary account, savings, third pillar, tax reserve, possibly at different banks).",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-ACCOUNT-002",
+      "area": "account",
+      "statement": "The user defines planned transfers between accounts, such as \"payday + 2 days: 1000 CHF from A to Savings\".",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["Q-008", "Q-015"],
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-ACCOUNT-003",
+      "area": "account",
+      "statement": "Each planned transfer is flagged automatic or manual.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-ACCOUNT-004",
+      "area": "account",
+      "statement": "An automatic transfer (standing order) is assumed done.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-ACCOUNT-005",
+      "area": "account",
+      "statement": "Manual transfers are shown as a per-period checklist.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-ACCOUNT-006",
+      "area": "account",
+      "statement": "The money flow diagram is drawn from the plan of transfers.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-ACCOUNT-007",
+      "area": "account",
+      "statement": "The app has no bank connection and does not depend on detecting automatic transactions.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "review",
+      "related": ["D-040"],
+      "source": ["domain: Account and planned transfer (money flow)"]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D-001",
+      "title": "The structured spec is the source of truth",
+      "decision": "spec/spec.json holds the glossary, actors, features and user stories, rules, decisions, conventions and open questions. docs/spec.md and the conventions block of CLAUDE.md are generated from it, and npm run spec:check fails when the spec, its tests or its generated views disagree.",
+      "why": "Prose cannot be checked; a structured file with ids lets code that breaks a rule be caught early.",
+      "rejected": [
+        "Keeping docs/domain.md as the prose source of truth: readable, but nothing can check it.",
+        "Hand-maintained copies of the rules in several files: they drift."
+      ],
+      "status": "accepted",
+      "related": ["C-SPEC-001", "C-SPEC-002", "C-SPEC-003"],
+      "source": ["owner-request"]
+    },
+    {
+      "id": "D-002",
+      "title": "docs/domain.md is the source of truth for product behaviour",
+      "decision": "docs/domain.md recorded the product owner's requirements and the decisions taken on top of them, updated when a decision changed.",
+      "why": "One readable place for product behaviour.",
+      "rejected": [],
+      "status": "superseded",
+      "supersededBy": "D-001",
+      "source": ["domain: introduction"]
+    },
+    {
+      "id": "D-003",
+      "title": "Static single-page app on Supabase, no custom server",
+      "decision": "The app is a static SPA (Vite, React, TypeScript strict, Tailwind, shadcn/ui) that calls Supabase (Postgres, Auth, RLS) directly from the browser with supabase-js. No Node and no PHP at runtime.",
+      "why": "Any static host can serve the build, and access control lives in one place: RLS.",
+      "rejected": [
+        "A custom server or API in front of the database.",
+        "Running Node or PHP on the hosting."
+      ],
+      "status": "accepted",
+      "related": ["R-SECURITY-001"],
+      "source": ["CLAUDE.md: Stack", "README.md"]
+    },
+    {
+      "id": "D-004",
+      "title": "Infomaniak static hosting with an .htaccess SPA fallback",
+      "decision": "dist/ is served as static files by Infomaniak Apache web hosting. public/.htaccess serves index.html for unknown paths, but a missing file under assets/ is a real 404, and every module-specific block is wrapped in <IfModule>.",
+      "why": "Deep links and reloads work; serving HTML in place of a missing script would hide the error behind a MIME type failure; a missing module must not turn the site into a 500.",
+      "rejected": ["Serving index.html for missing assets."],
+      "status": "accepted",
+      "source": ["CLAUDE.md: Stack", "code: public/.htaccess"]
+    },
+    {
+      "id": "D-005",
+      "title": "Manual deploy workflow, gated by the CI checks",
+      "decision": "The Deploy GitHub workflow runs only when started by hand. It checks the variables and the CSP, runs lint, typecheck and tests, builds, and syncs dist/ to the site folder with rsync over SSH. A rollback is a deploy of an earlier ref.",
+      "why": "A manual run on a broken ref cannot ship it; the server keeps its .well-known folder.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["docs/deployment.md", "code: .github/workflows/deploy.yml"]
+    },
+    {
+      "id": "D-006",
+      "title": "Migrations go out before the code and stay backwards compatible",
+      "decision": "Migrations are pushed to the hosted project before deploying a release that needs them, and are kept compatible with the previous release (add first, remove in a later release), or fixed forward.",
+      "why": "The new code never runs against an old schema, and a rollback does not undo migrations.",
+      "rejected": ["Relying on a rollback to undo a migration."],
+      "status": "accepted",
+      "source": ["docs/deployment.md"]
+    },
+    {
+      "id": "D-007",
+      "title": "Money is integer rappen",
+      "decision": "Amounts are integer rappen (1 CHF = 100 rappen) in the database (bigint) and in code (a safe integer number), and are formatted only at the edge.",
+      "why": "Exact arithmetic.",
+      "rejected": ["Floats."],
+      "status": "accepted",
+      "related": ["R-MONEY-002", "C-MONEY-001", "C-MONEY-002", "C-MONEY-003"],
+      "source": ["domain: Money", "CLAUDE.md: Rules"]
+    },
+    {
+      "id": "D-008",
+      "title": "CHF only",
+      "decision": "The app handles one currency, the Swiss franc.",
+      "why": "A household budget in Switzerland.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-MONEY-001"],
+      "source": ["domain: Product in one paragraph", "domain: Money"]
+    },
+    {
+      "id": "D-009",
+      "title": "Swiss money format, the same in both languages",
+      "decision": "Amounts are shown as \"CHF 1'234.50\" (apostrophe for thousands, dot for rappen, sign before the digits: \"CHF -12.00\"), whatever the UI language. Input accepts an optional CHF, a sign, ' or ’ or spaces between thousands, a dot or a comma with at most two decimals, and the Swiss \".-\" for whole francs.",
+      "why": "The source asks for Swiss formatting; one format avoids ambiguity between languages.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-MONEY-003"],
+      "source": ["code: src/lib/money.ts"]
+    },
+    {
+      "id": "D-010",
+      "title": "Two kinds of date, one formatter each",
+      "decision": "Calendar dates (YYYY-MM-DD) and timestamps (with a time and an explicit zone) each have their own formatter, and each rejects the other kind and any invalid input with a RangeError. Typed dates are dd.mm.yyyy, one-digit day and month allowed.",
+      "why": "They cannot be mixed up at a call site, and an invalid input never prints a plausible-looking wrong date.",
+      "rejected": ["A single formatter that guesses the kind of value."],
+      "status": "accepted",
+      "related": ["C-DATE-001", "C-DATE-002", "R-DATE-001"],
+      "source": ["code: src/lib/date.ts"]
+    },
+    {
+      "id": "D-011",
+      "title": "Tests run in Europe/Zurich",
+      "decision": "Vitest runs with TZ=Europe/Zurich.",
+      "why": "A non-UTC zone with summer time makes time-zone shifts visible in tests.",
+      "rejected": ["Running tests in UTC, where shifts go unnoticed."],
+      "status": "accepted",
+      "source": ["code: vite.config.ts"]
+    },
+    {
+      "id": "D-012",
+      "title": "Auth email links use the implicit flow",
+      "decision": "supabase-js is configured with flowType implicit: confirmation and password-reset links carry the session in the URL fragment.",
+      "why": "Links then also work when opened in another browser or on another device.",
+      "rejected": [
+        "PKCE: it needs the code verifier stored by the browser that requested the email."
+      ],
+      "status": "accepted",
+      "related": ["R-AUTH-012"],
+      "source": ["code: src/lib/supabase.ts"]
+    },
+    {
+      "id": "D-013",
+      "title": "The app reads email links itself and replaces the history entry",
+      "decision": "detectSessionInUrl is off. At start-up, before the router or the Supabase client sees the URL, the app takes tokens or errors out of the URL by replacing the current history entry, and the auth bootstrap hands the tokens to supabase-js.",
+      "why": "supabase-js clears the fragment with location.hash = \"\", which pushes a new history entry and leaves the token-bearing URL one Back step away.",
+      "rejected": ["Letting supabase-js detect the session in the URL."],
+      "status": "accepted",
+      "related": ["R-AUTH-013"],
+      "source": ["code: src/lib/supabase.ts", "code: src/features/auth/auth-redirect.ts"]
+    },
+    {
+      "id": "D-014",
+      "title": "Recovery mode is tied to one sign-in",
+      "decision": "The recovery flag in localStorage names the user and the session key of the sign-in the recovery link created; recovery mode is active only while that exact session is current. Tabs learn of changes through the storage event.",
+      "why": "It never applies to another user, nor to the same user after a fresh password sign-in, and a leftover flag is inert even before it is cleaned up. Every tab sharing the session sees it.",
+      "rejected": [
+        "A flag that is not tied to one sign-in, which would hold another user or a later password sign-in on the form."
+      ],
+      "status": "accepted",
+      "related": ["R-AUTH-016", "R-AUTH-021", "R-AUTH-023"],
+      "source": ["code: src/features/auth/recovery.ts"]
+    },
+    {
+      "id": "D-015",
+      "title": "Undecided link tokens are parked for one tab",
+      "decision": "Until the bootstrap has a definite answer for link tokens, they are kept in sessionStorage (this tab only, never in a URL or history entry), for at most 24 hours, together with the session key current when they were parked. A reload retries them only if nobody signed in or out in between.",
+      "why": "A network failure while validating a link must not burn it.",
+      "rejected": ["Dropping the link on a network failure.", "Keeping the tokens in the URL."],
+      "status": "accepted",
+      "related": ["R-AUTH-021", "R-AUTH-022"],
+      "source": [
+        "code: src/features/auth/auth-redirect.ts",
+        "code: src/features/auth/auth-bootstrap.ts"
+      ]
+    },
+    {
+      "id": "D-016",
+      "title": "Session identity from the unverified session_id claim",
+      "decision": "A sign-in is identified by the session_id claim of its access token (stable across refreshes, new with every sign-in), or by the user id when there is none. The token payload is decoded without verifying its signature.",
+      "why": "It is used only to tell sessions apart in this browser, never to grant access: the server checks every request.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["code: src/features/auth/session-identity.ts"]
+    },
+    {
+      "id": "D-017",
+      "title": "Clear the query cache when the user changes",
+      "decision": "The TanStack Query cache is cleared whenever the signed-in user changes, including sign-out.",
+      "why": "Never show one user's cached data to another.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-AUTH-025"],
+      "source": ["code: src/features/auth/auth-provider.tsx"]
+    },
+    {
+      "id": "D-018",
+      "title": "Zod runs jitless",
+      "decision": "z.config({ jitless: true }) runs before any schema is parsed.",
+      "why": "The production CSP forbids eval; Zod's probe for new Function is caught, but the browser still reports a CSP violation.",
+      "rejected": ["Zod's default probe and compiled parsers."],
+      "status": "accepted",
+      "related": ["C-CSP-001"],
+      "source": ["code: src/lib/zod-config.ts"]
+    },
+    {
+      "id": "D-019",
+      "title": "Validation messages are translation keys",
+      "decision": "Form schemas return translation keys; forms translate them when rendering. Passwords need 8 characters, display names at most 80.",
+      "why": "The language can change while an error is shown.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-AUTH-005", "R-AUTH-006"],
+      "source": ["code: src/features/auth/schemas.ts"]
+    },
+    {
+      "id": "D-020",
+      "title": "Language detection",
+      "decision": "The UI language is the stored choice, else the browser language, reduced to en or fr (\"fr-CH\" -> \"fr\"), with English as the fallback. French text uses a narrow no-break space before ? ! : and ;.",
+      "why": "Respect an explicit choice, then the browser.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-I18N-002"],
+      "source": ["code: src/lib/i18n.ts", "code: src/locales/fr/translation.ts"]
+    },
+    {
+      "id": "D-021",
+      "title": "Email confirmation stays on in production",
+      "decision": "Email confirmation is kept on for production, with a custom SMTP server for real use.",
+      "why": "The free tier sender sends only a few emails per hour.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["docs/deployment.md"]
+    },
+    {
+      "id": "D-022",
+      "title": "Narrow connect-src to the project, checked at deploy",
+      "decision": "The CSP connect-src should list only the project URL (https and wss); the Deploy workflow stops before building when VITE_SUPABASE_URL is not allowed by connect-src, and checks the policy that actually ships.",
+      "why": "The browser may only talk to origins the CSP allows.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["docs/deployment.md", "code: .github/scripts/check-csp.mjs"]
+    },
+    {
+      "id": "D-023",
+      "title": "Domain logic is pure and unit-tested in the client",
+      "decision": "Period, pay-date and versioning logic is pure and unit-tested.",
+      "why": "Testable logic.",
+      "rejected": [],
+      "status": "superseded",
+      "supersededBy": "D-024",
+      "source": ["CLAUDE.md: Rules (commit c5df8db)"]
+    },
+    {
+      "id": "D-024",
+      "title": "Domain logic has one implementation, in the database",
+      "decision": "Period, pay-date and versioning logic has one implementation, in the database (SQL functions, tested with pgTAP). The client reads the results; it never recomputes them.",
+      "why": "One implementation cannot disagree with itself; the database must enforce the invariants anyway.",
+      "rejected": ["A second implementation in the client (D-023)."],
+      "status": "accepted",
+      "related": ["C-LOGIC-001", "C-LOGIC-002", "C-LOGIC-003"],
+      "source": ["CLAUDE.md: Rules (commit 7700940)"]
+    },
+    {
+      "id": "D-025",
+      "title": "Periods are numbered; versions refer to period numbers",
+      "decision": "Periods are numbered per budget (seq 1, 2, ...). Income validity (first_seq, end_seq) and versions (effective_from_seq) refer to seq, not to dates. An income counts in period p when first_seq <= p and (end_seq is null or p < end_seq), at the version with the greatest effective_from_seq <= p.",
+      "why": "Moving a period boundary never changes which version applies.",
+      "rejected": ["Versions effective from a date."],
+      "status": "accepted",
+      "related": ["R-PERIOD-018", "R-VERSION-005"],
+      "source": [
+        "docs/database.md: Conventions",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-026",
+      "title": "\"Today\" comes from one database function",
+      "decision": "A database function returns the Europe/Zurich calendar date; it is the only source of the current date, and the browser never sends \"today\". Tests pin it by replacing the function inside their transaction.",
+      "why": "One clock for every rule that depends on the date.",
+      "rejected": ["The browser's clock.", "UTC."],
+      "status": "accepted",
+      "related": ["R-PERIOD-017"],
+      "source": [
+        "docs/database.md: Conventions",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-027",
+      "title": "Writes go through RPCs with stable error codes",
+      "decision": "Writes that touch several rows or carry invariants go through security definer RPCs that check membership themselves. The client writes directly only budgets.name and incomes.name (members) and deletes budgets and invitations (owner). RPC errors are SQLSTATE P0001 with a stable snake_case message that the client maps to translated text.",
+      "why": "Invariants are enforced in one place; the client can translate every error.",
+      "rejected": [],
+      "status": "accepted",
+      "source": [
+        "docs/database.md",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-028",
+      "title": "Not found, never forbidden",
+      "decision": "A request for a budget, income, period or invitation the caller cannot see is answered as not found; reads of rows outside one's budgets return no rows, never an error.",
+      "why": "Non-members cannot tell a budget they may not see from one that does not exist.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-SECURITY-004"],
+      "source": ["docs/database.md: Conventions"]
+    },
+    {
+      "id": "D-029",
+      "title": "Limits",
+      "decision": "At most 20 owned budgets per user, 20 members per budget, 20 pending invitations per budget, 50 incomes per budget (ended ones included). Income amounts from 1 to 1 000 000 000 rappen. A budget starts at most 60 months back; an end date at most ten years ahead; a period is never empty and at most 70 days long. The limits are defined in one place in the migration.",
+      "why": "Bound the work of every RPC and keep abuse cheap.",
+      "rejected": [],
+      "status": "accepted",
+      "related": [
+        "R-BUDGET-012",
+        "R-BUDGET-013",
+        "R-MEMBER-010",
+        "R-INVITE-006",
+        "R-INCOME-013",
+        "R-INCOME-014",
+        "R-PERIOD-019",
+        "R-PERIOD-020"
+      ],
+      "source": ["docs/database.md"]
+    },
+    {
+      "id": "D-030",
+      "title": "An income that never counted is deleted, not ended",
+      "decision": "Removing an income deletes it if it never counted in a past period, and otherwise ends it from the current period. The same applies to the incomes of a member who is removed or leaves.",
+      "why": "An income added by mistake leaves no trace; history is kept otherwise.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-INCOME-012", "R-MEMBER-007"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "D-031",
+      "title": "The primary income also blocks leaving",
+      "decision": "A member whose income is the primary income can neither be removed nor leave until another income is made primary.",
+      "why": "The budget must keep a primary income.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-MEMBER-009", "R-MEMBER-005"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "D-032",
+      "title": "An end date snaps forward to a period end",
+      "decision": "Setting an end date moves it forward to the end of the period that contains it, projected with the primary income's current terms. Clearing it resumes period generation. An end date that would delete existing periods is refused, and a boundary that is the budget's end date is changed through the end date.",
+      "why": "The end date always falls on a period boundary without deleting history.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-BUDGET-008"],
+      "source": ["docs/database.md: RPCs"]
+    },
+    {
+      "id": "D-033",
+      "title": "Invitations are idempotent per address",
+      "decision": "Inviting the same address again returns the same invitation; addresses are stored lower case; inviting a member's address is refused (already_member).",
+      "why": "Members' emails are visible to the owner anyway, so already_member reveals nothing new.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-INVITE-005"],
+      "source": [
+        "docs/database.md: RPCs",
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
+      ]
+    },
+    {
+      "id": "D-034",
+      "title": "Database conventions",
+      "decision": "Functions the API must not call live in the private schema, which the Data API does not expose. Functions use search_path = '' and schema-qualified names. Privileges are granted explicitly (auto_expose_new_tables = false): revoke everything from the API roles, then grant only what the policies allow. Policies call (select auth.uid()).",
+      "why": "Nothing is exposed by accident, and auth.uid() is evaluated once per statement.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["code: supabase/migrations/20261115151317_create_profiles.sql"]
+    },
+    {
+      "id": "D-035",
+      "title": "Shared membership helpers",
+      "decision": "Policies use private.member_budget_ids() and private.owned_budget_ids() as `budget_id in (select ...)`; the helpers are security definer.",
+      "why": "The helper runs once per statement and never re-enters the policies of budget_members (no recursion).",
+      "rejected": ["Re-deriving membership in every policy."],
+      "status": "accepted",
+      "related": ["C-RLS-003"],
+      "source": [
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql",
+        "docs/database.md: For later tables"
+      ]
+    },
+    {
+      "id": "D-036",
+      "title": "Invariants are constraint triggers checked at commit",
+      "decision": "Invariants (owner is a member, primary income is active, every income has a version from its first period, periods numbered and contiguous up to the end date) are constraint triggers checked at commit.",
+      "why": "Multi-row RPCs can pass through intermediate states.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"]
+    },
+    {
+      "id": "D-037",
+      "title": "Period creation is serialised per budget",
+      "decision": "Every function that creates or moves periods first locks the budget row; ensure_periods is idempotent and safe under concurrent calls.",
+      "why": "Concurrent callers run one after the other and cannot create duplicate periods.",
+      "rejected": [],
+      "status": "accepted",
+      "source": [
+        "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql",
+        "docs/database.md: RPCs"
+      ]
+    },
+    {
+      "id": "D-038",
+      "title": "Deferred: 13th salary and one-off incomes",
+      "decision": "Incomes are monthly for now; a 13th salary or a one-off income comes later.",
+      "why": "Not needed for the first version.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-INCOME-010"],
+      "source": ["domain: Income"]
+    },
+    {
+      "id": "D-039",
+      "title": "Deferred: per-category rollover",
+      "decision": "Category balances reset at the end of each period; per-category rollover may come later as an opt-in.",
+      "why": "Keep the first version simple.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-PROGRESS-001"],
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "D-040",
+      "title": "No bank connection; actuals may be overlaid later",
+      "decision": "The money flow diagram is drawn from the plan. The app has no bank connection, so it does not depend on detecting automatic transactions. Actuals may be overlaid later.",
+      "why": "No bank integration.",
+      "rejected": ["Detecting automatic transactions from a bank feed."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-007"],
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "D-041",
+      "title": "Deferred: import from a connector",
+      "decision": "Import is reachable from a paste/CSV screen and a repository script first, and later from a connector.",
+      "why": "Ship the two paths that need no extra integration first.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "D-042",
+      "title": "Temporary \"test pending\" marker for untagged database tests",
+      "decision": "A rule or convention whose proof lives in supabase/tests may carry a visible testPending marker until those tests are tagged with ids. spec:check reports every marker as a warning, with a count, and errors on a marker anywhere else (planned rule, enforcement other than test).",
+      "why": "The database tests were being edited by another developer when the spec was introduced; the check must pass without silently passing or weakening those rules.",
+      "rejected": [
+        "Silently treating untagged rules as covered.",
+        "Downgrading them to enforcement review."
+      ],
+      "status": "accepted",
+      "source": ["owner-request"]
+    },
+    {
+      "id": "D-043",
+      "title": "Profiles are created by a database trigger",
+      "decision": "A trigger on auth.users creates the profile at sign-up from the display name sent as sign-up metadata. Clients cannot insert or delete profiles; deleting the user cascades.",
+      "why": "Every user has a profile without a client round trip.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-PROFILE-001"],
+      "source": [
+        "code: supabase/migrations/20261115151317_create_profiles.sql",
+        "code: src/features/profile/use-profile.ts"
+      ]
+    },
+    {
+      "id": "D-044",
+      "title": "Deploying in a subfolder",
+      "decision": "VITE_BASE_PATH sets both Vite's base and the router basename at build time; .htaccess works out the base path itself.",
+      "why": "The same build works at a domain root or in a subfolder.",
+      "rejected": [],
+      "status": "accepted",
+      "source": ["README.md: Environment variables", "code: public/.htaccess"]
+    }
+  ],
+  "conventions": [
+    {
+      "id": "C-MONEY-001",
+      "area": "money",
+      "statement": "Money is integer rappen in code.",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-007"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-MONEY-002",
+      "area": "money",
+      "statement": "Money is integer rappen in the database.",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-007", "R-MONEY-002"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-MONEY-003",
+      "area": "money",
+      "statement": "Money is formatted only at the edge.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-RLS-001",
+      "area": "rls",
+      "statement": "Every table has row-level security enabled.",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-RLS-002",
+      "area": "rls",
+      "statement": "A table's row-level security is enabled, with policies, in the same migration that creates it.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-RLS-003",
+      "area": "rls",
+      "statement": "Access rules use the shared membership helpers in the `private` schema; a new table's policies call them rather than re-deriving membership.",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-035"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-LOGIC-001",
+      "area": "logic",
+      "statement": "Period, pay-date and versioning logic has one implementation, in the database (SQL functions).",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-024"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-LOGIC-002",
+      "area": "logic",
+      "statement": "Period, pay-date and versioning logic is tested with pgTAP.",
+      "status": "active",
+      "enforcement": "test",
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "Proven by pgTAP tests in supabase/tests; tag them with this id, then remove this marker."
+      },
+      "related": ["D-024"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-LOGIC-003",
+      "area": "logic",
+      "statement": "The client reads period, pay-date and versioning results; it never recomputes them.",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-024"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-QUERY-001",
+      "area": "query",
+      "statement": "Client queries for budget data are keyed by budget id.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-DBTEST-001",
+      "area": "dbtest",
+      "statement": "Database tests (pgTAP, `supabase/tests/`) must pass on a database that already holds data: scope assertions to the test's own rows.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-DBTEST-002",
+      "area": "dbtest",
+      "statement": "Every table gets tests proving what another user cannot do.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-DBTEST-003",
+      "area": "dbtest",
+      "statement": "Every table gets tests proving what an anonymous visitor cannot do.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-DATE-001",
+      "area": "date",
+      "statement": "Calendar dates (`YYYY-MM-DD`) and timestamps are different things.",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-010"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-DATE-002",
+      "area": "date",
+      "statement": "Never run a calendar date through a time zone.",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-010"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-CSP-001",
+      "area": "csp",
+      "statement": "The production Content-Security-Policy is `script-src 'self'`.",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-018"],
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-CSP-002",
+      "area": "csp",
+      "statement": "No inline scripts.",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-I18N-001",
+      "area": "i18n",
+      "statement": "Every user-facing string exists in both `en` and `fr`.",
+      "status": "active",
+      "enforcement": "test",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-SECRET-001",
+      "area": "secret",
+      "statement": "Never commit secrets.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-SECRET-002",
+      "area": "secret",
+      "statement": "Only the Supabase URL and publishable (anon) key reach the browser, through `VITE_` variables.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["CLAUDE.md: Rules"]
+    },
+    {
+      "id": "C-SPEC-001",
+      "area": "spec",
+      "statement": "A change in behaviour or a new decision updates `spec/spec.json` in the same change.",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-001"],
+      "source": ["owner-request"]
+    },
+    {
+      "id": "C-SPEC-002",
+      "area": "spec",
+      "statement": "Generated files (`docs/spec.md` and the generated block of `CLAUDE.md`) are never edited by hand: change `spec/spec.json` and run `npm run spec:render`.",
+      "status": "active",
+      "enforcement": "lint",
+      "checks": [
+        {
+          "kind": "npm-script",
+          "name": "spec:check"
+        },
+        {
+          "kind": "ci-step",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "frontend",
+          "step": "npm run spec:check"
+        }
+      ],
+      "related": ["D-001"],
+      "source": ["owner-request"]
+    },
+    {
+      "id": "C-SPEC-003",
+      "area": "spec",
+      "statement": "Every active rule or convention with enforcement `test` has a test whose description names its id, and no test names an id that is unknown or not active.",
+      "status": "active",
+      "enforcement": "lint",
+      "checks": [
+        {
+          "kind": "npm-script",
+          "name": "spec:check"
+        },
+        {
+          "kind": "ci-step",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "frontend",
+          "step": "npm run spec:check"
+        }
+      ],
+      "related": ["D-001", "D-042"],
+      "source": ["owner-request"]
+    },
+    {
+      "id": "C-SPEC-004",
+      "area": "spec",
+      "statement": "Ids are stable: never renumber or reuse one; retire a rule or supersede a decision instead of deleting it.",
+      "rationale": "spec:check only notices an id that disappeared since the base commit (HEAD by default); it cannot tell a reused id from the original.",
+      "status": "active",
+      "enforcement": "review",
+      "source": ["owner-request"]
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "Q-001",
+      "question": "May a member add, edit or remove an income that belongs to another member?",
+      "context": "The source says \"Each member adds their own incomes (person A adds income A, person B adds income B)\" and also \"every member can read and edit everything in the budget\". The step 2 code lets any member add an income for another member (add_income p_user_id) and change any income's terms.",
+      "status": "open",
+      "related": ["R-INCOME-002", "R-MEMBER-001"],
+      "source": ["domain: Income", "domain: Budget", "docs/database.md: RPCs"]
+    },
+    {
+      "id": "Q-002",
+      "question": "How is one twelfth of a yearly amount rounded to whole rappen, and must twelve monthly shares add up to the yearly amount exactly?",
+      "context": "Yearly amounts are stored as yearly and shown as one twelfth per month; amounts are integer rappen, so most yearly amounts do not divide by twelve.",
+      "status": "open",
+      "related": ["R-CATEGORY-005", "R-MONEY-002"],
+      "source": ["domain: Category and subcategory", "domain: Money"]
+    },
+    {
+      "id": "Q-003",
+      "question": "Which \"budget total\" does the amount left to assign use: the monthly total of the incomes in force now, or the income total of a given period?",
+      "context": "The source defines the amount left to assign as \"budget total minus the sum of expectations\" and the budget as starting \"from the monthly total of its incomes\"; incomes are versioned per period.",
+      "status": "open",
+      "related": ["R-CATEGORY-006", "R-PERIOD-018"],
+      "source": ["domain: Category and subcategory", "domain: Period"]
+    },
+    {
+      "id": "Q-004",
+      "question": "What does the sign of a transaction amount mean (spending, refund, extra income), and may a transaction be put on a category that has subcategories?",
+      "context": "A transaction \"has an amount, a date, and a category or subcategory\"; nothing says how refunds or money coming in are recorded, nor whether a parent category with subcategories can hold transactions directly.",
+      "status": "open",
+      "related": ["R-TRANSACTION-001"],
+      "source": ["domain: Transaction"]
+    },
+    {
+      "id": "Q-005",
+      "question": "Can a transaction be linked to both a debt and a subscription, or to at most one of them?",
+      "context": "The source says \"optional link to a debt or a subscription\".",
+      "status": "open",
+      "related": ["R-TRANSACTION-003"],
+      "source": ["domain: Transaction"]
+    },
+    {
+      "id": "Q-006",
+      "question": "Which cadences does a subscription support, what is its \"pay date\" (a date or a day of the month), and does the weekend rule apply to it?",
+      "context": "A subscription \"has a price, a pay date, a cadence, and a category\"; nothing more is said.",
+      "status": "open",
+      "related": ["R-SUBSCRIPTION-001", "R-SUBSCRIPTION-002"],
+      "source": ["domain: Subscription"]
+    },
+    {
+      "id": "Q-007",
+      "question": "How does the interest rate affect a debt's remaining amount and expected end date, and is the remaining amount the principal minus the transactions assigned to it?",
+      "context": "A debt has \"a principal, an optional interest rate, and a planned monthly payment\"; \"a transaction assigned to a debt reduces the remaining amount\".",
+      "status": "open",
+      "related": ["R-DEBT-003", "R-DEBT-005"],
+      "source": ["domain: Debt"]
+    },
+    {
+      "id": "Q-008",
+      "question": "Which payday does a planned transfer refer to (\"payday + 2 days\"): the actual pay date of the primary income (period start), or of a chosen income?",
+      "context": "Example from the source: \"payday + 2 days: 1000 CHF from A to Savings\". A budget can have several incomes with different pay days.",
+      "status": "open",
+      "related": ["R-ACCOUNT-002"],
+      "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "Q-009",
+      "question": "What makes an imported row a duplicate (same date, amount and description; an import id; something else)?",
+      "context": "The import function \"skips duplicates\"; nothing defines a duplicate.",
+      "status": "open",
+      "related": ["R-IMPORT-003"],
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "Q-010",
+      "question": "Is browsing past periods part of step 3 (period progress view) or step 5 (period comparison charts)?",
+      "context": "The source lists \"Users can browse past periods and compare them (for example a yearly chart)\" in one sentence; the build order names a \"period progress view\" in step 3 and \"period comparison charts\" in step 5. This spec puts both under step 5 for now.",
+      "status": "open",
+      "related": ["R-COMPARE-001"],
+      "source": ["domain: Period", "domain: Build order"]
+    },
+    {
+      "id": "Q-011",
+      "question": "What exactly stays editable in a past period: its transactions only, or also its boundaries and other data?",
+      "context": "\"Past periods stay editable\" comes right after back-dated transactions, while versioning says edits to incomes, expectations, subscriptions and debts never rewrite the past. The step 2 code already lets members move the boundaries of past periods.",
+      "status": "open",
+      "related": ["R-TRANSACTION-008", "R-PERIOD-012"],
+      "source": ["domain: Period", "domain: Versioning: edits never rewrite the past"]
+    },
+    {
+      "id": "Q-012",
+      "question": "What is a period's surplus or deficit measured against: its income total, or the sum of its expectations?",
+      "context": "\"At the end of a period, category balances reset. The period's surplus or deficit is shown as its result.\"",
+      "status": "open",
+      "related": ["R-PROGRESS-001", "R-PROGRESS-002"],
+      "source": ["domain: Period"]
+    },
+    {
+      "id": "Q-013",
+      "question": "How does the import script a Claude session runs authenticate, given that Claude does not get raw database access to real data?",
+      "context": "The import is reachable \"from a script in this repo that a Claude Code session can run\", and \"Claude does not get raw database access to real data\". The likely reading is that it calls the import function as a signed-in member, but the source does not say.",
+      "status": "open",
+      "related": ["R-IMPORT-006", "R-SECURITY-005"],
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "Q-014",
+      "question": "How are merchant-to-category rules created: automatically when a user categorises an imported transaction, or explicitly by the user?",
+      "context": "\"Merchant-to-category rules are saved so categorisation improves over time.\"",
+      "status": "open",
+      "related": ["R-IMPORT-007"],
+      "source": ["domain: Import (including by a Claude session)"]
+    },
+    {
+      "id": "Q-015",
+      "question": "Are planned transfers versioned like incomes (edits effective from the current period)?",
+      "context": "The versioning rule lists incomes, category expectations, subscriptions and debts; it does not mention accounts or planned transfers, which also appear on a per-period checklist.",
+      "status": "open",
+      "related": ["R-ACCOUNT-002", "R-ACCOUNT-005"],
+      "source": [
+        "domain: Versioning: edits never rewrite the past",
+        "domain: Account and planned transfer (money flow)"
+      ]
+    }
+  ]
+}

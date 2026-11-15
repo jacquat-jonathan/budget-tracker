@@ -21,7 +21,7 @@ async function fillAndSubmit() {
 }
 
 describe('SignUpPage', () => {
-  it('sends the display name as user metadata and asks to confirm the email', async () => {
+  it('sends the display name as user metadata and asks to confirm the email [R-AUTH-004] [R-AUTH-007]', async () => {
     mock.current = createSupabaseMock(null)
     renderRoutes(routes, '/sign-up')
     await fillAndSubmit()
@@ -35,7 +35,7 @@ describe('SignUpPage', () => {
     })
   })
 
-  it('goes straight to the app when Supabase returns a session', async () => {
+  it('goes straight to the app when Supabase returns a session [R-AUTH-008]', async () => {
     const supabaseMock = createSupabaseMock(null)
     mock.current = supabaseMock
     const session = fakeSession()
@@ -50,7 +50,7 @@ describe('SignUpPage', () => {
     expect(router.state.location.pathname).toBe('/')
   })
 
-  it('requires a password of at least 8 characters', async () => {
+  it('requires a password of at least 8 characters [R-AUTH-005]', async () => {
     mock.current = createSupabaseMock(null)
     renderRoutes(routes, '/sign-up')
     await userEvent.type(await screen.findByLabelText('Password'), 'short')

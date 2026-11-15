@@ -57,5 +57,11 @@ export default defineConfig([
     files: ['*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
+  {
+    // Plain Node tooling (spec checker and renderer).
+    files: ['scripts/**/*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: { globals: globals.node },
+  },
   prettier,
 ])

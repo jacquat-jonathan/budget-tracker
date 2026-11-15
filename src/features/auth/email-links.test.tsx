@@ -30,7 +30,7 @@ afterEach(async () => {
 })
 
 describe('password recovery link', () => {
-  it('asks for a new password even when the link lands outside /reset-password', async () => {
+  it('asks for a new password even when the link lands outside /reset-password [R-AUTH-018]', async () => {
     mock.current = createSupabaseMock(null)
     const path = landOn(
       '/budget#access_token=at&refresh_token=rt&expires_in=3600&token_type=bearer&type=recovery',
@@ -62,7 +62,7 @@ describe('password recovery link', () => {
     expect(router.state.location.pathname).toBe('/settings')
   })
 
-  it('is also driven by the PASSWORD_RECOVERY auth event', async () => {
+  it('is also driven by the PASSWORD_RECOVERY auth event [R-AUTH-016]', async () => {
     const supabaseMock = createSupabaseMock(fakeSession())
     mock.current = supabaseMock
     const { router } = renderRoutes(routes, '/debts')
@@ -76,7 +76,7 @@ describe('password recovery link', () => {
     expect(router.state.location.pathname).toBe('/reset-password')
   })
 
-  it('a confirmation (non-recovery) link signs the user straight in', async () => {
+  it('a confirmation (non-recovery) link signs the user straight in [R-AUTH-012]', async () => {
     mock.current = createSupabaseMock(null)
     const path = landOn('/#access_token=at&refresh_token=rt&type=signup')
     renderRoutes(routes, path)
@@ -86,7 +86,7 @@ describe('password recovery link', () => {
 })
 
 describe('expired or used email link', () => {
-  it('explains the problem on the sign-in page and offers to resend the confirmation', async () => {
+  it('explains the problem on the sign-in page and offers to resend the confirmation [R-AUTH-014]', async () => {
     mock.current = createSupabaseMock(null)
     const path = landOn(
       '/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired',
@@ -115,7 +115,7 @@ describe('expired or used email link', () => {
     })
   })
 
-  it('is translated', async () => {
+  it('is translated [R-I18N-001]', async () => {
     await i18n.changeLanguage('fr')
     mock.current = createSupabaseMock(null)
     renderRoutes(routes, landOn('/#error=access_denied&error_code=otp_expired'))
@@ -126,7 +126,7 @@ describe('expired or used email link', () => {
     ).toBeInTheDocument()
   })
 
-  it('offers to resend the confirmation when sign-in says the email is not confirmed', async () => {
+  it('offers to resend the confirmation when sign-in says the email is not confirmed [R-AUTH-015]', async () => {
     mock.current = createSupabaseMock(null)
     mock.current.client.auth.signInWithPassword.mockResolvedValueOnce({
       data: { session: null, user: null },
@@ -146,7 +146,7 @@ describe('expired or used email link', () => {
   })
 })
 
-describe('query cache', () => {
+describe('query cache [R-AUTH-025]', () => {
   it('is cleared when the session switches to another user, kept for the same user', async () => {
     const supabaseMock = createSupabaseMock(fakeSession())
     mock.current = supabaseMock

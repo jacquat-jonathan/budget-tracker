@@ -1,6 +1,6 @@
 import { formatMoney, parseMoney } from '@/lib/money'
 
-describe('formatMoney', () => {
+describe('formatMoney [R-MONEY-003]', () => {
   it.each([
     [0, 'CHF 0.00'],
     [5, 'CHF 0.05'],
@@ -20,14 +20,14 @@ describe('formatMoney', () => {
   })
 
   it.each([1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])(
-    'rejects non-integer rappen %s',
+    'rejects non-integer rappen %s [C-MONEY-001]',
     (value) => {
       expect(() => formatMoney(value)).toThrow(RangeError)
     },
   )
 })
 
-describe('parseMoney', () => {
+describe('parseMoney returns integer rappen [C-MONEY-001]', () => {
   it.each([
     ['0', 0],
     ['12', 1200],

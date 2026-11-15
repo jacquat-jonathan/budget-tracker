@@ -36,7 +36,7 @@ describe('parseAuthRedirect', () => {
 })
 
 describe('stripAuthParams', () => {
-  it('removes auth parameters and keeps the rest of the URL', () => {
+  it('removes auth parameters and keeps the rest of the URL [R-AUTH-013]', () => {
     expect(
       stripAuthParams(`${ORIGIN}/budget/debts?x=1#access_token=a&refresh_token=b&type=signup`),
     ).toBe(`${ORIGIN}/budget/debts?x=1`)
@@ -48,7 +48,7 @@ describe('stripAuthParams', () => {
 })
 
 describe('captureAuthRedirect', () => {
-  it('replaces the token-bearing history entry instead of adding one', () => {
+  it('replaces the token-bearing history entry instead of adding one [R-AUTH-013]', () => {
     window.history.replaceState(
       null,
       '',

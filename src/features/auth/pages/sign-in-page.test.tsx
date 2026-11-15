@@ -26,7 +26,7 @@ describe('SignInPage', () => {
     await i18n.changeLanguage('en')
   })
 
-  it('shows required-field errors and does not call Supabase', async () => {
+  it('shows required-field errors and does not call Supabase [R-AUTH-009]', async () => {
     const auth = renderSignIn()
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
@@ -36,7 +36,7 @@ describe('SignInPage', () => {
     expect(auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
-  it('rejects an invalid email address', async () => {
+  it('rejects an invalid email address [R-AUTH-009]', async () => {
     const auth = renderSignIn()
     await userEvent.type(screen.getByLabelText('Email'), 'not-an-email')
     await userEvent.type(screen.getByLabelText('Password'), 'secret')
@@ -46,7 +46,7 @@ describe('SignInPage', () => {
     expect(auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
-  it('translates validation errors', async () => {
+  it('translates validation errors [R-I18N-001]', async () => {
     renderSignIn()
     await i18n.changeLanguage('fr')
     await userEvent.click(await screen.findByRole('button', { name: 'Se connecter' }))
@@ -55,7 +55,7 @@ describe('SignInPage', () => {
     expect(screen.getByText('Saisissez votre mot de passe.')).toBeInTheDocument()
   })
 
-  it('submits trimmed credentials and shows a translated auth error', async () => {
+  it('submits trimmed credentials and shows a translated auth error [R-AUTH-010] [R-AUTH-011]', async () => {
     const auth = renderSignIn()
     auth.signInWithPassword.mockResolvedValueOnce({
       data: { session: null, user: null },

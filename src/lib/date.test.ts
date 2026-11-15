@@ -14,8 +14,8 @@ describe('test environment', () => {
   })
 })
 
-describe('formatCalendarDate', () => {
-  it('formats a calendar date as written, without time-zone shifts', () => {
+describe('formatCalendarDate [R-DATE-001]', () => {
+  it('formats a calendar date as written, without time-zone shifts [C-DATE-002]', () => {
     expect(formatCalendarDate('2026-01-25')).toBe('25.01.2026')
     expect(formatCalendarDate('2026-12-31')).toBe('31.12.2026')
     expect(formatCalendarDate('2026-03-29')).toBe('29.03.2026') // DST switch in Zurich
@@ -29,12 +29,12 @@ describe('formatCalendarDate', () => {
     },
   )
 
-  it('rejects timestamps, which need formatTimestamp', () => {
+  it('rejects timestamps, which need formatTimestamp [C-DATE-001]', () => {
     expect(() => formatCalendarDate('2026-03-01T23:30:00+00:00')).toThrow(RangeError)
   })
 })
 
-describe('formatTimestamp', () => {
+describe('formatTimestamp [R-DATE-001]', () => {
   it('shows the local (Zurich) date of the instant', () => {
     // 23:30 UTC on 1 March is 00:30 on 2 March in Zurich (UTC+1).
     expect(formatTimestamp('2026-03-01T23:30:00+00:00')).toBe('02.03.2026')
@@ -57,7 +57,7 @@ describe('formatTimestamp', () => {
     '2026-02-30T10:00:00Z',
     'yesterday',
     '',
-  ])('rejects %j', (value) => {
+  ])('rejects %j [C-DATE-001]', (value) => {
     expect(() => formatTimestamp(value)).toThrow(RangeError)
   })
 
@@ -66,7 +66,7 @@ describe('formatTimestamp', () => {
   })
 })
 
-describe('isCalendarDate', () => {
+describe('isCalendarDate [C-DATE-001]', () => {
   it('accepts only real YYYY-MM-DD dates', () => {
     expect(isCalendarDate('2026-01-25')).toBe(true)
     expect(isCalendarDate('2026-02-29')).toBe(false)
@@ -74,7 +74,7 @@ describe('isCalendarDate', () => {
   })
 })
 
-describe('parseDate', () => {
+describe('parseDate [R-DATE-001]', () => {
   it.each([
     ['25.01.2026', '2026-01-25'],
     ['5.1.2026', '2026-01-05'],
@@ -97,7 +97,7 @@ describe('parseDate', () => {
 })
 
 describe('toCalendarDate', () => {
-  it('returns the local calendar date, not the UTC one', () => {
+  it('returns the local calendar date, not the UTC one [C-DATE-002]', () => {
     // 00:30 local on 25 January is still 24 January in UTC.
     expect(toCalendarDate(new Date(2026, 0, 25, 0, 30))).toBe('2026-01-25')
     expect(toCalendarDate(new Date(2026, 0, 25, 23, 59))).toBe('2026-01-25')
