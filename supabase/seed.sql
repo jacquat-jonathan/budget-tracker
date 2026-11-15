@@ -1,0 +1,6 @@
+-- Local development seed data, loaded by `supabase start` (first run) and `supabase db reset`.
+-- It never runs against the hosted project.
+--
+-- Intentionally empty for now: sign up through the app instead (email confirmation is off
+-- locally, so a new account is signed in at once). Add sample budgets here once the domain
+-- tables exist.

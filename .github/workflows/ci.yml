@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  database:
+    name: Database (migrations, pgTAP, generated types)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No `version` input: the action installs the CLI version pinned in package-lock.json,
+      # so CI runs the same CLI as `npx supabase` locally.
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+
+      # A fresh runner has no database volume, so this applies every migration from
+      # scratch, then seed.sql.
+      - name: Start database and apply migrations
+        run: supabase db start
+
+      - name: Check schema for typing errors
+        run: supabase db lint --fail-on error
+
+      - name: Security and performance advisors
+        run: supabase db advisors --fail-on warn
+
+      - name: Run pgTAP tests
+        run: supabase test db
+
+      - name: Check generated types are up to date
+        run: |
+          supabase gen types typescript > "$RUNNER_TEMP/database.types.ts"
+          if ! diff -u src/lib/database.types.ts "$RUNNER_TEMP/database.types.ts"; then
+            echo "::error file=src/lib/database.types.ts::Generated types are out of date. Run 'npm run db:types' with the local stack running and commit the result."
+            exit 1
+          fi
+
+      - name: Stop database
+        if: always()
+        run: supabase stop --no-backup
