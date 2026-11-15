@@ -1,6 +1,7 @@
 import {
   captureAuthRedirect,
   parseAuthRedirect,
+  settleAuthRedirect,
   stripAuthParams,
   takeAuthRedirect,
 } from '@/features/auth/auth-redirect'
@@ -64,6 +65,13 @@ describe('captureAuthRedirect', () => {
       tokens: { access_token: 'a', refresh_token: 'b' },
       type: 'recovery',
     })
+    // Kept for this tab (not in any URL) until the bootstrap settles it, so a reload after a
+    // network failure can retry.
+    expect(takeAuthRedirect()).toEqual({
+      tokens: { access_token: 'a', refresh_token: 'b' },
+      type: 'recovery',
+    })
+    settleAuthRedirect()
     expect(takeAuthRedirect()).toBeNull()
   })
 

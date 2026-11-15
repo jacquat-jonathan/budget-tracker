@@ -26,6 +26,7 @@ export function ResetPasswordPage() {
   const navigate = useNavigate()
   const { session, loading, recovery, completeRecovery, signOut } = useAuth()
   const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
+  const [leaving, setLeaving] = useState(false)
 
   const form = useForm<ResetPasswordValues>({
     resolver: zodResolver(resetPasswordSchema),
@@ -46,7 +47,17 @@ export function ResetPasswordPage() {
     }
   })
 
-  if (loading) return <FullPageSpinner />
+  const cancelRecovery = async () => {
+    // Hold a spinner while signing out, so the "link no longer valid" state never shows.
+    setLeaving(true)
+    try {
+      await signOut()
+    } finally {
+      void navigate(paths.signIn, { replace: true })
+    }
+  }
+
+  if (loading || leaving) return <FullPageSpinner />
 
   if (!session) {
     return (
@@ -77,7 +88,7 @@ export function ResetPasswordPage() {
         recovery ? (
           <button
             type="button"
-            onClick={() => void signOut()}
+            onClick={() => void cancelRecovery()}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
             {t('auth.resetPassword.cancel')}

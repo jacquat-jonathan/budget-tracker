@@ -123,6 +123,10 @@ export const en = {
       title: 'This link no longer works',
       expired: 'Email links expire after a while and work only once. Request a new one below.',
       invalid: 'This link is incomplete or not valid. Request a new one below.',
+      networkTitle: 'We could not check this link',
+      network:
+        'The server could not be reached, so your link has not been used. Check your connection, then try again.',
+      retry: 'Try again',
     },
     resendConfirmation: {
       title: 'Resend the confirmation email',

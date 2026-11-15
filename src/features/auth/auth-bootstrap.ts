@@ -73,7 +73,7 @@ async function run(): Promise<AuthBootstrap> {
   const redirect = takeAuthRedirect()
 
   if (redirect?.tokens) {
-    let failure: unknown = null
+    let failure: unknown
     try {
       const { data, error } = await supabase.auth.setSession(redirect.tokens)
       if (!error && data.session) {

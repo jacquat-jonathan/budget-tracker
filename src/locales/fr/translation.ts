@@ -132,6 +132,10 @@ export const fr: Translation = {
       expired:
         'Les liens envoyés par e-mail expirent au bout d’un certain temps et ne servent qu’une fois. Demandez-en un nouveau ci-dessous.',
       invalid: 'Ce lien est incomplet ou n’est pas valable. Demandez-en un nouveau ci-dessous.',
+      networkTitle: 'Impossible de vérifier ce lien',
+      network:
+        'Le serveur est injoignable, votre lien n’a donc pas été utilisé. Vérifiez votre connexion, puis réessayez.',
+      retry: 'Réessayer',
     },
     resendConfirmation: {
       title: 'Renvoyer l’e-mail de confirmation',
