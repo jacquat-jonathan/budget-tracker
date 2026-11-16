@@ -230,20 +230,48 @@ $$;
 create trigger transactions_guard_transfer_link before insert or update on public.transactions
   for each row execute function private.guard_transfer_link();
 
--- R-ACCOUNT-240, D-353: deleting the transaction of an occurrence (by
--- delete_transaction or any other way) puts it back: a manual one is to do again; an automatic
--- one is not done, and its transaction is never created again.
+-- M1 (D-393): every removal of a mark moves the transfer's watermark back before that
+-- period, so the catch-up looks at the occurrence again (otherwise an automatic linked one
+-- would stay "done" with no transaction for good).
+create function private.unsettle_transfer(p_transfer_id uuid, p_seq integer)
+returns void
+language sql
+set search_path = ''
+as $$
+  update public.transfers set settled_seq = least(settled_seq, greatest(p_seq - 1, 0))
+  where id = p_transfer_id and settled_seq > greatest(p_seq - 1, 0)
+$$;
+
+-- R-ACCOUNT-240, D-353, D-393: deleting the transaction of a done occurrence (by
+-- delete_transaction or any other way) says it did not happen, by the terms in force for it
+-- now: an automatic transfer is not done (its transaction is never created again), whoever
+-- marked it; a manual one is to do again (its mark goes, and the watermark moves back).
 create function private.transfer_transaction_deleted()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
+declare
+  o public.transfer_occurrences;
+  v_seq integer;
+  v_automatic boolean;
 begin
-  update public.transfer_occurrences
-  set mark = 'not_done', done_on = null, amount = null, recorded_by = (select auth.uid())
-  where id = old.transfer_occurrence_id and by_catch_up and mark = 'done';
-  delete from public.transfer_occurrences
-  where id = old.transfer_occurrence_id and not by_catch_up and mark = 'done';
+  select x.* into o from public.transfer_occurrences as x where x.id = old.transfer_occurrence_id;
+  if o.id is null or o.mark <> 'done' then
+    return null;
+  end if;
+  select p.seq into v_seq from public.periods as p where p.id = o.period_id;
+  select v.is_automatic into v_automatic from public.transfer_versions as v
+  where v.transfer_id = o.transfer_id and v.effective_from_seq <= v_seq
+  order by v.effective_from_seq desc limit 1;
+  if coalesce(v_automatic, false) then
+    update public.transfer_occurrences
+    set mark = 'not_done', done_on = null, amount = null, recorded_by = (select auth.uid())
+    where id = o.id;
+  else
+    delete from public.transfer_occurrences where id = o.id;
+    perform private.unsettle_transfer(o.transfer_id, v_seq);
+  end if;
   return null;
 end;
 $$;
@@ -1502,7 +1530,8 @@ create function private.transfer_preview(
 )
 returns table (
   period_id uuid, start_date date, end_date date, projected boolean, due_date date, amount bigint,
-  is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean
+  is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean,
+  created_at_once_count integer
 )
 language plpgsql
 stable
@@ -1511,6 +1540,8 @@ as $$
 declare
   v_latest public.periods;
   v_horizon date := private.charge_horizon(p_budget_id);
+  v_room integer := greatest(private.transaction_room(p_budget_id), 0);
+  v_total integer;
   v_budget_end date := private.budget_end_date(p_budget_id);
   v_n integer := 0;
   v_k integer := 0;
@@ -1519,6 +1550,14 @@ declare
   y record;
 begin
   select p.* into v_latest from public.periods as p where p.budget_id = p_budget_id order by p.seq desc limit 1;
+  -- D-398: how many transactions the write creates at once, over every period it governs (the
+  -- rows below list at most p_count), never more than the budget has room for
+  select least(pg_catalog.count(*), v_room)::integer into v_total
+  from public.periods as p
+  where p.budget_id = p_budget_id and p.seq >= p_from and (p_to is null or p.seq < p_to)
+    and p_is_automatic and p_category_id is not null
+    and private.transfer_due_date(p.start_date, p.end_date, p.seq, p_schedule, p_offset_days, p_day_of_month, p_income_id) <= v_horizon
+    and not exists (select 1 from public.transfer_occurrences as o where o.transfer_id = p_transfer_id and o.period_id = p.id);
   for y in
     select p.id, p.seq, p.start_date, p.end_date from public.periods as p
     where p.budget_id = p_budget_id and p.seq >= p_from and (p_to is null or p.seq < p_to)
@@ -1531,7 +1570,12 @@ begin
     follows_primary := p_income_id is not null and not private.income_in_force(p_income_id, y.seq);
     created_at_once := p_is_automatic and p_category_id is not null and due_date <= v_horizon
       and not exists (select 1 from public.transfer_occurrences as o
-                      where o.transfer_id = p_transfer_id and o.period_id = y.id);
+                      where o.transfer_id = p_transfer_id and o.period_id = y.id)
+      and v_room > 0;
+    if created_at_once then
+      v_room := v_room - 1;
+    end if;
+    created_at_once_count := v_total;
     return next;
   end loop;
   if p_to is not null or v_latest.end_date < private.today() then
@@ -1550,6 +1594,7 @@ begin
     amount := p_amount; is_automatic := p_is_automatic; category_id := p_category_id;
     follows_primary := p_income_id is not null and not private.income_in_force(p_income_id, v_latest.seq + v_k);
     created_at_once := false;
+    created_at_once_count := v_total;
     return next;
   end loop;
 end;
@@ -1608,7 +1653,7 @@ create function public.preview_create_transfer(
 )
 returns table (
   period_id uuid, start_date date, end_date date, projected boolean, due_date date, amount bigint,
-  is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean
+  is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean, created_at_once_count integer
 )
 language plpgsql
 security definer
@@ -1676,7 +1721,7 @@ begin
       p_clear_income, p_clear_category);
     perform private.assert_transfer_terms(v_transfer.budget_id, v_span.from_seq, v_span.to_seq, v_terms.from_account_id,
       v_terms.to_account_id, v_terms.amount, v_terms.schedule, v_terms.offset_days, v_terms.day_of_month,
-      v_terms.income_id, v_terms.is_automatic, v_terms.category_id);
+      p_income_id, v_terms.is_automatic, v_terms.category_id);  -- D-396: a kept income is not re-checked
     if p_income_id is not null and not private.income_in_force(p_income_id, v_span.from_seq) then
       raise exception 'income_not_in_force' using errcode = 'P0001';
     end if;
@@ -1714,7 +1759,7 @@ create function public.preview_update_transfer(
 )
 returns table (
   period_id uuid, start_date date, end_date date, projected boolean, due_date date, amount bigint,
-  is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean
+  is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean, created_at_once_count integer
 )
 language plpgsql
 security definer
@@ -1746,7 +1791,7 @@ begin
     p_clear_income, p_clear_category);
   perform private.assert_transfer_terms(v_transfer.budget_id, v_span.from_seq, v_span.to_seq, v_terms.from_account_id,
     v_terms.to_account_id, v_terms.amount, v_terms.schedule, v_terms.offset_days, v_terms.day_of_month,
-    v_terms.income_id, v_terms.is_automatic, v_terms.category_id);
+    p_income_id, v_terms.is_automatic, v_terms.category_id);  -- D-396: a kept income is not re-checked
   if p_income_id is not null and not private.income_in_force(p_income_id, v_span.from_seq) then
     raise exception 'income_not_in_force' using errcode = 'P0001';
   end if;
@@ -1766,6 +1811,17 @@ as $$
 begin
   if p_transfer.end_seq is not null and p_seq >= p_transfer.end_seq then
     raise exception 'transfer_ended' using errcode = 'P0001';
+  end if;
+  -- D-397: an automatic linked occurrence from then on is due and waits for room: ending would
+  -- drop it (the budget is full); free room first, like a subscription's held charge
+  if exists (select 1 from public.periods as y
+             cross join lateral private.transfer_plan(y.budget_id, y.seq) as pl
+             where y.budget_id = p_transfer.budget_id and y.seq >= p_seq and pl.transfer_id = p_transfer.id
+               and pl.is_automatic and pl.category_id is not null
+               and pl.due_date <= private.charge_horizon(p_transfer.budget_id)
+               and not exists (select 1 from public.transfer_occurrences as o
+                               where o.transfer_id = p_transfer.id and o.period_id = pl.period_id)) then
+    raise exception 'transfer_held_back' using errcode = 'P0001';
   end if;
   return case when p_seq <= p_transfer.first_seq
                    and not exists (select 1 from public.transfer_occurrences as o where o.transfer_id = p_transfer.id)
@@ -2194,6 +2250,10 @@ begin
   else
     delete from public.transactions where transfer_occurrence_id = o.mark_id;
     delete from public.transfer_occurrences where id = o.mark_id;
+    -- D-393: the occurrence is unmarked again; an automatic linked one due gets its
+    -- transaction from the catch-up (now, within this call)
+    perform private.unsettle_transfer(p_transfer_id, o.seq);
+    perform private.materialise_transfers(o.budget_id);
   end if;
   return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id);
 end;
@@ -3015,8 +3075,9 @@ create or replace view public.period_summaries with (security_invoker = true) as
            private.transfer_committed_total(p.budget_id, p.seq) as transfer_committed_total
   ) as a;
 
--- R-ACCOUNT-241: the manual transfers of the current period still to do, and of those, the
--- ones whose due date has passed (for the dashboard). 0 when the budget has ended.
+-- R-ACCOUNT-241, D-395 (Q-222): the manual occurrences of the current period and of the one
+-- before it still to do, and of those, the ones whose due date has passed (for the dashboard).
+-- 0 when the budget has ended.
 create function private.transfers_to_do(p_budget_id uuid)
 returns table (to_do integer, overdue integer)
 language sql
@@ -3028,7 +3089,8 @@ as $$
   from public.periods as p
   cross join lateral private.transfer_plan(p.budget_id, p.seq) as pl
   left join public.transfer_occurrences as o on o.transfer_id = pl.transfer_id and o.period_id = pl.period_id
-  where p.budget_id = p_budget_id and private.today() between p.start_date and p.end_date
+  join public.periods as cur on cur.budget_id = p.budget_id and private.today() between cur.start_date and cur.end_date
+  where p.budget_id = p_budget_id and p.seq between cur.seq - 1 and cur.seq
     and not pl.is_automatic
 $$;
 

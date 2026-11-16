@@ -89,7 +89,8 @@ insert into documented_codes values
   ('account_limit_reached'), ('transfer_limit_reached'), ('account_not_in_force'), ('account_required'),
   ('same_account'), ('invalid_offset'), ('invalid_day'), ('invalid_schedule'), ('invalid_automatic'),
   ('invalid_account_kind'), ('invalid_bank_label'), ('invalid_arguments'), ('transfer_not_in_force'),
-  ('transfer_is_automatic'), ('transfer_is_manual'), ('transfer_already_marked'), ('nothing_to_undo');
+  ('transfer_is_automatic'), ('transfer_is_manual'), ('transfer_already_marked'), ('nothing_to_undo'),
+  ('transfer_held_back'), ('request_reused'), ('membership_limit_reached');
 
 create or replace function pg_temp.primary_of(b uuid) returns uuid language sql as $$
   select primary_income_id from public.budgets where id = b
@@ -475,7 +476,7 @@ create or replace function pg_temp.totals_disagree(b uuid) returns setof text la
          or s.result <> s.income_total - s.spent_total)
 $$;
 
-select plan(23);
+select plan(24);
 
 do $prop$
 declare
@@ -640,7 +641,8 @@ begin
           when v_r < 0.73 then 'skip_transfer'
           when v_r < 0.80 then 'mark_not_done'
           when v_r < 0.88 then 'undo_mark'
-          when v_r < 0.94 then 'income_account'
+          when v_r < 0.92 then 'income_account'
+          when v_r < 0.96 then 'unmark_after_settle'
           else 'stale_mark'
         end;
       end if;
@@ -1223,13 +1225,36 @@ begin
                 raise exception '%', substr(v_out, 2) using errcode = 'P0001';
               end if;
             end if;
+          elsif v_op = 'unmark_after_settle' then
+            -- M1 (D-393): an automatic linked occurrence marked not done, the catch-up run by
+            -- another call while it is marked, then the mark undone: the occurrence must get its
+            -- transaction once due (the invariants check it every step)
+            select p.* into v_period from public.periods as p where p.budget_id = v_budget and v_today between p.start_date and p.end_date;
+            v_pick := pg_temp.pick('transfer', v_budget, format(
+              'exists (select 1 from public.transfer_versions as x where x.transfer_id = t.id and x.is_automatic and x.category_id is not null) and t.first_seq <= %s and (t.end_seq is null or t.end_seq > %s)',
+              coalesce(v_period.seq, 0), coalesce(v_period.seq, 0)));
+            if v_pick is not null and v_period.id is not null then
+              select c.* into v_check from public.get_transfer_checklist(v_period.id) as c where c.transfer_id = v_pick;
+              if v_check.transfer_id is not null and v_check.is_automatic and v_check.mark_revision = 0 then
+                select c.* into v_check from public.mark_transfer_not_done(v_pick, v_period.id, 0) as c;
+                perform public.ensure_periods(v_budget);
+                perform count(*) from public.get_money_flow(v_budget);
+                select c.* into v_check from public.undo_transfer_mark(v_pick, v_period.id, v_check.mark_revision) as c;
+                v_touched := pg_temp.seqs_of(v_budget, array[v_check.due_date, v_today]) || v_period.seq;
+              end if;
+            end if;
           elsif v_op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark', 'stale_mark') then
-            if v_op = 'undo_mark' or (v_op = 'stale_mark' and random() < 0.5) then
+            if v_op = 'stale_mark' and random() >= 0.5 then
+              -- a transfer that has an occurrence in the current period, so the stale mark is tried
+              select p.* into v_period from public.periods as p where p.budget_id = v_budget and v_today between p.start_date and p.end_date;
+              v_pick := pg_temp.pick('transfer', v_budget, format('t.first_seq <= %s and (t.end_seq is null or t.end_seq > %s)',
+                                                                  coalesce(v_period.seq, 0), coalesce(v_period.seq, 0)));
+            elsif v_op = 'undo_mark' or v_op = 'stale_mark' then
               -- a marked occurrence (its latest mark)
               v_pick := pg_temp.pick('transfer', v_budget, 'exists (select 1 from public.transfer_occurrences as o where o.transfer_id = t.id)');
               select p.* into v_period from public.periods as p join public.transfer_occurrences as o on o.period_id = p.id
               where o.transfer_id = v_pick order by p.seq desc limit 1;
-            else
+            elsif v_op <> 'stale_mark' then
               v_pick := pg_temp.pick('transfer', v_budget);
               if random() < 0.7 then
                 select p.* into v_period from public.periods as p where p.budget_id = v_budget and v_today between p.start_date and p.end_date;
@@ -1431,7 +1456,9 @@ select cmp_ok((select count(*)::integer from catch_up_seen), '>=', 30,
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark')),
   '>=', 20, 'R-ACCOUNT-005 R-ACCOUNT-073 R-ACCOUNT-240: and marked transfers done, skipped, not done, and undid marks');
 select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_mark'),
-  '>=', 2, 'R-CONCURRENCY-230: and refused every stale mark it tried');
+  '>=', 3, 'R-CONCURRENCY-230: and refused every stale mark it tried');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'unmark_after_settle'),
+  '>=', 10, 'R-ACCOUNT-074 R-ACCOUNT-240: and undid not-done marks of automatic transfers after the catch-up had run');
 select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 

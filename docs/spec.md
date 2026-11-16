@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-464 rules (457 active, 0 planned), 24 conventions, 238 decisions, 20 open questions. 12 rules and conventions are marked **TEST PENDING**.
+464 rules (457 active, 0 planned), 24 conventions, 244 decisions, 19 open questions. 12 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2049,7 +2049,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-353, D-360
   - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
-- **R-ACCOUNT-241** The dashboard counts the current period's manual transfers still to do, and those of them whose due date has passed.
+- **R-ACCOUNT-241** The dashboard counts the manual transfers of the current period and of the period before it still to do, and those of them whose due date has passed.
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-361, R-ACCOUNT-005
   - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
@@ -5332,6 +5332,78 @@ Related: R-BUDGET-004, R-TRANSACTION-006
 
 Source: owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16; code: supabase/migrations
 
+### D-393 Removing a mark looks at the occurrence again (accepted)
+
+Every removal of a transfer's mark (undoing it, deleting the transaction of a manual one) moves the transfer's watermark (settled_seq) back before that period, so the catch-up looks at the occurrence again; undoing a mark of an automatic linked occurrence that is due creates its transaction within the same call. Deleting the transaction of a done occurrence follows the terms in force for it now: an automatic transfer is then not done (its transaction is never created again), whoever marked it; a manual one is to do again.
+
+**Why:** The step 7 review (M1): the watermark stayed past a period whose mark was removed, so an automatic linked occurrence showed done, held back, with no transaction, for good.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-074, R-ACCOUNT-240, D-354
+
+Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-395 The dashboard counts the period before too (accepted)
+
+transfers_to_do and transfers_overdue (my_budgets) count the manual occurrences still to do of the current period and of the period before it.
+
+**Why:** Answer to Q-222 (coordinator decision): a transfer left undone at the end of a period must not vanish from the dashboard the day the salary arrives.
+
+**Rejected:** none recorded.
+
+Related: Q-222, R-ACCOUNT-241
+
+Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-396 A kept income is not checked as newly chosen (accepted)
+
+An edit of a pay-date transfer validates only an income it chooses (p_income_id): the income kept from the terms before may have ended, and the transfer then follows the primary income (follows_primary), as it already did.
+
+**Why:** The step 7 review: once the chosen income had ended, every edit and the preview with no argument answered income_not_in_force until the client cleared the income.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-071, R-VERSION-071
+
+Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-397 No end while a transaction is held back (accepted)
+
+Ending a transfer from a period is refused with transfer_held_back while an automatic linked occurrence from that period on is due and waits for room (the budget holds the most transactions): ending would drop it for good. Free room first, as for a subscription's held charge (charge_held_back). preview_end_transfer gives it as the refusal.
+
+**Why:** The step 7 review: in a full budget, ending from the current period dropped that period's held occurrence.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-234, R-SUBSCRIPTION-180
+
+Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-398 The previews say what is created at once, counted (accepted)
+
+preview_create_transfer and preview_update_transfer mark created_at_once only where the budget has room (in order), and give on every row created_at_once_count: how many transactions the write creates at once over every period it governs, beyond the at most p_count rows listed.
+
+**Why:** The step 7 review: created_at_once was true in a full budget where nothing is created, and a correction over 63 periods created 63 while the preview listed 60.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-233, Q-221
+
+Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-399 The comparison carries the transfers' committed figure (accepted)
+
+get_period_trend has transfer_committed_total, get_category_trend transfer_committed (bigint[] aligned with period_ids, the progress view's figure of the line), and get_period_comparison a_transfer_committed, b_transfer_committed and transfer_committed_difference (total row: the periods' totals; category rows: the progress view's figure), apart from the subscriptions' committed figures.
+
+**Why:** The step 7 review: the comparison reads showed the subscriptions' committed amounts only.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-238, R-COMPARE-071
+
+Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -5610,7 +5682,7 @@ Source: owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16; 
   - Context: D-354 creates them, so a transaction exists exactly when the transfer counts as done; a correction of a subscription never creates charges for dates already passed.
   - Related: D-354, R-SUBSCRIPTION-073
   - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
-- **Q-222** Should the dashboard also count manual transfers left to do in past periods?
+- **Q-222** (resolved by D-395) Should the dashboard also count manual transfers left to do in past periods?
   - Context: D-361 counts the current period only.
   - Related: D-361, R-ACCOUNT-241
   - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16

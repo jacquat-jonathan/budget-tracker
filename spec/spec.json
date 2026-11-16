@@ -6633,7 +6633,7 @@
     {
       "id": "R-ACCOUNT-241",
       "area": "account",
-      "statement": "The dashboard counts the current period's manual transfers still to do, and those of them whose due date has passed.",
+      "statement": "The dashboard counts the manual transfers of the current period and of the period before it still to do, and those of them whose due date has passed.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
@@ -10145,6 +10145,84 @@
         "owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16",
         "code: supabase/migrations"
       ]
+    },
+    {
+      "id": "D-393",
+      "title": "Removing a mark looks at the occurrence again",
+      "decision": "Every removal of a transfer's mark (undoing it, deleting the transaction of a manual one) moves the transfer's watermark (settled_seq) back before that period, so the catch-up looks at the occurrence again; undoing a mark of an automatic linked occurrence that is due creates its transaction within the same call. Deleting the transaction of a done occurrence follows the terms in force for it now: an automatic transfer is then not done (its transaction is never created again), whoever marked it; a manual one is to do again.",
+      "why": "The step 7 review (M1): the watermark stayed past a period whose mark was removed, so an automatic linked occurrence showed done, held back, with no transaction, for good.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-074", "R-ACCOUNT-240", "D-354"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-395",
+      "title": "The dashboard counts the period before too",
+      "decision": "transfers_to_do and transfers_overdue (my_budgets) count the manual occurrences still to do of the current period and of the period before it.",
+      "why": "Answer to Q-222 (coordinator decision): a transfer left undone at the end of a period must not vanish from the dashboard the day the salary arrives.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-222", "R-ACCOUNT-241"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-396",
+      "title": "A kept income is not checked as newly chosen",
+      "decision": "An edit of a pay-date transfer validates only an income it chooses (p_income_id): the income kept from the terms before may have ended, and the transfer then follows the primary income (follows_primary), as it already did.",
+      "why": "The step 7 review: once the chosen income had ended, every edit and the preview with no argument answered income_not_in_force until the client cleared the income.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-071", "R-VERSION-071"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-397",
+      "title": "No end while a transaction is held back",
+      "decision": "Ending a transfer from a period is refused with transfer_held_back while an automatic linked occurrence from that period on is due and waits for room (the budget holds the most transactions): ending would drop it for good. Free room first, as for a subscription's held charge (charge_held_back). preview_end_transfer gives it as the refusal.",
+      "why": "The step 7 review: in a full budget, ending from the current period dropped that period's held occurrence.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-234", "R-SUBSCRIPTION-180"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-398",
+      "title": "The previews say what is created at once, counted",
+      "decision": "preview_create_transfer and preview_update_transfer mark created_at_once only where the budget has room (in order), and give on every row created_at_once_count: how many transactions the write creates at once over every period it governs, beyond the at most p_count rows listed.",
+      "why": "The step 7 review: created_at_once was true in a full budget where nothing is created, and a correction over 63 periods created 63 while the preview listed 60.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-233", "Q-221"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-399",
+      "title": "The comparison carries the transfers' committed figure",
+      "decision": "get_period_trend has transfer_committed_total, get_category_trend transfer_committed (bigint[] aligned with period_ids, the progress view's figure of the line), and get_period_comparison a_transfer_committed, b_transfer_committed and transfer_committed_difference (total row: the periods' totals; category rows: the progress view's figure), apart from the subscriptions' committed figures.",
+      "why": "The step 7 review: the comparison reads showed the subscriptions' committed amounts only.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-238", "R-COMPARE-071"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     }
   ],
   "conventions": [
@@ -11037,11 +11115,12 @@
       "id": "Q-222",
       "question": "Should the dashboard also count manual transfers left to do in past periods?",
       "context": "D-361 counts the current period only.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-361", "R-ACCOUNT-241"],
       "source": [
         "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-395"
     },
     {
       "id": "Q-223",

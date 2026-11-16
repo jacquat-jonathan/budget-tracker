@@ -74,7 +74,8 @@ returns table (
   is_current boolean, is_completed boolean,
   income_total bigint, salary_total bigint, extra_income_total bigint,
   spent_total bigint, expected_total bigint, committed_total bigint, result bigint,
-  completed_count integer, average_income bigint, average_spent bigint, average_result bigint
+  completed_count integer, average_income bigint, average_spent bigint, average_result bigint,
+  transfer_committed_total bigint
 )
 language plpgsql
 volatile
@@ -95,7 +96,7 @@ begin
       select s.id, s.seq, s.start_date, s.end_date, (s.end_date - s.start_date + 1) as days, s.is_current,
              (s.end_date < s.today) as is_completed,
              s.income_total, s.salary_total, s.extra_income_total, s.spent_total, s.expected_total,
-             s.committed_total, s.result
+             s.committed_total, s.result, s.transfer_committed_total
       from public.period_summaries as s
       where s.budget_id = p_budget_id and s.seq between v_last - p_count + 1 and v_last
     ),
@@ -109,7 +110,7 @@ begin
            r.income_total, r.salary_total, r.extra_income_total, r.spent_total, r.expected_total,
            r.committed_total, r.result,
            a.n, private.compare_average(a.income, a.n), private.compare_average(a.spent, a.n),
-           private.compare_average(a.result, a.n)
+           private.compare_average(a.result, a.n), r.transfer_committed_total
     from r cross join a
     order by r.seq;
 end;
@@ -143,7 +144,7 @@ returns table (
   period_ids uuid[], in_force boolean[], planned bigint[], spent bigint[], committed bigint[],
   transaction_count integer[], completed_count integer, average_spent bigint,
   active_count integer, active_average_spent bigint,
-  is_overspent boolean[]
+  is_overspent boolean[], transfer_committed bigint[]
 )
 language plpgsql
 volatile
@@ -180,7 +181,8 @@ begin
              case when x.in_force then x.expected end as planned,
              coalesce(x.spent, 0)::bigint as spent, coalesce(x.committed, 0)::bigint as committed,
              coalesce(x.transaction_count, 0) as transaction_count,
-             coalesce(x.is_overspent, false) as is_overspent
+             coalesce(x.is_overspent, false) as is_overspent,
+             coalesce(x.transfer_committed, 0)::bigint as transfer_committed
       from lines as l cross join ps
       left join rows_ as x on x.category_id = l.category_id and x.pid = ps.id
     ),
@@ -192,6 +194,7 @@ begin
              pg_catalog.array_agg(g.committed order by g.seq) as committed,
              pg_catalog.array_agg(g.transaction_count order by g.seq) as transaction_count,
              pg_catalog.array_agg(g.is_overspent order by g.seq) as is_overspent,
+             pg_catalog.array_agg(g.transfer_committed order by g.seq) as transfer_committed,
              coalesce(pg_catalog.sum(g.spent) filter (where g.end_date < v_today), 0) as completed_spent,
              (pg_catalog.count(*) filter (where g.end_date < v_today
                                             and (g.in_force or g.spent <> 0 or g.transaction_count > 0)))::integer as active_n,
@@ -203,7 +206,7 @@ begin
            ids.period_ids, a.in_force, a.planned, a.spent, a.committed, a.transaction_count,
            n.n, private.compare_average(a.completed_spent, n.n),
            a.active_n, private.compare_average(a.active_spent, a.active_n),
-           a.is_overspent
+           a.is_overspent, a.transfer_committed
     from agg as a
     join public.categories as c on c.id = a.category_id
     join private.category_display_order(p_budget_id) as o on o.category_id = c.id
@@ -301,7 +304,9 @@ $$;
 -- with only B given, A is the one before B (none when B is the first). Every row says whether
 -- each side is still running (a_is_current, b_is_current) or completed (a_is_completed,
 -- b_is_completed; null for a missing side A), so a running period is never read as a saving.
--- a_is_overspent, b_is_overspent (category rows): get_period_progress's is_overspent of that
+-- a_transfer_committed, b_transfer_committed, transfer_committed_difference: the planned
+-- transfers' committed amounts, apart from the subscriptions' (D-399). a_is_overspent,
+-- b_is_overspent (category rows): get_period_progress's is_overspent of that
 -- side, null where the side has no row (D-391).
 -- The first row (kind 'total') holds
 -- the totals of each side (period_summaries) and their differences, B minus A; then one row
@@ -329,7 +334,8 @@ returns table (
   a_income bigint, b_income bigint, income_difference bigint,
   a_result bigint, b_result bigint, result_difference bigint,
   a_is_current boolean, a_is_completed boolean, b_is_current boolean, b_is_completed boolean,
-  a_is_overspent boolean, b_is_overspent boolean
+  a_is_overspent boolean, b_is_overspent boolean,
+  a_transfer_committed bigint, b_transfer_committed bigint, transfer_committed_difference bigint
 )
 language plpgsql
 volatile
@@ -390,7 +396,8 @@ begin
              case when ga.in_force then ga.expected end as ap, case when gb.in_force then gb.expected end as bp,
              ga.spent as asp, gb.spent as bsp, ga.committed as ac, gb.committed as bc,
              ga.transaction_count as an, gb.transaction_count as bn,
-             ga.is_overspent as ao, gb.is_overspent as bo
+             ga.is_overspent as ao, gb.is_overspent as bo,
+             ga.transfer_committed as atc, gb.transfer_committed as btc
       from ga full join gb on gb.category_id = ga.category_id
     )
     select 'total'::text as kind, null::uuid, null::uuid, null::text, null::boolean, null::integer as display_order,
@@ -410,7 +417,9 @@ begin
            (select sb.income_total from sb) - coalesce((select sa.income_total from sa), 0),
            (select sa.result from sa), (select sb.result from sb),
            (select sb.result from sb) - coalesce((select sa.result from sa), 0),
-           v_a_current, v_a_completed, v_b_current, v_b_completed, null::boolean, null::boolean
+           v_a_current, v_a_completed, v_b_current, v_b_completed, null::boolean, null::boolean,
+           (select sa.transfer_committed_total from sa), (select sb.transfer_committed_total from sb),
+           (select sb.transfer_committed_total from sb) - coalesce((select sa.transfer_committed_total from sa), 0)
     union all
     select * from (
       select 'category'::text, c.id, c.parent_id, c.name, c.is_group, o.display_order,
@@ -422,7 +431,8 @@ begin
              j.ac, j.bc, (coalesce(j.bc, 0) - coalesce(j.ac, 0))::bigint,
              j.an, j.bn,
              null::bigint, null::bigint, null::bigint, null::bigint, null::bigint, null::bigint,
-             v_a_current, v_a_completed, v_b_current, v_b_completed, j.ao, j.bo
+             v_a_current, v_a_completed, v_b_current, v_b_completed, j.ao, j.bo,
+             j.atc, j.btc, (coalesce(j.btc, 0) - coalesce(j.atc, 0))::bigint
       from j
       join public.categories as c on c.id = j.cid
       join private.category_display_order(p_budget_id) as o on o.category_id = c.id

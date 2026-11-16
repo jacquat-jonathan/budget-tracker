@@ -1815,7 +1815,7 @@ isOneToOne: false
                            },
 "get_category_trend":
 { Args: { "p_budget_id": string,"p_count"?: number }; Returns: {
-              "active_average_spent": number,"active_count": number,"average_spent": number,"category_id": string,"committed": (number)[],"completed_count": number,"display_order": number,"in_force": (boolean)[],"is_group": boolean,"is_overspent": (boolean)[],"name": string,"parent_id": string,"period_ids": (string)[],"planned": (number)[],"spent": (number)[],"transaction_count": (number)[]
+              "active_average_spent": number,"active_count": number,"average_spent": number,"category_id": string,"committed": (number)[],"completed_count": number,"display_order": number,"in_force": (boolean)[],"is_group": boolean,"is_overspent": (boolean)[],"name": string,"parent_id": string,"period_ids": (string)[],"planned": (number)[],"spent": (number)[],"transaction_count": (number)[],"transfer_committed": (number)[]
             }[]
                            },
 "get_current_period":
@@ -1870,7 +1870,7 @@ isOneToOne: false
                            },
 "get_period_comparison":
 { Args: { "p_budget_id": string,"p_period_a_id"?: string,"p_period_b_id"?: string }; Returns: {
-              "a_committed": number,"a_days": number,"a_end_date": string,"a_in_force": boolean,"a_income": number,"a_is_completed": boolean,"a_is_current": boolean,"a_is_overspent": boolean,"a_period_id": string,"a_planned": number,"a_result": number,"a_spent": number,"a_start_date": string,"a_transaction_count": number,"b_committed": number,"b_days": number,"b_end_date": string,"b_in_force": boolean,"b_income": number,"b_is_completed": boolean,"b_is_current": boolean,"b_is_overspent": boolean,"b_period_id": string,"b_planned": number,"b_result": number,"b_spent": number,"b_start_date": string,"b_transaction_count": number,"category_id": string,"committed_difference": number,"display_order": number,"income_difference": number,"is_group": boolean,"kind": string,"name": string,"parent_id": string,"planned_difference": number,"result_difference": number,"spent_difference": number
+              "a_committed": number,"a_days": number,"a_end_date": string,"a_in_force": boolean,"a_income": number,"a_is_completed": boolean,"a_is_current": boolean,"a_is_overspent": boolean,"a_period_id": string,"a_planned": number,"a_result": number,"a_spent": number,"a_start_date": string,"a_transaction_count": number,"a_transfer_committed": number,"b_committed": number,"b_days": number,"b_end_date": string,"b_in_force": boolean,"b_income": number,"b_is_completed": boolean,"b_is_current": boolean,"b_is_overspent": boolean,"b_period_id": string,"b_planned": number,"b_result": number,"b_spent": number,"b_start_date": string,"b_transaction_count": number,"b_transfer_committed": number,"category_id": string,"committed_difference": number,"display_order": number,"income_difference": number,"is_group": boolean,"kind": string,"name": string,"parent_id": string,"planned_difference": number,"result_difference": number,"spent_difference": number,"transfer_committed_difference": number
             }[]
                            },
 "get_period_progress":
@@ -1883,7 +1883,7 @@ isOneToOne: false
       } },
 "get_period_trend":
 { Args: { "p_budget_id": string,"p_count"?: number }; Returns: {
-              "average_income": number,"average_result": number,"average_spent": number,"committed_total": number,"completed_count": number,"days": number,"end_date": string,"expected_total": number,"extra_income_total": number,"income_total": number,"is_completed": boolean,"is_current": boolean,"period_id": string,"result": number,"salary_total": number,"seq": number,"spent_total": number,"start_date": string
+              "average_income": number,"average_result": number,"average_spent": number,"committed_total": number,"completed_count": number,"days": number,"end_date": string,"expected_total": number,"extra_income_total": number,"income_total": number,"is_completed": boolean,"is_current": boolean,"period_id": string,"result": number,"salary_total": number,"seq": number,"spent_total": number,"start_date": string,"transfer_committed_total": number
             }[]
                            },
 "get_start_months":
@@ -2207,7 +2207,7 @@ isOneToOne: false
                            },
 "preview_create_transfer":
 { Args: { "p_amount": number,"p_budget_id": string,"p_category_id"?: string,"p_count"?: number,"p_day_of_month"?: number,"p_from_account_id": string,"p_from_period_id"?: string,"p_income_id"?: string,"p_is_automatic"?: boolean,"p_offset_days"?: number,"p_schedule": Database["public"]['Enums']["transfer_schedule"],"p_to_account_id": string }; Returns: {
-              "amount": number,"category_id": string,"created_at_once": boolean,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"period_id": string,"projected": boolean,"start_date": string
+              "amount": number,"category_id": string,"created_at_once": boolean,"created_at_once_count": number,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"period_id": string,"projected": boolean,"start_date": string
             }[]
                            },
 "preview_end_subscription":
@@ -2258,7 +2258,7 @@ isOneToOne: false
                            },
 "preview_update_transfer":
 { Args: { "p_amount"?: number,"p_category_id"?: string,"p_clear_category"?: boolean,"p_clear_income"?: boolean,"p_count"?: number,"p_day_of_month"?: number,"p_from_account_id"?: string,"p_from_period_id"?: string,"p_income_id"?: string,"p_is_automatic"?: boolean,"p_offset_days"?: number,"p_schedule"?: Database["public"]['Enums']["transfer_schedule"],"p_to_account_id"?: string,"p_transfer_id": string }; Returns: {
-              "amount": number,"category_id": string,"created_at_once": boolean,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"period_id": string,"projected": boolean,"start_date": string
+              "amount": number,"category_id": string,"created_at_once": boolean,"created_at_once_count": number,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"period_id": string,"projected": boolean,"start_date": string
             }[]
                            },
 "record_early_pay_date":

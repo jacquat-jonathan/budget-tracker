@@ -203,7 +203,7 @@ select results_eq(
   format($$select (select transfers_to_do from public.my_budgets where id = %1$L), (select transfers_overdue from public.my_budgets where id = %1$L),
                   c.status, c.is_overdue
            from public.get_transfer_checklist(%2$L) as c where c.transfer_id = %3$L$$, tests.id('b'), tests.id('p2'), tests.id('t_3a')),
-  $$values (3, 2, 'to_do', false)$$,
+  $$values (4, 3, 'to_do', false)$$,
   'R-ACCOUNT-241: due today is to do, not yet overdue (in the checklist and in my_budgets)');
 
 -- held back while the budget is full, created when there is room (none skipped)
@@ -264,8 +264,8 @@ select results_eq(
   'R-ACCOUNT-005: a manual transfer is to do in the period''s checklist, overdue once its due date has passed');
 select results_eq(
   format($$select transfers_to_do, transfers_overdue from public.my_budgets where id = %L$$, tests.id('b')),
-  $$values (3, 2)$$,
-  'R-ACCOUNT-241: my_budgets counts the manual transfers of the current period still to do, and the overdue ones');
+  $$values (4, 3)$$,
+  'R-ACCOUNT-241: my_budgets counts the manual transfers of the current period and the one before still to do, and the overdue ones (Q-222)');
 select results_eq(
   format($$select status, done_on, amount_moved, transaction_id, recorded_by, recorded_by_name
            from public.mark_transfer_done(%L, %L, 0)$$, tests.id('t_tax'), tests.id('p2')),

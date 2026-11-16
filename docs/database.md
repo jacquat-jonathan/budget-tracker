@@ -115,7 +115,7 @@ below lists the rule ids it implements.
 
 | Relation | Rows | Columns (beyond the obvious) | Rules |
 | --- | --- | --- | --- |
-| `my_budgets` (view) | budgets I belong to | `id`, `name`, `owner_id`, `primary_income_id`, `end_date_entered` (the end date the owner entered; null: no end), `end_date` (the end shown: the end of the period containing the date entered, projected while that period does not exist), `is_owner`, `created_at`, `updated_at`, `caught_up` (false while the budget needs more `ensure_periods` calls: after an absence, and whenever a subscription charge or a transfer's transaction is due and not yet created), `charges_awaiting` (how many automatic charges await confirmation), `to_review` (how many transactions are to review: imported and not yet confirmed; step 6), `to_categorise_category_id` (the budget's "to categorise" category while it is in force; null when there is none or it has ended; step 6), `transfers_to_do`, `transfers_overdue` (the current period's manual transfers still to do, and of those the overdue ones; R-ACCOUNT-241), `first_period_start` (the first period's start: the earliest date a transaction can have, whatever the number of periods; D-392; the last date is `end_date` once the budget has an end, otherwise today) | R-BUDGET-004, R-BUDGET-008, R-BUDGET-014, R-PERIOD-130, R-SUBSCRIPTION-135, R-IMPORT-081, R-CATEGORY-250, R-ACCOUNT-241 |
+| `my_budgets` (view) | budgets I belong to | `id`, `name`, `owner_id`, `primary_income_id`, `end_date_entered` (the end date the owner entered; null: no end), `end_date` (the end shown: the end of the period containing the date entered, projected while that period does not exist), `is_owner`, `created_at`, `updated_at`, `caught_up` (false while the budget needs more `ensure_periods` calls: after an absence, and whenever a subscription charge or a transfer's transaction is due and not yet created), `charges_awaiting` (how many automatic charges await confirmation), `to_review` (how many transactions are to review: imported and not yet confirmed; step 6), `to_categorise_category_id` (the budget's "to categorise" category while it is in force; null when there is none or it has ended; step 6), `transfers_to_do`, `transfers_overdue` (the manual transfers of the current period and of the period before it still to do, and of those the overdue ones; R-ACCOUNT-241, D-395), `first_period_start` (the first period's start: the earliest date a transaction can have, whatever the number of periods; D-392; the last date is `end_date` once the budget has an end, otherwise today) | R-BUDGET-004, R-BUDGET-008, R-BUDGET-014, R-PERIOD-130, R-SUBSCRIPTION-135, R-IMPORT-081, R-CATEGORY-250, R-ACCOUNT-241 |
 | `budget_member_list` (view) | members of my budgets | `budget_id`, `user_id`, `role` (`'owner'` \| `'member'`), `display_name` (may be null), `email`, `joined_at` | R-MEMBER-001, R-PROFILE-003 |
 | `budget_invitations` | pending invitations; **owner only** | `id`, `budget_id`, `email` (lower case), `invited_by`, `created_at`, `expires_at` (30 days after the last invite; an expired one cannot be accepted, re-invite to renew) | R-MEMBER-004, R-INVITE-007, R-INVITE-009 |
 | `income_overview` (view) | incomes, ended ones included | `id`, `budget_id`, `user_id` (whose income; null if their account was deleted), `user_display_name` (also for a former member), `name`, `is_primary`, `is_active` (in force in the current period), `first_seq`, `end_seq`, terms in force now `amount`, `pay_day`, `weekend_rule`, `terms_from_seq`, `next_pay_date` (first actual pay date on or after today; null when ended), `account_id`, `account_name` (the account it is paid into, terms in force now; null: none) | R-INCOME-003, R-INCOME-006, R-VERSION-001, R-PROFILE-004, R-ACCOUNT-236 |
@@ -1026,6 +1026,7 @@ range, by `seq`) (R-COMPARE-002)
 | `is_completed` | it ended before today (an ended budget: every period) |
 | `income_total`, `salary_total`, `extra_income_total`, `spent_total`, `expected_total` (the planned total), `committed_total`, `result` | exactly that period's `period_summaries` row |
 | `completed_count`, `average_income`, `average_spent`, `average_result` | the range's averages, the same on every row (null when `completed_count` is 0) |
+| `transfer_committed_total` | the period's `period_summaries.transfer_committed_total`: the planned transfers' committed amounts, apart from `committed_total` (D-399) |
 
 **`get_category_trend(p_budget_id, p_count = 12) -> {...}[]`** (**one row per category
 line**, ordered by `display_order`; the periods are arrays on the row) (R-COMPARE-070,
@@ -1061,6 +1062,7 @@ JavaScript).
 | `transaction_count` | `integer[]`: its transactions in each period |
 | `completed_count`, `average_spent` | the line's average spent over the completed periods of the range (every completed period counts, also those where it was not in force, so the lines add up to the trend's); null when none is completed |
 | `active_count`, `active_average_spent` | its average over the completed periods of the range in which it was in force or had spending (D-383); null when `active_count` is 0 |
+| `transfer_committed` | `bigint[]`: the planned transfers' committed amount on the line in each period, apart from `committed` (D-399) |
 | `is_overspent` | `boolean[]`: "over the plan" in each period, exactly `get_period_progress.is_overspent` of the line (false where it has no progress row); never compute it from `spent` and `planned` (D-391) |
 
 A budget without categories gives no rows (the periods are still in `get_period_trend`).
@@ -1097,6 +1099,7 @@ row repeats `a_period_id`, `a_start_date`, `a_end_date`, `a_days` and the same f
 | `a_transaction_count`, `b_transaction_count` | the period's transactions on categories (0 when there are none; null only for an empty side A) | the category's |
 | `a_is_current`, `a_is_completed`, `b_is_current`, `b_is_completed` | each side running or completed (the same on every row) | the same |
 | `a_is_overspent`, `b_is_overspent` | null | that side's `get_period_progress.is_overspent`; null where the side has no row (D-391) |
+| `a_transfer_committed`, `b_transfer_committed`, `transfer_committed_difference` | the periods' `transfer_committed_total`, B minus A | the progress view's `transfer_committed`; the difference counts an empty side as 0 (D-399) |
 | `a_income`, `b_income`, `income_difference`, `a_result`, `b_result`, `result_difference` | `income_total`, `result`, B minus A | null |
 
 The totals are the periods' `period_summaries` rows and each side's categories its
@@ -1489,7 +1492,9 @@ No other cadence for now (a yearly payment: Q-220).
   and nothing was marked or created for it (`transfer_overview.removal_deletes`); otherwise
   ended. **Every mark already made stays, and so does every transaction's link** (D-380):
   the checklist of a period where it has a mark still lists it, flagged `is_ended`. Errors: `transfer_not_found`, `record_changed`, `invalid_revision`,
-  `transfer_ended`, `period_not_found`, `budget_ended`.
+  `transfer_ended`, `period_not_found`, `budget_ended`, `transfer_held_back` (an automatic
+  linked occurrence from then on is due and waits for room: ending would drop it; free room
+  first, D-397).
 - **`get_transfer_terms(p_transfer_id, p_period_id) -> {period_id, in_force, from_account_id, to_account_id, amount, schedule, offset_days, day_of_month, income_id, is_automatic, category_id, terms_from_period_id, until_period_id}[]`**
   (one row) See "Terms in a chosen period".
 
@@ -1497,16 +1502,18 @@ No other cadence for now (a yearly payment: Q-220).
 step (`catching_up` when still behind) and changes nothing:
 - **`preview_create_transfer(p_budget_id, p_from_account_id, p_to_account_id, p_amount, p_schedule, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = false, p_category_id = null, p_from_period_id = null, p_count = 6)`**
   and **`preview_update_transfer(p_transfer_id, <the update's term arguments and p_from_period_id>, p_count = 6)`**
-  `-> {period_id, start_date, end_date, projected, due_date, amount, is_automatic, category_id, follows_primary, created_at_once}[]`:
+  `-> {period_id, start_date, end_date, projected, due_date, amount, is_automatic, category_id, follows_primary, created_at_once, created_at_once_count}[]`:
   the first `p_count` (1 to 60) occurrences the terms would govern, oldest first: the existing
   periods (`period_id`), then, while the terms are open-ended, the next periods at their
   projected boundaries (`projected`, `period_id` null; as the catch-up will create them under
   the terms in force now; never after the budget's end). `created_at_once`: its transaction is
-  created by the write itself. With no term argument, `preview_update_transfer` answers the
+  created by the write itself (only where the budget has room); `created_at_once_count` (the
+  same on every row): how many the write creates at once over **every** period it governs, also
+  beyond the rows listed (D-398). With no term argument, `preview_update_transfer` answers the
   terms in force from the current period. Errors: those of the write, and `invalid_limit`.
 - **`preview_end_transfer(p_transfer_id, p_from_period_id = null) -> {outcome, refusal}[]`**
   (one row) `outcome` `'deleted'` / `'ended'`, or `refusal` the write's code
-  (`transfer_ended`, `budget_ended`, `period_not_found`). Nothing is removed by an end, so
+  (`transfer_ended`, `transfer_held_back`, `budget_ended`, `period_not_found`). Nothing is removed by an end, so
   there is nothing else to report (D-380).
 
 **The checklist** (R-ACCOUNT-004, R-ACCOUNT-005, R-ACCOUNT-239). **`get_transfer_checklist(p_period_id) -> transfer_checklist_row[]`**
@@ -1548,7 +1555,8 @@ checklist).
   created, is **deleted**, and none is created for that occurrence again.
 - **`undo_transfer_mark(p_transfer_id, p_period_id, p_expected_revision)`** Back to what the
   occurrence is without a mark: a manual one to do (the transaction of "done" deleted); an
-  automatic one assumed done (its transaction created again when linked and due).
+  automatic one assumed done, its transaction created within the same call when linked and
+  due (later, by the catch-up, once due; D-393).
 - Each returns the occurrence's new checklist row. Errors: `transfer_not_found`,
   `period_not_found`, `transfer_not_in_force` (no occurrence in that period),
   `invalid_revision`, `record_changed`, `transfer_already_marked` (undo the mark first),
@@ -1567,8 +1575,9 @@ A transfer without a category never creates a transaction. In `transaction_list`
 `transfer_id`, `transfer_name`, `transfer_period_id` (the occurrence's period; the date may lie
 in another period when a manual one was done late). Such a transaction can be edited
 (amount, date, category, description; it shows on the occurrence) but stays an expense with no
-other link (`invalid_link`). **Deleting it puts the occurrence back**: a manual one to do; an
-automatic one not done (and not created again). Nothing else deletes it: ending the transfer,
+other link (`invalid_link`). **Deleting it says the transfer did not happen**, by the terms in
+force for the occurrence now: an automatic one is not done (and not created again), whoever
+marked it done; a manual one is to do again (D-393). Nothing else deletes it: ending the transfer,
 a member leaving or closing what it used leave it, unlinked (D-380); the one exception is a
 reopen (below).
 
@@ -1608,7 +1617,10 @@ merged period moves to the reopened period when that period has none for the tra
 (`change` `'mark_moved'`); otherwise it goes (`replaces_previous` true): `'mark_removed'` (no
 transaction), `'transaction_removed'` (the catch-up's transaction goes with it, and comes back
 if the period is created again, like a debt's interest), `'transaction_unlinked'` (a member's
-transaction stays as an ordinary one). A transfer ended in the merged period now ends in the
+transaction stays as an ordinary one). **Known defect (step 7 review, M2), to be fixed by the
+new occurrence model**: a transfer created in the merged period becomes in force in the
+reopened period too, so the same payday's standing order can be recorded twice once the period
+comes back. A transfer ended in the merged period now ends in the
 reopened one; marks of periods where a transfer is no longer in force after the merge stay,
 like any mark of an ended transfer (D-380).
 
@@ -1694,6 +1706,7 @@ Step 4 messages:
 | `catching_up` | the budget is behind: more than 62 days (answered at once, nothing done), or still behind after this call's step; or, from `ensure_periods` / `get_current_period`, another session holds the budget for more than two seconds. Call `ensure_periods` until it returns 0, then retry; nothing was changed |
 | `charge_held_back` | a charge of the subscription waits for room (transaction limit): its schedule cannot change and it cannot end until the charge is created |
 | `membership_limit_reached` | you already belong to 50 budgets (owned ones included): leave one first |
+| `transfer_held_back` | an automatic linked occurrence of the transfer is due and waits for room (transaction limit): it cannot end until the transaction is created |
 | `request_reused` | this `p_client_id` was already used for another request: generate a new one per user action |
 | `invalid_rows` | the import rows are not a JSON array of 1 to 500 rows, or exceed 2 MB in all |
 | `invalid_batch`, `invalid_chunk`, `invalid_source`, `invalid_expiry`, `invalid_fragment` | invalid argument (a batch id, a chunk number 1 to 100, an import source, a token expiry 1 to 365 days, a rule fragment) |

@@ -189,6 +189,11 @@ races two members marking (and undoing) the same occurrence, an early salary aga
 of a transfer, and closing an account against a transfer created on it (dblink; it runs on the
 real today).
 
+`97f_money_flow_review.test.sql` holds the first fixes of the step 7 review: removing a mark
+never leaves an automatic linked occurrence without its transaction, the dashboard's count, an
+ended chosen income does not block an edit, ending while a transaction is held back, the
+previews' counts, and the comparison's transfer-committed figure.
+
 `99_step4_review.test.sql` holds the regression tests of the step 4 database review (one
 section per finding: the projection's period ends, catch-up after 13 and 40 years, category
 coverage, the nominal day, opened dates, due charges, previews, and the contract additions).
