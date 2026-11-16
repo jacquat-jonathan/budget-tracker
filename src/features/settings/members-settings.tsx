@@ -71,8 +71,10 @@ export function MembersSettings() {
     invalidate: () => [budgetKeys.list],
   })
 
-  // Whose income is primary: that member can neither be removed nor leave (D-031).
+  // R-MEMBER-050: whose income is primary; that member can neither be removed nor leave
+  // (D-031). Until the incomes are known, both stay disabled.
   const primaryOwner = incomes.data?.find((income) => income.is_primary)?.user_id ?? null
+  const incomesKnown = incomes.data !== undefined
 
   return (
     <Card>
@@ -93,6 +95,7 @@ export function MembersSettings() {
               const me = member.user_id === user?.id
               const owner = member.role === 'owner'
               const hasPrimary = member.user_id === primaryOwner
+              const blocked = hasPrimary || !incomesKnown
               return (
                 <li
                   key={member.user_id}
@@ -120,7 +123,7 @@ export function MembersSettings() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={hasPrimary}
+                        disabled={blocked}
                         onClick={() => {
                           remove.reset()
                           setPending({ kind: 'remove', member })
@@ -134,7 +137,7 @@ export function MembersSettings() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={hasPrimary}
+                        disabled={blocked}
                         onClick={() => {
                           leave.reset()
                           setPending({ kind: 'leave' })

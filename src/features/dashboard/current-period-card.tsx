@@ -31,13 +31,7 @@ export function CurrentPeriodCard() {
 
   if (current.isPending) return <LoadingState rows={1} className="md:col-span-2" />
   if (current.isError) {
-    return (
-      <ErrorState
-        className="md:col-span-2"
-        error={current.error}
-        onRetry={current.refetch}
-      />
-    )
+    return <ErrorState className="md:col-span-2" error={current.error} onRetry={current.refetch} />
   }
 
   const period = current.data

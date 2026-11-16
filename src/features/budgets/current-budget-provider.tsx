@@ -14,31 +14,47 @@ import { isNotFoundError } from '@/lib/db-errors'
 
 interface CurrentBudgetProviderProps {
   budgets: MyBudget[]
+  /** When the list was last read (dataUpdatedAt), to tell "gone" from "not read yet". */
+  listUpdatedAt: number
   children: ReactNode
 }
 
 /** Provides my budgets and "the budget I am working in", remembered per user. */
-export function CurrentBudgetProvider({ budgets, children }: CurrentBudgetProviderProps) {
+export function CurrentBudgetProvider({
+  budgets,
+  listUpdatedAt,
+  children,
+}: CurrentBudgetProviderProps) {
   const { user } = useAuth()
   const userId = user?.id ?? ''
   const queryClient = useQueryClient()
   // Keyed by user: another user signing in on this tab starts from their own choice.
-  const [choice, setChoice] = useState(() => ({ userId, budgetId: readStoredBudget(userId) }))
+  const [choice, setChoice] = useState(() => ({
+    userId,
+    budgetId: readStoredBudget(userId),
+    /** When the choice was made; 0 for one read from storage. */
+    at: 0,
+  }))
   const wanted = choice.userId === userId ? choice.budgetId : readStoredBudget(userId)
   const current = pickCurrentBudget(budgets, wanted)
 
   const selectBudget = useCallback(
     (budgetId: string) => {
       storeBudget(userId, budgetId)
-      setChoice({ userId, budgetId })
+      setChoice({ userId, budgetId, at: Date.now() })
     },
     [userId],
   )
 
   // R-BUDGET-051: the budget shown is the one remembered, also when it was a fallback, so
   // a rename by someone else (which changes the order by name) never moves me elsewhere.
+  // A choice that is not in the list yet (a budget just created or joined) is kept until the
+  // list has been read again after it was made; only then is it gone, and the fallback kept.
   const currentId = current?.id
-  if (currentId && currentId !== wanted) setChoice({ userId, budgetId: currentId })
+  const settled = wanted === null || listUpdatedAt > choice.at
+  if (currentId && currentId !== wanted && settled) {
+    setChoice({ userId, budgetId: currentId, at: 0 })
+  }
   useEffect(() => {
     if (currentId) storeBudget(userId, currentId)
   }, [userId, currentId])

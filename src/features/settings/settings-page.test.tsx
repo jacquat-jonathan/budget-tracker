@@ -121,10 +121,10 @@ describe('settings as a plain member [R-MEMBER-050]', () => {
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/settings')
 
-    expect(await screen.findByRole('button', { name: 'Leave budget' })).toBeDisabled()
     expect(
-      screen.getByText('Your income is the primary income: make another income primary first.'),
+      await screen.findByText('Your income is the primary income: make another income primary first.'),
     ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Leave budget' })).toBeDisabled()
   })
 
   it('renames the budget', async () => {

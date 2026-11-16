@@ -20,7 +20,7 @@ export function BudgetsRoute() {
     )
   }
   return (
-    <CurrentBudgetProvider budgets={budgets.data}>
+    <CurrentBudgetProvider budgets={budgets.data} listUpdatedAt={budgets.dataUpdatedAt}>
       <Outlet />
     </CurrentBudgetProvider>
   )
