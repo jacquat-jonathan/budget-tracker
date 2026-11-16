@@ -97,7 +97,9 @@ export function useUpdateCategory(budgetId: string, options: { onDone: () => voi
       return true
     },
     success: (saved, input) => (saved ? t('categories.saved', { name: input.name }) : ''),
-    onSuccess: () => options.onDone(),
+    onSuccess: (saved) => {
+      if (saved) options.onDone()
+    },
     invalidate: () => affected(budgetId),
   })
 }

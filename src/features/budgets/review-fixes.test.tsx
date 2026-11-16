@@ -172,10 +172,26 @@ describe('period reads wait for ensure_periods [R-PERIOD-052]', () => {
   it('takes "ended" from the database’s answer', async () => {
     const db = householdDb()
     db.rpc.get_current_period.mockImplementation(() => [])
+    db.tables.my_budgets = db.tables.my_budgets.map((row) => ({
+      ...row,
+      end_date: '2026-10-22',
+      end_date_entered: '2026-10-20',
+    }))
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/periods')
 
     expect(await screen.findByText('This budget has ended')).toBeInTheDocument()
+  })
+
+  it('never takes a missing current period alone for an ended budget [R-BUDGET-280]', async () => {
+    // A catch-up under way: no current period yet, but the budget has no end.
+    const db = householdDb()
+    db.rpc.get_current_period.mockImplementation(() => [])
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/periods')
+
+    expect(await screen.findAllByTestId('period-row')).not.toHaveLength(0)
+    expect(screen.queryByText('This budget has ended')).not.toBeInTheDocument()
   })
 })
 

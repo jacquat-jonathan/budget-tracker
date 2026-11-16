@@ -14,6 +14,7 @@ import {
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -68,7 +69,7 @@ export function BudgetPage() {
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
 
-  const ended = current.isSuccess && current.data === null
+  const ended = useBudgetEnded(budgetId)
   const header = (
     <PageHeader
       title={t('nav.budget')}

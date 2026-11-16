@@ -221,6 +221,8 @@ export const fr: Translation = {
     forbidden: 'Vous n’avez pas le droit de faire cela.',
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+    networkAdd:
+      'La connexion a été coupée avant la réponse : c’est peut-être enregistré. Vérifiez la liste avant d’enregistrer de nouveau, pour ne pas l’enregistrer deux fois.',
     networkSave:
       'La connexion a échoué : rien n’a été enregistré. Vos saisies sont toujours là : vérifiez votre connexion et enregistrez de nouveau.',
     generic: 'Une erreur s’est produite. Veuillez réessayer.',
@@ -288,7 +290,7 @@ export const fr: Translation = {
       category_limit_reached:
         'Ce budget contient déjà le maximum de catégories (200 en usage, ou 500 au total).',
       transaction_limit_reached:
-        'Ce budget contient déjà 50 000 transactions, le maximum possible.',
+        "Ce budget contient déjà 50'000 transactions, le maximum possible.",
       category_not_ended: 'Cette catégorie n’a pas pris fin : il n’y a rien à restaurer.',
       category_in_use:
         'Un abonnement ou une dette utilise encore cette catégorie. Terminez-le ou déplacez-le d’abord dans une autre catégorie.',
@@ -302,7 +304,7 @@ export const fr: Translation = {
       catching_up:
         'Rien n’a été enregistré : le budget rattrapait encore le temps écoulé depuis votre dernière visite. C’est fait : vos saisies sont toujours là, enregistrez de nouveau.',
       charge_held_back:
-        'Un prélèvement de cet abonnement attend : le budget contient 50 000 transactions, le maximum. Son calendrier ne peut pas changer et il ne peut pas être terminé avant que ce prélèvement soit créé ; supprimez d’abord des transactions pour faire de la place.',
+        "Un prélèvement de cet abonnement attend : le budget contient 50'000 transactions, le maximum. Son calendrier ne peut pas changer et il ne peut pas être terminé avant que ce prélèvement soit créé ; supprimez d’abord des transactions pour faire de la place.",
       preview_required:
         'Cette modification déplace la fin de la période en cours : regardez la nouvelle fin ci-dessous, puis enregistrez de nouveau.',
       invalid_charge_date:
@@ -792,6 +794,9 @@ export const fr: Translation = {
     },
   },
   transactions: {
+    frozenTitle: 'Paiement d’une dette terminée',
+    frozenDescription:
+      'Sa dette est terminée : ce paiement reste tel qu’il était et ne peut plus être modifié.',
     add: 'Ajouter une transaction',
     addTitle: 'Ajouter une transaction',
     addDescription: 'Une dépense, un remboursement, ou de l’argent qui entre en plus des salaires.',

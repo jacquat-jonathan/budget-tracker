@@ -135,6 +135,7 @@ export function ConcurrentNotices({
   error,
   message,
   recovered = false,
+  adding = false,
 }: {
   gone: boolean
   /** Gone because another member ended it, not deleted. */
@@ -148,11 +149,16 @@ export function ConcurrentNotices({
   message: (error: unknown) => string
   /** The save's answer was lost but the record holds what was sent: it was saved. */
   recovered?: boolean
+  /** A new record: a lost answer may hide a row that was recorded (nothing to compare with). */
+  adding?: boolean
 }) {
   const { t } = useTranslation()
   // A lost answer is never "someone else": saved (recovered), or not saved (the connection).
+  // R-CONCURRENCY-281: an add whose answer was lost may have been recorded: said so.
   const say = (failure: unknown) =>
-    dbErrorKey(failure) === 'errors.network' ? t('errors.networkSave') : message(failure)
+    dbErrorKey(failure) === 'errors.network'
+      ? t(adding ? 'errors.networkAdd' : 'errors.networkSave')
+      : message(failure)
   return (
     <>
       {recovered && (

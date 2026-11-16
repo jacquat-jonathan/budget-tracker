@@ -14,6 +14,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { paths, transactionsOf } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
@@ -62,7 +63,7 @@ export function SubscriptionsPage() {
   const periods = usePeriods(budgetId)
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
-  const ended = current.isSuccess && current.data === null
+  const ended = useBudgetEnded(budgetId)
 
   const header = (
     <PageHeader

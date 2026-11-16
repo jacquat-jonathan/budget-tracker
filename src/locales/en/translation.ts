@@ -211,6 +211,8 @@ export const en = {
     forbidden: 'You are not allowed to do this.',
     invalidValue: 'One of the values is not accepted. Check the form and try again.',
     network: 'Cannot reach the server. Check your connection and try again.',
+    networkAdd:
+      'The connection failed before the answer came back: it may have been saved. Check the list before saving again, so it is not recorded twice.',
     networkSave:
       'The connection failed: nothing was saved. What you entered is still here: check your connection and save again.',
     generic: 'Something went wrong. Please try again.',
@@ -276,7 +278,7 @@ export const en = {
       category_limit_reached:
         'This budget already has the most categories it can hold (200 in use, or 500 in all).',
       transaction_limit_reached:
-        'This budget already holds 50 000 transactions, the most it can hold.',
+        "This budget already holds 50'000 transactions, the most it can hold.",
       category_not_ended: 'This category has not ended, so there is nothing to restore.',
       category_in_use:
         'A subscription or a debt still uses this category. End it, or move it to another category, first.',
@@ -290,7 +292,7 @@ export const en = {
       catching_up:
         'Nothing was saved: the budget was still catching up on the time since your last visit. It is caught up now: what you entered is still here, save again.',
       charge_held_back:
-        'A charge of this subscription is waiting: the budget holds 50 000 transactions, the most it can hold. Its schedule cannot change and it cannot end until that charge is created; delete transactions to make room first.',
+        "A charge of this subscription is waiting: the budget holds 50'000 transactions, the most it can hold. Its schedule cannot change and it cannot end until that charge is created; delete transactions to make room first.",
       preview_required:
         'This change moves the end of the current period: look at the new end below, then save again.',
       invalid_charge_date:
@@ -754,6 +756,9 @@ export const en = {
     },
   },
   transactions: {
+    frozenTitle: 'Payment of an ended debt',
+    frozenDescription:
+      'Its debt has ended: this payment is kept as it was and can no longer be changed.',
     add: 'Add transaction',
     addTitle: 'Add a transaction',
     addDescription: 'An expense, a refund, or money coming in besides the salaries.',

@@ -5,8 +5,10 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
+import { NothingToSave } from '@/components/nothing-to-save'
 import { CorrectionToggle } from '@/components/form/correction-toggle'
 import { MoneyField } from '@/components/form/money-field'
 import { SelectField } from '@/components/form/select-field'
@@ -143,6 +145,7 @@ function DebtForm({
   const update = useUpdateDebt(budgetId, { onDone: close })
   const mutation = debt ? update : create
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    error: update.error,
     controls: ['correct', 'fromPeriodId'],
     current: () => (correcting ? startValues : null),
   })
@@ -163,7 +166,7 @@ function DebtForm({
     : []
 
   // R-BUDGET-150: once the budget has ended, a change is only a correction of its periods.
-  const mustCorrect = currentPeriod === null
+  const mustCorrect = useBudgetEnded(budgetId)
   const firstCorrectable = correctable[0]?.id
   const firstEarlier = earlier[0]?.id
   useEffect(() => {
@@ -191,7 +194,7 @@ function DebtForm({
           categoryId: base.category_id,
         }
       : null
-  useStartFrom(
+  const start = useStartFrom(
     form,
     correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     startValues,
@@ -253,6 +256,7 @@ function DebtForm({
           </Alert>
         )}
         <ConcurrentNotices
+          adding={!debt}
           gone={edit.gone}
           pending={sync.pending}
           updated={sync.updated}
@@ -297,6 +301,8 @@ function DebtForm({
               terms={termsAt.data}
               pending={termsAt.isPending}
               error={termsAt.isError ? errorMessage(termsAt.error) : null}
+              kept={start.kept}
+              views={edit.describe(debt)}
             />
           </CorrectionToggle>
         )}
@@ -364,6 +370,7 @@ function DebtForm({
               : t('debts.addAppliesFrom')}
           </AlertDescription>
         </Alert>
+        <NothingToSave show={update.data === false && !update.isPending} />
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}

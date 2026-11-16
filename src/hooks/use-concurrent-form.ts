@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FieldValues, Path, PathValue, UseFormReturn } from 'react-hook-form'
 
 import { formFieldsOf, type EditBase, type FieldView } from '@/hooks/use-edit-base'
+import { dbErrorKey } from '@/lib/db-errors'
 
 export interface ConcurrentFormOptions<TIn extends FieldValues> {
   /**
@@ -14,6 +15,25 @@ export interface ConcurrentFormOptions<TIn extends FieldValues> {
    * the record's current terms as "now" (Keep mine, Load their version).
    */
   current?: () => Partial<TIn> | null
+  /**
+   * The save's error. Only a save whose answer was lost on the way (a network failure) can
+   * turn out to have been recorded; a refusal the database returned never was.
+   */
+  error?: unknown
+}
+
+/** The same value, also when typed differently (a money string against its stored form). */
+function same(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  const number = (value: unknown) =>
+    typeof value === 'string' && /^-?[\d'’ .,]+$/.test(value.trim())
+      ? Number(value.replace(/['’ ,]/g, ''))
+      : typeof value === 'number'
+        ? value
+        : NaN
+  const x = number(a)
+  const y = number(b)
+  return !Number.isNaN(x) && !Number.isNaN(y) && x === y
 }
 
 /**
@@ -56,6 +76,7 @@ export function assertFieldsCovered(
  *   again. Never resent automatically (docs/database.md, "Concurrent edits").
  */
 // R-CONCURRENCY-190: "Keep mine" keeps exactly what was typed; the rest is what is true now.
+// R-CONCURRENCY-280: "saved" only after a lost answer, when the record holds all that was sent.
 export function useConcurrentForm<
   T extends { revision: number },
   TIn extends FieldValues,
@@ -67,7 +88,7 @@ export function useConcurrentForm<
   onResolved?: () => void,
   options: ConcurrentFormOptions<TIn> = {},
 ) {
-  const { controls = [], current } = options
+  const { controls = [], current, error } = options
   // What the database says now for what this form edits: the record's values, and for a
   // correction the chosen period's terms read again (never today's terms).
   const now = (record: T): TIn => ({ ...valuesOf(record), ...(current?.() ?? {}) })
@@ -77,6 +98,14 @@ export function useConcurrentForm<
   // The record now holds exactly what this form sent, at this revision: the user's own save
   // whose answer was lost on the way (network), not someone else's change (R-CONCURRENCY-191).
   const [recovered, setRecovered] = useState<number | null>(null)
+  // What the last save sent: every field of the form when it was submitted.
+  const { submitCount } = form.formState
+  const [sent, setSent] = useState<{ count: number; values: Record<string, unknown> } | null>(null)
+  if (submitCount > 0 && sent?.count !== submitCount) {
+    // Taken while rendering the submit (the fields cannot change while a save is under way).
+    setSent({ count: submitCount, values: form.getValues() })
+  }
+  const lost = dbErrorKey(error) === 'errors.network'
   // Read during render: react-hook-form only tracks the form state a render has read.
   const { isDirty, dirtyFields } = form.formState
   const { changed, live } = edit
@@ -94,11 +123,13 @@ export function useConcurrentForm<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base?.revision])
   useEffect(() => {
-    if (changed && live && isDirty) {
-      const values = form.getValues() as Record<string, unknown>
-      const theirsNow = valuesOf(live) as Record<string, unknown>
-      const mine = edit.theirs.every((view) =>
-        formFieldsOf(view).every((field) => Object.is(theirsNow[field], values[field])),
+    if (changed && live && isDirty && lost && sent) {
+      // "Saved" only when the record now holds every value this form sent, after a save
+      // whose answer was lost: a refusal, or a record that matches only some of the
+      // fields (another member typed the same value), is never taken for the user's save.
+      const stored = valuesOf(live) as Record<string, unknown>
+      const mine = Object.keys(stored).every(
+        (field) => controls.includes(field) || same(stored[field], sent.values[field]),
       )
       if (mine) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -119,7 +150,7 @@ export function useConcurrentForm<
     }
     // Only when the record or the typing state changes; the callbacks are recreated each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [changed, live, isDirty])
+  }, [changed, live, isDirty, lost])
   return {
     /** Their changes when they were taken in silently (nothing typed). */
     updated:

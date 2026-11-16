@@ -516,6 +516,11 @@ describe('income page', () => {
       ...period,
       is_current: false,
     }))
+    db.tables.my_budgets = db.tables.my_budgets.map((row) => ({
+      ...row,
+      end_date: '2026-10-22',
+      end_date_entered: '2026-10-20',
+    }))
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/income')
 

@@ -97,7 +97,8 @@ export function useEditIncome(
 ) {
   const { t } = useTranslation()
   const { budget } = useCurrentBudget()
-  return useAppMutation<string | null, EditIncomeInput>({
+  // false: nothing to send (the window stays open and says so).
+  return useAppMutation<string | null | false, EditIncomeInput>({
     errorDisplay: 'inline',
     // A change this form does not show (the primary switch moves both incomes' revisions).
     errorMessages: { record_changed: 'corrections.changedNotShown' },
@@ -111,7 +112,7 @@ export function useEditIncome(
       // R-VERSION-140: a correction sends only what the user changed.
       const correcting = input.fromPeriodId !== null && (amount || payDay)
       const renamed = input.name !== income.name
-      if (!renamed && !amount && !payDay && !weekendRule) return null
+      if (!renamed && !amount && !payDay && !weekendRule) return false
       unwrap(
         await supabase.rpc('update_income', {
           p_income_id: income.id,
@@ -131,10 +132,14 @@ export function useEditIncome(
         : null
     },
     success: (next, input) =>
-      next
-        ? t('income.savedNextExpected', { name: input.name, date: formatCalendarDate(next) })
-        : t('income.saved', { name: input.name }),
-    onSuccess: () => options.onDone(),
+      next === false
+        ? ''
+        : next
+          ? t('income.savedNextExpected', { name: input.name, date: formatCalendarDate(next) })
+          : t('income.saved', { name: input.name }),
+    onSuccess: (next) => {
+      if (next !== false) options.onDone()
+    },
     invalidate: () => affected(budgetId),
   })
 }

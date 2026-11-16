@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { z } from 'zod'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { CalendarDate, CalendarDateField } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -139,8 +140,9 @@ export function PeriodsPage() {
   const { t } = useTranslation()
   const { budgetId, budget } = useCurrentBudget()
   const periods = usePeriods(budgetId)
-  // Whether the budget has ended is the database's answer, not the absence of a row.
+  // Ended from the budget's own end, never from a missing current period.
   const current = useCurrentPeriod(budgetId)
+  const ended = useBudgetEnded(budgetId)
   const [action, setAction] = useState<Action | null>(null)
   const write = useBoundaryAction(budgetId)
   // Arriving from "has this salary already arrived?" (R-PERIOD-037): open the operation it
@@ -201,7 +203,6 @@ export function PeriodsPage() {
   }
 
   const list = periods.data
-  const ended = current.data === null
   const range = (period: PeriodSummary) =>
     `${formatCalendarDate(period.start_date)} – ${formatCalendarDate(period.end_date)}`
 

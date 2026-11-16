@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FieldValues, Path, PathValue, UseFormReturn } from 'react-hook-form'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap } from '@/features/budgets/budget-queries'
 import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
+import { formFieldsOf, type FieldView } from '@/hooks/use-edit-base'
 
 type Functions = Database['public']['Functions']
 type Row<F extends keyof Functions> = Functions[F] extends { Returns: (infer R)[] } ? R : never
@@ -112,13 +113,19 @@ export function useStartFrom<TIn extends FieldValues, TOut extends FieldValues>(
   values: Partial<TIn> | null,
 ) {
   const applied = useRef<string | null>(null)
+  // The fields whose typed value was kept over the period's own the last time the period
+  // changed: the form says so (D-294).
+  const [kept, setKept] = useState<{ key: string; names: string[] } | null>(null)
   useEffect(() => {
     if (values === null || applied.current === key) return
+    const first = applied.current === null
     applied.current = key
     // What the user typed stays (the same rule as "Keep mine", R-CONCURRENCY-190): a field
-    // they changed keeps its value over the new period's; the others start from it.
-    const dirty = form.formState.dirtyFields as Record<string, unknown>
+    // they changed keeps its value over the new period's; the others start from it. The
+    // dirty set is copied first: resetField clears a field's entry in it.
+    const dirty = { ...(form.formState.dirtyFields as Record<string, unknown>) }
     const typed = form.getValues() as Record<string, unknown>
+    const names: string[] = []
     for (const [name, value] of Object.entries(values)) {
       form.resetField(name as Path<TIn>, {
         defaultValue: value as PathValue<TIn, Path<TIn>>,
@@ -127,7 +134,24 @@ export function useStartFrom<TIn extends FieldValues, TOut extends FieldValues>(
         form.setValue(name as Path<TIn>, typed[name] as PathValue<TIn, Path<TIn>>, {
           shouldDirty: true,
         })
+        names.push(name)
       }
     }
+    // Synchronising the form (an external store) with the terms read: an effect's job; the
+    // note is set in the same pass as the values it describes.
+    if (!first) setKept({ key, names })
   }, [form, key, values])
+  return { kept: kept?.key === key ? kept.names : null }
+}
+
+/**
+ * After the correction period changed: which fields kept what the user typed, and that the
+ * others now show the chosen period's terms (D-294). Nothing when no field was typed.
+ */
+export function keptTypedLabels(names: readonly string[] | null, views: readonly FieldView[]) {
+  if (!names || names.length === 0) return null
+  const labels = views
+    .filter((view) => formFieldsOf(view).some((field) => names.includes(field)))
+    .map((view) => view.label)
+  return labels.length > 0 ? labels : null
 }

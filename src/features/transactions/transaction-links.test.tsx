@@ -255,7 +255,11 @@ describe('debt payments in the transaction form [R-DEBT-123]', () => {
       'This is a payment on “Car loan”, which has ended: it can no longer be changed or deleted.',
     )
     expect(within(form).queryByLabelText('Debt payment')).not.toBeInTheDocument()
-    expect(within(form).getByRole('button', { name: 'Save' })).toBeDisabled()
+    // A read-only view: titled so, every field disabled, no Save, Close usable.
+    expect(screen.getByRole('dialog', { name: 'Payment of an ended debt' })).toBeInTheDocument()
+    expect(within(form).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    expect(within(form).getByLabelText('Amount')).toBeDisabled()
+    expect(within(form).getByRole('button', { name: 'Close' })).toBeEnabled()
   })
 
   it('keeps a payment an expense: a refund needs the link removed first', async () => {

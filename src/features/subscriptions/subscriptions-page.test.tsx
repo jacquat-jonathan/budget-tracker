@@ -462,6 +462,11 @@ describe('in an ended budget [R-BUDGET-150]', () => {
   it('offers an edit only as a correction from one of its periods', async () => {
     const db = subscriptionsDb()
     db.rpc.get_current_period.mockImplementation(() => [])
+    db.tables.my_budgets = db.tables.my_budgets.map((row) => ({
+      ...row,
+      end_date: '2026-10-22',
+      end_date_entered: '2026-10-20',
+    }))
     db.tables.period_summaries = db.tables.period_summaries.map((period) => ({
       ...period,
       is_current: false,

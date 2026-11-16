@@ -151,7 +151,7 @@ describe('a charge held back [R-SUBSCRIPTION-190]', () => {
     renderRoutes(routes, '/subscriptions')
     const held = await screen.findByTestId('charge-held')
     expect(held).toHaveTextContent('Waiting since 05.11.2026')
-    expect(held).toHaveTextContent('50 000 transactions, the most it can hold')
+    expect(held).toHaveTextContent("50'000 transactions, the most it can hold")
   })
 
   it('says why its end is refused', async () => {

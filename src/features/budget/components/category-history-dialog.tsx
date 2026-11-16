@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { MoneyField } from '@/components/form/money-field'
@@ -117,6 +118,7 @@ function HistoryForm({
   const errorMessage = useErrorMessage()
   const views = useRecordViews()
   const id = useId()
+  const budgetEnded = useBudgetEnded(budgetId)
   const live = useRecord('category_overview', budgetId, opened.id)
   const edit = useEditBase(opened, live, views.category)
   const category = edit.base ?? opened
@@ -135,7 +137,7 @@ function HistoryForm({
   const endedIn = periods.find((period) => period.seq === category.end_seq) ?? null
   const endedThisPeriod = endedIn !== null && endedIn.is_current === true
   // In an ended budget only the correction can restore.
-  const [asCorrection, setAsCorrection] = useState(mode === 'restore' && currentPeriod === null)
+  const [asCorrection, setAsCorrection] = useState(mode === 'restore' && budgetEnded)
   const groupEnded = parent !== null && parent.end_seq !== null
 
   const valuesOf = (from: Category): Input => ({
@@ -156,6 +158,7 @@ function HistoryForm({
   const restore = useRestoreCategory(budgetId, { onDone: close })
   const mutation = mode === 'extend' ? extend : restore
   const sync = useConcurrentForm(form, edit, valuesOf, () => mutation.reset(), {
+    error: mutation.error,
     controls: ['fromPeriodId'],
   })
   const chosen = periods.find((period) => period.id === fromPeriodId)
@@ -271,15 +274,13 @@ function HistoryForm({
               <Checkbox
                 id={id}
                 checked={asCorrection}
-                disabled={currentPeriod === null}
+                disabled={budgetEnded}
                 onCheckedChange={(checked) => setAsCorrection(checked === true)}
               />
               <FieldContent>
                 <FieldLabel htmlFor={id}>{t('categories.restoreAsCorrection')}</FieldLabel>
                 <FieldDescription>
-                  {currentPeriod === null
-                    ? t('categories.restoreEndedBudget')
-                    : t('income.correction.help')}
+                  {budgetEnded ? t('categories.restoreEndedBudget') : t('income.correction.help')}
                 </FieldDescription>
               </FieldContent>
             </Field>

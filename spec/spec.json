@@ -6654,6 +6654,123 @@
         "owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16",
         "code: src/features/compare/compare-page.tsx"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CONCURRENCY-280",
+      "area": "concurrency",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "An edit form says its change was saved only after a save whose answer was lost on the way (a failed connection), and only when the record now holds every value the form sent; a save the database refused (record_changed) is never reported as saved, even when another member saved the same value in one of its fields: the form keeps what was typed and offers the choice between their version and keeping one's own.",
+      "related": ["R-CONCURRENCY-190", "R-CONCURRENCY-191", "R-CONCURRENCY-091"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/hooks/use-concurrent-form.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CONCURRENCY-281",
+      "area": "concurrency",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "When the answer to an add (a new transaction, category, income, subscription or debt) is lost on the way, the form says it may have been saved and to check the list before saving again, never that nothing was saved.",
+      "related": ["R-CONCURRENCY-191", "Q-250"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/components/changed-elsewhere.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-BUDGET-280",
+      "area": "budget",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "The app takes a budget for ended only from the budget's own end: it has an end date, it is caught up, and the database then gives no current period. A missing current period alone (a catch-up under way) never makes a page say the budget has ended, and never turns an edit into a correction: an open form keeps its state.",
+      "related": ["R-BUDGET-150", "R-PERIOD-190", "D-400", "Q-251"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/features/budgets/budget-ended.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-280",
+      "area": "app",
+      "feature": "F-PLATFORM",
+      "statement": "A save that has nothing to send (every field as recorded) keeps the window open and says so; it never closes with a success message.",
+      "related": ["R-VERSION-140"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/components/nothing-to-save.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "review",
+      "id": "R-APP-281",
+      "area": "app",
+      "feature": "F-PLATFORM",
+      "statement": "No call waits without end: a call unanswered after 30 seconds fails like a lost connection (a read shows an error with a retry, a write says what a lost answer means for it).",
+      "related": ["D-401"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/lib/supabase.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-282",
+      "area": "app",
+      "feature": "F-PLATFORM",
+      "statement": "Every count in a message is grouped like amounts (12'345), in both languages, by the one helper that formats counts; the plural is chosen from the number.",
+      "related": ["C-MONEY-003", "D-402"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/lib/i18n.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-280",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "A read answered catching_up is not a failure: it is not retried meanwhile and never shows an error card; the page waits (a placeholder) while the budget is caught up, then reads again.",
+      "related": ["R-PERIOD-190", "R-COMPARE-175"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/components/states.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-281",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "A period named in the address (a filter, a comparison side) keeps its meaning beyond the pages of periods loaded: it is read by its id and shown in its picker; an id that is not a uuid is never sent.",
+      "related": ["R-PERIOD-191"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/features/budgets/budget-queries.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-TRANSACTION-280",
+      "area": "transaction",
+      "feature": "F-TRANSACTION",
+      "statement": "The dates a transaction may take start at the budget's first period, read by itself, whatever pages of periods are loaded.",
+      "related": ["R-TRANSACTION-090", "R-PERIOD-191"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16",
+        "code: src/features/budgets/budget-queries.ts"
+      ]
     }
   ],
   "decisions": [
@@ -9473,6 +9590,54 @@
       "source": [
         "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
       ]
+    },
+    {
+      "id": "D-400",
+      "title": "An ended budget is one with an end and no current period, caught up",
+      "decision": "The client says a budget has ended only when my_budgets has an end date, the budget is caught up (my_budgets.caught_up, no catch-up running) and get_current_period gives no row. Pages wait and forms hold their state otherwise.",
+      "why": "Mid catch-up get_current_period gives no row although nothing has ended; taking that for the end turned edits into corrections and dropped typed values.",
+      "rejected": ["\"No current period\" alone (the earlier rule)."],
+      "status": "accepted",
+      "related": ["R-BUDGET-280", "Q-251"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-401",
+      "title": "Calls give up after 30 seconds",
+      "decision": "Every call to the database through supabase-js is given up after 30 seconds without an answer, as a lost connection.",
+      "why": "A read that never answers showed skeletons for ever; 30 s is far above every measured call (a catch-up step included) and short enough for a person waiting.",
+      "rejected": ["No limit.", "A limit per query."],
+      "status": "accepted",
+      "related": ["R-APP-281"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-402",
+      "title": "Counts are grouped by the translation layer",
+      "decision": "Every {{count}} in a translated message goes through the same count formatter (formatCount): the translations need no change and no caller can forget it; other interpolated values are untouched.",
+      "why": "Counts were raw in some messages and grouped in others (\"And 12345 more changes\", \"50 000\").",
+      "rejected": ["Formatting at each call site."],
+      "status": "accepted",
+      "related": ["R-APP-282"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-403",
+      "title": "A frozen payment opens as a read-only view",
+      "decision": "A payment of an ended debt opens titled \"Payment of an ended debt\", every field shown and disabled, with Close and no Save.",
+      "why": "An \"Edit transaction\" window whose fields look editable and whose Save is disabled invites edits that can never be saved.",
+      "rejected": ["The edit form with Save disabled."],
+      "status": "accepted",
+      "related": ["R-DEBT-151"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16"
+      ]
     }
   ],
   "conventions": [
@@ -10465,6 +10630,26 @@
       "related": ["D-334", "Q-208"],
       "source": [
         "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-250",
+      "status": "open",
+      "question": "Should an add carry a client-generated id so a retry after a lost answer records it once?",
+      "context": "R-CONCURRENCY-281: today a lost answer on an add can only be described (\"it may have been saved\"); the coordinator has asked the database for an idempotency id on adds, to be wired in the next round.",
+      "related": ["R-CONCURRENCY-281"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-251",
+      "status": "open",
+      "question": "Should my_budgets say directly whether the budget has ended?",
+      "context": "D-400: the client combines three answers (end date, caught_up, no current period). A has_ended column would make the rule one read and remove the wait during a catch-up.",
+      "related": ["R-BUDGET-280", "D-400"],
+      "source": [
+        "owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16"
       ]
     }
   ]

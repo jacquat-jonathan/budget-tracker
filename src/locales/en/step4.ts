@@ -89,7 +89,7 @@ export const subscriptionsEn = {
   noFurtherCharge: 'No further charge before the budget ends',
   held: {
     title: 'Waiting since {{date}}',
-    why: 'The budget holds 50 000 transactions, the most it can hold: this charge is created once there is room.',
+    why: "The budget holds 50'000 transactions, the most it can hold: this charge is created once there is room.",
   },
   remove: {
     deleteTitle: 'Delete “{{name}}”?',
@@ -385,6 +385,12 @@ export const debtsEn = {
 }
 
 export const correctionsEn = {
+  keptTyped_one:
+    'You had typed {{fields}}: it is kept. The other fields now show the terms of the period you chose.',
+  keptTyped_other:
+    'You had typed {{fields}}: they are kept. The other fields now show the terms of the period you chose.',
+  nothingToSave:
+    'Nothing to save: every field is as recorded. Change a field, or close this window.',
   period: 'Correct from the period',
   showsPeriodTerms:
     'The fields below now show what was in force in that period. Change only what was wrong: what you leave as it is stays as it was.',

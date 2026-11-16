@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { debtPath } from '@/app/paths'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -33,7 +34,7 @@ export function DebtsPage() {
   const periods = usePeriods(budgetId)
   const navigate = useNavigate()
   const [adding, setAdding] = useState(false)
-  const ended = current.isSuccess && current.data === null
+  const ended = useBudgetEnded(budgetId)
 
   const header = (
     <PageHeader

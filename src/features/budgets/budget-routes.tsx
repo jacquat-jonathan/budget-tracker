@@ -7,6 +7,7 @@ import { Navigate, Outlet } from 'react-router'
 import { paths } from '@/app/paths'
 import { FullPageSpinner } from '@/components/full-page-spinner'
 import { ErrorState } from '@/components/states'
+import { CatchingUpContext } from '@/features/budgets/budget-ended'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { useEnsurePeriods, useMyBudgets } from '@/features/budgets/budget-queries'
 import { useBudgets } from '@/features/budgets/current-budget-context'
@@ -113,7 +114,7 @@ function CatchUp({
   return (
     <>
       <div className="contents" inert={catching || undefined} aria-hidden={catching || undefined}>
-        {children}
+        <CatchingUpContext value={catching}>{children}</CatchingUpContext>
       </div>
       {shown && (
         <main

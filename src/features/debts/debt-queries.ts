@@ -109,15 +109,13 @@ export function useDebtRecord(budgetId: string, id: string | undefined): Debt | 
   return useMemo(() => (row ? readDebt(row) : row), [row])
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 /**
  * One debt for its page, with the read's error and a retry (the same cached read as
  * useDebtRecord). An id that is not a uuid is no debt of this budget: null, not a request
  * the API would refuse.
  */
 export function useDebt(budgetId: string, id: string) {
-  const valid = UUID.test(id)
+  const valid = isUuid(id)
   const query = useQuery({
     queryKey: [...budgetKeys.budget(budgetId), 'record', 'debt_overview', id] as const,
     enabled: valid,

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
 import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
@@ -108,7 +109,7 @@ function RemoveBody({
   const remove = useRemoveDebt(budgetId)
   const correctable = periods.filter((period) => !period.is_current && period.seq >= debt.first_seq)
   // R-BUDGET-150: once the budget has ended, only from one of its periods.
-  const mustCorrect = currentPeriod === null
+  const mustCorrect = useBudgetEnded(budgetId)
   const [correct, setCorrect] = useState(mustCorrect)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
   const olderPeriods = useOlderPeriodsOption(budgetId)

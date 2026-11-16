@@ -130,7 +130,9 @@ export function useUpdateSubscription(budgetId: string, options: { onDone: () =>
       return true
     },
     success: (saved, input) => (saved ? t('subscriptions.saved', { name: input.name }) : ''),
-    onSuccess: () => options.onDone(),
+    onSuccess: (saved) => {
+      if (saved) options.onDone()
+    },
     invalidate: () => affected(budgetId),
   })
 }

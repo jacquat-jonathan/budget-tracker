@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-443 rules (422 active, 14 planned), 24 conventions, 213 decisions, 47 open questions. 26 rules and conventions are marked **TEST PENDING**.
+452 rules (431 active, 14 planned), 24 conventions, 217 decisions, 49 open questions. 26 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -266,6 +266,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PLATFORM_
   - Related: D-264, R-TRANSACTION-095, R-DEBT-135, R-COMPARE-070
   - Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-APP-280** A save that has nothing to send (every field as recorded) keeps the window open and says so; it never closes with a success message.
+  _active · enforced by test · F-PLATFORM_
+  - Related: R-VERSION-140
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/components/nothing-to-save.tsx
+- **R-APP-281** No call waits without end: a call unanswered after 30 seconds fails like a lost connection (a read shows an error with a retry, a write says what a lost answer means for it).
+  _active · enforced by review · F-PLATFORM_
+  - Related: D-401
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/lib/supabase.ts
+- **R-APP-282** Every count in a message is grouped like amounts (12'345), in both languages, by the one helper that formats counts; the plural is chosen from the number.
+  _active · enforced by test · F-PLATFORM_
+  - Related: C-MONEY-003, D-402
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/lib/i18n.ts
 
 ### Accounts and sign-in
 
@@ -533,6 +545,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-BUDGET-130, D-206
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/components/form/correction-toggle.tsx; code: src/features/subscriptions/components/subscription-form-dialog.tsx; code: src/features/debts/components/debt-form-dialog.tsx
+- **R-BUDGET-280** The app takes a budget for ended only from the budget's own end: it has an end date, it is caught up, and the database then gives no current period. A missing current period alone (a catch-up under way) never makes a page say the budget has ended, and never turns an edit into a correction: an open form keeps its state.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-BUDGET-150, R-PERIOD-190, D-400, Q-251
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-ended.ts
 
 ### Members and roles
 
@@ -970,6 +986,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-053, R-APP-170
   - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/periods/periods-page.tsx
+- **R-PERIOD-280** A read answered catching_up is not a failure: it is not retried meanwhile and never shows an error card; the page waits (a placeholder) while the budget is caught up, then reads again.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-190, R-COMPARE-175
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/components/states.tsx
+- **R-PERIOD-281** A period named in the address (a filter, a comparison side) keeps its meaning beyond the pages of periods loaded: it is read by its id and shown in its picker; an id that is not a uuid is never sent.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-191
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-queries.ts
 
 ### Versioning: edits never rewrite the past
 
@@ -1295,6 +1319,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-134, D-274
   - Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-TRANSACTION-280** The dates a transaction may take start at the budget's first period, read by itself, whatever pages of periods are loaded.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: R-TRANSACTION-090, R-PERIOD-191
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-queries.ts
 
 ### Period progress and result
 
@@ -2005,6 +2033,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-CONCURRENCY-091, R-CONCURRENCY-190
   - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/hooks/use-concurrent-form.ts; code: src/components/changed-elsewhere.tsx
+- **R-CONCURRENCY-280** An edit form says its change was saved only after a save whose answer was lost on the way (a failed connection), and only when the record now holds every value the form sent; a save the database refused (record_changed) is never reported as saved, even when another member saved the same value in one of its fields: the form keeps what was typed and offers the choice between their version and keeping one's own.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-190, R-CONCURRENCY-191, R-CONCURRENCY-091
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/hooks/use-concurrent-form.ts
+- **R-CONCURRENCY-281** When the answer to an add (a new transaction, category, income, subscription or debt) is lost on the way, the form says it may have been saved and to check the list before saving again, never that nothing was saved.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-191, Q-250
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/components/changed-elsewhere.tsx
 
 ## Conventions
 
@@ -4949,6 +4985,63 @@ Related: R-IMPORT-100, D-333, R-IMPORT-086
 
 Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
 
+### D-400 An ended budget is one with an end and no current period, caught up (accepted)
+
+The client says a budget has ended only when my_budgets has an end date, the budget is caught up (my_budgets.caught_up, no catch-up running) and get_current_period gives no row. Pages wait and forms hold their state otherwise.
+
+**Why:** Mid catch-up get_current_period gives no row although nothing has ended; taking that for the end turned edits into corrections and dropped typed values.
+
+**Rejected:**
+
+- "No current period" alone (the earlier rule).
+
+Related: R-BUDGET-280, Q-251
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-401 Calls give up after 30 seconds (accepted)
+
+Every call to the database through supabase-js is given up after 30 seconds without an answer, as a lost connection.
+
+**Why:** A read that never answers showed skeletons for ever; 30 s is far above every measured call (a catch-up step included) and short enough for a person waiting.
+
+**Rejected:**
+
+- No limit.
+- A limit per query.
+
+Related: R-APP-281
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-402 Counts are grouped by the translation layer (accepted)
+
+Every {{count}} in a translated message goes through the same count formatter (formatCount): the translations need no change and no caller can forget it; other interpolated values are untouched.
+
+**Why:** Counts were raw in some messages and grouped in others ("And 12345 more changes", "50 000").
+
+**Rejected:**
+
+- Formatting at each call site.
+
+Related: R-APP-282
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-403 A frozen payment opens as a read-only view (accepted)
+
+A payment of an ended debt opens titled "Payment of an ended debt", every field shown and disabled, with Close and no Save.
+
+**Why:** An "Edit transaction" window whose fields look editable and whose Save is disabled invites edits that can never be saved.
+
+**Rejected:**
+
+- The edit form with Save disabled.
+
+Related: R-DEBT-151
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -5283,6 +5376,14 @@ Source: owner-request: coordinator, review round of the step 6 statement parsers
   - Context: D-334 compares the street and town lines exactly (without case and punctuation); such a payment is imported as an ordinary expense, which the user can skip.
   - Related: D-334, Q-208
   - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-250** Should an add carry a client-generated id so a retry after a lost answer records it once?
+  - Context: R-CONCURRENCY-281: today a lost answer on an add can only be described ("it may have been saved"); the coordinator has asked the database for an idempotency id on adds, to be wired in the next round.
+  - Related: R-CONCURRENCY-281
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **Q-251** Should my_budgets say directly whether the budget has ended?
+  - Context: D-400: the client combines three answers (end date, caught_up, no current period). A has_ended column would make the rule one read and remove the wait during a catch-up.
+  - Related: R-BUDGET-280, D-400
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
 
 ## Glossary
 

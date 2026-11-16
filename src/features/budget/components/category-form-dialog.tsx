@@ -7,6 +7,7 @@ import { z } from 'zod'
 
 import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
+import { NothingToSave } from '@/components/nothing-to-save'
 import { MoneyField } from '@/components/form/money-field'
 import { SegmentedField } from '@/components/form/segmented-field'
 import { SelectField } from '@/components/form/select-field'
@@ -137,6 +138,7 @@ function CategoryForm({
   const update = useUpdateCategory(budgetId, { onDone: close })
   const mutation = category ? update : create
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    error: update.error,
     // A group has no amount of its own: the fields are not its terms.
     controls: isGroup
       ? ['correct', 'fromPeriodId', 'amount', 'cadence']
@@ -170,7 +172,7 @@ function CategoryForm({
     base && category && !isGroup
       ? { amount: base.amount ?? 0, cadence: base.cadence ?? 'monthly' }
       : null
-  useStartFrom(
+  const start = useStartFrom(
     form,
     correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     startValues,
@@ -217,6 +219,7 @@ function CategoryForm({
           </Alert>
         )}
         <ConcurrentNotices
+          adding={!category}
           gone={edit.gone}
           ended={live !== null && live !== undefined}
           pending={sync.pending}
@@ -251,6 +254,8 @@ function CategoryForm({
                 terms={termsAt.data}
                 pending={termsAt.isPending}
                 error={termsAt.isError ? errorMessage(termsAt.error) : null}
+                kept={start.kept}
+                views={edit.describe(category)}
               />
             }
             onToggle={(next) => {
@@ -328,6 +333,7 @@ function CategoryForm({
             </AlertDescription>
           </Alert>
         )}
+        <NothingToSave show={update.data === false && !update.isPending} />
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}

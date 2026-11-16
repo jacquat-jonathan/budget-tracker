@@ -493,6 +493,11 @@ describe('the transaction form [R-TRANSACTION-050]', () => {
   it('in an ended budget, the latest date is its last day', async () => {
     const db = transactionsDb()
     db.rpc.get_current_period.mockImplementation(() => [])
+    db.tables.my_budgets = db.tables.my_budgets.map((row) => ({
+      ...row,
+      end_date: '2026-10-22',
+      end_date_entered: '2026-10-20',
+    }))
     db.tables.period_summaries = db.tables.period_summaries.map((period) => ({
       ...period,
       is_current: false,

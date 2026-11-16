@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
 import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
@@ -54,6 +55,8 @@ import {
 import {
   useBudgetStatus,
   useCurrentPeriod,
+  useFirstPeriod,
+  usePeriodById,
   usePeriods,
   type PeriodSummary,
 } from '@/features/budgets/budget-queries'
@@ -102,6 +105,8 @@ export function TransactionsPage() {
   const { budgetId } = useCurrentBudget()
   const periods = usePeriods(budgetId)
   const current = useCurrentPeriod(budgetId)
+  const ended = useBudgetEnded(budgetId)
+  const firstPeriod = useFirstPeriod(budgetId)
   const categories = useCategories(budgetId)
   const [params, setParams] = useSearchParams()
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
@@ -112,10 +117,13 @@ export function TransactionsPage() {
   // The current period by default; once the budget has ended, its last period.
   const periodParam = params.get('period')
   const defaultPeriod = current.data ?? periodList?.[0] ?? null
-  const period =
-    periodParam === ALL
-      ? null
-      : (periodList?.find((item) => item.id === periodParam) ?? defaultPeriod)
+  // A period older than the pages loaded (an old link) is read by its id, never replaced.
+  const named = usePeriodById(budgetId, periodParam === ALL ? null : periodParam, periodList)
+  const period = periodParam === ALL ? null : (named ?? defaultPeriod)
+  const filterPeriods =
+    named && periodList && !periodList.some((item) => item.id === named.id)
+      ? [...periodList, named]
+      : (periodList ?? [])
   // A category the budget does not have (another budget's, deleted, a stale link) falls back
   // to all categories, like an unknown period.
   const categoryParam = params.get('category')
@@ -151,6 +159,7 @@ export function TransactionsPage() {
   }
   const ready =
     periodList !== undefined &&
+    named !== undefined &&
     current.data !== undefined &&
     categoryList !== undefined &&
     subscription !== undefined &&
@@ -174,6 +183,21 @@ export function TransactionsPage() {
     if (unknownDebt) next.delete('debt')
     setParams(next, { replace: true })
   }, [unknownSubscription, unknownDebt, params, setParams])
+  // R-SUBSCRIPTION-191: after a chip is removed, focus goes to the chip now at its place, else
+  // to the period filter, once the page shows the filters that remain (never the page's body).
+  const chipRemoved = useRef<number | null>(null)
+  const chipKeys = linkFilterKeys(params)
+  useEffect(() => {
+    const index = chipRemoved.current
+    if (index === null) return
+    chipRemoved.current = null
+    const frame = window.requestAnimationFrame(() => {
+      const buttons = document.querySelectorAll<HTMLElement>('[data-testid="link-filters"] button')
+      const next = buttons[Math.min(index, buttons.length - 1)]
+      ;(next ?? document.getElementById('filter-period'))?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [chipKeys])
   const setFilter = (key: string, value: string | null) => {
     const next = new URLSearchParams(params)
     if (value === null) next.delete(key)
@@ -183,13 +207,14 @@ export function TransactionsPage() {
 
   // R-TRANSACTION-090: from the first period's start to today, not after an ended budget's end.
   const today = current.data?.today ?? periodList?.[0]?.today ?? null
+  // From the budget's first period, read by itself: not the oldest of the pages loaded.
+  const firstStart = firstPeriod.data?.start_date
   const range = useMemo<DateRange | null>(() => {
-    if (!periodList || periodList.length === 0 || !today) return null
-    const first = periodList.at(-1)
+    if (!periodList || periodList.length === 0 || !today || !firstStart) return null
     const last = periodList[0]
-    if (!first || !last) return null
-    return { min: first.start_date, max: today < last.end_date ? today : last.end_date }
-  }, [periodList, today])
+    if (!last) return null
+    return { min: firstStart, max: today < last.end_date ? today : last.end_date }
+  }, [periodList, today, firstStart])
 
   const header = (
     <PageHeader
@@ -241,7 +266,7 @@ export function TransactionsPage() {
   return (
     <div className="flex flex-col gap-6">
       {header}
-      {ready && current.data === null && (
+      {ready && ended && (
         <Alert>
           <CalendarOffIcon aria-hidden />
           <AlertTitle>{t('budgetEnded.title')}</AlertTitle>
@@ -251,7 +276,7 @@ export function TransactionsPage() {
       <div className="@container/filters">
         <Filters
           budgetId={budgetId}
-          periods={periodList ?? []}
+          periods={filterPeriods}
           period={period}
           allPeriods={periodParam === ALL}
           categories={categories.data ?? []}
@@ -264,7 +289,13 @@ export function TransactionsPage() {
       </div>
       {linkFilters.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <LinkFilters filters={linkFilters} onRemove={(key) => setFilter(key, null)} />
+          <LinkFilters
+            filters={linkFilters}
+            onRemove={(key, index) => {
+              chipRemoved.current = index
+              setFilter(key, null)
+            }}
+          />
           {awaitingOnly && <ConfirmAllAwaiting budgetId={budgetId} today={today} />}
         </div>
       )}
@@ -320,7 +351,7 @@ export function TransactionsPage() {
           transaction={dialog.kind === 'edit' ? dialog.transaction : undefined}
           range={range}
           today={today}
-          ended={current.data === null}
+          ended={ended}
           ownPeriod={
             dialog.kind === 'edit'
               ? (periodList?.find((item) => item.id === dialog.transaction.period_id) ?? null)
@@ -401,13 +432,11 @@ function LinkFilters({
   onRemove,
 }: {
   filters: { key: string; label: string }[]
-  onRemove: (key: string) => void
+  onRemove: (key: string, index: number) => void
 }) {
   const { t } = useTranslation()
-  const listRef = useRef<HTMLUListElement>(null)
   return (
     <ul
-      ref={listRef}
       className="flex max-w-full min-w-0 flex-wrap gap-2"
       aria-label={t('charges.linkFilters')}
       data-testid="link-filters"
@@ -425,15 +454,7 @@ function LinkFilters({
               variant="ghost"
               size="icon-xs"
               className="rounded-full"
-              onClick={() => {
-                onRemove(filter.key)
-                // Focus stays in the filters: the next chip, else the period filter.
-                window.setTimeout(() => {
-                  const buttons = listRef.current?.querySelectorAll<HTMLElement>('button')
-                  const next = buttons?.[Math.min(index, buttons.length - 1)]
-                  ;(next ?? document.getElementById('filter-period'))?.focus()
-                })
-              }}
+              onClick={() => onRemove(filter.key, index)}
               aria-label={t('charges.removeFilter', { what: filter.label })}
             >
               <XIcon />
@@ -917,4 +938,11 @@ function DeleteTransactionBody({
       </AlertDialogFooter>
     </>
   )
+}
+
+/** The address's link filters (the chips), as one key: a change re-runs the chip focus. */
+function linkFilterKeys(params: URLSearchParams): string {
+  return ['subscription', 'debt', 'awaiting']
+    .map((key) => `${key}=${params.get(key) ?? ''}`)
+    .join('&')
 }

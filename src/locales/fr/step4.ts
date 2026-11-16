@@ -94,7 +94,7 @@ export const subscriptionsFr: Translation['subscriptions'] = {
   noFurtherCharge: 'Plus aucun prélèvement avant la fin du budget',
   held: {
     title: 'En attente depuis le {{date}}',
-    why: 'Le budget contient 50 000 transactions, le maximum : ce prélèvement sera créé dès qu’il y aura de la place.',
+    why: "Le budget contient 50'000 transactions, le maximum : ce prélèvement sera créé dès qu’il y aura de la place.",
   },
   remove: {
     deleteTitle: 'Supprimer « {{name}} » ?',
@@ -401,6 +401,12 @@ export const debtsFr: Translation['debts'] = {
 }
 
 export const correctionsFr: Translation['corrections'] = {
+  keptTyped_one:
+    'Vous aviez saisi {{fields}} : c’est conservé. Les autres champs montrent maintenant les conditions de la période choisie.',
+  keptTyped_other:
+    'Vous aviez saisi {{fields}} : c’est conservé. Les autres champs montrent maintenant les conditions de la période choisie.',
+  nothingToSave:
+    'Rien à enregistrer : chaque champ est tel qu’il est enregistré. Modifiez un champ, ou fermez cette fenêtre.',
   period: 'Corriger à partir de la période',
   showsPeriodTerms:
     'Les champs ci-dessous montrent maintenant ce qui était en vigueur dans cette période. Ne changez que ce qui était faux : ce que vous laissez tel quel reste tel qu’il était.',

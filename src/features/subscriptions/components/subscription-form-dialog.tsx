@@ -5,8 +5,10 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
+import { NothingToSave } from '@/components/nothing-to-save'
 import { CalendarDateField } from '@/components/form/calendar-date-field'
 import { CorrectionToggle } from '@/components/form/correction-toggle'
 import { MoneyField } from '@/components/form/money-field'
@@ -171,6 +173,7 @@ function SubscriptionForm({
   const update = useUpdateSubscription(budgetId, { onDone: close })
   const mutation = editing ? update : create
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    error: update.error,
     controls: ['correct', 'fromPeriodId'],
     // A correction's "now" is the chosen period's terms, never today's (R-CONCURRENCY-190).
     current: () => (correcting ? startValues : null),
@@ -192,7 +195,7 @@ function SubscriptionForm({
     : []
 
   // R-BUDGET-150: once the budget has ended, a change is only a correction of its periods.
-  const mustCorrect = currentPeriod === null
+  const mustCorrect = useBudgetEnded(budgetId)
   const firstCorrectable = correctable[0]?.id
   const firstEarlier = earlier[0]?.id
   useEffect(() => {
@@ -235,7 +238,7 @@ function SubscriptionForm({
     base && subscription
       ? { price: base.price, cadence: base.cadence, categoryId: base.category_id }
       : null
-  useStartFrom(
+  const start = useStartFrom(
     form,
     correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     startValues,
@@ -332,6 +335,7 @@ function SubscriptionForm({
     <form onSubmit={(event) => void onSubmit(event)} noValidate data-testid="subscription-form">
       <FieldGroup>
         <ConcurrentNotices
+          adding={!editing}
           gone={edit.gone}
           pending={sync.pending}
           updated={sync.updated}
@@ -379,6 +383,8 @@ function SubscriptionForm({
               terms={termsAt.data}
               pending={termsAt.isPending}
               error={termsAt.isError ? errorMessage(termsAt.error) : null}
+              kept={start.kept}
+              views={edit.describe(subscription)}
             />
           </CorrectionToggle>
         )}
@@ -454,6 +460,7 @@ function SubscriptionForm({
                 : t('subscriptions.addAppliesFromEnded')}
           </AlertDescription>
         </Alert>
+        <NothingToSave show={update.data === false && !update.isPending} />
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}

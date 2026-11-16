@@ -5,6 +5,7 @@ import { budgetKeys } from '@/features/budgets/budget-keys'
 import { calendarMonth } from '@/lib/date'
 import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
+import { isUuid } from '@/lib/uuid'
 
 export type MyBudget = Tables<'my_budgets'>
 export type PeriodSummary = Tables<'period_summaries'>
@@ -109,6 +110,7 @@ export function usePeriodDependentQuery<T>(
   budgetId: string,
   queryKey: QueryKey,
   queryFn: () => Promise<T>,
+  options: { retry?: false } = {},
 ): PeriodRead<T> {
   const ensured = useEnsurePeriods(budgetId)
   const query = useQuery({
@@ -117,6 +119,7 @@ export function usePeriodDependentQuery<T>(
     // Keep showing the last answer while it is read again after an ensure_periods run.
     placeholderData: keepPreviousData,
     queryFn,
+    ...options,
   })
   if (ensured.isError && query.data === undefined) {
     return {
@@ -172,6 +175,56 @@ export function useCurrentPeriod(budgetId: string): PeriodRead<PeriodSummary | n
     const rows = unwrap(await supabase.rpc('get_current_period', { p_budget_id: budgetId }))
     return rows[0] ?? null
   })
+}
+
+/**
+ * The budget's first period, read by itself (one row of period_summaries, the lowest seq):
+ * where transaction dates start, whatever page of periods is loaded.
+ */
+// R-TRANSACTION-280: dates reach back to the budget's first period, not the first page's.
+export function useFirstPeriod(budgetId: string): PeriodRead<PeriodSummary | null> {
+  return usePeriodDependentQuery(budgetId, [...budgetKeys.periods(budgetId), 'first'], async () => {
+    const rows = unwrap(
+      await supabase
+        .from('period_summaries')
+        .select('*')
+        .eq('budget_id', budgetId)
+        .order('seq', { ascending: true })
+        .limit(1),
+    )
+    return rows[0] ?? null
+  })
+}
+
+/**
+ * A period named in the address, read by its id when it is not among the pages loaded (an old
+ * link): null when it is not a period of this budget, undefined while unknown.
+ */
+// R-PERIOD-281: a period named in the address keeps its meaning beyond the loaded pages.
+export function usePeriodById(
+  budgetId: string,
+  id: string | null,
+  loaded: readonly PeriodSummary[] | undefined,
+): PeriodSummary | null | undefined {
+  const inPages = loaded?.find((period) => period.id === id)
+  const valid = isUuid(id)
+  const query = useQuery({
+    queryKey: [...budgetKeys.periods(budgetId), 'by-id', id ?? ''] as const,
+    enabled: valid && loaded !== undefined && inPages === undefined,
+    queryFn: async (): Promise<PeriodSummary | null> =>
+      unwrap(
+        await supabase
+          .from('period_summaries')
+          .select('*')
+          .eq('budget_id', budgetId)
+          .eq('id', id ?? '')
+          .maybeSingle(),
+      ),
+  })
+  if (id === null || !valid) return null
+  if (inPages) return inPages
+  if (loaded === undefined || query.isPending) return undefined
+  return query.data ?? null
 }
 
 /** Periods per page of list_periods (1 to 200; ten years of monthly periods). */

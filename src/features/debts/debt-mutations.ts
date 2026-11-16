@@ -101,7 +101,9 @@ export function useUpdateDebt(budgetId: string, options: { onDone: () => void })
       return true
     },
     success: (saved, input) => (saved ? t('debts.saved', { name: input.name }) : ''),
-    onSuccess: () => options.onDone(),
+    onSuccess: (saved) => {
+      if (saved) options.onDone()
+    },
     invalidate: () => affected(budgetId),
   })
 }

@@ -47,6 +47,7 @@ import { CorrectionReach } from '@/features/budgets/correction-reach'
 import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
+import { NothingToSave } from '@/components/nothing-to-save'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
@@ -198,7 +199,7 @@ function IncomeForm({
     base && income
       ? { amount: base.amount, payDay: base.pay_day, weekendRule: base.weekend_rule }
       : null
-  useStartFrom(
+  const start = useStartFrom(
     form,
     correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     startValues,
@@ -214,6 +215,7 @@ function IncomeForm({
   })
   const mutation = income ? edit : add
   const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset(), {
+    error: edit.error,
     // Whose income it is is chosen when it is added, not edited here.
     controls: ['correct', 'fromPeriodId', 'userId'],
     current: () => (correcting ? startValues : null),
@@ -266,6 +268,7 @@ function IncomeForm({
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FieldGroup>
         <ConcurrentNotices
+          adding={!income}
           gone={editBase.gone}
           pending={sync.pending}
           updated={sync.updated}
@@ -310,6 +313,8 @@ function IncomeForm({
                 terms={termsAt.data}
                 pending={termsAt.isPending}
                 error={termsAt.isError ? errorMessage(termsAt.error) : null}
+                kept={start.kept}
+                views={editBase.describe(income)}
               />
             }
             options={correctable.map((period) => ({
@@ -357,6 +362,7 @@ function IncomeForm({
             {income?.is_primary && <p className="mt-1">{t('income.editPrimaryNote')}</p>}
           </AlertDescription>
         </Alert>
+        <NothingToSave show={edit.data === false && !edit.isPending} />
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
