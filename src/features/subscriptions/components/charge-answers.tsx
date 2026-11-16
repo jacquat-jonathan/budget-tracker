@@ -17,19 +17,23 @@ export function ChargeAnswers({
   budgetId,
   charge,
   size = 'sm',
+  onAnswer,
 }: {
   budgetId: string
   charge: Transaction
   size?: 'sm' | 'xs'
+  /** Called as an answer is sent (to keep the focus in the list). */
+  onAnswer?: () => void
 }) {
   const { t } = useTranslation()
   const { confirm, dismiss } = useAnswerCharge(budgetId)
   const [asking, setAsking] = useState(false)
   const busy = confirm.isPending || dismiss.isPending
+  // D-212: a charge is known by its own date (the one the lists show).
   const what = t('charges.what', {
     name: charge.subscription_name ?? '',
     amount: formatMoney(charge.amount),
-    date: formatCalendarDate(charge.charge_date ?? charge.date),
+    date: formatCalendarDate(charge.date),
   })
   return (
     <div className="flex flex-wrap gap-2">
@@ -37,7 +41,10 @@ export function ChargeAnswers({
         size={size}
         variant="outline"
         disabled={busy}
-        onClick={() => confirm.mutate(charge)}
+        onClick={() => {
+          onAnswer?.()
+          confirm.mutate(charge)
+        }}
         aria-label={t('charges.wentThroughFor', { what })}
       >
         <CheckIcon aria-hidden />
@@ -60,17 +67,22 @@ export function ChargeAnswers({
         description={
           <>
             <p>{t('charges.dismissDescription', { what })}</p>
-            <p>{t('charges.dismissNever')}</p>
+            <p>
+              {t('charges.dismissNever', {
+                date: formatCalendarDate(charge.charge_date ?? charge.date),
+              })}
+            </p>
           </>
         }
         confirmLabel={t('charges.dismissConfirm')}
         destructive
         pending={dismiss.isPending}
-        onConfirm={() =>
+        onConfirm={() => {
+          onAnswer?.()
           dismiss.mutate(charge, {
             onSettled: () => setAsking(false),
           })
-        }
+        }}
       />
     </div>
   )

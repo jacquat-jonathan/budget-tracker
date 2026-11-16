@@ -101,8 +101,9 @@ export function SubscriptionsPage() {
   }
 
   const all = subscriptions.data
-  const active = all.filter((item) => item.is_active)
-  const endedList = all.filter((item) => !item.is_active && !isVoidSubscription(item))
+  // Once the budget has ended nothing is "in force now"; those not ended are still listed.
+  const active = all.filter((item) => item.is_active || (ended && item.end_seq === null))
+  const endedList = all.filter((item) => !active.includes(item) && !isVoidSubscription(item))
   const period = current.data
 
   return (
@@ -232,7 +233,8 @@ function SubscriptionCard({
               {' · '}
               {path(subscription.category_name, subscription.parent_category_name)}
             </p>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:flex sm:gap-x-8">
+            {/* Each label sits on its value: a label that wraps (French) never shifts the other. */}
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:flex sm:gap-x-8 [&>div]:flex [&>div]:flex-col [&>div]:justify-end">
               <div>
                 <dt className="text-muted-foreground">{t('subscriptions.nextCharge')}</dt>
                 <dd className="font-medium" data-testid="next-charge">

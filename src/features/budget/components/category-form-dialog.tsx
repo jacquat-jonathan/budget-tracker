@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/field'
 import { TextField } from '@/features/auth/components/text-field'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
+import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useCreateCategory, useUpdateCategory } from '@/features/categories/category-mutations'
 import { CADENCES, type Category } from '@/features/categories/category-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
@@ -144,11 +145,27 @@ function CategoryForm({
   const correctable = category
     ? periods.filter((period) => !period.is_current && period.seq >= category.first_seq)
     : []
+  // A correction starts from the expectation in force in the period chosen (database's rows).
+  const fromPeriodId = useWatch({ control: form.control, name: 'fromPeriodId' })
+  const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
+  const correcting = category !== undefined && !isGroup && correct && fromPeriod !== null
+  const termsAt = useTermsAt('category', budgetId, category?.id, correcting ? fromPeriod.seq : null)
+  const periodTerms = correcting ? (termsAt.data ?? null) : null
+  const base = category ? (correcting ? periodTerms : category) : null
+  useStartFrom(
+    form,
+    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    base && category && !isGroup
+      ? { amount: base.amount ?? 0, cadence: base.cadence ?? 'monthly' }
+      : null,
+  )
 
   const onSubmit = form.handleSubmit((values) => {
+    if (correcting && !periodTerms) return
     const done = category
       ? update.mutateAsync({
           category,
+          base: base ?? category,
           revision: category.revision,
           name: values.name,
           amount: isGroup ? null : values.amount,
@@ -206,6 +223,26 @@ function CategoryForm({
           autoComplete="off"
           autoFocus
         />
+        {category && !isGroup && correctable.length > 0 && (
+          <CorrectionFields
+            correct={correct}
+            onToggle={(next) => {
+              form.setValue('correct', next)
+              form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
+            }}
+            select={
+              <SelectField
+                control={form.control}
+                name="fromPeriodId"
+                label={t('corrections.period')}
+                options={correctable.map((period) => ({
+                  value: period.id,
+                  label: periodLabel(period),
+                }))}
+              />
+            }
+          />
+        )}
         {isGroup ? (
           <Alert>
             <InfoIcon aria-hidden />
@@ -246,26 +283,6 @@ function CategoryForm({
             ]}
           />
         )}
-        {category && !isGroup && correctable.length > 0 && (
-          <CorrectionFields
-            correct={correct}
-            onToggle={(next) => {
-              form.setValue('correct', next)
-              form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
-            }}
-            select={
-              <SelectField
-                control={form.control}
-                name="fromPeriodId"
-                label={t('income.correction.from')}
-                options={correctable.map((period) => ({
-                  value: period.id,
-                  label: periodLabel(period),
-                }))}
-              />
-            }
-          />
-        )}
         {!isGroup && (
           <Alert>
             <InfoIcon aria-hidden />
@@ -303,18 +320,25 @@ function CategoryForm({
 function FirstSubcategoryNotice({ parent }: { parent: Category }) {
   const { t } = useTranslation()
   if (parent.is_group) return null
-  const holds = (parent.amount ?? 0) > 0 || parent.has_transactions === true
+  // Subscriptions and debts on it move too (D-179): said with the rest.
+  const linked = parent.in_use === true || (parent.committed_amount ?? 0) > 0
+  const holds = (parent.amount ?? 0) > 0 || parent.has_transactions === true || linked
   return (
     <Alert data-testid="first-subcategory">
       <TriangleAlertIcon aria-hidden />
       <AlertDescription>
-        {holds
-          ? t('categories.firstSub.moves', {
-              name: parent.name,
-              other: t('categories.otherName'),
-              amount: formatMoney(parent.monthly_amount ?? 0),
-            })
-          : t('categories.firstSub.becomesGroup', { name: parent.name })}
+        <p>
+          {holds
+            ? t('categories.firstSub.moves', {
+                name: parent.name,
+                other: t('categories.otherName'),
+                amount: formatMoney(parent.monthly_amount ?? 0),
+              })
+            : t('categories.firstSub.becomesGroup', { name: parent.name })}
+        </p>
+        {linked && (
+          <p>{t('categories.firstSub.movesLinks', { other: t('categories.otherName') })}</p>
+        )}
       </AlertDescription>
     </Alert>
   )

@@ -70,10 +70,15 @@ export function DebtsPage() {
       </div>
     )
   }
-  const active = debts.data.filter((debt) => debt.is_active)
-  const endedDebts = debts.data.filter((debt) => !debt.is_active && !isVoidDebt(debt))
-  // D-191: the total is the sum of the remaining amounts the database gives (integers).
-  const total = active.reduce((sum, debt) => sum + debt.remaining, 0)
+  // In force: not ended (once the budget itself has ended, no debt is "in force now", but
+  // those that were not ended still are the household's debts).
+  const active = debts.data.filter((debt) => debt.is_active || (ended && debt.end_seq === null))
+  const endedDebts = debts.data.filter((debt) => !active.includes(debt) && !isVoidDebt(debt))
+  // D-191, D-211: what is still owed: the remaining amounts the database gives, of the debts
+  // that still owe something (overpaid and paid-off ones add nothing and are not counted).
+  // The database will give this total (round 2).
+  const owing = active.filter((debt) => debt.remaining > 0)
+  const total = owing.reduce((sum, debt) => sum + debt.remaining, 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,7 +94,9 @@ export function DebtsPage() {
         <Card size="sm" data-testid="debts-total">
           <CardContent className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-muted-foreground">
-              {t('debts.totalRemaining', { count: active.length })}
+              {owing.length === 0
+                ? t('debts.nothingOwed')
+                : t('debts.totalRemaining', { count: owing.length })}
             </span>
             <span className="text-2xl font-semibold tabular-nums">{formatMoney(total)}</span>
           </CardContent>
@@ -112,7 +119,7 @@ export function DebtsPage() {
       ) : (
         <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label={t('debts.listLabel')}>
           {active.map((debt) => (
-            <DebtCard key={debt.id} debt={debt} />
+            <DebtCard key={debt.id} debt={debt} budgetEnded={ended} />
           ))}
         </ul>
       )}
@@ -130,7 +137,9 @@ export function DebtsPage() {
                 >
                   <span className="min-w-0 flex-1 truncate font-medium">{debt.name}</span>
                   <span className="text-muted-foreground tabular-nums">
-                    {t('debts.remainingAmount', { amount: formatMoney(debt.remaining) })}
+                    {debt.remaining < 0
+                      ? t('debts.overpaidAmount', { amount: formatMoney(-debt.remaining) })
+                      : t('debts.remainingAmount', { amount: formatMoney(debt.remaining) })}
                   </span>
                   <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
                 </Link>
@@ -151,7 +160,7 @@ export function DebtsPage() {
   )
 }
 
-function DebtCard({ debt }: { debt: Debt }) {
+function DebtCard({ debt, budgetEnded }: { debt: Debt; budgetEnded: boolean }) {
   const { t } = useTranslation()
   const path = useCategoryPath()
   const share = paidShare(debt)
@@ -174,9 +183,12 @@ function DebtCard({ debt }: { debt: Debt }) {
               </p>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-xs text-muted-foreground">{t('debts.remaining')}</p>
+              {/* An overpaid debt owes nothing: never a "remaining" below zero (D-211). */}
+              <p className="text-xs text-muted-foreground">
+                {debt.remaining < 0 ? t('debts.overpaid') : t('debts.remaining')}
+              </p>
               <p className="text-lg font-semibold tabular-nums" data-testid="debt-remaining">
-                {formatMoney(debt.remaining)}
+                {formatMoney(debt.remaining < 0 ? -debt.remaining : debt.remaining)}
               </p>
             </div>
           </div>
@@ -200,7 +212,7 @@ function DebtCard({ debt }: { debt: Debt }) {
               </dd>
             </div>
           </dl>
-          <Payoff debt={debt} className="mt-auto" />
+          <Payoff debt={debt} budgetEnded={budgetEnded} className="mt-auto" />
         </CardContent>
       </Card>
     </li>

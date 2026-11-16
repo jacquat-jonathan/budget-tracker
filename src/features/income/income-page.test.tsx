@@ -180,8 +180,21 @@ describe('income page', () => {
     })
   })
 
-  it('corrects the terms from an earlier period only when asked, with a warning [R-INCOME-051] [R-VERSION-012]', async () => {
+  it('corrects the terms from an earlier period only when asked, with a warning [R-INCOME-051] [R-VERSION-012] [R-VERSION-140]', async () => {
     const db = await openIncomePage()
+    // Its terms in period 1 were CHF 1'800.00 on the 31st; CHF 2'100.00 since period 2.
+    const version = (seq: number, amount: number) => ({
+      id: `income-2-v${seq}`,
+      budget_id: db.tables.income_overview[0]?.budget_id ?? '',
+      income_id: 'income-2',
+      effective_from_seq: seq,
+      amount,
+      pay_day: 31,
+      weekend_rule: 'next' as const,
+      created_at: '2026-10-01T10:00:00+00:00',
+      updated_at: '2026-10-01T10:00:00+00:00',
+    })
+    db.tables.income_versions = [version(1, 180_000), version(2, 210_000)]
 
     await userEvent.click(
       within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
@@ -190,21 +203,26 @@ describe('income page', () => {
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
     expect(within(dialog).getByText(/This changes past periods/)).toBeInTheDocument()
-    expect(within(dialog).getByRole('combobox', { name: 'Apply from' })).toHaveTextContent(
-      '25.09.2026 – 22.10.2026',
-    )
+    expect(
+      within(dialog).getByRole('combobox', { name: 'Correct from the period' }),
+    ).toHaveTextContent('25.09.2026 – 22.10.2026')
     // It applies until the next change already recorded, not to every later period.
     expect(dialog).toHaveTextContent('until the next change already recorded')
-    // Same terms: a correction is still sent, to apply them to the earlier periods too.
+    // The form now starts from the terms in force in that period, read from the database.
+    const amount = within(dialog).getByLabelText('Amount per month')
+    await waitFor(() => {
+      expect(amount).toHaveValue("1'800.00")
+    })
+    // Only what is changed is sent: never today's terms written over the past.
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '1900')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
       expect(db.rpc.update_income).toHaveBeenCalledWith({
         p_income_id: 'income-2',
         p_expected_revision: 1,
-        p_amount: 210_000,
-        p_pay_day: 31,
-        p_weekend_rule: 'next',
+        p_amount: 190_000,
         p_from_period_id: 'period-1',
       })
     })

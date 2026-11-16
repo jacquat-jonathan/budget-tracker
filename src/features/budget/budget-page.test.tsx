@@ -139,17 +139,35 @@ describe('budget page [R-CATEGORY-050]', () => {
     })
   })
 
-  it('changes an amount from the current period with the revision it was opened on; a correction is explicit [R-CATEGORY-053]', async () => {
-    const { db } = await openBudget()
+  it('changes an amount from the current period with the revision it was opened on; a correction is explicit [R-CATEGORY-053] [R-VERSION-140]', async () => {
+    const db = categoriesDb()
+    // In period 1 Groceries expected CHF 800.00 a month (CHF 900.00 now).
+    db.tables.category_expectations = [
+      {
+        id: 'exp-1',
+        budget_id: BUDGET_ID,
+        category_id: 'cat-groceries',
+        effective_from_seq: 1,
+        amount: 80_000,
+        cadence: 'monthly',
+        created_at: '2026-10-01T10:00:00+00:00',
+        updated_at: '2026-10-01T10:00:00+00:00',
+      },
+    ]
+    await openBudget(db)
 
     await action('Groceries', 'Edit')
     const dialog = await screen.findByRole('dialog', { name: 'Edit category' })
     expect(dialog).toHaveTextContent('A new amount applies from the current period')
-    const amount = within(dialog).getByLabelText('Amount per month')
-    await userEvent.clear(amount)
-    await userEvent.type(amount, '950')
     await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
     expect(within(dialog).getByText(/This changes past periods/)).toBeInTheDocument()
+    // The form starts from that period's expectation, read from the database.
+    const amount = within(dialog).getByLabelText('Amount per month')
+    await waitFor(() => {
+      expect(amount).toHaveValue('800.00')
+    })
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '950')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {

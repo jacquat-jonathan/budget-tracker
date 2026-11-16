@@ -281,13 +281,17 @@ export function TransactionsPage() {
                   what: t('charges.what', {
                     name: dialog.transaction.subscription_name ?? '',
                     amount: formatMoney(dialog.transaction.amount),
-                    date: formatCalendarDate(
-                      dialog.transaction.charge_date ?? dialog.transaction.date,
-                    ),
+                    date: formatCalendarDate(dialog.transaction.date),
                   }),
                 })}
               </p>
-              <p>{t('charges.dismissNever')}</p>
+              <p>
+                {t('charges.dismissNever', {
+                  date: formatCalendarDate(
+                    dialog.transaction.charge_date ?? dialog.transaction.date,
+                  ),
+                })}
+              </p>
             </>
           ) : null
         }
@@ -515,22 +519,17 @@ function LinkBadges({ row }: { row: Transaction }) {
   return null
 }
 
-function LinkNote({ row }: { row: Transaction }) {
+/** What links a transaction to a debt or a subscription, in words; null when nothing does. */
+function useLinkNote() {
   const { t } = useTranslation()
-  if (row.debt_name) {
-    return <>{t('transactions.paymentOnNote', { name: row.debt_name })} · </>
-  }
-  if (row.subscription_name) {
-    return (
-      <>
-        {row.charge_date
+  return (row: Transaction): string | null =>
+    row.debt_name
+      ? t('transactions.paymentOnNote', { name: row.debt_name })
+      : row.subscription_name
+        ? row.charge_date
           ? t('transactions.automaticOf', { name: row.subscription_name })
-          : t('transactions.subscriptionOf', { name: row.subscription_name })}
-        {' · '}
-      </>
-    )
-  }
-  return null
+          : t('transactions.subscriptionOf', { name: row.subscription_name })
+        : null
 }
 
 function TransactionRow({
@@ -545,6 +544,7 @@ function TransactionRow({
   onAnswer?: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
 }) {
   const { t } = useTranslation()
+  const linkNote = useLinkNote()
   const incoming = row.kind !== 'expense'
   const what =
     row.kind === 'extra_income'
@@ -566,15 +566,21 @@ function TransactionRow({
           <LinkBadges row={row} />
         </div>
         <span className="truncate text-xs text-muted-foreground">
-          {row.kind === 'refund' && (
-            <span className="sm:hidden">{t('transactions.kind.refund')} · </span>
-          )}
-          <LinkNote row={row} />
-          {row.description ? what : null}
-          {row.description && row.recorded_by_name ? ' · ' : null}
-          {row.recorded_by_name
-            ? t('transactions.recordedBy', { name: row.recorded_by_name })
-            : null}
+          {/* The parts that apply, joined: never a separator with nothing after it. */}
+          {[
+            row.kind === 'refund' ? (
+              <span key="refund" className="sm:hidden">
+                {t('transactions.kind.refund')}
+              </span>
+            ) : null,
+            linkNote(row),
+            row.description ? what : null,
+            row.recorded_by_name
+              ? t('transactions.recordedBy', { name: row.recorded_by_name })
+              : null,
+          ]
+            .filter((part) => part !== null)
+            .flatMap((part, index) => (index === 0 ? [part] : [' · ', part]))}
         </span>
       </div>
       <span

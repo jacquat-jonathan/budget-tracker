@@ -257,7 +257,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
   return db
 }
 
-type Filter = { column: string; value: unknown }
+type Filter = { column: string; value: unknown; op?: 'eq' | 'lte' }
 type Order = { column: string; ascending: boolean }
 
 function compare(a: unknown, b: unknown): number {
@@ -279,10 +279,15 @@ export function mockDataClient(db: MockDb) {
     let changes: Record<string, unknown> = {}
     let returning = false
     let single: 'maybe' | 'one' | null = null
+    let limit: number | null = null
 
     const rows = () => db.tables[relation] as Record<string, unknown>[]
     const matches = (row: Record<string, unknown>) =>
-      filters.every((filter) => row[filter.column] === filter.value)
+      filters.every((filter) =>
+        filter.op === 'lte'
+          ? compare(row[filter.column], filter.value) <= 0
+          : row[filter.column] === filter.value,
+      )
 
     const run = (): { data: unknown; error: MockError | null } => {
       if (mode === 'select') {
@@ -297,12 +302,14 @@ export function mockDataClient(db: MockDb) {
             (a, b) => compare(a[order.column], b[order.column]) * (order.ascending ? 1 : -1),
           )
         }
+        if (limit !== null) result = result.slice(0, limit)
         if (single) {
           if (result.length > 1) return { data: null, error: dbError('multiple rows', 'PGRST116') }
           if (result.length === 0 && single === 'one') {
             return { data: null, error: dbError('no rows', 'PGRST116') }
           }
-          return { data: result[0] ?? null, error: null }
+          // A read returns a new object, as the network does.
+          return { data: result[0] ? { ...result[0] } : null, error: null }
         }
         return { data: result.map((row) => ({ ...row })), error: null }
       }
@@ -323,6 +330,14 @@ export function mockDataClient(db: MockDb) {
       }),
       eq: vi.fn((column: string, value: unknown) => {
         filters.push({ column, value })
+        return builder
+      }),
+      lte: vi.fn((column: string, value: unknown) => {
+        filters.push({ column, value, op: 'lte' })
+        return builder
+      }),
+      limit: vi.fn((count: number) => {
+        limit = count
         return builder
       }),
       order: vi.fn((column: string, options?: { ascending?: boolean }) => {

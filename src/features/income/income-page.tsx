@@ -134,7 +134,8 @@ export function IncomePage() {
           <CardContent className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-muted-foreground">{t('income.monthlyTotal')}</span>
             <span className="text-2xl font-semibold tabular-nums" data-testid="monthly-total">
-              {formatMoney(currentPeriod.income_total ?? 0)}
+              {/* The incomes' own total in this period: extra incomes are not salaries. */}
+              {formatMoney(currentPeriod.salary_total ?? 0)}
             </span>
           </CardContent>
         </Card>

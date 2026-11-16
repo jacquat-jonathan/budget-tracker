@@ -62,6 +62,8 @@ export interface EditIncomeInput extends IncomeTerms {
    * totals. Null for the normal edit, from the current period.
    */
   fromPeriodId: string | null
+  /** The terms the form started from: those now, or those of the corrected period. */
+  base?: { amount: number; pay_day: number; weekend_rule: WeekendRule }
 }
 
 /**
@@ -81,8 +83,10 @@ async function nextExpectedPayDate(
 
 /**
  * Edit an income in one call (update_income), with the revision the form was opened with
- * (D-150): only what changed is sent, the name and any of the terms; a correction sends all
- * the terms, so it can also re-apply today's terms to earlier periods. Refused with
+ * (D-150): only what changed is sent, the name and any of the terms, compared with the terms
+ * the form started from (for a correction, those in force in its period: today's terms are
+ * never written over the past unasked); a correction changing no term is sent without it.
+ * Refused with
  * record_changed when another member changed the income meanwhile, or when the period
  * would now end on another day than the preview said.
  */
@@ -97,12 +101,13 @@ export function useEditIncome(
     errorDisplay: 'inline',
     mutationFn: async (input) => {
       if (!income) throw new DbError('income_not_found')
-      const correcting = input.fromPeriodId !== null
-      const amount = correcting || input.amount !== income.amount
+      const from = input.base ?? income
+      const amount = input.amount !== from.amount
       // The pay day and its weekend rule are one value (D-160): either changed sends both.
-      const payDay =
-        correcting || input.payDay !== income.pay_day || input.weekendRule !== income.weekend_rule
+      const payDay = input.payDay !== from.pay_day || input.weekendRule !== from.weekend_rule
       const weekendRule = payDay
+      // R-VERSION-140: a correction sends only what the user changed.
+      const correcting = input.fromPeriodId !== null && (amount || payDay)
       const renamed = input.name !== income.name
       if (!renamed && !amount && !payDay && !weekendRule) return null
       unwrap(
@@ -113,7 +118,7 @@ export function useEditIncome(
           ...(amount ? { p_amount: input.amount } : {}),
           ...(payDay ? { p_pay_day: input.payDay } : {}),
           ...(weekendRule ? { p_weekend_rule: input.weekendRule } : {}),
-          ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
+          ...(correcting && input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
           ...(input.previewedEndDate ? { p_previewed_end_date: input.previewedEndDate } : {}),
         }),
       )

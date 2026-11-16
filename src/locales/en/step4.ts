@@ -26,7 +26,7 @@ export const subscriptionsEn = {
     nextCharge: 'New next charge date (optional)',
     nextChargeHelp:
       'Leave empty to keep the schedule. A date after today becomes the next charge; the later ones follow from it.',
-    from: 'Counts from',
+    from: 'First period it counts in',
     fromHelp:
       'Normally the current period. An earlier period is a correction: its charges since then are created at once, to confirm.',
     terms: 'Price and schedule',
@@ -68,7 +68,7 @@ export const subscriptionsEn = {
     deleteTitle: 'Delete “{{name}}”?',
     endTitle: 'End “{{name}}”?',
     fromEarlier:
-      'It ends from the period you chose: no charge from then on. Periods before it keep it.',
+      'From the period you chose, it no longer counts and no charge is created. If it never counted before that period and has no charge, it is deleted; otherwise it ends there, and the periods before keep it with their charges.',
     deletes: 'It never counted in a past period and has no charge, so it is deleted.',
     ends: 'It ends from the current period (from {{date}}): no more charges. Past periods keep it.',
     endsNoPeriod: 'It ends: no more charges. Past periods keep it.',
@@ -81,6 +81,8 @@ export const subscriptionsEn = {
       'This changes past periods: from the period you choose, it no longer counts and no charge is created.',
     delete: 'Delete',
     end: 'End subscription',
+    endOrDeleteTitle: 'End or delete “{{name}}”?',
+    endOrDelete: 'End or delete',
   },
   endedBudget: 'The budget has ended: subscriptions can no longer be added or changed.',
   empty: 'No subscriptions yet',
@@ -101,6 +103,10 @@ export const subscriptionsEn = {
   endedHelp: 'Past periods keep them and their charges.',
   lastCounted: 'Last counted in the period ending {{date}}',
   endedLabel: 'Ended',
+  endedElsewhere:
+    'It no longer counts from the current period, so these changes cannot be saved. Close this window: it is listed with the ended subscriptions, its charges kept.',
+  changedNotShown:
+    'Another member changed something this window does not show meanwhile (a name, a payment…). Nothing was saved; what you entered is still here: save again.',
 }
 
 export const chargesEn = {
@@ -116,11 +122,14 @@ export const chargesEn = {
   dismissTitle: 'Remove this charge?',
   dismissDescription: 'The charge {{what}} is removed from the budget.',
   dismissNever:
-    'It will not be created again for this date. If it is charged later after all, record it as a transaction.',
+    'It will not be created again for its scheduled date, {{date}}. If it is charged later after all, record it as a transaction.',
   dismissConfirm: 'Remove the charge',
   confirmed: 'Charge of {{name}} ({{amount}}) confirmed.',
   dismissed: 'Charge of {{name}} ({{amount}}) removed.',
   answeredElsewhere: 'Another member already answered this charge. The list has been refreshed.',
+  scheduledFor: '(scheduled for {{date}})',
+  seeAll_one: 'And 1 more: see the transactions',
+  seeAll_other: 'And {{count}} more: see the transactions',
 }
 
 export const debtsEn = {
@@ -150,7 +159,7 @@ export const debtsEn = {
     payment: 'Planned payment per month',
     termsHelp:
       'One twelfth of the yearly rate is added each period. The planned payment gives the expected end.',
-    from: 'Counts from',
+    from: 'First period it counts in',
     fromHelp:
       'Normally the current period. An earlier period is a correction: no interest is added for periods that already exist.',
   },
@@ -168,7 +177,7 @@ export const debtsEn = {
     deleteTitle: 'Delete “{{name}}”?',
     endTitle: 'End “{{name}}”?',
     fromEarlier:
-      'It ends from the period you chose: no more interest and no new payments from then on. Its history stays.',
+      'From the period you chose: no more interest and no payment dated from then on. If it never counted before that period and has no payment, interest or adjustment, it is deleted; otherwise it ends there and keeps its history.',
     deletes: 'It has no payment, interest or adjustment yet, so it is deleted.',
     ends: 'It ends from the current period (from {{date}}): no more interest and no new payments. Its history stays, and so does its remaining amount ({{amount}}).',
     endsNoPeriod: 'It ends: no more interest and no new payments. Its history stays.',
@@ -177,6 +186,8 @@ export const debtsEn = {
       'This changes past periods: from the period you choose, no interest is added and no payment can be dated.',
     delete: 'Delete',
     end: 'End debt',
+    endOrDeleteTitle: 'End or delete “{{name}}”?',
+    endOrDelete: 'End or delete',
   },
   adjust: {
     action: 'Adjust balance',
@@ -204,16 +215,20 @@ export const debtsEn = {
     paidOff: 'Paid off',
     never: 'Never ends at this payment',
     neverHelp: 'The planned payment does not cover the interest. Raise it to see an end date.',
-    neverNoPayment: 'No payment is planned. Plan one to see an end date.',
+    neverNoPayment: 'Plan a monthly payment to see when it will be paid off.',
     ends: 'Ends around {{month}}',
     endsNoDate: 'Ends',
     paymentsLeft_one: '1 payment left',
     paymentsLeft_other: '{{count}} payments left',
     estimate: 'An estimate: future pay dates follow the primary income’s schedule.',
+    overpaid: 'Paid off · overpaid by {{amount}}',
+    budgetEnded: 'No projection: the budget has ended.',
+    unknown: 'No projection yet.',
+    noPayment: 'No planned payment',
   },
   endedBudget: 'The budget has ended: debts can no longer be added or changed.',
-  totalRemaining_one: 'Remaining on 1 debt',
-  totalRemaining_other: 'Remaining on {{count}} debts',
+  totalRemaining_one: 'Still owed on 1 debt',
+  totalRemaining_other: 'Still owed on {{count}} debts',
   empty: 'No debts',
   emptyHelp:
     'Add a loan or a credit to follow it down to zero: payments lower it, interest is added each period.',
@@ -243,6 +258,12 @@ export const debtsEn = {
     label_one: 'Remaining amount over time, 1 event; now {{amount}}. The table below lists it.',
     label_other:
       'Remaining amount over time, {{count}} events; now {{amount}}. The table below lists them.',
+    onlyOpened:
+      'Only the opening so far: {{amount}} owed since {{date}}. The chart appears with the first payment or interest.',
+    nothing: 'Nothing recorded yet.',
+    today: 'Today (no new event)',
+    marksNote:
+      'With this many events, only balance adjustments are marked; point at the line for every event of a date, or read the history below.',
   },
   history: {
     title: 'History',
@@ -258,5 +279,23 @@ export const debtsEn = {
     },
     see: 'See',
     seePayment: 'See the payment of {{amount}} on {{date}} among the transactions',
+    showLatest: 'Show only the latest {{count}}',
+    showAll: 'Show all {{count}} events',
   },
+  overpaid: 'Overpaid',
+  overpaidHint: 'More was paid than was owed.',
+  overpaidAmount: '{{amount}} overpaid',
+  nothingOwed: 'Nothing left to pay on your debts',
+  interestHint: 'Added at the start of each period, from the rate.',
+  adjustmentsHint: 'Changes you made to match the bank statement (“Adjust balance”).',
+  endedElsewhere:
+    'It ended from the current period, so these changes cannot be saved. Close this window: its history and remaining amount stay.',
+  changedNotShown:
+    'Another member changed something this window does not show meanwhile (a name, a payment…). Nothing was saved; what you entered is still here: save again.',
+}
+
+export const correctionsEn = {
+  period: 'Correct from the period',
+  showsPeriodTerms:
+    'The fields below now show what was in force in that period. Change only what was wrong: what you leave as it is stays as it was.',
 }

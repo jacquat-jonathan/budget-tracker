@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { routes } from '@/app/routes'
 import { formatMoney } from '@/lib/money'
 import { renderRoutes } from '@/test/render'
-import { categoriesDb, debtRow } from '@/test/budget-fixtures'
+import { categoriesDb, DEBT_ID, debtRow } from '@/test/budget-fixtures'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
@@ -47,7 +47,7 @@ function debtsDb() {
   })
   db.rpc.get_debt_history.mockImplementation(() => [
     {
-      entry_id: 'debt-car',
+      entry_id: DEBT_ID,
       kind: 'opened',
       date: '2026-10-23',
       amount: 1_200_000,
@@ -168,7 +168,7 @@ describe('debts page [R-DEBT-121]', () => {
 describe('debt detail [R-DEBT-122]', () => {
   it('shows the history as a table next to the chart, newest first', async () => {
     mock.current = createSupabaseMock(fakeSession(), debtsDb())
-    renderRoutes(routes, '/debts/debt-car')
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
     const table = await screen.findByTestId('debt-history')
     const rows = within(table).getAllByTestId('history-row')
     expect(rows.map((row) => row.textContent)).toEqual([
@@ -193,7 +193,7 @@ describe('debt detail [R-DEBT-122]', () => {
     const db = debtsDb()
     db.rpc.adjust_debt_balance.mockImplementation(() => [debtRow({ revision: 2 })])
     mock.current = createSupabaseMock(fakeSession(), db)
-    renderRoutes(routes, '/debts/debt-car')
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
     await screen.findByTestId('debt-history')
     await userEvent.click(screen.getByRole('button', { name: 'Adjust balance' }))
     const dialog = await screen.findByRole('dialog')
@@ -203,7 +203,7 @@ describe('debt detail [R-DEBT-122]', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Adjust' }))
     await waitFor(() => {
       expect(db.rpc.adjust_debt_balance).toHaveBeenCalledWith({
-        p_debt_id: 'debt-car',
+        p_debt_id: DEBT_ID,
         p_expected_revision: 1,
         p_balance: 1_140_000,
         p_note: 'November',
@@ -216,7 +216,7 @@ describe('debt detail [R-DEBT-122]', () => {
     db.tables.debt_overview[0] = debtRow({ revision: 7 })
     db.rpc.delete_debt_adjustment.mockImplementation(() => [debtRow({ revision: 8 })])
     mock.current = createSupabaseMock(fakeSession(), db)
-    renderRoutes(routes, '/debts/debt-car')
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
     await screen.findByTestId('debt-history')
     await userEvent.click(screen.getByRole('button', { name: /^Delete the adjustment of/ }))
     const dialog = await screen.findByRole('alertdialog')
@@ -233,7 +233,7 @@ describe('debt detail [R-DEBT-122]', () => {
     const db = debtsDb()
     db.rpc.add_transaction.mockImplementation(() => [])
     mock.current = createSupabaseMock(fakeSession(), db)
-    renderRoutes(routes, '/debts/debt-car')
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
     await screen.findByTestId('debt-history')
     await userEvent.click(screen.getByRole('button', { name: 'Record a payment' }))
     const form = await screen.findByTestId('transaction-form')
@@ -245,7 +245,7 @@ describe('debt detail [R-DEBT-122]', () => {
           p_kind: 'expense',
           p_amount: 50_000,
           p_category_id: 'cat-groceries',
-          p_debt_id: 'debt-car',
+          p_debt_id: DEBT_ID,
         }),
       )
     })
@@ -254,7 +254,7 @@ describe('debt detail [R-DEBT-122]', () => {
   it('says whether removing deletes or ends it', async () => {
     const db = debtsDb()
     mock.current = createSupabaseMock(fakeSession(), db)
-    renderRoutes(routes, '/debts/debt-car')
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
     await screen.findByTestId('debt-history')
     await userEvent.click(screen.getByRole('button', { name: 'More actions for Car loan' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'End or delete' }))

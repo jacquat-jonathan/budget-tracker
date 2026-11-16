@@ -369,7 +369,9 @@ describe('dashboard: charges to confirm [R-SUBSCRIPTION-076]', () => {
     const card = await screen.findByTestId('charges-to-confirm')
     await userEvent.click(within(card).getByRole('button', { name: /^It did not go through/ }))
     const dialog = await screen.findByRole('alertdialog')
-    expect(dialog).toHaveTextContent('It will not be created again for this date.')
+    expect(dialog).toHaveTextContent(
+      'It will not be created again for its scheduled date, 05.11.2026.',
+    )
     expect(db.rpc.dismiss_subscription_charge).not.toHaveBeenCalled()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Remove the charge' }))
     await waitFor(() => {

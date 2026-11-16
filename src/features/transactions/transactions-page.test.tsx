@@ -85,7 +85,8 @@ describe('the transaction list [R-TRANSACTION-051]', () => {
     const rows = screen.getAllByTestId('transaction-row')
     expect(within(rows[0]!).getByTestId('transaction-amount')).toHaveTextContent('+CHF 250.00')
     expect(rows[0]).toHaveTextContent('Extra income')
-    expect(within(rows[1]!).getByText('Refund')).toBeInTheDocument()
+    // A badge on wide screens, the start of the second line on a phone.
+    expect(within(rows[1]!).getAllByText('Refund').length).toBeGreaterThan(0)
     expect(within(rows[2]!).getByTestId('transaction-amount')).toHaveTextContent('CHF 87.90')
     expect(rows[3]).toHaveTextContent('Insurance › Health')
     expect(rows[3]).toHaveTextContent('by Sam')

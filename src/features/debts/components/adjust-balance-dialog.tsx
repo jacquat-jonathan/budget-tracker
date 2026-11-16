@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { InfoIcon } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import { FieldGroup } from '@/components/ui/field'
 import { TextField } from '@/features/auth/components/text-field'
+import { useRecordSettled } from '@/features/budgets/record-settled'
 import { useAdjustBalance } from '@/features/debts/debt-mutations'
 import { useDebtRecord, type Debt } from '@/features/debts/debt-queries'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
@@ -61,12 +62,15 @@ export function AdjustBalanceDialog({
   debt,
   range,
   today,
+  ended,
   onClose,
 }: {
   budgetId: string
   debt: Debt | null
   range: DateRange
   today: string
+  /** The budget has ended: the latest date is its last day. */
+  ended: boolean
   onClose: () => void
 }) {
   const { t } = useTranslation()
@@ -88,6 +92,7 @@ export function AdjustBalanceDialog({
             opened={debt}
             range={range}
             today={today}
+            ended={ended}
             onClose={onClose}
           />
         )}
@@ -98,18 +103,22 @@ export function AdjustBalanceDialog({
 
 function AdjustForm({
   budgetId,
-  opened,
+  opened: openedNow,
   range,
   today,
+  ended,
   onClose,
 }: {
   budgetId: string
   opened: Debt
   range: DateRange
   today: string
+  ended: boolean
   onClose: () => void
 }) {
   const { t } = useTranslation()
+  // The version the dialog was opened on, kept: the page may pass newer ones while it is open.
+  const [opened] = useState(openedNow)
   const errorMessage = useErrorMessage()
   const views = useSubscriptionViews()
   const live = useDebtRecord(budgetId, opened.id)
@@ -123,7 +132,8 @@ function AdjustForm({
   const adjust = useAdjustBalance(budgetId, { onDone: onClose })
   // The remaining amount as it is now (payments meanwhile included): the difference to store.
   const current = live ?? debt
-  const blocked = edit.changed || edit.gone
+  const settled = useRecordSettled(budgetId, 'debt_overview', opened.id, live)
+  const blocked = edit.changed || edit.gone || !settled
 
   const onSubmit = form.handleSubmit((values) =>
     adjust
@@ -143,6 +153,8 @@ function AdjustForm({
         {edit.gone && <GoneElsewhere />}
         {edit.changed && (
           <ChangedElsewhere
+            // Nothing of theirs to load into this form: look at their change, then continue.
+            kind="remove"
             changes={edit.theirs}
             onKeepMine={() => {
               edit.adopt()
@@ -168,10 +180,13 @@ function AdjustForm({
           control={form.control}
           name="date"
           label={t('debts.adjust.date')}
-          description={t('transactions.fields.dateRange', {
-            min: formatCalendarDate(range.min),
-            max: formatCalendarDate(range.max),
-          })}
+          description={t(
+            ended ? 'transactions.fields.dateRangeEnded' : 'transactions.fields.dateRange',
+            {
+              min: formatCalendarDate(range.min),
+              max: formatCalendarDate(range.max),
+            },
+          )}
         />
         <TextField
           control={form.control}

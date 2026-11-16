@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { InfoIcon } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -24,6 +24,8 @@ import { TextField } from '@/features/auth/components/text-field'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCategoriesForDate } from '@/features/categories/category-queries'
 import { useCreateDebt, useUpdateDebt } from '@/features/debts/debt-mutations'
+import { useRecordSettled } from '@/features/budgets/record-settled'
+import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useDebtRecord, type Debt } from '@/features/debts/debt-queries'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
 import {
@@ -86,18 +88,24 @@ export function DebtFormDialog(props: Props) {
 function DebtForm({
   budgetId,
   onOpenChange,
-  debt: opened,
+  debt: openedNow,
   periods,
   currentPeriod,
   onCreated,
 }: Props) {
   const { t } = useTranslation()
+  // The version the dialog was opened on, kept: the page may pass newer ones while it is open.
+  const [opened] = useState(openedNow)
   const errorMessage = useErrorMessage()
   const close = () => onOpenChange(false)
   const views = useSubscriptionViews()
   const live = useDebtRecord(budgetId, opened?.id)
-  const edit = useEditBase(opened, live, views.debt)
+  // Ended by someone else meanwhile: nothing can be saved from now (as step 3's forms).
+  const endedElsewhere = (record: Debt) => opened?.is_active === true && !record.is_active
+  const edit = useEditBase(opened, live, views.debt, endedElsewhere)
   const debt = edit.base
+  const endedNow = live !== null && live !== undefined && edit.gone
+  const settled = useRecordSettled(budgetId, 'debt_overview', opened?.id, live)
 
   const valuesOf = (from: Debt | undefined): Input => ({
     name: from?.name ?? '',
@@ -141,6 +149,21 @@ function DebtForm({
       )
     : []
   const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
+  // A correction starts from the terms of the period chosen, read from the database.
+  const correcting = debt !== undefined && correct && fromPeriod !== null
+  const termsAt = useTermsAt('debt', budgetId, debt?.id, correcting ? fromPeriod.seq : null)
+  const periodTerms = correcting ? (termsAt.data ?? null) : null
+  const base = debt ? (correcting ? periodTerms : debt) : null
+  useStartFrom(
+    form,
+    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    base && debt
+      ? {
+          rate: base.interest_rate !== 0 ? formatInterestRate(base.interest_rate) : '',
+          monthlyPayment: base.monthly_payment,
+        }
+      : null,
+  )
   // A new debt's category is one in force in its first period; an edited one's, from now on.
   const effective = (debt ? null : fromPeriod) ?? currentPeriod ?? periods[0] ?? null
   const choices = useCategoriesForDate(budgetId, effective?.start_date ?? '')
@@ -159,12 +182,15 @@ function DebtForm({
       },
     ]
   }, [choices.data, debt])
-  const principalLocked = debt?.has_history === true
+  // A payment recorded meanwhile gives it a history without a new revision: read it live.
+  const principalLocked = (live ?? debt)?.has_history === true
 
   const onSubmit = form.handleSubmit((values) => {
+    if (debt && !base) return
     const done = debt
       ? update.mutateAsync({
-          debt,
+          debt: { ...debt, has_history: principalLocked },
+          base: base ?? debt,
           name: values.name,
           categoryId: values.categoryId,
           principal: values.principal,
@@ -194,6 +220,8 @@ function DebtForm({
           onKeepMine={sync.keepMine}
           error={mutation.error}
           message={errorMessage}
+          ended={endedNow}
+          endedText={t('debts.endedElsewhere')}
         />
         <TextField
           control={form.control}
@@ -203,6 +231,32 @@ function DebtForm({
           autoComplete="off"
           autoFocus
         />
+        {/* The period first: the terms below then show what was in force in it. */}
+        {debt && correctable.length > 0 && (
+          <CorrectionToggle
+            checked={correct}
+            onCheckedChange={(next) => {
+              form.setValue('correct', next)
+              form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
+            }}
+            label={t('income.correction.label')}
+            warning={t('debts.correctionWarning')}
+          >
+            <SelectField
+              control={form.control}
+              name="fromPeriodId"
+              label={t('corrections.period')}
+              options={correctable.map((period) => ({ value: period.id, label: label(period) }))}
+            />
+            <p className="text-sm text-muted-foreground" data-testid="correction-start">
+              {periodTerms
+                ? t('corrections.showsPeriodTerms')
+                : termsAt.isError
+                  ? errorMessage(termsAt.error)
+                  : t('common.loading')}
+            </p>
+          </CorrectionToggle>
+        )}
         <CategorySelectField
           control={form.control}
           name="categoryId"
@@ -252,24 +306,6 @@ function DebtForm({
             ]}
           />
         )}
-        {debt && correctable.length > 0 && (
-          <CorrectionToggle
-            checked={correct}
-            onCheckedChange={(next) => {
-              form.setValue('correct', next)
-              form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
-            }}
-            label={t('income.correction.label')}
-            warning={t('debts.correctionWarning')}
-          >
-            <SelectField
-              control={form.control}
-              name="fromPeriodId"
-              label={t('income.correction.from')}
-              options={correctable.map((period) => ({ value: period.id, label: label(period) }))}
-            />
-          </CorrectionToggle>
-        )}
         <Alert>
           <InfoIcon aria-hidden />
           <AlertDescription>
@@ -288,7 +324,16 @@ function DebtForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending || sync.pending !== null || edit.gone}>
+          <Button
+            type="submit"
+            disabled={
+              mutation.isPending ||
+              sync.pending !== null ||
+              edit.gone ||
+              !settled ||
+              (!!debt && !base)
+            }
+          >
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
