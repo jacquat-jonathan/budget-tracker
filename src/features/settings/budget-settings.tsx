@@ -20,7 +20,7 @@ import {
   useSetBudgetEndDate,
 } from '@/features/budgets/budget-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
-import { monthLabel } from '@/features/budgets/start-months'
+import { monthOf } from '@/features/budgets/start-months'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
@@ -143,7 +143,7 @@ function EndDateForm() {
           <p className="text-sm text-muted-foreground">
             {budget.end_date && budget.end_month
               ? t('settings.budget.endsWith', {
-                  month: monthLabel(budget.end_month, currentLanguage()),
+                  month: monthOf(budget.end_month, currentLanguage()),
                   date: formatCalendarDate(budget.end_date),
                 })
               : t('settings.budget.noEndDate')}

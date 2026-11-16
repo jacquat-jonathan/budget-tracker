@@ -38,7 +38,7 @@ import { FieldGroup } from '@/components/ui/field'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
-import { monthLabel } from '@/features/budgets/start-months'
+import { monthLabel, monthOf } from '@/features/budgets/start-months'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { addDays, addMonths, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema } from '@/lib/form-schemas'
@@ -203,7 +203,7 @@ export function PeriodsPage() {
                           onSelect={() => open({ kind: 'arrived', period, previous, late: false })}
                         >
                           <CalendarClockIcon />
-                          {t('periods.actions.arrived', { month: month(period) })}
+                          {t('periods.actions.arrived', { month: monthOf(period.month, language) })}
                         </DropdownMenuItem>
                       )}
                       {latest && previous && period.is_current && (
@@ -211,14 +211,14 @@ export function PeriodsPage() {
                           onSelect={() => open({ kind: 'arrived', period, previous, late: true })}
                         >
                           <HourglassIcon />
-                          {t('periods.actions.notYet', { month: month(period) })}
+                          {t('periods.actions.notYet', { month: monthOf(period.month, language) })}
                         </DropdownMenuItem>
                       )}
                       {latest && (
                         <DropdownMenuItem onSelect={() => open({ kind: 'next', period })}>
                           <SkipForwardIcon />
                           {t('periods.actions.nextEarly', {
-                            month: monthLabel(addMonths(period.month, 1), language),
+                            month: monthOf(addMonths(period.month, 1), language),
                           })}
                         </DropdownMenuItem>
                       )}
@@ -271,7 +271,7 @@ export function PeriodsPage() {
               <p>
                 {action.next
                   ? t('periods.resetDescription', {
-                      month: monthLabel(action.next.month, language),
+                      month: monthOf(action.next.month, language),
                       date: formatCalendarDate(action.next.anchor_date),
                     })
                   : t('periods.resetDescriptionLatest')}
@@ -310,11 +310,11 @@ function SalaryDateDialog({
   let title = ''
   if (action?.kind === 'arrived') {
     title = action.late
-      ? t('periods.actions.notYet', { month: monthLabel(action.period.month, language) })
-      : t('periods.actions.arrived', { month: monthLabel(action.period.month, language) })
+      ? t('periods.actions.notYet', { month: monthOf(action.period.month, language) })
+      : t('periods.actions.arrived', { month: monthOf(action.period.month, language) })
   } else if (action) {
     title = t('periods.actions.nextEarly', {
-      month: monthLabel(addMonths(action.period.month, 1), language),
+      month: monthOf(addMonths(action.period.month, 1), language),
     })
   }
 
@@ -350,7 +350,7 @@ function SalaryDateForm({
   const errorMessage = useErrorMessage()
   const { period } = action
   const today = period.today ?? period.end_date
-  const monthOf = (value: string) => monthLabel(value, language)
+  const of = (value: string) => monthOf(value, language)
 
   const defaultDate =
     action.kind === 'next'
@@ -370,13 +370,13 @@ function SalaryDateForm({
     const end = formatCalendarDate(addDays(date, -1))
     const start = formatCalendarDate(date)
     if (action.kind === 'next') {
-      const next = monthOf(addMonths(period.month, 1))
+      const next = of(addMonths(period.month, 1))
       return date <= today
         ? t('periods.preview.closes', { end, next, start })
         : t('periods.preview.endsEarlier', { end, next, start })
     }
-    const thisMonth = monthOf(period.month)
-    const previousMonth = monthOf(action.previous.month)
+    const thisMonth = of(period.month)
+    const previousMonth = of(action.previous.month)
     return action.period.is_current && date > today
       ? t('periods.preview.notYet', { month: thisMonth, previous: previousMonth, end })
       : t('periods.preview.moved', { previous: previousMonth, end, month: thisMonth, start })
@@ -396,10 +396,10 @@ function SalaryDateForm({
 
   const fieldLabel =
     action.kind === 'next'
-      ? t('periods.fields.arrivedOn', { month: monthOf(addMonths(period.month, 1)) })
+      ? t('periods.fields.arrivedOn', { month: of(addMonths(period.month, 1)) })
       : action.late
-        ? t('periods.fields.expectedOn', { month: monthOf(period.month) })
-        : t('periods.fields.arrivedOn', { month: monthOf(period.month) })
+        ? t('periods.fields.expectedOn', { month: of(period.month) })
+        : t('periods.fields.arrivedOn', { month: of(period.month) })
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
@@ -412,7 +412,7 @@ function SalaryDateForm({
         {action.kind === 'arrived' && (
           <p className="text-sm">
             {t('periods.scheduledOn', {
-              month: monthOf(period.month),
+              month: of(period.month),
               date: formatCalendarDate(period.anchor_date),
             })}
           </p>

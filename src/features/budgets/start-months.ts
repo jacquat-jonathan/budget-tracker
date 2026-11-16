@@ -30,12 +30,29 @@ export function useStartMonths(payDay: number, weekendRule: WeekendRule) {
   })
 }
 
-/** "November 2026" for "2026-11-…", read from the string; no time zone involved. */
-export function monthLabel(value: string, language: string): string {
+function formatMonth(value: string, language: string): string {
   const { year, month } = calendarMonth(value)
+  // A fixed UTC instant formatted in UTC: no time zone can move it to another month.
   return new Intl.DateTimeFormat(language, {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC',
   }).format(Date.UTC(year, month - 1, 1))
+}
+
+/** "November 2026" / "Novembre 2026" for "2026-11-…", standing on its own (capitalised). */
+export function monthLabel(value: string, language: string): string {
+  const label = formatMonth(value, language)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+/**
+ * The month as it follows "of" in a sentence: "November 2026" in English; in French with
+ * its preposition and elision, "de novembre 2026" but "d’octobre 2026", "d’août 2026".
+ * French texts that take it write "le salaire {{month}}", not "le salaire de {{month}}".
+ */
+export function monthOf(value: string, language: string): string {
+  if (language !== 'fr') return monthLabel(value, language)
+  const label = formatMonth(value, 'fr')
+  return /^[aeiouyàâäéèêëîïôöùûü]/i.test(label) ? `d’${label}` : `de ${label}`
 }

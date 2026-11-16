@@ -277,7 +277,7 @@ export const fr: Translation = {
       namePlaceholder: 'Ménage',
       endDateOptional: 'Date de fin (facultative)',
       endDateHelp:
-        'Laissez vide pour un budget sans fin. Le budget se termine avec la période du mois de cette date.',
+        'Laissez vide pour un budget sans fin. Le budget se termine avec la période qui contient cette date.',
       startMonth: 'Premier mois',
     },
     create: {
@@ -394,7 +394,7 @@ export const fr: Translation = {
       'Les nouvelles conditions s’appliquent dès la période choisie : les totaux de cette période et des suivantes changent.',
     closesNowTitle: 'Enregistrer clôt la période en cours maintenant',
     closesNow:
-      'Avec ce jour de paie, le salaire de {{month}} est dû le {{date}}, date déjà passée : la période en cours se termine et celle de {{month}} commence ce jour-là.',
+      'Avec ce jour de paie, le salaire {{month}} est dû le {{date}}, date déjà passée : la période en cours se termine et celle {{month}} commence ce jour-là.',
     correction: {
       label: 'Corriger une période passée',
       removeLabel: 'Le supprimer depuis une période passée',
@@ -491,34 +491,35 @@ export const fr: Translation = {
     incomeTotal: 'Revenus',
     actionsFor: 'Actions pour {{month}}',
     actions: {
-      arrived: 'Le salaire de {{month}} est arrivé un autre jour',
-      notYet: 'Le salaire de {{month}} n’est pas encore arrivé',
-      nextEarly: 'Le salaire de {{month}} est arrivé en avance',
+      arrived: 'Le salaire {{month}} est arrivé un autre jour',
+      notYet: 'Le salaire {{month}} n’est pas encore arrivé',
+      nextEarly: 'Le salaire {{month}} est arrivé en avance',
       resetStart: 'Rétablir le début selon le calendrier',
       resetEnd: 'Rétablir la fin selon le calendrier',
     },
     dialogDescription:
       'Quand un salaire n’arrive pas le jour habituel, par exemple à cause d’un jour férié. Chaque période commence le jour où arrive son salaire.',
-    scheduledOn: 'Le salaire de {{month}} est prévu le {{date}}.',
+    scheduledOn: 'Le salaire {{month}} est prévu le {{date}}.',
     fields: {
-      arrivedOn: 'Jour d’arrivée du salaire de {{month}}',
-      expectedOn: 'Jour où le salaire de {{month}} est désormais attendu',
+      arrivedOn: 'Jour d’arrivée du salaire {{month}}',
+      expectedOn: 'Jour où le salaire {{month}} est désormais attendu',
     },
     fourteenDays: 'Au plus 14 jours avant ou après la date prévue.',
     preview: {
-      moved: '{{previous}} se terminera le {{end}}, et {{month}} commencera le {{start}}.',
+      moved:
+        'La période {{previous}} se terminera le {{end}}, et celle {{month}} commencera le {{start}}.',
       notYet:
-        'La période de {{month}} est retirée pour l’instant, et {{previous}} redevient la période en cours jusqu’au {{end}}. Elle reviendra à l’arrivée du salaire.',
+        'La période {{month}} est retirée pour l’instant, et celle {{previous}} redevient la période en cours jusqu’au {{end}}. Elle reviendra à l’arrivée du salaire.',
       closes:
-        'Cette période se terminera le {{end}}, et la période de {{next}} commence le {{start}}.',
+        'Cette période se terminera le {{end}}, et la période {{next}} commencera le {{start}}.',
       endsEarlier:
-        'Cette période se terminera le {{end}} : le salaire de {{next}} est attendu le {{start}}.',
+        'Cette période se terminera le {{end}} : le salaire {{next}} est attendu le {{start}}.',
     },
     saved: 'Périodes mises à jour.',
     reset: 'Rétablir selon le calendrier',
     resetTitle: 'Rétablir cette limite selon le calendrier ?',
     resetDescription:
-      'La période de {{month}} recommence à sa date de paie prévue, le {{date}}, et la période précédente se termine la veille.',
+      'La période {{month}} recommence à sa date de paie prévue, le {{date}}, et la période précédente se termine la veille.',
     resetDescriptionLatest:
       'La période en cours se termine de nouveau la veille du prochain salaire prévu, et suit le calendrier désormais.',
     resetComesBack:
@@ -534,10 +535,10 @@ export const fr: Translation = {
       rename: 'Renommer',
       renamed: 'Budget renommé.',
       endDate: 'Date de fin',
-      endsWith: 'Le budget se termine avec la période de {{month}}, le {{date}}.',
+      endsWith: 'Le budget se termine avec la période {{month}}, le {{date}}.',
       noEndDate: 'Pas de date de fin : le budget continue indéfiniment.',
       endDateHelp:
-        'Le budget se termine avec la période du mois de cette date ; son dernier jour suit le salaire de ce mois. Laissez vide et enregistrez, ou supprimez-la, pour un budget sans fin.',
+        'Le budget se termine avec la période qui contient cette date ; son dernier jour est la veille du salaire suivant. Laissez vide et enregistrez, ou supprimez-la, pour un budget sans fin.',
       saveEndDate: 'Enregistrer la date de fin',
       clearEndDate: 'Continuer indéfiniment',
       endDateSet: 'Le budget se termine maintenant le {{date}}.',

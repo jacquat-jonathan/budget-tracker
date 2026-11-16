@@ -261,7 +261,7 @@ export const en = {
       namePlaceholder: 'Household',
       endDateOptional: 'End date (optional)',
       endDateHelp:
-        'Leave empty to run the budget indefinitely. The budget ends with the period of that date’s month.',
+        'Leave empty to run the budget indefinitely. The budget ends with the period that contains this date.',
       startMonth: 'First month',
     },
     create: {
@@ -508,7 +508,7 @@ export const en = {
       endsWith: 'The budget ends with the {{month}} period, on {{date}}.',
       noEndDate: 'No end date: the budget runs indefinitely.',
       endDateHelp:
-        'The budget ends with the period of this date’s month; its last day follows that month’s salary. Leave empty and save, or clear it, to run indefinitely.',
+        'The budget ends with the period that contains this date; its last day is the day before the next salary. Leave empty and save, or clear it, to run indefinitely.',
       saveEndDate: 'Save end date',
       clearEndDate: 'Run indefinitely',
       endDateSet: 'The budget now ends on {{date}}.',

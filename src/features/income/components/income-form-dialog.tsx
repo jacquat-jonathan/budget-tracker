@@ -35,7 +35,7 @@ import {
   type PeriodSummary,
   type WeekendRule,
 } from '@/features/budgets/budget-queries'
-import { monthLabel } from '@/features/budgets/start-months'
+import { monthLabel, monthOf } from '@/features/budgets/start-months'
 import { PayDayField, WeekendRuleField } from '@/features/income/components/income-term-fields'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
@@ -233,7 +233,7 @@ function IncomeForm({
             <AlertTitle>{t('income.closesNowTitle')}</AlertTitle>
             <AlertDescription>
               {t('income.closesNow', {
-                month: monthLabel(closesNow.month, language),
+                month: monthOf(closesNow.month, language),
                 date: formatCalendarDate(closesNow.payDate),
               })}
             </AlertDescription>
