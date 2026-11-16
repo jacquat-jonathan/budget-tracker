@@ -141,10 +141,12 @@ budget is opened. The same catch-up creates the subscription charges due up to t
 - **A long absence** (more than one step behind): `my_budgets.caught_up` is false and
   `get_current_period` returns no row; call `ensure_periods` until it returns 0 (each call
   keeps its step), then read or write. Measured locally with 50 subscriptions and 50 debts
-  with interest after 100 years away: 15 steps of 25 to 120 periods, each statement at
-  most 3.7 s and its commit at most 0.7 s (under the API's 8 s statement timeout); a step
+  with interest after 100 years away: 14 steps of 44 to 120 periods, each statement at
+  most 3.0 s and its commit at most 0.6 s (under the API's 8 s statement timeout); a step
   makes fewer periods as the history grows, since a period then costs up to about three
-  times more.
+  times more. `debt_overview` for that budget's 50 debts: 40 ms at 120 periods, 230 ms at
+  1200 (it grows with each debt's interest entries; at the documented limits, 63 periods and
+  200 debts, 150 ms).
 
 (R-PERIOD-008, R-PERIOD-009, R-PERIOD-031, R-PERIOD-130, R-PERIOD-180, R-SECURITY-006,
 R-SUBSCRIPTION-073, R-SUBSCRIPTION-111, R-DEBT-073, R-DEBT-111, D-270, D-204, D-276)

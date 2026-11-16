@@ -726,6 +726,7 @@ returns bigint
 language plpgsql
 stable
 set search_path = ''
+set enable_seqscan = off  -- its generic plan would scan the budget's transactions (D-217)
 as $$
 begin
   return (

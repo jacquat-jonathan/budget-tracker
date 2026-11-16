@@ -4509,7 +4509,7 @@ Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-
 
 ### D-276 A catch-up step's work is bounded in time too (accepted)
 
-A step stops creating periods after about two seconds of work (at least one period per call), then creates the charges due in what it created. Measured locally with 50 subscriptions and 50 debts with interest after 100 years: statement at most 3.7 s, commit at most 0.7 s, 25 to 120 periods per step; a period costs about three times more at 1200 periods of history than at 120 (deferred checks and the budget's transactions), so the time bound, not the period bound, keeps each step under the 8 s statement timeout.
+A step stops creating periods after about two seconds of work (at least one period per call), then creates the charges due in what it created. Measured locally with 50 subscriptions and 50 debts with interest after 100 years: statement at most 3.0 s, commit at most 0.6 s, 44 to 120 periods per step; a period costs about three times more at 1200 periods of history than at 120 (deferred checks and the budget's transactions), so the time bound, not the period bound, keeps each step under the 8 s statement timeout.
 
 **Why:** Re-review: the tenth 120-period step after 100 years took 11.6 s over HTTP.
 
