@@ -10,3 +10,6 @@ supabase
 .github
 docs
 CLAUDE.md
+
+# Statement fixtures are byte-exact extractions; never reformat them
+test-fixtures

@@ -1,0 +1,291 @@
+{
+  "$comment": "Expected parse of fixture.json (invented data on a real layout). Amounts are integer rappen (CHF minor units); foreign amountMinor is in the minor unit of its currency. See README.md.",
+  "source": "yuh-account",
+  "fixture": "fixture.json",
+  "statement": {
+    "bank": "Yuh (Swissquote Bank Ltd)",
+    "document": "Relevé de ton compte",
+    "language": "fr",
+    "holder": "Jonas Mustermann",
+    "iban": "CH3808781000581302700",
+    "clientNumber": "5813027",
+    "periodFrom": "2024-08-01",
+    "periodTo": "2024-08-31",
+    "generatedOn": "2024-09-01",
+    "currencySections": ["CHF"],
+    "openingBalance": 17875,
+    "closingBalance": 28247,
+    "totalDebit": 18028,
+    "totalCredit": 28400,
+    "savingsAccountBalance": 0
+  },
+  "checks": {
+    "sumOfDebits": 18028,
+    "sumOfCredits": 28400,
+    "debitsMatchPrintedTotal": true,
+    "creditsMatchPrintedTotal": true,
+    "openingPlusCreditsMinusDebitsIsClosing": true,
+    "everyRowBalanceMatchesRunningBalance": true,
+    "purchaseDebitIsAmountPlusCommissionPlusTax": true
+  },
+  "transactions": [
+    {
+      "n": 1,
+      "page": 2,
+      "bookingDate": "2024-08-06",
+      "valueDate": "2024-08-08",
+      "date": "2024-08-06",
+      "direction": "debit",
+      "amount": 4507,
+      "kind": "securities-purchase",
+      "merchant": "Exempla Glb Eq Fund (EXWE)",
+      "counterparty": null,
+      "reference": "3005893855",
+      "security": {
+        "name": "Exempla Glb Eq Fund (EXWE)",
+        "isin": "ZZX7F3Q9K2B8",
+        "quantity": "0.6849",
+        "price": 6570,
+        "priceCurrency": "CHF",
+        "grossAmount": 4500,
+        "commission": 0,
+        "tax": 7,
+        "venue": "SIX Swiss Exchange"
+      },
+      "balanceAfter": 13368,
+      "flags": [],
+      "text": "Achat Exempla Glb Eq Fund (EXWE) Quantité: 0.6849 Prix: CHF 65.70 Montant: CHF 45.00 Commission: CHF 0.00 Taxe: CHF 0.07 Plateforme de négoce: SIX Swiss Exchange ISIN: ZZX7F3Q9K2B8",
+      "textLines": [
+        "Achat",
+        "Exempla Glb Eq Fund (EXWE)",
+        "Quantité: 0.6849",
+        "Prix: CHF 65.70",
+        "Montant: CHF 45.00",
+        "Commission: CHF 0.00",
+        "Taxe: CHF 0.07",
+        "Plateforme de négoce: SIX Swiss",
+        "Exchange",
+        "ISIN: ZZX7F3Q9K2B8"
+      ],
+      "description": "Exempla Glb Eq Fund (EXWE)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 2,
+      "page": 2,
+      "bookingDate": "2024-08-13",
+      "valueDate": "2024-08-15",
+      "date": "2024-08-13",
+      "direction": "debit",
+      "amount": 4507,
+      "kind": "securities-purchase",
+      "merchant": "Exempla Glb Eq Fund (EXWE)",
+      "counterparty": null,
+      "reference": "3008262728",
+      "security": {
+        "name": "Exempla Glb Eq Fund (EXWE)",
+        "isin": "ZZX7F3Q9K2B8",
+        "quantity": "0.7012",
+        "price": 6418,
+        "priceCurrency": "CHF",
+        "grossAmount": 4500,
+        "commission": 0,
+        "tax": 7,
+        "venue": "SIX Swiss Exchange"
+      },
+      "balanceAfter": 8861,
+      "flags": [],
+      "text": "Achat Exempla Glb Eq Fund (EXWE) Quantité: 0.7012 Prix: CHF 64.18 Montant: CHF 45.00 Commission: CHF 0.00 Taxe: CHF 0.07 Plateforme de négoce: SIX Swiss Exchange ISIN: ZZX7F3Q9K2B8",
+      "textLines": [
+        "Achat",
+        "Exempla Glb Eq Fund (EXWE)",
+        "Quantité: 0.7012",
+        "Prix: CHF 64.18",
+        "Montant: CHF 45.00",
+        "Commission: CHF 0.00",
+        "Taxe: CHF 0.07",
+        "Plateforme de négoce: SIX Swiss",
+        "Exchange",
+        "ISIN: ZZX7F3Q9K2B8"
+      ],
+      "description": "Exempla Glb Eq Fund (EXWE)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 3,
+      "page": 2,
+      "bookingDate": "2024-08-19",
+      "valueDate": "2024-08-19",
+      "date": "2024-08-19",
+      "direction": "credit",
+      "amount": 28400,
+      "kind": "transfer-in",
+      "merchant": "Mustermann Jonas",
+      "counterparty": {
+        "type": "payer",
+        "name": "Mustermann Jonas",
+        "address": ["Chemin du Test, 12", "1599 Monts", "CH"],
+        "iban": "CH2408401000041302776"
+      },
+      "reference": "3011063676",
+      "security": null,
+      "balanceAfter": 37261,
+      "flags": ["own-account-transfer"],
+      "text": "Virement de Mustermann Jonas Chemin du Test, 12 1599 Monts CH CH2408401000041302776",
+      "textLines": [
+        "Virement de",
+        "Mustermann Jonas",
+        "Chemin du Test, 12",
+        "1599 Monts",
+        "CH",
+        "CH2408401000041302776"
+      ],
+      "description": "Mustermann Jonas",
+      "handling": {
+        "action": "skip-by-default",
+        "why": "transfer between the owner's own accounts (D-129)"
+      }
+    },
+    {
+      "n": 4,
+      "page": 2,
+      "bookingDate": "2024-08-20",
+      "valueDate": "2024-08-22",
+      "date": "2024-08-20",
+      "direction": "debit",
+      "amount": 4507,
+      "kind": "securities-purchase",
+      "merchant": "Exempla Glb Eq Fund (EXWE)",
+      "counterparty": null,
+      "reference": "3015110363",
+      "security": {
+        "name": "Exempla Glb Eq Fund (EXWE)",
+        "isin": "ZZX7F3Q9K2B8",
+        "quantity": "0.7361",
+        "price": 6113,
+        "priceCurrency": "CHF",
+        "grossAmount": 4500,
+        "commission": 0,
+        "tax": 7,
+        "venue": "SIX Swiss Exchange"
+      },
+      "balanceAfter": 32754,
+      "flags": [],
+      "text": "Achat Exempla Glb Eq Fund (EXWE) Quantité: 0.7361 Prix: CHF 61.13 Montant: CHF 45.00 Commission: CHF 0.00 Taxe: CHF 0.07 Plateforme de négoce: SIX Swiss Exchange ISIN: ZZX7F3Q9K2B8",
+      "textLines": [
+        "Achat",
+        "Exempla Glb Eq Fund (EXWE)",
+        "Quantité: 0.7361",
+        "Prix: CHF 61.13",
+        "Montant: CHF 45.00",
+        "Commission: CHF 0.00",
+        "Taxe: CHF 0.07",
+        "Plateforme de négoce: SIX Swiss",
+        "Exchange",
+        "ISIN: ZZX7F3Q9K2B8"
+      ],
+      "description": "Exempla Glb Eq Fund (EXWE)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 5,
+      "page": 2,
+      "bookingDate": "2024-08-27",
+      "valueDate": "2024-08-29",
+      "date": "2024-08-27",
+      "direction": "debit",
+      "amount": 4507,
+      "kind": "securities-purchase",
+      "merchant": "Exempla Glb Eq Fund (EXWE)",
+      "counterparty": null,
+      "reference": "3016394923",
+      "security": {
+        "name": "Exempla Glb Eq Fund (EXWE)",
+        "isin": "ZZX7F3Q9K2B8",
+        "quantity": "0.6560",
+        "price": 6860,
+        "priceCurrency": "CHF",
+        "grossAmount": 4500,
+        "commission": 0,
+        "tax": 7,
+        "venue": "SIX Swiss Exchange"
+      },
+      "balanceAfter": 28247,
+      "flags": [],
+      "text": "Achat Exempla Glb Eq Fund (EXWE) Quantité: 0.6560 Prix: CHF 68.60 Montant: CHF 45.00 Commission: CHF 0.00 Taxe: CHF 0.07 Plateforme de négoce: SIX Swiss Exchange ISIN: ZZX7F3Q9K2B8",
+      "textLines": [
+        "Achat",
+        "Exempla Glb Eq Fund (EXWE)",
+        "Quantité: 0.6560",
+        "Prix: CHF 68.60",
+        "Montant: CHF 45.00",
+        "Commission: CHF 0.00",
+        "Taxe: CHF 0.07",
+        "Plateforme de négoce: SIX Swiss",
+        "Exchange",
+        "ISIN: ZZX7F3Q9K2B8"
+      ],
+      "description": "Exempla Glb Eq Fund (EXWE)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    }
+  ],
+  "skipped": [
+    {
+      "page": 2,
+      "text": "01.08.2024 Solde d'ouverture 178.75",
+      "reason": "opening balance row (Solde d'ouverture)"
+    },
+    {
+      "page": 2,
+      "text": "31.08.2024 Solde de clôture 282.47",
+      "reason": "closing balance row (Solde de clôture)"
+    },
+    {
+      "page": 2,
+      "text": "Solde reporté au 01.08.2024 178.75 CHF",
+      "reason": "currency section summary, used only to check the parse"
+    },
+    {
+      "page": 2,
+      "text": "Total débit 180.28 CHF",
+      "reason": "currency section summary, used only to check the parse"
+    },
+    {
+      "page": 2,
+      "text": "Total crédit 284.00 CHF",
+      "reason": "currency section summary, used only to check the parse"
+    },
+    {
+      "page": 2,
+      "text": "Solde reporté au 31.08.2024 282.47 CHF",
+      "reason": "currency section summary, used only to check the parse"
+    },
+    {
+      "page": 1,
+      "text": "Solde à l’ouverture 178.75 CHF",
+      "reason": "page 1 account summary"
+    },
+    {
+      "page": 1,
+      "text": "Solde à la clôture 282.47 CHF",
+      "reason": "page 1 account summary"
+    },
+    {
+      "page": 1,
+      "text": "Solde du compte d'épargne 0.00 CHF",
+      "reason": "page 1 account summary"
+    }
+  ]
+}

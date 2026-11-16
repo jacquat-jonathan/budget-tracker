@@ -1,0 +1,696 @@
+{
+  "$comment": "Expected parse of fixture.json (invented data on a real layout). Amounts are integer rappen (CHF minor units); foreign amountMinor is in the minor unit of its currency. See README.md.",
+  "source": "migros-bank-credit-card",
+  "fixture": "fixture.json",
+  "statement": {
+    "bank": "Migros Bank",
+    "issuer": "Viseca Payment Services SA",
+    "document": "Facture (carte de crédit)",
+    "language": "fr",
+    "currency": "CHF",
+    "billDate": "2025-06-12",
+    "dueDate": "2025-06-27",
+    "cardAccount": "2209447130865512",
+    "holder": "Jonas Mustermann",
+    "globalLimit": 500000,
+    "cards": [
+      {
+        "masked": "4999 12XX XXXX 3456",
+        "product": "Visa Gold",
+        "holder": "Jonas Mustermann"
+      }
+    ],
+    "previousBillTotal": 236300,
+    "paymentReceived": 236300,
+    "interest": 575,
+    "cardTotal": 81260,
+    "billTotal": 81835,
+    "amountDue": 81835,
+    "paymentSlip": {
+      "amount": 81835,
+      "reference": "000000000022094471308655120"
+    }
+  },
+  "checks": {
+    "sumOfCardLines": 81260,
+    "cardLinesMatchCardTotal": true,
+    "billTotalIsPreviousMinusPaymentPlusInterestPlusCards": true,
+    "page1CardSubtotal": 44895,
+    "page1CardLinesMatchSubtotal": true,
+    "amountDueEqualsBillTotal": true,
+    "slipAmountEqualsAmountDue": true
+  },
+  "transactions": [
+    {
+      "n": 1,
+      "page": 1,
+      "purchaseDate": "2025-06-12",
+      "bookingDate": "2025-06-12",
+      "date": "2025-06-12",
+      "direction": "debit",
+      "amount": 575,
+      "kind": "interest",
+      "merchant": null,
+      "location": null,
+      "country": null,
+      "category": null,
+      "card": null,
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "Intérêt moratoire pour 27 jours",
+      "textLines": ["Intérêt moratoire pour 27 jours", "Intérêt par année 11.90%"],
+      "interestRate": "11.90",
+      "days": 27,
+      "description": "Intérêt moratoire pour 27 jours",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 2,
+      "page": 1,
+      "purchaseDate": "2025-05-13",
+      "bookingDate": "2025-05-14",
+      "date": "2025-05-13",
+      "direction": "debit",
+      "amount": 3415,
+      "kind": "card-purchase",
+      "merchant": "TEXTAI *CHATBOT ABONMT",
+      "location": "GALWAY",
+      "country": "IE",
+      "category": "Logiciels informatiques",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "CHF",
+        "amountMinor": 3355
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 60
+      },
+      "flags": [],
+      "text": "TEXTAI *CHATBOT ABONMT, GALWAY IE",
+      "textLines": [
+        "TEXTAI *CHATBOT ABONMT, GALWAY IE",
+        "Logiciels informatiques",
+        "Frais de traitement 1.75% CHF 0.60"
+      ],
+      "description": "TEXTAI *CHATBOT ABONMT",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 3,
+      "page": 1,
+      "purchaseDate": "2025-05-18",
+      "bookingDate": "2025-05-19",
+      "date": "2025-05-18",
+      "direction": "debit",
+      "amount": 28010,
+      "kind": "card-purchase",
+      "merchant": "TRV*STAYFINDERS LODGE",
+      "location": "(800)555-0199",
+      "country": "IE",
+      "category": "Agences de voyage",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 30448,
+        "rate": "0.9041442",
+        "rateDate": "2025-05-19",
+        "chfConverted": 27530
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 480
+      },
+      "flags": [],
+      "text": "TRV*STAYFINDERS LODGE, (800)555-0199 IE",
+      "textLines": [
+        "TRV*STAYFINDERS LODGE, (800)555-0199 IE",
+        "Agences de voyage",
+        "Taux de conversion 0.9041442 du 19.05.25 CHF 275.30",
+        "Frais de traitement 1.75% CHF 4.80"
+      ],
+      "description": "TRV*STAYFINDERS LODGE (EUR 304.48)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 4,
+      "page": 1,
+      "purchaseDate": "2025-05-23",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-23",
+      "direction": "debit",
+      "amount": 40,
+      "kind": "card-purchase",
+      "merchant": "CABZ *RIDE",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "category": "Taxis",
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "CABZ *RIDE, ROTTERDAM NL",
+      "textLines": ["CABZ *RIDE, ROTTERDAM NL", "Taxis"],
+      "description": "CABZ *RIDE",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 5,
+      "page": 1,
+      "purchaseDate": "2025-05-23",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-23",
+      "direction": "debit",
+      "amount": 5185,
+      "kind": "card-purchase",
+      "merchant": "CBZ* PREAUTH.CABZ.NET",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "category": "Taxis",
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL",
+      "textLines": ["CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL", "Taxis"],
+      "description": "CBZ* PREAUTH.CABZ.NET",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 6,
+      "page": 1,
+      "purchaseDate": "2025-05-23",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-23",
+      "direction": "debit",
+      "amount": 7235,
+      "kind": "card-purchase",
+      "merchant": "LH-HOTELMIRADOR",
+      "location": "LILLE",
+      "country": "FR",
+      "category": "Hôtels, établ. d'hébergement",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 7225,
+        "rate": "0.9838776",
+        "rateDate": "2025-05-23",
+        "chfConverted": 7110
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 125
+      },
+      "flags": [],
+      "text": "LH-HOTELMIRADOR, LILLE FR",
+      "textLines": [
+        "LH-HOTELMIRADOR, LILLE FR",
+        "Hôtels, établ. d'hébergement",
+        "Taux de conversion 0.9838776 du 23.05.25 CHF 71.10",
+        "Frais de traitement 1.75% CHF 1.25"
+      ],
+      "description": "LH-HOTELMIRADOR (EUR 72.25)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 7,
+      "page": 1,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 70,
+      "kind": "card-purchase",
+      "merchant": "CABZ *RIDE",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "category": "Taxis",
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "CABZ *RIDE, ROTTERDAM NL",
+      "textLines": ["CABZ *RIDE, ROTTERDAM NL", "Taxis"],
+      "description": "CABZ *RIDE",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 8,
+      "page": 1,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 555,
+      "kind": "card-purchase",
+      "merchant": "CABZ *RIDE",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "category": "Taxis",
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "CABZ *RIDE, ROTTERDAM NL",
+      "textLines": ["CABZ *RIDE, ROTTERDAM NL", "Taxis"],
+      "description": "CABZ *RIDE",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 9,
+      "page": 1,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 385,
+      "kind": "card-purchase",
+      "merchant": "CBZ* PREAUTH.CABZ.NET",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "category": "Taxis",
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL",
+      "textLines": ["CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL", "Taxis"],
+      "description": "CBZ* PREAUTH.CABZ.NET",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 10,
+      "page": 2,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 6910,
+      "kind": "card-purchase",
+      "merchant": "CBZ* PREAUTH.CABZ.NET",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "category": "Taxis",
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL",
+      "textLines": ["CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL", "Taxis"],
+      "description": "CBZ* PREAUTH.CABZ.NET",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 11,
+      "page": 2,
+      "purchaseDate": "2025-05-23",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-23",
+      "direction": "debit",
+      "amount": 4630,
+      "kind": "card-purchase",
+      "merchant": "WOK CITY 5830172",
+      "location": "LILLE",
+      "country": "FR",
+      "category": "Restaurants, bistros",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 4625,
+        "rate": "0.9838776",
+        "rateDate": "2025-05-23",
+        "chfConverted": 4550
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 80
+      },
+      "flags": [],
+      "text": "WOK CITY 5830172, LILLE FR",
+      "textLines": [
+        "WOK CITY 5830172, LILLE FR",
+        "Restaurants, bistros",
+        "Taux de conversion 0.9838776 du 23.05.25 CHF 45.50",
+        "Frais de traitement 1.75% CHF 0.80"
+      ],
+      "description": "WOK CITY 5830172 (EUR 46.25)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 12,
+      "page": 2,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 4415,
+      "kind": "card-purchase",
+      "merchant": "LA MIE DOREE 3",
+      "location": "LILLE",
+      "country": "FR",
+      "category": "Restaurants fast food",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 4410,
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "chfConverted": 4340
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 75
+      },
+      "flags": [],
+      "text": "LA MIE DOREE 3, LILLE FR",
+      "textLines": [
+        "LA MIE DOREE 3, LILLE FR",
+        "Restaurants fast food",
+        "Taux de conversion 0.9838776 du 24.05.25 CHF 43.40",
+        "Frais de traitement 1.75% CHF 0.75"
+      ],
+      "description": "LA MIE DOREE 3 (EUR 44.10)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 13,
+      "page": 2,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 4900,
+      "kind": "card-purchase",
+      "merchant": "ESTAMINET LEFEBVRE",
+      "location": "LILLE 2",
+      "country": "FR",
+      "category": "Restaurants, bistros",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 4896,
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "chfConverted": 4815
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 85
+      },
+      "flags": [],
+      "text": "ESTAMINET LEFEBVRE, LILLE 2 FR",
+      "textLines": [
+        "ESTAMINET LEFEBVRE, LILLE 2 FR",
+        "Restaurants, bistros",
+        "Taux de conversion 0.9838776 du 24.05.25 CHF 48.15",
+        "Frais de traitement 1.75% CHF 0.85"
+      ],
+      "description": "ESTAMINET LEFEBVRE (EUR 48.96)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 14,
+      "page": 2,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 60,
+      "kind": "card-purchase",
+      "merchant": "LOST GROTTO",
+      "location": "LILLE",
+      "country": "FR",
+      "category": "Attractions touristiques",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 60,
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "chfConverted": 60
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 0
+      },
+      "flags": [],
+      "text": "LOST GROTTO, LILLE FR",
+      "textLines": [
+        "LOST GROTTO, LILLE FR",
+        "Attractions touristiques",
+        "Taux de conversion 0.9838776 du 24.05.25 CHF 0.60",
+        "Frais de traitement 1.75% CHF 0.00"
+      ],
+      "description": "LOST GROTTO (EUR 0.60)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 15,
+      "page": 2,
+      "purchaseDate": "2025-05-24",
+      "bookingDate": "2025-05-26",
+      "date": "2025-05-24",
+      "direction": "debit",
+      "amount": 0,
+      "kind": "card-purchase",
+      "merchant": "SUPERMART EXPRES5307716",
+      "location": "BELLEFONTSUR",
+      "country": "FR",
+      "category": "Supermarchés, alimentation",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 1,
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "chfConverted": 0
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 0
+      },
+      "flags": [],
+      "text": "SUPERMART EXPRES5307716, BELLEFONTSUR FR",
+      "textLines": [
+        "SUPERMART EXPRES5307716, BELLEFONTSUR FR",
+        "Supermarchés, alimentation",
+        "Taux de conversion 0.9838776 du 24.05.25 CHF 0.00",
+        "Frais de traitement 1.75% CHF 0.00"
+      ],
+      "description": "SUPERMART EXPRES5307716 (EUR 0.01)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 16,
+      "page": 2,
+      "purchaseDate": "2025-06-10",
+      "bookingDate": "2025-06-11",
+      "date": "2025-06-10",
+      "direction": "debit",
+      "amount": 1180,
+      "kind": "card-purchase",
+      "merchant": "CLOUDX",
+      "location": "LILLE",
+      "country": "FR",
+      "category": "Services IT, programmation",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "CHF",
+        "amountMinor": 1162
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 20
+      },
+      "flags": [],
+      "text": "CLOUDX, LILLE FR",
+      "textLines": [
+        "CLOUDX, LILLE FR",
+        "Services IT, programmation",
+        "Frais de traitement 1.75% CHF 0.20"
+      ],
+      "description": "CLOUDX",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 17,
+      "page": 2,
+      "purchaseDate": "2025-06-10",
+      "bookingDate": "2025-06-11",
+      "date": "2025-06-10",
+      "direction": "debit",
+      "amount": 1985,
+      "kind": "card-purchase",
+      "merchant": "Videostream",
+      "location": "Hilversum",
+      "country": "NL",
+      "category": "Télévision et radio",
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "flags": [],
+      "text": "Videostream, Hilversum NL",
+      "textLines": ["Videostream, Hilversum NL", "Télévision et radio"],
+      "description": "Videostream",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 18,
+      "page": 2,
+      "purchaseDate": "2025-06-11",
+      "bookingDate": "2025-06-12",
+      "date": "2025-06-11",
+      "direction": "debit",
+      "amount": 12285,
+      "kind": "card-purchase",
+      "merchant": "MODELWORK* WRITER ABO",
+      "location": "GALWAY 4",
+      "country": "IE",
+      "category": "Logiciels informatiques",
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "USD",
+        "amountMinor": 14385,
+        "rate": "0.8394565",
+        "rateDate": "2025-06-11",
+        "chfConverted": 12075
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 210
+      },
+      "flags": [],
+      "text": "MODELWORK* WRITER ABO, GALWAY 4 IE",
+      "textLines": [
+        "MODELWORK* WRITER ABO, GALWAY 4 IE",
+        "Logiciels informatiques",
+        "Taux de conversion 0.8394565 du 11.06.25 CHF 120.75",
+        "Frais de traitement 1.75% CHF 2.10"
+      ],
+      "description": "MODELWORK* WRITER ABO (USD 143.85)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    }
+  ],
+  "skipped": [
+    {
+      "page": 1,
+      "text": "12.05.25 Montant total dernier relevé 2'363.00",
+      "reason": "previous bill total (Montant total dernier relevé), not a transaction"
+    },
+    {
+      "page": 1,
+      "text": "09.06.25 09.06.25 Votre paiement - Merci 2'363.00 -",
+      "reason": "payment received (trailing minus = credit); the matching debit is the card-bill payment on the bank account"
+    },
+    {
+      "page": 1,
+      "text": "4999 12XX XXXX 3456 Visa Gold, Jonas Mustermann",
+      "reason": "card section heading (card number, product, holder)"
+    },
+    {
+      "page": 2,
+      "text": "4999 12XX XXXX 3456 Visa Gold, Jonas Mustermann",
+      "reason": "card section heading (card number, product, holder)"
+    },
+    {
+      "page": 1,
+      "text": "Limite de carte CHF 5'000",
+      "reason": "card limit"
+    },
+    {
+      "page": 2,
+      "text": "Limite de carte CHF 5'000",
+      "reason": "card limit"
+    },
+    {
+      "page": 1,
+      "text": "Total intermédiaire de la carte 448.95",
+      "reason": "page subtotal of the card"
+    },
+    {
+      "page": 1,
+      "text": "Total intermédiaire 454.70",
+      "reason": "page subtotal of the bill"
+    },
+    {
+      "page": 2,
+      "text": "Report total 454.70",
+      "reason": "bill subtotal carried from the previous page"
+    },
+    {
+      "page": 2,
+      "text": "Report de la carte 448.95",
+      "reason": "card subtotal carried from the previous page"
+    },
+    {
+      "page": 2,
+      "text": "Total carte Visa Gold 4999 12XX XXXX 3456 812.60",
+      "reason": "card total"
+    },
+    {
+      "page": 2,
+      "text": "Montant total de la facture en notre faveur 818.35",
+      "reason": "bill total"
+    },
+    {
+      "page": 2,
+      "text": "Montant dû 818.35",
+      "reason": "amount due"
+    }
+  ]
+}

@@ -1,0 +1,2361 @@
+{
+  "$comment": "Expected parse of fixture.json (invented data on a real layout). Amounts are integer rappen (CHF minor units); foreign amountMinor is in the minor unit of its currency. See README.md.",
+  "source": "migros-bank-account",
+  "fixture": "fixture.json",
+  "statement": {
+    "bank": "Migros Bank",
+    "document": "Extrait de compte",
+    "language": "fr",
+    "currency": "CHF",
+    "holder": "Jonas Mustermann",
+    "iban": "CH2408401000041302776",
+    "accountNumber": "41.302.776",
+    "periodFrom": "2025-04-01",
+    "periodTo": "2025-04-30",
+    "openingBalance": 2141413,
+    "closingBalance": 1713038,
+    "totalDebits": 986825,
+    "totalCredits": 558450
+  },
+  "checks": {
+    "sumOfDebits": 986825,
+    "sumOfCredits": 558450,
+    "debitsMatchPrintedTotal": true,
+    "creditsMatchPrintedTotal": true,
+    "openingPlusCreditsMinusDebitsIsClosing": true,
+    "printedBalancesMatchRunningBalance": true,
+    "summaryBlockMatchesTable": true
+  },
+  "transactions": [
+    {
+      "n": 1,
+      "page": 1,
+      "bookingDate": "2025-04-01",
+      "valueDate": "2025-04-01",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-01",
+      "direction": "credit",
+      "amount": 62830,
+      "kind": "twint-credit",
+      "merchant": "Brunner, Emma",
+      "counterparty": {
+        "type": "person",
+        "name": "Emma Brunner",
+        "phone": "+41700640292"
+      },
+      "reference": "0400007210353926",
+      "card": null,
+      "original": null,
+      "balanceAfter": 2204243,
+      "flags": [],
+      "text": "Crédit TWINT Brunner, Emma, +41700640292 0400007210353926",
+      "textLines": ["Crédit TWINT Brunner, Emma, +41700640292", "0400007210353926"],
+      "description": "TWINT Emma Brunner",
+      "handling": {
+        "action": "review-credit",
+        "why": "credit: proposed as a refund in a category or as extra income (D-130)"
+      }
+    },
+    {
+      "n": 2,
+      "page": 1,
+      "bookingDate": "2025-04-02",
+      "valueDate": "2025-03-31",
+      "purchaseDate": "2025-03-31",
+      "purchaseTime": "10:04",
+      "date": "2025-03-31",
+      "direction": "debit",
+      "amount": 201,
+      "kind": "card-purchase",
+      "merchant": "Petrol Alpina",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 2204042,
+      "flags": [],
+      "text": "Achat Petrol Alpina 31.03.2025 10:04 Carte: 498765******2031 Montant: CHF 2.01",
+      "textLines": [
+        "Achat Petrol Alpina 31.03.2025 10:04 Carte:",
+        "498765******2031 Montant: CHF 2.01"
+      ],
+      "description": "Petrol Alpina",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 3,
+      "page": 1,
+      "bookingDate": "2025-04-03",
+      "valueDate": "2025-04-01",
+      "purchaseDate": "2025-04-01",
+      "purchaseTime": "14:51",
+      "date": "2025-04-01",
+      "direction": "debit",
+      "amount": 590,
+      "kind": "card-purchase",
+      "merchant": "Mini Market 5210",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Mini Market 5210 01.04.2025 14:51 Carte: 498765******2031 Montant: CHF 5.90",
+      "textLines": [
+        "Achat Mini Market 5210 01.04.2025 14:51 Carte:",
+        "498765******2031 Montant: CHF 5.90"
+      ],
+      "description": "Mini Market 5210",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 4,
+      "page": 1,
+      "bookingDate": "2025-04-03",
+      "valueDate": "2025-04-01",
+      "purchaseDate": "2025-04-01",
+      "purchaseTime": "16:16",
+      "date": "2025-04-01",
+      "direction": "debit",
+      "amount": 8180,
+      "kind": "card-purchase",
+      "merchant": "Cafeteria du Plateau Mon",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Cafeteria du Plateau Mon 01.04.2025 16:16 Carte: 498765******2031 Montant: CHF 81.80",
+      "textLines": [
+        "Achat Cafeteria du Plateau Mon 01.04.2025 16:16",
+        "Carte: 498765******2031 Montant: CHF 81.80"
+      ],
+      "description": "Cafeteria du Plateau Mon",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 5,
+      "page": 1,
+      "bookingDate": "2025-04-03",
+      "valueDate": "2025-04-01",
+      "purchaseDate": "2025-04-01",
+      "purchaseTime": "15:52",
+      "date": "2025-04-01",
+      "direction": "debit",
+      "amount": 505,
+      "kind": "card-purchase",
+      "merchant": "Petrol Alpina",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Petrol Alpina 01.04.2025 15:52 Carte: 498765******2031 Montant: CHF 5.05",
+      "textLines": [
+        "Achat Petrol Alpina 01.04.2025 15:52 Carte:",
+        "498765******2031 Montant: CHF 5.05"
+      ],
+      "description": "Petrol Alpina",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 6,
+      "page": 1,
+      "bookingDate": "2025-04-03",
+      "valueDate": "2025-04-01",
+      "purchaseDate": "2025-04-01",
+      "purchaseTime": "09:14",
+      "date": "2025-04-01",
+      "direction": "debit",
+      "amount": 26975,
+      "kind": "card-purchase",
+      "merchant": "LASER GAME DOMES",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat LASER GAME DOMES 01.04.2025 09:14 Carte: 498765******2031 Montant: CHF 269.75",
+      "textLines": [
+        "Achat LASER GAME DOMES 01.04.2025 09:14",
+        "Carte: 498765******2031 Montant: CHF 269.75"
+      ],
+      "description": "LASER GAME DOMES",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 7,
+      "page": 1,
+      "bookingDate": "2025-04-03",
+      "valueDate": "2025-04-01",
+      "purchaseDate": "2025-04-01",
+      "purchaseTime": "18:57",
+      "date": "2025-04-01",
+      "direction": "debit",
+      "amount": 745,
+      "kind": "card-purchase",
+      "merchant": "LASER GAME DOMES",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 2167047,
+      "flags": [],
+      "text": "Achat LASER GAME DOMES 01.04.2025 18:57 Carte: 498765******2031 Montant: CHF 7.45",
+      "textLines": [
+        "Achat LASER GAME DOMES 01.04.2025 18:57",
+        "Carte: 498765******2031 Montant: CHF 7.45"
+      ],
+      "description": "LASER GAME DOMES",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 8,
+      "page": 1,
+      "bookingDate": "2025-04-04",
+      "valueDate": "2025-04-02",
+      "purchaseDate": "2025-04-02",
+      "purchaseTime": "21:20",
+      "date": "2025-04-02",
+      "direction": "debit",
+      "amount": 5251,
+      "kind": "card-purchase",
+      "merchant": "Animalia Boutique AG",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Animalia Boutique AG 02.04.2025 21:20 Carte: 498765******2031 Montant: CHF 52.51",
+      "textLines": [
+        "Achat Animalia Boutique AG 02.04.2025 21:20",
+        "Carte: 498765******2031 Montant: CHF 52.51"
+      ],
+      "description": "Animalia Boutique AG",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 9,
+      "page": 1,
+      "bookingDate": "2025-04-04",
+      "valueDate": "2025-04-04",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-04",
+      "direction": "debit",
+      "amount": 9925,
+      "kind": "twint-debit",
+      "merchant": "Webshop Direct",
+      "counterparty": {
+        "type": "merchant",
+        "name": "Webshop Direct"
+      },
+      "reference": "0400007210607736",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Webshop Direct 0400007210607736",
+      "textLines": ["Débit TWINT Webshop Direct 0400007210607736"],
+      "description": "TWINT Webshop Direct",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 10,
+      "page": 1,
+      "bookingDate": "2025-04-04",
+      "valueDate": "2025-04-04",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-04",
+      "direction": "debit",
+      "amount": 24251,
+      "kind": "twint-debit",
+      "merchant": "¿¿, Nina",
+      "counterparty": {
+        "type": "person",
+        "name": "Nina ¿¿",
+        "phone": "+41700462565"
+      },
+      "reference": "0400007210982559",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT ¿¿, Nina, +41700462565 0400007210982559",
+      "textLines": ["Débit TWINT ¿¿, Nina, +41700462565", "0400007210982559"],
+      "description": "TWINT Nina ¿¿",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 11,
+      "page": 1,
+      "bookingDate": "2025-04-04",
+      "valueDate": "2025-04-04",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-04",
+      "direction": "debit",
+      "amount": 45623,
+      "kind": "twint-debit",
+      "merchant": "Brunner, Noah",
+      "counterparty": {
+        "type": "person",
+        "name": "Noah Brunner",
+        "phone": "+41700539513"
+      },
+      "reference": "0400007210856417",
+      "card": null,
+      "original": null,
+      "balanceAfter": 2081997,
+      "flags": [],
+      "text": "Débit TWINT Brunner, Noah, +41700539513 0400007210856417",
+      "textLines": ["Débit TWINT Brunner, Noah, +41700539513", "0400007210856417"],
+      "description": "TWINT Noah Brunner",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 12,
+      "page": 1,
+      "bookingDate": "2025-04-07",
+      "valueDate": "2025-04-03",
+      "purchaseDate": "2025-04-03",
+      "purchaseTime": "18:21",
+      "date": "2025-04-03",
+      "direction": "debit",
+      "amount": 3755,
+      "kind": "card-purchase",
+      "merchant": "Mini Market 5210",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Mini Market 5210 03.04.2025 18:21 Carte: 498765******2031 Montant: CHF 37.55",
+      "textLines": [
+        "Achat Mini Market 5210 03.04.2025 18:21 Carte:",
+        "498765******2031 Montant: CHF 37.55"
+      ],
+      "description": "Mini Market 5210",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 13,
+      "page": 1,
+      "bookingDate": "2025-04-07",
+      "valueDate": "2025-04-04",
+      "purchaseDate": "2025-04-04",
+      "purchaseTime": "21:03",
+      "date": "2025-04-04",
+      "direction": "debit",
+      "amount": 245,
+      "kind": "card-purchase",
+      "merchant": "PARK SYS",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PARK SYS 04.04.2025 21:03 Carte: 498765******2031 Montant: CHF 2.45",
+      "textLines": ["Achat PARK SYS 04.04.2025 21:03 Carte:", "498765******2031 Montant: CHF 2.45"],
+      "description": "PARK SYS",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 14,
+      "page": 1,
+      "bookingDate": "2025-04-07",
+      "valueDate": "2025-04-04",
+      "purchaseDate": "2025-04-04",
+      "purchaseTime": "19:14",
+      "date": "2025-04-04",
+      "direction": "debit",
+      "amount": 8420,
+      "kind": "card-purchase",
+      "merchant": "newsbx",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat newsbx 04.04.2025 19:14 Carte: 498765******2031 Montant: CHF 84.20",
+      "textLines": ["Achat newsbx 04.04.2025 19:14 Carte:", "498765******2031 Montant: CHF 84.20"],
+      "description": "newsbx",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 15,
+      "page": 1,
+      "bookingDate": "2025-04-07",
+      "valueDate": "2025-04-04",
+      "purchaseDate": "2025-04-04",
+      "purchaseTime": "13:28",
+      "date": "2025-04-04",
+      "direction": "debit",
+      "amount": 59139,
+      "kind": "card-purchase",
+      "merchant": "Alpin Outdoor / 312",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Alpin Outdoor / 312 04.04.2025 13:28 Carte: 498765******2031 Montant: CHF 591.39",
+      "textLines": [
+        "Achat Alpin Outdoor / 312 04.04.2025 13:28 Carte:",
+        "498765******2031 Montant: CHF 591.39"
+      ],
+      "description": "Alpin Outdoor / 312",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 16,
+      "page": 1,
+      "bookingDate": "2025-04-07",
+      "valueDate": "2025-04-06",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-07",
+      "direction": "debit",
+      "amount": 1463,
+      "kind": "twint-debit",
+      "merchant": "Fiesta Concerts SA",
+      "counterparty": {
+        "type": "merchant",
+        "name": "Fiesta Concerts SA"
+      },
+      "reference": "0400007211347108",
+      "card": null,
+      "original": null,
+      "balanceAfter": 2008975,
+      "flags": [],
+      "text": "Débit TWINT Fiesta Concerts SA 0400007211347108",
+      "textLines": ["Débit TWINT Fiesta Concerts SA 0400007211347108 06.04.25"],
+      "description": "TWINT Fiesta Concerts SA",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 17,
+      "page": 1,
+      "bookingDate": "2025-04-08",
+      "valueDate": "2025-04-06",
+      "purchaseDate": "2025-04-06",
+      "purchaseTime": "08:13",
+      "date": "2025-04-06",
+      "direction": "debit",
+      "amount": 386,
+      "kind": "card-purchase",
+      "merchant": "Mini Market 5210",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Mini Market 5210 06.04.2025 08:13 Carte: 498765******2031 Montant: CHF 3.86",
+      "textLines": [
+        "Achat Mini Market 5210 06.04.2025 08:13 Carte:",
+        "498765******2031 Montant: CHF 3.86"
+      ],
+      "description": "Mini Market 5210",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 18,
+      "page": 2,
+      "bookingDate": "2025-04-08",
+      "valueDate": "2025-04-06",
+      "purchaseDate": "2025-04-06",
+      "purchaseTime": "12:40",
+      "date": "2025-04-06",
+      "direction": "debit",
+      "amount": 4960,
+      "kind": "card-purchase",
+      "merchant": "Telemontana SA",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Telemontana SA 06.04.2025 12:40 Carte: 498765******2031 Montant: CHF 49.60",
+      "textLines": [
+        "Achat Telemontana SA 06.04.2025 12:40 Carte:",
+        "498765******2031 Montant: CHF 49.60"
+      ],
+      "description": "Telemontana SA",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 19,
+      "page": 2,
+      "bookingDate": "2025-04-08",
+      "valueDate": "2025-04-06",
+      "purchaseDate": "2025-04-06",
+      "purchaseTime": "18:56",
+      "date": "2025-04-06",
+      "direction": "debit",
+      "amount": 7770,
+      "kind": "card-purchase",
+      "merchant": "Piscine du Lac VD",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Piscine du Lac VD 06.04.2025 18:56 Carte: 498765******2031 Montant: CHF 77.70",
+      "textLines": [
+        "Achat Piscine du Lac VD 06.04.2025 18:56 Carte:",
+        "498765******2031 Montant: CHF 77.70"
+      ],
+      "description": "Piscine du Lac VD",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 20,
+      "page": 2,
+      "bookingDate": "2025-04-08",
+      "valueDate": "2025-04-06",
+      "purchaseDate": "2025-04-06",
+      "purchaseTime": "08:31",
+      "date": "2025-04-06",
+      "direction": "debit",
+      "amount": 5685,
+      "kind": "card-purchase",
+      "merchant": "Boulangerie des Trois Ro",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Boulangerie des Trois Ro 06.04.2025 08:31 Carte: 498765******2031 Montant: CHF 56.85",
+      "textLines": [
+        "Achat Boulangerie des Trois Ro 06.04.2025 08:31",
+        "Carte: 498765******2031 Montant: CHF 56.85"
+      ],
+      "description": "Boulangerie des Trois Ro",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 21,
+      "page": 2,
+      "bookingDate": "2025-04-08",
+      "valueDate": "2025-04-06",
+      "purchaseDate": "2025-04-06",
+      "purchaseTime": "12:43",
+      "date": "2025-04-06",
+      "direction": "debit",
+      "amount": 5395,
+      "kind": "card-purchase",
+      "merchant": "Supermarche Place Centra",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Supermarche Place Centra 06.04.2025 12:43 Carte: 498765******2031 Montant: CHF 53.95",
+      "textLines": [
+        "Achat Supermarche Place Centra 06.04.2025 12:43",
+        "Carte: 498765******2031 Montant: CHF 53.95"
+      ],
+      "description": "Supermarche Place Centra",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 22,
+      "page": 2,
+      "bookingDate": "2025-04-08",
+      "valueDate": "2025-04-08",
+      "purchaseDate": "2025-04-06",
+      "purchaseTime": "12:29",
+      "date": "2025-04-06",
+      "direction": "credit",
+      "amount": 325,
+      "kind": "card-refund",
+      "merchant": "Piscine du Lac VD",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 1985104,
+      "flags": [],
+      "text": "Crédit Piscine du Lac VD 06.04.2025 12:29 Carte: 498765******2031 Montant: CHF 3.25",
+      "textLines": [
+        "Crédit Piscine du Lac VD 06.04.2025 12:29 Carte:",
+        "498765******2031 Montant: CHF 3.25"
+      ],
+      "description": "Piscine du Lac VD",
+      "handling": {
+        "action": "review-credit",
+        "why": "credit: proposed as a refund in a category or as extra income (D-130)"
+      }
+    },
+    {
+      "n": 23,
+      "page": 2,
+      "bookingDate": "2025-04-10",
+      "valueDate": "2025-04-08",
+      "purchaseDate": "2025-04-08",
+      "purchaseTime": "16:41",
+      "date": "2025-04-08",
+      "direction": "debit",
+      "amount": 509,
+      "kind": "card-purchase",
+      "merchant": "PETRA Tankstelle Nord",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PETRA Tankstelle Nord 08.04.2025 16:41 Carte: 498765******2031 Montant: CHF 5.09",
+      "textLines": [
+        "Achat PETRA Tankstelle Nord 08.04.2025 16:41",
+        "Carte: 498765******2031 Montant: CHF 5.09"
+      ],
+      "description": "PETRA Tankstelle Nord",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 24,
+      "page": 2,
+      "bookingDate": "2025-04-10",
+      "valueDate": "2025-04-10",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-10",
+      "direction": "debit",
+      "amount": 62655,
+      "kind": "twint-debit",
+      "merchant": "Brunner, Louis",
+      "counterparty": {
+        "type": "person",
+        "name": "Louis Brunner",
+        "phone": "+41700534768"
+      },
+      "reference": "0400007211710872",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Brunner, Louis, +41700534768 0400007211710872",
+      "textLines": ["Débit TWINT Brunner, Louis, +41700534768", "0400007211710872"],
+      "description": "TWINT Louis Brunner",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 25,
+      "page": 2,
+      "bookingDate": "2025-04-10",
+      "valueDate": "2025-04-10",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-10",
+      "direction": "debit",
+      "amount": 208011,
+      "kind": "payment",
+      "merchant": "Viseca Payment Services SA",
+      "counterparty": {
+        "type": "payee",
+        "name": "Viseca Payment Services SA",
+        "address": ["Hagenholzstrasse 56", "8050 Zürich"]
+      },
+      "reference": "000000000022094471308655120",
+      "card": null,
+      "original": null,
+      "balanceAfter": 1713929,
+      "flags": ["card-bill-payment"],
+      "text": "Paiement Viseca Payment Services SA Hagenholzstrasse 56 8050 Zürich 00 00000 00022 09447 13086 55120",
+      "textLines": [
+        "Paiement",
+        "Viseca Payment Services SA",
+        "Hagenholzstrasse 56",
+        "8050 Zürich",
+        "00 00000 00022 09447 13086 55120"
+      ],
+      "description": "Viseca Payment Services SA",
+      "handling": {
+        "action": "skip-by-default",
+        "why": "card-bill payment: the card purchases are imported from the card bill (D-129)"
+      }
+    },
+    {
+      "n": 26,
+      "page": 2,
+      "bookingDate": "2025-04-11",
+      "valueDate": "2025-04-09",
+      "purchaseDate": "2025-04-09",
+      "purchaseTime": "15:20",
+      "date": "2025-04-09",
+      "direction": "debit",
+      "amount": 2795,
+      "kind": "card-purchase",
+      "merchant": "Mini Market 6083",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Mini Market 6083 09.04.2025 15:20 Carte: 498765******2031 Montant: CHF 27.95",
+      "textLines": [
+        "Achat Mini Market 6083 09.04.2025 15:20 Carte:",
+        "498765******2031 Montant: CHF 27.95"
+      ],
+      "description": "Mini Market 6083",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 27,
+      "page": 2,
+      "bookingDate": "2025-04-11",
+      "valueDate": "2025-04-11",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-11",
+      "direction": "debit",
+      "amount": 22505,
+      "kind": "twint-debit",
+      "merchant": "Telco Nordnet AG Abo Web",
+      "counterparty": {
+        "type": "merchant",
+        "name": "Telco Nordnet AG Abo Web"
+      },
+      "reference": "0400007211897531",
+      "card": null,
+      "original": null,
+      "balanceAfter": 1688629,
+      "flags": [],
+      "text": "Débit TWINT Telco Nordnet AG Abo Web 0400007211897531",
+      "textLines": ["Débit TWINT Telco Nordnet AG Abo Web", "0400007211897531"],
+      "description": "TWINT Telco Nordnet AG Abo Web",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 28,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-10",
+      "purchaseDate": "2025-04-10",
+      "purchaseTime": "18:02",
+      "date": "2025-04-10",
+      "direction": "debit",
+      "amount": 7230,
+      "kind": "card-purchase",
+      "merchant": "GOVX VISAAPP0000482915",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 7615,
+        "rate": "0.918064",
+        "fee": 240
+      },
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat GOVX VISAAPP0000482915 10.04.2025 18:02 Carte: 498765******2031 Montant: EUR 76.15 EUR 76.15 au cours de 0.918064 plus frais de CHF 2.40",
+      "textLines": [
+        "Achat GOVX VISAAPP0000482915 10.04.2025",
+        "18:02 Carte: 498765******2031 Montant: EUR",
+        "76.15",
+        "EUR 76.15 au cours de 0.918064",
+        "plus frais de CHF 2.40"
+      ],
+      "description": "GOVX VISAAPP0000482915 (EUR 76.15)",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 29,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-10",
+      "purchaseDate": "2025-04-10",
+      "purchaseTime": "10:27",
+      "date": "2025-04-10",
+      "direction": "debit",
+      "amount": 5490,
+      "kind": "card-purchase",
+      "merchant": "Pizzeria Bella Vista Mon",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Pizzeria Bella Vista Mon 10.04.2025 10:27 Carte: 498765******2031 Montant: CHF 54.90",
+      "textLines": [
+        "Achat Pizzeria Bella Vista Mon 10.04.2025 10:27",
+        "Carte: 498765******2031 Montant: CHF 54.90"
+      ],
+      "description": "Pizzeria Bella Vista Mon",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 30,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-11",
+      "purchaseDate": "2025-04-11",
+      "purchaseTime": "09:00",
+      "date": "2025-04-11",
+      "direction": "debit",
+      "amount": 965,
+      "kind": "card-purchase",
+      "merchant": "PETRA Tankstelle Nord",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PETRA Tankstelle Nord 11.04.2025 09:00 Carte: 498765******2031 Montant: CHF 9.65",
+      "textLines": [
+        "Achat PETRA Tankstelle Nord 11.04.2025 09:00",
+        "Carte: 498765******2031 Montant: CHF 9.65"
+      ],
+      "description": "PETRA Tankstelle Nord",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 31,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-12",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-14",
+      "direction": "debit",
+      "amount": 605,
+      "kind": "twint-debit",
+      "merchant": "Parkomatic-TWINT",
+      "counterparty": {
+        "type": "merchant",
+        "name": "Parkomatic-TWINT"
+      },
+      "reference": "0400007212278317",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Parkomatic-TWINT 0400007212278317",
+      "textLines": ["Débit TWINT Parkomatic-TWINT", "0400007212278317"],
+      "description": "TWINT Parkomatic-TWINT",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 32,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-12",
+      "purchaseDate": "2025-04-12",
+      "purchaseTime": "11:19",
+      "date": "2025-04-12",
+      "direction": "debit",
+      "amount": 1890,
+      "kind": "card-purchase",
+      "merchant": "DIGITAL MEDIA1",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat DIGITAL MEDIA1 12.04.2025 11:19 Carte: 498765******2031 Montant: CHF 18.90",
+      "textLines": [
+        "Achat DIGITAL MEDIA1 12.04.2025 11:19 Carte:",
+        "498765******2031 Montant: CHF 18.90"
+      ],
+      "description": "DIGITAL MEDIA1",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 33,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-12",
+      "purchaseDate": "2025-04-12",
+      "purchaseTime": "22:33",
+      "date": "2025-04-12",
+      "direction": "debit",
+      "amount": 4085,
+      "kind": "card-purchase",
+      "merchant": "PETRA Tankstelle Nord",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PETRA Tankstelle Nord 12.04.2025 22:33 Carte: 498765******2031 Montant: CHF 40.85",
+      "textLines": [
+        "Achat PETRA Tankstelle Nord 12.04.2025 22:33",
+        "Carte: 498765******2031 Montant: CHF 40.85"
+      ],
+      "description": "PETRA Tankstelle Nord",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 34,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-12",
+      "purchaseDate": "2025-04-12",
+      "purchaseTime": "14:06",
+      "date": "2025-04-12",
+      "direction": "debit",
+      "amount": 7360,
+      "kind": "card-purchase",
+      "merchant": "Oil Montal-Sud,A1",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Oil Montal-Sud,A1 12.04.2025 14:06 Carte: 498765******2031 Montant: CHF 73.60",
+      "textLines": [
+        "Achat Oil Montal-Sud,A1 12.04.2025 14:06 Carte:",
+        "498765******2031 Montant: CHF 73.60"
+      ],
+      "description": "Oil Montal-Sud,A1",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 35,
+      "page": 2,
+      "bookingDate": "2025-04-14",
+      "valueDate": "2025-04-14",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-14",
+      "direction": "debit",
+      "amount": 35417,
+      "kind": "payment",
+      "merchant": "Fuelco AG",
+      "counterparty": {
+        "type": "payee",
+        "name": "Fuelco AG",
+        "address": ["Industriestr 9", "8199 Altwiler"]
+      },
+      "reference": "439110354604614120816019138",
+      "card": null,
+      "original": null,
+      "balanceAfter": 1625587,
+      "flags": [],
+      "text": "Paiement Fuelco AG Industriestr 9 8199 Altwiler 43 91103 54604 61412 08160 19138",
+      "textLines": [
+        "Paiement",
+        "Fuelco AG",
+        "Industriestr 9",
+        "8199 Altwiler",
+        "43 91103 54604 61412 08160 19138"
+      ],
+      "description": "Fuelco AG",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 36,
+      "page": 2,
+      "bookingDate": "2025-04-15",
+      "valueDate": "2025-04-13",
+      "purchaseDate": "2025-04-13",
+      "purchaseTime": "06:48",
+      "date": "2025-04-13",
+      "direction": "debit",
+      "amount": 5495,
+      "kind": "card-purchase",
+      "merchant": "Boulangerie des Trois Ro",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 1620092,
+      "flags": [],
+      "text": "Achat Boulangerie des Trois Ro 13.04.2025 06:48 Carte: 498765******2031 Montant: CHF 54.95",
+      "textLines": [
+        "Achat Boulangerie des Trois Ro 13.04.2025 06:48",
+        "Carte: 498765******2031 Montant: CHF 54.95"
+      ],
+      "description": "Boulangerie des Trois Ro",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 37,
+      "page": 3,
+      "bookingDate": "2025-04-16",
+      "valueDate": "2025-04-14",
+      "purchaseDate": "2025-04-14",
+      "purchaseTime": "11:07",
+      "date": "2025-04-14",
+      "direction": "debit",
+      "amount": 662,
+      "kind": "card-purchase",
+      "merchant": "Mini Market 6071",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Mini Market 6071 14.04.2025 11:07 Carte: 498765******2031 Montant: CHF 6.62",
+      "textLines": [
+        "Achat Mini Market 6071 14.04.2025 11:07 Carte:",
+        "498765******2031 Montant: CHF 6.62"
+      ],
+      "description": "Mini Market 6071",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 38,
+      "page": 3,
+      "bookingDate": "2025-04-16",
+      "valueDate": "2025-04-14",
+      "purchaseDate": "2025-04-14",
+      "purchaseTime": "12:09",
+      "date": "2025-04-14",
+      "direction": "debit",
+      "amount": 208,
+      "kind": "card-purchase",
+      "merchant": "Budget Mart 27",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Budget Mart 27 14.04.2025 12:09 Carte: 498765******2031 Montant: CHF 2.08",
+      "textLines": [
+        "Achat Budget Mart 27 14.04.2025 12:09 Carte:",
+        "498765******2031 Montant: CHF 2.08"
+      ],
+      "description": "Budget Mart 27",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 39,
+      "page": 3,
+      "bookingDate": "2025-04-16",
+      "valueDate": "2025-04-14",
+      "purchaseDate": "2025-04-14",
+      "purchaseTime": "08:54",
+      "date": "2025-04-14",
+      "direction": "debit",
+      "amount": 590,
+      "kind": "card-purchase",
+      "merchant": "DIGITAL MEDIA1",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat DIGITAL MEDIA1 14.04.2025 08:54 Carte: 498765******2031 Montant: CHF 5.90",
+      "textLines": [
+        "Achat DIGITAL MEDIA1 14.04.2025 08:54 Carte:",
+        "498765******2031 Montant: CHF 5.90"
+      ],
+      "description": "DIGITAL MEDIA1",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 40,
+      "page": 3,
+      "bookingDate": "2025-04-16",
+      "valueDate": "2025-04-16",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-16",
+      "direction": "debit",
+      "amount": 688,
+      "kind": "twint-debit",
+      "merchant": "Vendoma",
+      "counterparty": {
+        "type": "merchant",
+        "name": "Vendoma"
+      },
+      "reference": "0400007212529846",
+      "card": null,
+      "original": null,
+      "balanceAfter": 1617944,
+      "flags": [],
+      "text": "Débit TWINT Vendoma 0400007212529846",
+      "textLines": ["Débit TWINT Vendoma 0400007212529846"],
+      "description": "TWINT Vendoma",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 41,
+      "page": 3,
+      "bookingDate": "2025-04-17",
+      "valueDate": "2025-04-15",
+      "purchaseDate": "2025-04-15",
+      "purchaseTime": "08:42",
+      "date": "2025-04-15",
+      "direction": "debit",
+      "amount": 900,
+      "kind": "card-purchase",
+      "merchant": "DIGITAL MEDIA1",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat DIGITAL MEDIA1 15.04.2025 08:42 Carte: 498765******2031 Montant: CHF 9.00",
+      "textLines": [
+        "Achat DIGITAL MEDIA1 15.04.2025 08:42 Carte:",
+        "498765******2031 Montant: CHF 9.00"
+      ],
+      "description": "DIGITAL MEDIA1",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 42,
+      "page": 3,
+      "bookingDate": "2025-04-17",
+      "valueDate": "2025-04-15",
+      "purchaseDate": "2025-04-15",
+      "purchaseTime": "15:28",
+      "date": "2025-04-15",
+      "direction": "debit",
+      "amount": 2597,
+      "kind": "card-purchase",
+      "merchant": "PETRA Tankstelle Nord",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PETRA Tankstelle Nord 15.04.2025 15:28 Carte: 498765******2031 Montant: CHF 25.97",
+      "textLines": [
+        "Achat PETRA Tankstelle Nord 15.04.2025 15:28",
+        "Carte: 498765******2031 Montant: CHF 25.97"
+      ],
+      "description": "PETRA Tankstelle Nord",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 43,
+      "page": 3,
+      "bookingDate": "2025-04-17",
+      "valueDate": "2025-04-15",
+      "purchaseDate": "2025-04-15",
+      "purchaseTime": "06:10",
+      "date": "2025-04-15",
+      "direction": "debit",
+      "amount": 7415,
+      "kind": "card-purchase",
+      "merchant": "Cafeteria du Plateau Mon",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 1607032,
+      "flags": [],
+      "text": "Achat Cafeteria du Plateau Mon 15.04.2025 06:10 Carte: 498765******2031 Montant: CHF 74.15",
+      "textLines": [
+        "Achat Cafeteria du Plateau Mon 15.04.2025 06:10",
+        "Carte: 498765******2031 Montant: CHF 74.15"
+      ],
+      "description": "Cafeteria du Plateau Mon",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 44,
+      "page": 3,
+      "bookingDate": "2025-04-18",
+      "valueDate": "2025-04-16",
+      "purchaseDate": "2025-04-16",
+      "purchaseTime": "21:17",
+      "date": "2025-04-16",
+      "direction": "debit",
+      "amount": 330,
+      "kind": "card-purchase",
+      "merchant": "VENDOMAT AUTOMATEN 221",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 1606702,
+      "flags": [],
+      "text": "Achat VENDOMAT AUTOMATEN 221 16.04.2025 21:17 Carte: 498765******2031 Montant: CHF 3.30",
+      "textLines": [
+        "Achat VENDOMAT AUTOMATEN 221 16.04.2025",
+        "21:17 Carte: 498765******2031 Montant: CHF 3.30"
+      ],
+      "description": "VENDOMAT AUTOMATEN 221",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 45,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-18",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-21",
+      "direction": "debit",
+      "amount": 280,
+      "kind": "twint-debit",
+      "merchant": "Ferrario, Thomas",
+      "counterparty": {
+        "type": "person",
+        "name": "Thomas Ferrario",
+        "phone": "+41700745611"
+      },
+      "reference": "0400007212695463",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Ferrario, Thomas, +41700745611 0400007212695463",
+      "textLines": ["Débit TWINT Ferrario, Thomas, +41700745611", "0400007212695463"],
+      "description": "TWINT Thomas Ferrario",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 46,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-18",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-21",
+      "direction": "debit",
+      "amount": 3890,
+      "kind": "twint-debit",
+      "merchant": "Rossi, Julien",
+      "counterparty": {
+        "type": "person",
+        "name": "Julien Rossi",
+        "phone": "+41700105503"
+      },
+      "reference": "0400007213074403",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Rossi, Julien, +41700105503 0400007213074403",
+      "textLines": ["Débit TWINT Rossi, Julien, +41700105503", "0400007213074403"],
+      "description": "TWINT Julien Rossi",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 47,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-18",
+      "purchaseDate": "2025-04-18",
+      "purchaseTime": "18:29",
+      "date": "2025-04-18",
+      "direction": "debit",
+      "amount": 4950,
+      "kind": "card-purchase",
+      "merchant": "PETRA Tankstelle Nord",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PETRA Tankstelle Nord 18.04.2025 18:29 Carte: 498765******2031 Montant: CHF 49.50",
+      "textLines": [
+        "Achat PETRA Tankstelle Nord 18.04.2025 18:29",
+        "Carte: 498765******2031 Montant: CHF 49.50"
+      ],
+      "description": "PETRA Tankstelle Nord",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 48,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-19",
+      "purchaseDate": "2025-04-19",
+      "purchaseTime": "15:51",
+      "date": "2025-04-19",
+      "direction": "debit",
+      "amount": 8640,
+      "kind": "card-purchase",
+      "merchant": "Le Central Sarl",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Le Central Sarl 19.04.2025 15:51 Carte: 498765******2031 Montant: CHF 86.40",
+      "textLines": [
+        "Achat Le Central Sarl 19.04.2025 15:51 Carte:",
+        "498765******2031 Montant: CHF 86.40"
+      ],
+      "description": "Le Central Sarl",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 49,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-19",
+      "purchaseDate": "2025-04-19",
+      "purchaseTime": "10:52",
+      "date": "2025-04-19",
+      "direction": "debit",
+      "amount": 4615,
+      "kind": "card-purchase",
+      "merchant": "Animalia Boutique AG",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Animalia Boutique AG 19.04.2025 10:52 Carte: 498765******2031 Montant: CHF 46.15",
+      "textLines": [
+        "Achat Animalia Boutique AG 19.04.2025 10:52",
+        "Carte: 498765******2031 Montant: CHF 46.15"
+      ],
+      "description": "Animalia Boutique AG",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 50,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-19",
+      "purchaseDate": "2025-04-19",
+      "purchaseTime": "16:49",
+      "date": "2025-04-19",
+      "direction": "debit",
+      "amount": 915,
+      "kind": "card-purchase",
+      "merchant": "Societe de Jeunesse Mont",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Societe de Jeunesse Mont 19.04.2025 16:49 Carte: 498765******2031 Montant: CHF 9.15",
+      "textLines": [
+        "Achat Societe de Jeunesse Mont 19.04.2025 16:49",
+        "Carte: 498765******2031 Montant: CHF 9.15"
+      ],
+      "description": "Societe de Jeunesse Mont",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 51,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-19",
+      "purchaseDate": "2025-04-19",
+      "purchaseTime": "11:34",
+      "date": "2025-04-19",
+      "direction": "debit",
+      "amount": 490,
+      "kind": "card-purchase",
+      "merchant": "Supermarche Place Centra",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Supermarche Place Centra 19.04.2025 11:34 Carte: 498765******2031 Montant: CHF 4.90",
+      "textLines": [
+        "Achat Supermarche Place Centra 19.04.2025 11:34",
+        "Carte: 498765******2031 Montant: CHF 4.90"
+      ],
+      "description": "Supermarche Place Centra",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 52,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-20",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-21",
+      "direction": "debit",
+      "amount": 428,
+      "kind": "twint-debit",
+      "merchant": "HC Montval Eagles Club",
+      "counterparty": {
+        "type": "merchant",
+        "name": "HC Montval Eagles Club"
+      },
+      "reference": "0400007213133910",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT HC Montval Eagles Club 0400007213133910",
+      "textLines": ["Débit TWINT HC Montval Eagles Club", "0400007213133910"],
+      "description": "TWINT HC Montval Eagles Club",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 53,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-20",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-21",
+      "direction": "debit",
+      "amount": 950,
+      "kind": "twint-debit",
+      "merchant": "HC Montval Eagles Club",
+      "counterparty": {
+        "type": "merchant",
+        "name": "HC Montval Eagles Club"
+      },
+      "reference": "0400007213329437",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT HC Montval Eagles Club 0400007213329437",
+      "textLines": ["Débit TWINT HC Montval Eagles Club", "0400007213329437"],
+      "description": "TWINT HC Montval Eagles Club",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 54,
+      "page": 3,
+      "bookingDate": "2025-04-21",
+      "valueDate": "2025-04-21",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-21",
+      "direction": "debit",
+      "amount": 5595,
+      "kind": "twint-debit",
+      "merchant": "Silva, Paolo",
+      "counterparty": {
+        "type": "person",
+        "name": "Paolo Silva",
+        "phone": "+41700550642"
+      },
+      "reference": "0400007213422512",
+      "card": null,
+      "original": null,
+      "balanceAfter": 1575949,
+      "flags": [],
+      "text": "Débit TWINT Silva, Paolo, +41700550642 0400007213422512",
+      "textLines": ["Débit TWINT Silva, Paolo, +41700550642", "0400007213422512"],
+      "description": "TWINT Paolo Silva",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 55,
+      "page": 3,
+      "bookingDate": "2025-04-22",
+      "valueDate": "2025-04-20",
+      "purchaseDate": "2025-04-20",
+      "purchaseTime": "10:43",
+      "date": "2025-04-20",
+      "direction": "debit",
+      "amount": 9363,
+      "kind": "card-purchase",
+      "merchant": "Mini Market 5210",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Mini Market 5210 20.04.2025 10:43 Carte: 498765******2031 Montant: CHF 93.63",
+      "textLines": [
+        "Achat Mini Market 5210 20.04.2025 10:43 Carte:",
+        "498765******2031 Montant: CHF 93.63"
+      ],
+      "description": "Mini Market 5210",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 56,
+      "page": 3,
+      "bookingDate": "2025-04-22",
+      "valueDate": "2025-04-22",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-22",
+      "direction": "debit",
+      "amount": 690,
+      "kind": "twint-debit",
+      "merchant": "Monteiro de Almagro, Léon",
+      "counterparty": {
+        "type": "person",
+        "name": "Léon Monteiro de Almagro",
+        "phone": "+41700541891"
+      },
+      "reference": "0400007213448260",
+      "card": null,
+      "original": null,
+      "balanceAfter": 1565896,
+      "flags": [],
+      "text": "Débit TWINT Monteiro de Almagro, Léon, +41700541891 0400007213448260",
+      "textLines": ["Débit TWINT Monteiro de Almagro, Léon,", "+41700541891 0400007213448260"],
+      "description": "TWINT Léon Monteiro de Almagro",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 57,
+      "page": 3,
+      "bookingDate": "2025-04-23",
+      "valueDate": "2025-04-21",
+      "purchaseDate": "2025-04-21",
+      "purchaseTime": "14:59",
+      "date": "2025-04-21",
+      "direction": "debit",
+      "amount": 5140,
+      "kind": "card-purchase",
+      "merchant": "DIGITAL MEDIA1",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 1560756,
+      "flags": [],
+      "text": "Achat DIGITAL MEDIA1 21.04.2025 14:59 Carte: 498765******2031 Montant: CHF 51.40",
+      "textLines": [
+        "Achat DIGITAL MEDIA1 21.04.2025 14:59 Carte:",
+        "498765******2031 Montant: CHF 51.40"
+      ],
+      "description": "DIGITAL MEDIA1",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 58,
+      "page": 3,
+      "bookingDate": "2025-04-24",
+      "valueDate": "2025-04-22",
+      "purchaseDate": "2025-04-22",
+      "purchaseTime": "19:06",
+      "date": "2025-04-22",
+      "direction": "debit",
+      "amount": 40,
+      "kind": "card-purchase",
+      "merchant": "PETRA Tankstelle Nord",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": 1560716,
+      "flags": [],
+      "text": "Achat PETRA Tankstelle Nord 22.04.2025 19:06 Carte: 498765******2031 Montant: CHF 0.40",
+      "textLines": [
+        "Achat PETRA Tankstelle Nord 22.04.2025 19:06",
+        "Carte: 498765******2031 Montant: CHF 0.40"
+      ],
+      "description": "PETRA Tankstelle Nord",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 59,
+      "page": 3,
+      "bookingDate": "2025-04-25",
+      "valueDate": "2025-04-24",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-25",
+      "direction": "debit",
+      "amount": 9231,
+      "kind": "twint-debit",
+      "merchant": "Keller, Fabrice",
+      "counterparty": {
+        "type": "person",
+        "name": "Fabrice Keller",
+        "phone": "+41700388014"
+      },
+      "reference": "0400007213599673",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Keller, Fabrice, +41700388014 0400007213599673",
+      "textLines": ["Débit TWINT Keller, Fabrice, +41700388014", "0400007213599673"],
+      "description": "TWINT Fabrice Keller",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 60,
+      "page": 3,
+      "bookingDate": "2025-04-25",
+      "valueDate": "2025-04-25",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-25",
+      "direction": "credit",
+      "amount": 495295,
+      "kind": "salary",
+      "merchant": "Nordwind Tech AG c/o Nordwind Holding Schweiz AG",
+      "counterparty": {
+        "type": "employer",
+        "name": "Nordwind Tech AG c/o Nordwind Holding Schweiz AG"
+      },
+      "reference": null,
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": ["salary"],
+      "text": "Paiement de salaire Nordwind Tech AG c/o Nordwind Holding Schweiz AG",
+      "textLines": ["Paiement de salaire Nordwind Tech AG c/o", "Nordwind Holding Schweiz AG"],
+      "description": "Nordwind Tech AG c/o Nordwind Holding Schweiz AG",
+      "handling": {
+        "action": "skip-if-matches-income",
+        "why": "salary credit: skipped when it matches one of the budget's incomes, else reviewed (D-130)"
+      }
+    },
+    {
+      "n": 61,
+      "page": 4,
+      "bookingDate": "2025-04-25",
+      "valueDate": "2025-04-25",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-25",
+      "direction": "debit",
+      "amount": 35535,
+      "kind": "payment",
+      "merchant": "Mustermann Jonas",
+      "counterparty": {
+        "type": "payee",
+        "name": "Mustermann Jonas",
+        "address": ["Chemin du Test 12", "1599 Monts"]
+      },
+      "reference": null,
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": ["own-account-transfer"],
+      "text": "Paiement Mustermann Jonas Chemin du Test 12 1599 Monts",
+      "textLines": ["Paiement", "Mustermann Jonas", "Chemin du Test 12", "1599 Monts"],
+      "description": "Mustermann Jonas",
+      "handling": {
+        "action": "skip-by-default",
+        "why": "transfer between the owner's own accounts (D-129)"
+      }
+    },
+    {
+      "n": 62,
+      "page": 4,
+      "bookingDate": "2025-04-25",
+      "valueDate": "2025-04-25",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-25",
+      "direction": "debit",
+      "amount": 5660,
+      "kind": "twint-debit",
+      "merchant": "Pinto Carvalhos, Sabine",
+      "counterparty": {
+        "type": "person",
+        "name": "Sabine Pinto Carvalhos",
+        "phone": "+41700162356"
+      },
+      "reference": "0400007213775341",
+      "card": null,
+      "original": null,
+      "balanceAfter": 2005585,
+      "flags": [],
+      "text": "Débit TWINT Pinto Carvalhos, Sabine, +41700162356 0400007213775341",
+      "textLines": ["Débit TWINT Pinto Carvalhos, Sabine,", "+41700162356 0400007213775341"],
+      "description": "TWINT Sabine Pinto Carvalhos",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 63,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-24",
+      "purchaseDate": "2025-04-24",
+      "purchaseTime": "16:14",
+      "date": "2025-04-24",
+      "direction": "debit",
+      "amount": 770,
+      "kind": "card-purchase",
+      "merchant": "Supermarche Place Centra",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Supermarche Place Centra 24.04.2025 16:14 Carte: 498765******2031 Montant: CHF 7.70",
+      "textLines": [
+        "Achat Supermarche Place Centra 24.04.2025 16:14",
+        "Carte: 498765******2031 Montant: CHF 7.70"
+      ],
+      "description": "Supermarche Place Centra",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 64,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-24",
+      "purchaseDate": "2025-04-24",
+      "purchaseTime": "19:10",
+      "date": "2025-04-24",
+      "direction": "debit",
+      "amount": 5940,
+      "kind": "card-purchase",
+      "merchant": "Atelier Gros SA",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Atelier Gros SA 24.04.2025 19:10 Carte: 498765******2031 Montant: CHF 59.40",
+      "textLines": [
+        "Achat Atelier Gros SA 24.04.2025 19:10 Carte:",
+        "498765******2031 Montant: CHF 59.40"
+      ],
+      "description": "Atelier Gros SA",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 65,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-24",
+      "purchaseDate": "2025-04-24",
+      "purchaseTime": "17:27",
+      "date": "2025-04-24",
+      "direction": "debit",
+      "amount": 1447,
+      "kind": "card-purchase",
+      "merchant": "CITYPARK Garage Central",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat CITYPARK Garage Central 24.04.2025 17:27 Carte: 498765******2031 Montant: CHF 14.47",
+      "textLines": [
+        "Achat CITYPARK Garage Central 24.04.2025",
+        "17:27 Carte: 498765******2031 Montant: CHF",
+        "14.47"
+      ],
+      "description": "CITYPARK Garage Central",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 66,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-26",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-28",
+      "direction": "debit",
+      "amount": 3384,
+      "kind": "twint-debit",
+      "merchant": "Martinez, Pablo",
+      "counterparty": {
+        "type": "person",
+        "name": "Pablo Martinez",
+        "phone": "+41700829469"
+      },
+      "reference": "0400007213984317",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Martinez, Pablo, +41700829469 0400007213984317",
+      "textLines": ["Débit TWINT Martinez, Pablo, +41700829469", "0400007213984317"],
+      "description": "TWINT Pablo Martinez",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 67,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-26",
+      "purchaseDate": "2025-04-26",
+      "purchaseTime": "08:42",
+      "date": "2025-04-26",
+      "direction": "debit",
+      "amount": 8393,
+      "kind": "card-purchase",
+      "merchant": "FESTIPASS TERMINAL CH",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat FESTIPASS TERMINAL CH 26.04.2025 08:42 Carte: 498765******2031 Montant: CHF 83.93",
+      "textLines": [
+        "Achat FESTIPASS TERMINAL CH 26.04.2025",
+        "08:42 Carte: 498765******2031 Montant: CHF",
+        "83.93"
+      ],
+      "description": "FESTIPASS TERMINAL CH",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 68,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-26",
+      "purchaseDate": "2025-04-26",
+      "purchaseTime": "07:38",
+      "date": "2025-04-26",
+      "direction": "debit",
+      "amount": 857,
+      "kind": "card-purchase",
+      "merchant": "PayUp *Lucia SA",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PayUp *Lucia SA 26.04.2025 07:38 Carte: 498765******2031 Montant: CHF 8.57",
+      "textLines": [
+        "Achat PayUp *Lucia SA 26.04.2025 07:38 Carte:",
+        "498765******2031 Montant: CHF 8.57"
+      ],
+      "description": "PayUp *Lucia SA",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 69,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-26",
+      "purchaseDate": "2025-04-26",
+      "purchaseTime": "08:26",
+      "date": "2025-04-26",
+      "direction": "debit",
+      "amount": 8135,
+      "kind": "card-purchase",
+      "merchant": "Mini Market 5210",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Mini Market 5210 26.04.2025 08:26 Carte: 498765******2031 Montant: CHF 81.35",
+      "textLines": [
+        "Achat Mini Market 5210 26.04.2025 08:26 Carte:",
+        "498765******2031 Montant: CHF 81.35"
+      ],
+      "description": "Mini Market 5210",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 70,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-26",
+      "purchaseDate": "2025-04-26",
+      "purchaseTime": "19:52",
+      "date": "2025-04-26",
+      "direction": "debit",
+      "amount": 449,
+      "kind": "card-purchase",
+      "merchant": "PAYUP *LUCIA SA",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PAYUP *LUCIA SA 26.04.2025 19:52 Carte: 498765******2031 Montant: CHF 4.49",
+      "textLines": [
+        "Achat PAYUP *LUCIA SA 26.04.2025 19:52 Carte:",
+        "498765******2031 Montant: CHF 4.49"
+      ],
+      "description": "PAYUP *LUCIA SA",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 71,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-26",
+      "purchaseDate": "2025-04-26",
+      "purchaseTime": "22:39",
+      "date": "2025-04-26",
+      "direction": "debit",
+      "amount": 415,
+      "kind": "card-purchase",
+      "merchant": "Societe de Jeunesse Mont",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Societe de Jeunesse Mont 26.04.2025 22:39 Carte: 498765******2031 Montant: CHF 4.15",
+      "textLines": [
+        "Achat Societe de Jeunesse Mont 26.04.2025 22:39",
+        "Carte: 498765******2031 Montant: CHF 4.15"
+      ],
+      "description": "Societe de Jeunesse Mont",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 72,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-26",
+      "purchaseDate": "2025-04-26",
+      "purchaseTime": "08:24",
+      "date": "2025-04-26",
+      "direction": "debit",
+      "amount": 19330,
+      "kind": "card-purchase",
+      "merchant": "Comite de la Kermesse Vi",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Comite de la Kermesse Vi 26.04.2025 08:24 Carte: 498765******2031 Montant: CHF 193.30",
+      "textLines": [
+        "Achat Comite de la Kermesse Vi 26.04.2025 08:24",
+        "Carte: 498765******2031 Montant: CHF 193.30"
+      ],
+      "description": "Comite de la Kermesse Vi",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 73,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-27",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-28",
+      "direction": "debit",
+      "amount": 80215,
+      "kind": "twint-debit",
+      "merchant": "Du Pont, Halle",
+      "counterparty": {
+        "type": "person",
+        "name": "Halle Du Pont",
+        "phone": "+41700575326"
+      },
+      "reference": "0400007214152644",
+      "card": null,
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Débit TWINT Du Pont, Halle, +41700575326 0400007214152644",
+      "textLines": ["Débit TWINT Du Pont, Halle, +41700575326", "0400007214152644"],
+      "description": "TWINT Halle Du Pont",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 74,
+      "page": 4,
+      "bookingDate": "2025-04-28",
+      "valueDate": "2025-04-28",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-28",
+      "direction": "debit",
+      "amount": 142697,
+      "kind": "standing-order",
+      "merchant": "Nina Lichtensteiger",
+      "counterparty": {
+        "type": "payee",
+        "name": "Nina Lichtensteiger",
+        "address": ["Chemin du Test 12", "1599 Monts"]
+      },
+      "reference": null,
+      "card": null,
+      "original": null,
+      "balanceAfter": 1733553,
+      "flags": [],
+      "text": "Ordre permanent Nina Lichtensteiger Chemin du Test 12 1599 Monts",
+      "textLines": ["Ordre permanent", "Nina Lichtensteiger", "Chemin du Test 12", "1599 Monts"],
+      "description": "Nina Lichtensteiger",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 75,
+      "page": 4,
+      "bookingDate": "2025-04-29",
+      "valueDate": "2025-04-29",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-29",
+      "direction": "debit",
+      "amount": 10491,
+      "kind": "twint-debit",
+      "merchant": "Brunner, Louis",
+      "counterparty": {
+        "type": "person",
+        "name": "Louis Brunner",
+        "phone": "+41700534768"
+      },
+      "reference": "0400007214531932",
+      "card": null,
+      "original": null,
+      "balanceAfter": 1723062,
+      "flags": [],
+      "text": "Débit TWINT Brunner, Louis, +41700534768 0400007214531932",
+      "textLines": ["Débit TWINT Brunner, Louis, +41700534768", "0400007214531932"],
+      "description": "TWINT Louis Brunner",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 76,
+      "page": 4,
+      "bookingDate": "2025-04-30",
+      "valueDate": "2025-04-28",
+      "purchaseDate": "2025-04-28",
+      "purchaseTime": "12:09",
+      "date": "2025-04-28",
+      "direction": "debit",
+      "amount": 210,
+      "kind": "card-purchase",
+      "merchant": "PARK SYS",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat PARK SYS 28.04.2025 12:09 Carte: 498765******2031 Montant: CHF 2.10",
+      "textLines": ["Achat PARK SYS 28.04.2025 12:09 Carte:", "498765******2031 Montant: CHF 2.10"],
+      "description": "PARK SYS",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 77,
+      "page": 4,
+      "bookingDate": "2025-04-30",
+      "valueDate": "2025-04-28",
+      "purchaseDate": "2025-04-28",
+      "purchaseTime": "13:50",
+      "date": "2025-04-28",
+      "direction": "debit",
+      "amount": 8889,
+      "kind": "card-purchase",
+      "merchant": "Supermarche Place Centra",
+      "counterparty": null,
+      "reference": null,
+      "card": "498765******2031",
+      "original": null,
+      "balanceAfter": null,
+      "flags": [],
+      "text": "Achat Supermarche Place Centra 28.04.2025 13:50 Carte: 498765******2031 Montant: CHF 88.89",
+      "textLines": [
+        "Achat Supermarche Place Centra 28.04.2025 13:50",
+        "Carte: 498765******2031 Montant: CHF 88.89"
+      ],
+      "description": "Supermarche Place Centra",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    },
+    {
+      "n": 78,
+      "page": 4,
+      "bookingDate": "2025-04-30",
+      "valueDate": "2025-04-30",
+      "purchaseDate": null,
+      "purchaseTime": null,
+      "date": "2025-04-30",
+      "direction": "debit",
+      "amount": 925,
+      "kind": "standing-order",
+      "merchant": "Pascal Bersier",
+      "counterparty": {
+        "type": "payee",
+        "name": "Pascal Bersier",
+        "address": ["Avenue des Pins 108", "1788 Brévanne"]
+      },
+      "reference": null,
+      "card": null,
+      "original": null,
+      "balanceAfter": 1713038,
+      "flags": [],
+      "text": "Ordre permanent Pascal Bersier Avenue des Pins 108 1788 Brévanne",
+      "textLines": ["Ordre permanent", "Pascal Bersier", "Avenue des Pins 108", "1788 Brévanne"],
+      "description": "Pascal Bersier",
+      "handling": {
+        "action": "import",
+        "why": null
+      }
+    }
+  ],
+  "skipped": [
+    {
+      "page": 1,
+      "text": "Solde initial CHF 21'414.13",
+      "reason": "page 1 summary block, used only to check the parse"
+    },
+    {
+      "page": 1,
+      "text": "Débits CHF 9'868.25",
+      "reason": "page 1 summary block, used only to check the parse"
+    },
+    {
+      "page": 1,
+      "text": "Crédits CHF 5'584.50",
+      "reason": "page 1 summary block, used only to check the parse"
+    },
+    {
+      "page": 1,
+      "text": "Solde final CHF 17'130.38",
+      "reason": "page 1 summary block, used only to check the parse"
+    },
+    {
+      "page": 1,
+      "text": "Report à nouveau 21'414.13",
+      "reason": "opening balance carried forward (Report à nouveau)"
+    },
+    {
+      "page": 4,
+      "text": "Solde au 30.04.2025 9'868.25 5'584.50 17'130.38",
+      "reason": "period totals and closing balance (Solde au)"
+    },
+    {
+      "page": 4,
+      "text": "Solde final 17'130.38",
+      "reason": "closing balance (Solde final)"
+    }
+  ]
+}

@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-271 rules (172 active, 93 planned), 24 conventions, 102 decisions, 12 open questions. 0 rules and conventions are marked **TEST PENDING**.
+290 rules (172 active, 111 planned), 24 conventions, 111 decisions, 21 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -198,14 +198,14 @@ Comparing periods in charts. Browsing a past period and its progress view is par
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
   Rules: R-COMPARE-071
 
-### Step 6: Import (CSV and Claude) (planned)
+### Step 6: Import (statements, CSV and Claude) (planned)
 
 #### F-IMPORT Import (planned)
 
-Bulk import of transactions from CSV or by a Claude session, through one database function.
+Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.
 
 - **US-IMPORT-001** As a budget member, I want to paste or upload a CSV of transactions, so that I do not type them one by one.
-  Rules: R-IMPORT-001, R-IMPORT-002, R-IMPORT-003, R-IMPORT-004, R-IMPORT-005, R-IMPORT-070, R-IMPORT-071, R-IMPORT-072, R-IMPORT-073, R-IMPORT-080, R-IMPORT-082, R-IMPORT-083, R-TRANSACTION-005
+  Rules: R-IMPORT-001, R-IMPORT-002, R-IMPORT-003, R-IMPORT-004, R-IMPORT-005, R-IMPORT-070, R-IMPORT-071, R-IMPORT-072, R-IMPORT-073, R-IMPORT-080, R-IMPORT-082, R-TRANSACTION-005
 - **US-IMPORT-002** As a Claude session, I want to import transactions by running the import script of this repository with an import token, so that a member can delegate the import without giving Claude raw database access.
   Rules: R-IMPORT-001, R-IMPORT-006, R-IMPORT-076, R-SECURITY-005
 - **US-IMPORT-003** As a budget member, I want imported transactions to be marked to review until I confirm them, categorised from saved merchant rules, and to save a new rule in one click when I categorise one, so that I check them quickly and categorisation improves over time.
@@ -214,6 +214,10 @@ Bulk import of transactions from CSV or by a Claude session, through one databas
   Rules: R-IMPORT-074, R-IMPORT-075, R-IMPORT-076, R-IMPORT-077
 - **US-IMPORT-005** As a budget member, I want to edit the merchant-to-category rules in Settings, so that I can fix a rule that puts a merchant in the wrong category.
   Rules: R-IMPORT-078
+- **US-IMPORT-006** As a budget member, I want to open a PDF statement of my Migros Bank account, my Migros Bank credit card or my Yuh account in the app, so that its transactions are imported without typing them or mapping columns.
+  Rules: R-IMPORT-084, R-IMPORT-085, R-IMPORT-086, R-IMPORT-087, R-IMPORT-088, R-IMPORT-089, R-IMPORT-090, R-IMPORT-095, R-IMPORT-096, R-IMPORT-097, R-IMPORT-098, R-IMPORT-099, R-IMPORT-100, R-IMPORT-101, R-IMPORT-102
+- **US-IMPORT-007** As a budget member, I want card-bill payments, transfers between my own accounts, salaries and other credits to be recognised when I import a statement, so that nothing is counted twice and I decide what each credit is.
+  Rules: R-IMPORT-091, R-IMPORT-092, R-IMPORT-093, R-IMPORT-094
 
 ### Step 7: Accounts and the money flow diagram (planned)
 
@@ -1236,12 +1240,93 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-082** The generic CSV import lets the user map the file's columns to the transaction fields.
   _planned · enforced by test · F-IMPORT_
-  - Related: D-119
+  - Related: D-119, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-083** The import offers presets for the exports of Migros Bank, Raiffeisen, One, Yuh and Twint.
-  _planned · enforced by test · F-IMPORT_
-  - Related: D-119, Q-058
+  _retired · enforced by test · F-IMPORT_
+  - Retired: D-126 replaced the source list: the import reads the PDF statements of R-IMPORT-084, and Raiffeisen, One and Twint have no preset.
+  - Related: D-119, Q-058, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-084** The import reads three kinds of PDF statement: the Migros Bank private-account statement, the Migros Bank credit-card bill (Viseca) and the Yuh account statement.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-126
+  - Source: owner-request: product owner decision on the import sources, with sample statements, 2026-11-16; docs/import-sources.md: Import sources: statement layouts
+- **R-IMPORT-085** The import recognises the kind of a statement from its content, and refuses, with an explanation, a PDF it does not recognise or one without a text layer.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-126, R-IMPORT-084
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising the document
+- **R-IMPORT-086** A statement is parsed in the browser; the PDF file is never uploaded or stored, and only the extracted transactions reach the import function.
+  _planned · enforced by review · F-IMPORT_
+  - Why: No test can prove that a file is never sent; review the import code for any upload of the file or its text.
+  - Related: D-127
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-087** Every entry of a statement's transaction table becomes exactly one candidate transaction; opening and closing balances, carried-forward lines, subtotals and totals, the previous bill total, the payment received on a card bill and card headings never do.
+  _planned · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-084
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What is not a transaction
+- **R-IMPORT-088** A parsed statement must add up to what it prints (column totals, running balances, card and bill totals); otherwise the import is refused with an explanation, and nothing is imported.
+  _planned · enforced by test · F-IMPORT_
+  - Why: A parser that misses or misreads a line on a layout it does not know would otherwise import wrong amounts silently.
+  - Related: R-IMPORT-084, R-IMPORT-087
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What a parser must guarantee
+- **R-IMPORT-089** Statement amounts (thousands separator ', two decimals, a trailing minus for a credit on the card bill) are read exactly into integer rappen, and statement dates (DD.MM.YY or DD.MM.YYYY) into calendar dates without a time zone.
+  _planned · enforced by test · F-IMPORT_
+  - Related: R-MONEY-002
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Numbers and dates
+- **R-IMPORT-090** The date of an imported transaction is the purchase date when the statement gives one, otherwise the booking date.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-128
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-091** A card-bill payment and a transfer between the owner's own accounts are flagged on import and skipped by default; the user can import them anyway.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-129, Q-063
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries
+- **R-IMPORT-092** The import remembers what the user chose for a flagged entry and proposes the same choice for such entries the next time.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-129, Q-064
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-093** A salary credit that matches one of the budget's incomes is skipped on import.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-130, Q-065
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-094** Every other credit is proposed for review, as a refund in a category or as extra income.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-130, Q-066
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-095** A securities purchase is imported as an ordinary transaction for the user to categorise.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-131
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-096** Interest and fee lines of a statement are imported as transactions.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-132
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-097** A foreign-currency purchase is imported with the CHF amount billed, fees included, and a description that keeps the original currency and amount.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-133
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-098** The statement parsers read the French versions of the three statements.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-134, Q-061
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-099** The statement fixtures in the repository contain no real data: they are anonymised outside the repository and pass a leak check against the real statement before they enter the working tree.
+  _planned · enforced by review · F-IMPORT_
+  - Why: The leak check needs the real statement, which must never enter the repository, so it cannot run in CI.
+  - Related: R-IMPORT-100
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-100** Each statement parser produces exactly the expected result of every anonymised fixture of its source (test-fixtures/statements).
+  _planned · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-084, R-IMPORT-099
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-101** A TWINT transaction id or a Yuh reference is kept as the bank transaction id of the imported transaction; a QR payment reference is not, because it repeats from one payment to the next.
+  _planned · enforced by test · F-IMPORT_
+  - Why: The QR reference of a card-bill payment is built from the card account number, so every monthly payment of that card has the same reference.
+  - Related: R-IMPORT-071, D-115
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries
+- **R-IMPORT-102** The review of an imported statement shows, for each transaction, the extra data the statement gives: purchase time, value date, card, original currency and amount, exchange rate, fee, merchant category and security.
+  _planned · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-004
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 
 ### Accounts and planned transfers (money flow)
 
@@ -2577,7 +2662,7 @@ Related: R-IMPORT-004, R-IMPORT-080, R-IMPORT-081
 
 Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
-### D-119 Generic CSV import plus presets for the household's sources (accepted)
+### D-119 Generic CSV import plus presets for the household's sources (superseded by D-126)
 
 The import offers a generic CSV import with column mapping, plus presets for the product owner's sources: Migros Bank, Raiffeisen, One, Yuh and Twint. Which product "One" is and what each source exports are open (Q-058). Decided by the product owner on 2026-11-16.
 
@@ -2723,6 +2808,135 @@ Related: R-PERIOD-035, R-PERIOD-036
 
 Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
+### D-126 Import sources: three PDF statements and the generic CSV import (accepted)
+
+The import sources are the Migros Bank private-account statement, the Migros Bank credit-card bill (issued through Viseca and downloaded from its "one" app or portal) and the Yuh account statement, all as PDF files. Raiffeisen is dropped. TWINT needs no source of its own, because its entries appear in the Migros Bank account statement. The generic CSV import with column mapping stays. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-058. These are the statements the household receives; the product owner provided one sample of each, and none of them is a CSV export.
+
+**Rejected:**
+
+- Presets for Raiffeisen and for a TWINT export (D-119): the household does not need Raiffeisen, and TWINT entries are already in the Migros Bank statement.
+
+Related: Q-058, D-119, R-IMPORT-082, R-IMPORT-083, R-IMPORT-084, R-IMPORT-085
+
+Source: owner-request: product owner decision on the import sources, with sample statements, 2026-11-16
+
+### D-127 Statements are parsed in the browser (accepted)
+
+A statement is parsed in the browser; the PDF file never leaves the device. Only the extracted transactions are sent to the import function and saved. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** A statement holds much more personal data than its transactions (address, IBAN, balances, other people's names and phone numbers); a file that is never uploaded needs no protection on the server. The app has no server of its own, so parsing in the browser also needs no new backend.
+
+**Rejected:**
+
+- Uploading the PDF to Supabase storage and parsing it on the server.
+
+Related: D-126, R-IMPORT-086
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
+### D-128 An imported transaction is dated by its purchase date (accepted)
+
+The date of an imported transaction is the purchase date when the statement gives one, otherwise the booking date. The value date is not used. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** The purchase date is when the money was spent, so the spending lands in the right period; booking dates lag one to four days behind and would move purchases made at the end of a period into the next one.
+
+**Rejected:**
+
+- Always the booking date.
+- The value date.
+
+Related: R-IMPORT-090
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
+### D-129 Card-bill payments and own transfers are not expenses (accepted)
+
+A payment of a credit-card bill and a transfer between the owner's own accounts are not expenses: the import flags them and skips them by default, and the user can import them anyway. The user's choice is remembered and proposed as the default the next time. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** The card's purchases are imported from the card bill itself, so importing its payment too would count them twice; a transfer to one's own account moves money without spending it.
+
+**Rejected:**
+
+- Importing them like any other debit for the user to delete.
+- Dropping them without telling the user.
+
+Related: R-IMPORT-091, R-IMPORT-092, Q-063, Q-064
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
+### D-130 Salary credits are skipped, other credits are reviewed (accepted)
+
+A salary credit that matches one of the budget's incomes is skipped, because that income already counts. Every other credit is proposed for review, either as a refund in a category or as extra income. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** Incomes are planned in the budget, so importing the salary as well would count it twice. Most other credits are refunds or shares of a bill paid back, not income.
+
+**Rejected:**
+
+- Importing every credit as income.
+
+Related: R-IMPORT-093, R-IMPORT-094, Q-065, Q-066
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
+### D-131 Investment purchases are ordinary transactions (accepted)
+
+A securities purchase, such as a savings-plan purchase on Yuh, is imported as an ordinary transaction for the user to categorise. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** The budget has no investment accounts yet; an ordinary transaction keeps the money visible and lets the user choose its category.
+
+**Rejected:**
+
+- Skipping investment purchases.
+- Recording them as transfers to an investment account.
+
+Related: R-IMPORT-095, Q-067
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
+### D-132 Interest and fee lines are imported (accepted)
+
+Interest and fee lines of a statement, such as the late-payment interest of a card bill, are imported as transactions. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** They are money spent; leaving them out would hide real costs from the budget.
+
+**Rejected:**
+
+- Skipping interest and fee lines.
+
+Related: R-IMPORT-096
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
+### D-133 A foreign-currency purchase counts in CHF, fees included (accepted)
+
+For a purchase in a foreign currency, the amount is the CHF amount billed, fees included, and the original currency and amount are kept in the description. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** The CHF amount is what left the account (CHF is the only currency, R-MONEY-001); the original amount helps the user recognise the purchase.
+
+**Rejected:**
+
+- The converted amount alone, with the fee as a separate transaction.
+
+Related: R-IMPORT-097, R-MONEY-001
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
+### D-134 French statements are supported first (accepted)
+
+The statement parsers support the French versions of the three statements first; another language is added when a sample of it is available. Decided by the project coordinator on 2026-11-16 as a default; the product owner may overrule it.
+
+**Why:** The samples are in French, and a parser can only be trusted once it is tested against a real layout.
+
+**Rejected:**
+
+- Supporting German, Italian and English from the start, without samples.
+
+Related: R-IMPORT-098, Q-061
+
+Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -2830,12 +3044,12 @@ Source: owner-request: coordinator decision on the third step 2 database review,
   - Related: D-115, R-IMPORT-070, R-IMPORT-071, R-IMPORT-073
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **Q-057** What identifies a merchant for a merchant-to-category rule: the whole description, a part of it, or a field of the bank export?
-  - Context: D-117 offers "always put this merchant in this category?". Bank descriptions often carry a date, a card number or a location around the merchant name, so an exact match on the description would rarely match again.
-  - Related: D-117, R-IMPORT-007, R-IMPORT-079
+  - Context: D-117 offers "always put this merchant in this category?". Bank descriptions often carry a date, a card number or a location around the merchant name, so an exact match on the description would rarely match again. The sample statements show that the bank cuts merchant names at 24 characters, that one merchant can be printed in different capitals or with different processor prefixes, and that chains add a branch number (docs/import-sources.md). The card bill adds a merchant category line.
+  - Related: D-117, R-IMPORT-007, R-IMPORT-079, R-IMPORT-084
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-058** Which product is "One", what export formats do Migros Bank, Raiffeisen, One, Yuh and Twint actually offer, and can the product owner provide sample export files?
+- **Q-058** (resolved by D-126) Which product is "One", what export formats do Migros Bank, Raiffeisen, One, Yuh and Twint actually offer, and can the product owner provide sample export files?
   - Context: D-119 asks for presets for these five sources. "One" may be Viseca's "one" credit-card portal; that is unconfirmed. Twint may offer no export at all. Sample export files are needed before the presets can be built.
-  - Related: D-119, R-IMPORT-083
+  - Related: D-119, R-IMPORT-083, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **Q-059** For a planned transfer on a fixed day of the month, is the day clamped to the month's length and does a weekend rule apply; may a pay-date offset be negative; and what happens to a transfer whose chosen income ends?
   - Context: D-120 allows an offset in days from a chosen income's actual pay date, or a fixed day of the month. Subscriptions clamp and use no weekend rule (D-108), but nothing says the same for transfers. An income ends when it is removed or its member leaves (R-MEMBER-007).
@@ -2849,6 +3063,46 @@ Source: owner-request: coordinator decision on the third step 2 database review,
   - Context: An edit always applies to the current period (R-VERSION-001), so a raise entered before its salary arrives changes the current period's total. A later option could key the edit to the next period, which needs a way to hold a change for a period that does not exist yet without breaking "nothing keyed beyond the latest period" (R-VERSION-011).
   - Related: R-VERSION-001, R-VERSION-011
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16
+- **Q-061** Will any member import statements in German, Italian or English, and can the product owner provide a sample of each?
+  - Context: D-134 supports the French versions first. The labels, and possibly the date and number formats, differ in other languages; each language needs a sample before its parser can be tested.
+  - Related: D-134, R-IMPORT-098
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-062** Do Migros Bank e-banking and Yuh also offer a CSV or camt.053 export of the same transactions, and should the import prefer it to the PDF?
+  - Context: A structured export would be sturdier than reading a PDF layout, which the banks can change without notice. The samples provided are PDF only.
+  - Related: D-126, R-IMPORT-084
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-063** How is a transfer to another member of the household treated, for example a standing order to a partner at the same address: an expense, a transfer between the household's accounts, or something else?
+  - Context: The Migros Bank statement shows no IBAN for a payee, so the import recognises an own transfer only by the holder's name and address (D-129). A standing order to another person at the same address looks like any other payment.
+  - Related: D-129, R-IMPORT-091
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-064** What exactly is remembered when the user imports or skips a flagged entry: the choice per kind of entry, per counterparty or per account, and for the whole budget or for the member only?
+  - Context: D-129 says the choice is remembered and proposed next time, without saying for what.
+  - Related: D-129, R-IMPORT-092
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-065** When does a salary credit match one of the budget's incomes: same amount, same payer, a date near the expected pay date, or a combination; and what happens when the amount differs from the planned income?
+  - Context: D-130 skips a salary credit that matches an income. The Migros Bank statement marks it "Paiement de salaire" with the employer's name, but gives no reference to the income.
+  - Related: D-130, R-IMPORT-093
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-066** When a credit is reviewed as a refund, in which period and category does it count, and can it reduce a category below zero?
+  - Context: D-130 proposes other credits as a refund in a category or as extra income. TWINT money received from a person is often a share of a bill paid earlier, possibly in another period.
+  - Related: D-130, R-IMPORT-094
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-067** Should regular investment purchases (a savings plan) count as spending in the period, or as savings that the money flow of step 7 shows as a transfer?
+  - Context: D-131 imports them as ordinary transactions until accounts exist. On the Yuh statement a purchase is a debit like any other, with the security, quantity, price and fees on its continuation lines.
+  - Related: D-131, R-IMPORT-095
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-068** How is an imported card or bank line reconciled with a transaction already in the budget for the same charge, such as an automatic subscription charge or a manually entered expense?
+  - Context: R-IMPORT-070 treats a row as a duplicate only when date, amount and description are the same; a statement line has the bank's description and often a different date (D-128), so the same charge would be counted twice.
+  - Related: R-IMPORT-070, D-115, Q-056
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-069** Are cash withdrawals expenses when they are made, or transfers to a cash wallet whose spending is entered by hand?
+  - Context: No cash withdrawal appeared in the samples, but the Migros Bank account statement will show them.
+  - Related: R-IMPORT-084
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-070** Does the household have other cards or accounts to import, such as a partner's card, a supplementary card on the same card account, or another member's Yuh account, and should each import be tied to one of the budget's accounts?
+  - Context: The samples cover one debit card, one credit card and one Yuh account of one member. A card bill has one section per card. Step 7 introduces accounts.
+  - Related: R-IMPORT-084
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 
 ## Glossary
 
@@ -2933,3 +3187,4 @@ Source: owner-request: coordinator decision on the third step 2 database review,
   - `docs/deployment.md`: Build and deployment notes.
   - `code`: Behaviour or a choice visible only in the code or its comments; the path follows.
   - `owner-request`: The product owner's request that introduced this structured spec and its check.
+  - `docs/import-sources.md`: The analysis of the product owner's sample statements (Migros Bank account, Migros Bank credit card, Yuh), written to prepare step 6; section names after the colon follow that file.
