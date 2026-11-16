@@ -75,6 +75,9 @@ export const DB_ERROR_CODES = [
   'subscription_limit_reached',
   'debt_limit_reached',
   'adjustment_limit_reached',
+  'before_debt_opened',
+  'catching_up',
+  'preview_required',
 ] as const
 
 export type DbErrorCode = (typeof DB_ERROR_CODES)[number]

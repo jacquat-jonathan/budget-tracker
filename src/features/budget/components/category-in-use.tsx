@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import type { Category } from '@/features/categories/category-queries'
 import { useDebts } from '@/features/debts/debt-queries'
 import { useSubscriptions } from '@/features/subscriptions/subscription-queries'
+import type { CategoryUser } from '@/features/budget/category-users'
 
 /**
  * A category a subscription or debt in force still uses (category_overview.in_use) cannot be
@@ -23,16 +24,25 @@ export function CategoryInUse({
   category: Category
   subcategories: Category[]
 }) {
-  const { t } = useTranslation()
   const subscriptions = useSubscriptions(budgetId)
   const debts = useDebts(budgetId)
   const ids = new Set([category.id, ...subcategories.map((sub) => sub.id)])
-  const usingSubscriptions = (subscriptions.data ?? []).filter(
-    (item) => item.is_active && ids.has(item.category_id),
-  )
-  const usingDebts = (debts.data ?? []).filter(
-    (item) => item.is_active && ids.has(item.category_id),
-  )
+  const users: CategoryUser[] = [
+    ...(subscriptions.data ?? [])
+      .filter((item) => item.is_active && ids.has(item.category_id))
+      .map((item) => ({ kind: 'subscription' as const, id: item.id, name: item.name })),
+    ...(debts.data ?? [])
+      .filter((item) => item.is_active && ids.has(item.category_id))
+      .map((item) => ({ kind: 'debt' as const, id: item.id, name: item.name })),
+  ]
+  return <CategoryUsers users={users} />
+}
+
+/** What uses a category, each a link to where it can be ended or moved. */
+export function CategoryUsers({ users }: { users: CategoryUser[] }) {
+  const { t } = useTranslation()
+  const usingSubscriptions = users.filter((item) => item.kind === 'subscription')
+  const usingDebts = users.filter((item) => item.kind === 'debt')
   return (
     <Alert variant="destructive" data-testid="category-in-use">
       <LinkIcon aria-hidden />

@@ -10,6 +10,8 @@ export const budgetKeys = {
   myInvitations: ['my-invitations'] as const,
   budget: (budgetId: string) => ['budget', budgetId] as const,
   ensurePeriods: (budgetId: string) => ['budget', budgetId, 'ensure-periods'] as const,
+  /** This budget's my_budgets row, read again with its data (charges awaiting, caught up). */
+  status: (budgetId: string) => ['budget', budgetId, 'status'] as const,
   currentPeriod: (budgetId: string) => ['budget', budgetId, 'current-period'] as const,
   periods: (budgetId: string) => ['budget', budgetId, 'periods'] as const,
   incomes: (budgetId: string) => ['budget', budgetId, 'incomes'] as const,
@@ -24,6 +26,7 @@ export const budgetKeys = {
   subscriptions: (budgetId: string) => ['budget', budgetId, 'subscriptions'] as const,
   awaitingCharges: (budgetId: string) => ['budget', budgetId, 'awaiting-charges'] as const,
   debts: (budgetId: string) => ['budget', budgetId, 'debts'] as const,
+  debtTotals: (budgetId: string) => ['budget', budgetId, 'debt-totals'] as const,
   debtHistory: (budgetId: string, debtId: string) =>
     ['budget', budgetId, 'debt-history', debtId] as const,
 }

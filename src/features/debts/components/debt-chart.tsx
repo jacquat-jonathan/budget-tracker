@@ -96,10 +96,20 @@ function useMonthLabel() {
  * is its text alternative. Display only: every value is the database's.
  */
 // R-DEBT-122: the evolution as the database records it, with a table as its text alternative.
-export function DebtChart({ entries, today }: { entries: HistoryEntry[]; today: string | null }) {
+export function DebtChart({
+  entries,
+  today,
+  cappedAt = null,
+}: {
+  entries: HistoryEntry[]
+  today: string | null
+  /** The chart stopped reading at this many events (D-231): said under it. */
+  cappedAt?: number | null
+}) {
   const { t } = useTranslation()
   const monthLabel = useMonthLabel()
-  const points = chartPoints(entries, today)
+  // Stopped short of the end: the line ends with the last event read, not today.
+  const points = chartPoints(entries, cappedAt === null ? today : null)
   const first = points[0]
   const last = points.at(-1)
   if (!first || !last || entries.length < 2) {
@@ -133,10 +143,14 @@ export function DebtChart({ entries, today }: { entries: HistoryEntry[]; today: 
         config={config}
         className="aspect-auto h-60 w-full sm:h-72"
         role="img"
-        aria-label={t('debts.chart.label', {
-          count: entries.length,
-          amount: formatMoney(last.balance),
-        })}
+        aria-label={
+          cappedAt === null
+            ? t('debts.chart.label', { count: entries.length, amount: formatMoney(last.balance) })
+            : t('debts.chart.labelCapped', {
+                count: entries.length,
+                date: formatCalendarDate(last.date),
+              })
+        }
       >
         {/* No accessibility layer: the figure is one image with a name; the table is the text. */}
         <LineChart
@@ -236,6 +250,14 @@ export function DebtChart({ entries, today }: { entries: HistoryEntry[]; today: 
           ))}
         </ul>
         {!markAll && <p className="text-xs text-muted-foreground">{t('debts.chart.marksNote')}</p>}
+        {cappedAt !== null && (
+          <p className="text-xs font-medium" data-testid="debt-chart-capped">
+            {t('debts.chart.capped', {
+              count: cappedAt,
+              date: formatCalendarDate(last.date),
+            })}
+          </p>
+        )}
       </figcaption>
     </figure>
   )

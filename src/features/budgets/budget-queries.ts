@@ -37,8 +37,16 @@ export function useMyBudgets(enabled = true) {
 }
 
 /**
- * Periods are created on demand: this runs ensure_periods when a budget is
- * opened, again when the window regains focus after a while, and reports how many it made.
+ * After a very long absence one ensure_periods call creates at most 120 periods; it is called
+ * again until it answers 0 (each call keeps its progress). Bounded so that a database that
+ * never answered 0 would end in an error, not a loop: 100 calls are 1000 years.
+ */
+const ENSURE_ROUNDS = 100
+
+/**
+ * Periods are created on demand: this runs ensure_periods when a budget is opened (until it
+ * is caught up), again when the window regains focus after a while, and reports how many it
+ * made.
  */
 export function useEnsurePeriods(budgetId: string | undefined) {
   return useQuery({
@@ -48,8 +56,36 @@ export function useEnsurePeriods(budgetId: string | undefined) {
     // A tab left open across a pay day or midnight catches up: new period, new "today".
     refetchInterval: 15 * 60_000,
     refetchOnWindowFocus: true,
-    queryFn: async (): Promise<number> =>
-      unwrap(await supabase.rpc('ensure_periods', { p_budget_id: budgetId ?? '' })),
+    // R-PERIOD-150: called until caught up, before anything that needs the current period.
+    queryFn: async (): Promise<number> => {
+      let created = 0
+      for (let round = 0; round < ENSURE_ROUNDS; round += 1) {
+        const made = unwrap(await supabase.rpc('ensure_periods', { p_budget_id: budgetId ?? '' }))
+        if (made === 0) return created
+        created += made
+      }
+      throw new Error('ensure_periods did not catch up')
+    },
+  })
+}
+
+export interface BudgetStatus {
+  /** How many automatic charges await confirmation (R-SUBSCRIPTION-135). */
+  charges_awaiting: number
+  caught_up: boolean
+}
+
+/** This budget's counts from my_budgets, read again after each catch-up and each write. */
+export function useBudgetStatus(budgetId: string): PeriodRead<BudgetStatus> {
+  return usePeriodDependentQuery(budgetId, budgetKeys.status(budgetId), async () => {
+    const row = unwrap(
+      await supabase
+        .from('my_budgets')
+        .select('charges_awaiting, caught_up')
+        .eq('id', budgetId)
+        .maybeSingle(),
+    )
+    return { charges_awaiting: row?.charges_awaiting ?? 0, caught_up: row?.caught_up !== false }
   })
 }
 

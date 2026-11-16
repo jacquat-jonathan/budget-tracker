@@ -3,16 +3,17 @@ import {
   ArrowUpRightIcon,
   CalendarOffIcon,
   EllipsisVerticalIcon,
+  ListIcon,
   PencilIcon,
   PlusIcon,
   ScaleIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router'
 
-import { paths } from '@/app/paths'
+import { paths, transactionsOf } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { MoneyStat } from '@/components/money-stat'
@@ -45,7 +46,8 @@ import { Payoff } from '@/features/debts/components/payoff'
 import { RemoveDebtDialog } from '@/features/debts/components/remove-debt-dialog'
 import { useDeleteAdjustment } from '@/features/debts/debt-mutations'
 import {
-  paidShare,
+  HISTORY_AUTO_PAGES,
+  HISTORY_PAGE,
   useDebt,
   useDebtHistory,
   type Debt,
@@ -59,8 +61,8 @@ import { formatInterestRate } from '@/lib/interest-rate'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
-/** Events shown before the whole history is asked for. */
-const HISTORY_SHOWN = 12
+/** Rows of the history table shown at once; more on request. */
+const HISTORY_SHOWN = 50
 
 type DialogState =
   | { kind: 'closed' }
@@ -86,6 +88,18 @@ export function DebtDetailPage() {
   const [lastSeen, setLastSeen] = useState<Debt | null>(null)
   if (read.data && read.data !== lastSeen) setLastSeen(read.data)
   const history = useDebtHistory(budgetId, debtId)
+  const pages = history.data?.pages
+  const entries = useMemo(() => pages?.flat(), [pages])
+  // The chart reads the whole history by itself, up to a stated cap (D-231).
+  const pageCount = pages?.length ?? 0
+  const { hasNextPage, isFetchingNextPage, fetchNextPage, isError: historyFailed } = history
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage && !historyFailed && pageCount < HISTORY_AUTO_PAGES) {
+      void fetchNextPage()
+    }
+  }, [hasNextPage, isFetchingNextPage, historyFailed, pageCount, fetchNextPage])
+  const chartCap = HISTORY_AUTO_PAGES * HISTORY_PAGE
+  const chartComplete = !hasNextPage || (entries?.length ?? 0) >= chartCap
   const current = useCurrentPeriod(budgetId)
   const periods = usePeriods(budgetId)
   const { range, today, ended } = useTransactionDateRange(budgetId)
@@ -137,11 +151,12 @@ export function DebtDetailPage() {
       </div>
     )
   }
-  // Not ended: payments can still be dated in its periods, even once the budget has ended
-  // (the database's rule); editing and removing need a current period.
+  // Not ended: payments can still be dated in its periods, and it can be corrected from one of
+  // them, even once the budget has ended (R-BUDGET-130). An ended debt is frozen: no payment,
+  // adjustment, edit or removal (D-209), and the page says why.
   const notEnded = debt.end_seq === null
-  const editable = notEnded && !ended
-  const share = paidShare(debt)
+  const editable = notEnded
+  const share = debt.paid_percent
 
   return (
     <div className="flex flex-col gap-6">
@@ -159,7 +174,7 @@ export function DebtDetailPage() {
               {t('debts.recordPayment')}
             </Button>
           )}
-          {range && (
+          {notEnded && range && (
             <Button variant="outline" onClick={() => setDialog({ kind: 'adjust' })}>
               <ScaleIcon />
               {t('debts.adjust.action')}
@@ -180,6 +195,12 @@ export function DebtDetailPage() {
                 <PencilIcon />
                 {t('debts.edit')}
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to={transactionsOf({ debt: debt.id })}>
+                  <ListIcon />
+                  {t('debts.seeTransactions')}
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
@@ -187,7 +208,7 @@ export function DebtDetailPage() {
                 disabled={!editable}
               >
                 <Trash2Icon />
-                {t('debts.remove.action')}
+                {debt.removal_deletes ? t('debts.remove.delete') : t('debts.remove.endAction')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -204,10 +225,10 @@ export function DebtDetailPage() {
         <CardContent className="flex flex-col gap-5">
           {/* One column on a phone: seven-figure amounts never meet. */}
           <dl className="grid grid-cols-1 gap-x-4 gap-y-5 min-[480px]:grid-cols-2 xl:grid-cols-4">
-            {debt.remaining < 0 ? (
+            {debt.overpaid_by > 0 ? (
               <MoneyStat
                 label={t('debts.overpaid')}
-                amount={-debt.remaining}
+                amount={debt.overpaid_by}
                 emphasis
                 hint={t('debts.overpaidHint')}
                 testId="detail-remaining"
@@ -272,16 +293,25 @@ export function DebtDetailPage() {
           <CardDescription>{t('debts.chart.description')}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          {history.isError ? (
+          {history.isError && !entries ? (
             <ErrorState error={history.error} onRetry={() => void history.refetch()} />
-          ) : !history.data ? (
+          ) : !entries || !chartComplete ? (
             <LoadingState rows={2} />
           ) : (
             <>
-              <DebtChart entries={history.data} today={today} />
+              <DebtChart
+                entries={entries.slice(0, chartCap)}
+                today={today}
+                cappedAt={hasNextPage || entries.length > chartCap ? chartCap : null}
+              />
               <HistoryTable
                 debt={debt}
-                entries={history.data}
+                entries={entries}
+                frozen={!notEnded}
+                hasMore={hasNextPage}
+                loadingMore={isFetchingNextPage}
+                loadFailed={history.isFetchNextPageError}
+                onLoadMore={() => void fetchNextPage()}
                 onDeleteAdjustment={(entry) => {
                   deleteAdjustment.reset()
                   setDialog({ kind: 'deleteAdjustment', entry })
@@ -355,6 +385,7 @@ export function DebtDetailPage() {
         destructive
         pending={deleteAdjustment.isPending}
         error={deleteAdjustment.error}
+        errorMessages={{ debt_ended: 'debts.endedErrors.deleteAdjustment' }}
         onConfirm={() => {
           if (dialog.kind !== 'deleteAdjustment') return
           // The debt's revision, as the contract asks: another change to the debt refuses it.
@@ -369,23 +400,34 @@ export function DebtDetailPage() {
 }
 
 /**
- * The history, newest first: the chart's text alternative. Payments lead to their
- * transactions (in their period); adjustments can be deleted.
+ * The history, oldest first as the database pages it: the chart's text alternative, shown
+ * 50 rows at a time, the next page read with its cursor when the rows read so far are shown.
+ * Payments lead to their transactions; adjustments can be deleted, unless the debt has ended.
  */
 function HistoryTable({
   debt,
   entries,
+  frozen,
+  hasMore,
+  loadingMore,
+  loadFailed,
+  onLoadMore,
   onDeleteAdjustment,
 }: {
   debt: Debt
   entries: HistoryEntry[]
+  /** Ended: its adjustments can no longer be deleted (D-209). */
+  frozen: boolean
+  hasMore: boolean
+  loadingMore: boolean
+  loadFailed: boolean
+  onLoadMore: () => void
   onDeleteAdjustment: (entry: HistoryEntry) => void
 }) {
   const { t } = useTranslation()
-  // The latest events first; a long history is opened on request, so the page stays short.
-  const [all, setAll] = useState(false)
-  const newest = [...entries].reverse()
-  const rows = all ? newest : newest.slice(0, HISTORY_SHOWN)
+  const [shown, setShown] = useState(HISTORY_SHOWN)
+  const rows = entries.slice(0, shown)
+  const more = entries.length > shown || hasMore
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">{t('debts.history.title')}</h3>
@@ -435,7 +477,7 @@ function HistoryTable({
                 {entry.kind === 'payment' && entry.period_id && (
                   <Button asChild variant="ghost" size="icon-xs">
                     <Link
-                      to={`${paths.transactions}?period=${entry.period_id}`}
+                      to={transactionsOf({ debt: debt.id, period: entry.period_id })}
                       aria-label={t('debts.history.seePayment', {
                         amount: formatMoney(-entry.amount),
                         date: formatCalendarDate(entry.date),
@@ -446,7 +488,7 @@ function HistoryTable({
                     </Link>
                   </Button>
                 )}
-                {entry.kind === 'adjustment' && (
+                {entry.kind === 'adjustment' && !frozen && (
                   <Button
                     variant="ghost"
                     size="icon-xs"
@@ -464,18 +506,28 @@ function HistoryTable({
           ))}
         </TableBody>
       </Table>
-      {newest.length > HISTORY_SHOWN && (
+      <p className="text-xs text-muted-foreground" data-testid="history-shown">
+        {more
+          ? t('debts.history.shownSoFar', { count: rows.length })
+          : t('debts.history.shownAll', { count: rows.length })}
+      </p>
+      {loadFailed && <p className="text-sm text-destructive">{t('debts.history.loadFailed')}</p>}
+      {more && (
         <Button
           variant="outline"
           size="sm"
           className="self-start"
-          onClick={() => setAll((open) => !open)}
-          aria-expanded={all}
-          data-testid="history-toggle"
+          disabled={loadingMore}
+          onClick={() => {
+            const next = shown + HISTORY_SHOWN
+            if (next > entries.length && hasMore) onLoadMore()
+            setShown(next)
+          }}
+          data-testid="history-more"
         >
-          {all
-            ? t('debts.history.showLatest', { count: HISTORY_SHOWN })
-            : t('debts.history.showAll', { count: newest.length })}
+          {loadingMore
+            ? t('common.loading')
+            : t('debts.history.showMore', { count: HISTORY_SHOWN })}
         </Button>
       )}
     </div>

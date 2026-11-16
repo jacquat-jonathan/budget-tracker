@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import type { DbErrorOverrides } from '@/lib/db-errors'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -26,6 +27,8 @@ interface ConfirmDialogProps {
   pending?: boolean
   /** Shown inline when the action failed. */
   error?: unknown
+  /** The action's own words for some refusals. */
+  errorMessages?: DbErrorOverrides
   destructive?: boolean
   /** The user must type this text (e.g. the budget's name) before confirming. */
   typeToConfirm?: string
@@ -41,11 +44,12 @@ export function ConfirmDialog({
   onConfirm,
   pending = false,
   error,
+  errorMessages,
   destructive = false,
   typeToConfirm,
 }: ConfirmDialogProps) {
   const { t } = useTranslation()
-  const errorMessage = useErrorMessage()
+  const errorMessage = useErrorMessage(errorMessages)
   const id = useId()
   const [typed, setTyped] = useState('')
   const confirmed = typeToConfirm === undefined || typed.trim() === typeToConfirm.trim()

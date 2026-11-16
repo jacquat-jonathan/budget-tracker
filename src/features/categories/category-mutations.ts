@@ -72,6 +72,8 @@ export function useUpdateCategory(budgetId: string, options: { onDone: () => voi
   const { t } = useTranslation()
   return useAppMutation<boolean, UpdateCategoryInput>({
     errorDisplay: 'inline',
+    // A change this form does not show (a first subcategory makes it a group).
+    errorMessages: { record_changed: 'corrections.changedNotShown' },
     mutationFn: async ({ category, revision, name, amount, cadence, fromPeriodId, base }) => {
       const renamed = name !== category.name
       const from = base ?? category

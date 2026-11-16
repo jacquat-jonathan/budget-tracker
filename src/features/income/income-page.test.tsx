@@ -182,19 +182,18 @@ describe('income page', () => {
 
   it('corrects the terms from an earlier period only when asked, with a warning [R-INCOME-051] [R-VERSION-012] [R-VERSION-140]', async () => {
     const db = await openIncomePage()
-    // Its terms in period 1 were CHF 1'800.00 on the 31st; CHF 2'100.00 since period 2.
-    const version = (seq: number, amount: number) => ({
-      id: `income-2-v${seq}`,
-      budget_id: db.tables.income_overview[0]?.budget_id ?? '',
-      income_id: 'income-2',
-      effective_from_seq: seq,
-      amount,
-      pay_day: 31,
-      weekend_rule: 'next' as const,
-      created_at: '2026-10-01T10:00:00+00:00',
-      updated_at: '2026-10-01T10:00:00+00:00',
-    })
-    db.tables.income_versions = [version(1, 180_000), version(2, 210_000)]
+    // Its terms in period 1 were CHF 1'800.00 on the 31st, as get_income_terms gives them.
+    db.rpc.get_income_terms.mockImplementation((args) => [
+      {
+        period_id: args.p_period_id,
+        in_force: true,
+        amount: 180_000,
+        pay_day: 31,
+        weekend_rule: 'next',
+        terms_from_period_id: 'period-1',
+        until_period_id: 'period-2',
+      },
+    ])
 
     await userEvent.click(
       within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
@@ -553,5 +552,85 @@ describe('income page', () => {
         p_weekend_rule: 'previous',
       })
     })
+  })
+})
+
+describe('an edit that moves the current period’s end [R-INCOME-150]', () => {
+  it('shows the preview when the database asks for it, and sends its end with the next save', async () => {
+    const db = await openIncomePage()
+    db.rpc.update_income.mockImplementationOnce(() => rpcError('preview_required'))
+    await userEvent.click(
+      within(card('Salary')).getByRole('button', { name: 'Actions for Salary' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const amount = within(dialog).getByLabelText('Amount per month')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '5000')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText(/This change moves the end of the current period/),
+    ).toBeInTheDocument()
+    expect(await within(dialog).findByTestId('pay-date-preview')).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_income).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          p_income_id: 'income-1',
+          p_amount: 500_000,
+          p_previewed_end_date: '2026-11-24',
+        }),
+      )
+    })
+  })
+
+  it('previews a correction of the primary income and sends the end it shows', async () => {
+    const db = await openIncomePage()
+    await userEvent.click(
+      within(card('Salary')).getByRole('button', { name: 'Actions for Salary' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
+    await within(dialog).findByTestId('pay-date-preview')
+    expect(db.rpc.preview_update_income).toHaveBeenLastCalledWith(
+      expect.objectContaining({ p_income_id: 'income-1', p_from_period_id: 'period-1' }),
+    )
+    const amount = within(dialog).getByLabelText('Amount per month')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '5000')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_income).toHaveBeenCalledWith(
+        expect.objectContaining({
+          p_from_period_id: 'period-1',
+          p_previewed_end_date: '2026-11-24',
+        }),
+      )
+    })
+  })
+})
+
+describe('a change this form does not show [R-CONCURRENCY-150]', () => {
+  it('says that another member changed something not shown, without blaming a field', async () => {
+    const db = await openIncomePage()
+    // The primary switch moved this income's revision; nothing this form shows changed.
+    db.rpc.update_income.mockImplementationOnce(() => rpcError('record_changed'))
+    await userEvent.click(
+      within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const amount = within(dialog).getByLabelText('Amount per month')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '2200')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText(
+        /Another member changed something this window does not show meanwhile/,
+      ),
+    ).toBeInTheDocument()
+    expect(within(dialog).queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+    expect(amount).toHaveValue("2'200.00")
   })
 })

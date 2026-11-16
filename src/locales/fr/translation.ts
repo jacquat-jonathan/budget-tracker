@@ -1,5 +1,5 @@
 import type { Translation } from '@/locales/en/translation'
-import { chargesFr, correctionsFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
+import { catchUpFr, chargesFr, correctionsFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
 
 // French typography: a narrow no-break space (U+202F) precedes ? ! : and ;.
 export const fr: Translation = {
@@ -289,6 +289,12 @@ export const fr: Translation = {
       adjustment_not_found: 'Cet ajustement de solde n’existe plus.',
       subscription_ended: 'Cet abonnement est terminé (pour cette période).',
       debt_ended: 'Cette dette est terminée (pour cette période).',
+      before_debt_opened:
+        'Cette date précède l’ouverture de la dette : remboursements et ajustements commencent à sa date d’ouverture.',
+      catching_up:
+        'Le budget rattrape encore le temps écoulé depuis votre dernière visite. Réessayez dans un instant.',
+      preview_required:
+        'Cette modification déplace la fin de la période en cours : regardez la nouvelle fin ci-dessous, puis enregistrez de nouveau.',
       invalid_charge_date:
         'Saisissez une date de prélèvement valide, au plus dix ans à l’avance ; un nouveau prochain prélèvement doit être après aujourd’hui.',
       invalid_interest_rate:
@@ -943,6 +949,7 @@ export const fr: Translation = {
       moveStart: 'Le salaire de cette période est en fait arrivé un autre jour',
       resetExpected: 'Revenir à la date prévue',
       moveSchedule: 'Ramener le début de cette période sur le calendrier de paie',
+      moveScheduleTo: 'Ramener le début de cette période sur le calendrier de paie ({{date}})',
     },
     dialogs: {
       moveSchedule: {
@@ -1042,6 +1049,8 @@ export const fr: Translation = {
         'La période précédente se terminera le {{end}}, et celle-ci commencera le {{start}}.',
       moveSchedule:
         'La limite revient au jour que donne le calendrier de paie, et sa marque « fixée à la main » disparaît.',
+      moveScheduleTo:
+        'Cette période commencera le {{start}}, jour que donne le calendrier de paie, et la précédente se terminera le {{end}} ; la marque « fixée à la main » disparaît.',
     },
     undo: {
       expected: 'Pour annuler : indiquez une autre date, ou revenez à la date prévue.',
@@ -1106,6 +1115,7 @@ export const fr: Translation = {
   subscriptions: subscriptionsFr,
   charges: chargesFr,
   debts: debtsFr,
+  catchUp: catchUpFr,
   ui: {
     close: 'Fermer',
     more: 'Plus',

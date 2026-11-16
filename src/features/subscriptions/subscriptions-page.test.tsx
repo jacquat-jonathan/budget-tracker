@@ -5,7 +5,13 @@ import { routes } from '@/app/routes'
 import type { Tables } from '@/lib/database.types'
 import { formatMoney } from '@/lib/money'
 import { renderRoutes } from '@/test/render'
-import { categoriesDb, periodRow, subscriptionRow, transactionRow } from '@/test/budget-fixtures'
+import {
+  budgetRow,
+  categoriesDb,
+  periodRow,
+  subscriptionRow,
+  transactionRow,
+} from '@/test/budget-fixtures'
 import { rpcError } from '@/test/mock-db'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 
@@ -43,10 +49,15 @@ function subscriptionsDb() {
       }),
     ],
   })
-  db.rpc.subscription_charge_dates.mockImplementation((args) =>
-    args.p_first_charge_date === '2026-11-05'
-      ? ['2026-11-05', '2026-12-05', '2027-01-05']
-      : [String(args.p_first_charge_date), '2027-03-20'],
+  // The previews are the database's: charges a new subscription would make, the next dates
+  // of an edit.
+  db.rpc.preview_create_subscription.mockImplementation(() => [
+    { charge_date: '2026-11-05', charged_at_once: true },
+    { charge_date: '2026-12-05', charged_at_once: false },
+    { charge_date: '2027-01-05', charged_at_once: false },
+  ])
+  db.rpc.preview_update_subscription.mockImplementation((args) =>
+    args.p_next_charge_date ? [args.p_next_charge_date as string, '2027-03-20'] : ['2026-12-05'],
   )
   return db
 }
@@ -121,15 +132,19 @@ describe('subscription form [R-SUBSCRIPTION-121]', () => {
 
     const preview = await within(dialog).findByTestId('charge-dates-preview')
     await within(preview).findByText('05.12.2026')
-    // From the start of the period it counts from; the dates up to today are charged at once.
-    expect(db.rpc.subscription_charge_dates).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_first_charge_date: '2026-11-05',
-        p_cadence: 'monthly',
-        p_from: '2026-10-23',
-      }),
+    // The database's preview for the save's own arguments; what it charges at once, in words.
+    expect(db.rpc.preview_create_subscription).toHaveBeenLastCalledWith({
+      p_budget_id: expect.any(String) as string,
+      p_cadence: 'monthly',
+      p_first_charge_date: '2026-11-05',
+      p_count: 60,
+    })
+    expect(db.rpc.subscription_charge_dates).not.toHaveBeenCalled()
+    expect(within(preview).getByTestId('charged-at-once')).toHaveTextContent(
+      'Saving records 1 charge at once, dated in the past, for you to confirm.',
     )
-    expect(within(preview).getByText(/recorded at once, to confirm/)).toBeInTheDocument()
+    // R-SUBSCRIPTION-150: the charge day, in words.
+    expect(preview).toHaveTextContent('on the 5th')
 
     db.rpc.create_subscription.mockImplementation(() => [subscriptionRow({ id: 'new' })])
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
@@ -153,17 +168,25 @@ describe('subscription form [R-SUBSCRIPTION-121]', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('New terms apply from the current period (from 23.10.2026)')
-    // The schedule as it stands: from the anchor, its next charges.
+    // The schedule as it stands: the database's next dates for an unchanged edit.
     await waitFor(() => {
-      expect(db.rpc.subscription_charge_dates).toHaveBeenCalledWith(
-        expect.objectContaining({ p_first_charge_date: '2026-11-05', p_from: '2026-12-05' }),
-      )
+      expect(db.rpc.preview_update_subscription).toHaveBeenCalledWith({
+        p_subscription_id: 'sub-netflix',
+        p_count: 6,
+      })
     })
     await userEvent.type(
       within(dialog).getByLabelText('New next charge date (optional)'),
       '20.12.2026',
     )
     await within(dialog).findByText('20.03.2027')
+    expect(db.rpc.preview_update_subscription).toHaveBeenLastCalledWith({
+      p_subscription_id: 'sub-netflix',
+      p_price: 1_990,
+      p_cadence: 'monthly',
+      p_next_charge_date: '2026-12-20',
+      p_count: 6,
+    })
 
     db.rpc.update_subscription.mockImplementation(() => [subscriptionRow({ revision: 2 })])
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
@@ -265,20 +288,29 @@ describe('ending a subscription [R-SUBSCRIPTION-124]', () => {
     await userEvent.click(
       within(card('Car insurance')).getByRole('button', { name: 'Actions for Car insurance' }),
     )
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'End or delete' }))
+    db.rpc.preview_end_subscription.mockImplementation((args) => [
+      args.p_subscription_id === 'sub-insurance'
+        ? { outcome: 'deleted', refusal: null }
+        : { outcome: 'ended', refusal: null },
+    ])
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     let dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByTestId('end-subscription-outcome')).toHaveTextContent(
-      'it is deleted',
-    )
+    await waitFor(() => {
+      expect(within(dialog).getByTestId('end-subscription-outcome')).toHaveTextContent(
+        'it is deleted',
+      )
+    })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
     await userEvent.click(
       within(card('Netflix')).getByRole('button', { name: 'Actions for Netflix' }),
     )
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'End or delete' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'End' }))
     dialog = await screen.findByRole('alertdialog')
     const outcome = within(dialog).getByTestId('end-subscription-outcome')
-    expect(outcome).toHaveTextContent('It ends from the current period (from 23.10.2026)')
+    await waitFor(() => {
+      expect(outcome).toHaveTextContent('It ends from the current period (from 23.10.2026)')
+    })
     expect(outcome).toHaveTextContent('2 charges still await confirmation')
     await userEvent.click(within(dialog).getByRole('button', { name: 'End subscription' }))
     await waitFor(() => {
@@ -387,5 +419,83 @@ describe('dashboard: charges to confirm [R-SUBSCRIPTION-076]', () => {
     renderRoutes(routes, '/')
     await screen.findByTestId('current-period-card')
     expect(screen.queryByTestId('charges-to-confirm')).not.toBeInTheDocument()
+  })
+})
+
+describe('the charge day in words [R-SUBSCRIPTION-150]', () => {
+  it('says the last day of a shorter month for the 31st, and that a cadence change alone keeps it', async () => {
+    const db = subscriptionsDb()
+    db.tables.subscription_overview = db.tables.subscription_overview.map((item) =>
+      item.id === 'sub-netflix' ? { ...item, charge_day: 31, anchor_date: '2026-10-31' } : item,
+    )
+    await openPage(db)
+    await userEvent.click(
+      within(card('Netflix')).getByRole('button', { name: 'Actions for Netflix' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const preview = within(dialog).getByTestId('charge-dates-preview')
+    expect(preview).toHaveTextContent('on the 31st, or on the last day of a shorter month')
+    await userEvent.click(within(dialog).getByLabelText('Charged'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Every 3 months' }))
+    expect(preview).toHaveTextContent(
+      'Changing only how often keeps the charge day: on the 31st, or on the last day of a shorter month.',
+    )
+  })
+})
+
+describe('no charge left before the budget ends [R-SUBSCRIPTION-151]', () => {
+  it('says so instead of a next charge date', async () => {
+    const db = subscriptionsDb()
+    db.tables.my_budgets = [budgetRow({ end_date: '2026-11-24', end_date_entered: '2026-11-20' })]
+    db.tables.subscription_overview = db.tables.subscription_overview.map((item) =>
+      item.id === 'sub-insurance' ? { ...item, next_charge_date: null } : item,
+    )
+    await openPage(db)
+    expect(within(card('Car insurance')).getByTestId('next-charge')).toHaveTextContent(
+      'No further charge before the budget ends',
+    )
+  })
+})
+
+describe('in an ended budget [R-BUDGET-150]', () => {
+  it('offers an edit only as a correction from one of its periods', async () => {
+    const db = subscriptionsDb()
+    db.rpc.get_current_period.mockImplementation(() => [])
+    db.tables.period_summaries = db.tables.period_summaries.map((period) => ({
+      ...period,
+      is_current: false,
+    }))
+    db.tables.subscription_overview = db.tables.subscription_overview.map((item) =>
+      item.id === 'sub-netflix' ? { ...item, first_seq: 1, is_active: false } : item,
+    )
+    db.rpc.update_subscription.mockImplementation(() => [])
+    await openPage(db)
+    expect(screen.getAllByRole('button', { name: 'Add subscription' })[0]).toBeEnabled()
+    await userEvent.click(
+      within(card('Netflix')).getByRole('button', { name: 'Actions for Netflix' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const toggle = within(dialog).getByLabelText('Correct an earlier period')
+    await waitFor(() => {
+      expect(toggle).toBeChecked()
+    })
+    expect(toggle).toBeDisabled()
+    expect(dialog).toHaveTextContent(
+      'The budget has ended: a change applies only as a correction from one of its periods.',
+    )
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('Price per charge')).toHaveValue('19.90')
+    })
+    const price = within(dialog).getByLabelText('Price per charge')
+    await userEvent.clear(price)
+    await userEvent.type(price, '21')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_subscription).toHaveBeenCalledWith(
+        expect.objectContaining({ p_price: 2_100, p_from_period_id: 'period-2' }),
+      )
+    })
   })
 })

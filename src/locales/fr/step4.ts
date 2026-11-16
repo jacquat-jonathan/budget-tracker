@@ -66,13 +66,36 @@ export const subscriptionsFr: Translation['subscriptions'] = {
     kept: 'Le calendrier reste tel quel.',
     cadence:
       'Avec une nouvelle fréquence et sans nouvelle date, le calendrier continue depuis le prochain prélèvement, le {{date}}.',
+    none: 'Aucun prélèvement à ces conditions avant la fin du budget.',
+    atOnce_one: 'L’enregistrement crée aussitôt 1 prélèvement, daté dans le passé, à confirmer.',
+    atOnce_other:
+      'L’enregistrement crée aussitôt {{count}} prélèvements, datés dans le passé, à confirmer.',
+    atOnceAtLeast_one:
+      'L’enregistrement crée aussitôt au moins {{count}} prélèvement, daté dans le passé.',
+    atOnceAtLeast_other:
+      'L’enregistrement crée aussitôt au moins {{count}} prélèvements, datés dans le passé, à confirmer.',
+    cadenceKeepsDay: 'Ne changer que la fréquence garde le jour du prélèvement : {{day}}.',
+    refused: 'Ces conditions ne peuvent pas être enregistrées : {{reason}}',
   },
+  day: {
+    plain_ordinal_one: 'le {{count}}er',
+    plain_ordinal_two: 'le {{count}}',
+    plain_ordinal_few: 'le {{count}}',
+    plain_ordinal_other: 'le {{count}}',
+    late_ordinal_one: 'le {{count}}er, ou le dernier jour d’un mois plus court',
+    late_ordinal_two: 'le {{count}}, ou le dernier jour d’un mois plus court',
+    late_ordinal_few: 'le {{count}}, ou le dernier jour d’un mois plus court',
+    late_ordinal_other: 'le {{count}}, ou le dernier jour d’un mois plus court',
+  },
+  noFurtherCharge: 'Plus aucun prélèvement avant la fin du budget',
   remove: {
-    action: 'Terminer ou supprimer',
     deleteTitle: 'Supprimer « {{name}} » ?',
     endTitle: 'Terminer « {{name}} » ?',
     fromEarlier:
-      'Dès la période choisie, il ne compte plus et aucun prélèvement n’est créé. S’il n’a jamais compté avant cette période et n’a aucun prélèvement, il est supprimé ; sinon il se termine là, et les périodes précédentes le conservent avec leurs prélèvements.',
+      'Il se termine dès la période choisie : il n’y compte plus et aucun prélèvement n’est créé dès lors. Les périodes précédentes le conservent avec leurs prélèvements.',
+    deletesFromEarlier:
+      'Il n’a jamais compté avant la période choisie et n’a aucun prélèvement : il est supprimé.',
+    refused: 'Il ne peut pas être terminé dès cette période : {{reason}}',
     deletes:
       'Il n’a jamais compté dans une période passée et n’a aucun prélèvement : il est supprimé.',
     ends: 'Il se termine dès la période en cours (depuis le {{date}}) : plus de prélèvements. Les périodes passées le conservent.',
@@ -88,10 +111,12 @@ export const subscriptionsFr: Translation['subscriptions'] = {
       'Cela modifie des périodes passées : dès la période choisie, il ne compte plus et aucun prélèvement n’est créé.',
     delete: 'Supprimer',
     end: 'Terminer l’abonnement',
-    endOrDeleteTitle: 'Terminer ou supprimer « {{name}} » ?',
-    endOrDelete: 'Terminer ou supprimer',
+    endAction: 'Terminer',
   },
-  endedBudget: 'Le budget est terminé : les abonnements ne peuvent plus être ajoutés ni modifiés.',
+  endedBudget:
+    'Le budget est terminé : un abonnement peut encore être ajouté, modifié ou terminé comme correction dès l’une de ses périodes, et ses prélèvements confirmés.',
+  filterChip: 'Abonnement : {{name}}',
+  seeTransactions: 'Voir ses transactions',
   empty: 'Aucun abonnement pour l’instant',
   emptyHelp:
     'Ajoutez les prélèvements qui reviennent, comme le streaming, une assurance ou un abonnement de téléphone : chacun est enregistré à sa date, et vous confirmez qu’il a eu lieu.',
@@ -138,6 +163,26 @@ export const chargesFr: Translation['charges'] = {
   scheduledFor: '(prévu le {{date}})',
   seeAll_one: 'Et 1 autre : voir les transactions',
   seeAll_other: 'Et {{count}} autres : voir les transactions',
+  filterChip: 'En attente de confirmation',
+  linkFilters: 'Filtres d’un lien',
+  removeFilter: 'Retirer le filtre « {{what}} »',
+  confirmAll: 'Tous ont eu lieu',
+  confirmAllTitle_one: 'Confirmer le prélèvement en attente ?',
+  confirmAllTitle_other: 'Confirmer les {{count}} prélèvements en attente ?',
+  confirmAllOneDay_one: 'Le prélèvement du {{date}} est confirmé : il a eu lieu.',
+  confirmAllOneDay_other:
+    'Les {{count}} prélèvements du {{date}} sont confirmés : ils ont tous eu lieu.',
+  confirmAllRange_one: 'Le prélèvement en attente, daté du {{from}} au {{to}}, est confirmé.',
+  confirmAllRange_other:
+    'Les {{count}} prélèvements en attente, datés du {{from}} au {{to}}, sont confirmés : ils ont tous eu lieu. Pour ceux qui n’ont pas eu lieu, répondez un par un.',
+  confirmAllAction_one: 'Le confirmer',
+  confirmAllAction_other: 'Confirmer les {{count}}',
+  confirmedAll_one: '1 prélèvement confirmé.',
+  confirmedAll_other: '{{count}} prélèvements confirmés.',
+  confirmedAllOther_one:
+    '1 prélèvement confirmé, et non {{stated}} : un autre membre en a répondu entre-temps, ou de nouveaux sont arrivés.',
+  confirmedAllOther_other:
+    '{{count}} prélèvements confirmés, et non {{stated}} : un autre membre en a répondu entre-temps, ou de nouveaux sont arrivés.',
 }
 
 export const debtsFr: Translation['debts'] = {
@@ -181,11 +226,13 @@ export const debtsFr: Translation['debts'] = {
     'Les nouvelles conditions s’appliquent dès la période en cours (depuis le {{date}}) ; les périodes passées gardent les leurs.',
   addAppliesFrom: 'Elle compte dès la période en cours, ouverte aujourd’hui.',
   remove: {
-    action: 'Terminer ou supprimer',
     deleteTitle: 'Supprimer « {{name}} » ?',
     endTitle: 'Terminer « {{name}} » ?',
     fromEarlier:
-      'Dès la période choisie : plus d’intérêts ni de remboursement daté de là. Si elle n’a jamais compté avant cette période et n’a ni remboursement, ni intérêt, ni ajustement, elle est supprimée ; sinon elle se termine là et garde son historique.',
+      'Elle se termine dès la période choisie : plus d’intérêts ni de remboursement daté de là. Son historique est conservé.',
+    deletesFromEarlier:
+      'Elle n’a jamais compté avant la période choisie et n’a ni remboursement, ni intérêt, ni ajustement : elle est supprimée.',
+    refused: 'Elle ne peut pas être terminée dès cette période : {{reason}}',
     deletes: 'Elle n’a encore ni remboursement, ni intérêt, ni ajustement : elle est supprimée.',
     ends: 'Elle se termine dès la période en cours (depuis le {{date}}) : plus d’intérêts ni de nouveaux remboursements. Son historique est conservé, tout comme son montant restant ({{amount}}).',
     endsNoPeriod:
@@ -195,8 +242,7 @@ export const debtsFr: Translation['debts'] = {
       'Cela modifie des périodes passées : dès la période choisie, aucun intérêt n’est ajouté et aucun remboursement ne peut y être daté.',
     delete: 'Supprimer',
     end: 'Terminer la dette',
-    endOrDeleteTitle: 'Terminer ou supprimer « {{name}} » ?',
-    endOrDelete: 'Terminer ou supprimer',
+    endAction: 'Terminer',
   },
   adjust: {
     action: 'Ajuster le solde',
@@ -218,6 +264,7 @@ export const debtsFr: Translation['debts'] = {
       'L’ajustement de {{amount}} du {{date}} est supprimé : le montant restant change d’autant.',
     delete: 'Supprimer l’ajustement',
     deleteFor: 'Supprimer l’ajustement de {{amount}} du {{date}}',
+    dateRange: 'Du {{min}}, ouverture de la dette, au {{max}}.',
   },
   payoff: {
     none: 'Pas de projection : la dette est terminée.',
@@ -236,8 +283,32 @@ export const debtsFr: Translation['debts'] = {
     budgetEnded: 'Pas de projection : le budget est terminé.',
     unknown: 'Pas encore de projection.',
     noPayment: 'Aucun remboursement prévu',
+    afterBudgetEnd: 'C’est après la fin du budget.',
   },
-  endedBudget: 'Le budget est terminé : les dettes ne peuvent plus être ajoutées ni modifiées.',
+  endedBudget:
+    'Le budget est terminé : une dette peut encore être ajoutée, modifiée ou terminée comme correction dès l’une de ses périodes, et des remboursements enregistrés dans ses périodes.',
+  filterChip: 'Dette : {{name}}',
+  seeTransactions: 'Voir ses remboursements',
+  frozenPayment:
+    'C’est un remboursement de « {{name}} », qui est terminée : il ne peut plus être modifié ni supprimé.',
+  frozenView: 'Afficher',
+  frozenDelete: 'Sa dette est terminée : il reste tel quel.',
+  endedErrors: {
+    payment: 'Cette dette est terminée : elle ne reçoit plus de remboursement.',
+    frozenPayment:
+      'La dette de ce remboursement est terminée : il ne peut plus être modifié ni supprimé.',
+    adjust: 'Cette dette est terminée : son solde ne peut plus être ajusté.',
+    deleteAdjustment: 'Cette dette est terminée : ses ajustements ne peuvent plus être supprimés.',
+  },
+  payment: {
+    dateRange: 'Du {{min}}, ouverture de « {{name}} », au {{max}}.',
+    opened:
+      'Les remboursements de « {{name}} » peuvent être datés dès le {{date}}, jour de son ouverture.',
+    notInForce:
+      '« {{name}} » n’était pas en vigueur à cette date : choisissez une autre date, ou aucune dette.',
+    categoryFollows:
+      'Les remboursements de « {{name}} » vont dans la catégorie de ses conditions à cette date.',
+  },
   totalRemaining_one: 'Encore dû sur 1 dette',
   totalRemaining_other: 'Encore dû sur {{count}} dettes',
   empty: 'Aucune dette',
@@ -258,7 +329,7 @@ export const debtsFr: Translation['debts'] = {
   edit: 'Modifier',
   endedTitleOne: 'Cette dette est terminée',
   endedOneHelp:
-    'Son historique est conservé. Aucun intérêt n’est ajouté et aucun nouveau remboursement ne peut être enregistré.',
+    'Son historique est conservé. Aucun intérêt n’est ajouté, aucun nouveau remboursement ne peut être enregistré, et ses remboursements et ajustements ne peuvent plus être modifiés ni supprimés.',
   paid: 'Remboursé',
   interestAdded: 'Intérêts ajoutés',
   adjustments: 'Ajustements',
@@ -277,10 +348,14 @@ export const debtsFr: Translation['debts'] = {
     today: 'Aujourd’hui (aucun nouvel événement)',
     marksNote:
       'Avec autant d’événements, seuls les ajustements de solde sont marqués ; pointez la courbe pour voir chaque événement d’une date, ou lisez l’historique ci-dessous.',
+    labelCapped:
+      'Montant restant au fil du temps, les {{count, number}} premiers événements, jusqu’au {{date}}. Le tableau ci-dessous les détaille.',
+    capped:
+      'Le graphique montre les {{count, number}} premiers événements, jusqu’au {{date}} : l’historique est plus long. Le tableau ci-dessous continue jusqu’aux plus récents.',
   },
   history: {
     title: 'Historique',
-    label: 'Historique de {{name}}, du plus récent au plus ancien',
+    label: 'Historique de {{name}}, du plus ancien au plus récent',
     entry: 'Événement',
     amount: 'Montant',
     balance: 'Restant',
@@ -292,8 +367,12 @@ export const debtsFr: Translation['debts'] = {
     },
     see: 'Voir',
     seePayment: 'Voir le remboursement de {{amount}} du {{date}} parmi les transactions',
-    showLatest: 'N’afficher que les {{count}} derniers',
-    showAll: 'Afficher les {{count}} événements',
+    showMore: 'Afficher {{count}} de plus',
+    shownSoFar_one: '1 événement affiché, du plus ancien ; il y en a d’autres.',
+    shownSoFar_other: '{{count}} événements affichés, du plus ancien ; il y en a d’autres.',
+    shownAll_one: '1 événement.',
+    shownAll_other: 'Les {{count}} événements, du plus ancien au plus récent.',
+    loadFailed: 'Les événements suivants n’ont pas pu être lus. Réessayez.',
   },
   overpaid: 'Trop-payé',
   overpaidHint: 'Plus a été remboursé que ce qui était dû.',
@@ -311,4 +390,18 @@ export const correctionsFr: Translation['corrections'] = {
   period: 'Corriger à partir de la période',
   showsPeriodTerms:
     'Les champs ci-dessous montrent maintenant ce qui était en vigueur dans cette période. Ne changez que ce qui était faux : ce que vous laissez tel quel reste tel qu’il était.',
+  reachUntil:
+    'La correction s’applique du {{start}} jusqu’à la période qui se termine le {{end}} ; dès le {{next}}, les conditions enregistrées ensuite restent.',
+  reachOn: 'La correction s’applique dès le {{start}}.',
+  notInForce:
+    'Il n’était pas en vigueur dans cette période : il n’y a rien à y corriger. Choisissez une autre période.',
+  budgetEnded:
+    'Le budget est terminé : une modification ne s’applique que comme correction dès l’une de ses périodes.',
+  changedNotShown:
+    'Un autre membre a modifié entre-temps quelque chose que cette fenêtre n’affiche pas (le revenu principal, une première sous-catégorie…). Rien n’a été enregistré ; vos saisies sont toujours là : enregistrez de nouveau.',
+}
+
+export const catchUpFr: Translation['catchUp'] = {
+  title: 'Rattrapage du temps écoulé depuis votre dernière visite…',
+  help: 'Le budget crée les périodes, prélèvements et intérêts depuis. Cela peut prendre quelques secondes.',
 }

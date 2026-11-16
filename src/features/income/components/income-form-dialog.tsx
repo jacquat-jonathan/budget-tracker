@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { InfoIcon, TriangleAlertIcon } from 'lucide-react'
-import { useId } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useForm, useWatch, type Control } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -42,6 +42,7 @@ import {
 } from '@/features/income/pay-date-preview'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { CorrectionReach } from '@/features/budgets/correction-reach'
 import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
@@ -51,6 +52,7 @@ import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
+import { dbErrorCode } from '@/lib/db-errors'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
 
 const incomeSchema = z.object({
@@ -114,7 +116,9 @@ function IncomeForm({
   const { t } = useTranslation()
   const { user } = useAuth()
   const { budget } = useCurrentBudget()
-  const errorMessage = useErrorMessage()
+  // R-CONCURRENCY-150: a refused save over a change this form does not show says so (the shown fields that
+  // changed have their own notice), in the save's own words.
+  const errorMessage = useErrorMessage({ record_changed: 'corrections.changedNotShown' })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
@@ -141,10 +145,14 @@ function IncomeForm({
     name: ['correct', 'payDay', 'weekendRule', 'fromPeriodId'],
   })
   // Before saving new terms for the primary income: what the database would then expect.
+  // R-INCOME-150: previewed whenever the edit may move the current period's end (new pay day
+  // or weekend rule, any correction, or the database asked for it: preview_required), and the
+  // end it shows is always sent with the save.
+  const [previewAsked, setPreviewAsked] = useState(false)
   const primaryTermsChanged =
     income?.is_primary === true &&
     currentPeriod !== null &&
-    (payDay !== income.pay_day || weekendRule !== income.weekend_rule)
+    (previewAsked || correct || payDay !== income.pay_day || weekendRule !== income.weekend_rule)
   const preview = useExpectedPayDatePreview(
     budgetId,
     {
@@ -178,12 +186,14 @@ function IncomeForm({
   // A correction starts from the terms in force in the period chosen (database's rows).
   const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
   const correcting = income !== undefined && correct && fromPeriod !== null
-  const termsAt = useTermsAt('income', budgetId, income?.id, correcting ? fromPeriod.seq : null)
-  const periodTerms = correcting ? (termsAt.data ?? null) : null
+  const termsAt = useTermsAt('income', budgetId, income?.id, correcting ? fromPeriod.id : null)
+  const periodTerms = correcting ? (termsAt.data?.terms ?? null) : null
+  // Not in force in that period: nothing to correct there, nothing to save.
+  const notInForce = correcting && termsAt.data?.inForce === false
   const base = income ? (correcting ? periodTerms : income) : null
   useStartFrom(
     form,
-    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     base && income
       ? { amount: base.amount, payDay: base.pay_day, weekendRule: base.weekend_rule }
       : null,
@@ -207,7 +217,7 @@ function IncomeForm({
       payDay: values.payDay,
       weekendRule: values.weekendRule,
     }
-    if (correcting && !periodTerms) return
+    if (correcting && (!periodTerms || notInForce)) return
     const done = income
       ? edit.mutateAsync({
           ...terms,
@@ -222,7 +232,10 @@ function IncomeForm({
           userId: values.userId === user?.id ? null : values.userId,
           fromPeriodId: values.fromPeriodId || null,
         })
-    return done.catch(() => undefined)
+    return done.catch((error: unknown) => {
+      // The edit moves the period's end after all: preview it, show it, and ask again.
+      if (dbErrorCode(error) === 'preview_required') setPreviewAsked(true)
+    })
   })
 
   const memberOptions = members.map((member) => ({
@@ -273,6 +286,15 @@ function IncomeForm({
           <CorrectionFields
             control={form.control}
             correct={correct}
+            reach={
+              <CorrectionReach
+                periods={periods}
+                periodId={fromPeriodId}
+                terms={termsAt.data}
+                pending={termsAt.isPending}
+                error={termsAt.isError ? errorMessage(termsAt.error) : null}
+              />
+            }
             options={correctable.map((period) => ({
               value: period.id,
               label: periodLabel(period),
@@ -327,6 +349,7 @@ function IncomeForm({
               mutation.isPending ||
               sync.pending !== null ||
               editBase.gone ||
+              notInForce ||
               (primaryTermsChanged && !preview.isSuccess)
             }
           >
@@ -345,8 +368,10 @@ function CorrectionFields({
   correct,
   options,
   onToggle,
+  reach,
 }: {
   control: Control<IncomeInput, unknown, IncomeValues>
+  reach: ReactNode
   correct: boolean
   options: SelectOption[]
   onToggle: (next: boolean) => void
@@ -374,6 +399,7 @@ function CorrectionFields({
             label={t('corrections.period')}
             options={options}
           />
+          {reach}
           <Alert variant="destructive">
             <TriangleAlertIcon aria-hidden />
             <AlertDescription>{t('income.correction.warning')}</AlertDescription>

@@ -15,6 +15,19 @@ export function useCategoryPath() {
 }
 
 /**
+ * A schedule's nominal day in words (subscription_overview.charge_day): from the 29th on, what
+ * happens in a shorter month, as the database does it (R-SUBSCRIPTION-130).
+ */
+// R-SUBSCRIPTION-150: the nominal day, and the shorter months, said where a schedule is.
+export function useChargeDayText() {
+  const { t } = useTranslation()
+  return (day: number) =>
+    day > 28
+      ? t('subscriptions.day.late', { count: day, ordinal: true })
+      : t('subscriptions.day.plain', { count: day, ordinal: true })
+}
+
+/**
  * Subscriptions' and debts' fields as a person reads them, for concurrent edits
  * (R-CONCURRENCY-091). A subscription's price, cadence and schedule only mean something
  * together: they are one field (R-SUBSCRIPTION-122). A debt's rate and planned payment are

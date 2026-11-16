@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/field'
 import { TextField } from '@/features/auth/components/text-field'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
+import { CorrectionReach } from '@/features/budgets/correction-reach'
 import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useCreateCategory, useUpdateCategory } from '@/features/categories/category-mutations'
 import { CADENCES, type Category } from '@/features/categories/category-queries'
@@ -36,7 +37,7 @@ import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
-import { useEditBase } from '@/hooks/use-edit-base'
+import { isRecordChanged, useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { MIN_EXPECTATION_RAPPEN, nameSchema, rappenSchema } from '@/lib/form-schemas'
 import { formatMoney } from '@/lib/money'
@@ -100,7 +101,9 @@ function CategoryForm({
   currentPeriod,
 }: CategoryFormDialogProps) {
   const { t } = useTranslation()
-  const errorMessage = useErrorMessage()
+  // A refused save over a change this form does not show says so (the shown fields that
+  // changed have their own notice), in the save's own words.
+  const errorMessage = useErrorMessage({ record_changed: 'corrections.changedNotShown' })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
@@ -149,19 +152,21 @@ function CategoryForm({
   const fromPeriodId = useWatch({ control: form.control, name: 'fromPeriodId' })
   const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
   const correcting = category !== undefined && !isGroup && correct && fromPeriod !== null
-  const termsAt = useTermsAt('category', budgetId, category?.id, correcting ? fromPeriod.seq : null)
-  const periodTerms = correcting ? (termsAt.data ?? null) : null
+  const termsAt = useTermsAt('category', budgetId, category?.id, correcting ? fromPeriod.id : null)
+  const periodTerms = correcting ? (termsAt.data?.terms ?? null) : null
+  // Not in force in that period: nothing to correct there, nothing to save.
+  const notInForce = correcting && termsAt.data?.inForce === false
   const base = category ? (correcting ? periodTerms : category) : null
   useStartFrom(
     form,
-    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     base && category && !isGroup
       ? { amount: base.amount ?? 0, cadence: base.cadence ?? 'monthly' }
       : null,
   )
 
   const onSubmit = form.handleSubmit((values) => {
-    if (correcting && !periodTerms) return
+    if (correcting && (!periodTerms || notInForce)) return
     const done = category
       ? update.mutateAsync({
           category,
@@ -207,7 +212,8 @@ function CategoryForm({
           updated={sync.updated}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
-          error={mutation.error}
+          // The first subcategory has its own notice above: the refused save needs no other.
+          error={becameGroup && isRecordChanged(mutation.error) ? null : mutation.error}
           message={errorMessage}
         />
         {parent && !category && <FirstSubcategoryNotice parent={parent} />}
@@ -226,6 +232,15 @@ function CategoryForm({
         {category && !isGroup && correctable.length > 0 && (
           <CorrectionFields
             correct={correct}
+            reach={
+              <CorrectionReach
+                periods={periods}
+                periodId={fromPeriodId}
+                terms={termsAt.data}
+                pending={termsAt.isPending}
+                error={termsAt.isError ? errorMessage(termsAt.error) : null}
+              />
+            }
             onToggle={(next) => {
               form.setValue('correct', next)
               form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
@@ -303,7 +318,10 @@ function CategoryForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending || sync.pending !== null || edit.gone}>
+          <Button
+            type="submit"
+            disabled={mutation.isPending || sync.pending !== null || edit.gone || notInForce}
+          >
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
@@ -349,10 +367,12 @@ function CorrectionFields({
   correct,
   onToggle,
   select,
+  reach,
 }: {
   correct: boolean
   onToggle: (next: boolean) => void
   select: ReactNode
+  reach: ReactNode
 }) {
   const { t } = useTranslation()
   const id = useId()
@@ -372,6 +392,7 @@ function CorrectionFields({
       {correct && (
         <>
           {select}
+          {reach}
           <Alert variant="destructive">
             <TriangleAlertIcon aria-hidden />
             <AlertDescription>{t('categories.correctionWarning')}</AlertDescription>

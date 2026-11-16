@@ -379,11 +379,21 @@ describe('periods page [R-PERIOD-051]', () => {
     })
   })
 
-  it('moves a start set by hand back to the schedule, which clears the mark [R-PERIOD-055] [R-PERIOD-100]', async () => {
-    const { db, rows } = await openPeriods()
-    const dialog = await choose(rows[0]!, CURRENT, 'Move this period’s start back to the schedule')
+  it('moves a start set by hand back to the schedule, which clears the mark [R-PERIOD-055] [R-PERIOD-100] [R-PERIOD-151]', async () => {
+    const db = householdDb()
+    db.rpc.preview_move_period_start.mockImplementation(() => [
+      { period_id: 'period-2', scheduled_start: '2026-10-25', accepted: true, refusal: null },
+    ])
+    const { rows } = await openPeriods(db)
+    // Offered with the start the database gives, and the dates said in the confirmation.
+    const dialog = await choose(
+      rows[0]!,
+      CURRENT,
+      'Move this period’s start back to the schedule (25.10.2026)',
+    )
+    expect(db.rpc.preview_move_period_start).toHaveBeenCalledWith({ p_period_id: 'period-2' })
     expect(within(dialog).getByTestId('boundary-preview')).toHaveTextContent(
-      'its “set by hand” mark is cleared',
+      'This period will start on 25.10.2026, the day the schedule gives, and the previous one end on 24.10.2026',
     )
     await userEvent.click(within(dialog).getByRole('button', { name: 'Move back' }))
     await waitFor(() => {
@@ -394,14 +404,39 @@ describe('periods page [R-PERIOD-051]', () => {
     })
   })
 
-  it('says in its own words when the start cannot go back to the schedule now [R-PERIOD-055]', async () => {
-    const { db, rows } = await openPeriods()
-    db.rpc.move_period_start.mockImplementation(() => rpcError('invalid_boundary'))
-    const dialog = await choose(rows[0]!, CURRENT, 'Move this period’s start back to the schedule')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Move back' }))
+  it('says in words why the start cannot go back to the schedule, and offers nothing on schedule [R-PERIOD-151]', async () => {
+    const db = householdDb()
+    db.rpc.preview_move_period_start.mockImplementation(() => [
+      {
+        period_id: 'period-2',
+        scheduled_start: '2026-11-20',
+        accepted: false,
+        refusal: 'invalid_boundary',
+      },
+    ])
+    const { rows } = await openPeriods(db)
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: `Actions for ${CURRENT}` }))
+    const item = await screen.findByTestId('move-schedule')
+    expect(item).toHaveAttribute('aria-disabled', 'true')
     expect(
-      await within(dialog).findByText(/This start cannot go back to the schedule now/),
+      await screen.findByText(/This start cannot go back to the schedule now/),
     ).toBeInTheDocument()
-    expect(within(dialog).queryByText(/range shown under the field/)).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+
+    db.rpc.preview_move_period_start.mockImplementation(() => [
+      {
+        period_id: 'period-2',
+        scheduled_start: '2026-10-23',
+        accepted: false,
+        refusal: 'already_on_schedule',
+      },
+    ])
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: `Actions for ${CURRENT}` }))
+    await waitFor(() => {
+      expect(db.rpc.preview_move_period_start).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(screen.queryByTestId('move-schedule')).not.toBeInTheDocument()
+    })
   })
 })

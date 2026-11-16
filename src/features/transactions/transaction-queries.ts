@@ -38,6 +38,12 @@ export interface TransactionFilters {
   /** A leaf, or a group with its subcategories. */
   categoryId: string | null
   kind: TransactionKind | null
+  /** Its charges and the transactions linked to it. */
+  subscriptionId?: string | null
+  /** Its payments. */
+  debtId?: string | null
+  /** Only the charges awaiting confirmation. */
+  awaitingOnly?: boolean
 }
 
 interface Cursor {
@@ -64,6 +70,9 @@ export function useTransactions(budgetId: string, filters: TransactionFilters, e
           ...(filters.to ? { p_to_date: filters.to } : {}),
           ...(filters.categoryId ? { p_category_id: filters.categoryId } : {}),
           ...(filters.kind ? { p_kind: filters.kind } : {}),
+          ...(filters.subscriptionId ? { p_subscription_id: filters.subscriptionId } : {}),
+          ...(filters.debtId ? { p_debt_id: filters.debtId } : {}),
+          ...(filters.awaitingOnly ? { p_awaiting_only: true } : {}),
           ...(pageParam
             ? {
                 p_before_date: pageParam.date,

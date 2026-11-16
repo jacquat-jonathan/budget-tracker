@@ -5,7 +5,7 @@ import { routes } from '@/app/routes'
 import i18n from '@/lib/i18n'
 import { renderRoutes } from '@/test/render'
 import { BUDGET_ID, categoriesDb, categoryRow, periodRow } from '@/test/budget-fixtures'
-import { rpcError } from '@/test/mock-db'
+import { RpcFailure, rpcError } from '@/test/mock-db'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
@@ -141,19 +141,17 @@ describe('budget page [R-CATEGORY-050]', () => {
 
   it('changes an amount from the current period with the revision it was opened on; a correction is explicit [R-CATEGORY-053] [R-VERSION-140]', async () => {
     const db = categoriesDb()
-    // In period 1 Groceries expected CHF 800.00 a month (CHF 900.00 now).
-    db.tables.category_expectations = [
+    // In period 1 Groceries expected CHF 800.00 a month (CHF 900.00 now), as the database says.
+    db.rpc.get_category_terms.mockImplementation((args) => [
       {
-        id: 'exp-1',
-        budget_id: BUDGET_ID,
-        category_id: 'cat-groceries',
-        effective_from_seq: 1,
+        period_id: args.p_period_id,
+        in_force: true,
         amount: 80_000,
         cadence: 'monthly',
-        created_at: '2026-10-01T10:00:00+00:00',
-        updated_at: '2026-10-01T10:00:00+00:00',
+        terms_from_period_id: 'period-1',
+        until_period_id: 'period-2',
       },
-    ]
+    ])
     await openBudget(db)
 
     await action('Groceries', 'Edit')
@@ -618,5 +616,34 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
         p_name: 'Leisure and sport',
       })
     })
+  })
+})
+
+describe('a category the database will not end [R-CATEGORY-150]', () => {
+  it('lists what uses it from the refusal itself', async () => {
+    const db = categoriesDb()
+    db.rpc.end_category.mockImplementation(() => {
+      throw new RpcFailure({
+        code: 'P0001',
+        message: 'category_in_use',
+        details: JSON.stringify([
+          { kind: 'subscription', id: 'sub-netflix', name: 'Netflix' },
+          { kind: 'debt', id: 'debt-car', name: 'Car loan' },
+        ]),
+        hint: null,
+      })
+    })
+    await openBudget(db)
+    await action('Car', 'Remove')
+    const confirm = await screen.findByRole('alertdialog')
+    await userEvent.click(
+      within(confirm).getByRole('button', { name: /Remove from now on|Delete/ }),
+    )
+    const users = await within(confirm).findByTestId('category-in-use')
+    expect(users).toHaveTextContent('Subscription “Netflix”')
+    expect(within(users).getByRole('link', { name: 'Debt “Car loan”' })).toHaveAttribute(
+      'href',
+      '/debts/debt-car',
+    )
   })
 })

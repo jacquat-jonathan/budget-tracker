@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, usePeriodDependentQuery, type PeriodRead } from '@/features/budgets/budget-queries'
 import { useRecord } from '@/features/budgets/record-queries'
+import type { TermsArgs } from '@/features/subscriptions/subscription-mutations'
 import type { Transaction } from '@/features/transactions/transaction-queries'
 import type { Database, Tables } from '@/lib/database.types'
 import { isCalendarDate } from '@/lib/date'
@@ -78,31 +79,73 @@ export function useSubscriptionRecord(
   return useMemo(() => (row ? readSubscription(row) : row), [row])
 }
 
+/** A previewed charge: its date, and whether the save creates it straight away. */
+export interface PreviewCharge {
+  date: string
+  atOnce: boolean
+}
+
+/** Upcoming charges a form shows. */
+export const PREVIEW_SHOWN = 6
+const PREVIEW_COUNT = PREVIEW_SHOWN
 /**
- * The next charge dates of a schedule, as the database computes them
- * (subscription_charge_dates): the client never works a schedule out (C-LOGIC-003).
- * Pure: cached per arguments, not per budget.
+ * A new subscription's preview asks for the most the database gives (60), so that the
+ * charges created with it, dated in the past, are all counted, however far back it starts.
  */
-export function useChargeDates(
-  firstChargeDate: string | null,
-  cadence: SubscriptionCadence,
-  from: string | null,
-  count = 6,
+export const PREVIEW_CREATE_COUNT = 60
+
+/**
+ * The charges create_subscription would make with these arguments
+ * (preview_create_subscription): the client never works a schedule out (C-LOGIC-003).
+ * Under the budget's key: what it answers depends on the periods and today.
+ */
+export function usePreviewCreate(
+  budgetId: string,
+  args: { cadence: SubscriptionCadence; firstChargeDate: string; fromPeriodId: string | null },
 ) {
-  const valid = firstChargeDate !== null && isCalendarDate(firstChargeDate)
+  const valid = isCalendarDate(args.firstChargeDate)
   return useQuery({
-    queryKey: ['subscription-charge-dates', firstChargeDate, cadence, from, count] as const,
+    queryKey: [...budgetKeys.budget(budgetId), 'preview-create-subscription', args] as const,
     enabled: valid,
-    staleTime: Infinity,
-    queryFn: async (): Promise<string[]> =>
+    queryFn: async (): Promise<PreviewCharge[]> =>
       unwrap(
-        await supabase.rpc('subscription_charge_dates', {
-          p_first_charge_date: firstChargeDate ?? '',
-          p_cadence: cadence,
-          p_count: count,
-          ...(from ? { p_from: from } : {}),
+        await supabase.rpc('preview_create_subscription', {
+          p_budget_id: budgetId,
+          p_cadence: args.cadence,
+          p_first_charge_date: args.firstChargeDate,
+          p_count: PREVIEW_CREATE_COUNT,
+          ...(args.fromPeriodId ? { p_from_period_id: args.fromPeriodId } : {}),
         }),
-      ),
+      ).map((row) => ({ date: row.charge_date, atOnce: row.charged_at_once })),
+  })
+}
+
+/**
+ * The next charge dates update_subscription would produce with exactly the terms arguments
+ * the save will send (preview_update_subscription, D-231).
+ */
+export function usePreviewUpdate(
+  budgetId: string,
+  subscriptionId: string | undefined,
+  args: TermsArgs,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [
+      ...budgetKeys.budget(budgetId),
+      'preview-update-subscription',
+      subscriptionId ?? '',
+      args,
+    ] as const,
+    enabled: enabled && subscriptionId !== undefined,
+    queryFn: async (): Promise<PreviewCharge[]> =>
+      unwrap(
+        await supabase.rpc('preview_update_subscription', {
+          p_subscription_id: subscriptionId ?? '',
+          p_count: PREVIEW_COUNT,
+          ...args,
+        }),
+      ).map((date) => ({ date, atOnce: false })),
   })
 }
 

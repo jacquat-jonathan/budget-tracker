@@ -15,12 +15,15 @@ export function CorrectionToggle({
   onCheckedChange,
   label,
   warning,
+  required,
   children,
 }: {
   checked: boolean
   onCheckedChange: (next: boolean) => void
   label: string
   warning: string
+  /** Why only a correction is possible (an ended budget): ticked, and it cannot be unticked. */
+  required?: string
   /** The period choice. */
   children: ReactNode
 }) {
@@ -32,11 +35,12 @@ export function CorrectionToggle({
         <Checkbox
           id={id}
           checked={checked}
+          disabled={required !== undefined}
           onCheckedChange={(next) => onCheckedChange(next === true)}
         />
         <FieldContent>
           <FieldLabel htmlFor={id}>{label}</FieldLabel>
-          <FieldDescription>{t('income.correction.help')}</FieldDescription>
+          <FieldDescription>{required ?? t('income.correction.help')}</FieldDescription>
         </FieldContent>
       </Field>
       {checked && (

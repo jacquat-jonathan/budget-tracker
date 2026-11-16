@@ -365,6 +365,7 @@ describe('periods are made to exist when a budget is opened [R-PERIOD-050]', () 
     const db = householdDb()
     db.tables.period_summaries = []
     db.rpc.ensure_periods.mockImplementation(() => {
+      if (db.tables.period_summaries.length > 0) return 0
       db.tables.period_summaries = [periodRow()]
       return 1
     })
@@ -372,5 +373,50 @@ describe('periods are made to exist when a budget is opened [R-PERIOD-050]', () 
     renderRoutes(routes, '/periods')
 
     expect(await screen.findAllByTestId('period-row')).toHaveLength(1)
+  })
+})
+
+describe('a very long absence is caught up first [R-PERIOD-150]', () => {
+  it('says it is catching up, with no figure, calls ensure_periods until 0, then loads', async () => {
+    const db = householdDb()
+    db.tables.my_budgets = db.tables.my_budgets.map((budget) => ({ ...budget, caught_up: false }))
+    const saved = db.tables.period_summaries
+    db.tables.period_summaries = []
+    let calls = 0
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    db.rpc.ensure_periods.mockImplementation(async () => {
+      calls += 1
+      if (calls === 1) await gate
+      if (calls < 3) return 120
+      db.tables.period_summaries = saved
+      db.tables.my_budgets = db.tables.my_budgets.map((budget) => ({ ...budget, caught_up: true }))
+      return 0
+    })
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/periods')
+    const waiting = await screen.findByTestId('catching-up')
+    expect(waiting).toHaveTextContent('Catching up on the time since your last visit…')
+    expect(waiting.textContent).not.toMatch(/CHF|\d/)
+    expect(screen.queryByTestId('period-row')).not.toBeInTheDocument()
+    expect(screen.queryByText(/has ended/)).not.toBeInTheDocument()
+    release()
+    expect(await screen.findAllByTestId('period-row')).not.toHaveLength(0)
+    expect(calls).toBe(3)
+    expect(screen.queryByTestId('catching-up')).not.toBeInTheDocument()
+  })
+
+  it('says when catching up failed, with a retry', async () => {
+    const db = householdDb()
+    db.tables.my_budgets = db.tables.my_budgets.map((budget) => ({ ...budget, caught_up: false }))
+    db.rpc.ensure_periods.mockImplementationOnce(() => rpcError('boom', 'XX000'))
+    db.rpc.ensure_periods.mockImplementation(() => 0)
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/periods')
+    const alert = await screen.findByRole('alert')
+    await userEvent.click(within(alert).getByRole('button', { name: 'Try again' }))
+    expect(await screen.findAllByTestId('period-row')).not.toHaveLength(0)
   })
 })

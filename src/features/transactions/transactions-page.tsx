@@ -48,9 +48,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCurrentPeriod, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
+import {
+  useBudgetStatus,
+  useCurrentPeriod,
+  usePeriods,
+  type PeriodSummary,
+} from '@/features/budgets/budget-queries'
+import { ConfirmAllCharges } from '@/features/subscriptions/components/confirm-all-charges'
+import { useAwaitingCharges } from '@/features/subscriptions/subscription-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { isVoid, useCategories, type Category } from '@/features/categories/category-queries'
+import { isUuid } from '@/lib/uuid'
+import { useDebts } from '@/features/debts/debt-queries'
 import {
   TransactionFormDialog,
   type DateRange,
@@ -96,6 +105,12 @@ export function TransactionsPage() {
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
   const charges = useAnswerCharge(budgetId)
+  // Payments of an ended debt are frozen (D-209): the list says so instead of offering a delete.
+  const debtList = useDebts(budgetId)
+  const endedDebtIds = useMemo(
+    () => new Set((debtList.data ?? []).filter((d) => d.end_seq !== null).map((d) => d.id)),
+    [debtList.data],
+  )
 
   const periodList = periods.data
   // The current period by default; once the budget has ended, its last period.
@@ -115,13 +130,35 @@ export function TransactionsPage() {
   const kind = (TRANSACTION_KINDS as readonly string[]).includes(kindParam ?? '')
     ? (kindParam as TransactionKind)
     : null
+  // A link from a subscription, a debt or the charges card: one subscription's transactions,
+  // one debt's payments, or the charges awaiting confirmation. Read only when asked for.
+  const subscriptionParam = params.get('subscription')
+  const debtParam = params.get('debt')
+  const awaitingOnly = params.get('awaiting') === '1'
+  // Read by id (undefined while unknown, null when the budget has no such record).
+  const subscriptionRow = useRecord(
+    'subscription_overview',
+    budgetId,
+    isUuid(subscriptionParam) ? subscriptionParam : undefined,
+  )
+  const debtRow = useRecord('debt_overview', budgetId, isUuid(debtParam) ? debtParam : undefined)
+  const subscription = !isUuid(subscriptionParam) ? null : subscriptionRow
+  const debt = !isUuid(debtParam) ? null : debtRow
   const filters = {
     from: period?.start_date ?? null,
     to: period?.end_date ?? null,
     categoryId,
     kind,
+    subscriptionId: subscription?.id ?? null,
+    debtId: debt?.id ?? null,
+    awaitingOnly,
   }
-  const ready = periodList !== undefined && current.data !== undefined && categoryList !== undefined
+  const ready =
+    periodList !== undefined &&
+    current.data !== undefined &&
+    categoryList !== undefined &&
+    subscription !== undefined &&
+    debt !== undefined
   // Read once the filters are known, never first for all periods.
   const list = useTransactions(budgetId, filters, ready)
   useEffect(() => {
@@ -131,6 +168,16 @@ export function TransactionsPage() {
       setParams(next, { replace: true })
     }
   }, [categoryList, categoryParam, categoryId, params, setParams])
+  // Like a category: a subscription or debt the budget does not have drops its filter.
+  const unknownSubscription = subscriptionParam !== null && subscription === null
+  const unknownDebt = debtParam !== null && debt === null
+  useEffect(() => {
+    if (!unknownSubscription && !unknownDebt) return
+    const next = new URLSearchParams(params)
+    if (unknownSubscription) next.delete('subscription')
+    if (unknownDebt) next.delete('debt')
+    setParams(next, { replace: true })
+  }, [unknownSubscription, unknownDebt, params, setParams])
   const setFilter = (key: string, value: string | null) => {
     const next = new URLSearchParams(params)
     if (value === null) next.delete(key)
@@ -179,7 +226,21 @@ export function TransactionsPage() {
   }
 
   const rows = list.data?.pages.flat() ?? []
-  const filtered = periodParam !== null || categoryId !== null || kind !== null
+  const filtered =
+    periodParam !== null ||
+    categoryId !== null ||
+    kind !== null ||
+    !!subscription ||
+    !!debt ||
+    awaitingOnly
+  const linkFilters = [
+    subscription && {
+      key: 'subscription',
+      label: t('subscriptions.filterChip', { name: subscription.name }),
+    },
+    debt && { key: 'debt', label: t('debts.filterChip', { name: debt.name }) },
+    awaitingOnly && { key: 'awaiting', label: t('charges.filterChip') },
+  ].filter((item): item is { key: string; label: string } => !!item)
 
   return (
     <div className="flex flex-col gap-6">
@@ -204,6 +265,12 @@ export function TransactionsPage() {
           onKind={(value) => setFilter('kind', value)}
         />
       </div>
+      {linkFilters.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <LinkFilters filters={linkFilters} onRemove={(key) => setFilter(key, null)} />
+          {awaitingOnly && <ConfirmAllAwaiting budgetId={budgetId} today={today} />}
+        </div>
+      )}
       {!ready || list.isPending ? (
         <LoadingState rows={5} />
       ) : list.isError ? (
@@ -225,6 +292,7 @@ export function TransactionsPage() {
       ) : (
         <TransactionList
           rows={rows}
+          endedDebtIds={endedDebtIds}
           onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
           onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
           onAnswer={(transaction, answer) => {
@@ -305,6 +373,62 @@ export function TransactionsPage() {
         }}
       />
     </div>
+  )
+}
+
+/**
+ * "All went through" over the list of the charges awaiting: the budget's count, and the oldest
+ * date from the charges awaiting (oldest first). Read only while that filter is on.
+ */
+function ConfirmAllAwaiting({ budgetId, today }: { budgetId: string; today: string | null }) {
+  const status = useBudgetStatus(budgetId)
+  const awaiting = useAwaitingCharges(budgetId)
+  return (
+    <ConfirmAllCharges
+      budgetId={budgetId}
+      count={status.data?.charges_awaiting ?? 0}
+      oldest={awaiting.data?.[0]?.date ?? null}
+      today={today}
+    />
+  )
+}
+
+/**
+ * The filters a link set (one subscription, one debt, the charges awaiting confirmation):
+ * shown, kept in the address, each removable.
+ */
+// R-TRANSACTION-150: a link's filter is visible, removable and kept in the address.
+function LinkFilters({
+  filters,
+  onRemove,
+}: {
+  filters: { key: string; label: string }[]
+  onRemove: (key: string) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <ul
+      className="flex flex-wrap gap-2"
+      aria-label={t('charges.linkFilters')}
+      data-testid="link-filters"
+    >
+      {filters.map((filter) => (
+        <li key={filter.key}>
+          <Badge variant="secondary" className="h-8 max-w-full gap-1 pr-1 pl-3 text-sm">
+            <span className="truncate">{filter.label}</span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="rounded-full"
+              onClick={() => onRemove(filter.key)}
+              aria-label={t('charges.removeFilter', { what: filter.label })}
+            >
+              <XIcon />
+            </Button>
+          </Badge>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -445,11 +569,13 @@ function weekday(date: string, language: string): string {
 /** Transactions grouped by day, newest first. */
 function TransactionList({
   rows,
+  endedDebtIds,
   onEdit,
   onDelete,
   onAnswer,
 }: {
   rows: Transaction[]
+  endedDebtIds: ReadonlySet<string>
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
@@ -476,6 +602,7 @@ function TransactionList({
               <TransactionRow
                 key={row.id}
                 row={row}
+                frozen={row.debt_id !== null && endedDebtIds.has(row.debt_id)}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onAnswer={onAnswer}
@@ -534,11 +661,14 @@ function useLinkNote() {
 
 function TransactionRow({
   row,
+  frozen,
   onEdit,
   onDelete,
   onAnswer,
 }: {
   row: Transaction
+  /** A payment of an ended debt: it can be looked at, not changed or deleted. */
+  frozen: boolean
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer?: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
@@ -619,11 +749,22 @@ function TransactionRow({
           )}
           <DropdownMenuItem onSelect={() => onEdit(row)}>
             <PencilIcon />
-            {t('transactions.edit')}
+            {frozen ? t('debts.frozenView') : t('transactions.edit')}
           </DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onSelect={() => onDelete(row)}>
+          {/* R-DEBT-151: a payment of an ended debt cannot be deleted; the menu says why. */}
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={frozen}
+            onSelect={() => onDelete(row)}
+            className="flex-wrap"
+          >
             <Trash2Icon />
             {t('transactions.delete')}
+            {frozen && (
+              <span className="basis-full pl-6 text-xs text-muted-foreground">
+                {t('debts.frozenDelete')}
+              </span>
+            )}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -666,7 +807,7 @@ function DeleteTransactionBody({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const errorMessage = useErrorMessage()
+  const errorMessage = useErrorMessage({ debt_ended: 'debts.endedErrors.frozenPayment' })
   const views = useRecordViews()
   const live = useRecord('transaction_list', budgetId, opened.id)
   const removal = useEditBase(opened, live, views.transaction)
