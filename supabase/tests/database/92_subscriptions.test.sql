@@ -2,7 +2,7 @@
 -- committed figure, versioned terms and corrections, ending and deleting, catch-up after a long
 -- absence, the transaction limit, categories in use, and a reopen with subscription changes.
 begin;
-select plan(125);
+select plan(131);
 
 select tests.create_user('alice', 'Alice');
 select tests.create_user('bob', 'Bob');
@@ -362,6 +362,10 @@ select lives_ok('set constraints all immediate', 'R-CATEGORY-110: and the shape 
 set constraints all deferred;
 select is(public.end_category(tests.id('streaming'), (select revision from public.categories where id = tests.id('streaming'))), 'ended',
   'R-CATEGORY-110: once its subscriptions have ended, the category can be removed (ended: it has charges)');
+-- a price change from period 5: charges from then on at the new price
+select lives_ok(format('select public.update_subscription(%L, %s, p_price => 6600)', tests.id('gym'),
+                       (select revision from public.subscriptions where id = tests.id('gym'))),
+  'R-VERSION-003: a new price for the quarterly subscription');
 
 -- ===========================================================================
 -- A long absence (R-SUBSCRIPTION-073, R-SUBSCRIPTION-111, Q-054)
@@ -376,6 +380,8 @@ update timing set finished = clock_timestamp();
 select is((select array_agg(charge_date order by charge_date) from public.transactions where subscription_id = tests.id('gym')),
           '{2027-01-10,2027-04-10,2027-07-10,2027-10-10,2028-01-10,2028-04-10,2028-07-10,2028-10-10,2029-01-10}'::date[],
   'R-SUBSCRIPTION-073 Q-054: every missed charge date is caught up, once');
+select is((select array_agg(distinct amount) from public.transactions where subscription_id = tests.id('gym')), '{6600}'::bigint[],
+  'R-VERSION-003 R-SUBSCRIPTION-073: each at the price in force in its period');
 select is((select count(*)::integer from public.transactions where subscription_id = tests.id('yearly')),
           (select count(*)::integer from generate_series(date '2026-11-20', date '2029-01-15', interval '1 month')),
   'R-SUBSCRIPTION-073: monthly too');
@@ -431,6 +437,25 @@ select count(*) from generate_series(1, 50) as g cross join lateral public.creat
 select is((select count(*)::integer from public.subscriptions where budget_id = tests.id('b2')), 50, 'setup: 50 subscriptions');
 select throws_ok(format($$select public.create_subscription(%L, 'Fifty-first', 100, 'monthly', %L, '2030-01-01')$$, tests.id('b2'), tests.id('b2_cat')),
   'P0001', 'subscription_limit_reached', 'R-SUBSCRIPTION-110: at most 50 subscriptions in force');
+
+-- ===========================================================================
+-- A charge date passing inside the current period: opening the budget creates it
+-- (R-SUBSCRIPTION-073, R-SECURITY-006)
+-- ===========================================================================
+select tests.remember('b3', public.create_budget('Within', 'Salary', 600000, 25));
+select tests.remember('b3_cat', (select id from public.create_category(tests.id('b3'), 'Subs')));
+select tests.remember('b3_sub', (select id from public.create_subscription(tests.id('b3'), 'Soon', 990, 'monthly', tests.id('b3_cat'), '2029-04-20')));
+create temp table b3_period on commit drop as select id from public.periods where budget_id = tests.id('b3') and private.today() between start_date and end_date;
+select is((select count(*)::integer from public.transactions where subscription_id = tests.id('b3_sub')), 0, 'setup: not charged before its date');
+select tests.clear_authentication();
+select tests.set_today('2029-04-21');
+select tests.authenticate_as('alice');
+select is((select id from public.get_current_period(tests.id('b3'))), (select id from b3_period),
+  'setup: still the same period');
+select is((select array_agg(charge_date) from public.transactions where subscription_id = tests.id('b3_sub')), '{2029-04-20}'::date[],
+  'R-SUBSCRIPTION-073: opening the budget creates the charge whose date has passed within the period');
+select is((select count(*)::integer from public.list_charges_awaiting_confirmation(tests.id('b3'))), 1,
+  'R-SUBSCRIPTION-075: and lists it as awaiting confirmation');
 
 select * from finish();
 rollback;

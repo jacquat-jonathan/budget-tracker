@@ -97,6 +97,11 @@ select tests.set_today('2026-11-15');         -- pin the database's "today" (as 
 select * from tests.period_violations(<budget id>);  -- independent period invariant check
                                               -- (also categories and transactions)
 select * from tests.naive_totals(<period id>);  -- a period's totals recomputed from the rows
+select tests.naive_committed(<period id>);    -- step 4: its committed total, from the rows
+select tests.naive_remaining(<debt id>);      -- step 4: a debt's remaining amount, from the rows
+select * from tests.step4_violations(<budget id>);  -- step 4 invariants (charges once,
+                                              -- interest once per period, naive figures);
+                                              -- call it as a member of the budget
 select tests.remember('budget', public.create_budget(...));  -- name an id ...
 select tests.id('budget');                    -- ... and use it under any role
 select tests.reopen_previous_period(<budget id>);  -- step 2's argument lists for the RPCs
@@ -116,10 +121,13 @@ commit, and tests roll back, so assert them with
 `set constraints all deferred;`. The client contract the tests protect is in
 `docs/database.md`. Name the spec rule id a test proves in its description
 (`'R-PERIOD-030: ...'`); `npm run spec:check` checks every test-enforced rule has one.
-`70_properties.test.sql` runs random sequences of every public operation (step 2's and,
-for half the steps, the category and transaction ones) for eight fixed seeds (220 steps
-each, about 40 seconds) and checks the invariants after each step, including every
-period's totals against `tests.naive_totals` and its progress rows. A seed walks the same
+`70_properties.test.sql` runs random sequences of every public operation (step 2's for
+40 % of the steps, the category and transaction ones for 35 %, the subscription and debt
+ones, with absences of up to 40 days, for 25 %) for eight fixed seeds (220 steps each, about
+80 seconds) and checks the invariants after each step, including every period's totals
+against `tests.naive_totals` and its progress rows, and `tests.step4_violations`. Before
+each step the budget is opened (`ensure_periods`), so charges an absence left due count as
+what the budget held. A seed walks the same
 way on any database: every pick comes from the run's own rows in creation order
 (`pg_temp.pick`), never from a scan whose order depends on what else the database holds, and
 a pick is never called inside a `where` clause (it would run once per row scanned). A failure
@@ -128,8 +136,8 @@ diagnostic changes exactly when a walk changes. To run it longer, add seeds or r
 count in the `seeds` / `prop_config` tables at the top of the file (do not commit that), then
 run it with `00_helpers.test.sql`.
 
-`60_concurrency.test.sql` and `62_concurrent_edits.test.sql` are the exceptions to the
-rollback rule: each opens extra connections with `dblink` (local credentials
+`60_concurrency.test.sql`, `62_concurrent_edits.test.sql` and
+`98_step4_concurrency.test.sql` are the exceptions to the rollback rule: each opens extra connections with `dblink` (local credentials
 `postgres`/`postgres`) to race two callers, commits throwaway users and budgets, and
 deletes them at the end (and at the start, should an earlier run have failed half-way).
 
@@ -149,9 +157,10 @@ To run one file, run the helpers too:
 ## Smoke test over the API
 
 The pgTAP suite calls the functions in SQL; `npm run db:smoke` (`scripts/db/smoke-http.mjs`)
-calls them as the browser does, through PostgREST and Auth: sign-up, the main step 2 and
-step 3 RPCs and views, the error contract (`P0001` and its message), what an anonymous
-visitor and a non-member get, and two members racing the same reopen. It needs the whole
+calls them as the browser does, through PostgREST and Auth: sign-up, the main step 2, 3 and
+4 RPCs and views, the error contract (`P0001` and its message), what an anonymous visitor
+and a non-member get, and two members racing the same reopen and the same subscription
+charge. It needs the whole
 stack (`npm run db:start`, not `supabase db start`) and reads the URL and publishable key
 from `npx supabase status`, or from `SUPABASE_URL` and `SUPABASE_ANON_KEY`. It creates
 throwaway users (`@smoke.test`) that `npm run db:reset` removes. CI does not run it (its

@@ -503,10 +503,13 @@ set search_path = ''
 set plan_cache_mode = force_custom_plan
 as $$
 begin
-  return (select d.principal from public.debts as d where d.id = p_debt_id)
-    + coalesce((select pg_catalog.sum(i.amount) from public.debt_interest as i where i.debt_id = p_debt_id), 0)::bigint
-    + coalesce((select pg_catalog.sum(a.amount) from public.debt_adjustments as a where a.debt_id = p_debt_id), 0)::bigint
-    - coalesce((select pg_catalog.sum(t.amount) from public.transactions as t where t.debt_id = p_debt_id), 0)::bigint;
+  -- one statement, so one plan per call
+  return (
+    select d.principal
+      + coalesce((select pg_catalog.sum(i.amount) from public.debt_interest as i where i.debt_id = d.id), 0)::bigint
+      + coalesce((select pg_catalog.sum(a.amount) from public.debt_adjustments as a where a.debt_id = d.id), 0)::bigint
+      - coalesce((select pg_catalog.sum(t.amount) from public.transactions as t where t.debt_id = d.id), 0)::bigint
+    from public.debts as d where d.id = p_debt_id);
 end;
 $$;
 
@@ -535,28 +538,25 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  d record;
-  v_balance bigint;
-  v_rate numeric;
-  v_amount bigint;
 begin
-  for d in
-    select x.id from public.debts as x
+  insert into public.debt_interest (budget_id, debt_id, period_id, amount, rate, balance)
+  select new.budget_id, i.debt_id, new.id, i.amount, i.rate, i.balance
+  from (
+    select x.id as debt_id, v.interest_rate as rate, b.balance,
+           private.period_interest(b.balance, v.interest_rate) as amount
+    from public.debts as x
+    cross join lateral (
+      select dv.interest_rate from public.debt_versions as dv
+      where dv.debt_id = x.id and dv.effective_from_seq <= new.seq
+      order by dv.effective_from_seq desc limit 1
+    ) as v
+    cross join lateral (select private.debt_remaining(x.id) as balance offset 0) as b
     where x.budget_id = new.budget_id and x.first_seq <= new.seq and (x.end_seq is null or new.seq < x.end_seq)
-    order by x.created_at, x.id
-  loop
-    select v.interest_rate into v_rate from public.debt_versions as v
-    where v.debt_id = d.id and v.effective_from_seq <= new.seq
-    order by v.effective_from_seq desc limit 1;
-    continue when v_rate is null or v_rate <= 0;
-    v_balance := private.debt_remaining(d.id);
-    v_amount := private.period_interest(v_balance, v_rate);
-    continue when v_amount < 1;
-    insert into public.debt_interest (budget_id, debt_id, period_id, amount, rate, balance)
-    values (new.budget_id, d.id, new.id, v_amount, v_rate, v_balance)
-    on conflict (debt_id, period_id) do nothing;
-  end loop;
+      and v.interest_rate > 0
+    offset 0
+  ) as i
+  where i.amount >= 1
+  on conflict (debt_id, period_id) do nothing;
   return null;
 end;
 $$;
@@ -611,12 +611,12 @@ declare
   v_upto date := private.charge_horizon(p_budget_id);
   v_room integer;
   v_made integer := 0;
-  v_stop boolean := false;
+  v_inserted integer;
   v_through date;
+  v_dates date[];
+  v_prices bigint[];
+  v_categories uuid[];
   s public.subscriptions;
-  p public.periods;
-  v public.subscription_versions;
-  d date;
 begin
   if v_upto is null or not private.charges_pending(p_budget_id) then
     return 0;
@@ -629,37 +629,38 @@ begin
     where x.budget_id = p_budget_id and x.charged_through < v_upto
     order by x.created_at, x.id
   loop
+    -- the dates due, in order, each at the terms in force in its period (one query)
+    select pg_catalog.array_agg(c.d order by c.d), pg_catalog.array_agg(v.price order by c.d),
+           pg_catalog.array_agg(v.category_id order by c.d)
+    into v_dates, v_prices, v_categories
+    from public.periods as y
+    cross join lateral (
+      select z.price, z.category_id, z.anchor_date, z.cadence from public.subscription_versions as z
+      where z.subscription_id = s.id and z.effective_from_seq <= y.seq
+      order by z.effective_from_seq desc limit 1
+    ) as v
+    cross join lateral private.charge_dates(v.anchor_date, v.cadence,
+                                            greatest(y.start_date, s.charged_through + 1), least(y.end_date, v_upto)) as c (d)
+    where y.budget_id = p_budget_id and y.end_date > s.charged_through and y.start_date <= v_upto
+      and y.seq >= s.first_seq and (s.end_seq is null or y.seq < s.end_seq);
     v_through := v_upto;
-    <<periods>>
-    for p in
-      select y.* from public.periods as y
-      where y.budget_id = p_budget_id and y.end_date > s.charged_through and y.start_date <= v_upto
-        and y.seq >= s.first_seq and (s.end_seq is null or y.seq < s.end_seq)
-      order by y.seq
-    loop
-      select z.* into v from public.subscription_versions as z
-      where z.subscription_id = s.id and z.effective_from_seq <= p.seq
-      order by z.effective_from_seq desc limit 1;
-      for d in
-        select c from private.charge_dates(v.anchor_date, v.cadence,
-                                           greatest(p.start_date, s.charged_through + 1), least(p.end_date, v_upto)) as c
-      loop
-        if v_room <= 0 then
-          v_stop := true;
-          v_through := d - 1;
-          exit periods;
-        end if;
-        insert into public.transactions (budget_id, kind, amount, date, category_id, subscription_id, charge_date, review_state)
-        values (p_budget_id, 'expense', v.price, d, v.category_id, s.id, d, 'awaiting_confirmation')
-        on conflict (subscription_id, charge_date) do nothing;
-        if found then
-          v_room := v_room - 1;
-          v_made := v_made + 1;
-        end if;
-      end loop;
-    end loop;
+    if pg_catalog.cardinality(v_dates) > greatest(v_room, 0) then
+      -- the budget is full: stop before the first charge that does not fit
+      v_through := v_dates[greatest(v_room, 0) + 1] - 1;
+      v_dates := v_dates[1:greatest(v_room, 0)];
+    end if;
+    if pg_catalog.cardinality(v_dates) > 0 then
+      insert into public.transactions (budget_id, kind, amount, date, category_id, subscription_id, charge_date, review_state)
+      select p_budget_id, 'expense', u.price, u.d, u.category_id, s.id, u.d, 'awaiting_confirmation'
+      from unnest(v_dates, v_prices[1:pg_catalog.cardinality(v_dates)], v_categories[1:pg_catalog.cardinality(v_dates)])
+        as u (d, price, category_id)
+      on conflict (subscription_id, charge_date) do nothing;
+      get diagnostics v_inserted = row_count;
+      v_room := v_room - v_inserted;
+      v_made := v_made + v_inserted;
+    end if;
     update public.subscriptions set charged_through = v_through where id = s.id;
-    exit when v_stop;
+    exit when v_through < v_upto;
   end loop;
   return v_made;
 end;
@@ -1190,7 +1191,7 @@ create view public.debt_overview with (security_invoker = true) as
     pr.status as payoff,
     pr.payments_left,
     pr.end_date as expected_end_date,
-    (a.interest_total <> 0 or a.adjustment_count > 0 or a.payment_count > 0) as has_history,
+    (a.interest_count > 0 or a.adjustment_count > 0 or a.payment_count > 0) as has_history,
     (a.adjustment_count = 0 and a.payment_count = 0 and a.interest_count = 0
      and d.first_seq >= private.reading_seq(d.budget_id)) as removal_deletes,
     d.revision,
@@ -2337,6 +2338,10 @@ begin
   v_date := coalesce(p_date, private.today());
   perform private.transaction_period_seq(v_debt.budget_id, v_date);
   v_delta := p_balance - private.debt_remaining(v_debt.id);
+  if abs(v_delta) > 2 * private.limit_debt_balance() then
+    -- only reachable after payments far beyond the debt: the entry would be out of bounds
+    raise exception 'invalid_amount' using errcode = 'P0001';
+  end if;
   if v_delta <> 0 then
     if (select pg_catalog.count(*) from (select 1 from public.debt_adjustments as a where a.budget_id = v_debt.budget_id
                                          limit private.limit_debt_adjustments()) as n) >= private.limit_debt_adjustments() then
@@ -2381,8 +2386,10 @@ $$;
 
 -- R-DEBT-004: a debt's history for its list and its chart: the principal (kind 'opened', on
 -- opened_on), every interest entry (on its period's start), adjustment and payment, oldest
--- first, each with its effect on the remaining amount (amount: positive raises it) and the
--- remaining amount after it (balance). period_id: the period containing the date. Members.
+-- first (on one date: the principal, then interest, then adjustments and payments in the
+-- order they were recorded), each with its effect on the remaining amount (amount: positive
+-- raises it) and the remaining amount after it (balance). period_id: the period containing
+-- the date. Members.
 create type public.debt_history_row as (
   entry_id uuid, kind text, date date, amount bigint, balance bigint, period_id uuid,
   description text, created_at timestamptz
@@ -2419,7 +2426,7 @@ begin
       select a.id, 'adjustment', a.date, a.amount, a.note, a.created_at, 2
       from public.debt_adjustments as a where a.debt_id = v_debt.id
       union all
-      select t.id, 'payment', t.date, -t.amount, t.description, t.created_at, 3
+      select t.id, 'payment', t.date, -t.amount, t.description, t.created_at, 2
       from public.transactions as t where t.debt_id = v_debt.id
     ) as e (id, kind, date, amount, description, created_at, ord)
     left join lateral (

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Smoke test of the database contract over the real API (PostgREST and Auth), as the
-// browser calls it: sign-up, the main step 2 and step 3 RPCs and views, the error contract
+// browser calls it: sign-up, the main step 2, 3 and 4 RPCs and views, the error contract
 // (P0001 with a stable message), what an anonymous visitor and a non-member get, and two
-// members racing the same boundary operation. Run it against a full local stack:
+// members racing the same boundary operation and the same subscription charge. Run it
+// against a full local stack:
 //
 //   npx supabase start        # the whole stack, not only the database
 //   npm run db:smoke          # reads the URL and keys from `npx supabase status`
@@ -149,6 +150,65 @@ const updated = await rpc(alice, 'update_transaction', {
 check(ok(updated) && updated.body[0].revision === tx.body[0].revision + 1, 'update_transaction returns the next revision', updated)
 const reordered = await rpc(alice, 'reorder_categories', { p_budget_id: budget, p_category_ids: [yearly.body[0].id, food.body[0].id] })
 check(ok(reordered), 'reorder_categories at the top level needs no parent', reordered)
+
+// --- step 4 ---------------------------------------------------------------------------
+const sub = await rpc(alice, 'create_subscription', {
+  p_budget_id: budget,
+  p_name: 'Phone',
+  p_price: 2990,
+  p_cadence: 'monthly',
+  p_category_id: food.body[0].id,
+  p_first_charge_date: today,
+})
+check(ok(sub) && sub.body[0]?.charge_count === 1 && sub.body[0]?.next_charge_date > today,
+  'create_subscription charges today at once and shows the next charge', sub)
+const awaiting = await rpc(bob, 'list_charges_awaiting_confirmation', { p_budget_id: budget })
+const charge = awaiting.body?.[0]
+check(ok(awaiting) && awaiting.body.length === 1 && charge.subscription_name === 'Phone' && charge.review_state === 'awaiting_confirmation',
+  'list_charges_awaiting_confirmation lists it for the dashboard', awaiting)
+const confirmArgs = { p_transaction_id: charge.id, p_expected_revision: charge.revision }
+const confirmRace = await Promise.all([
+  rpc(alice, 'confirm_subscription_charge', confirmArgs),
+  rpc(bob, 'dismiss_subscription_charge', confirmArgs),
+])
+check(confirmRace.filter(ok).length === 1 && confirmRace.filter((res) => refused(res, 'record_changed')).length === 1,
+  'a confirmation and a "did not go through" at once: one wins, the other gets record_changed', confirmRace)
+const committed = (await get(alice, `period_summaries?id=eq.${periods.at(-1).id}`)).body[0]
+check(committed.committed_total === 2990, 'period_summaries carries the committed total', committed)
+const debt = await rpc(alice, 'create_debt', {
+  p_budget_id: budget,
+  p_name: 'Car',
+  p_principal: 1000000,
+  p_category_id: food.body[0].id,
+  p_monthly_payment: 50000,
+  p_interest_rate: 4.875,
+})
+check(ok(debt) && debt.body[0]?.interest_rate === 4.875 && debt.body[0]?.payoff === 'ends', 'create_debt takes a decimal rate and projects the end', debt)
+const payment = await rpc(bob, 'add_transaction', {
+  p_budget_id: budget,
+  p_kind: 'expense',
+  p_amount: 50000,
+  p_date: today,
+  p_category_id: food.body[0].id,
+  p_debt_id: debt.body[0].id,
+})
+check(ok(payment) && payment.body[0]?.debt_name === 'Car', 'add_transaction records a payment linked to the debt', payment)
+const adjusted = await rpc(alice, 'adjust_debt_balance', {
+  p_debt_id: debt.body[0].id,
+  p_expected_revision: debt.body[0].revision,
+  p_balance: 940000,
+  p_note: 'Statement',
+})
+check(ok(adjusted) && adjusted.body[0]?.remaining === 940000, 'adjust_debt_balance makes the remaining amount the balance entered', adjusted)
+const history = await rpc(bob, 'get_debt_history', { p_debt_id: debt.body[0].id })
+check(ok(history) && history.body.map((row) => row.kind).join() === 'opened,payment,adjustment' && history.body.at(-1).balance === 940000,
+  'get_debt_history lists the entries with the balance after each', history)
+check(refused(await rpc(mallory, 'get_debt_history', { p_debt_id: debt.body[0].id }), 'debt_not_found'),
+  'a non-member gets debt_not_found')
+const outsiderDebts = await get(mallory, `debt_overview?budget_id=eq.${budget}`)
+check(ok(outsiderDebts) && outsiderDebts.body.length === 0, 'a non-member reads no debts', outsiderDebts)
+const anonSubs = await get(null, `subscription_overview?budget_id=eq.${budget}`)
+check(anonSubs.status >= 400 && anonSubs.body?.code === '42501', 'an anonymous visitor cannot read subscriptions (no privilege)', anonSubs)
 
 // --- access ---------------------------------------------------------------------------
 const anonRead = await get(null, `transaction_list?budget_id=eq.${budget}`)

@@ -3,7 +3,7 @@
 -- reopen, the payoff projection, balance adjustments, versioned terms with corrections,
 -- removing, links, and a reopen with debt changes.
 begin;
-select plan(95);
+select plan(97);
 
 select tests.create_user('alice', 'Alice');
 select tests.set_today('2026-11-16');
@@ -242,6 +242,12 @@ select throws_ok(format('select public.end_category(%L, %s)', tests.id('food'), 
 -- ===========================================================================
 select tests.remember('typo', (select id from public.create_debt(tests.id('b'), 'Typo', 100, tests.id('loans'), 10, 5)));
 select is(public.remove_debt(tests.id('typo'), 1), 'deleted', 'R-DEBT-113: a debt that never counted and has no history is deleted');
+select tests.remember('paid_now', (select id from public.create_debt(tests.id('b'), 'Paid now', 5000, tests.id('food'), 1000)));
+select public.add_transaction(tests.id('b'), 'expense', 1000, '2027-04-26', tests.id('food'), p_debt_id => tests.id('paid_now'));
+select is(public.remove_debt(tests.id('paid_now'), 1), 'ended',
+  'R-DEBT-113: a debt with a payment is never deleted, even in its first period');
+select is((select row(first_seq = end_seq, paid_total)::text from public.debt_overview where id = tests.id('paid_now')), row(true, 1000)::text,
+  'R-DEBT-113 R-VERSION-014: it is kept void with its payment');
 select is(public.remove_debt(tests.id('car'), (select revision from public.debts where id = tests.id('car'))), 'ended',
   'R-DEBT-113: a debt with history is ended');
 select is((select row(is_active, remaining, payoff)::text from public.debt_overview where id = tests.id('car')),
