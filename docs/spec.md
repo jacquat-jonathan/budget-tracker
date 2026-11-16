@@ -3692,7 +3692,7 @@ Source: owner-request: database developer decision for step 4, within the coordi
 
 ### D-190 Charts: shadcn chart (Recharts), theme colours, lazy route (accepted)
 
-Charts use shadcn's chart component on Recharts. Series colours are the theme tokens --chart-1 to --chart-5, set for light and dark to a categorical palette validated for colour-vision deficiencies (the first three also all together); identity is never colour alone (marks have shapes, a legend and a table). The page that draws a chart is its own lazily loaded route, so Recharts never reaches the first load. A debt's chart is a step line of the balance on a time axis (dates spaced by days, no time zone), from zero.
+Charts use shadcn's chart component on Recharts. Series colours are the theme tokens --chart-1 to --chart-5, set for light and dark to a categorical palette validated for colour-vision deficiencies (the first three also all together); identity is never colour alone (marks have shapes, a legend and a table). The page that draws a chart is its own lazily loaded route, so Recharts never reaches the first load. A debt's chart is a step line of the balance on a time axis (dates spaced by days, no time zone), its value axis scaled to the balances so a few payments show (zero drawn when in range).
 
 **Why:** Step 5 needs more charts; shadcn's component fits the existing UI kit; the production Content-Security-Policy allows the inline style element it writes (style-src 'unsafe-inline') and no script.
 

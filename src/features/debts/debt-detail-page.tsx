@@ -1,5 +1,6 @@
 import {
   ArrowLeftIcon,
+  ArrowUpRightIcon,
   CalendarOffIcon,
   EllipsisVerticalIcon,
   PencilIcon,
@@ -340,7 +341,10 @@ function HistoryTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-full">{t('debts.history.entry')}</TableHead>
-            <TableHead className="text-right">{t('debts.history.amount')}</TableHead>
+            {/* On a phone the amount joins the event's second line: three columns fit. */}
+            <TableHead className="hidden text-right sm:table-cell">
+              {t('debts.history.amount')}
+            </TableHead>
             <TableHead className="text-right">{t('debts.history.balance')}</TableHead>
             <TableHead>
               <span className="sr-only">{t('common.actions')}</span>
@@ -357,11 +361,15 @@ function HistoryTable({
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
                   <CalendarDate value={entry.date} />
+                  <span className="tabular-nums sm:hidden"> · {formatMoney(entry.amount)}</span>
                   {entry.description ? ` · ${entry.description}` : ''}
                 </div>
               </TableCell>
               <TableCell
-                className={cn('text-right tabular-nums', entry.amount < 0 && 'text-positive')}
+                className={cn(
+                  'hidden text-right tabular-nums sm:table-cell',
+                  entry.amount < 0 && 'text-positive',
+                )}
               >
                 {formatMoney(entry.amount)}
               </TableCell>
@@ -370,15 +378,16 @@ function HistoryTable({
               </TableCell>
               <TableCell className="pr-0 text-right">
                 {entry.kind === 'payment' && entry.period_id && (
-                  <Button asChild variant="link" size="xs" className="px-0">
+                  <Button asChild variant="ghost" size="icon-xs">
                     <Link
                       to={`${paths.transactions}?period=${entry.period_id}`}
                       aria-label={t('debts.history.seePayment', {
                         amount: formatMoney(-entry.amount),
                         date: formatCalendarDate(entry.date),
                       })}
+                      title={t('debts.history.see')}
                     >
-                      {t('debts.history.see')}
+                      <ArrowUpRightIcon />
                     </Link>
                   </Button>
                 )}

@@ -90,6 +90,9 @@ export function DebtChart({ entries }: { entries: HistoryEntry[] }) {
             tickLine={false}
             axisLine={false}
             width={72}
+            // Scaled to the balances, so a change of a few payments is visible; zero is drawn
+            // when it is in range (an overpaid debt).
+            domain={['auto', 'auto']}
             tickFormatter={(value: number) =>
               formatMoney(Math.round(value / 100) * 100, { currency: false }).replace(/\.00$/, '')
             }
