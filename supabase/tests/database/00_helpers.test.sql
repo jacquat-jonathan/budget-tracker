@@ -770,6 +770,25 @@ begin
 end;
 $$;
 
+-- Step 5: get_category_trend (one row per line, arrays per period) as one row per line and
+-- period, to compare with get_period_progress row by row. Call it as a member.
+create or replace function tests.category_trend_rows(b uuid, n integer default 12)
+returns table (category_id uuid, parent_id uuid, name text, is_group boolean, display_order integer,
+               period_id uuid, seq integer, is_completed boolean, in_force boolean, planned bigint, spent bigint,
+               committed bigint, transaction_count integer, completed_count integer, average_spent bigint)
+language sql
+volatile
+set search_path = ''
+as $$
+  select c.category_id, c.parent_id, c.name, c.is_group, c.display_order, u.period_id, p.seq,
+         p.end_date < private.today(), u.in_force, u.planned, u.spent, u.committed, u.transaction_count,
+         c.completed_count, c.average_spent
+  from public.get_category_trend(b, n) as c
+  cross join lateral unnest(c.period_ids, c.in_force, c.planned, c.spent, c.committed, c.transaction_count)
+    as u (period_id, in_force, planned, spent, committed, transaction_count)
+  join public.periods as p on p.id = u.period_id
+$$;
+
 grant execute on all functions in schema tests to anon, authenticated;
 
 select has_function('tests', 'authenticate_as', array['text'], 'test helpers are installed');

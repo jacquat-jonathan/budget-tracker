@@ -58,6 +58,11 @@ create or replace function private.limit_active_debts() returns integer
 language sql immutable set search_path = '' as $$ select 50 $$;
 create or replace function private.limit_total_debts() returns integer
 language sql immutable set search_path = '' as $$ select 200 $$;
+-- R-APP-170, D-264: the most rows of one kind (categories, subscriptions, debts) a budget
+-- holds, void rows included, so that every read listing them (one row each, plus a total row)
+-- fits in one API response (1000 rows).
+create or replace function private.limit_rows_per_kind() returns integer
+language sql immutable set search_path = '' as $$ select 900 $$;
 -- Balance adjustments per budget.
 create or replace function private.limit_debt_adjustments() returns integer
 language sql immutable set search_path = '' as $$ select 5000 $$;
@@ -2097,7 +2102,7 @@ end;
 $$;
 
 -- R-SUBSCRIPTION-110: room for p_new more subscriptions: 50 in force and 200 in all, void
--- rows not counted.
+-- rows not counted; and (R-APP-170, D-264) at most 900 rows, void ones included.
 create or replace function private.assert_subscription_room(p_budget_id uuid, p_new integer)
 returns void
 language plpgsql
@@ -2109,8 +2114,31 @@ begin
        + p_new > private.limit_active_subscriptions()
      or (select pg_catalog.count(*) from public.subscriptions as s
          where s.budget_id = p_budget_id and (s.end_seq is null or s.end_seq > s.first_seq))
-       + p_new > private.limit_total_subscriptions() then
+       + p_new > private.limit_total_subscriptions()
+     or (select pg_catalog.count(*) from public.subscriptions as s where s.budget_id = p_budget_id)
+       + p_new > private.limit_rows_per_kind() then
     raise exception 'subscription_limit_reached' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+-- R-CATEGORY-094: step 3's room for p_new more categories (200 in force, 500 in all, void
+-- rows not counted), and (R-APP-170, D-264) at most 900 rows, void ones included.
+create or replace function private.assert_category_room(p_budget_id uuid, p_new integer)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  if (select pg_catalog.count(*) from public.categories as c where c.budget_id = p_budget_id and c.end_seq is null)
+       + p_new > private.limit_active_categories()
+     or (select pg_catalog.count(*) from public.categories as c
+         where c.budget_id = p_budget_id and (c.end_seq is null or c.end_seq > c.first_seq))
+       + p_new > private.limit_total_categories()
+     or (select pg_catalog.count(*) from public.categories as c where c.budget_id = p_budget_id)
+       + p_new > private.limit_rows_per_kind() then
+    raise exception 'category_limit_reached' using errcode = 'P0001';
   end if;
 end;
 $$;
@@ -2133,7 +2161,8 @@ begin
 end;
 $$;
 
--- R-DEBT-110: room for p_new more debts: 50 in force and 200 in all, void rows not counted.
+-- R-DEBT-110: room for p_new more debts: 50 in force and 200 in all, void rows not counted;
+-- and (R-APP-170, D-264) at most 900 rows, void ones included.
 create or replace function private.assert_debt_room(p_budget_id uuid, p_new integer)
 returns void
 language plpgsql
@@ -2145,7 +2174,9 @@ begin
        + p_new > private.limit_active_debts()
      or (select pg_catalog.count(*) from public.debts as d
          where d.budget_id = p_budget_id and (d.end_seq is null or d.end_seq > d.first_seq))
-       + p_new > private.limit_total_debts() then
+       + p_new > private.limit_total_debts()
+     or (select pg_catalog.count(*) from public.debts as d where d.budget_id = p_budget_id)
+       + p_new > private.limit_rows_per_kind() then
     raise exception 'debt_limit_reached' using errcode = 'P0001';
   end if;
 end;

@@ -119,27 +119,28 @@ end;
 $$;
 
 -- ===========================================================================
--- R-COMPARE-070, R-COMPARE-170, R-COMPARE-172, R-COMPARE-174: spending per category across
--- the same periods
+-- R-COMPARE-070, R-COMPARE-170, R-COMPARE-172, R-COMPARE-174, R-APP-170: spending per
+-- category across the same periods
 -- ===========================================================================
 
--- One row per category line and period of the range (the range of get_period_trend with the
--- same p_count): every category, group or subcategory that has a progress row
--- (get_period_progress) in some period of the range, in every period of the range. A line is
--- the category's id, under its current name and place. In a period: the figures of its
--- progress row (spent: expenses minus refunds; planned: the expectation's monthly share, null
--- when the category is not in force there; committed: subscriptions' monthly costs); a period
--- where it has no progress row: not in force, planned null, spent 0, committed 0. The rows of
--- top-level lines (parent_id null) of a period add up to that period's spent_total, and so do
--- its leaves (is_group false). average_spent: over the completed periods of the range, as in
--- get_period_trend (null when none is completed). Members. Errors: as get_period_trend.
+-- One row per category line (D-264: at most one row per category of the budget, never lines
+-- times periods, so the answer stays within the API's 1000 rows): every category, group or
+-- subcategory that has a progress row (get_period_progress) in some period of the range of
+-- get_period_trend with the same p_count. A line is the category's id, under its current name
+-- and place. The per-period figures are arrays aligned with period_ids (the range, oldest
+-- first, the same on every row and equal to get_period_trend's period_id column): in a period
+-- with a progress row, its figures (spent: expenses minus refunds; planned: the expectation's
+-- monthly share, null when the category is not in force there; committed: subscriptions'
+-- monthly costs); in a period without one: not in force, planned null, spent 0, committed 0,
+-- transaction_count 0. The spent elements of the top-level lines (parent_id null) at one
+-- position add up to that period's spent_total, and so do those of the leaves (is_group
+-- false). average_spent: over the completed periods of the range, as in get_period_trend (null
+-- when none is completed). Members. Errors: as get_period_trend.
 create or replace function public.get_category_trend(p_budget_id uuid, p_count integer default 12)
 returns table (
   category_id uuid, parent_id uuid, name text, is_group boolean, display_order integer,
-  period_id uuid, seq integer, start_date date, end_date date, days integer,
-  is_current boolean, is_completed boolean,
-  in_force boolean, planned bigint, spent bigint, committed bigint, transaction_count integer,
-  completed_count integer, average_spent bigint
+  period_ids uuid[], in_force boolean[], planned bigint[], spent bigint[], committed bigint[],
+  transaction_count integer[], completed_count integer, average_spent bigint
 )
 language plpgsql
 volatile
@@ -163,6 +164,7 @@ begin
       from public.periods as p
       where p.budget_id = p_budget_id and p.seq between v_last - p_count + 1 and v_last
     ),
+    ids as (select pg_catalog.array_agg(ps.id order by ps.seq) as period_ids from ps),
     rows_ as (
       select ps.id as pid, g.*
       from ps cross join lateral private.category_progress(p_budget_id, ps.seq, ps.start_date, ps.end_date) as g
@@ -170,28 +172,111 @@ begin
     lines as (select distinct x.category_id from rows_ as x),
     n as (select pg_catalog.count(*)::integer as n from ps where ps.end_date < v_today),
     grid as (
-      select l.category_id, ps.id as pid, ps.seq, ps.start_date, ps.end_date,
-             x.in_force, x.expected, x.spent, x.committed, x.transaction_count
+      select l.category_id, ps.seq, ps.end_date,
+             coalesce(x.in_force, false) as in_force,
+             case when x.in_force then x.expected end as planned,
+             coalesce(x.spent, 0)::bigint as spent, coalesce(x.committed, 0)::bigint as committed,
+             coalesce(x.transaction_count, 0) as transaction_count
       from lines as l cross join ps
       left join rows_ as x on x.category_id = l.category_id and x.pid = ps.id
     ),
-    avgs as (
-      select g.category_id, pg_catalog.sum(coalesce(g.spent, 0)) filter (where g.end_date < v_today) as s
+    agg as (
+      select g.category_id,
+             pg_catalog.array_agg(g.in_force order by g.seq) as in_force,
+             pg_catalog.array_agg(g.planned order by g.seq) as planned,
+             pg_catalog.array_agg(g.spent order by g.seq) as spent,
+             pg_catalog.array_agg(g.committed order by g.seq) as committed,
+             pg_catalog.array_agg(g.transaction_count order by g.seq) as transaction_count,
+             coalesce(pg_catalog.sum(g.spent) filter (where g.end_date < v_today), 0) as completed_spent
       from grid as g group by g.category_id
     )
     select c.id, c.parent_id, c.name, c.is_group, o.display_order,
-           g.pid, g.seq, g.start_date, g.end_date, (g.end_date - g.start_date + 1)::integer,
-           (v_today between g.start_date and g.end_date), (g.end_date < v_today),
-           coalesce(g.in_force, false),
-           case when g.in_force then g.expected end,
-           coalesce(g.spent, 0)::bigint, coalesce(g.committed, 0)::bigint, coalesce(g.transaction_count, 0),
-           n.n, private.compare_average(coalesce(a.s, 0), n.n)
-    from grid as g
-    join public.categories as c on c.id = g.category_id
+           ids.period_ids, a.in_force, a.planned, a.spent, a.committed, a.transaction_count,
+           n.n, private.compare_average(a.completed_spent, n.n)
+    from agg as a
+    join public.categories as c on c.id = a.category_id
     join private.category_display_order(p_budget_id) as o on o.category_id = c.id
-    join avgs as a on a.category_id = g.category_id
-    cross join n
-    order by o.display_order, g.seq;
+    cross join n cross join ids
+    order by o.display_order;
+end;
+$$;
+
+-- ===========================================================================
+-- R-APP-170: the periods, a page at a time
+-- ===========================================================================
+
+-- The periods of the budget as period_summaries rows, newest first, at most p_limit (1 to
+-- 200, default 120: ten years of monthly periods), before seq p_before_seq when given (the
+-- last row's seq of the page before). A budget may hold more periods than the API returns in
+-- one request (a long life, short periods): page through them rather than selecting the
+-- whole view. Members. Errors: budget_not_found, invalid_limit.
+create or replace function public.list_periods(p_budget_id uuid, p_limit integer default 120, p_before_seq integer default null)
+returns setof public.period_summaries
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.assert_member(p_budget_id);
+  if p_limit is null or p_limit not between 1 and 200 then
+    raise exception 'invalid_limit' using errcode = 'P0001';
+  end if;
+  return query
+    select s.* from public.period_summaries as s
+    where s.budget_id = p_budget_id and (p_before_seq is null or s.seq < p_before_seq)
+    order by s.seq desc
+    limit p_limit;
+end;
+$$;
+
+-- ===========================================================================
+-- R-APP-170: preview_reopen within one response
+-- ===========================================================================
+
+-- As in step 2 (the changes of private.merge_impact, in its order; the same catch-up and
+-- errors), and at most 1000 rows: when the period changed more records than that (only
+-- possible near several limits at once), the first 999 are listed and a last row says how many
+-- more there are (record_kind 'more', record_id null, record_name the count, change 'more').
+create or replace function public.preview_reopen(p_budget_id uuid)
+returns table (record_kind text, record_id uuid, record_name text, change text, replaces_previous boolean)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_current public.periods;
+  v_rows record;
+  v_n integer := 0;
+begin
+  perform private.assert_member(p_budget_id);
+  v_current := private.current_period(p_budget_id);
+  if v_current.id is null then
+    raise exception 'budget_ended' using errcode = 'P0001';
+  end if;
+  if v_current.seq = 1 then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  for v_rows in select * from private.merge_impact(p_budget_id, v_current.seq, v_current.seq - 1) loop
+    v_n := v_n + 1;
+    if v_n <= 999 then
+      record_kind := v_rows.record_kind; record_id := v_rows.record_id; record_name := v_rows.record_name;
+      change := v_rows.change; replaces_previous := v_rows.replaces_previous;
+      return next;
+    elsif v_n = 1000 then
+      -- held back: the 1000th row is listed only if it is the last one
+      record_kind := v_rows.record_kind; record_id := v_rows.record_id; record_name := v_rows.record_name;
+      change := v_rows.change; replaces_previous := v_rows.replaces_previous;
+    end if;
+  end loop;
+  if v_n = 1000 then
+    return next;
+  elsif v_n > 1000 then
+    record_kind := 'more'; record_id := null; record_name := (v_n - 999)::text; change := 'more'; replaces_previous := false;
+    return next;
+  end if;
 end;
 $$;
 
@@ -313,11 +398,15 @@ revoke all on function
   private.compare_average(numeric, integer),
   public.get_period_trend(uuid, integer),
   public.get_category_trend(uuid, integer),
-  public.get_period_comparison(uuid, uuid, uuid)
+  public.get_period_comparison(uuid, uuid, uuid),
+  public.list_periods(uuid, integer, integer),
+  public.preview_reopen(uuid)
 from public, anon, authenticated;
 
 grant execute on function
   public.get_period_trend(uuid, integer),
   public.get_category_trend(uuid, integer),
-  public.get_period_comparison(uuid, uuid, uuid)
+  public.get_period_comparison(uuid, uuid, uuid),
+  public.list_periods(uuid, integer, integer),
+  public.preview_reopen(uuid)
 to authenticated;

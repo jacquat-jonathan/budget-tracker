@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-397 rules (336 active, 54 planned), 24 conventions, 179 decisions, 29 open questions. 0 rules and conventions are marked **TEST PENDING**.
+398 rules (337 active, 54 planned), 24 conventions, 180 decisions, 30 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -262,6 +262,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SHELL_
   - Related: D-047
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/hooks/use-app-mutation.ts
+- **R-APP-170** No read returns more rows than the API delivers in one response (1000) without paging: a list that can grow beyond it is read a page at a time (periods, transactions, a debt's history); the kinds read one row each (categories, subscriptions, debts) are bounded at 900 rows per budget, void ones included; the spending per category returns one row per category line; and the reopen preview lists at most 1000 rows, the last one counting the rest.
+  _active · enforced by test · F-PLATFORM_
+  - Related: D-264, R-TRANSACTION-095, R-DEBT-135, R-COMPARE-070
+  - Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
 
 ### Accounts and sign-in
 
@@ -1082,9 +1086,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Why: Back-dating lets transactions be entered for the periods before the categories were set up (R-PERIOD-016).
   - Related: D-065, R-TRANSACTION-091
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
-- **R-CATEGORY-094** A budget has at most 200 categories and subcategories in force and 500 in all (void rows, kept only for their transactions, not counted); an expectation amount, per month or per year, is from 0 to CHF 10 million.
+- **R-CATEGORY-094** A budget has at most 200 categories and subcategories in force and 500 in all (void rows, kept only for their transactions, not counted); an expectation amount, per month or per year, is from 0 to CHF 10 million; and at most 900 categories rows in all, void ones included (R-APP-170).
   _active · enforced by test · F-CATEGORY_
-  - Related: D-148, D-153
+  - Related: D-148, D-153, D-264
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 - **R-CATEGORY-095** Ending a category ends its subcategories with it, within its own validity; a category or subcategory with transactions that would never be in force is kept as a void row, so its transactions still count where they are dated.
   _active · enforced by test · F-CATEGORY_
@@ -1330,10 +1334,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-110, Q-050, D-173
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-SUBSCRIPTION-110** A budget has at most 50 subscriptions in force and 200 in all (void ones not counted); a price is 1 to 1 000 000 000 rappen; a schedule date is at most ten years ahead.
+- **R-SUBSCRIPTION-110** A budget has at most 50 subscriptions in force and 200 in all (void ones not counted); a price is 1 to 1 000 000 000 rappen; a schedule date is at most ten years ahead; and at most 900 subscriptions rows in all, void ones included (R-APP-170).
   _active · enforced by test · F-SUBSCRIPTION_
   - Why: Abuse bounds, generous for a household: with them a catch-up after years of absence stays within a few seconds.
-  - Related: D-180
+  - Related: D-180, D-264
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-SUBSCRIPTION-111** A subscription is charged at most once per scheduled date, however many members open the budget at once or retry: a charge deleted or answered as not gone through is never created again, and no edit, correction or reopen creates a charge for a date already passed.
   _active · enforced by test · F-SUBSCRIPTION_
@@ -1456,10 +1460,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: D-113
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-DEBT-110** A budget has at most 50 debts in force and 200 in all (void ones not counted) and 5000 balance adjustments; a principal and a planned payment are at most 1 000 000 000 rappen, a rate 0 to 100 % with at most three decimals, and a remaining amount never grows beyond CHF 10 billion.
+- **R-DEBT-110** A budget has at most 50 debts in force and 200 in all (void ones not counted) and 5000 balance adjustments; a principal and a planned payment are at most 1 000 000 000 rappen, a rate 0 to 100 % with at most three decimals, and a remaining amount never grows beyond CHF 10 billion; and at most 900 debts rows in all, void ones included (R-APP-170).
   _active · enforced by test · F-DEBT_
   - Why: Abuse bounds; the balance bound keeps every amount within range however long interest runs.
-  - Related: D-180
+  - Related: D-180, D-264
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-111** Interest is applied at most once per debt and period, however many members open the budget at once or retry, and a reopen followed by a new roll-over applies it once again.
   _active · enforced by test · F-DEBT_
@@ -1541,7 +1545,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: D-114, D-260
   - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
-- **R-COMPARE-070** For the same periods, the comparison shows the spending and the planned amount per category: groups and ordinary categories at the top level, a group's subcategories below it; each category is one line across the periods, and in each period its figures are those of that period's progress view.
+- **R-COMPARE-070** For the same periods, the comparison shows the spending and the planned amount per category: groups and ordinary categories at the top level, a group's subcategories below it; each category is one line across the periods, and in each period its figures are those of that period's progress view; one row per category line, its per-period figures aligned with the periods of the trend.
   _active · enforced by test · F-COMPARE_
   - Related: D-114, D-260
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
@@ -4236,7 +4240,7 @@ get_period_trend (one row per period), get_category_trend (one row per category 
 - JSON documents: untyped for the client.
 - Separate calls for the totals and the averages: more than one call per view.
 
-Related: R-COMPARE-002, R-COMPARE-070, R-COMPARE-071, C-LOGIC-001, C-LOGIC-003
+Related: R-COMPARE-002, R-COMPARE-070, R-COMPARE-071, C-LOGIC-001, C-LOGIC-003, D-264
 
 Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
 
@@ -4280,6 +4284,22 @@ p_count accepts 1 to 24 (12 by default; the screens offer 6, 12 and 24), invalid
 Related: R-COMPARE-171, R-COMPARE-175, D-201
 
 Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+
+### D-264 Every read fits in one API response, or is paged (accepted)
+
+The API returns at most 1000 rows per request (max_rows, not raised) and cuts a longer answer silently. So: get_category_trend returns one row per category line with the per-period figures as arrays aligned with its period_ids (the periods of get_period_trend with the same p_count); a budget holds at most 900 categories, 900 subscriptions and 900 debts, void rows included (the earlier limits of D-153 and D-180, which do not count void rows, stay; this bound only stops a budget accumulating void rows without end); the periods are read with list_periods, newest first, at most 200 a page; preview_reopen lists at most 1000 rows, the 1000th saying how many more changes there are. Every other read is bounded below 1000 by a limit (see docs/database.md).
+
+**Why:** Coordinator finding: 42 lines over 24 periods already passed 1000 rows, and the limits gave 4800; the screen would have drawn a partial answer without an error. Void rows are kept only for their transactions and were not counted, so without a bound the category, subscription and debt reads could pass 1000 too.
+
+**Rejected:**
+
+- Raising max_rows: the cut stays, only further away.
+- Counting void rows in the 500 / 200 limits: reopens D-153 and D-180 for a case only abuse reaches.
+- Paging every per-category read: the comparison and progress views must add up within one answer.
+
+Related: R-APP-170, D-153, D-180, D-260, R-COMPARE-070
+
+Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
 
 ## Open questions
 
@@ -4527,6 +4547,10 @@ Source: owner-request: database developer decision for step 5, within the coordi
   - Context: R-COMPARE-071 (coordinator decision): B defaults to the current period and A to the one before, so early in a period B shows little spending against a whole period A.
   - Related: R-COMPARE-071
   - Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16
+- **Q-162** Should the number of budgets a user can belong to be limited?
+  - Context: D-264: my_budgets returns one row per budget the user belongs to. A user owns at most 20, but nothing limits the budgets they are invited to; past 1000 the API would cut the list. No screen pages it.
+  - Related: D-264, R-APP-170, R-BUDGET-004
+  - Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16
 
 ## Glossary
 

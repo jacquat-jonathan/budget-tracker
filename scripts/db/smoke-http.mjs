@@ -259,9 +259,35 @@ check(ok(trend) && trend.body.length === Math.min(6, summaries.length) && trend.
   trend.body.every((row) => row.spent_total === summaries.find((s) => s.id === row.period_id)?.spent_total),
   'get_period_trend gives the last periods with their period_summaries figures', trend)
 const lines = await rpc(bob, 'get_category_trend', { p_budget_id: budget, p_count: 6 })
-check(ok(lines) && trend.body.every((period) =>
-  lines.body.filter((row) => row.period_id === period.period_id && row.parent_id === null).reduce((sum, row) => sum + row.spent, 0) === period.spent_total),
-  'get_category_trend: the top-level lines of each period add up to its spent total', lines)
+check(ok(lines) && lines.body.every((line) => JSON.stringify(line.period_ids) === JSON.stringify(trend.body.map((p) => p.period_id))) &&
+  trend.body.every((period, i) =>
+    lines.body.filter((row) => row.parent_id === null).reduce((sum, row) => sum + row.spent[i], 0) === period.spent_total),
+  'get_category_trend: one row per line, the periods of the trend, the top-level lines add up to each spent total', lines)
+// A budget whose lines times periods pass the API's 1000 rows (45 categories, 24 periods):
+// the answer must still be complete (R-APP-170).
+const wideStart = new Date(`${today}T00:00:00Z`)
+wideStart.setUTCMonth(wideStart.getUTCMonth() - 30)
+const wide = (await rpc(alice, 'create_budget', {
+  p_name: 'Wide', p_income_name: 'Salary', p_amount: 650000, p_pay_day: 25, p_start_month: wideStart.toISOString().slice(0, 10),
+})).body
+const widePeriods = (await rpc(alice, 'list_periods', { p_budget_id: wide, p_limit: 200 })).body
+check(Array.isArray(widePeriods) && widePeriods.length >= 24, 'list_periods pages the periods, newest first', widePeriods)
+for (let i = 0; i < 45; i += 1) {
+  const cat = await rpc(alice, 'create_category', {
+    p_budget_id: wide, p_name: `Line ${String(i).padStart(2, '0')}`, p_amount: 1000 + i, p_from_period_id: widePeriods.at(-1).id,
+  })
+  if (!ok(cat)) fail('create_category for the wide budget', cat)
+  const period = widePeriods[i % 24]
+  const tx = await rpc(alice, 'add_transaction', {
+    p_budget_id: wide, p_kind: 'expense', p_amount: 100 + i, p_date: period.start_date, p_category_id: cat.body[0].id,
+  })
+  if (!ok(tx)) fail('add_transaction for the wide budget', tx)
+}
+const wideTrend = (await rpc(alice, 'get_period_trend', { p_budget_id: wide, p_count: 24 })).body
+const wideLines = await rpc(alice, 'get_category_trend', { p_budget_id: wide, p_count: 24 })
+check(ok(wideLines) && wideLines.body.length === 45 && wideLines.body.every((line) => line.spent.length === 24) &&
+  wideTrend.every((period, i) => wideLines.body.reduce((sum, row) => sum + (row.parent_id === null ? row.spent[i] : 0), 0) === period.spent_total),
+  'over HTTP, 45 lines over 24 periods (1080 rows in a row-per-period shape) arrive complete and add up', wideLines.body.length)
 const sideBySide = await rpc(bob, 'get_period_comparison', { p_budget_id: budget })
 check(ok(sideBySide) && sideBySide.body[0]?.kind === 'total' && sideBySide.body[0].b_period_id === trend.body.at(-1).period_id,
   'get_period_comparison starts with the totals, B the current period by default', sideBySide)

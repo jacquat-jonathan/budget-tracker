@@ -261,9 +261,9 @@ begin
        or t.result <> s.result or t.expected_total <> s.expected_total or t.committed_total <> s.committed_total) then
     return next 'compare: the trend differs from period_summaries';
   end if;
-  create temp table if not exists oracle_ct as select * from public.get_category_trend(b, 24) limit 0;
+  create temp table if not exists oracle_ct as select * from tests.category_trend_rows(b, 24) limit 0;
   delete from oracle_ct;
-  insert into oracle_ct select * from public.get_category_trend(b, 24);
+  insert into oracle_ct select * from tests.category_trend_rows(b, 24);
   return query
     select format('compare: period %s lines add up to %s, spent %s', s.seq, x.total, s.spent_total)
     from public.period_summaries as s

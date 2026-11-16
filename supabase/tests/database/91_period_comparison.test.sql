@@ -47,7 +47,7 @@ select tests.set_today('2026-03-12');
 select tests.authenticate_as('alice');
 select public.ensure_periods(tests.id('b'));
 -- the lines while "Renamed" is ended, before its restore
-create temp table ct_before on commit drop as select * from public.get_category_trend(tests.id('b'), 24);
+create temp table ct_before on commit drop as select * from tests.category_trend_rows(tests.id('b'), 24);
 grant select on ct_before to authenticated;
 select public.restore_category(tests.id('old'), (select revision from public.categories where id = tests.id('old')));
 select public.add_transaction(tests.id('b'), 'expense', 900, private.today(), tests.id('old'));
@@ -119,7 +119,7 @@ select is((select row(count(*), min(completed_count), min(average_spent))::text 
 -- ===========================================================================
 -- Spending per category (R-COMPARE-070, R-COMPARE-170, R-COMPARE-174)
 -- ===========================================================================
-create temp table ct on commit drop as select * from public.get_category_trend(tests.id('b'), 24);
+create temp table ct on commit drop as select * from tests.category_trend_rows(tests.id('b'), 24);
 grant select on ct to authenticated;
 select is(
   (select array_agg(x.s::bigint order by x.seq) from (select seq, sum(spent) as s from ct where parent_id is null group by seq) as x),
@@ -229,7 +229,7 @@ select is((select count(*)::integer from public.get_period_trend(tests.id('b'), 
   'R-COMPARE-171: after a reopen the merged period is gone from the trend');
 select is_empty(
   $$select t.seq from public.get_period_trend(tests.id('b'), 24) as t
-    where t.spent_total <> (select sum(c.spent) from public.get_category_trend(tests.id('b'), 24) as c
+    where t.spent_total <> (select sum(c.spent) from tests.category_trend_rows(tests.id('b'), 24) as c
                             where c.period_id = t.period_id and c.parent_id is null)$$,
   'R-COMPARE-170: and the lines still add up, the merged period''s spending in the reopened one');
 

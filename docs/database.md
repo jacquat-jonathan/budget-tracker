@@ -47,6 +47,26 @@ below lists the rule ids it implements.
 - **Reads** are plain `select`s on the tables and views below; RLS returns only the rows of
   budgets you are a member of. Anything else returns no rows (never an error). Always
   filter by `budget_id` (the API returns at most 1000 rows per request). (R-SECURITY-002)
+- **At most 1000 rows per answer** (R-APP-170, D-264): the API cuts a longer answer
+  **without an error**. Every read below fits, or is paged; the largest answers at the limits:
+
+  | Read | Most rows | Bound by |
+  | --- | --- | --- |
+  | `period_summaries` for a whole budget | unbounded (one per period, for the budget's whole life) | **page with `list_periods`** (at most 200) |
+  | `list_periods`, `list_transactions`, `list_charges_awaiting_confirmation` | 200 | `p_limit` |
+  | `get_debt_history` | 1000 | `p_limit` (1 to 1000) |
+  | `category_overview`, `get_period_progress`, `get_category_trend` | 900 | 900 categories per budget, void ones included |
+  | `get_period_comparison` | 901 | the same, plus its total row |
+  | `subscription_overview`, `debt_overview` | 900 | 900 subscriptions / debts per budget, void ones included |
+  | `income_overview` | 500 | 500 incomes in all (a void income is deleted) |
+  | `preview_reopen` | 1000 | listed up to 1000, the last row counting the rest |
+  | `get_period_trend` | 24 | `p_count` |
+  | `list_categories_for_date` | 200 | categories in force |
+  | `budget_member_list` (one budget), `budget_invitations` (one budget) | 20 | members, pending invitations |
+  | `debt_totals`, `get_*_terms`, the one-row previews and RPCs | 1 | |
+  | `preview_create_subscription`, `preview_update_subscription`, `subscription_charge_dates` | 60 | `p_count` |
+  | `my_budgets` | the budgets you belong to (20 owned, invitations not limited: Q-162) | |
+  | the tables (`transactions`, `subscription_versions`, ...) | unbounded | select them only by id or by one record's id |
 - **Writes** go through the RPCs (`supabase.rpc(name, args)`); the only direct write left
   is your own profile's display name. Argument names start with `p_`; arguments with a
   default may be omitted (omit, rather than send `null`, to use the default). Every write
@@ -270,6 +290,14 @@ current one (never one starting after the end date), at most 120 per call, with 
 interest and charges, and returns how many it created: 0 means caught up. Idempotent;
 concurrent calls are safe. (R-PERIOD-008, R-PERIOD-009, R-PERIOD-031, R-PERIOD-130)
 
+**`list_periods(p_budget_id, p_limit = 120, p_before_seq = null) -> period_summaries[]`**
+Member. The periods, newest first, at most `p_limit` (1 to 200); the next page with
+`p_before_seq` = the last row's `seq`; a page shorter than `p_limit` is the last. **Use it to
+list periods** instead of selecting `period_summaries` for the whole budget: a budget's
+periods grow without bound (one a month for as long as it lives, more with early salaries),
+and the API cuts an answer at 1000 rows without an error. Errors: `budget_not_found`,
+`invalid_limit`. (R-APP-170)
+
 **`get_current_period(p_budget_id) -> period_summaries[]`** Member. Ensures periods (one
 bounded step), then returns the current period as one row; no row when the budget has
 ended, or when a very long absence still needs more `ensure_periods` calls
@@ -327,7 +355,11 @@ period. `change`: `'added'`, `'ended'`, `'removed'` (it would never be in force 
 reopen), `'terms_changed'`, `'made_primary'`, `'interest_removed'` (a debt: the interest
 the merged period added goes; it comes back once if the period is created again). `replaces_previous`: the
 previous period has its own entry for that record that the reopen would replace. Errors:
-`budget_ended`, `invalid_boundary` (the first period has nothing to reopen). (R-PERIOD-035)
+`budget_ended`, `invalid_boundary` (the first period has nothing to reopen). (R-PERIOD-035). At most 1000 rows: when the
+period changed more records than that (only near several limits at once), the first 999 are
+listed and the 1000th has `record_kind = 'more'`, `change = 'more'`, `record_id` null and
+`record_name` the number of changes not listed ("and 123 more"). (R-APP-170)
+
 
 **`preview_update_income(p_income_id, p_amount = null, p_pay_day = null, p_weekend_rule = null, p_from_period_id = null) -> {period_id, end_date, expected_pay_date, end_is_manual}[]`**
 and **`preview_set_primary_income(p_income_id) -> {period_id, end_date, expected_pay_date, end_is_manual}[]`**
@@ -903,31 +935,43 @@ range, by `seq`) (R-COMPARE-002)
 | `income_total`, `salary_total`, `extra_income_total`, `spent_total`, `expected_total` (the planned total), `committed_total`, `result` | exactly that period's `period_summaries` row |
 | `completed_count`, `average_income`, `average_spent`, `average_result` | the range's averages, the same on every row (null when `completed_count` is 0) |
 
-**`get_category_trend(p_budget_id, p_count = 12) -> {...}[]`** (one row per category line and
-period of the same range; ordered by `display_order`, then `seq`) (R-COMPARE-070, R-COMPARE-170,
-R-COMPARE-174)
+**`get_category_trend(p_budget_id, p_count = 12) -> {...}[]`** (**one row per category
+line**, ordered by `display_order`; the periods are arrays on the row) (R-COMPARE-070,
+R-COMPARE-170, R-COMPARE-174, R-APP-170)
 
 A **line** is a category (group, subcategory or ordinary category) that has a row in
-`get_period_progress` of at least one period of the range; it has a row in **every** period of
-the range. It is the category's id, under its **current** `name` and place (`parent_id`,
-`display_order`), whatever happened to it meanwhile: renamed, ended, restored, emptied into
-"Other" by its first subcategory, or left void by a removal or a reopen. Show the top level
-(`parent_id` null: groups and ordinary categories) and open a group (`is_group`) on its
-subcategories (`parent_id` = the group).
+`get_period_progress` of at least one period of the range. It is the category's id, under its
+**current** `name` and place (`parent_id`, `display_order`), whatever happened to it
+meanwhile: renamed, ended, restored, emptied into "Other" by its first subcategory, or left
+void by a removal or a reopen. Show the top level (`parent_id` null: groups and ordinary
+categories) and open a group (`is_group`) on its subcategories (`parent_id` = the group). A
+budget holds at most 900 categories, void ones included, so the answer always fits in one
+response.
+
+**The periods**: `period_ids` (the same on every row) lists the range's periods, oldest
+first, and is exactly the `period_id` column of `get_period_trend` with the same `p_count`
+(one range, computed the same way): read both, take each period's dates, `days`,
+`is_current` and `is_completed` from the trend, and check `period_ids` against the trend's ids
+(if they differ, a period was created or merged between the two calls: read both again).
+Element *i* of every array below is the period `period_ids[i]` (1-based in SQL, 0-based in
+JavaScript).
 
 | Column | Meaning |
 | --- | --- |
-| `category_id`, `parent_id`, `name`, `is_group`, `display_order` | the line (the same on all its rows) |
-| `period_id`, `seq`, `start_date`, `end_date`, `days`, `is_current`, `is_completed` | the period of this row |
-| `in_force` | the category is in force in that period |
-| `planned` | the monthly share of its expectation then (a group: its subcategories'); **null when not in force** (not 0) |
-| `spent` | expenses minus refunds dated in the period (may be negative); 0 when nothing; also counted where it was not in force |
-| `committed` | the subscriptions' monthly costs on it then, inside `planned` |
-| `transaction_count` | its transactions in the period |
+| `category_id`, `parent_id`, `name`, `is_group`, `display_order` | the line |
+| `period_ids` | `uuid[]`: the range, oldest first (see above) |
+| `in_force` | `boolean[]`: in force in each period |
+| `planned` | `bigint[]`: the monthly share of its expectation then (a group: its subcategories'); **a null element where not in force** (not 0) |
+| `spent` | `bigint[]`: expenses minus refunds dated in each period (may be negative); 0 when nothing; also counted where it was not in force |
+| `committed` | `bigint[]`: the subscriptions' monthly costs on it, inside `planned` |
+| `transaction_count` | `integer[]`: its transactions in each period |
 | `completed_count`, `average_spent` | the line's average spent over the completed periods of the range (every completed period counts, also those where it was not in force: Q-160); null when none is completed |
 
-**Adds up, exactly**: in each period the `spent` of the top-level lines add up to the trend's
-`spent_total`, and so do the lines with `is_group` false. There is no "uncategorised" line:
+A budget without categories gives no rows (the periods are still in `get_period_trend`).
+
+**Adds up, exactly**: for each period *i*, `spent[i]` of the top-level lines adds up to the
+trend's `spent_total` of that period, and so does `spent[i]` of the lines with `is_group`
+false. There is no "uncategorised" line:
 every expense and refund has a category, and extra income is income, never spending (as in
 `period_summaries` and `get_period_progress`). (R-COMPARE-170, D-262)
 
@@ -958,13 +1002,14 @@ Errors: `budget_not_found`, `period_not_found` (an id that is not a period of th
 `catching_up`.
 
 **Nulls**: the generated types mark every column of these three functions as non-null; the
-columns this section says may be null (`planned`, the averages, every `a_*` and `b_*` figure
+columns this section says may be null (the `planned` elements, the averages, every `a_*` and `b_*` figure
 of a side with nothing, the category columns of the total row, the income and result columns
 of category rows, `planned_difference`) are nullable: type them as such in the client.
 
-Measured locally at the limits (63 periods, 200 categories, 50 000 transactions, 50
-subscriptions and 50 debts in force): `get_period_trend` 24 periods 46 ms, `get_category_trend`
-24 periods (4800 rows) 97 ms, `get_period_comparison` 19 to 25 ms (medians).
+Measured locally over HTTP at the limits (63 periods, 200 categories, 50 000 transactions, 50
+subscriptions and 50 debts in force), medians: `get_period_trend` 24 periods 41 ms (24 rows,
+10 kB); `get_category_trend` 24 periods 67 ms (200 rows, 333 kB uncompressed; 6 periods
+124 kB); `get_period_comparison` 22 to 23 ms (201 rows, 155 kB).
 
 ## Concurrent edits
 
@@ -1018,7 +1063,7 @@ button while it runs.
 | `category_ended` | the category has ended (for that period), or its group has |
 | `category_not_ended` | only an ended category can be restored |
 | `other_name_required` | adding the first subcategory to a category with transactions or an expectation needs `p_other_name` |
-| `category_limit_reached`, `transaction_limit_reached` | a limit (200 categories in force or 500 in all, void rows not counted; 50 000 transactions) |
+| `category_limit_reached`, `transaction_limit_reached` | a limit (200 categories in force or 500 in all, void rows not counted, and 900 rows in all with them; 50 000 transactions) |
 | `category_in_use` | a subscription or debt uses the category from that period on: end or move it first; the error's detail lists them as JSON `[{kind, id, name}]` |
 
 Step 4 messages:
@@ -1036,7 +1081,7 @@ Step 4 messages:
 | `debt_not_in_force`, `subscription_not_in_force` | not in force in the period of the transaction's date |
 | `not_a_charge` | only an automatic charge can be confirmed or dismissed |
 | `debt_has_history` | the principal of a debt with payments, interest or adjustments cannot change: adjust the balance |
-| `subscription_limit_reached`, `debt_limit_reached`, `adjustment_limit_reached` | a limit (50 subscriptions in force or 200 in all; 50 debts in force or 200 in all; 5000 adjustments) |
+| `subscription_limit_reached`, `debt_limit_reached`, `adjustment_limit_reached` | a limit (50 subscriptions in force or 200 in all; 50 debts in force or 200 in all; 900 rows of each with void ones; 5000 adjustments) |
 
 Step 2 messages:
 

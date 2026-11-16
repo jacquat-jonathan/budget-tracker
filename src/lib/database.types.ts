@@ -1106,7 +1106,7 @@ isOneToOne: false
                            },
 "get_category_trend":
 { Args: { "p_budget_id": string,"p_count"?: number }; Returns: {
-              "average_spent": number,"category_id": string,"committed": number,"completed_count": number,"days": number,"display_order": number,"end_date": string,"in_force": boolean,"is_completed": boolean,"is_current": boolean,"is_group": boolean,"name": string,"parent_id": string,"period_id": string,"planned": number,"seq": number,"spent": number,"start_date": string,"transaction_count": number
+              "average_spent": number,"category_id": string,"committed": (number)[],"completed_count": number,"display_order": number,"in_force": (boolean)[],"is_group": boolean,"name": string,"parent_id": string,"period_ids": (string)[],"planned": (number)[],"spent": (number)[],"transaction_count": (number)[]
             }[]
                            },
 "get_current_period":
@@ -1265,6 +1265,32 @@ isOneToOne: false
               "budget_id": string,"budget_name": string,"created_at": string,"expires_at": string,"id": string,"invited_by_email": string,"invited_by_name": string
             }[]
                            },
+"list_periods":
+{ Args: { "p_before_seq"?: number,"p_budget_id": string,"p_limit"?: number }; Returns: {
+              "budget_id": string,
+"committed_total": number | null,
+"end_date": string,
+"end_is_manual": boolean,
+"expected_total": number | null,
+"extra_income_total": number | null,
+"id": string,
+"income_total": number | null,
+"is_current": boolean | null,
+"left_to_assign": number | null,
+"result": number | null,
+"revision": number,
+"salary_total": number | null,
+"seq": number,
+"spent_total": number | null,
+"start_date": string,
+"today": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "period_summaries"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "list_transactions":
 { Args: { "p_awaiting_only"?: boolean,"p_before_created_at"?: string,"p_before_date"?: string,"p_before_id"?: string,"p_budget_id": string,"p_category_id"?: string,"p_debt_id"?: string,"p_from_date"?: string,"p_kind"?: Database["public"]['Enums']["transaction_kind"],"p_limit"?: number,"p_subscription_id"?: string,"p_to_date"?: string }; Returns: {
               "amount": number,
