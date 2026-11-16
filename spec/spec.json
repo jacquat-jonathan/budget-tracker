@@ -1192,7 +1192,7 @@
       "id": "F-IMPORT",
       "step": 6,
       "title": "Import",
-      "status": "planned",
+      "status": "in-progress",
       "description": "Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.",
       "userStories": [
         {
@@ -2773,9 +2773,13 @@
       "area": "transaction",
       "statement": "Transactions are also importable in bulk.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Transaction"]
+      "source": ["domain: Transaction"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-TRANSACTION-006",
@@ -3235,162 +3239,226 @@
       "area": "import",
       "statement": "There is one import function, in the database, behind every way of importing.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Import (including by a Claude session)"]
+      "source": ["domain: Import (including by a Claude session)"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-002",
       "area": "import",
       "statement": "The import function validates rows.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Import (including by a Claude session)"]
+      "source": ["domain: Import (including by a Claude session)"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-003",
       "area": "import",
       "statement": "The import function skips duplicates.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["Q-009", "D-115"],
-      "source": ["domain: Import (including by a Claude session)"]
+      "source": ["domain: Import (including by a Claude session)"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-004",
       "area": "import",
       "statement": "The import function marks imported transactions \"to review\".",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Import (including by a Claude session)"]
+      "source": ["domain: Import (including by a Claude session)"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-005",
       "area": "import",
       "statement": "The import is reachable from a paste/CSV screen in the app.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Import (including by a Claude session)"]
+      "source": ["domain: Import (including by a Claude session)"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-006",
       "area": "import",
       "statement": "The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["Q-013", "D-116"],
       "source": [
         "domain: Import (including by a Claude session)",
         "owner-request: product owner decisions on the open questions, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-007",
       "area": "import",
       "statement": "When a member categorises an imported transaction, the app offers, in one click, to always put that merchant in that category.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["Q-014", "D-117", "Q-057"],
       "source": [
         "domain: Import (including by a Claude session)",
         "owner-request: product owner decisions on the open questions, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-070",
       "area": "import",
       "statement": "An imported row is a duplicate when it has the same date, amount and description as an existing transaction of the budget.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-115", "Q-056"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-071",
       "area": "import",
       "statement": "When the file gives a bank transaction id, an imported row is also a duplicate when an existing transaction of the budget has the same bank transaction id.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-115", "Q-056"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-072",
       "area": "import",
       "statement": "The import summary lists the rows skipped as duplicates.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-115"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-073",
       "area": "import",
       "statement": "The user can import a row skipped as a duplicate anyway.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-115", "Q-056"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-074",
       "area": "import",
       "statement": "A member creates import tokens in Settings.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-075",
       "area": "import",
       "statement": "An import token is tied to one budget and imports only into it.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-076",
       "area": "import",
       "statement": "An import token can only add transactions through the import function; it cannot read anything.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116", "R-SECURITY-005"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-077",
       "area": "import",
       "statement": "An import token can be revoked, after which it is refused.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-078",
       "area": "import",
       "statement": "Merchant-to-category rules can be edited in Settings.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-117"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-079",
@@ -3398,43 +3466,59 @@
       "statement": "An imported transaction whose merchant has a merchant-to-category rule is put in that rule's category.",
       "rationale": "What \"categorisation improves over time\" means once rules exist.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-117", "Q-057"],
       "source": [
         "domain: Import (including by a Claude session)",
         "owner-request: product owner decisions on the open questions, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-080",
       "area": "import",
       "statement": "An imported transaction counts in totals as soon as it is imported, before it is reviewed.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-118"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-081",
       "area": "import",
       "statement": "An imported transaction stays \"to review\" until a member confirms it.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-118", "R-IMPORT-004"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-082",
       "area": "import",
       "statement": "The generic CSV import lets the user map the file's columns to the transaction fields.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-119", "D-126"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-083",
@@ -3452,7 +3536,7 @@
       "area": "import",
       "statement": "The import reads three kinds of PDF statement: the Migros Bank private-account statement, the Migros Bank credit-card bill (Viseca) and the Yuh account statement.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-126"],
       "source": [
@@ -3465,7 +3549,7 @@
       "area": "import",
       "statement": "The import recognises the kind of a statement from its content, and refuses, with an explanation, a PDF it does not recognise or one without a text layer.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-126", "R-IMPORT-084"],
       "source": [
@@ -3479,7 +3563,7 @@
       "statement": "A statement is parsed in the browser; the PDF file is never uploaded or stored, and only the extracted transactions reach the import function.",
       "rationale": "No test can prove that a file is never sent; review the import code for any upload of the file or its text.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "review",
       "related": ["D-127"],
       "source": [
@@ -3491,7 +3575,7 @@
       "area": "import",
       "statement": "Every entry of a statement's transaction table becomes exactly one candidate transaction; opening and closing balances, carried-forward lines, subtotals and totals, the previous bill total, the payment received on a card bill and card headings never do.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-084"],
       "source": [
@@ -3505,7 +3589,7 @@
       "statement": "A parsed statement must add up to what it prints (column totals, running balances, card and bill totals); otherwise the import is refused with an explanation, and nothing is imported.",
       "rationale": "A parser that misses or misreads a line on a layout it does not know would otherwise import wrong amounts silently.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-084", "R-IMPORT-087"],
       "source": [
@@ -3518,7 +3602,7 @@
       "area": "import",
       "statement": "Statement amounts (thousands separator ', two decimals, a trailing minus for a credit on the card bill) are read exactly into integer rappen, and statement dates (DD.MM.YY or DD.MM.YYYY) into calendar dates without a time zone.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-MONEY-002"],
       "source": [
@@ -3531,7 +3615,7 @@
       "area": "import",
       "statement": "The date of an imported transaction is the purchase date when the statement gives one, otherwise the booking date.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-128"],
       "source": [
@@ -3543,56 +3627,72 @@
       "area": "import",
       "statement": "A card-bill payment and a transfer between the owner's own accounts are flagged on import and skipped by default; the user can import them anyway.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-129", "Q-063"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
         "docs/import-sources.md: Recognising special entries"
-      ]
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: the parser part is proved under R-IMPORT-212 to R-IMPORT-214; what the review screen offers or shows is proved by the screen tests, not yet written."
+      }
     },
     {
       "id": "R-IMPORT-092",
       "area": "import",
       "statement": "The import remembers what the user chose for a flagged entry and proposes the same choice for such entries the next time.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-129", "Q-064"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-093",
       "area": "import",
       "statement": "A salary credit that matches one of the budget's incomes is skipped on import.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-130", "Q-065"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: F-IMPORT is in progress for the statement parsers (step 6); the tests of this rule come with the import function, its pgTAP tests and the import screens."
+      }
     },
     {
       "id": "R-IMPORT-094",
       "area": "import",
       "statement": "Every other credit is proposed for review, as a refund in a category or as extra income.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-130", "Q-066"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: the parser part is proved under R-IMPORT-212 to R-IMPORT-214; what the review screen offers or shows is proved by the screen tests, not yet written."
+      }
     },
     {
       "id": "R-IMPORT-095",
       "area": "import",
       "statement": "A securities purchase is imported as an ordinary transaction for the user to categorise.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-131"],
       "source": [
@@ -3604,7 +3704,7 @@
       "area": "import",
       "statement": "Interest and fee lines of a statement are imported as transactions.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-132"],
       "source": [
@@ -3616,7 +3716,7 @@
       "area": "import",
       "statement": "A foreign-currency purchase is imported with the CHF amount billed, fees included, and a description that keeps the original currency and amount.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-133"],
       "source": [
@@ -3628,7 +3728,7 @@
       "area": "import",
       "statement": "The statement parsers read the French versions of the three statements.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-134", "Q-061"],
       "source": [
@@ -3641,7 +3741,7 @@
       "statement": "The statement fixtures in the repository contain no real data: they are anonymised outside the repository and pass a leak check against the real statement before they enter the working tree.",
       "rationale": "The leak check needs the real statement, which must never enter the repository, so it cannot run in CI.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "review",
       "related": ["R-IMPORT-100"],
       "source": [
@@ -3653,7 +3753,7 @@
       "area": "import",
       "statement": "Each statement parser produces exactly the expected result of every anonymised fixture of its source (test-fixtures/statements).",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-084", "R-IMPORT-099"],
       "source": [
@@ -3666,7 +3766,7 @@
       "statement": "A TWINT transaction id or a Yuh reference is kept as the bank transaction id of the imported transaction; a QR payment reference is not, because it repeats from one payment to the next.",
       "rationale": "The QR reference of a card-bill payment is built from the card account number, so every monthly payment of that card has the same reference.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-071", "D-115"],
       "source": [
@@ -3679,11 +3779,143 @@
       "area": "import",
       "statement": "The review of an imported statement shows, for each transaction, the extra data the statement gives: purchase time, value date, card, original currency and amount, exchange rate, fee, merchant category and security.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-004"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
+      ],
+      "testPending": {
+        "suite": "supabase/tests",
+        "note": "TEMPORARY: the parser part is proved under R-IMPORT-212 to R-IMPORT-214; what the review screen offers or shows is proved by the screen tests, not yet written."
+      }
+    },
+    {
+      "id": "R-IMPORT-210",
+      "area": "import",
+      "statement": "A statement file that is not a PDF, is password-protected or corrupt, is larger than 10 MB or has more than 50 pages is refused with its reason; reading a PDF fetches nothing over the network; a reader that cannot be loaded and any fault while reading give a refusal, never an error.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-332", "R-IMPORT-085", "R-IMPORT-086"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-211",
+      "area": "import",
+      "statement": "Inside a recognised statement, an entry of a type the parser does not know is kept, described by its first text line only, with its direction's default (imported if a debit, reviewed if a credit); an entry labelled as a known type that does not match that type's layout or column, an item outside the table's columns and a rotated or right-to-left item inside the table refuse the statement.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-337", "R-IMPORT-087"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-212",
+      "area": "import",
+      "statement": "The statement parsers flag a card-bill payment (a payment or standing order whose payee names Viseca, in any case) and a transfer between the owner's own accounts (the holder's name, in either order, at the holder's address), and propose to skip them by default.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-091", "D-129", "D-334"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-213",
+      "area": "import",
+      "statement": "The statement parsers propose for review every credit that is not a salary, a card-bill payment or an own transfer.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-094", "D-130"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-214",
+      "area": "import",
+      "statement": "The statement parsers return, for each entry, the extra data the statement prints: purchase date and time, booking and value dates, card, original currency and amount, exchange rate, fee, merchant category, location and security.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-102"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-215",
+      "area": "import",
+      "statement": "On a card bill, a dated row with a trailing minus before the first card section is the payment received, whatever its label, and never an entry; a row there that is neither the previous bill total, a payment nor a known charge (late-payment interest, a fee) refuses the bill.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-087", "D-335"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-216",
+      "area": "import",
+      "statement": "A text layer with a page far from A4 (outside 500 to 700 by 700 to 1000 pt), more than 5000 text items on a page or more than 20 000 in the document is refused, and a file still being read after 20 seconds is refused and its reader stopped.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-338", "R-IMPORT-210"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-217",
+      "area": "import",
+      "statement": "A purchase date after its booking date, or more than 366 days before it, refuses the statement.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-339", "R-IMPORT-090"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-218",
+      "area": "import",
+      "statement": "A bank transaction id printed on more than one entry of a statement is kept for none of them; the entries stay.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-336", "R-IMPORT-101"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-219",
+      "area": "import",
+      "statement": "The rows sent to the import function hold only the keys of its contract, within its bounds (descriptions shortened at a character boundary, details keys dropped in a stated order, too long ids dropped, each said in the result), and never the counterparty's phone number, address or IBAN, the statement's text lines, QR references, balances or the holder's name and address.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-340", "R-IMPORT-086"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-220",
+      "area": "import",
+      "statement": "An entry of 0.00 stays in the statement for the user to see, with nothing to import, and produces no row for the import function.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-341"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
       ]
     },
     {
@@ -9072,6 +9304,175 @@
       "source": [
         "owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16"
       ]
+    },
+    {
+      "id": "D-330",
+      "title": "Rounded figures are checked within 0.05",
+      "decision": "Where a statement prints a product it rounds (an amount times an exchange rate, a processing fee as a percentage, a CHF amount charged abroad plus its fee), the parser accepts the printed figure when it differs from the exact product by less than CHF 0.05; a securities quantity times its price must give the amount within one unit of the quantity's last decimal times the price, plus one rappen. Every sum, subtotal, carried-forward line, total and running balance must match exactly.",
+      "why": "R-IMPORT-088 asks for the arithmetic the statement prints to be checked, but the banks' rounding rules are not known (Q-205): every CHF figure of the card-bill sample is a multiple of 0.05, and one row differs from its printed parts by 0.02. A bound below 0.05 accepts any rounding to 0.05 (nearest, up or down) and still refuses a misread digit.",
+      "rejected": [
+        "Requiring exact products, which refuses real statements.",
+        "Not checking rates and fees, which lets a misread rate through."
+      ],
+      "status": "accepted",
+      "related": ["R-IMPORT-088", "R-IMPORT-097", "Q-205"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "D-331",
+      "title": "Unknown entry types are kept, malformed known ones refused",
+      "decision": "Inside a statement the parser recognises, an entry of a type it does not know (a cash withdrawal, an interest or fee line, a Yuh sale ...) is kept with its printed text as description and the default of its direction; a hint is added only from a leading label (Retrait, Intérêt, Frais ...). An entry that starts like a known type (Achat, Débit TWINT, Paiement, a Yuh Achat with security lines) but does not match its pattern refuses the statement, as does any item outside the table's columns or any amount the parser cannot explain.",
+      "why": "The samples show few entry types; refusing every statement with a new type would make the import useless, while the column totals and balances still prove that every unknown entry has the right amount (R-IMPORT-088). A known type that does not match is a sign the layout changed.",
+      "rejected": [
+        "Refusing a statement with any unknown entry type.",
+        "Skipping lines the parser does not understand."
+      ],
+      "status": "superseded",
+      "related": ["R-IMPORT-087", "R-IMPORT-211", "Q-201", "Q-202", "Q-203"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"],
+      "supersededBy": "D-337"
+    },
+    {
+      "id": "D-332",
+      "title": "pdf.js loaded on demand, fetching nothing",
+      "decision": "Statements are read with pdfjs-dist 6.4.299, the version the fixtures were captured with, imported dynamically on the first read so that the main bundle does not grow. Its worker is a same-origin file emitted by the build (production CSP: script-src 'self', worker-src 'self' blob:). No CMap, standard font, ICC profile or wasm decoder is configured or fetched (fetching in the worker and wasm are off), fonts are not installed into the page, and the bytes are passed in memory. Files above 10 MB or 50 pages are refused before or right after opening.",
+      "why": "D-127 keeps the file in the browser; fetching resources from a CDN would leak that a statement is being read and break the CSP. Bank statements embed their fonts and need none of these resources for their text. Monthly statements are a few pages and well under 1 MB, so the bounds leave a wide margin while stopping a hostile file early.",
+      "rejected": [
+        "Bundling pdf.js in the main chunk.",
+        "Loading the worker or resources from a CDN.",
+        "A newer pdf.js than the fixtures were captured with."
+      ],
+      "status": "accepted",
+      "related": ["D-127", "R-IMPORT-086", "R-IMPORT-210"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "D-333",
+      "title": "Parsers return codes and data; the screens own the words",
+      "decision": "A parse returns the recognised source, what identifies the statement (its period or bill date), one entry per transaction with codes (direction, hint, proposed handling) and the extra data, the controls it checked, and the full source-specific document in the shape of the fixtures' expected.json. A refusal is a typed reason with its figures (the control, the printed and computed amounts) or the line it could not read. The English notes of expected.json (handling.why, skipped.reason) are kept for the fixture comparison as developer notes; the screens translate the codes, never these notes.",
+      "why": "The screens are bilingual (R-I18N) and R-IMPORT-100 compares the parse with expected.json exactly.",
+      "rejected": ["Returning user-facing messages from the parsers."],
+      "status": "superseded",
+      "related": ["R-IMPORT-085", "R-IMPORT-088", "R-IMPORT-100"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"],
+      "supersededBy": "D-342"
+    },
+    {
+      "id": "D-334",
+      "title": "An own transfer needs the holder's name and address",
+      "decision": "A payment or standing order on the Migros Bank account, and a transfer received on Yuh, is flagged as a transfer between the owner's own accounts when the counterparty's name has the same words as the holder's name (in either order) and its street and town lines equal the holder's address, compared without case, punctuation or spacing (Yuh prints \"Chemin du Test, 12\"). The country line and the IBAN are not compared.",
+      "why": "docs/import-sources.md names the name and the address as the only clues on the Migros Bank statement, and says a payment to another person at the same address is not an own transfer (Q-063). Applying the same test to Yuh keeps one rule for both and flags the sample's transfer.",
+      "rejected": ["The name alone, which would flag a namesake."],
+      "status": "accepted",
+      "related": ["D-129", "R-IMPORT-091", "Q-063", "Q-208"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "D-335",
+      "title": "Any credit before the first card is the payment received",
+      "decision": "On a card bill, a dated row with a trailing minus before the first card section is the payment received, whatever its label (\"Votre paiement - Merci\", with LSV, partial, upper case or another wording), and is skipped like it. A debit row there must be the late-payment interest or a fee, or the bill is refused.",
+      "why": "Review: under any other label the payment came out as a credit to review while the bill still added up, so no control fired and the card-bill payment would have been counted twice. Matching the position and the sign, not the words, holds for every wording.",
+      "rejected": ["Matching the label \"Votre paiement - Merci\" only."],
+      "status": "accepted",
+      "related": ["R-IMPORT-215", "D-129", "Q-215"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-336",
+      "title": "A repeated bank id identifies no transaction",
+      "decision": "A bank transaction id (TWINT id, Yuh reference) printed on more than one entry of the same statement is not a transaction id: every entry carrying it gets none, and all the entries stay. This also answers whether a TWINT id can repeat: the parser does not assume it cannot.",
+      "why": "With \"same bank id means duplicate\", a repeated id (a reversal, a split booking, a misprint) would lose a transaction; an entry without an id is still imported. Identical genuine entries with different ids keep their ids.",
+      "rejected": ["Keeping the id on the first entry only.", "Refusing the statement."],
+      "status": "accepted",
+      "related": ["R-IMPORT-218", "R-IMPORT-101", "D-115"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-337",
+      "title": "Unknown entries described by their first line; text outside tables ignored",
+      "decision": "Inside a statement the parser recognises, an entry of a type it does not know is kept, described by its first text line only (the other lines, which can name people, addresses or IBANs, stay in textLines on the device), with the default of its direction; a hint comes only from a leading label (Retrait, Intérêt, Frais ...) or from the statement's own category line, never from a word inside a merchant name. An entry that starts like a known type but does not match its pattern or its column, any item outside the table's columns, and a rotated or right-to-left item inside a table refuse the statement. Text outside the tables is ignored: page headers and footers, the lines after \"Montant dû\" on the card bill, and Yuh lines outside a currency table.",
+      "why": "Supersedes D-331, whose wording (\"any item outside the table's columns refuses\") did not say that rotated items were dropped and text outside the tables ignored, and whose descriptions of unknown entries could carry a third party's address and IBAN.",
+      "rejected": [
+        "Refusing a statement with any unknown entry type.",
+        "Skipping lines the parser does not understand.",
+        "The whole entry text as description."
+      ],
+      "status": "accepted",
+      "related": ["R-IMPORT-087", "R-IMPORT-211", "D-331", "Q-201", "Q-202", "Q-203"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-338",
+      "title": "Bounds on items, page size and time",
+      "decision": "Each read has its own pdf.js worker, stopped when the read ends. A page outside 500 to 700 by 700 to 1000 pt is refused before its text is read; the text is streamed and the read stops beyond 5000 items on a page or 20 000 in the document; after 20 seconds the worker is terminated and the file refused. Lines are grouped in one pass over the items sorted by baseline. The same item and page bounds apply to a text layer given directly to the parser. A reader that cannot be loaded (offline, a release replaced its chunk) is a refusal of its own, and any other fault while reading a refusal too: the entry point never throws.",
+      "why": "Review: a 425 kB PDF with one very tall page and 120 000 lines stalled the main thread for 53 s, and a 916 kB PDF inflating to 300 MB of text operators took 33 s and 1.7 GB. The real statements have at most 219 items per page and read in well under a second, so the bounds leave a wide margin.",
+      "rejected": [
+        "No bounds beyond file size and page count.",
+        "Parsing in a worker of our own (the bounds make the main-thread work small)."
+      ],
+      "status": "accepted",
+      "related": ["R-IMPORT-216", "R-IMPORT-210", "D-332"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-339",
+      "title": "Purchase dates must be plausible",
+      "decision": "A purchase date after its booking date, or more than 366 days before it, refuses the statement with the control named and both dates. Value dates are not compared with purchase dates (Q-209).",
+      "why": "The purchase date decides the budget period of the transaction (D-128); a misread or misprinted year would put it in a period years away while every amount still adds up.",
+      "rejected": ["Accepting any date.", "Clamping a wrong date to the booking date."],
+      "status": "accepted",
+      "related": ["R-IMPORT-217", "D-128", "Q-209"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-340",
+      "title": "How entries become import rows",
+      "decision": "toImportBatch(statement) returns the source (migros_account, migros_card, yuh), the statement's dates (its period; for a card bill the day after the previous bill to the bill date), the rows in statement order each with its entry number beside it, the entries not sent with a code, and the adjustments made. A row has date, amount, direction, description (cut to 500 characters at a code-point boundary), merchant (200), bank_transaction_id (dropped, not cut, above 100), hint and details. Details: purchase_time, booking_date, value_date, card, original_currency with original_amount in that currency's minor unit, exchange_rate as the printed decimal string, fee in rappen, merchant_category, security (the ISIN), location (place and country code); above 2000 bytes they are dropped in this order: location, security, merchant_category, exchange_rate, original amount and currency together, fee, card, value_date, purchase_time, booking_date. An own transfer goes without description and merchant (its payee is the holder). transfer_to_person is given to a TWINT payment to a phone number only: the statements do not show whether the payee of a payment or standing order is a person.",
+      "why": "The import function refuses a row with any other key or out of its bounds; shortening in a stated way and saying so keeps the import going and visible. Integers and decimal strings keep money exact.",
+      "rejected": [
+        "Refusing a statement with a field too long.",
+        "Truncating ids.",
+        "Guessing persons from payee names."
+      ],
+      "status": "accepted",
+      "related": ["R-IMPORT-219", "R-IMPORT-220", "Q-213", "Q-214"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-341",
+      "title": "Entries of 0.00 are shown, not imported",
+      "decision": "An entry of 0.00 (a currency conversion rounded to nothing) stays in the entry list with the handling nothing-to-import, and the mapping lists it among the entries not sent, with the code zero-amount.",
+      "why": "The import function refuses an amount of 0, and leaving the line out of the list would make the statement look incomplete next to the PDF.",
+      "rejected": ["Dropping the entry.", "Sending it and letting the database refuse it."],
+      "status": "accepted",
+      "related": ["R-IMPORT-220", "Q-212"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-342",
+      "title": "The screens get codes and entries, never the source document",
+      "decision": "parseStatementText and readStatementFile return the source, the identity (period or bill date), the statement dates, the entries and the controls, never the source-specific document with the holder, IBAN, balances and the English notes of expected.json. parseStatementDocument returns that document too, for the fixture comparison only. Refusal texts may hold a statement line or reference: they may be shown on the device and are never logged or sent.",
+      "why": "Supersedes D-333: a screen cannot show what it does not receive; R-IMPORT-100 still compares the full document.",
+      "rejected": ["Exposing the document and relying on review."],
+      "status": "accepted",
+      "related": ["R-IMPORT-100", "D-333", "R-IMPORT-086"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
     }
   ],
   "conventions": [
@@ -9912,6 +10313,158 @@
       "related": ["C-LOGIC-003", "R-DEBT-152", "R-VERSION-150", "R-CATEGORY-120"],
       "source": [
         "owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-200",
+      "question": "How does the Migros Bank account statement print a negative balance (an overdraft)?",
+      "context": "The sample has no negative balance and docs/import-sources.md says the account statements print no negative numbers. A balance with a sign is refused for now as an unreadable amount, so an overdrawn statement cannot be imported until a sample shows the format.",
+      "status": "open",
+      "related": ["R-IMPORT-089"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-201",
+      "question": "How are the Migros Bank account entries that were not in the sample labelled: cash withdrawals, interest and fees at period end, incoming transfers, eBill and direct debits, TWINT refunds, and TWINT payments to foreign phone numbers?",
+      "context": "D-331 keeps them as printed. The parser assumes, without a sample, that a line starting with \"Retrait\" is a cash withdrawal, \"Intérêt\" an interest line and \"Frais\", \"Commission\", \"Taxe\" or \"Tenue de compte\" a fee, and that a TWINT phone number is \"+\" and 6 to 15 digits. A label that differs only loses the hint.",
+      "status": "open",
+      "related": ["D-331", "Q-069"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-202",
+      "question": "What do card-bill rows not in the sample look like: an annual fee or other charge, a cash advance, a refund, a first bill without a previous total, a partial payment and a bill with a credit balance?",
+      "context": "The parser assumes an annual fee is a header row (two dates, no card) whose text starts with \"Cotisation\", \"Frais\", \"Taxe\" or \"Commission\"; that a cash advance has \"retrait\" in its details or category; that a refund is a card row with a trailing \" -\"; and that a missing previous total counts as zero. A bill total labelled otherwise than \"Montant total de la facture en notre faveur\" (for a credit balance) is refused as an unexpected line.",
+      "status": "open",
+      "related": ["D-331", "R-IMPORT-096"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-203",
+      "question": "How does the Yuh statement show sales, dividends, fees, currency exchange, Yuh card purchases, TWINT, outgoing transfers and savings-account movements?",
+      "context": "Only securities purchases (\"Achat\" with security lines) and incoming transfers (\"Virement de\") were in the sample. Any other row is kept as printed (D-331): a sale or dividend becomes a credit to review, which may be wrong for an investment account (Q-067).",
+      "status": "open",
+      "related": ["D-331", "Q-067"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-204",
+      "question": "With several currency sections on a Yuh statement, what do the page 1 opening and closing balances hold, and should movements in another currency be imported (converted, or as their CHF counterpart) rather than refused?",
+      "context": "The parser checks every section on its own and the per-currency closing balances of page 1, but compares the page 1 opening and closing balances only when the statement has one section. Movements in a section other than CHF refuse the statement (the budget is CHF only, R-MONEY-001).",
+      "status": "open",
+      "related": ["D-126", "R-IMPORT-084"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-205",
+      "question": "Does Viseca round every CHF figure of the card bill (converted amounts, fees, a CHF amount charged abroad plus its fee) to 0.05, and how?",
+      "context": "Every CHF figure of the sample is a multiple of 0.05. docs/import-sources.md says a CHF amount charged abroad \"may differ by 0.01 from the sum of the printed figures\", but the sample's row of 11.62 plus a fee of 0.20 is billed 11.80, a difference of 0.02. D-330 accepts differences below 0.05.",
+      "status": "open",
+      "related": ["D-330", "R-IMPORT-088"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-206",
+      "question": "On a card bill of more than two pages, is \"Total intermédiaire de la carte\" the card's total so far or only the rows of that page, and can one row's lines be split across a page break?",
+      "context": "The sample has one page break, where both readings give the same figure. The parser takes the total so far (it is carried forward as \"Report de la carte\") and lets a row's continuation lines follow on the next page, after the carried-forward lines.",
+      "status": "open",
+      "related": ["R-IMPORT-088"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-207",
+      "question": "How does Yuh print amounts of 1000 or more?",
+      "context": "No amount of 1000 or more was in the sample. The parser accepts the Migros Bank form (1'234.50, with ' or ’) and plain digits (1234.50), and refuses anything else as unreadable.",
+      "status": "open",
+      "related": ["R-IMPORT-089"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-208",
+      "question": "How are the holder's name and address printed for a joint account, a couple or a holder with a title, on each statement?",
+      "context": "The parser reads the holder from page 1: on the Migros Bank account, the lines after a numeric code and one salutation line (the last two lines being street and town); on Yuh, the line before street and town, without a leading \"Monsieur\", \"Madame\" or similar; on the card bill, \"Titulaire du compte\". When the block cannot be read, no own transfer is flagged (D-334).",
+      "status": "open",
+      "related": ["D-334", "Q-063", "Q-070"],
+      "source": ["owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16"]
+    },
+    {
+      "id": "Q-209",
+      "question": "On the Migros Bank account statement, is the value date of a card purchase always its purchase date?",
+      "context": "It is for every card purchase of the sample and, per the reviewer, for all 51 of the real statement. The parser does not enforce it from one statement (D-339).",
+      "status": "open",
+      "related": ["D-339"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-210",
+      "question": "When a Yuh currency table runs over a page break, is its heading repeated on the next page?",
+      "context": "The parser continues a table only under a repeated heading; a continuation without one is refused. No sample had a Yuh table over two pages.",
+      "status": "open",
+      "related": ["R-IMPORT-087"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-211",
+      "question": "How are Yuh amounts aligned under their headings?",
+      "context": "In the sample the debits end about 5.6 pt left of the DÉBIT heading's right edge; the parser places an amount by its right edge within the heading span plus 4 pt, so a credit left-aligned with its heading would be refused.",
+      "status": "open",
+      "related": ["R-IMPORT-087"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-212",
+      "question": "Should entries of 0.00 be shown in the review at all?",
+      "context": "The card fixture has an invented 0.00 row (a conversion rounded to nothing); the real bill has none. D-341 shows it with nothing to import.",
+      "status": "open",
+      "related": ["D-341"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-213",
+      "question": "May the import guess that the payee of a payment or standing order is a private person (no legal-form word such as AG, SA, GmbH, Sàrl), to give it the transfer_to_person hint?",
+      "context": "The statements do not say; only a TWINT payment to a phone number shows a person. D-340 gives no hint otherwise.",
+      "status": "open",
+      "related": ["D-340", "Q-063"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-214",
+      "question": "Does the import function require row dates inside p_statement_from to p_statement_to?",
+      "context": "Rows are dated by purchase date (D-128), which can precede the statement period: a purchase of 31 March in the April account statement, a card purchase before the previous bill date.",
+      "status": "open",
+      "related": ["D-340", "D-128"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-215",
+      "question": "Can a card bill carry a credit before the first card that is not a payment (a refunded fee or interest), and how is it labelled?",
+      "context": "D-335 takes every such credit for the payment received, so a refunded fee there would not be imported.",
+      "status": "open",
+      "related": ["D-335"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-216",
+      "question": "Should an own transfer still be recognised when the payee lines carry a message, a \"c/o\" line or abbreviations (\"Ch.\" for \"Chemin\")?",
+      "context": "D-334 compares the street and town lines exactly (without case and punctuation); such a payment is imported as an ordinary expense, which the user can skip.",
+      "status": "open",
+      "related": ["D-334", "Q-208"],
+      "source": [
+        "owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16"
       ]
     }
   ]

@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-432 rules (371 active, 54 planned), 24 conventions, 200 decisions, 30 open questions. 0 rules and conventions are marked **TEST PENDING**.
+443 rules (422 active, 14 planned), 24 conventions, 213 decisions, 47 open questions. 26 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -198,9 +198,9 @@ Comparing periods in charts. Browsing a past period and its progress view is par
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
   Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174, R-COMPARE-194
 
-### Step 6: Import (statements, CSV and Claude) (planned)
+### Step 6: Import (statements, CSV and Claude) (in-progress)
 
-#### F-IMPORT Import (planned)
+#### F-IMPORT Import (in-progress)
 
 Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.
 
@@ -1209,7 +1209,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Source: domain: Transaction
 - **R-TRANSACTION-005** Transactions are also importable in bulk.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Transaction
 - **R-TRANSACTION-006** A transaction belongs to the period whose date range contains its date; the period is never stored, so it follows the date through every boundary operation.
   _active · enforced by test · F-TRANSACTION_
@@ -1709,80 +1709,80 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 ### Import
 
 - **R-IMPORT-001** There is one import function, in the database, behind every way of importing.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-002** The import function validates rows.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-003** The import function skips duplicates.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: Q-009, D-115
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-004** The import function marks imported transactions "to review".
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-005** The import is reachable from a paste/CSV screen in the app.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-006** The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: Q-013, D-116
   - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-007** When a member categorises an imported transaction, the app offers, in one click, to always put that merchant in that category.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: Q-014, D-117, Q-057
   - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-070** An imported row is a duplicate when it has the same date, amount and description as an existing transaction of the budget.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-115, Q-056
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-071** When the file gives a bank transaction id, an imported row is also a duplicate when an existing transaction of the budget has the same bank transaction id.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-115, Q-056
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-072** The import summary lists the rows skipped as duplicates.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-115
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-073** The user can import a row skipped as a duplicate anyway.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-115, Q-056
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-074** A member creates import tokens in Settings.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-116
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-075** An import token is tied to one budget and imports only into it.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-116
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-076** An import token can only add transactions through the import function; it cannot read anything.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-116, R-SECURITY-005
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-077** An import token can be revoked, after which it is refused.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-116
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-078** Merchant-to-category rules can be edited in Settings.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-117
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-079** An imported transaction whose merchant has a merchant-to-category rule is put in that rule's category.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Why: What "categorisation improves over time" means once rules exist.
   - Related: D-117, Q-057
   - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-080** An imported transaction counts in totals as soon as it is imported, before it is reviewed.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-118
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-081** An imported transaction stays "to review" until a member confirms it.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-118, R-IMPORT-004
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-082** The generic CSV import lets the user map the file's columns to the transaction fields.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-119, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-083** The import offers presets for the exports of Migros Bank, Raiffeisen, One, Yuh and Twint.
@@ -1791,85 +1791,129 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-119, Q-058, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-084** The import reads three kinds of PDF statement: the Migros Bank private-account statement, the Migros Bank credit-card bill (Viseca) and the Yuh account statement.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-126
   - Source: owner-request: product owner decision on the import sources, with sample statements, 2026-11-16; docs/import-sources.md: Import sources: statement layouts
 - **R-IMPORT-085** The import recognises the kind of a statement from its content, and refuses, with an explanation, a PDF it does not recognise or one without a text layer.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-126, R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising the document
 - **R-IMPORT-086** A statement is parsed in the browser; the PDF file is never uploaded or stored, and only the extracted transactions reach the import function.
-  _planned · enforced by review · F-IMPORT_
+  _active · enforced by review · F-IMPORT_
   - Why: No test can prove that a file is never sent; review the import code for any upload of the file or its text.
   - Related: D-127
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-087** Every entry of a statement's transaction table becomes exactly one candidate transaction; opening and closing balances, carried-forward lines, subtotals and totals, the previous bill total, the payment received on a card bill and card headings never do.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What is not a transaction
 - **R-IMPORT-088** A parsed statement must add up to what it prints (column totals, running balances, card and bill totals); otherwise the import is refused with an explanation, and nothing is imported.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Why: A parser that misses or misreads a line on a layout it does not know would otherwise import wrong amounts silently.
   - Related: R-IMPORT-084, R-IMPORT-087
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What a parser must guarantee
 - **R-IMPORT-089** Statement amounts (thousands separator ', two decimals, a trailing minus for a credit on the card bill) are read exactly into integer rappen, and statement dates (DD.MM.YY or DD.MM.YYYY) into calendar dates without a time zone.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: R-MONEY-002
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Numbers and dates
 - **R-IMPORT-090** The date of an imported transaction is the purchase date when the statement gives one, otherwise the booking date.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-128
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-091** A card-bill payment and a transfer between the owner's own accounts are flagged on import and skipped by default; the user can import them anyway.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-129, Q-063
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries
 - **R-IMPORT-092** The import remembers what the user chose for a flagged entry and proposes the same choice for such entries the next time.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-129, Q-064
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-093** A salary credit that matches one of the budget's incomes is skipped on import.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-130, Q-065
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-094** Every other credit is proposed for review, as a refund in a category or as extra income.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: D-130, Q-066
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-095** A securities purchase is imported as an ordinary transaction for the user to categorise.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-131
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-096** Interest and fee lines of a statement are imported as transactions.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-132
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-097** A foreign-currency purchase is imported with the CHF amount billed, fees included, and a description that keeps the original currency and amount.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-133
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-098** The statement parsers read the French versions of the three statements.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-134, Q-061
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-099** The statement fixtures in the repository contain no real data: they are anonymised outside the repository and pass a leak check against the real statement before they enter the working tree.
-  _planned · enforced by review · F-IMPORT_
+  _active · enforced by review · F-IMPORT_
   - Why: The leak check needs the real statement, which must never enter the repository, so it cannot run in CI.
   - Related: R-IMPORT-100
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-100** Each statement parser produces exactly the expected result of every anonymised fixture of its source (test-fixtures/statements).
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-084, R-IMPORT-099
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-101** A TWINT transaction id or a Yuh reference is kept as the bank transaction id of the imported transaction; a QR payment reference is not, because it repeats from one payment to the next.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Why: The QR reference of a card-bill payment is built from the card account number, so every monthly payment of that card has the same reference.
   - Related: R-IMPORT-071, D-115
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries
 - **R-IMPORT-102** The review of an imported statement shows, for each transaction, the extra data the statement gives: purchase time, value date, card, original currency and amount, exchange rate, fee, merchant category and security.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (supabase/tests)
   - Related: R-IMPORT-004
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-210** A statement file that is not a PDF, is password-protected or corrupt, is larger than 10 MB or has more than 50 pages is refused with its reason; reading a PDF fetches nothing over the network; a reader that cannot be loaded and any fault while reading give a refusal, never an error.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-332, R-IMPORT-085, R-IMPORT-086
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-211** Inside a recognised statement, an entry of a type the parser does not know is kept, described by its first text line only, with its direction's default (imported if a debit, reviewed if a credit); an entry labelled as a known type that does not match that type's layout or column, an item outside the table's columns and a rotated or right-to-left item inside the table refuse the statement.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-337, R-IMPORT-087
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-212** The statement parsers flag a card-bill payment (a payment or standing order whose payee names Viseca, in any case) and a transfer between the owner's own accounts (the holder's name, in either order, at the holder's address), and propose to skip them by default.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-091, D-129, D-334
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-213** The statement parsers propose for review every credit that is not a salary, a card-bill payment or an own transfer.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-094, D-130
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-214** The statement parsers return, for each entry, the extra data the statement prints: purchase date and time, booking and value dates, card, original currency and amount, exchange rate, fee, merchant category, location and security.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-102
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-215** On a card bill, a dated row with a trailing minus before the first card section is the payment received, whatever its label, and never an entry; a row there that is neither the previous bill total, a payment nor a known charge (late-payment interest, a fee) refuses the bill.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-087, D-335
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-216** A text layer with a page far from A4 (outside 500 to 700 by 700 to 1000 pt), more than 5000 text items on a page or more than 20 000 in the document is refused, and a file still being read after 20 seconds is refused and its reader stopped.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-338, R-IMPORT-210
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-217** A purchase date after its booking date, or more than 366 days before it, refuses the statement.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-339, R-IMPORT-090
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-218** A bank transaction id printed on more than one entry of a statement is kept for none of them; the entries stay.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-336, R-IMPORT-101
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-219** The rows sent to the import function hold only the keys of its contract, within its bounds (descriptions shortened at a character boundary, details keys dropped in a stated order, too long ids dropped, each said in the result), and never the counterparty's phone number, address or IBAN, the statement's text lines, QR references, balances or the holder's name and address.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-340, R-IMPORT-086
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-220** An entry of 0.00 stays in the statement for the user to see, with nothing to import, and produces no row for the import function.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-341
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
 
 ### Accounts and planned transfers (money flow)
 
@@ -4711,6 +4755,200 @@ Related: R-COMPARE-194
 
 Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
+### D-330 Rounded figures are checked within 0.05 (accepted)
+
+Where a statement prints a product it rounds (an amount times an exchange rate, a processing fee as a percentage, a CHF amount charged abroad plus its fee), the parser accepts the printed figure when it differs from the exact product by less than CHF 0.05; a securities quantity times its price must give the amount within one unit of the quantity's last decimal times the price, plus one rappen. Every sum, subtotal, carried-forward line, total and running balance must match exactly.
+
+**Why:** R-IMPORT-088 asks for the arithmetic the statement prints to be checked, but the banks' rounding rules are not known (Q-205): every CHF figure of the card-bill sample is a multiple of 0.05, and one row differs from its printed parts by 0.02. A bound below 0.05 accepts any rounding to 0.05 (nearest, up or down) and still refuses a misread digit.
+
+**Rejected:**
+
+- Requiring exact products, which refuses real statements.
+- Not checking rates and fees, which lets a misread rate through.
+
+Related: R-IMPORT-088, R-IMPORT-097, Q-205
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-331 Unknown entry types are kept, malformed known ones refused (superseded by D-337)
+
+Inside a statement the parser recognises, an entry of a type it does not know (a cash withdrawal, an interest or fee line, a Yuh sale ...) is kept with its printed text as description and the default of its direction; a hint is added only from a leading label (Retrait, Intérêt, Frais ...). An entry that starts like a known type (Achat, Débit TWINT, Paiement, a Yuh Achat with security lines) but does not match its pattern refuses the statement, as does any item outside the table's columns or any amount the parser cannot explain.
+
+**Why:** The samples show few entry types; refusing every statement with a new type would make the import useless, while the column totals and balances still prove that every unknown entry has the right amount (R-IMPORT-088). A known type that does not match is a sign the layout changed.
+
+**Rejected:**
+
+- Refusing a statement with any unknown entry type.
+- Skipping lines the parser does not understand.
+
+Related: R-IMPORT-087, R-IMPORT-211, Q-201, Q-202, Q-203
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-332 pdf.js loaded on demand, fetching nothing (accepted)
+
+Statements are read with pdfjs-dist 6.4.299, the version the fixtures were captured with, imported dynamically on the first read so that the main bundle does not grow. Its worker is a same-origin file emitted by the build (production CSP: script-src 'self', worker-src 'self' blob:). No CMap, standard font, ICC profile or wasm decoder is configured or fetched (fetching in the worker and wasm are off), fonts are not installed into the page, and the bytes are passed in memory. Files above 10 MB or 50 pages are refused before or right after opening.
+
+**Why:** D-127 keeps the file in the browser; fetching resources from a CDN would leak that a statement is being read and break the CSP. Bank statements embed their fonts and need none of these resources for their text. Monthly statements are a few pages and well under 1 MB, so the bounds leave a wide margin while stopping a hostile file early.
+
+**Rejected:**
+
+- Bundling pdf.js in the main chunk.
+- Loading the worker or resources from a CDN.
+- A newer pdf.js than the fixtures were captured with.
+
+Related: D-127, R-IMPORT-086, R-IMPORT-210
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-333 Parsers return codes and data; the screens own the words (superseded by D-342)
+
+A parse returns the recognised source, what identifies the statement (its period or bill date), one entry per transaction with codes (direction, hint, proposed handling) and the extra data, the controls it checked, and the full source-specific document in the shape of the fixtures' expected.json. A refusal is a typed reason with its figures (the control, the printed and computed amounts) or the line it could not read. The English notes of expected.json (handling.why, skipped.reason) are kept for the fixture comparison as developer notes; the screens translate the codes, never these notes.
+
+**Why:** The screens are bilingual (R-I18N) and R-IMPORT-100 compares the parse with expected.json exactly.
+
+**Rejected:**
+
+- Returning user-facing messages from the parsers.
+
+Related: R-IMPORT-085, R-IMPORT-088, R-IMPORT-100
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-334 An own transfer needs the holder's name and address (accepted)
+
+A payment or standing order on the Migros Bank account, and a transfer received on Yuh, is flagged as a transfer between the owner's own accounts when the counterparty's name has the same words as the holder's name (in either order) and its street and town lines equal the holder's address, compared without case, punctuation or spacing (Yuh prints "Chemin du Test, 12"). The country line and the IBAN are not compared.
+
+**Why:** docs/import-sources.md names the name and the address as the only clues on the Migros Bank statement, and says a payment to another person at the same address is not an own transfer (Q-063). Applying the same test to Yuh keeps one rule for both and flags the sample's transfer.
+
+**Rejected:**
+
+- The name alone, which would flag a namesake.
+
+Related: D-129, R-IMPORT-091, Q-063, Q-208
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-335 Any credit before the first card is the payment received (accepted)
+
+On a card bill, a dated row with a trailing minus before the first card section is the payment received, whatever its label ("Votre paiement - Merci", with LSV, partial, upper case or another wording), and is skipped like it. A debit row there must be the late-payment interest or a fee, or the bill is refused.
+
+**Why:** Review: under any other label the payment came out as a credit to review while the bill still added up, so no control fired and the card-bill payment would have been counted twice. Matching the position and the sign, not the words, holds for every wording.
+
+**Rejected:**
+
+- Matching the label "Votre paiement - Merci" only.
+
+Related: R-IMPORT-215, D-129, Q-215
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-336 A repeated bank id identifies no transaction (accepted)
+
+A bank transaction id (TWINT id, Yuh reference) printed on more than one entry of the same statement is not a transaction id: every entry carrying it gets none, and all the entries stay. This also answers whether a TWINT id can repeat: the parser does not assume it cannot.
+
+**Why:** With "same bank id means duplicate", a repeated id (a reversal, a split booking, a misprint) would lose a transaction; an entry without an id is still imported. Identical genuine entries with different ids keep their ids.
+
+**Rejected:**
+
+- Keeping the id on the first entry only.
+- Refusing the statement.
+
+Related: R-IMPORT-218, R-IMPORT-101, D-115
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-337 Unknown entries described by their first line; text outside tables ignored (accepted)
+
+Inside a statement the parser recognises, an entry of a type it does not know is kept, described by its first text line only (the other lines, which can name people, addresses or IBANs, stay in textLines on the device), with the default of its direction; a hint comes only from a leading label (Retrait, Intérêt, Frais ...) or from the statement's own category line, never from a word inside a merchant name. An entry that starts like a known type but does not match its pattern or its column, any item outside the table's columns, and a rotated or right-to-left item inside a table refuse the statement. Text outside the tables is ignored: page headers and footers, the lines after "Montant dû" on the card bill, and Yuh lines outside a currency table.
+
+**Why:** Supersedes D-331, whose wording ("any item outside the table's columns refuses") did not say that rotated items were dropped and text outside the tables ignored, and whose descriptions of unknown entries could carry a third party's address and IBAN.
+
+**Rejected:**
+
+- Refusing a statement with any unknown entry type.
+- Skipping lines the parser does not understand.
+- The whole entry text as description.
+
+Related: R-IMPORT-087, R-IMPORT-211, D-331, Q-201, Q-202, Q-203
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-338 Bounds on items, page size and time (accepted)
+
+Each read has its own pdf.js worker, stopped when the read ends. A page outside 500 to 700 by 700 to 1000 pt is refused before its text is read; the text is streamed and the read stops beyond 5000 items on a page or 20 000 in the document; after 20 seconds the worker is terminated and the file refused. Lines are grouped in one pass over the items sorted by baseline. The same item and page bounds apply to a text layer given directly to the parser. A reader that cannot be loaded (offline, a release replaced its chunk) is a refusal of its own, and any other fault while reading a refusal too: the entry point never throws.
+
+**Why:** Review: a 425 kB PDF with one very tall page and 120 000 lines stalled the main thread for 53 s, and a 916 kB PDF inflating to 300 MB of text operators took 33 s and 1.7 GB. The real statements have at most 219 items per page and read in well under a second, so the bounds leave a wide margin.
+
+**Rejected:**
+
+- No bounds beyond file size and page count.
+- Parsing in a worker of our own (the bounds make the main-thread work small).
+
+Related: R-IMPORT-216, R-IMPORT-210, D-332
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-339 Purchase dates must be plausible (accepted)
+
+A purchase date after its booking date, or more than 366 days before it, refuses the statement with the control named and both dates. Value dates are not compared with purchase dates (Q-209).
+
+**Why:** The purchase date decides the budget period of the transaction (D-128); a misread or misprinted year would put it in a period years away while every amount still adds up.
+
+**Rejected:**
+
+- Accepting any date.
+- Clamping a wrong date to the booking date.
+
+Related: R-IMPORT-217, D-128, Q-209
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-340 How entries become import rows (accepted)
+
+toImportBatch(statement) returns the source (migros_account, migros_card, yuh), the statement's dates (its period; for a card bill the day after the previous bill to the bill date), the rows in statement order each with its entry number beside it, the entries not sent with a code, and the adjustments made. A row has date, amount, direction, description (cut to 500 characters at a code-point boundary), merchant (200), bank_transaction_id (dropped, not cut, above 100), hint and details. Details: purchase_time, booking_date, value_date, card, original_currency with original_amount in that currency's minor unit, exchange_rate as the printed decimal string, fee in rappen, merchant_category, security (the ISIN), location (place and country code); above 2000 bytes they are dropped in this order: location, security, merchant_category, exchange_rate, original amount and currency together, fee, card, value_date, purchase_time, booking_date. An own transfer goes without description and merchant (its payee is the holder). transfer_to_person is given to a TWINT payment to a phone number only: the statements do not show whether the payee of a payment or standing order is a person.
+
+**Why:** The import function refuses a row with any other key or out of its bounds; shortening in a stated way and saying so keeps the import going and visible. Integers and decimal strings keep money exact.
+
+**Rejected:**
+
+- Refusing a statement with a field too long.
+- Truncating ids.
+- Guessing persons from payee names.
+
+Related: R-IMPORT-219, R-IMPORT-220, Q-213, Q-214
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-341 Entries of 0.00 are shown, not imported (accepted)
+
+An entry of 0.00 (a currency conversion rounded to nothing) stays in the entry list with the handling nothing-to-import, and the mapping lists it among the entries not sent, with the code zero-amount.
+
+**Why:** The import function refuses an amount of 0, and leaving the line out of the list would make the statement look incomplete next to the PDF.
+
+**Rejected:**
+
+- Dropping the entry.
+- Sending it and letting the database refuse it.
+
+Related: R-IMPORT-220, Q-212
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-342 The screens get codes and entries, never the source document (accepted)
+
+parseStatementText and readStatementFile return the source, the identity (period or bill date), the statement dates, the entries and the controls, never the source-specific document with the holder, IBAN, balances and the English notes of expected.json. parseStatementDocument returns that document too, for the fixture comparison only. Refusal texts may hold a statement line or reference: they may be shown on the device and are never logged or sent.
+
+**Why:** Supersedes D-333: a screen cannot show what it does not receive; R-IMPORT-100 still compares the full document.
+
+**Rejected:**
+
+- Exposing the document and relying on review.
+
+Related: R-IMPORT-100, D-333, R-IMPORT-086
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -4977,6 +5215,74 @@ Source: owner-request: coordinator, step 4 screens adapted to the database re-re
   - Context: Four derivations without money remain in the client (C-LOGIC-003, borderline): the period containing a typed date (picked from list_periods' rows, to read a debt's terms for a payment); the nominal day of a typed first charge date (its day number, for the words under the preview); the last period a correction reaches (the period before until_period_id, taken as seq - 1 from the list); and the subscriptions and debts that use a category now (filtered from their lists, for the warning before a removal). The database could give period_id for a date, the preview's nominal day, until_period's predecessor, and category_overview's users.
   - Related: C-LOGIC-003, R-DEBT-152, R-VERSION-150, R-CATEGORY-120
   - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
+- **Q-200** How does the Migros Bank account statement print a negative balance (an overdraft)?
+  - Context: The sample has no negative balance and docs/import-sources.md says the account statements print no negative numbers. A balance with a sign is refused for now as an unreadable amount, so an overdrawn statement cannot be imported until a sample shows the format.
+  - Related: R-IMPORT-089
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-201** How are the Migros Bank account entries that were not in the sample labelled: cash withdrawals, interest and fees at period end, incoming transfers, eBill and direct debits, TWINT refunds, and TWINT payments to foreign phone numbers?
+  - Context: D-331 keeps them as printed. The parser assumes, without a sample, that a line starting with "Retrait" is a cash withdrawal, "Intérêt" an interest line and "Frais", "Commission", "Taxe" or "Tenue de compte" a fee, and that a TWINT phone number is "+" and 6 to 15 digits. A label that differs only loses the hint.
+  - Related: D-331, Q-069
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-202** What do card-bill rows not in the sample look like: an annual fee or other charge, a cash advance, a refund, a first bill without a previous total, a partial payment and a bill with a credit balance?
+  - Context: The parser assumes an annual fee is a header row (two dates, no card) whose text starts with "Cotisation", "Frais", "Taxe" or "Commission"; that a cash advance has "retrait" in its details or category; that a refund is a card row with a trailing " -"; and that a missing previous total counts as zero. A bill total labelled otherwise than "Montant total de la facture en notre faveur" (for a credit balance) is refused as an unexpected line.
+  - Related: D-331, R-IMPORT-096
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-203** How does the Yuh statement show sales, dividends, fees, currency exchange, Yuh card purchases, TWINT, outgoing transfers and savings-account movements?
+  - Context: Only securities purchases ("Achat" with security lines) and incoming transfers ("Virement de") were in the sample. Any other row is kept as printed (D-331): a sale or dividend becomes a credit to review, which may be wrong for an investment account (Q-067).
+  - Related: D-331, Q-067
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-204** With several currency sections on a Yuh statement, what do the page 1 opening and closing balances hold, and should movements in another currency be imported (converted, or as their CHF counterpart) rather than refused?
+  - Context: The parser checks every section on its own and the per-currency closing balances of page 1, but compares the page 1 opening and closing balances only when the statement has one section. Movements in a section other than CHF refuse the statement (the budget is CHF only, R-MONEY-001).
+  - Related: D-126, R-IMPORT-084
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-205** Does Viseca round every CHF figure of the card bill (converted amounts, fees, a CHF amount charged abroad plus its fee) to 0.05, and how?
+  - Context: Every CHF figure of the sample is a multiple of 0.05. docs/import-sources.md says a CHF amount charged abroad "may differ by 0.01 from the sum of the printed figures", but the sample's row of 11.62 plus a fee of 0.20 is billed 11.80, a difference of 0.02. D-330 accepts differences below 0.05.
+  - Related: D-330, R-IMPORT-088
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-206** On a card bill of more than two pages, is "Total intermédiaire de la carte" the card's total so far or only the rows of that page, and can one row's lines be split across a page break?
+  - Context: The sample has one page break, where both readings give the same figure. The parser takes the total so far (it is carried forward as "Report de la carte") and lets a row's continuation lines follow on the next page, after the carried-forward lines.
+  - Related: R-IMPORT-088
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-207** How does Yuh print amounts of 1000 or more?
+  - Context: No amount of 1000 or more was in the sample. The parser accepts the Migros Bank form (1'234.50, with ' or ’) and plain digits (1234.50), and refuses anything else as unreadable.
+  - Related: R-IMPORT-089
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-208** How are the holder's name and address printed for a joint account, a couple or a holder with a title, on each statement?
+  - Context: The parser reads the holder from page 1: on the Migros Bank account, the lines after a numeric code and one salutation line (the last two lines being street and town); on Yuh, the line before street and town, without a leading "Monsieur", "Madame" or similar; on the card bill, "Titulaire du compte". When the block cannot be read, no own transfer is flagged (D-334).
+  - Related: D-334, Q-063, Q-070
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-209** On the Migros Bank account statement, is the value date of a card purchase always its purchase date?
+  - Context: It is for every card purchase of the sample and, per the reviewer, for all 51 of the real statement. The parser does not enforce it from one statement (D-339).
+  - Related: D-339
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-210** When a Yuh currency table runs over a page break, is its heading repeated on the next page?
+  - Context: The parser continues a table only under a repeated heading; a continuation without one is refused. No sample had a Yuh table over two pages.
+  - Related: R-IMPORT-087
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-211** How are Yuh amounts aligned under their headings?
+  - Context: In the sample the debits end about 5.6 pt left of the DÉBIT heading's right edge; the parser places an amount by its right edge within the heading span plus 4 pt, so a credit left-aligned with its heading would be refused.
+  - Related: R-IMPORT-087
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-212** Should entries of 0.00 be shown in the review at all?
+  - Context: The card fixture has an invented 0.00 row (a conversion rounded to nothing); the real bill has none. D-341 shows it with nothing to import.
+  - Related: D-341
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-213** May the import guess that the payee of a payment or standing order is a private person (no legal-form word such as AG, SA, GmbH, Sàrl), to give it the transfer_to_person hint?
+  - Context: The statements do not say; only a TWINT payment to a phone number shows a person. D-340 gives no hint otherwise.
+  - Related: D-340, Q-063
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-214** Does the import function require row dates inside p_statement_from to p_statement_to?
+  - Context: Rows are dated by purchase date (D-128), which can precede the statement period: a purchase of 31 March in the April account statement, a card purchase before the previous bill date.
+  - Related: D-340, D-128
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-215** Can a card bill carry a credit before the first card that is not a payment (a refunded fee or interest), and how is it labelled?
+  - Context: D-335 takes every such credit for the payment received, so a refunded fee there would not be imported.
+  - Related: D-335
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-216** Should an own transfer still be recognised when the payee lines carry a message, a "c/o" line or abbreviations ("Ch." for "Chemin")?
+  - Context: D-334 compares the street and town lines exactly (without case and punctuation); such a payment is imported as an ordinary expense, which the user can skip.
+  - Related: D-334, Q-208
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
 
 ## Glossary
 

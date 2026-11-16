@@ -1,0 +1,693 @@
+[
+  {
+    "n": 1,
+    "page": 1,
+    "date": "2025-06-12",
+    "direction": "debit",
+    "amount": 575,
+    "description": "Intérêt moratoire pour 27 jours",
+    "merchant": null,
+    "bankTransactionId": null,
+    "hint": "interest",
+    "handling": "import",
+    "textLines": ["Intérêt moratoire pour 27 jours", "Intérêt par année 11.90%"],
+    "details": {
+      "bookingDate": "2025-06-12",
+      "valueDate": null,
+      "purchaseDate": "2025-06-12",
+      "purchaseTime": null,
+      "card": null,
+      "original": null,
+      "fee": null,
+      "category": null,
+      "location": null,
+      "country": null,
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": {
+        "ratePercent": "11.90",
+        "days": 27
+      }
+    }
+  },
+  {
+    "n": 2,
+    "page": 1,
+    "date": "2025-05-13",
+    "direction": "debit",
+    "amount": 3415,
+    "description": "TEXTAI *CHATBOT ABONMT",
+    "merchant": "TEXTAI *CHATBOT ABONMT",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "TEXTAI *CHATBOT ABONMT, GALWAY IE",
+      "Logiciels informatiques",
+      "Frais de traitement 1.75% CHF 0.60"
+    ],
+    "details": {
+      "bookingDate": "2025-05-14",
+      "valueDate": null,
+      "purchaseDate": "2025-05-13",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "CHF",
+        "amountMinor": 3355,
+        "amountText": "33.55",
+        "rate": null,
+        "rateDate": null,
+        "convertedChf": null
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 60
+      },
+      "category": "Logiciels informatiques",
+      "location": "GALWAY",
+      "country": "IE",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 3,
+    "page": 1,
+    "date": "2025-05-18",
+    "direction": "debit",
+    "amount": 28010,
+    "description": "TRV*STAYFINDERS LODGE (EUR 304.48)",
+    "merchant": "TRV*STAYFINDERS LODGE",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "TRV*STAYFINDERS LODGE, (800)555-0199 IE",
+      "Agences de voyage",
+      "Taux de conversion 0.9041442 du 19.05.25 CHF 275.30",
+      "Frais de traitement 1.75% CHF 4.80"
+    ],
+    "details": {
+      "bookingDate": "2025-05-19",
+      "valueDate": null,
+      "purchaseDate": "2025-05-18",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 30448,
+        "amountText": "304.48",
+        "rate": "0.9041442",
+        "rateDate": "2025-05-19",
+        "convertedChf": 27530
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 480
+      },
+      "category": "Agences de voyage",
+      "location": "(800)555-0199",
+      "country": "IE",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 4,
+    "page": 1,
+    "date": "2025-05-23",
+    "direction": "debit",
+    "amount": 40,
+    "description": "CABZ *RIDE",
+    "merchant": "CABZ *RIDE",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": ["CABZ *RIDE, ROTTERDAM NL", "Taxis"],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-23",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "category": "Taxis",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 5,
+    "page": 1,
+    "date": "2025-05-23",
+    "direction": "debit",
+    "amount": 5185,
+    "description": "CBZ* PREAUTH.CABZ.NET",
+    "merchant": "CBZ* PREAUTH.CABZ.NET",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": ["CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL", "Taxis"],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-23",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "category": "Taxis",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 6,
+    "page": 1,
+    "date": "2025-05-23",
+    "direction": "debit",
+    "amount": 7235,
+    "description": "LH-HOTELMIRADOR (EUR 72.25)",
+    "merchant": "LH-HOTELMIRADOR",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "LH-HOTELMIRADOR, LILLE FR",
+      "Hôtels, établ. d'hébergement",
+      "Taux de conversion 0.9838776 du 23.05.25 CHF 71.10",
+      "Frais de traitement 1.75% CHF 1.25"
+    ],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-23",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 7225,
+        "amountText": "72.25",
+        "rate": "0.9838776",
+        "rateDate": "2025-05-23",
+        "convertedChf": 7110
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 125
+      },
+      "category": "Hôtels, établ. d'hébergement",
+      "location": "LILLE",
+      "country": "FR",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 7,
+    "page": 1,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 70,
+    "description": "CABZ *RIDE",
+    "merchant": "CABZ *RIDE",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": ["CABZ *RIDE, ROTTERDAM NL", "Taxis"],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "category": "Taxis",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 8,
+    "page": 1,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 555,
+    "description": "CABZ *RIDE",
+    "merchant": "CABZ *RIDE",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": ["CABZ *RIDE, ROTTERDAM NL", "Taxis"],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "category": "Taxis",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 9,
+    "page": 1,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 385,
+    "description": "CBZ* PREAUTH.CABZ.NET",
+    "merchant": "CBZ* PREAUTH.CABZ.NET",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": ["CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL", "Taxis"],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "category": "Taxis",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 10,
+    "page": 2,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 6910,
+    "description": "CBZ* PREAUTH.CABZ.NET",
+    "merchant": "CBZ* PREAUTH.CABZ.NET",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": ["CBZ* PREAUTH.CABZ.NET, ROTTERDAM NL", "Taxis"],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "category": "Taxis",
+      "location": "ROTTERDAM",
+      "country": "NL",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 11,
+    "page": 2,
+    "date": "2025-05-23",
+    "direction": "debit",
+    "amount": 4630,
+    "description": "WOK CITY 5830172 (EUR 46.25)",
+    "merchant": "WOK CITY 5830172",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "WOK CITY 5830172, LILLE FR",
+      "Restaurants, bistros",
+      "Taux de conversion 0.9838776 du 23.05.25 CHF 45.50",
+      "Frais de traitement 1.75% CHF 0.80"
+    ],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-23",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 4625,
+        "amountText": "46.25",
+        "rate": "0.9838776",
+        "rateDate": "2025-05-23",
+        "convertedChf": 4550
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 80
+      },
+      "category": "Restaurants, bistros",
+      "location": "LILLE",
+      "country": "FR",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 12,
+    "page": 2,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 4415,
+    "description": "LA MIE DOREE 3 (EUR 44.10)",
+    "merchant": "LA MIE DOREE 3",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "LA MIE DOREE 3, LILLE FR",
+      "Restaurants fast food",
+      "Taux de conversion 0.9838776 du 24.05.25 CHF 43.40",
+      "Frais de traitement 1.75% CHF 0.75"
+    ],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 4410,
+        "amountText": "44.10",
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "convertedChf": 4340
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 75
+      },
+      "category": "Restaurants fast food",
+      "location": "LILLE",
+      "country": "FR",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 13,
+    "page": 2,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 4900,
+    "description": "ESTAMINET LEFEBVRE (EUR 48.96)",
+    "merchant": "ESTAMINET LEFEBVRE",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "ESTAMINET LEFEBVRE, LILLE 2 FR",
+      "Restaurants, bistros",
+      "Taux de conversion 0.9838776 du 24.05.25 CHF 48.15",
+      "Frais de traitement 1.75% CHF 0.85"
+    ],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 4896,
+        "amountText": "48.96",
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "convertedChf": 4815
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 85
+      },
+      "category": "Restaurants, bistros",
+      "location": "LILLE 2",
+      "country": "FR",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 14,
+    "page": 2,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 60,
+    "description": "LOST GROTTO (EUR 0.60)",
+    "merchant": "LOST GROTTO",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "LOST GROTTO, LILLE FR",
+      "Attractions touristiques",
+      "Taux de conversion 0.9838776 du 24.05.25 CHF 0.60",
+      "Frais de traitement 1.75% CHF 0.00"
+    ],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 60,
+        "amountText": "0.60",
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "convertedChf": 60
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 0
+      },
+      "category": "Attractions touristiques",
+      "location": "LILLE",
+      "country": "FR",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 15,
+    "page": 2,
+    "date": "2025-05-24",
+    "direction": "debit",
+    "amount": 0,
+    "description": "SUPERMART EXPRES5307716 (EUR 0.01)",
+    "merchant": "SUPERMART EXPRES5307716",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "nothing-to-import",
+    "textLines": [
+      "SUPERMART EXPRES5307716, BELLEFONTSUR FR",
+      "Supermarchés, alimentation",
+      "Taux de conversion 0.9838776 du 24.05.25 CHF 0.00",
+      "Frais de traitement 1.75% CHF 0.00"
+    ],
+    "details": {
+      "bookingDate": "2025-05-26",
+      "valueDate": null,
+      "purchaseDate": "2025-05-24",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "EUR",
+        "amountMinor": 1,
+        "amountText": "0.01",
+        "rate": "0.9838776",
+        "rateDate": "2025-05-24",
+        "convertedChf": 0
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 0
+      },
+      "category": "Supermarchés, alimentation",
+      "location": "BELLEFONTSUR",
+      "country": "FR",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 16,
+    "page": 2,
+    "date": "2025-06-10",
+    "direction": "debit",
+    "amount": 1180,
+    "description": "CLOUDX",
+    "merchant": "CLOUDX",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "CLOUDX, LILLE FR",
+      "Services IT, programmation",
+      "Frais de traitement 1.75% CHF 0.20"
+    ],
+    "details": {
+      "bookingDate": "2025-06-11",
+      "valueDate": null,
+      "purchaseDate": "2025-06-10",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "CHF",
+        "amountMinor": 1162,
+        "amountText": "11.62",
+        "rate": null,
+        "rateDate": null,
+        "convertedChf": null
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 20
+      },
+      "category": "Services IT, programmation",
+      "location": "LILLE",
+      "country": "FR",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 17,
+    "page": 2,
+    "date": "2025-06-10",
+    "direction": "debit",
+    "amount": 1985,
+    "description": "Videostream",
+    "merchant": "Videostream",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": ["Videostream, Hilversum NL", "Télévision et radio"],
+    "details": {
+      "bookingDate": "2025-06-11",
+      "valueDate": null,
+      "purchaseDate": "2025-06-10",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": null,
+      "fee": null,
+      "category": "Télévision et radio",
+      "location": "Hilversum",
+      "country": "NL",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  },
+  {
+    "n": 18,
+    "page": 2,
+    "date": "2025-06-11",
+    "direction": "debit",
+    "amount": 12285,
+    "description": "MODELWORK* WRITER ABO (USD 143.85)",
+    "merchant": "MODELWORK* WRITER ABO",
+    "bankTransactionId": null,
+    "hint": null,
+    "handling": "import",
+    "textLines": [
+      "MODELWORK* WRITER ABO, GALWAY 4 IE",
+      "Logiciels informatiques",
+      "Taux de conversion 0.8394565 du 11.06.25 CHF 120.75",
+      "Frais de traitement 1.75% CHF 2.10"
+    ],
+    "details": {
+      "bookingDate": "2025-06-12",
+      "valueDate": null,
+      "purchaseDate": "2025-06-11",
+      "purchaseTime": null,
+      "card": "4999 12XX XXXX 3456",
+      "original": {
+        "currency": "USD",
+        "amountMinor": 14385,
+        "amountText": "143.85",
+        "rate": "0.8394565",
+        "rateDate": "2025-06-11",
+        "convertedChf": 12075
+      },
+      "fee": {
+        "percent": "1.75",
+        "amount": 210
+      },
+      "category": "Logiciels informatiques",
+      "location": "GALWAY 4",
+      "country": "IE",
+      "security": null,
+      "counterparty": null,
+      "paymentReference": null,
+      "balanceAfter": null,
+      "interest": null
+    }
+  }
+]
