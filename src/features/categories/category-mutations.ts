@@ -71,8 +71,13 @@ export function useUpdateCategory(budgetId: string, options: { onDone: () => voi
     mutationFn: async ({ category, revision, name, amount, cadence, fromPeriodId }) => {
       const renamed = name !== category.name
       const correcting = fromPeriodId !== null && !category.is_group
-      const amountChanged = amount !== null && (correcting || amount !== category.amount)
-      const cadenceChanged = cadence !== null && (correcting || cadence !== category.cadence)
+      // The amount and its cadence are one value (D-160): either changed sends both.
+      const expectationChanged =
+        amount !== null &&
+        cadence !== null &&
+        (correcting || amount !== category.amount || cadence !== category.cadence)
+      const amountChanged = expectationChanged
+      const cadenceChanged = expectationChanged
       if (!renamed && !amountChanged && !cadenceChanged) return false
       unwrap(
         await supabase.rpc('update_category', {

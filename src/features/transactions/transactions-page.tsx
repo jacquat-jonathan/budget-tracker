@@ -182,17 +182,19 @@ export function TransactionsPage() {
           <AlertDescription>{t('transactions.endedBudget')}</AlertDescription>
         </Alert>
       )}
-      <Filters
-        periods={periodList ?? []}
-        period={period}
-        allPeriods={periodParam === ALL}
-        categories={categories.data ?? []}
-        categoryId={categoryId}
-        kind={kind}
-        onPeriod={(value) => setFilter('period', value)}
-        onCategory={(value) => setFilter('category', value)}
-        onKind={(value) => setFilter('kind', value)}
-      />
+      <div className="@container/filters">
+        <Filters
+          periods={periodList ?? []}
+          period={period}
+          allPeriods={periodParam === ALL}
+          categories={categories.data ?? []}
+          categoryId={categoryId}
+          kind={kind}
+          onPeriod={(value) => setFilter('period', value)}
+          onCategory={(value) => setFilter('category', value)}
+          onKind={(value) => setFilter('kind', value)}
+        />
+      </div>
       {!ready || list.isPending ? (
         <LoadingState rows={5} />
       ) : list.isError ? (
@@ -240,6 +242,11 @@ export function TransactionsPage() {
           range={range}
           today={today}
           ended={current.data === null}
+          ownPeriod={
+            dialog.kind === 'edit'
+              ? (periodList?.find((item) => item.id === dialog.transaction.period_id) ?? null)
+              : undefined
+          }
         />
       )}
       <DeleteTransactionDialog
@@ -283,11 +290,13 @@ function Filters({
     })
   return (
     <div
-      className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3"
+      // Three across only when the page is wide enough for full period labels (container
+      // query): with the sidebar open on a tablet, the period gets a row of its own.
+      className="grid grid-cols-2 gap-2 @3xl/filters:grid-cols-3 @3xl/filters:gap-3"
       role="group"
       aria-label={t('transactions.filters.label')}
     >
-      <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
+      <div className="col-span-2 flex flex-col gap-1.5 @3xl/filters:col-span-1">
         <Label htmlFor="filter-period" className="max-sm:sr-only">
           {t('transactions.filters.period')}
         </Label>

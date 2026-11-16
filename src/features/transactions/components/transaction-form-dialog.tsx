@@ -89,6 +89,8 @@ interface TransactionFormDialogProps {
   today: string
   /** The budget has ended: the latest date is its last day, not today. */
   ended: boolean
+  /** Editing: the bounds of the period the transaction is in (the database's period_id). */
+  ownPeriod?: { start_date: string; end_date: string } | null
 }
 
 /** Add or edit a transaction. The form mounts only while open. */
@@ -120,6 +122,7 @@ function TransactionForm({
   range,
   today,
   ended,
+  ownPeriod,
 }: TransactionFormDialogProps) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
@@ -151,9 +154,23 @@ function TransactionForm({
   // R-TRANSACTION-091: the categories this date may use, read again whenever it changes.
   const dateInRange = isCalendarDate(date) && range.min <= date && date <= range.max
   const choices = useCategoriesForDate(budgetId, dateInRange ? date : '')
-  // A transaction keeps the category it already has, even one no longer planned on its
-  // date (removed or ended since): offered as such, never silently blanked.
-  const kept = transaction?.category_id ?? null
+  // R-TRANSACTION-100: a transaction keeps the category it already has, even one no longer
+  // planned on its date (removed or ended since), while its date stays in its own period:
+  // offered as such, never silently blanked. A date in another period needs a category in
+  // force there.
+  const inOwnPeriod =
+    ownPeriod !== undefined &&
+    ownPeriod !== null &&
+    isCalendarDate(date) &&
+    ownPeriod.start_date <= date &&
+    date <= ownPeriod.end_date
+  const kept = inOwnPeriod ? (transaction?.category_id ?? null) : null
+  const keptLost =
+    !inOwnPeriod &&
+    transaction?.category_id !== undefined &&
+    transaction.category_id !== null &&
+    choices.data !== undefined &&
+    !choices.data.some((c) => c.category_id === transaction.category_id)
   const options = useMemo((): CategoryChoice[] => {
     const list: CategoryChoice[] = choices.data ?? []
     if (!kept || !transaction || list.some((c) => c.category_id === kept)) return list
@@ -280,9 +297,11 @@ function TransactionForm({
             options={options}
             loading={dateInRange && choices.isPending}
             description={
-              dateInRange && choices.data?.length === 0 && options.length === 0
-                ? t('transactions.fields.noCategoriesHelp')
-                : undefined
+              keptLost
+                ? t('transactions.fields.keptElsewhere', { name: transaction.category_name ?? '' })
+                : dateInRange && choices.data?.length === 0 && options.length === 0
+                  ? t('transactions.fields.noCategoriesHelp')
+                  : undefined
             }
           />
         )}

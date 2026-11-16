@@ -12,7 +12,12 @@ describe('formatMoney [R-MONEY-003]', () => {
     [-5, 'CHF -0.05'],
     [99999, 'CHF 999.99'],
   ])('formats %i rappen as %s', (rappen, expected) => {
-    expect(formatMoney(rappen)).toBe(expected)
+    // The space after CHF is a no-break space: the currency never ends a line on its own.
+    expect(formatMoney(rappen)).toBe(expected.replace(' ', ' '))
+  })
+
+  it('never lets the currency and its amount break apart', () => {
+    expect(formatMoney(150000)).toBe("CHF 1'500.00")
   })
 
   it('can omit the currency', () => {

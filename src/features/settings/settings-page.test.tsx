@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { routes } from '@/app/routes'
@@ -240,6 +240,17 @@ describe('settings as the owner [R-MEMBER-050]', () => {
         p_user_id: OTHER_USER_ID,
       })
     })
+  })
+
+  it('the note that the form took their version goes away once I type [R-CONCURRENCY-091]', async () => {
+    const { db, queryClient } = await openSettings(true)
+    db.tables.my_budgets = [budgetRow({ name: 'Flat', revision: 2 })]
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budgets'] }))
+    const note = await screen.findByTestId('updated-elsewhere')
+    expect(note).toHaveTextContent('Flat')
+    expect(screen.getByLabelText('Budget name')).toHaveValue('Flat')
+    await userEvent.type(screen.getByLabelText('Budget name'), ' 2')
+    expect(screen.queryByTestId('updated-elsewhere')).not.toBeInTheDocument()
   })
 
   it('saving one settings form never flags the other as changed by someone else [R-CONCURRENCY-091]', async () => {

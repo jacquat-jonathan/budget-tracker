@@ -57,6 +57,7 @@ import { nextSalary } from '@/features/periods/next-salary'
 import { progressPath } from '@/features/progress/progress-path'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { isRecordChanged } from '@/hooks/use-edit-base'
+import { dbErrorCode } from '@/lib/db-errors'
 import { addDays, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
 import type { Database } from '@/lib/database.types'
@@ -568,7 +569,12 @@ function BoundaryForm({
       <FieldGroup>
         {mutation.isError && (
           <Alert variant="destructive">
-            <AlertDescription>{errorMessage(mutation.error)}</AlertDescription>
+            <AlertDescription>
+              {/* This action has no date field: its own words for a date that does not work. */}
+              {action.kind === 'moveSchedule' && dbErrorCode(mutation.error) === 'invalid_boundary'
+                ? t('periods.moveScheduleRefused')
+                : errorMessage(mutation.error)}
+            </AlertDescription>
           </Alert>
         )}
         <p className="text-sm">

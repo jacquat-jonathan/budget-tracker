@@ -441,6 +441,41 @@ describe('the transaction form [R-TRANSACTION-050]', () => {
     })
   })
 
+  it('offers to keep the category only while the date stays in its own period [R-TRANSACTION-050] [R-TRANSACTION-100]', async () => {
+    const db = transactionsDb()
+    db.rpc.list_categories_for_date.mockImplementation(() => [
+      {
+        category_id: 'cat-rent',
+        parent_id: null,
+        name: 'Rent',
+        parent_name: null,
+        display_order: 0,
+      },
+    ])
+    await openTransactions(db)
+    const migros = screen.getAllByTestId('transaction-row')[2]!
+    await userEvent.click(within(migros).getByRole('button', { name: /Actions for Migros/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const date = within(dialog).getByLabelText('Date')
+    // 10.10.2026 is in the previous period: the category must be chosen again.
+    await userEvent.clear(date)
+    await userEvent.type(date, '10.10.2026')
+    await waitFor(() => {
+      expect(dialog).toHaveTextContent(
+        '“Groceries” is not planned in the period of this date: choose a category again',
+      )
+    })
+    expect(within(dialog).getByRole('combobox', { name: 'Category' })).not.toHaveTextContent('kept')
+    // Back in its own period, it may keep it again.
+    await userEvent.clear(date)
+    await userEvent.type(date, '09.11.2026')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Category' }))
+    expect(
+      await screen.findByRole('option', { name: 'Groceries (kept: not planned on this date)' }),
+    ).toBeInTheDocument()
+  })
+
   it('a failed category read is shown with a retry, not as “no categories”', async () => {
     const db = transactionsDb()
     db.rpc.list_categories_for_date.mockImplementationOnce(() => rpcError('budget_not_found_x'))

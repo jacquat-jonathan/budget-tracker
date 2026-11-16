@@ -287,6 +287,8 @@ export const fr: Translation = {
     updatedTitle:
       'Quelqu’un d’autre a modifié cet élément ; le formulaire affiche maintenant sa version :',
     goneTitle: 'Quelqu’un d’autre a supprimé cet élément',
+    endedTitle: 'Quelqu’un d’autre a retiré cet élément',
+    ended: 'Il n’est plus utilisé à partir de la période en cours : ces modifications ne peuvent donc pas être enregistrées. Fermez cette fenêtre ; il figure parmi les éléments retirés et peut être restauré.',
     gone: 'Il n’existe plus et ne peut donc pas être enregistré. Fermez cette fenêtre.',
     none: 'aucune',
     amountPer: {
@@ -628,10 +630,15 @@ export const fr: Translation = {
       'Elle est de nouveau prévue à partir de la période en cours, commencée le {{start}}. Les périodes entre sa fin et maintenant ne prévoient rien pour elle : leurs totaux ne changent pas.',
     restoreCorrectionOutcome:
       'Cela modifie des périodes passées : elle est de nouveau prévue à partir de la période où elle a pris fin ({{start}} – {{end}}), comme si elle n’avait jamais pris fin, ce qui change les prévisions et les résultats de toutes les périodes depuis.',
+    restoreThisPeriodOutcome:
+      'Elle a été retirée à partir de la période en cours (commencée le {{start}}) : elle y est de nouveau prévue, comme si elle n’avait jamais été retirée. Les périodes précédentes ne changent pas.',
     restoreGroupNote:
       'Ses sous-catégories restent telles quelles : restaurez aussi celles que vous voulez.',
     restoreGroupFirst: 'Son groupe « {{group}} » a pris fin : restaurez d’abord le groupe.',
     restored: '« {{name}} » est de nouveau prévue.',
+    restoredElsewhere: 'Quelqu’un d’autre a déjà restauré « {{name}} » : il n’y a plus rien à restaurer.',
+    becameGroup:
+      'Quelqu’un d’autre a ajouté une sous-catégorie : « {{name}} » est donc un groupe, sans montant propre. Le montant saisi ({{amount}}) ne peut pas être enregistré ici : indiquez-le sur l’une de ses sous-catégories. Vous pouvez encore la renommer.',
     removeFromEarlier:
       'Elle n’est plus prévue à partir de la période choisie, ce qui modifie des périodes passées. Si elle n’a jamais compté avant cette période et n’a aucune transaction, elle est supprimée.',
     edit: 'Modifier',
@@ -663,6 +670,7 @@ export const fr: Translation = {
     endedHelp:
       'Elles ne sont plus prévues, mais les périodes passées les conservent avec leurs transactions.',
     endedLabel: 'Retirée',
+    neverPlanned: 'Retirée dans la période où elle a été ajoutée ; ses transactions comptent toujours',
     lastCounted: 'Prévue pour la dernière fois dans la période se terminant le {{date}}',
     groupHasNoAmount:
       'Cette catégorie a des sous-catégories : son montant est le total des leurs. Modifiez les montants des sous-catégories.',
@@ -783,6 +791,8 @@ export const fr: Translation = {
       dateRange: 'Du {{min}} au {{max}} (aujourd’hui au plus tard).',
       dateRangeEnded: 'Du {{min}} au {{max}}, dernier jour du budget.',
       keptCategory: '{{name}} (conservée : non prévue à cette date)',
+      keptElsewhere:
+        '« {{name}} » n’est pas prévue dans la période de cette date : choisissez de nouveau une catégorie, ou gardez une date de sa propre période.',
       categoriesFailed: 'Les catégories de cette date n’ont pas pu être chargées : {{reason}}',
       category: 'Catégorie',
       chooseCategory: 'Choisissez une catégorie',
@@ -977,6 +987,8 @@ export const fr: Translation = {
     saved: 'Périodes mises à jour.',
     reset: 'Revenir',
     moveBack: 'Ramener',
+    moveScheduleRefused:
+      'Ce début ne peut pas revenir sur le calendrier de paie maintenant : le jour que donne le calendrier est après aujourd’hui, ou une période ferait moins de 7 jours ou plus de 92. Il reste tel quel ; vous pouvez toujours le déplacer au jour de votre choix.',
     changedTitle: 'Les périodes ont changé pendant que cette fenêtre était ouverte',
     changedDescription:
       'Quelqu’un d’autre a agi sur elles, ou votre tentative précédente avait déjà abouti : rien n’a donc été modifié maintenant. Ce que vous voyez est à jour : vérifiez les dates, puis recommencez si c’est encore nécessaire.',

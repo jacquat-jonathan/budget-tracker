@@ -98,7 +98,7 @@ function EndCategoryBody({
   const views = useRecordViews()
   const id = useId()
   const live = useRecord('category_overview', budgetId, opened.id)
-  const removal = useEditBase(opened, live, views.category)
+  const removal = useEditBase(opened, live, views.category, (record) => record.is_active !== true)
   // What happens is the database's answer for the version on screen.
   const category = live ?? removal.base ?? opened
   const end = useEndCategory(budgetId)
@@ -193,7 +193,7 @@ function EndCategoryBody({
           )}
         </div>
       )}
-      {removal.gone && <GoneElsewhere />}
+      {removal.gone && <GoneElsewhere ended={live !== null && live !== undefined} />}
       {removal.changed && (
         <ChangedElsewhere
           kind="remove"
