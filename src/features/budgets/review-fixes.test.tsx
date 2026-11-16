@@ -83,6 +83,30 @@ describe('a page belongs to one budget [R-BUDGET-053]', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(db.rpc.add_income).not.toHaveBeenCalled()
   })
+
+  it('says what happened when the budget I was in disappears [R-BUDGET-055]', async () => {
+    const db = householdDb(DEFAULT_USER_ID, {
+      my_budgets: [
+        budgetRow({ name: 'A shared' }),
+        budgetRow({ id: OTHER_BUDGET, name: 'B mine' }),
+      ],
+    })
+    db.tables.period_summaries.push(periodRow({ id: 'b-period', budget_id: OTHER_BUDGET }))
+    mock.current = createSupabaseMock(fakeSession(), db)
+    const { queryClient } = renderRoutes(routes, '/income')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add income' }))
+    await userEvent.type(within(await screen.findByRole('dialog')).getByLabelText('Name'), 'Typed')
+
+    db.tables.my_budgets = db.tables.my_budgets.filter((budget) => budget.id !== BUDGET_ID)
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budgets'] }))
+
+    const notice = await screen.findByTestId('budget-lost')
+    expect(notice).toHaveTextContent('You no longer have access to “A shared”')
+    expect(notice).toHaveTextContent('You are now in “B mine”')
+    expect(notice).toHaveTextContent('not saved was discarded')
+    await userEvent.click(within(notice).getByRole('button', { name: 'Got it' }))
+    expect(screen.queryByTestId('budget-lost')).not.toBeInTheDocument()
+  })
 })
 
 describe('the remembered budget [R-BUDGET-051]', () => {

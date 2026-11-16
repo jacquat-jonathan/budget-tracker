@@ -281,4 +281,68 @@ describe('periods page [R-PERIOD-051]', () => {
     expect(await screen.findByText('This budget has ended')).toBeInTheDocument()
     expect(within(rows[0]!).getByText('Last period')).toBeInTheDocument()
   })
+
+  it('a reopen cannot be confirmed without its list; the list can be retried [R-PERIOD-053]', async () => {
+    const { db, rows } = await openPeriods()
+    db.rpc.preview_reopen.mockImplementation(() => rpcError('budget_not_found_x'))
+
+    const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
+    const failed = await within(dialog).findByTestId('reopen-preview-failed')
+    expect(failed).toHaveTextContent('Could not list what this period holds')
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+
+    db.rpc.preview_reopen.mockImplementation(() => [])
+    await userEvent.click(within(failed).getByRole('button', { name: 'Try again' }))
+    expect(await within(dialog).findByTestId('reopen-preview')).toHaveTextContent(
+      'Nothing was recorded in this period',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
+  it('does not offer "arrived early" when the budget’s end date leaves no room, and says why [R-PERIOD-054]', async () => {
+    // End date 31.03.2027, today 20.04.2027, last period 25.03 – 24.04.
+    const db = householdDb(undefined, {
+      my_budgets: [budgetRow({ end_date_entered: '2027-03-31', end_date: '2027-04-24' })],
+      period_summaries: [
+        periodRow({
+          id: 'period-1',
+          seq: 1,
+          start_date: '2027-02-25',
+          end_date: '2027-03-24',
+          is_current: false,
+          today: '2027-04-20',
+        }),
+        periodRow({ start_date: '2027-03-25', end_date: '2027-04-24', today: '2027-04-20' }),
+      ],
+    })
+    const { rows } = await openPeriods(db)
+
+    await userEvent.click(
+      within(rows[0]!).getByRole('button', {
+        name: 'Actions for the period 25.03.2027 – 24.04.2027',
+      }),
+    )
+    expect(
+      await screen.findByRole('menuitem', { name: 'The salary arrived early' }),
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByText(
+        'Not available: the budget’s end date (31.03.2027) leaves no day on which a new period could start.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('"arrived early" refuses a date outside what can be saved before calling the database [R-PERIOD-054]', async () => {
+    const { db, rows } = await openPeriods()
+
+    const dialog = await choose(rows[0]!, CURRENT, 'The salary arrived early')
+    expect(within(dialog).getByText('From 30.10.2026 to 15.11.2026.')).toBeInTheDocument()
+    await typeDate(dialog, /Day the salary arrived/, '25.10.2026')
+    expect(within(dialog).getByTestId('boundary-outside')).toHaveTextContent(
+      'choose a day from 30.10.2026 to 15.11.2026',
+    )
+    expect(within(dialog).queryByTestId('boundary-preview')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(db.rpc.record_early_pay_date).not.toHaveBeenCalled()
+  })
 })
