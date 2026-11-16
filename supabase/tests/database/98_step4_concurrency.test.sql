@@ -110,7 +110,8 @@ select extensions.dblink_exec('setup', format($$
   delete from public.transactions where budget_id = %1$L;
   delete from public.debt_interest where budget_id = %1$L;
   delete from public.periods where budget_id = %1$L and seq > 1;
-  update public.subscriptions set charged_through = (select start_date - 1 from public.periods where id = %2$L) where id = %3$L;
+  update public.subscriptions set charged_through = (select start_date - 1 from public.periods where id = %2$L),
+    next_due = (select start_date from public.periods where id = %2$L) where id = %3$L;
   commit$$, pg_temp.id('budget'), pg_temp.id('p1'), pg_temp.id('sub')));
 select ok((select charges >= 5 and periods >= 6 from expected), 'setup: six periods and their charges are due');
 

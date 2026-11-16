@@ -41,7 +41,7 @@ select tests.clear_authentication();
 create temp table snapshot as
   select (select string_agg(row(id, name, revision, charged_through)::text, ',' order by id) from public.subscriptions where budget_id = tests.id('a')) as a_subs,
          (select string_agg(row(id, price, category_id, anchor_date)::text, ',' order by id) from public.subscription_versions where budget_id = tests.id('a')) as a_terms,
-         (select string_agg(row(id, name, principal, category_id, revision)::text, ',' order by id) from public.debts where budget_id = tests.id('a')) as a_debts,
+         (select string_agg(row(id, name, principal, revision)::text, ',' order by id) from public.debts where budget_id = tests.id('a')) as a_debts,
          (select string_agg(row(id, amount)::text, ',' order by id) from public.debt_adjustments where budget_id = tests.id('a')) as a_adjustments,
          (select string_agg(row(id, amount, category_id, revision, debt_id, subscription_id, review_state)::text, ',' order by id)
           from public.transactions where budget_id = tests.id('a')) as a_transactions,
@@ -115,7 +115,7 @@ create temp table carol_denied (sql text) on commit drop;
 insert into carol_denied values
   (format($$insert into public.subscriptions (budget_id, name, first_seq, charged_through) values (%L, 'x', 1, '2026-01-01')$$, tests.id('c'))),
   (format($$insert into public.subscription_versions (subscription_id, budget_id, effective_from_seq, price, cadence, category_id, anchor_date) values (%L, %L, 1, 1, 'monthly', %L, '2026-01-01')$$, tests.id('c_sub'), tests.id('c'), tests.id('c_cat'))),
-  (format($$insert into public.debts (budget_id, name, category_id, principal, opened_on, first_seq) values (%L, 'x', %L, 1, '2026-11-01', 1)$$, tests.id('c'), tests.id('c_cat'))),
+  (format($$insert into public.debts (budget_id, name, principal, opened_on, first_seq) values (%L, 'x', 1, '2026-11-01', 1)$$, tests.id('c'))),
   (format('insert into public.debt_versions (debt_id, budget_id, effective_from_seq, monthly_payment) values (%L, %L, 1, 1)', tests.id('c_debt'), tests.id('c'))),
   (format($$insert into public.debt_adjustments (budget_id, debt_id, date, amount) values (%L, %L, '2026-11-01', -1000)$$, tests.id('c'), tests.id('c_debt'))),
   (format('insert into public.debt_interest (budget_id, debt_id, period_id, amount, rate, balance) values (%L, %L, %L, 1, 1, 1)', tests.id('c'), tests.id('c_debt'), tests.id('c_p1'))),
@@ -132,8 +132,8 @@ insert into carol_denied values
   (format('select private.materialise_charges(%L)', tests.id('a'))),
   (format('select private.lock_subscription(%L)', tests.id('a_sub'))),
   (format('select private.lock_debt(%L)', tests.id('a_debt'))),
-  (format('select private.assert_transaction_link(%L, %L, %L, 1, %L, null)', tests.id('a'), 'expense', tests.id('a_cat'), tests.id('a_debt'))),
-  (format('select private.charges_pending(%L)', tests.id('a')));
+  (format('select private.assert_transaction_link(%L, %L, %L, 1, %L, %L, null)', tests.id('a'), 'expense', tests.id('a_cat'), '2026-11-16', tests.id('a_debt'))),
+  (format('select private.reset_subscription_schedule(%L)', tests.id('a_sub')));
 
 create temp table anon_calls (sql text) on commit drop;
 insert into anon_calls values
@@ -182,7 +182,7 @@ select tests.clear_authentication();
 select results_eq(
   $$select (select string_agg(row(id, name, revision, charged_through)::text, ',' order by id) from public.subscriptions where budget_id = tests.id('a')),
            (select string_agg(row(id, price, category_id, anchor_date)::text, ',' order by id) from public.subscription_versions where budget_id = tests.id('a')),
-           (select string_agg(row(id, name, principal, category_id, revision)::text, ',' order by id) from public.debts where budget_id = tests.id('a')),
+           (select string_agg(row(id, name, principal, revision)::text, ',' order by id) from public.debts where budget_id = tests.id('a')),
            (select string_agg(row(id, amount)::text, ',' order by id) from public.debt_adjustments where budget_id = tests.id('a')),
            (select string_agg(row(id, amount, category_id, revision, debt_id, subscription_id, review_state)::text, ',' order by id)
             from public.transactions where budget_id = tests.id('a')),

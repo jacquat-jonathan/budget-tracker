@@ -78,7 +78,7 @@ select throws_ok(format($$select public.add_transaction(%L, 'expense', 1, '2026-
                         tests.id('b'), tests.id('loans'), tests.id('car'), tests.id('car')),
   'P0001', 'invalid_link', 'R-TRANSACTION-003: a transaction links to at most one of a debt or a subscription');
 select throws_ok(format($$select public.add_transaction(%L, 'expense', 1, '2026-10-01', %L, p_debt_id => %L)$$, tests.id('b'), tests.id('loans'), tests.id('car')),
-  'P0001', 'debt_not_in_force', 'R-DEBT-071: a payment dated before the debt counted is refused');
+  'P0001', 'before_debt_opened', 'R-DEBT-131: a payment dated before the debt was opened is refused');
 select throws_ok(format($$update public.transactions set debt_id = %L, kind = 'refund' where id = %L$$, tests.id('car'), tests.id('pay1')),
   '42501', null, 'R-TRANSACTION-003: there are no direct writes');
 -- editing a payment keeps its link; moving it to another category is refused
@@ -88,7 +88,7 @@ select is((select row(amount, debt_id = tests.id('car'))::text
   'R-DEBT-071: a payment is edited like any transaction and stays linked');
 select throws_ok(format($$select public.update_transaction(%L, 2, 'expense', 31000, '2026-11-16', %L)$$, tests.id('pay1'), tests.id('food')),
   'P0001', 'invalid_link', 'R-DEBT-071: a payment stays in the debt''s category');
-select tests.remember('lunch', (select id from public.add_transaction(tests.id('b'), 'expense', 2000, '2026-11-10', tests.id('loans'))));
+select tests.remember('lunch', (select id from public.add_transaction(tests.id('b'), 'expense', 2000, '2026-11-16', tests.id('loans'))));
 select is((select debt_name from public.link_transaction(tests.id('lunch'), 1, tests.id('studies'))), 'Studies',
   'R-TRANSACTION-003: an existing transaction can be linked to a debt');
 select is((select paid_total from public.debt_overview where id = tests.id('studies')), 2000::bigint,
@@ -283,7 +283,7 @@ select tests.remember('rate', (select id from public.create_debt(tests.id('pb'),
 select is((select row(payoff, payments_left)::text from public.debt_overview where id = tests.id('rate')), row('ends', 3)::text,
   'R-DEBT-005: with interest: 1000 - 500, then 505 interest included, then the rest');
 select tests.remember('equal', (select id from public.create_debt(tests.id('pb'), 'Equal', 1010000, tests.id('pb_loans'), 10000, 12)));
-select public.add_transaction(tests.id('pb'), 'expense', 10000, (select start_date from pcur), tests.id('pb_loans'), p_debt_id => tests.id('equal'));
+select public.add_transaction(tests.id('pb'), 'expense', 10000, private.today(), tests.id('pb_loans'), p_debt_id => tests.id('equal'));
 select is((select row(remaining, payoff, payments_left, expected_end_date)::text from public.debt_overview where id = tests.id('equal')),
           row(1000000, 'never', null::integer, null::date)::text,
   'R-DEBT-074 R-DEBT-112: a planned payment equal to one period''s interest: the debt never ends');
@@ -295,7 +295,7 @@ select is((select row(payoff, payments_left, expected_end_date)::text from publi
           row('ends', 1, (select end_date from pcur))::text,
   'R-DEBT-005: a debt nearly paid ends with this period''s payment');
 select tests.remember('over', (select id from public.create_debt(tests.id('pb'), 'Over', 1000, tests.id('pb_loans'), 500)));
-select public.add_transaction(tests.id('pb'), 'expense', 1500, (select start_date from pcur), tests.id('pb_loans'), p_debt_id => tests.id('over'));
+select public.add_transaction(tests.id('pb'), 'expense', 1500, private.today(), tests.id('pb_loans'), p_debt_id => tests.id('over'));
 select is((select row(remaining, payoff, payments_left, expected_end_date)::text from public.debt_overview where id = tests.id('over')),
           row(-500, 'paid_off', 0, null::date)::text,
   'R-DEBT-003 R-DEBT-005: an overpaid debt is paid off, with a negative remaining amount');

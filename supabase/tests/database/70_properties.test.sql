@@ -62,7 +62,8 @@ insert into documented_codes values
   ('subscription_not_found'), ('debt_not_found'), ('adjustment_not_found'), ('subscription_ended'),
   ('debt_ended'), ('invalid_charge_date'), ('invalid_interest_rate'), ('subscription_limit_reached'),
   ('debt_limit_reached'), ('adjustment_limit_reached'), ('invalid_link'), ('debt_not_in_force'),
-  ('subscription_not_in_force'), ('not_a_charge'), ('category_in_use'), ('debt_has_history');
+  ('subscription_not_in_force'), ('not_a_charge'), ('category_in_use'), ('debt_has_history'),
+  ('before_debt_opened'), ('catching_up'), ('preview_required');
 
 create or replace function pg_temp.primary_of(b uuid) returns uuid language sql as $$
   select primary_income_id from public.budgets where id = b
@@ -332,7 +333,7 @@ begin
             from public.preview_update_income(pg_temp.primary_of(v_budget), null, v_pay_day, null, v_period.id);
             perform public.update_income(pg_temp.primary_of(v_budget),
               (select revision from public.incomes where id = pg_temp.primary_of(v_budget)),
-              p_pay_day => v_pay_day, p_from_period_id => v_period.id);
+              p_pay_day => v_pay_day, p_from_period_id => v_period.id, p_previewed_end_date => v_preview_end);
             if v_preview_end is distinct from (select end_date from public.periods
                                                 where budget_id = v_budget and private.today() between start_date and end_date) then
               insert into failures values (v_seed, v_step, v_name, v_op, 'preview and correction disagree');
@@ -598,7 +599,7 @@ begin
               v_touched := pg_temp.seqs_of(v_budget, array[v_date]);
               perform pg_temp.made('transaction', v_budget,
                 (select l.id from public.add_transaction(v_budget, 'expense', 1 + floor(random() * 80000)::bigint, v_date,
-                                                         v_debt.category_id, 'Payment ' || v_step, p_debt_id => v_debt.id) as l));
+                                                         (select o.category_id from public.debt_overview as o where o.id = v_debt.id), 'Payment ' || v_step, p_debt_id => v_debt.id) as l));
             end if;
           elsif v_op = 'adjust_debt' then
             v_pick := pg_temp.pick('debt', v_budget);
