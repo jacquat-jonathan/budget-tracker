@@ -271,7 +271,7 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     expect(db.rpc.set_budget_end_date).toHaveBeenLastCalledWith({ p_budget_id: BUDGET_ID })
   })
 
-  it('deletes the budget only once its name is typed [R-BUDGET-052]', async () => {
+  it('deletes the budget only once its name is typed, with no lost-access notice [R-BUDGET-052] [R-BUDGET-055]', async () => {
     const { db } = await openSettings(true)
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete budget' }))
@@ -287,6 +287,9 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     await waitFor(() => {
       expect(db.rpc.delete_budget).toHaveBeenCalledWith({ p_budget_id: BUDGET_ID })
     })
+    // R-BUDGET-055: I deleted it myself, so no "you no longer have access" notice.
+    expect(await screen.findByRole('heading', { name: /^Welcome/ })).toBeInTheDocument()
+    expect(screen.queryByTestId('budget-lost')).not.toBeInTheDocument()
   })
 
   it('says when the budget was already deleted [R-BUDGET-018]', async () => {
