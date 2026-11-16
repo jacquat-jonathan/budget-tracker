@@ -95,6 +95,8 @@ select tests.get_user_email('alice');         -- for invitations
 select tests.create_user('eve', 'Eve', false);  -- an account whose email is not verified
 select tests.set_today('2026-11-15');         -- pin the database's "today" (as postgres)
 select * from tests.period_violations(<budget id>);  -- independent period invariant check
+                                              -- (also categories and transactions)
+select * from tests.naive_totals(<period id>);  -- a period's totals recomputed from the rows
 select tests.remember('budget', public.create_budget(...));  -- name an id ...
 select tests.id('budget');                    -- ... and use it under any role
 ```
@@ -105,15 +107,17 @@ commit, and tests roll back, so assert them with
 `set constraints all deferred;`. The client contract the tests protect is in
 `docs/database.md`. Name the spec rule id a test proves in its description
 (`'R-PERIOD-030: ...'`); `npm run spec:check` checks every test-enforced rule has one.
-`70_properties.test.sql` runs random sequences of every public operation for eight fixed
-seeds (110 steps each, a few seconds) and checks the invariants after each step. To run it
+`70_properties.test.sql` runs random sequences of every public operation (step 2's and,
+for half the steps, the category and transaction ones) for eight fixed seeds (220 steps
+each, about 40 seconds) and checks the invariants after each step, including every
+period's totals against `tests.naive_totals` and its progress rows. To run it
 longer, add seeds or raise the step count in the `seeds` / `prop_config` tables at the top
 of the file (do not commit that), then run it with `00_helpers.test.sql`.
 
-`60_concurrency.test.sql` is the exception to the rollback rule: it opens extra
-connections with `dblink` (local credentials `postgres`/`postgres`) to race two callers,
-commits a throwaway user and budget, and deletes them at the end (and at the start, should
-an earlier run have failed half-way).
+`60_concurrency.test.sql` and `62_concurrent_edits.test.sql` are the exceptions to the
+rollback rule: each opens extra connections with `dblink` (local credentials
+`postgres`/`postgres`) to race two callers, commits throwaway users and budgets, and
+deletes them at the end (and at the start, should an earlier run have failed half-way).
 
 Test at least: the owner can do what the policies allow; another user cannot read or
 change the row; anon gets nothing. Scope every assertion to rows the test created

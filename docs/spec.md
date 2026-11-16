@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-290 rules (172 active, 111 planned), 24 conventions, 111 decisions, 21 open questions. 0 rules and conventions are marked **TEST PENDING**.
+308 rules (218 active, 83 planned), 24 conventions, 121 decisions, 22 open questions. 3 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -120,46 +120,46 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
   Rules: R-PERIOD-007, R-PERIOD-011, R-VERSION-007, R-VERSION-008
 
-### Step 3: Categories, transactions, period progress view (planned)
+### Step 3: Categories, transactions, period progress view (in-progress)
 
-#### F-CATEGORY Categories and expectations (planned)
+#### F-CATEGORY Categories and expectations (in-progress)
 
 Two-level categories with monthly or yearly expectations, and the amount left to assign.
 
 - **US-CATEGORY-001** As a budget member, I want to split the budget into categories and subcategories with a monthly expectation each, so that I know how much I plan to spend on what.
-  Rules: R-CATEGORY-001, R-CATEGORY-002, R-VERSION-002
+  Rules: R-CATEGORY-001, R-CATEGORY-002, R-VERSION-002, R-CATEGORY-090, R-CATEGORY-092, R-CATEGORY-093, R-CATEGORY-094, R-CATEGORY-096
 - **US-CATEGORY-002** As a budget member, I want to enter a yearly amount for a yearly cost, so that it is spread as one twelfth per month.
-  Rules: R-CATEGORY-003, R-CATEGORY-004, R-CATEGORY-005, R-CATEGORY-070
+  Rules: R-CATEGORY-003, R-CATEGORY-004, R-CATEGORY-005, R-CATEGORY-070, R-CATEGORY-091
 - **US-CATEGORY-003** As a budget member, I want to see the amount left to assign in a period, negative when I have assigned more than the income, so that every franc of the budget has a purpose.
   Rules: R-CATEGORY-006, R-CATEGORY-071
 - **US-CATEGORY-004** As a budget member, I want to delete a category I no longer need, so that it leaves the budget from now on while past periods keep it.
-  Rules: R-CATEGORY-072, R-CATEGORY-073
+  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095
 - **US-CATEGORY-005** As a budget member, I want to change a category's expectation from now on, or explicitly correct it from an earlier period, so that past periods stay as they were unless I fix a mistake on purpose.
   Rules: R-VERSION-002, R-VERSION-070
 - **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
-  Rules: R-CONCURRENCY-070
+  Rules: R-CONCURRENCY-070, R-CONCURRENCY-090, R-CONCURRENCY-091
 
-#### F-TRANSACTION Transactions (planned)
+#### F-TRANSACTION Transactions (in-progress)
 
 Manual transactions, landing in the period that contains their date.
 
 - **US-TRANSACTION-001** As a budget member, I want to record a transaction with an amount, a date and a category, so that spending is tracked against the budget.
-  Rules: R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-004, R-TRANSACTION-006, R-TRANSACTION-072, R-TRANSACTION-073
+  Rules: R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-004, R-TRANSACTION-006, R-TRANSACTION-072, R-TRANSACTION-073, R-TRANSACTION-090, R-TRANSACTION-094, R-TRANSACTION-095
 - **US-TRANSACTION-002** As a budget member, I want to add, edit or delete a transaction in a past period, so that late receipts still land in the right period.
-  Rules: R-TRANSACTION-007, R-TRANSACTION-008
+  Rules: R-TRANSACTION-007, R-TRANSACTION-008, R-TRANSACTION-091, R-TRANSACTION-093
 - **US-TRANSACTION-003** As a budget member, I want to record money coming back as a refund, so that it reduces what was spent in its category.
-  Rules: R-TRANSACTION-070, R-TRANSACTION-071
+  Rules: R-TRANSACTION-070, R-TRANSACTION-071, R-TRANSACTION-092
 
-#### F-PROGRESS Period progress view (planned)
+#### F-PROGRESS Period progress view (in-progress)
 
 Each period, the current one and past ones, tracked against its expectations, with its result.
 
 - **US-PROGRESS-001** As a budget member, I want to see how the current period is going against the expectations, with overspent categories shown as such, so that I can adjust before the period ends.
-  Rules: R-PROGRESS-001, R-PROGRESS-071
+  Rules: R-PROGRESS-001, R-PROGRESS-071, R-PROGRESS-091
 - **US-PROGRESS-002** As a budget member, I want to see a period's surplus or deficit, and each category's result, so that I know how the period went.
-  Rules: R-PROGRESS-002, R-PROGRESS-070
+  Rules: R-PROGRESS-002, R-PROGRESS-070, R-PROGRESS-092
 - **US-PROGRESS-003** As a budget member, I want to browse past periods and see the progress view of each, so that I can look back at how any period went.
-  Rules: R-COMPARE-001
+  Rules: R-COMPARE-001, R-PROGRESS-090
 
 ### Step 4: Subscriptions and debts (planned)
 
@@ -774,8 +774,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-026
   - Source: domain: Period
-- **R-PERIOD-018** A period's income total is the sum of the incomes in force in that period, each at the version in force for that period.
+- **R-PERIOD-018** A period's income total is the sum of the incomes in force in that period, each at the version in force for that period, plus the extra incomes dated in it.
   _active · enforced by test · F-PERIOD_
+  - Related: R-TRANSACTION-092, D-143
   - Source: domain: Period
 - **R-PERIOD-019** A budget can start tracking at most 60 months back.
   _active · enforced by test · F-PERIOD_
@@ -881,7 +882,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Source: domain: Versioning: edits never rewrite the past
 - **R-VERSION-002** An edit to a category expectation creates a new version effective from the current period.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Source: domain: Versioning: edits never rewrite the past
 - **R-VERSION-003** An edit to a subscription creates a new version effective from the current period.
   _planned · enforced by test · F-SUBSCRIPTION_
@@ -890,7 +891,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _planned · enforced by test · F-DEBT_
   - Source: domain: Versioning: edits never rewrite the past
 - **R-VERSION-070** An edit to a category expectation can, as an explicit "correct an earlier period" choice, apply from an earlier period instead of the current one.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Why: The same optional correction as for incomes (D-065); like an income correction, it applies until the next existing change (D-084).
   - Related: D-107, D-065, D-084
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
@@ -941,110 +942,180 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 ### Categories and subcategories
 
 - **R-CATEGORY-001** Categories have two levels at most: a category and optional subcategories.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Why: Example: insurance -> insurance/car, insurance/health, insurance/home.
   - Source: domain: Category and subcategory
-- **R-CATEGORY-002** The monthly expectation is set on each subcategory, or on the category itself when it has no subcategories.
-  _planned · enforced by test · F-CATEGORY_
+- **R-CATEGORY-002** The monthly expectation is set on each subcategory, or on the category itself when it has never had subcategories; a category with subcategories has no expectation of its own: its expected amount is the sum of its subcategories'.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CATEGORY-090, D-141
   - Source: domain: Category and subcategory
 - **R-CATEGORY-003** An expectation amount is entered per month or per year.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Source: domain: Category and subcategory
 - **R-CATEGORY-004** Yearly amounts are stored as yearly.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Source: domain: Category and subcategory
-- **R-CATEGORY-005** A yearly amount is shown per month as one twelfth of it, rounded to the nearest rappen.
-  _planned · enforced by test · F-CATEGORY_
-  - Related: Q-002, D-100, Q-050
+- **R-CATEGORY-005** A yearly amount is shown per month as one twelfth of it, rounded to the nearest rappen, a half rappen upwards.
+  _active · enforced by test · F-CATEGORY_
+  - Related: Q-002, D-100, Q-050, D-140, R-CATEGORY-091
   - Source: domain: Category and subcategory; owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-CATEGORY-006** A period's amount left to assign is its income total minus the sum of the expectations in force in that period.
-  _planned · enforced by test · F-CATEGORY_
+- **R-CATEGORY-006** A period's amount left to assign is its income total (extra incomes included) minus the sum of the expectations in force in that period.
+  _active · enforced by test · F-CATEGORY_
   - Related: Q-003, D-101, R-PERIOD-018
   - Source: domain: Category and subcategory; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-CATEGORY-070** The twelve monthly shares of a yearly amount are not adjusted to add up to the yearly amount.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Why: Example: CHF 100.00 a year is shown as CHF 8.33 a month; twelve shares make CHF 99.96.
   - Related: D-100, R-CATEGORY-005
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-CATEGORY-071** Expectations that add up to more than a period's income total are accepted, and the amount left to assign is then shown as a negative amount.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Related: D-106, R-CATEGORY-006
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-CATEGORY-072** Deleting a category that has transactions or has counted in a past period ends it from the current period; past periods keep it.
-  _planned · enforced by test · F-CATEGORY_
+- **R-CATEGORY-072** Deleting a category that has transactions or has counted in a past period ends it from the current period; past periods keep it, and its transactions are never deleted.
+  _active · enforced by test · F-CATEGORY_
   - Related: D-107, D-030
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-CATEGORY-073** Deleting a category that has no transactions and never counted in a past period removes it.
-  _planned · enforced by test · F-CATEGORY_
+  _active · enforced by test · F-CATEGORY_
   - Why: "Like incomes" (D-030): what never counted is deleted, not ended.
   - Related: D-107, D-030
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-CATEGORY-090** A category becomes a group when its first subcategory is created and stays one: a group holds no expectation and takes no transaction, and its expected amount and spending are the sums of its subcategories'.
+  _active · enforced by test · F-CATEGORY_
+  - Why: Even once its subcategories are gone, a group stays a group (Q-081), so its history never mixes the two shapes.
+  - Related: D-141, R-CATEGORY-002, R-TRANSACTION-072, Q-081
+  - Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-091** A total for a period (expected, left to assign) adds the rounded monthly shares, so what is displayed adds up.
+  _active · enforced by test · F-CATEGORY_
+  - Why: Example: two yearly amounts of 6 rappen expect 1 + 1 = 2 rappen a month, not 12 / 12 = 1.
+  - Related: D-140, Q-050, R-CATEGORY-005
+  - Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-092** When the first subcategory is added to a category that already has transactions or a non-zero expectation, they move, with every past expectation, to a subcategory created with it (named by the client, shown as "Other"), so no transaction is ever left on a category that has subcategories and no period's totals change.
+  _active · enforced by test · F-CATEGORY_
+  - Related: D-141, Q-051, R-TRANSACTION-072
+  - Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-093** A category is created from the current period, or, as an explicit choice, from an earlier period; a subcategory is never in force outside its group.
+  _active · enforced by test · F-CATEGORY_
+  - Why: Back-dating lets transactions be entered for the periods before the categories were set up (R-PERIOD-016).
+  - Related: D-065, R-TRANSACTION-091
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-094** A budget has at most 200 categories and subcategories in force and 2000 in all; an expectation amount, per month or per year, is from 0 to CHF 10 million.
+  _active · enforced by test · F-CATEGORY_
+  - Related: D-148
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-095** Ending a category ends its subcategories with it; a category or subcategory with transactions that would never be in force is kept as a void row, so its transactions still count where they are dated.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CATEGORY-072, R-VERSION-014, D-147
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-096** Categories are ordered among their siblings; a reorder lists exactly the siblings not ended, and is refused when another member added or removed one meanwhile. Reordering is not an edit of a category.
+  _active · enforced by test · F-CATEGORY_
+  - Related: Q-084
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ### Transactions
 
-- **R-TRANSACTION-001** A transaction has a positive amount, a date, and a category or subcategory.
-  _planned · enforced by test · F-TRANSACTION_
-  - Related: Q-004, D-102
+- **R-TRANSACTION-001** A transaction has a positive amount in integer rappen, a date, and a category: one without subcategories, or one of its subcategories. An extra income has no category.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: Q-004, D-102, R-TRANSACTION-092
   - Source: domain: Transaction; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-002** A transaction has an optional description.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_
   - Source: domain: Transaction
 - **R-TRANSACTION-003** A transaction has an optional link to at most one of a debt or a subscription.
-  _planned · enforced by test · F-TRANSACTION_
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Why: Built with step 4, when debts and subscriptions exist: the transactions table takes the link columns then without reshaping (docs/database.md, "For later tables").
   - Related: Q-005, D-111
   - Source: domain: Transaction; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-004** Transactions are created manually in the UI.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_ · **TEST PENDING** (supabase/tests)
   - Source: domain: Transaction
 - **R-TRANSACTION-005** Transactions are also importable in bulk.
   _planned · enforced by test · F-IMPORT_
   - Source: domain: Transaction
-- **R-TRANSACTION-006** A transaction belongs to the period whose date range contains its date.
-  _planned · enforced by test · F-TRANSACTION_
+- **R-TRANSACTION-006** A transaction belongs to the period whose date range contains its date; the period is never stored, so it follows the date through every boundary operation.
+  _active · enforced by test · F-TRANSACTION_
   - Source: domain: Period
 - **R-TRANSACTION-007** A back-dated transaction lands in the right past period.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_
   - Source: domain: Period
 - **R-TRANSACTION-008** In a past period, transactions can be added, edited and deleted freely.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_
   - Why: The rest of a past period changes only through its own path: boundaries through the period actions, incomes and expectations through the explicit "correct an earlier period" option (D-105).
   - Related: Q-011, D-105
   - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-070** A transaction is an expense unless the user marks it as a refund.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_
   - Related: D-102
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-071** A refund reduces what was spent in its category in its period.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_
   - Related: D-102
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-072** When a category has subcategories, a transaction goes on one of its subcategories, never on the category itself.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_
   - Related: D-102, Q-051
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-073** A transaction is never refused because it takes its category over its expectation.
-  _planned · enforced by test · F-TRANSACTION_
+  _active · enforced by test · F-TRANSACTION_
   - Related: D-106
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-TRANSACTION-090** A transaction is dated from the first period's start to today, and not after the last period's end.
+  _active · enforced by test · F-TRANSACTION_
+  - Why: Not after today, rather than up to the current period's end: a change of the primary income's terms re-projects the current period's end and could otherwise leave a future-dated transaction outside every period (D-145).
+  - Related: D-145, Q-083, R-TRANSACTION-093
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-TRANSACTION-091** A transaction goes on a category in force in the period containing its date; a back-dated one may use a category that has since ended.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-144, Q-053, R-TRANSACTION-008
+  - Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-TRANSACTION-092** Money coming in that is neither a salary nor a refund is recorded as an extra income, with a date, an amount and a description and no category; it adds to the income total of the period containing its date and to nothing else.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-143, Q-052, R-PERIOD-018
+  - Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-TRANSACTION-093** Transactions follow their date through every boundary operation, and no operation can leave a transaction outside every period.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-145, R-TRANSACTION-006, R-PERIOD-012, R-PERIOD-023, R-PERIOD-034
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-TRANSACTION-094** A transaction amount is from 1 rappen to CHF 10 million, a description at most 500 characters, and a budget holds at most 200 000 transactions.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-148
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-TRANSACTION-095** Each transaction keeps who recorded it; the list is read in pages of at most 200, newest first in a stable order, by a cursor, and can be filtered by dates, category and kind.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-149, D-088
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Transactions
 
 ### Period progress and result
 
 - **R-PROGRESS-001** At the end of a period, category balances reset.
-  _planned · enforced by test · F-PROGRESS_
+  _active · enforced by test · F-PROGRESS_
   - Related: D-039
   - Source: domain: Period
 - **R-PROGRESS-002** A period's result is its income total minus the total spent in it, shown as a surplus when positive and a deficit when negative.
-  _planned · enforced by test · F-PROGRESS_
+  _active · enforced by test · F-PROGRESS_
   - Related: Q-012, D-103, R-PERIOD-018
   - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-PROGRESS-070** A category's result in a period is its expectation in force in that period minus what was spent in it.
-  _planned · enforced by test · F-PROGRESS_
+  _active · enforced by test · F-PROGRESS_
   - Related: D-103
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-PROGRESS-071** A category whose spending in a period exceeds its expectation is shown as overspent.
-  _planned · enforced by test · F-PROGRESS_
+  _active · enforced by test · F-PROGRESS_
   - Related: D-106
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-PROGRESS-090** The progress of any period, current or past, can be read: per category and subcategory the expectation in force then, what was spent and the result, and the period's income, expected, left to assign, spent and result.
+  _active · enforced by test · F-PROGRESS_
+  - Related: R-COMPARE-001, D-104
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-PROGRESS-091** A category with transactions dated in a period where it is not in force is shown in that period with nothing expected and its spending counted; what was spent in a category may be negative when refunds exceed expenses.
+  _active · enforced by test · F-PROGRESS_
+  - Related: D-147, R-CATEGORY-095, R-TRANSACTION-071
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-PROGRESS-092** A period's totals always equal the sum of its progress rows, computed by the same database functions.
+  _active · enforced by test · F-PROGRESS_
+  - Related: C-LOGIC-001, R-CATEGORY-091
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ### Subscriptions
 
@@ -1146,7 +1217,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 ### Browsing and comparing periods
 
 - **R-COMPARE-001** Users can browse past periods and see the progress view of each.
-  _planned · enforced by test · F-PROGRESS_
+  _active · enforced by test · F-PROGRESS_ · **TEST PENDING** (supabase/tests)
   - Why: Built with step 3 (D-104); the id keeps its original area.
   - Related: Q-010, D-104
   - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
@@ -1381,11 +1452,19 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 
 ### Concurrent edits
 
-- **R-CONCURRENCY-070** When two members edit the same record at the same time, the second save is refused with a message that someone else changed it and it must be reloaded.
-  _planned · enforced by test · F-CATEGORY_
+- **R-CONCURRENCY-070** When two members edit the same record at the same time, the second save is refused (record_changed): someone else changed it and it must be reloaded.
+  _active · enforced by test · F-CATEGORY_
   - Why: Applies to every editable record. Built with step 3, for the editable records of step 2 (starting with incomes) as well as for those of step 3; every later feature follows it (D-124).
-  - Related: D-124, Q-018, D-045
+  - Related: D-124, Q-018, D-045, R-CONCURRENCY-090, D-142
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-CONCURRENCY-090** Every editable record has a revision that changes with every change to it; every edit or removal sends the revision the client read and is refused with record_changed when it differs. Step 2's edit RPCs take it as an optional argument for one release.
+  _active · enforced by test · F-CATEGORY_
+  - Related: D-142, R-CONCURRENCY-070, D-006
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Concurrent edits
+- **R-CONCURRENCY-091** When a save is refused because the record changed, the app says another member changed it and reloads it, without losing what the user typed.
+  _active · enforced by test · F-CATEGORY_ · **TEST PENDING** (supabase/tests)
+  - Related: R-CONCURRENCY-070, D-142
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16
 
 ## Conventions
 
@@ -2808,6 +2887,145 @@ Related: R-PERIOD-035, R-PERIOD-036
 
 Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
+### D-140 A half rappen rounds up; totals add the rounded shares (accepted)
+
+One twelfth of a yearly amount is rounded half up to the rappen. A total shown for a period (expected, left to assign, results) adds the rounded monthly shares, so what is displayed adds up. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to Q-050. A user adding up the monthly figures on screen gets the total shown.
+
+**Rejected:**
+
+- Rounding the exact sum of the yearly amounts: the total would differ from the sum of the figures shown.
+- Banker's rounding: unfamiliar, for no benefit at this size.
+
+Related: Q-050, D-100, R-CATEGORY-005, R-CATEGORY-091
+
+Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-141 The first subcategory makes a group; what the category held moves to "Other" (accepted)
+
+A category becomes a group (categories.is_group) when its first subcategory is created, and stays one. When it already had transactions or a non-zero expectation, those, with every past expectation version, move to a subcategory created with it, named by the client (shown as "Other"), valid from the category's first period. A group holds no expectation and no transaction; its figures are the sums of its subcategories'. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to Q-051. No transaction is ever left on a category that has subcategories (D-102), past periods keep their totals, and a category that stays a group keeps one shape across its history.
+
+**Rejected:**
+
+- Refusing the first subcategory while the category has transactions: the user would have to move them by hand.
+- Turning a group back into a leaf when its last subcategory goes: open as Q-081.
+
+Related: Q-051, D-102, R-CATEGORY-090, R-CATEGORY-092, R-TRANSACTION-072
+
+Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-142 Concurrent edits: one revision per record (accepted)
+
+Every editable record (budget, income, category, transaction, and every later one) has an integer revision, raised by a trigger whenever its row changes and explicitly when a dependent row changes (an income's terms, a category's expectation). Every edit or removal RPC takes p_expected_revision and refuses with record_changed when it differs; the write RPCs take the budget lock first, so a second save waits for the first and then sees the new revision. Step 3 RPCs require it (invalid_revision when missing). Step 2's update_income_terms, remove_income and set_budget_end_date take it as an optional last argument, and the direct renames of budgets and incomes stay, so the previous release keeps working (D-006); new rename_budget and rename_income RPCs check it. A later release makes it required and revokes the direct renames. Reordering categories is not a revision change; a reorder is refused instead when the set of siblings changed.
+
+**Why:** Answer to Q-018 and D-124 as one mechanism that later steps reuse: a column, a trigger, an argument and an error code.
+
+**Rejected:**
+
+- Comparing updated_at timestamps: two writes in one transaction share a timestamp.
+- Requiring the revision on step 2 RPCs at once: the deployed client would fail until the frontend ships.
+
+Related: D-124, D-006, R-CONCURRENCY-070, R-CONCURRENCY-090
+
+Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Concurrent edits
+
+### D-143 An extra income is a transaction of its own kind (accepted)
+
+Money coming in that is neither a salary nor a refund is a transaction of kind extra_income, with a date, an amount, an optional description and no category. It adds to the income total of the period containing its date (period_summaries.extra_income_total, included in income_total) and to nothing else. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults (the kind of record is the database developer's choice).
+
+**Why:** Answer to Q-052. One list, one form, one date rule and one paging contract for everything recorded by date; an import (step 6) produces credits and debits alike.
+
+**Rejected:**
+
+- A separate table of extra incomes: a second list and form with the same rules.
+- A one-off income among the monthly incomes: incomes are monthly and versioned (D-038).
+
+Related: Q-052, D-038, D-102, R-TRANSACTION-092, R-PERIOD-018
+
+Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-144 A back-dated transaction may use an ended category (accepted)
+
+A transaction goes on a category in force in the period containing its date. A back-dated transaction may therefore use a category that has since ended, when it was in force in that period; a category not yet in force then, or already ended then, is refused (category_not_in_force). list_categories_for_date gives the categories a date may use. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to Q-053. Late receipts land where they belong (D-105) without reviving the category.
+
+**Rejected:** none recorded.
+
+Related: Q-053, D-105, D-107, R-TRANSACTION-091
+
+Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-145 Transactions are dated up to today (accepted)
+
+A transaction is dated from the first period's start to today, and not after the last period's end (ended budgets). No period id is stored: a transaction belongs to the period containing its date and follows it through every boundary operation. With dates up to today no operation can leave a transaction outside every period (every operation keeps the current period's end on or after today, and the first period's start never moves); a deferred constraint checks it.
+
+**Why:** The brief allowed dates up to the current period's end. But a change of the primary income's terms re-projects that end (R-PERIOD-011) and could leave a future-dated transaction outside every period; refusing a pay-day change because of a future-dated receipt would couple unrelated actions. Transactions record what happened; planned charges are subscriptions (step 4).
+
+**Rejected:**
+
+- Dates up to the current period's end, refusing any boundary or terms change that would leave one outside (as briefed): see why.
+- Storing the period id on each transaction: it would have to be rewritten by every boundary operation.
+
+Related: R-TRANSACTION-090, R-TRANSACTION-093, Q-083
+
+Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-146 A merge voids or deletes rows one at a time (step 2 fix) (accepted)
+
+private.rekey_period deletes each validity row that would never be in force after a merge on its own, and keeps it as a void row only when that delete fails on a foreign key. Step 2 tried one delete for all such rows and, if any was referenced, voided all of them, so an unreferenced income or category could linger as a void row.
+
+**Why:** Found while registering categories, whose subcategories and transactions reference them (D-091).
+
+**Rejected:** none recorded.
+
+Related: D-091, R-VERSION-014
+
+Source: code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-147 What the progress view counts (accepted)
+
+A period's progress has one row per category and subcategory in force in it, and one for every category with transactions dated in it even when not in force then (an ended or void category, or one whose period changed through a boundary operation): expected 0, spending counted. Spending is expenses minus refunds and may be negative. Each expectation counts once per period whatever the period's length, like an income (R-INCOME-011). Totals are the sums of the rows, computed by the same functions (private.expectations_in_force, private.spending_between).
+
+**Why:** No transaction may drop out of the totals (the period result would lie), and the totals must never disagree with the rows.
+
+**Rejected:**
+
+- Hiding categories not in force: their spending would vanish from the rows but not from the result.
+
+Related: R-PROGRESS-091, R-PROGRESS-092, R-CATEGORY-095, Q-080
+
+Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-148 Limits for categories and transactions (accepted)
+
+Per budget at most 200 categories and subcategories in force and 2000 in all, and 200 000 transactions. Expectation amounts from 0 to 1 000 000 000 rappen as entered (per month or per year); transaction amounts from 1 to 1 000 000 000 rappen; descriptions at most 500 characters; a page of the transaction list at most 200 rows. Defined in one place in the step 3 migration.
+
+**Why:** Abuse bounds that no household reaches, and that keep every read bounded and every sum far inside bigint.
+
+**Rejected:** none recorded.
+
+Related: R-CATEGORY-094, R-TRANSACTION-094, D-085
+
+Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-149 The transaction list is paged by a cursor in an RPC (accepted)
+
+list_transactions returns a page of at most 200 rows in the stable order (date desc, created_at desc, id desc); the next page passes the last row's date, created_at and id. Filters: dates, category (a group includes its subcategories), kind. Each page is an index range scan, however deep.
+
+**Why:** Offset paging slows down and shifts when rows are added; a keyset needs a unique order, and an RPC keeps the bound and the index use in the database.
+
+**Rejected:**
+
+- PostgREST offset paging (.range) on the view: unstable and slow deep in a long history.
+
+Related: R-TRANSACTION-095
+
+Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Transactions
+
 ### D-126 Import sources: three PDF statements and the generic CSV import (accepted)
 
 The import sources are the Migros Bank private-account statement, the Migros Bank credit-card bill (issued through Viseca and downloaded from its "one" app or portal) and the Yuh account statement, all as PDF files. Raiffeisen is dropped. TWINT needs no source of its own, because its entries appear in the Migros Bank account statement. The generic CSV import with column mapping stays. Decided by the product owner on 2026-11-16.
@@ -3015,19 +3233,19 @@ Source: owner-request: coordinator decisions on the sample statements for the im
   - Context: Today the last write wins without a warning: update_income_terms and the rename both replace what is there. Every member can edit every income (D-045), so two members of a household can edit the same salary from two browsers.
   - Related: D-045, R-VERSION-006
   - Source: owner-request: step 2 frontend review, finding 11
-- **Q-050** How is a half rappen rounded when one twelfth (or another monthly share) falls exactly between two rappen, and do the totals (left to assign, results, committed amounts) add up the rounded monthly shares or round the exact sum?
+- **Q-050** (resolved by D-140) How is a half rappen rounded when one twelfth (or another monthly share) falls exactly between two rappen, and do the totals (left to assign, results, committed amounts) add up the rounded monthly shares or round the exact sum?
   - Context: D-100 says one twelfth rounded to the nearest rappen. A yearly amount that is 6 rappen more than a multiple of 12 gives exactly half a rappen (CHF 1.50 a year gives 12.5 rappen), and the tie rule is not given. D-110 also needs a monthly cost for quarterly, half-yearly and yearly subscriptions; the answers do not say it uses the same rounding.
   - Related: D-100, D-110, R-CATEGORY-005, R-SUBSCRIPTION-079
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-051** What happens to the transactions already on a category when the user adds its first subcategory?
+- **Q-051** (resolved by D-141) What happens to the transactions already on a category when the user adds its first subcategory?
   - Context: D-102: when a category has subcategories, a transaction goes on a subcategory, never on the parent. A category without subcategories holds transactions directly, so adding a subcategory later would leave them on the parent (they could be moved, refused, or kept for past periods only).
   - Related: D-102, R-TRANSACTION-072, R-CATEGORY-002
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-052** How is money coming in that is neither a salary nor a refund (a gift, a resale, a reimbursement from a third party) recorded?
+- **Q-052** (resolved by D-143) How is money coming in that is neither a salary nor a refund (a gift, a resale, a reimbursement from a third party) recorded?
   - Context: Q-004 asked about extra income; D-102 answers spending and refunds only. Incomes are monthly, and one-off incomes are deferred (D-038).
   - Related: D-102, D-038, R-TRANSACTION-070
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-053** Can a transaction be added to, or moved into, a category that has ended, when its date falls in a period where the category was still in force?
+- **Q-053** (resolved by D-144) Can a transaction be added to, or moved into, a category that has ended, when its date falls in a period where the category was still in force?
   - Context: D-105 lets transactions in past periods be added and edited freely; D-107 ends a deleted category from the current period while past periods keep it.
   - Related: D-105, D-107, R-TRANSACTION-008, R-CATEGORY-072
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
@@ -3063,6 +3281,26 @@ Source: owner-request: coordinator decisions on the sample statements for the im
   - Context: An edit always applies to the current period (R-VERSION-001), so a raise entered before its salary arrives changes the current period's total. A later option could key the edit to the next period, which needs a way to hold a change for a period that does not exist yet without breaking "nothing keyed beyond the latest period" (R-VERSION-011).
   - Related: R-VERSION-001, R-VERSION-011
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16
+- **Q-080** Should a category's expectation be scaled for a period much longer or shorter than a month, such as a reopened period of 60 to 92 days?
+  - Context: Each expectation counts once per period, like an income (D-147, R-INCOME-011). A reopened period (R-PERIOD-023) can last up to 92 days and still expects one month of each category, while two months of spending land in it.
+  - Related: D-147, R-PERIOD-020, R-PERIOD-023
+  - Source: code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **Q-081** Should a category whose subcategories have all been deleted become an ordinary category again, able to hold an expectation and transactions?
+  - Context: D-141: a category stays a group once it had a subcategory, so an empty group expects nothing and takes no transaction until a subcategory is added.
+  - Related: D-141, R-CATEGORY-090
+  - Source: code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **Q-082** Should an ended category be restorable (in force again from the current period) instead of being created anew?
+  - Context: Ending is final today (R-CATEGORY-072); a new category with the same name starts a new history, so past periods and the new one show two separate rows.
+  - Related: R-CATEGORY-072, D-107
+  - Source: code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **Q-083** Are future-dated transactions needed (a bill known in advance), and if so how should they behave when the period they fall in has not started yet?
+  - Context: D-145 limits dates to today. Planned recurring charges are subscriptions (step 4), whose charges are created on the charge date (D-109).
+  - Related: D-145, R-TRANSACTION-090, D-109
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16
+- **Q-084** Should two members reordering the same categories at the same time be detected, like other concurrent edits?
+  - Context: A reorder is refused when the set of categories changed meanwhile (R-CATEGORY-096), but two reorders of the same set: the later wins. Ordering is not a revision of a category (D-142), so a reorder never blocks another member's edit.
+  - Related: R-CATEGORY-096, D-142, D-124
+  - Source: code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 - **Q-061** Will any member import statements in German, Italian or English, and can the product owner provide a sample of each?
   - Context: D-134 supports the French versions first. The labels, and possibly the date and number formats, differ in other languages; each language needs a sample before its parser can be tested.
   - Related: D-134, R-IMPORT-098

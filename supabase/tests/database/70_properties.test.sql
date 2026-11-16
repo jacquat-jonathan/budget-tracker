@@ -1,6 +1,7 @@
 -- Property test: after any sequence of the public operations, in any order, on any day,
 -- the period invariants hold, nothing gets stuck, no raw error reaches the client, and no
--- closed period's total changes except through an operation that names it.
+-- closed period's total changes except through an operation that names it. Step 3 adds
+-- category and transaction operations to the sequences.
 --
 -- Deterministic: a fixed list of seeds; each seed runs on fresh budgets with its own user.
 -- To run it longer locally, raise the seed list or tests.prop_steps below and run
@@ -12,15 +13,20 @@
 --     unless it has ended (an end date before today);
 --   * the structural invariants (tests.period_violations, and the constraint triggers),
 --     including that nothing is keyed beyond the latest period;
---   * the total of every closed period is unchanged, except periods an explicit correction
---     or back-dating names (from that period on) and periods a boundary operation touches;
---   * an edit just saved (current period) is the terms in force now.
+--   * the totals of every closed period (income, expected, spent) are unchanged, except
+--     periods an explicit correction or back-dating names (from that period on), periods a
+--     boundary operation touches, and periods containing the date of a transaction added,
+--     edited (old and new date) or deleted;
+--   * every period's totals equal a naive recomputation from the rows (tests.naive_totals)
+--     and the sum of its progress rows; the step 3 invariants (tests.period_violations);
+--   * an edit just saved (current period) is the terms or expectation in force now;
+--   * an edit based on an older revision is refused.
 begin;
 
 create temp table seeds (seed double precision) on commit drop;
 insert into seeds values (0.11), (0.23), (0.37), (0.41), (0.53), (0.67), (0.79), (0.83);
 create temp table prop_config (steps integer) on commit drop;
-insert into prop_config values (110);
+insert into prop_config values (220);
 
 create temp table runs (seed double precision, step integer, budget text, op text, outcome text) on commit drop;
 create temp table failures (seed double precision, step integer, budget text, op text, problem text) on commit drop;
@@ -32,13 +38,45 @@ insert into documented_codes values
   ('invalid_weekend_rule'), ('invalid_email'), ('invalid_start_month'), ('invalid_end_date'),
   ('invalid_boundary'), ('invalid_period'), ('end_date_before_last_period'), ('income_is_primary'),
   ('income_ended'), ('income_not_in_force'), ('budget_ended'), ('budget_limit_reached'),
-  ('member_limit_reached'), ('invitation_limit_reached'), ('income_limit_reached');
+  ('member_limit_reached'), ('invitation_limit_reached'), ('income_limit_reached'),
+  -- step 3
+  ('category_not_found'), ('transaction_not_found'), ('invalid_cadence'), ('invalid_kind'),
+  ('invalid_description'), ('invalid_date'), ('date_outside_periods'), ('invalid_category'),
+  ('category_required'), ('category_is_group'), ('category_not_in_force'), ('category_ended'),
+  ('invalid_parent'), ('other_name_required'), ('category_limit_reached'),
+  ('transaction_limit_reached'), ('record_changed'), ('invalid_revision'), ('invalid_limit'),
+  ('invalid_cursor');
 
 create or replace function pg_temp.primary_of(b uuid) returns uuid language sql as $$
   select primary_income_id from public.budgets where id = b
 $$;
+-- The periods containing some dates (excluded from the closed-totals check).
+create or replace function pg_temp.seqs_of(b uuid, ds date[]) returns integer[] language sql as $$
+  select coalesce(array_agg(p.seq), '{}') from public.periods as p
+  where p.budget_id = b and exists (select 1 from unnest(ds) as d where d between p.start_date and p.end_date)
+$$;
+-- Closed periods' totals (income, expected, spent), keyed by seq.
+create or replace function pg_temp.closed_totals(b uuid, before date) returns jsonb language sql as $$
+  select coalesce(jsonb_object_agg(seq, jsonb_build_array(income_total, expected_total, spent_total)), '{}')
+  from public.period_summaries where budget_id = b and end_date < before
+$$;
+-- Periods whose totals disagree with a naive recomputation or with their progress rows.
+create or replace function pg_temp.totals_disagree(b uuid) returns setof text language sql as $$
+  select format('period %s totals %s, naive %s, rows %s', s.seq,
+                row(s.salary_total, s.extra_income_total, s.expected_total, s.spent_total), row(n.*), row(r.*))
+  from public.period_summaries as s
+  cross join lateral tests.naive_totals(s.id) as n
+  cross join lateral (select coalesce(sum(expected), 0)::bigint as expected, coalesce(sum(spent), 0)::bigint as spent
+                      from public.get_period_progress(s.id) where not is_group) as r
+  where s.budget_id = b
+    and (row(s.salary_total, s.extra_income_total, s.expected_total, s.spent_total) is distinct from row(n.*)
+         or row(r.expected, r.spent) is distinct from row(s.expected_total, s.spent_total)
+         or s.income_total <> s.salary_total + s.extra_income_total
+         or s.left_to_assign <> s.income_total - s.expected_total
+         or s.result <> s.income_total - s.spent_total)
+$$;
 
-select plan(7);
+select plan(10);
 
 do $prop$
 declare
@@ -68,6 +106,11 @@ declare
   v_preview_end date;
   v_pay_day integer;
   v_rule public.weekend_rule;
+  v_category uuid;
+  v_tx public.transactions;
+  v_date date;
+  v_first date;
+  v_kind public.transaction_kind;
 begin
   for v_seed in select seed from seeds order by seed loop
     perform setseed(v_seed);
@@ -85,6 +128,8 @@ begin
       v_budget := tests.id(v_user || v_name);
       v_today := private.today();
       v_r := random();
+      -- Step 2 operations take half the steps, step 3 operations the other half.
+      if random() < 0.5 then
       v_op := case
         when v_r < 0.14 then 'advance_day'
         when v_r < 0.21 then 'update_terms'
@@ -105,9 +150,26 @@ begin
         when v_r < 0.96 then 'ensure'
         else 'current'
       end;
+      else
+        v_op := case
+          when v_r < 0.10 then 'create_category'
+          when v_r < 0.15 then 'create_category_backdated'
+          when v_r < 0.22 then 'create_subcategory'
+          when v_r < 0.30 then 'update_expectation'
+          when v_r < 0.36 then 'correct_expectation'
+          when v_r < 0.40 then 'rename_category'
+          when v_r < 0.45 then 'end_category'
+          when v_r < 0.48 then 'end_category_from'
+          when v_r < 0.70 then 'add_transaction'
+          when v_r < 0.80 then 'update_transaction'
+          when v_r < 0.86 then 'delete_transaction'
+          when v_r < 0.90 then 'stale_edit'
+          when v_r < 0.94 then 'reorder_categories'
+          else 'reopen_previous_period'
+        end;
+      end if;
 
-      select coalesce(jsonb_object_agg(seq, income_total), '{}') into v_before
-      from public.period_summaries where budget_id = v_budget and end_date < v_today;
+      v_before := pg_temp.closed_totals(v_budget, v_today);
       v_touched := '{}';
       v_from := null;
       v_income := null;
@@ -173,6 +235,9 @@ begin
           elsif v_op = 'record_early_pay_date' then
             perform public.record_early_pay_date(v_budget, v_today - floor(random() * 10)::integer + 1);
           elsif v_op = 'reopen_previous_period' then
+            -- The reopen catches up first, so the period it touches is the one before the
+            -- latest after catching up (a budget not caught up this step may lack one).
+            perform public.ensure_periods(v_budget);
             select array[max(seq) - 1] into v_touched from public.periods where budget_id = v_budget;
             perform count(*) from public.preview_reopen(v_budget);
             -- the terms in force now, for each income in force now
@@ -189,6 +254,92 @@ begin
           elsif v_op = 'move_period_start' then
             v_touched := array[v_period.seq - 1, v_period.seq];
             perform public.move_period_start(v_period.id, v_period.start_date + floor(random() * 21)::integer - 10);
+          elsif v_op in ('create_category', 'create_category_backdated') then
+            if v_op = 'create_category_backdated' then
+              v_from := v_period.seq;
+            end if;
+            perform public.create_category(v_budget, 'Cat ' || v_step, p_amount => floor(random() * 300000)::bigint,
+              p_cadence => (array['monthly', 'yearly'])[1 + floor(random() * 2)::integer]::public.expectation_cadence,
+              p_from_period_id => case when v_from is not null then v_period.id end);
+          elsif v_op = 'create_subcategory' then
+            select id into v_category from public.categories
+            where budget_id = v_budget and parent_id is null order by random() limit 1;
+            if random() < 0.3 then
+              v_from := v_period.seq;
+            end if;
+            perform public.create_category(v_budget, 'Sub ' || v_step, v_category, floor(random() * 100000)::bigint,
+              'monthly', case when v_from is not null then v_period.id end, 'Other');
+          elsif v_op in ('update_expectation', 'correct_expectation') then
+            select id into v_category from public.categories
+            where budget_id = v_budget and not is_group order by random() limit 1;
+            v_amount := floor(random() * 500000)::bigint;
+            if v_op = 'correct_expectation' then
+              v_from := v_period.seq;
+            end if;
+            perform public.update_category(v_category, (select revision from public.categories where id = v_category),
+              p_amount => v_amount, p_cadence => (array['monthly', 'yearly'])[1 + floor(random() * 2)::integer]::public.expectation_cadence,
+              p_from_period_id => case when v_from is not null then v_period.id end);
+          elsif v_op = 'rename_category' then
+            select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+            perform public.update_category(v_category, (select revision from public.categories where id = v_category), 'Renamed ' || v_step);
+          elsif v_op in ('end_category', 'end_category_from') then
+            select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+            if v_op = 'end_category_from' then
+              v_from := v_period.seq;
+            end if;
+            perform public.end_category(v_category, (select revision from public.categories where id = v_category),
+              case when v_from is not null then v_period.id end);
+          elsif v_op in ('add_transaction', 'update_transaction') then
+            -- a date from the first period's start to a little after today (some refused)
+            select min(start_date) into v_first from public.periods where budget_id = v_budget;
+            v_date := v_first + floor(random() * (least(v_today, (select max(end_date) from public.periods where budget_id = v_budget)) - v_first + 3))::integer;
+            v_kind := case when random() < 0.8 then 'expense' when random() < 0.5 then 'refund' else 'extra_income' end;
+            v_category := null;
+            if v_kind <> 'extra_income' then
+              if random() < 0.85 then
+                begin
+                  select category_id into v_category from public.list_categories_for_date(v_budget, v_date) order by random() limit 1;
+                exception when sqlstate 'P0001' then
+                  v_category := null;
+                end;
+              end if;
+              if v_category is null then
+                select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+              end if;
+            end if;
+            v_amount := 1 + floor(random() * 200000)::bigint;
+            if v_op = 'add_transaction' then
+              v_touched := pg_temp.seqs_of(v_budget, array[v_date]);
+              perform public.add_transaction(v_budget, v_kind, v_amount, v_date, v_category, 'Step ' || v_step);
+            else
+              select * into v_tx from public.transactions where budget_id = v_budget order by random() limit 1;
+              if v_tx.id is not null then
+                v_touched := pg_temp.seqs_of(v_budget, array[v_date, v_tx.date]);
+                perform public.update_transaction(v_tx.id, v_tx.revision, v_kind, v_amount, v_date, v_category);
+              end if;
+            end if;
+          elsif v_op = 'delete_transaction' then
+            select * into v_tx from public.transactions where budget_id = v_budget order by random() limit 1;
+            if v_tx.id is not null then
+              v_touched := pg_temp.seqs_of(v_budget, array[v_tx.date]);
+              perform public.delete_transaction(v_tx.id, v_tx.revision);
+            end if;
+          elsif v_op = 'stale_edit' then
+            -- an edit based on an older revision must be refused and change nothing
+            select * into v_tx from public.transactions where budget_id = v_budget and revision > 1 order by random() limit 1;
+            if v_tx.id is not null then
+              perform public.update_transaction(v_tx.id, v_tx.revision - 1, v_tx.kind, v_tx.amount + 1, v_tx.date, v_tx.category_id);
+              insert into failures values (v_seed, v_step, v_name, v_op, 'a stale transaction edit was accepted');
+            else
+              select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+              if v_category is not null then
+                perform public.update_category(v_category, (select revision from public.categories where id = v_category) - 1, 'Stale');
+                insert into failures values (v_seed, v_step, v_name, v_op, 'a stale category edit was accepted');
+              end if;
+            end if;
+          elsif v_op = 'reorder_categories' then
+            perform public.reorder_categories(v_budget, null,
+              array(select id from public.categories where budget_id = v_budget and parent_id is null and end_seq is null order by random()));
           elsif v_op = 'ensure' then
             perform public.ensure_periods(v_budget);
           else
@@ -234,10 +385,17 @@ begin
         insert into failures values (v_seed, v_step, v_name, v_op, 'constraint: ' || sqlerrm);
       end;
 
+      -- Every period's totals equal a naive recomputation and the sum of its progress rows.
+      perform tests.authenticate_as(v_user);
+      for v_problem in select pg_temp.totals_disagree(v_budget) loop
+        insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
+      end loop;
+      perform tests.clear_authentication();
+
       -- Closed totals, except what the operation names or touches.
-      select coalesce(jsonb_object_agg(seq, income_total), '{}') into v_after
-      from public.period_summaries
-      where budget_id = v_budget and seq::text in (select jsonb_object_keys(v_before));
+      select coalesce(jsonb_object_agg(key, value), '{}') into v_after
+      from jsonb_each(pg_temp.closed_totals(v_budget, v_today))
+      where key in (select jsonb_object_keys(v_before));
       if v_outcome = 'ok' then
         select coalesce(jsonb_object_agg(key, value), '{}') into v_before
         from jsonb_each(v_before)
@@ -257,6 +415,11 @@ begin
           insert into failures values (v_seed, v_step, v_name, v_op, 'the edit just saved is not in force now');
         end if;
       end if;
+      if v_op = 'update_expectation' and v_outcome = 'ok' then
+        if not exists (select 1 from public.category_overview where id = v_category and amount = v_amount) then
+          insert into failures values (v_seed, v_step, v_name, v_op, 'the expectation just saved is not in force now');
+        end if;
+      end if;
     end loop;
   end loop;
 end;
@@ -264,8 +427,14 @@ $prop$;
 
 select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
-  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007: across all seeds, every step kept the invariants, nothing got stuck, only documented errors reached the client, closed totals changed only where named, edits were in force at once, and a reopen kept the terms in force'
+  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070: across all seeds, every step kept the invariants (no transaction outside every period or on a group), nothing got stuck, only documented errors reached the client, every period''s totals equalled a naive recomputation and its progress rows, closed income, expected and spent totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
 );
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
+  '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_subcategory', 'correct_expectation', 'end_category', 'end_category_from', 'create_category_backdated')),
+  '>=', 60, 'R-VERSION-070 R-CATEGORY-092: and changed categories in every way, corrections included');
+select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_edit'),
+  '>=', 10, 'R-CONCURRENCY-070: and refused every stale edit it tried');
 select cmp_ok(
   (select count(*)::integer from runs where outcome = 'ok'
      and op in ('set_expected_pay_date', 'reset_expected_pay_date', 'record_early_pay_date',
