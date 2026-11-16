@@ -147,14 +147,14 @@ select is((select array_agg(row_no order by row_no) from public.list_import_skip
   'R-APP-170: the next page after the last row');
 -- import anyway: one row, then all the rest
 select is((select array_agg(action) from public.import_skipped_anyway(tests.id('batch1'),
-            array[(select id from public.import_skipped_rows where batch_id = tests.id('batch1') and row_no = 1)])), array['import'],
+            array[(select id from public.list_import_skipped_rows(tests.id('batch1')) where row_no = 1)])), array['import'],
   'R-IMPORT-073 R-IMPORT-204: a row skipped as a duplicate is imported anyway, by itself');
 select is((select array_agg(action order by row_no) from public.import_skipped_anyway(tests.id('batch1'))), array['import', 'import'],
   'R-IMPORT-073 R-IMPORT-204: and all the other skipped rows at once (the invalid ones stay)');
-select is((select count(*)::integer from public.import_skipped_rows where batch_id = tests.id('batch1') and imported_transaction_id is not null), 3,
+select is((select count(*)::integer from public.list_import_skipped_rows(tests.id('batch1')) where imported_transaction_id is not null), 3,
   'R-IMPORT-204: each skipped row says what it became');
-select is((select kind from public.transactions where id = (select imported_transaction_id from public.import_skipped_rows
-           where batch_id = tests.id('batch1') and row_no = 4)), 'extra_income',
+select is((select kind from public.transactions where id = (select imported_transaction_id from public.list_import_skipped_rows(tests.id('batch1'))
+           where row_no = 4)), 'extra_income',
   'R-IMPORT-093: a salary imported anyway is extra income');
 
 -- ===========================================================================
@@ -301,7 +301,7 @@ select is((select count(*)::integer from public.transactions where import_batch_
   'R-IMPORT-208: rows of one batch are never duplicates of each other, across chunks too');
 select throws_ok(format('select * from public.import_transactions(%L, %L, 101, %L, %L)', tests.id('b'), gen_random_uuid(), '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]', 'csv'),
   'P0001', 'invalid_chunk', 'R-IMPORT-208: at most 100 chunks a batch');
-select is((select row(imported_count, chunk_count, source)::text from public.import_batch_list where id = tests.id('batch3')),
+select is((select row(imported_count, chunk_count, source)::text from public.list_import_batches(tests.id('b')) where id = tests.id('batch3')),
           row(2, 2, 'yuh')::text, 'R-IMPORT-208: the batch counts its chunks and rows');
 -- the transaction limit: refused before anything is written, saying how many fit
 select tests.clear_authentication();
@@ -359,7 +359,7 @@ select is((select refused_rows from public.import_with_token((select token from 
            '[{"date": "2026-11-15", "amount": 5, "direction": "debit", "action": "import"}]')),
           '[{"row": 1, "reason": "choice_not_allowed"}]'::jsonb, 'R-IMPORT-205: a token imports with the default choices only');
 select tests.authenticate_as('ivy');
-select is((select row(budget_id, token_name, created_by)::text from public.import_batches where id = tests.id('tbatch')),
+select is((select row(budget_id, token_name, created_by)::text from public.list_import_batches(tests.id('b')) where id = tests.id('tbatch')),
           row(tests.id('b'), 'Claude session', null::uuid)::text, 'R-IMPORT-075: into the token''s budget, recorded as the token');
 select tests.clear_authentication();
 select is((select array_agg(action order by row_no) from jsonb_populate_recordset(null::public.import_row_result,
@@ -389,10 +389,10 @@ select tests.authenticate_as('ivy');
 create temp table tok3 on commit drop as select * from public.create_import_token(tests.id('b'), 'Busy');
 grant select on tok3 to anon;
 select tests.clear_authentication();
-insert into private.import_token_usage (token_id, hour, calls, rows) values ((select token_id from tok3), date_trunc('hour', now()), 60, 10);
+insert into private.import_token_usage (token_id, minute, calls, rows) values ((select token_id from tok3), date_trunc('minute', clock_timestamp()) - interval '30 minutes', 60, 10);
 select tests.authenticate_as_anon();
-select throws_ok(format('select * from public.import_with_token(%L, %L, 1, %L)', (select token from tok3), gen_random_uuid(), '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]'),
-  'P0001', 'token_rate_limited', 'R-IMPORT-205: at most 60 calls an hour');
+select is((select error from public.import_with_token((select token from tok3), gen_random_uuid(), 1, '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]')),
+  'token_rate_limited', 'R-IMPORT-205: at most 60 calls an hour');
 -- a member removed takes the tokens they created with them
 select tests.authenticate_as('ivy');
 select tests.remember('inv', public.invite_member(tests.id('b'), tests.get_user_email('jon')));
@@ -431,15 +431,12 @@ insert into kim_calls values
   (format('select public.delete_merchant_rule(%L, 1)', (select id from public.merchant_rules where fragment = 'shop' and budget_id = tests.id('b'))), 'merchant_rule_not_found');
 select throws_ok(sql, 'P0001', message, 'R-SECURITY-002 R-SECURITY-004: another user: ' || message) from kim_calls;
 select is((select count(*)::integer from (
-             select id from public.import_batches where budget_id = tests.id('b') union all
-             select id from public.import_skipped_rows where budget_id = tests.id('b') union all
              select id from public.merchant_rules where budget_id = tests.id('b') union all
              select id from public.import_tokens where budget_id = tests.id('b') union all
-             select id from public.import_batch_list where budget_id = tests.id('b') union all
              select id from public.merchant_rule_list where budget_id = tests.id('b') union all
              select id from public.import_token_list where budget_id = tests.id('b')) as x), 0,
   'R-SECURITY-002: another user reads nothing of the import tables');
-select is((select count(*)::integer from public.import_choices where budget_id = tests.id('b')), 0, 'R-SECURITY-002: nor the remembered choices');
+select throws_ok('select count(*) from public.import_choices', '42501', null, 'R-IMPORT-257: nor the remembered choices (paged reads only)');
 select tests.authenticate_as_anon();
 select throws_ok(format('select * from public.preview_import(%L, null, %L)', tests.id('b'), '[]'), '42501', null,
   'R-SECURITY-003 R-SECURITY-200: a visitor cannot call the member import');

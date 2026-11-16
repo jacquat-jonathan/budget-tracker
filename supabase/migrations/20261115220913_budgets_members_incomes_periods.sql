@@ -49,6 +49,9 @@ grant usage on schema private to authenticated;
 -- R-BUDGET-012
 create or replace function private.limit_owned_budgets() returns integer
 language sql immutable set search_path = '' as $$ select 20 $$;
+-- R-MEMBER-250, D-385: budgets a user belongs to (owned ones included; owned stays at 20)
+create or replace function private.limit_memberships() returns integer
+language sql immutable set search_path = '' as $$ select 50 $$;
 -- R-MEMBER-010
 create or replace function private.limit_members() returns integer
 language sql immutable set search_path = '' as $$ select 20 $$;
@@ -1502,7 +1505,11 @@ begin
     end if;
   end if;
   update public.budgets set end_date = p_end_date where id = p_budget_id;
+  -- R-PERIOD-180 (S5): what is left of this call's one step (the write holds the lock); a
+  -- budget still behind keeps catching up through ensure_periods (my_budgets.caught_up false)
+  perform pg_catalog.set_config('budget_tracker.catch_up', 'multi', true);
   perform private.ensure_periods(p_budget_id);
+  perform pg_catalog.set_config('budget_tracker.catch_up', '', true);
 end;
 $$;
 
@@ -1559,6 +1566,9 @@ begin
      >= private.limit_owned_budgets() then
     raise exception 'budget_limit_reached' using errcode = 'P0001';
   end if;
+  if (select pg_catalog.count(*) from public.budget_members where user_id = v_user) >= private.limit_memberships() then
+    raise exception 'membership_limit_reached' using errcode = 'P0001';
+  end if;
 
   insert into public.budgets (id, name, owner_id, primary_income_id)
   values (v_budget_id, v_name, v_user, v_income_id);
@@ -1569,7 +1579,10 @@ begin
   values (v_income_id, v_budget_id, 1, p_amount, p_pay_day, p_weekend_rule);
   insert into public.periods (budget_id, seq, start_date, end_date)
   values (v_budget_id, 1, v_start, private.projected_end(v_budget_id, v_start, 1));
+  -- a budget starting up to 60 months back is caught up at once (at most 61 periods: one step)
+  perform pg_catalog.set_config('budget_tracker.catch_up', 'multi', true);
   perform private.ensure_periods(v_budget_id);
+  perform pg_catalog.set_config('budget_tracker.catch_up', '', true);
   if p_end_date is not null then
     perform private.apply_end_date(v_budget_id, p_end_date);
   end if;
@@ -1683,8 +1696,11 @@ end;
 $$;
 
 -- R-INVITE-003, R-INVITE-007, R-INVITE-008: pending, unexpired invitations addressed to my
--- verified email.
-create or replace function public.list_my_invitations()
+-- verified email, oldest first, a page at a time (Q-162, D-385: at most p_limit, 1 to 200;
+-- next page: the last row's created_at and id).
+create or replace function public.list_my_invitations(p_limit integer default 50,
+                                                      p_after_created_at timestamptz default null,
+                                                      p_after_id uuid default null)
 returns table (
   id uuid,
   budget_id uuid,
@@ -1694,17 +1710,28 @@ returns table (
   created_at timestamptz,
   expires_at timestamptz
 )
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select i.id, i.budget_id, b.name, p.display_name, p.email, i.created_at, i.expires_at
-  from public.budget_invitations as i
-  join public.budgets as b on b.id = i.budget_id
-  left join public.profiles as p on p.id = i.invited_by
-  where i.email = private.current_verified_email() and i.expires_at > now()
-  order by i.created_at
+begin
+  if p_limit is null or p_limit not between 1 and 200 then
+    raise exception 'invalid_limit' using errcode = 'P0001';
+  end if;
+  if pg_catalog.num_nonnulls(p_after_created_at, p_after_id) = 1 then
+    raise exception 'invalid_cursor' using errcode = 'P0001';
+  end if;
+  return query
+    select i.id, i.budget_id, b.name, p.display_name, p.email, i.created_at, i.expires_at
+    from public.budget_invitations as i
+    join public.budgets as b on b.id = i.budget_id
+    left join public.profiles as p on p.id = i.invited_by
+    where i.email = private.current_verified_email() and i.expires_at > now()
+      and (p_after_id is null or (i.created_at, i.id) > (p_after_created_at, p_after_id))
+    order by i.created_at, i.id
+    limit p_limit;
+end;
 $$;
 
 -- R-INVITE-003, R-INVITE-004, R-INVITE-007, R-INVITE-010, R-INVITE-011, R-MEMBER-010
@@ -1739,6 +1766,11 @@ begin
     if (select pg_catalog.count(*) from public.budget_members
         where budget_id = v_invitation.budget_id) >= private.limit_members() then
       raise exception 'member_limit_reached' using errcode = 'P0001';
+    end if;
+    -- R-MEMBER-250: serialised per user with budget creation, so the limit cannot be raced
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('create_budget:' || v_user, 0));
+    if (select pg_catalog.count(*) from public.budget_members where user_id = v_user) >= private.limit_memberships() then
+      raise exception 'membership_limit_reached' using errcode = 'P0001';
     end if;
     insert into public.budget_members (budget_id, user_id) values (v_invitation.budget_id, v_user);
   end if;
@@ -2335,7 +2367,7 @@ grant execute on function
   public.delete_budget(uuid),
   public.invite_member(uuid, text),
   public.cancel_invitation(uuid),
-  public.list_my_invitations(),
+  public.list_my_invitations(integer, timestamptz, uuid),
   public.accept_invitation(uuid),
   public.decline_invitation(uuid),
   public.remove_member(uuid, uuid),

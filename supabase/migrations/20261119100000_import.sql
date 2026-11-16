@@ -6,7 +6,7 @@
 -- Imported transactions are to_review (R-IMPORT-004) and count at once (R-IMPORT-080).
 
 -- ===========================================================================
--- Limits (one place)                                          (R-IMPORT-002, D-310, D-316)
+-- Limits (one place)                                          (R-IMPORT-002, D-310, D-370)
 -- ===========================================================================
 create function private.limit_import_rows_per_call() returns integer
 language sql immutable set search_path = '' as $$ select 500 $$;
@@ -14,12 +14,21 @@ create function private.limit_import_chunks() returns integer
 language sql immutable set search_path = '' as $$ select 100 $$;
 create function private.limit_import_details_bytes() returns integer
 language sql immutable set search_path = '' as $$ select 2000 $$;
+-- F3 (R-IMPORT-250): the whole rows argument of one call, before any row is read (500 valid
+-- rows take at most about 1.6 MB; the API gateway's own body limit is the outer bound)
+create function private.limit_import_call_bytes() returns integer
+language sql immutable set search_path = '' as $$ select 2000000 $$;
 create function private.limit_merchant_rules() returns integer
 language sql immutable set search_path = '' as $$ select 500 $$;
+-- F11 (R-IMPORT-256): tokens that can still be used; revoked or expired ones are kept for the
+-- batch list, at most this many a budget and this many days, then pruned
 create function private.limit_import_tokens_active() returns integer
 language sql immutable set search_path = '' as $$ select 10 $$;
-create function private.limit_import_tokens_total() returns integer
-language sql immutable set search_path = '' as $$ select 100 $$;
+create function private.limit_import_tokens_kept() returns integer
+language sql immutable set search_path = '' as $$ select 20 $$;
+create function private.limit_import_tokens_kept_days() returns integer
+language sql immutable set search_path = '' as $$ select 365 $$;
+-- rolling windows (F10): the last 60 minutes and the last 24 hours
 create function private.limit_token_calls_per_hour() returns integer
 language sql immutable set search_path = '' as $$ select 60 $$;
 create function private.limit_token_calls_per_day() returns integer
@@ -28,14 +37,73 @@ create function private.limit_token_rows_per_hour() returns integer
 language sql immutable set search_path = '' as $$ select 5000 $$;
 create function private.limit_token_rows_per_day() returns integer
 language sql immutable set search_path = '' as $$ select 20000 $$;
+-- F14 (R-IMPORT-257): remembered choices a budget keeps (the least recently used go first)
+create function private.limit_import_choices() returns integer
+language sql immutable set search_path = '' as $$ select 1000 $$;
 
 -- ===========================================================================
--- The "to categorise" category (R-IMPORT-200, D-312)
+-- Free text, one helper (F13, R-SECURITY-250, D-376)
+-- ===========================================================================
+-- Control characters and bidirectional or zero-width formatting characters are removed; any
+-- other run of white space (tabs, new lines, non-breaking and other Unicode spaces) becomes
+-- one space; trimmed. Before validation and before any comparison. Markup and spreadsheet
+-- formulas stay as text (the screens escape; an export must neutralise them).
+create function private.clean_text(p_text text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select pg_catalog.btrim(pg_catalog.regexp_replace(
+    pg_catalog.regexp_replace(p_text,
+      '[\u0001-\u0008\u000E-\u001F\u007F-\u0084\u0086-\u009F\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF]',
+      '', 'g'),
+    '[[:space:]\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+', ' ', 'g'))
+$$;
+
+-- Every name of every step (budgets, incomes, categories, subscriptions, debts, accounts,
+-- transfers, tokens) and every description go through private.clean_text.
+create or replace function private.clean_name(p_name text)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_name text := private.clean_text(p_name);
+begin
+  if v_name is null or char_length(v_name) not between 1 and 100 then
+    raise exception 'invalid_name' using errcode = 'P0001';
+  end if;
+  return v_name;
+end;
+$$;
+
+create or replace function private.clean_description(p_description text)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_description text := nullif(private.clean_text(p_description), '');
+begin
+  if char_length(v_description) > private.limit_description_length() then
+    raise exception 'invalid_description' using errcode = 'P0001';
+  end if;
+  return v_description;
+end;
+$$;
+
+-- ===========================================================================
+-- The "to categorise" category (R-IMPORT-200, R-CATEGORY-250, D-375)
 -- ===========================================================================
 -- One ordinary top-level leaf per budget, created at its first import that needs it: where an
 -- imported expense or refund without a category goes, so every transaction keeps a category
 -- and every total still adds up. Renamable; no expectation, no subcategory, and it cannot end
--- while it holds transactions.
+-- while it holds transactions. F12: only imported transactions still to review can be in it
+-- (private.guard_to_categorise_transaction below); no subscription, debt, planned transfer or
+-- rule points to it; it does not count towards the 200 categories in force.
 alter table public.categories add column is_to_categorise boolean not null default false;
 create unique index categories_one_to_categorise_idx on public.categories (budget_id) where is_to_categorise;
 
@@ -72,6 +140,7 @@ create trigger category_expectations_guard_to_categorise before insert or update
 -- ===========================================================================
 
 -- D-116, R-IMPORT-074 to R-IMPORT-077: import tokens. Only the SHA-256 of the secret is stored.
+-- A token can be used only while its creator is a member of its budget (F2).
 create table public.import_tokens (
   id uuid primary key default gen_random_uuid(),
   budget_id uuid not null references public.budgets (id) on delete cascade,
@@ -138,7 +207,10 @@ create table public.import_skipped_rows (
   duplicate_of uuid,
   match_of uuid,
   row_data jsonb not null,
-  imported_transaction_id uuid,
+  -- F15: the transaction it was imported as (null again if that transaction is deleted, so the
+  -- row can be imported anyway again), and when it was first imported anyway (counted once)
+  imported_transaction_id uuid references public.transactions (id) on delete set null,
+  imported_at timestamptz,
   created_at timestamptz not null default now(),
   constraint import_skipped_rows_batch_fk foreign key (batch_id, budget_id)
     references public.import_batches (id, budget_id) on delete cascade,
@@ -146,6 +218,7 @@ create table public.import_skipped_rows (
   constraint import_skipped_rows_row_unique unique (batch_id, chunk, row_no)
 );
 create index import_skipped_rows_budget_idx on public.import_skipped_rows (budget_id);
+create index import_skipped_rows_imported_idx on public.import_skipped_rows (imported_transaction_id);
 
 -- R-IMPORT-078, R-IMPORT-079, D-311: merchant rules: a key fragment and a category.
 create table public.merchant_rules (
@@ -171,7 +244,7 @@ create trigger merchant_rules_set_updated_at before update on public.merchant_ru
   for each row execute function private.set_updated_at();
 
 -- R-IMPORT-092, D-314: the last choice for a flagged entry, per budget, kind of flag and
--- counterparty key.
+-- counterparty key. At most 1000 a budget (F14); read with list_import_choices.
 create table public.import_choices (
   budget_id uuid not null references public.budgets (id) on delete cascade,
   flag text not null,
@@ -184,6 +257,7 @@ create table public.import_choices (
   constraint import_choices_choice_valid check (choice in ('import', 'skip'))
 );
 create index import_choices_updated_by_idx on public.import_choices (updated_by);
+create index import_choices_recent_idx on public.import_choices (budget_id, updated_at desc);
 
 -- Internal: the answer of each chunk already recorded (idempotency), and a token's use.
 create table private.import_chunks (
@@ -193,21 +267,36 @@ create table private.import_chunks (
   created_at timestamptz not null default now(),
   primary key (batch_id, chunk)
 );
+-- F10: a token's calls and rows by minute, for windows rolling over the last 60 minutes and
+-- the last 24 hours (older minutes are pruned by the token's next call)
 create table private.import_token_usage (
   token_id uuid not null references public.import_tokens (id) on delete cascade,
-  hour timestamptz not null,
+  minute timestamptz not null,
   calls integer not null default 0,
   rows integer not null default 0,
-  primary key (token_id, hour)
+  primary key (token_id, minute)
 );
+-- F4 (R-IMPORT-251): the existing transactions a batch's rows have absorbed (as duplicates or
+-- matches), so the counting runs over the whole batch, whatever chunks it is sent in
+create table private.import_absorbed (
+  batch_id uuid not null references public.import_batches (id) on delete cascade,
+  transaction_id uuid not null references public.transactions (id) on delete cascade,
+  primary key (batch_id, transaction_id)
+);
+create index import_absorbed_transaction_idx on private.import_absorbed (transaction_id);
 
--- The imported transactions (R-IMPORT-102: their extra data, as given).
+-- The imported transactions (R-IMPORT-102: their extra data, normalised). F17
+-- (R-IMPORT-254): the amount, date and description as first imported, never changed, so an
+-- edited import is still found as a duplicate.
 alter table public.transactions
   add column import_batch_id uuid,
   add column bank_transaction_id text,
   add column merchant text,
   add column merchant_key text,
   add column details jsonb,
+  add column import_amount bigint,
+  add column import_date date,
+  add column import_description text,
   add constraint transactions_import_batch_fk foreign key (import_batch_id, budget_id)
     references public.import_batches (id, budget_id),
   add constraint transactions_bank_transaction_id_valid check (bank_transaction_id is null or char_length(bank_transaction_id) between 1 and 100),
@@ -223,14 +312,17 @@ alter table public.transactions add constraint transactions_review_state_valid c
 create index transactions_import_batch_idx on public.transactions (import_batch_id) where import_batch_id is not null;
 create index transactions_bank_id_idx on public.transactions (budget_id, bank_transaction_id) where bank_transaction_id is not null;
 create index transactions_match_idx on public.transactions (budget_id, kind, amount, date);
+create index transactions_import_original_idx on public.transactions (budget_id, import_amount, import_date)
+  where import_batch_id is not null;
 create index transactions_to_review_idx on public.transactions (budget_id, date, created_at, id) where review_state = 'to_review';
 
 -- ===========================================================================
--- The merchant key (R-IMPORT-201, D-311): one implementation
+-- The merchant key (R-IMPORT-201, R-IMPORT-255, D-311, D-381): one implementation
 -- ===========================================================================
 
--- Lower case, accents removed, every run of characters other than letters, digits, '*', '.',
--- '&' and '-' a single space, trimmed.
+-- Lower case, accents removed (ß, œ, æ, ø spelled out), control and formatting characters
+-- removed, every run of characters other than letters (any script), digits, '*', '.', '&'
+-- and '-' a single space, trimmed.
 create function private.normalize_merchant_text(p_text text)
 returns text
 language sql
@@ -238,16 +330,20 @@ immutable
 set search_path = ''
 as $$
   select pg_catalog.btrim(pg_catalog.regexp_replace(
-    pg_catalog.translate(pg_catalog.lower(coalesce(p_text, '')),
-      'àáâãäåāăąçćčďèéêëēĕėęěìíîïĩīĭįñńňòóôõöøōŏőùúûüũūŭůűųýÿžźżšśşťţřŕľĺłğ',
-      'aaaaaaaaacccdeeeeeeeeeiiiiiiiinnnooooooooouuuuuuuuuuyyzzzsssttrrllllg'),
-    '[^a-z0-9*.&-]+', ' ', 'g'))
+    pg_catalog.translate(
+      pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(pg_catalog.replace(
+        pg_catalog.lower(coalesce(private.clean_text(p_text), '')), 'ß', 'ss'), 'œ', 'oe'), 'æ', 'ae'), 'ø', 'o'),
+      'àáâãäåāăąçćčďèéêëēĕėęěìíîïĩīĭįñńňòóôõöōŏőùúûüũūŭůűųýÿžźżšśşťţřŕľĺłğ',
+      'aaaaaaaaacccdeeeeeeeeeiiiiiiiinnnoooooooouuuuuuuuuuyyzzzsssttrrllllg'),
+    '[^[:alnum:]*.&-]+', ' ', 'g'))
 $$;
 
--- The key of a row: its merchant field when the source gives one, otherwise its description;
--- normalised, then the statement's own words and a processor prefix ("payup *shop", "xyz*
--- preauth...") dropped (docs/import-sources.md). Never empty when the text has a letter or
--- digit; at most 200 characters.
+-- The key of a row (D-311, D-381): its merchant field when that has a letter or digit,
+-- otherwise its description; normalised; then, until nothing changes, the statement's own
+-- leading words dropped ("achat", "twint", ...) and a '*' resolved: "payup *shop" is a
+-- processor before the merchant (the key is "shop"), "amazon.de*ab12cd" a merchant before a
+-- reference (one word with a digit: the key is "amazon.de"). Idempotent: the key of a key is
+-- itself. Never empty when the text has a letter or digit; at most 200 characters.
 create function private.merchant_key(p_merchant text, p_description text)
 returns text
 language plpgsql
@@ -255,15 +351,28 @@ immutable
 set search_path = ''
 as $$
 declare
-  v_key text := private.normalize_merchant_text(coalesce(nullif(pg_catalog.btrim(p_merchant), ''), p_description));
-  v_stripped text;
+  v_merchant text := private.normalize_merchant_text(p_merchant);
+  v_key text;
+  v_prev text;
+  v_before text;
+  v_after text;
 begin
-  v_stripped := pg_catalog.regexp_replace(v_key, '^(achat|credit|debit twint|credit twint|twint|paiement de salaire|paiement|ordre permanent) ', '');
-  v_stripped := pg_catalog.btrim(pg_catalog.regexp_replace(v_stripped, '^[a-z0-9.]{1,12} ?\* ?', ''));
-  if v_stripped = '' then
-    v_stripped := v_key;
+  v_key := case when v_merchant ~ '[[:alnum:]]' then v_merchant else private.normalize_merchant_text(p_description) end;
+  loop
+    v_prev := v_key;
+    v_key := pg_catalog.regexp_replace(v_key, '^(achat|credit twint|debit twint|credit|debit|twint|paiement de salaire|paiement|ordre permanent) ', '');
+    if v_key ~ '^[^ *]{1,20} ?\* ?[^ *]' then
+      v_before := pg_catalog.substring(v_key, '^([^ *]{1,20}) ?\*');
+      v_after := pg_catalog.btrim(pg_catalog.substring(v_key, '^[^ *]{1,20} ?\* ?(.*)$'));
+      v_key := case when v_after !~ ' ' and v_after ~ '[0-9]' then v_before else v_after end;
+    end if;
+    v_key := pg_catalog.btrim(v_key);
+    exit when v_key = v_prev or v_key !~ '[[:alnum:]]';
+  end loop;
+  if v_key !~ '[[:alnum:]]' then
+    v_key := v_prev;
   end if;
-  return nullif(pg_catalog.left(v_stripped, 200), '');
+  return nullif(pg_catalog.left(v_key, 200), '');
 end;
 $$;
 
@@ -291,10 +400,12 @@ create type public.import_row_result as (
   match_is_charge boolean,
   salary_income_id uuid,
   salary_income_amount bigint,
-  transaction_id uuid
+  transaction_id uuid,
+  -- the chunk the row was sent in (null in a preview); with row_no, the row as sent (F15)
+  chunk integer
 );
 comment on type public.import_row_result is
-  'One row of preview_import / import_transactions. action: import, skip_duplicate, skip_flagged, skip_matched, confirm_match, skip_chosen, invalid. category_source: choice, rule, to_categorise (category_id null until the write creates it), null for extra income. transaction_id: the write only.';
+  'One row of preview_import / import_transactions / import_skipped_anyway. action: import, skip_duplicate, skip_flagged, skip_matched, confirm_match, skip_chosen, invalid. category_source: choice, rule, to_categorise (category_id null until the write creates it), null for extra income. transaction_id: the write only. chunk, row_no: the row as sent.';
 
 -- The reason codes that depend only on the row sent (what a token is told).
 create function private.import_shape_reasons() returns text[]
@@ -304,7 +415,9 @@ language sql immutable set search_path = '' as $$
                'invalid_kind', 'invalid_category', 'invalid_action', 'choice_not_allowed']
 $$;
 
--- R-IMPORT-002, R-IMPORT-102: the row's own fields, checked with nothing of the budget.
+-- R-IMPORT-002, R-IMPORT-102: the row's own fields, checked with nothing of the budget. Free
+-- text through private.clean_text (F13); the amount a JSON integer (F8: 12.0 is not one);
+-- details rebuilt from their known keys, string values cleaned (normalised, not as given).
 create function private.import_row_shape(p_row jsonb, p_by_token boolean,
   out reason text, out r_date date, out r_amount bigint, out r_direction text, out r_description text,
   out r_merchant text, out r_bank_id text, out r_hint text, out r_details jsonb,
@@ -316,6 +429,7 @@ as $$
 declare
   v_key text;
   v_value jsonb;
+  v_text text;
 begin
   if p_row is null or pg_catalog.jsonb_typeof(p_row) <> 'object' then
     reason := 'invalid_row'; return;
@@ -339,15 +453,19 @@ begin
   if not private.is_sane_date(r_date) then
     reason := 'invalid_date'; return;
   end if;
-  -- the amount: integer rappen, 1 to the transaction maximum
+  -- the amount: a JSON integer of rappen, 1 to the transaction maximum
   if pg_catalog.jsonb_typeof(p_row -> 'amount') is distinct from 'number'
-     or (p_row ->> 'amount')::numeric <> pg_catalog.trunc((p_row ->> 'amount')::numeric)
-     or (p_row ->> 'amount')::numeric < 1 or (p_row ->> 'amount')::numeric > private.limit_transaction_amount() then
+     or (p_row ->> 'amount') !~ '^[1-9][0-9]{0,9}$' then
     reason := 'invalid_amount'; return;
   end if;
   r_amount := (p_row ->> 'amount')::bigint;
+  if r_amount > private.limit_transaction_amount() then
+    r_amount := null;
+    reason := 'invalid_amount'; return;
+  end if;
   r_direction := p_row ->> 'direction';
   if pg_catalog.jsonb_typeof(p_row -> 'direction') is distinct from 'string' or r_direction not in ('debit', 'credit') then
+    r_direction := null;
     reason := 'invalid_direction'; return;
   end if;
   if p_row ? 'description' and pg_catalog.jsonb_typeof(p_row -> 'description') not in ('string', 'null') then
@@ -358,53 +476,82 @@ begin
   exception when sqlstate 'P0001' then
     reason := 'invalid_description'; return;
   end;
-  if p_row ? 'merchant' and (pg_catalog.jsonb_typeof(p_row -> 'merchant') not in ('string', 'null')
-                             or char_length(p_row ->> 'merchant') > 200) then
+  if p_row ? 'merchant' and pg_catalog.jsonb_typeof(p_row -> 'merchant') not in ('string', 'null') then
     reason := 'invalid_merchant'; return;
   end if;
-  r_merchant := nullif(pg_catalog.btrim(p_row ->> 'merchant'), '');
-  if p_row ? 'bank_transaction_id' and (pg_catalog.jsonb_typeof(p_row -> 'bank_transaction_id') not in ('string', 'null')
-                                        or char_length(pg_catalog.btrim(p_row ->> 'bank_transaction_id')) > 100) then
+  r_merchant := nullif(private.clean_text(p_row ->> 'merchant'), '');
+  if char_length(r_merchant) > 200 then
+    r_merchant := null;
+    reason := 'invalid_merchant'; return;
+  end if;
+  if p_row ? 'bank_transaction_id' and pg_catalog.jsonb_typeof(p_row -> 'bank_transaction_id') not in ('string', 'null') then
     reason := 'invalid_bank_transaction_id'; return;
   end if;
-  r_bank_id := nullif(pg_catalog.btrim(p_row ->> 'bank_transaction_id'), '');
-  r_hint := p_row ->> 'hint';
-  if p_row ? 'hint' and r_hint is not null and r_hint not in ('card_bill_payment', 'own_transfer', 'transfer_to_person', 'salary',
-                                                              'interest', 'fee', 'securities_purchase', 'cash_withdrawal', 'refund') then
+  r_bank_id := nullif(private.clean_text(p_row ->> 'bank_transaction_id'), '');
+  if char_length(r_bank_id) > 100 then
+    r_bank_id := null;
+    reason := 'invalid_bank_transaction_id'; return;
+  end if;
+  if p_row ? 'hint' and pg_catalog.jsonb_typeof(p_row -> 'hint') not in ('string', 'null') then
     reason := 'invalid_hint'; return;
   end if;
-  -- the extra data (R-IMPORT-102): known keys, scalar values, bounded size
+  r_hint := p_row ->> 'hint';
+  if r_hint is not null and r_hint not in ('card_bill_payment', 'own_transfer', 'transfer_to_person', 'salary',
+                                           'interest', 'fee', 'securities_purchase', 'cash_withdrawal', 'refund') then
+    r_hint := null;
+    reason := 'invalid_hint'; return;
+  end if;
+  -- the extra data (R-IMPORT-102): known keys, scalar values, bounded size; rebuilt
   if p_row ? 'details' and pg_catalog.jsonb_typeof(p_row -> 'details') <> 'null' then
-    r_details := p_row -> 'details';
-    if pg_catalog.jsonb_typeof(r_details) <> 'object' or pg_catalog.octet_length(r_details::text) > private.limit_import_details_bytes() then
+    if pg_catalog.jsonb_typeof(p_row -> 'details') <> 'object'
+       or pg_catalog.octet_length((p_row -> 'details')::text) > private.limit_import_details_bytes() then
       reason := 'invalid_details'; return;
     end if;
-    for v_key, v_value in select * from pg_catalog.jsonb_each(r_details) loop
+    r_details := '{}'::jsonb;
+    for v_key, v_value in select * from pg_catalog.jsonb_each(p_row -> 'details') loop
       if v_key not in ('purchase_time', 'booking_date', 'value_date', 'card', 'original_currency', 'original_amount',
                        'exchange_rate', 'fee', 'merchant_category', 'security', 'location')
          or pg_catalog.jsonb_typeof(v_value) not in ('string', 'number') then
+        r_details := null;
         reason := 'invalid_details'; return;
       end if;
+      if pg_catalog.jsonb_typeof(v_value) = 'string' then
+        v_text := private.clean_text(v_value #>> '{}');
+        if v_text <> '' then
+          r_details := r_details || pg_catalog.jsonb_build_object(v_key, v_text);
+        end if;
+      else
+        r_details := r_details || pg_catalog.jsonb_build_object(v_key, v_value);
+      end if;
     end loop;
+    if r_details = '{}'::jsonb then
+      r_details := null;
+    end if;
   end if;
   -- the caller's choices (a member only)
   if p_row ?| array['action', 'kind', 'category_id'] then
     if p_by_token then
       reason := 'choice_not_allowed'; return;
     end if;
+    if p_row ? 'action' and pg_catalog.jsonb_typeof(p_row -> 'action') not in ('string', 'null') then
+      reason := 'invalid_action'; return;
+    end if;
     r_action := p_row ->> 'action';
-    if p_row ? 'action' and r_action is not null and r_action not in ('import', 'skip') then
+    if r_action is not null and r_action not in ('import', 'skip') then
+      r_action := null;
       reason := 'invalid_action'; return;
     end if;
     if p_row ? 'kind' and (p_row ->> 'kind') is not null then
-      if (r_direction = 'debit' and (p_row ->> 'kind') <> 'expense')
+      if pg_catalog.jsonb_typeof(p_row -> 'kind') <> 'string'
+         or (r_direction = 'debit' and (p_row ->> 'kind') <> 'expense')
          or (r_direction = 'credit' and (p_row ->> 'kind') not in ('refund', 'extra_income')) then
         reason := 'invalid_kind'; return;
       end if;
       r_kind := (p_row ->> 'kind')::public.transaction_kind;
     end if;
     if p_row ? 'category_id' and (p_row ->> 'category_id') is not null then
-      if (p_row ->> 'category_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      if pg_catalog.jsonb_typeof(p_row -> 'category_id') <> 'string'
+         or (p_row ->> 'category_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
          or r_kind = 'extra_income' then
         reason := 'invalid_category'; return;
       end if;
@@ -414,12 +561,121 @@ begin
 end;
 $$;
 
+-- F3 (R-IMPORT-250): what is kept of a row that was not imported: the known keys only, each
+-- bounded like a valid row's (strings cut to their limits, details only within their bound),
+-- unknown keys named (at most 20 names of at most 40 characters), never their values; a row
+-- that is not an object is kept as its type. At most a few kilobytes, whatever was sent.
+create function private.import_row_digest(p_row jsonb)
+returns jsonb
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_out jsonb := '{}'::jsonb;
+  v_key text;
+  v_value jsonb;
+  v_unknown text[] := '{}'::text[];
+  v_max integer;
+begin
+  if p_row is null or pg_catalog.jsonb_typeof(p_row) <> 'object' then
+    return pg_catalog.jsonb_build_object('not_an_object', coalesce(pg_catalog.jsonb_typeof(p_row), 'null'));
+  end if;
+  for v_key, v_value in select * from pg_catalog.jsonb_each(p_row) loop
+    v_max := case v_key when 'date' then 10 when 'amount' then 20 when 'direction' then 10 when 'description' then 500
+                        when 'merchant' then 200 when 'bank_transaction_id' then 100 when 'hint' then 30
+                        when 'action' then 10 when 'kind' then 20 when 'category_id' then 36 end;
+    if v_key = 'details' then
+      if pg_catalog.jsonb_typeof(v_value) = 'object' and pg_catalog.octet_length(v_value::text) <= private.limit_import_details_bytes() then
+        v_out := v_out || pg_catalog.jsonb_build_object(v_key, v_value);
+      else
+        v_out := v_out || pg_catalog.jsonb_build_object(v_key, 'too large or not an object');
+      end if;
+    elsif v_max is null then
+      if pg_catalog.cardinality(v_unknown) < 20 then
+        v_unknown := v_unknown || pg_catalog.left(v_key, 40);
+      end if;
+    elsif pg_catalog.jsonb_typeof(v_value) = 'string'
+          or (pg_catalog.jsonb_typeof(v_value) = 'number' and char_length(v_value::text) > v_max) then
+      v_out := v_out || pg_catalog.jsonb_build_object(v_key, pg_catalog.left(v_value #>> '{}', v_max));
+    elsif pg_catalog.jsonb_typeof(v_value) in ('number', 'boolean', 'null') then
+      v_out := v_out || pg_catalog.jsonb_build_object(v_key, v_value);
+    else
+      v_out := v_out || pg_catalog.jsonb_build_object(v_key, pg_catalog.jsonb_typeof(v_value));
+    end if;
+  end loop;
+  if pg_catalog.cardinality(v_unknown) > 0 then
+    v_out := v_out || pg_catalog.jsonb_build_object('unknown_keys', pg_catalog.to_jsonb(v_unknown));
+  end if;
+  return v_out;
+end;
+$$;
+
+-- F8, F1: the rows argument: an array of 1 to 500 rows, at most 2 MB in all (before any row
+-- is read, before anything of the budget).
+create function private.assert_import_rows(p_rows jsonb)
+returns void
+language plpgsql
+immutable
+set search_path = ''
+as $$
+begin
+  if p_rows is null or pg_catalog.jsonb_typeof(p_rows) <> 'array'
+     or pg_catalog.jsonb_array_length(p_rows) not between 1 and private.limit_import_rows_per_call()
+     or pg_catalog.octet_length(p_rows::text) > private.limit_import_call_bytes() then
+    raise exception 'invalid_rows' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+-- F9 (D-377): a credit of exactly a planned income, within five days either side of
+-- a period start: the start of the row's own period (on or after it), or the start of the next
+-- period (before it; projected when that period does not exist yet), the income's amount in
+-- force in that period.
+create function private.import_salary(p_budget_id uuid, p_seq integer, p_date date, p_amount bigint,
+                                      out income_id uuid, out income_amount bigint)
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_period public.periods;
+  v_next date;
+  v_target integer;
+begin
+  select p.* into v_period from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq;
+  if p_date - v_period.start_date <= 5 then
+    v_target := p_seq;
+  else
+    v_next := coalesce((select p.start_date from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq + 1),
+                       v_period.end_date + 1);
+    if v_next - p_date between 1 and 5 then
+      v_target := p_seq + 1;
+    end if;
+  end if;
+  if v_target is null then
+    return;
+  end if;
+  select i.id, v.amount into income_id, income_amount
+  from public.incomes as i
+  cross join lateral (select iv.amount from public.income_versions as iv
+                      where iv.income_id = i.id and iv.effective_from_seq <= v_target
+                      order by iv.effective_from_seq desc limit 1) as v
+  where i.budget_id = p_budget_id and i.first_seq <= v_target and (i.end_seq is null or v_target < i.end_seq)
+    and v.amount = p_amount
+  order by i.created_at, i.id limit 1;
+end;
+$$;
+
 -- R-IMPORT-001 to R-IMPORT-003, R-IMPORT-070 to R-IMPORT-073, R-IMPORT-079, R-IMPORT-091 to
--- R-IMPORT-094, R-IMPORT-200 to R-IMPORT-206, D-310 to D-315: what importing p_rows into the
--- budget does, row by row, without writing anything. Rows are taken in order; within one
--- call an existing transaction absorbs at most one row (as its duplicate or its match), so
--- duplicates count; the batch's own transactions are never compared (rows of one import are
--- never duplicates of each other).
+-- R-IMPORT-094, R-IMPORT-200 to R-IMPORT-206, R-IMPORT-251, R-IMPORT-252, D-310, D-311, D-314,
+-- D-372, D-373: what importing p_rows into the budget does, row by row, without writing
+-- anything. Each existing transaction absorbs at most one row of the batch (as its duplicate
+-- or its match), counted over the whole batch: what its earlier chunks absorbed is remembered
+-- (private.import_absorbed). The batch's own transactions are never compared (rows of one
+-- import are never duplicates of each other). Duplicates first, in row order (the same bank
+-- id, else the same date, amount and description, now or as first imported); then possible
+-- matches, the nearest date first (ties: the row first, a charge first).
 create function private.import_plan(p_budget_id uuid, p_batch_id uuid, p_rows jsonb, p_by_token boolean)
 returns setof public.import_row_result
 language plpgsql
@@ -432,22 +688,26 @@ declare
   s record;
   r public.import_row_result;
   v_seq integer;
-  v_start date;
   v_used uuid[] := '{}'::uuid[];
   v_to_categorise uuid;
   v_hint_flag text;
-  v_default text;
+  v_plan public.import_row_result[] := '{}'::public.import_row_result[];
+  v_bank text[] := '{}'::text[];
+  v_choice text[] := '{}'::text[];
+  v_default text[] := '{}'::text[];
   v_dup uuid;
-  v_match uuid;
-  v_match_charge boolean;
+  v_taken integer[] := '{}'::integer[];
+  m record;
 begin
-  if p_rows is null or pg_catalog.jsonb_typeof(p_rows) <> 'array'
-     or pg_catalog.jsonb_array_length(p_rows) not between 1 and private.limit_import_rows_per_call() then
-    raise exception 'invalid_rows' using errcode = 'P0001';
-  end if;
+  perform private.assert_import_rows(p_rows);
   select c.id into v_to_categorise from public.categories as c
   where c.budget_id = p_budget_id and c.is_to_categorise and c.end_seq is null;
+  if p_batch_id is not null then
+    select coalesce(pg_catalog.array_agg(a.transaction_id), '{}') into v_used
+    from private.import_absorbed as a where a.batch_id = p_batch_id;
+  end if;
 
+  -- 1. each row on its own: shape, period, flag, kind, category
   for v_row, v_no in select e.value, e.ordinality::integer from pg_catalog.jsonb_array_elements(p_rows) with ordinality as e loop
     r := null;
     r.row_no := v_no;
@@ -457,26 +717,17 @@ begin
     r.reason := s.reason;
     if r.reason is null then
       r.merchant_key := private.merchant_key(s.r_merchant, s.r_description);
-      -- the date: in one of the budget's periods, not after today (add_transaction's check)
       begin
         v_seq := private.transaction_period_seq(p_budget_id, s.r_date);
-        select p.start_date into v_start from public.periods as p where p.budget_id = p_budget_id and p.seq = v_seq;
       exception when sqlstate 'P0001' then
         r.reason := sqlerrm;
       end;
     end if;
     if r.reason is null then
-      -- R-IMPORT-091 to R-IMPORT-093: what the source says, and a salary by its amount
       v_hint_flag := case when s.r_hint in ('card_bill_payment', 'own_transfer', 'transfer_to_person') then s.r_hint end;
       if s.r_direction = 'credit' then
-        select i.id, v.amount into r.salary_income_id, r.salary_income_amount
-        from public.incomes as i
-        cross join lateral (select iv.amount from public.income_versions as iv
-                            where iv.income_id = i.id and iv.effective_from_seq <= v_seq
-                            order by iv.effective_from_seq desc limit 1) as v
-        where i.budget_id = p_budget_id and i.first_seq <= v_seq and (i.end_seq is null or v_seq < i.end_seq)
-          and v.amount = s.r_amount and abs(s.r_date - v_start) <= 5
-        order by i.created_at, i.id limit 1;
+        select x.income_id, x.income_amount into r.salary_income_id, r.salary_income_amount
+        from private.import_salary(p_budget_id, v_seq, s.r_date, s.r_amount) as x;
         if r.salary_income_id is not null or s.r_hint = 'salary' then
           v_hint_flag := 'salary';
           if r.salary_income_id is null then
@@ -495,27 +746,28 @@ begin
         select c.choice into r.remembered_choice from public.import_choices as c
         where c.budget_id = p_budget_id and c.flag = r.flag and c.counterparty_key = r.merchant_key;
       end if;
-      -- the kind: an expense for a debit; a credit is a refund, or extra income for a salary
       r.kind := coalesce(s.r_kind, case when s.r_direction = 'debit' then 'expense'
                                         when r.flag = 'salary' then 'extra_income' else 'refund' end::public.transaction_kind);
-      -- the category: the caller's, else a rule's (in force on the date), else "to categorise"
       if r.kind <> 'extra_income' then
         if s.r_category is not null then
           begin
             perform private.assert_transaction_category(p_budget_id, r.kind, s.r_category, v_seq);
+            if exists (select 1 from public.categories as c where c.id = s.r_category and c.is_to_categorise) then
+              raise exception 'category_to_categorise' using errcode = 'P0001';
+            end if;
             r.category_id := s.r_category;
             r.category_source := 'choice';
           exception when sqlstate 'P0001' then
             r.reason := sqlerrm;
           end;
         else
-          select m.id, m.category_id into r.rule_id, r.category_id
-          from public.merchant_rules as m
-          join public.categories as c on c.id = m.category_id
-          where m.budget_id = p_budget_id and r.merchant_key is not null
-            and pg_catalog.strpos(r.merchant_key, m.fragment) > 0
+          select m2.id, m2.category_id into r.rule_id, r.category_id
+          from public.merchant_rules as m2
+          join public.categories as c on c.id = m2.category_id
+          where m2.budget_id = p_budget_id and r.merchant_key is not null
+            and pg_catalog.strpos(r.merchant_key, m2.fragment) > 0
             and not c.is_group and c.first_seq <= v_seq and (c.end_seq is null or v_seq < c.end_seq)
-          order by char_length(m.fragment) desc, m.created_at, m.id
+          order by char_length(m2.fragment) desc, m2.created_at, m2.id
           limit 1;
           if r.rule_id is not null then
             r.category_source := 'rule';
@@ -529,61 +781,78 @@ begin
     if r.reason is not null then
       r.valid := false;
       r.action := 'invalid';
-      return next r;
-      continue;
     end if;
-
-    -- R-IMPORT-070, R-IMPORT-071, D-313: a duplicate, counted: the same bank transaction id,
-    -- else the same date, amount and description, of the same kind, not yet absorbed
-    v_dup := null;
-    if s.r_bank_id is not null then
-      select t.id into v_dup from public.transactions as t
-      where t.budget_id = p_budget_id and t.bank_transaction_id = s.r_bank_id and t.kind = r.kind
-        and t.import_batch_id is distinct from p_batch_id and t.id <> all (v_used)
-      order by t.created_at, t.id limit 1;
-    end if;
-    if v_dup is null then
-      select t.id into v_dup from public.transactions as t
-      where t.budget_id = p_budget_id and t.kind = r.kind and t.amount = s.r_amount and t.date = s.r_date
-        and coalesce(t.description, '') = coalesce(s.r_description, '')
-        and t.import_batch_id is distinct from p_batch_id and t.id <> all (v_used)
-      order by t.created_at, t.id limit 1;
-    end if;
-    r.duplicate_of := v_dup;
-    -- R-IMPORT-203, D-315: a possible match: not imported, same kind and amount, within three
-    -- days, not yet absorbed
-    v_match := null;
-    v_match_charge := null;
-    if v_dup is null then
-      select t.id, t.review_state = 'awaiting_confirmation' into v_match, v_match_charge
-      from public.transactions as t
-      where t.budget_id = p_budget_id and t.kind = r.kind and t.amount = s.r_amount
-        and t.date between s.r_date - 3 and s.r_date + 3 and t.import_batch_id is null and t.id <> all (v_used)
-      order by abs(t.date - s.r_date), (t.review_state = 'awaiting_confirmation') desc, t.created_at, t.id
-      limit 1;
-    end if;
-    r.match_of := v_match;
-    r.match_is_charge := v_match_charge;
-
-    -- the action: the caller's choice, else the default
-    v_default := case
+    v_plan := v_plan || r;
+    v_bank := v_bank || s.r_bank_id;
+    v_choice := v_choice || s.r_action;
+    v_default := v_default || case
       when r.flag in ('card_bill_payment', 'own_transfer') then coalesce(r.remembered_choice, 'skip')
       when r.flag = 'transfer_to_person' then coalesce(r.remembered_choice, 'import')
       when r.flag = 'salary' then 'skip'
       else 'import' end;
-    if s.r_action = 'skip' then
+  end loop;
+
+  -- 2. duplicates (R-IMPORT-070, R-IMPORT-071, D-372), in row order
+  for i in 1 .. pg_catalog.cardinality(v_plan) loop
+    r := v_plan[i];
+    continue when not r.valid;
+    v_dup := null;
+    if v_bank[i] is not null then
+      select t.id into v_dup from public.transactions as t
+      where t.budget_id = p_budget_id and t.bank_transaction_id = v_bank[i] and t.kind = r.kind
+        and (p_batch_id is null or t.import_batch_id is distinct from p_batch_id) and t.id <> all (v_used)
+      order by t.created_at, t.id limit 1;
+    end if;
+    if v_dup is null then
+      select t.id into v_dup from public.transactions as t
+      where t.budget_id = p_budget_id and t.kind = r.kind
+        and ((t.amount = r.amount and t.date = r.date and coalesce(t.description, '') = coalesce(r.description, ''))
+             or (t.import_amount = r.amount and t.import_date = r.date
+                 and coalesce(t.import_description, '') = coalesce(r.description, '')))
+        and (p_batch_id is null or t.import_batch_id is distinct from p_batch_id) and t.id <> all (v_used)
+      order by t.created_at, t.id limit 1;
+    end if;
+    r.duplicate_of := v_dup;
+    if v_choice[i] = 'skip' then
       r.action := 'skip_chosen';
-    elsif s.r_action = 'import' then
+    elsif v_choice[i] = 'import' then
       r.action := 'import';
     elsif v_dup is not null then
       r.action := 'skip_duplicate';
       v_used := v_used || v_dup;
-    elsif v_default = 'skip' then
+    elsif v_default[i] = 'skip' then
       r.action := 'skip_flagged';
-    elsif v_match is not null then
-      r.action := case when v_match_charge and not p_by_token then 'confirm_match' else 'skip_matched' end;
-      v_used := v_used || v_match;
-    else
+    end if;
+    v_plan[i] := r;
+  end loop;
+
+  -- 3. possible matches (R-IMPORT-203, D-373): not imported, same kind and amount,
+  -- within three days either way; each transaction to the row nearest in date
+  for m in
+    select x.i, t.id as tx, t.review_state = 'awaiting_confirmation' as is_charge
+    from unnest(v_plan) with ordinality as x (row_no, valid, reason, action, kind, category_id, category_source, rule_id,
+                                              date, amount, direction, description, merchant_key, flag, remembered_choice,
+                                              duplicate_of, match_of, match_is_charge, salary_income_id, salary_income_amount,
+                                              transaction_id, chunk, i)
+    join public.transactions as t
+      on t.budget_id = p_budget_id and t.kind = x.kind and t.amount = x.amount
+     and t.date between x.date - 3 and x.date + 3 and t.import_batch_id is null
+    where x.valid and x.action is null and t.id <> all (v_used)
+    order by abs(t.date - x.date), x.i, (t.review_state = 'awaiting_confirmation') desc, t.created_at, t.id
+  loop
+    continue when m.i = any (v_taken) or m.tx = any (v_used);
+    r := v_plan[m.i];
+    r.match_of := m.tx;
+    r.match_is_charge := m.is_charge;
+    r.action := case when m.is_charge and not p_by_token then 'confirm_match' else 'skip_matched' end;
+    v_plan[m.i] := r;
+    v_taken := v_taken || m.i;
+    v_used := v_used || m.tx;
+  end loop;
+
+  for i in 1 .. pg_catalog.cardinality(v_plan) loop
+    r := v_plan[i];
+    if r.action is null then
       r.action := 'import';
     end if;
     return next r;
@@ -593,8 +862,9 @@ $$;
 
 -- R-IMPORT-001, R-IMPORT-004, R-IMPORT-080, D-310: do what the plan says. Under the budget
 -- lock, caught up, the batch checked. All or nothing: refused before anything is written when
--- the budget has no room for the rows to import (the detail says how many would fit). Returns
--- the plan rows with the transactions created.
+-- the budget has no room (a member is told how many would fit; a token is refused when the
+-- rows it sent do not all fit, whatever they would become, D-371). Returns the plan rows with
+-- the transactions created.
 create function private.import_apply(p_budget_id uuid, p_batch_id uuid, p_chunk integer, p_plan public.import_row_result[],
                                      p_rows jsonb, p_by_token boolean, p_to_categorise_name text)
 returns setof public.import_row_result
@@ -610,29 +880,31 @@ declare
   v_room integer;
   v_to_categorise uuid;
   v_first integer;
-  v_user uuid := (select auth.uid());
+  v_user uuid := case when p_by_token then null else (select auth.uid()) end;
 begin
   select pg_catalog.count(*)::integer into v_needed from unnest(p_plan) as x where x.action = 'import';
   v_room := private.transaction_room(p_budget_id);
-  if v_needed > v_room then
+  if p_by_token and pg_catalog.cardinality(p_plan) > v_room then
+    raise exception 'transaction_limit_reached' using errcode = 'P0001';
+  elsif v_needed > v_room then
     raise exception 'transaction_limit_reached' using errcode = 'P0001',
       detail = pg_catalog.json_build_object('fits', greatest(v_room, 0))::text;
   end if;
-  -- the "to categorise" category, created at the first import that needs it (D-312)
+  -- the "to categorise" category, created at the first import that needs it (D-375)
   if exists (select 1 from unnest(p_plan) as x where x.action = 'import' and x.kind <> 'extra_income' and x.category_id is null) then
     select c.id into v_to_categorise from public.categories as c
     where c.budget_id = p_budget_id and c.is_to_categorise and c.end_seq is null;
     if v_to_categorise is null then
       -- an ended one (emptied, then removed) gives its place up
       update public.categories set is_to_categorise = false where budget_id = p_budget_id and is_to_categorise;
-      -- created even at the 200 / 500 category limits (it needs no room: the import must not
-      -- fail for want of a place to put what it cannot categorise), within the 900-row bound
+      -- created even at the category limits (it does not count towards them, D-375), within
+      -- the 900-row bound
       if (select pg_catalog.count(*) from public.categories as c where c.budget_id = p_budget_id) + 1 > private.limit_rows_per_kind() then
         raise exception 'category_limit_reached' using errcode = 'P0001';
       end if;
       select pg_catalog.min(p.seq) into v_first from public.periods as p where p.budget_id = p_budget_id;
       insert into public.categories (budget_id, name, sort_order, first_seq, is_to_categorise)
-      values (p_budget_id, private.clean_name(coalesce(p_to_categorise_name, 'To categorise')),
+      values (p_budget_id, coalesce(p_to_categorise_name, 'To categorise'),
               (select coalesce(pg_catalog.max(c.sort_order), 0) + 1 from public.categories as c
                where c.budget_id = p_budget_id and c.parent_id is null),
               v_first, true)
@@ -643,29 +915,40 @@ begin
   end if;
   foreach r in array p_plan loop
     v_row := p_rows -> (r.row_no - 1);
+    r.chunk := nullif(p_chunk, 0);
     if r.action = 'import' then
       s := private.import_row_shape(v_row, p_by_token);
       if r.kind <> 'extra_income' and r.category_id is null then
         r.category_id := v_to_categorise;
       end if;
       insert into public.transactions (budget_id, kind, amount, date, category_id, description, recorded_by, review_state,
-                                       import_batch_id, bank_transaction_id, merchant, merchant_key, details)
+                                       import_batch_id, bank_transaction_id, merchant, merchant_key, details,
+                                       import_amount, import_date, import_description)
       values (p_budget_id, r.kind, r.amount, r.date, r.category_id, r.description, v_user, 'to_review',
-              p_batch_id, s.r_bank_id, s.r_merchant, r.merchant_key, s.r_details)
+              p_batch_id, s.r_bank_id, s.r_merchant, r.merchant_key, s.r_details,
+              r.amount, r.date, r.description)
       returning id into r.transaction_id;
     else
       if r.action = 'confirm_match' then
         update public.transactions set review_state = 'confirmed'
         where id = r.match_of and review_state = 'awaiting_confirmation';
       end if;
-      insert into public.import_skipped_rows (budget_id, batch_id, chunk, row_no, reason, detail, duplicate_of, match_of, row_data)
-      values (p_budget_id, p_batch_id, p_chunk, r.row_no,
-              case r.action when 'skip_duplicate' then 'duplicate' when 'skip_flagged' then 'flagged'
-                            when 'skip_matched' then 'matched' when 'confirm_match' then 'matched'
-                            when 'skip_chosen' then 'chosen' else 'invalid' end,
-              case when r.action = 'invalid' then r.reason when r.action in ('skip_flagged', 'skip_chosen') then r.flag end,
-              r.duplicate_of, r.match_of, coalesce(v_row, 'null'::jsonb))
-      on conflict (batch_id, chunk, row_no) do nothing;
+      -- F4: what this row absorbed is the batch's from now on
+      if r.action in ('skip_duplicate', 'skip_matched', 'confirm_match') then
+        insert into private.import_absorbed (batch_id, transaction_id)
+        values (p_batch_id, coalesce(r.duplicate_of, r.match_of))
+        on conflict do nothing;
+      end if;
+      if p_chunk > 0 then
+        insert into public.import_skipped_rows (budget_id, batch_id, chunk, row_no, reason, detail, duplicate_of, match_of, row_data)
+        values (p_budget_id, p_batch_id, p_chunk, r.row_no,
+                case r.action when 'skip_duplicate' then 'duplicate' when 'skip_flagged' then 'flagged'
+                              when 'skip_matched' then 'matched' when 'confirm_match' then 'matched'
+                              when 'skip_chosen' then 'chosen' else 'invalid' end,
+                case when r.action = 'invalid' then r.reason when r.action in ('skip_flagged', 'skip_chosen') then r.flag end,
+                r.duplicate_of, r.match_of, private.import_row_digest(v_row))
+        on conflict (batch_id, chunk, row_no) do nothing;
+      end if;
     end if;
     -- R-IMPORT-092, D-314: a member's choice for a flagged entry is remembered
     if not p_by_token and r.flag in ('card_bill_payment', 'own_transfer', 'transfer_to_person') and r.merchant_key is not null
@@ -677,11 +960,45 @@ begin
     end if;
     return next r;
   end loop;
+  -- F14: at most so many remembered choices; the least recently used go
+  delete from public.import_choices as c
+  where c.budget_id = p_budget_id
+    and (c.flag, c.counterparty_key) in (select k.flag, k.counterparty_key from public.import_choices as k
+                                         where k.budget_id = p_budget_id
+                                         order by k.updated_at desc, k.flag, k.counterparty_key
+                                         offset private.limit_import_choices());
+end;
+$$;
+
+-- F1, F8: every argument of an import call, checked before anything of the budget.
+create function private.assert_import_args(p_batch_id uuid, p_chunk integer, p_rows jsonb, p_source text,
+                                           p_from date, p_to date)
+returns void
+language plpgsql
+immutable
+set search_path = ''
+as $$
+begin
+  if p_batch_id is null then
+    raise exception 'invalid_batch' using errcode = 'P0001';
+  end if;
+  if p_chunk is null or p_chunk not between 1 and private.limit_import_chunks() then
+    raise exception 'invalid_chunk' using errcode = 'P0001';
+  end if;
+  if p_source is null or p_source not in ('csv', 'migros_account', 'migros_card', 'yuh', 'script', 'other') then
+    raise exception 'invalid_source' using errcode = 'P0001';
+  end if;
+  if (p_from is not null and not private.is_sane_date(p_from)) or (p_to is not null and not private.is_sane_date(p_to))
+     or p_from > p_to then
+    raise exception 'invalid_date' using errcode = 'P0001';
+  end if;
+  perform private.assert_import_rows(p_rows);
 end;
 $$;
 
 -- Lock the budget, catch up (one step, catching_up otherwise), and check or create the batch.
-create function private.import_open_batch(p_budget_id uuid, p_batch_id uuid, p_chunk integer, p_source text,
+-- Its arguments were checked before (private.assert_import_args).
+create function private.import_open_batch(p_budget_id uuid, p_batch_id uuid, p_source text,
                                           p_from date, p_to date, p_token public.import_tokens)
 returns public.import_batches
 language plpgsql
@@ -691,31 +1008,18 @@ as $$
 declare
   v_batch public.import_batches;
 begin
-  if p_batch_id is null then
-    raise exception 'invalid_batch' using errcode = 'P0001';
-  end if;
-  if p_chunk is null or p_chunk not between 1 and private.limit_import_chunks() then
-    raise exception 'invalid_chunk' using errcode = 'P0001';
-  end if;
   perform private.lock_and_catch_up(p_budget_id);
-  -- a token revoked while this call waited for the lock is refused (revoking takes the lock)
-  if p_token.id is not null and not exists (select 1 from public.import_tokens as t
-                                            where t.id = p_token.id and t.revoked_at is null and t.expires_at > now()) then
+  -- a token revoked (or its creator gone) while this call waited for the lock is refused
+  if p_token.id is not null and private.token_by_id(p_token.id) is null then
     raise exception 'invalid_token' using errcode = 'P0001';
   end if;
+  -- F8: two budgets racing for one new batch id get a clean answer (no unique violation)
+  insert into public.import_batches (id, budget_id, source, statement_from, statement_to, created_by, token_id, token_name)
+  values (p_batch_id, p_budget_id, p_source, p_from, p_to,
+          case when p_token.id is null then (select auth.uid()) end, p_token.id, p_token.name)
+  on conflict (id) do nothing;
   select b.* into v_batch from public.import_batches as b where b.id = p_batch_id;
-  if v_batch.id is null then
-    if p_source is null or p_source not in ('csv', 'migros_account', 'migros_card', 'yuh', 'script', 'other') then
-      raise exception 'invalid_source' using errcode = 'P0001';
-    end if;
-    if (p_from is not null and not private.is_sane_date(p_from)) or (p_to is not null and not private.is_sane_date(p_to))
-       or p_from > p_to then
-      raise exception 'invalid_date' using errcode = 'P0001';
-    end if;
-    insert into public.import_batches (id, budget_id, source, statement_from, statement_to, created_by, token_id, token_name)
-    values (p_batch_id, p_budget_id, p_source, p_from, p_to, (select auth.uid()), p_token.id, p_token.name)
-    returning * into v_batch;
-  elsif v_batch.budget_id <> p_budget_id then
+  if v_batch.budget_id <> p_budget_id then
     raise exception 'import_batch_conflict' using errcode = 'P0001';
   elsif v_batch.undone_at is not null then
     raise exception 'batch_undone' using errcode = 'P0001';
@@ -738,7 +1042,7 @@ declare
   v_result public.import_row_result[];
   v_by_token boolean := p_token.id is not null;
 begin
-  perform private.import_open_batch(p_budget_id, p_batch_id, p_chunk, p_source, p_from, p_to, p_token);
+  perform private.import_open_batch(p_budget_id, p_batch_id, p_source, p_from, p_to, p_token);
   -- idempotent: a chunk already recorded answers what it answered then, records nothing
   select c.result into v_done from private.import_chunks as c where c.batch_id = p_batch_id and c.chunk = p_chunk;
   if v_done is not null then
@@ -770,8 +1074,9 @@ $$;
 
 -- What import_transactions with the same rows would do now, row by row; changes nothing
 -- (one catch-up step, like every read). p_batch_id: the batch the rows will be sent in (its
--- earlier chunks are not compared with them). Members. Errors: budget_not_found,
--- invalid_rows (not an array of 1 to 500 rows), catching_up.
+-- earlier chunks are not compared with them, and what they absorbed counts); null: a batch not
+-- yet started, with the same answer as its first chunk (F6). Members. Errors: budget_not_found,
+-- invalid_rows, catching_up.
 create function public.preview_import(p_budget_id uuid, p_batch_id uuid, p_rows jsonb)
 returns setof public.import_row_result
 language plpgsql
@@ -781,6 +1086,7 @@ set search_path = ''
 as $$
 begin
   perform private.assert_member(p_budget_id);
+  perform private.assert_import_rows(p_rows);
   perform private.read_catch_up(p_budget_id);
   return query select * from private.import_plan(p_budget_id, p_batch_id, p_rows, false);
 end;
@@ -789,10 +1095,10 @@ $$;
 -- Import one chunk (1 to 100) of a batch (the caller's id) of at most 500 rows, exactly as
 -- preview_import says for the same rows. The first chunk creates the batch with its source
 -- and statement range; a chunk sent again answers what it answered the first time and records
--- nothing (D-310). Members. Errors: budget_not_found, invalid_batch, invalid_chunk,
--- invalid_source, invalid_date (the statement range), invalid_rows, import_batch_conflict (the
--- id is another budget's batch), batch_undone, transaction_limit_reached (detail: {"fits": n}),
--- category_limit_reached (creating "to categorise"), catching_up.
+-- nothing (D-310). Every argument is checked first (F1). Members. Errors: budget_not_found,
+-- invalid_batch, invalid_chunk, invalid_source, invalid_date (the statement range),
+-- invalid_rows, invalid_name (p_to_categorise_name), import_batch_conflict, batch_undone,
+-- transaction_limit_reached (detail: {"fits": n}), category_limit_reached, catching_up.
 create function public.import_transactions(
   p_budget_id uuid,
   p_batch_id uuid,
@@ -809,18 +1115,26 @@ volatile
 security definer
 set search_path = ''
 as $$
+declare
+  v_name text;
 begin
   perform private.assert_member(p_budget_id);
+  perform private.assert_import_args(p_batch_id, p_chunk, p_rows, p_source, p_statement_from, p_statement_to);
+  if p_to_categorise_name is not null then
+    v_name := private.clean_name(p_to_categorise_name);
+  end if;
   return query select * from private.import_chunk(p_budget_id, p_batch_id, p_chunk, p_rows, p_source,
-                                                  p_statement_from, p_statement_to, p_to_categorise_name, null::public.import_tokens);
+                                                  p_statement_from, p_statement_to, v_name, null::public.import_tokens);
 end;
 $$;
 
--- R-IMPORT-073, R-IMPORT-204: import skipped rows of a batch anyway (all of them by default):
--- each is planned again now with the action "import" (duplicates and matches no longer
--- matter), through the same code; rows that are no longer valid stay skipped. Returns the
--- rows as the plan answers them. Members. Errors: import_batch_not_found, batch_undone,
--- transaction_limit_reached, catching_up.
+-- R-IMPORT-073, R-IMPORT-204, F15: import skipped rows of a batch anyway (all of them by
+-- default, at most 500 a call): each is planned again now with the action "import" (duplicates
+-- and matches no longer matter), through the same code; rows no longer valid stay skipped.
+-- Answers each row with its own chunk and row_no. The batch's counts move from the row's
+-- reason to imported (once per row: a row imported anyway whose transaction was deleted since
+-- can be imported anyway again, without counting it twice). Members. Errors:
+-- import_batch_not_found, batch_undone, transaction_limit_reached, catching_up.
 create function public.import_skipped_anyway(p_batch_id uuid, p_skipped_row_ids uuid[] default null)
 returns setof public.import_row_result
 language plpgsql
@@ -834,6 +1148,7 @@ declare
   v_ids uuid[];
   v_plan public.import_row_result[];
   r public.import_row_result;
+  k public.import_skipped_rows;
 begin
   select b.* into v_batch from public.import_batches as b where b.id = p_batch_id;
   if v_batch.id is null or not private.is_budget_member(v_batch.budget_id) then
@@ -849,10 +1164,10 @@ begin
            (x.row_data - 'action' - 'kind' - 'category_id') || pg_catalog.jsonb_build_object('action', 'import')
            order by x.chunk, x.row_no)
   into v_ids, v_rows
-  from (select k.* from public.import_skipped_rows as k
-        where k.batch_id = p_batch_id and k.reason <> 'invalid' and k.imported_transaction_id is null
-          and (p_skipped_row_ids is null or k.id = any (p_skipped_row_ids))
-        order by k.chunk, k.row_no
+  from (select s.* from public.import_skipped_rows as s
+        where s.batch_id = p_batch_id and s.reason <> 'invalid' and s.imported_transaction_id is null
+          and (p_skipped_row_ids is null or s.id = any (p_skipped_row_ids))
+        order by s.chunk, s.row_no
         limit private.limit_import_rows_per_call()) as x;
   if v_ids is null then
     return;
@@ -860,44 +1175,97 @@ begin
   -- the original choices (a kind, a category) of a row are dropped: the member's review decides
   select pg_catalog.array_agg(p order by p.row_no) into v_plan from private.import_plan(v_batch.budget_id, p_batch_id, v_rows, false) as p;
   for r in select * from private.import_apply(v_batch.budget_id, p_batch_id, 0, v_plan, v_rows, false, null) loop
+    select s.* into k from public.import_skipped_rows as s where s.id = v_ids[r.row_no];
     if r.action = 'import' then
-      update public.import_skipped_rows set imported_transaction_id = r.transaction_id where id = v_ids[r.row_no];
+      update public.import_skipped_rows set imported_transaction_id = r.transaction_id, imported_at = coalesce(imported_at, now())
+      where id = k.id;
+      if k.imported_at is null then
+        update public.import_batches set
+          imported_count = imported_count + 1,
+          duplicate_count = duplicate_count - (k.reason = 'duplicate')::integer,
+          flagged_count = flagged_count - (k.reason = 'flagged')::integer,
+          matched_count = matched_count - (k.reason = 'matched')::integer,
+          chosen_skip_count = chosen_skip_count - (k.reason = 'chosen')::integer
+        where id = p_batch_id;
+      end if;
     end if;
+    r.chunk := k.chunk;
+    r.row_no := k.row_no;
     return next r;
   end loop;
-  -- rows planned again record no new skipped row (chunk 0 rows are discarded)
-  delete from public.import_skipped_rows where batch_id = p_batch_id and chunk = 0;
-  update public.import_batches set imported_count = imported_count + (
-    select pg_catalog.count(*) from public.import_skipped_rows as k where k.id = any (v_ids) and k.imported_transaction_id is not null)
-  where id = p_batch_id;
 end;
 $$;
 
 -- ===========================================================================
--- RPCs: import with a token (R-IMPORT-006, R-IMPORT-075 to R-IMPORT-077, D-116, D-316)
+-- RPCs: import with a token (R-IMPORT-006, R-IMPORT-075 to R-IMPORT-077, D-116, D-370)
 -- ===========================================================================
 
--- The token's row, or nothing: one index lookup by hash whatever the token is.
-create function private.token_by_secret(p_token text)
-returns public.import_tokens
+-- A token that can be used: not revoked, not expired, and its creator still a member of its
+-- budget (F2: whatever order a deletion runs its triggers in, a creator gone ends the token).
+create function private.token_usable(p_token public.import_tokens)
+returns boolean
 language sql
 stable
 set search_path = ''
 as $$
-  select t.* from public.import_tokens as t
-  where t.token_hash = pg_catalog.sha256(pg_catalog.convert_to(coalesce(p_token, ''), 'UTF8'))
-    and t.revoked_at is null and t.expires_at > now()
+  select p_token.id is not null and p_token.revoked_at is null and p_token.expires_at > now()
+     and exists (select 1 from public.budget_members as m
+                 where m.budget_id = p_token.budget_id and m.user_id = p_token.created_by)
 $$;
 
--- Callable without a session (the publishable key only). An unknown, expired or revoked token
--- gets invalid_token, before any lock or catch-up. Rows are imported with the default choices
--- (a row with a choice is refused: choice_not_allowed), possible matches are skipped, never
--- confirmed. The answer reads nothing of the budget: how many rows were received, and the
--- reasons of rows refused for their own content only (rows refused for the budget's sake are
--- received and wait in the batch for a member). Limits per token: 60 calls and 5000 rows an
--- hour, 300 calls and 20 000 rows a day (token_rate_limited). Errors: invalid_token,
--- token_rate_limited, invalid_batch, invalid_chunk, invalid_source, invalid_rows,
--- import_batch_conflict, batch_undone, transaction_limit_reached, catching_up.
+-- The token's row when it can be used, or nothing: one index lookup by hash whatever the
+-- token is, before any lock (R-IMPORT-205).
+create function private.token_by_secret(p_token text)
+returns public.import_tokens
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_token public.import_tokens;
+begin
+  select t.* into v_token from public.import_tokens as t
+  where t.token_hash = pg_catalog.sha256(pg_catalog.convert_to(coalesce(p_token, ''), 'UTF8'));
+  if not private.token_usable(v_token) then
+    return null;
+  end if;
+  return v_token;
+end;
+$$;
+
+create function private.token_by_id(p_token_id uuid)
+returns public.import_tokens
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_token public.import_tokens;
+begin
+  select t.* into v_token from public.import_tokens as t where t.id = p_token_id;
+  if not private.token_usable(v_token) then
+    return null;
+  end if;
+  return v_token;
+end;
+$$;
+
+-- Callable without a session (the publishable key only), by POST only (F-token: a GET would
+-- put the token in the gateway's logs; PostgREST runs a GET read-only, refused here before the
+-- token is looked at). An unknown, expired or revoked token, or one whose creator left the
+-- budget, gets invalid_token, before any lock or catch-up. Then the call is counted, whatever
+-- comes next (F10): under the token's own lock, the calls and rows of the last 60 minutes and
+-- the last 24 hours are checked and this call added in one step. Over a limit: error
+-- token_rate_limited. Then every argument is checked before anything of the budget (F1).
+-- Rows are imported with the default choices (a row with a choice is refused:
+-- choice_not_allowed), recorded by nobody (the batch names the token), possible matches
+-- skipped, never confirmed, "to categorise" created under its fixed name. The answer reads
+-- nothing of the budget beyond two coarse states (the budget is full; it is far behind:
+-- D-371): received, and the reasons of rows refused for their own content only. Once counted,
+-- a refusal is answered in error (with received 0), not raised, so the count stands. Errors
+-- raised: invalid_token, read_only_call. In error: token_rate_limited, invalid_batch,
+-- invalid_chunk, invalid_source, invalid_date, invalid_rows, import_batch_conflict,
+-- batch_undone, transaction_limit_reached, category_limit_reached, catching_up.
 create function public.import_with_token(
   p_token text,
   p_batch_id uuid,
@@ -905,10 +1273,9 @@ create function public.import_with_token(
   p_rows jsonb,
   p_source text default 'script',
   p_statement_from date default null,
-  p_statement_to date default null,
-  p_to_categorise_name text default null
+  p_statement_to date default null
 )
-returns table (received integer, refused integer, refused_rows jsonb)
+returns table (received integer, refused integer, refused_rows jsonb, error text)
 language plpgsql
 volatile
 security definer
@@ -917,43 +1284,61 @@ as $$
 #variable_conflict use_column
 declare
   v_token public.import_tokens;
-  v_hour timestamptz := pg_catalog.date_trunc('hour', now());
+  v_now timestamptz := pg_catalog.clock_timestamp();
+  v_minute timestamptz := pg_catalog.date_trunc('minute', pg_catalog.clock_timestamp());
   v_rows integer;
   v_used record;
   v_result public.import_row_result[];
 begin
+  if pg_catalog.current_setting('transaction_read_only') = 'on' then
+    raise exception 'read_only_call' using errcode = 'P0001';
+  end if;
   v_token := private.token_by_secret(p_token);
   if v_token.id is null then
     raise exception 'invalid_token' using errcode = 'P0001';
   end if;
   v_rows := case when pg_catalog.jsonb_typeof(p_rows) = 'array' then pg_catalog.jsonb_array_length(p_rows) else 0 end;
-  -- the token's own rate (counted when the call is accepted)
-  select coalesce(pg_catalog.sum(u.calls) filter (where u.hour = v_hour), 0) as calls_hour,
-         coalesce(pg_catalog.sum(u.rows) filter (where u.hour = v_hour), 0) as rows_hour,
+  -- F10: the check and the count in one step, under the token's own lock; rolling windows
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('import_token:' || v_token.id::text, 0));
+  delete from private.import_token_usage as u where u.token_id = v_token.id and u.minute <= v_now - interval '24 hours';
+  select coalesce(pg_catalog.sum(u.calls) filter (where u.minute > v_now - interval '60 minutes'), 0) as calls_hour,
+         coalesce(pg_catalog.sum(u.rows) filter (where u.minute > v_now - interval '60 minutes'), 0) as rows_hour,
          coalesce(pg_catalog.sum(u.calls), 0) as calls_day, coalesce(pg_catalog.sum(u.rows), 0) as rows_day
   into v_used
-  from private.import_token_usage as u where u.token_id = v_token.id and u.hour > v_hour - interval '24 hours';
+  from private.import_token_usage as u where u.token_id = v_token.id and u.minute > v_now - interval '24 hours';
+  update public.import_tokens set last_used_at = v_now where id = v_token.id;
   if v_used.calls_hour + 1 > private.limit_token_calls_per_hour() or v_used.calls_day + 1 > private.limit_token_calls_per_day()
      or v_used.rows_hour + v_rows > private.limit_token_rows_per_hour() or v_used.rows_day + v_rows > private.limit_token_rows_per_day() then
-    raise exception 'token_rate_limited' using errcode = 'P0001';
+    insert into private.import_token_usage (token_id, minute, calls, rows) values (v_token.id, v_minute, 1, 0)
+    on conflict (token_id, minute) do update set calls = private.import_token_usage.calls + 1;
+    return query select 0, 0, '[]'::jsonb, 'token_rate_limited'::text;
+    return;
   end if;
-  select pg_catalog.array_agg(c order by c.row_no) into v_result
-  from private.import_chunk(v_token.budget_id, p_batch_id, p_chunk, p_rows, p_source, p_statement_from, p_statement_to,
-                            p_to_categorise_name, v_token) as c;
-  insert into private.import_token_usage (token_id, hour, calls, rows) values (v_token.id, v_hour, 1, v_rows)
-  on conflict (token_id, hour) do update set calls = private.import_token_usage.calls + 1,
-                                             rows = private.import_token_usage.rows + excluded.rows;
-  update public.import_tokens set last_used_at = now() where id = v_token.id;
+  insert into private.import_token_usage (token_id, minute, calls, rows) values (v_token.id, v_minute, 1, v_rows)
+  on conflict (token_id, minute) do update set calls = private.import_token_usage.calls + 1,
+                                               rows = private.import_token_usage.rows + excluded.rows;
+  begin
+    perform private.assert_import_args(p_batch_id, p_chunk, p_rows, p_source, p_statement_from, p_statement_to);
+    select pg_catalog.array_agg(c order by c.row_no) into v_result
+    from private.import_chunk(v_token.budget_id, p_batch_id, p_chunk, p_rows, p_source, p_statement_from, p_statement_to,
+                              null, v_token) as c;
+  exception when sqlstate 'P0001' then
+    return query select 0, 0, '[]'::jsonb, sqlerrm;
+    return;
+  end;
   return query
     select pg_catalog.count(*) filter (where not (x.action = 'invalid' and x.reason = any (private.import_shape_reasons())))::integer,
            pg_catalog.count(*) filter (where x.action = 'invalid' and x.reason = any (private.import_shape_reasons()))::integer,
            coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('row', x.row_no, 'reason', x.reason) order by x.row_no)
-                      filter (where x.action = 'invalid' and x.reason = any (private.import_shape_reasons())), '[]'::jsonb)
+                      filter (where x.action = 'invalid' and x.reason = any (private.import_shape_reasons())), '[]'::jsonb),
+           null::text
     from unnest(v_result) as x;
 end;
 $$;
 
--- R-IMPORT-074: a token for one budget; the secret is answered once and never stored.
+-- R-IMPORT-074, F11: a token for one budget; the secret is answered once and never stored. At
+-- most 10 tokens that can still be used; revoked and expired ones are kept for the batch list,
+-- the newest 20 of them for at most 365 days, then pruned.
 create function public.create_import_token(p_budget_id uuid, p_name text, p_expires_in_days integer default 30)
 returns table (token_id uuid, token text, expires_at timestamptz)
 language plpgsql
@@ -974,9 +1359,9 @@ begin
     raise exception 'invalid_expiry' using errcode = 'P0001';
   end if;
   perform private.lock_budget(p_budget_id);
+  perform private.prune_import_tokens(p_budget_id);
   if (select pg_catalog.count(*) from public.import_tokens as t
-      where t.budget_id = p_budget_id and t.revoked_at is null and t.expires_at > now()) >= private.limit_import_tokens_active()
-     or (select pg_catalog.count(*) from public.import_tokens as t where t.budget_id = p_budget_id) >= private.limit_import_tokens_total() then
+      where t.budget_id = p_budget_id and t.revoked_at is null and t.expires_at > now()) >= private.limit_import_tokens_active() then
     raise exception 'token_limit_reached' using errcode = 'P0001';
   end if;
   v_secret := 'bti_' || pg_catalog.replace(gen_random_uuid()::text, '-', '') || pg_catalog.replace(gen_random_uuid()::text, '-', '');
@@ -986,6 +1371,23 @@ begin
   returning id into v_id;
   return query select v_id, v_secret, v_expires;
 end;
+$$;
+
+-- F11: revoked and expired tokens beyond the newest 20, or older than 365 days, go (their
+-- batches keep the token's name).
+create function private.prune_import_tokens(p_budget_id uuid)
+returns void
+language sql
+volatile
+set search_path = ''
+as $$
+  delete from public.import_tokens as t
+  where t.budget_id = p_budget_id and (t.revoked_at is not null or t.expires_at <= now())
+    and (t.created_at < now() - pg_catalog.make_interval(days => private.limit_import_tokens_kept_days())
+         or t.id in (select k.id from public.import_tokens as k
+                     where k.budget_id = p_budget_id and (k.revoked_at is not null or k.expires_at <= now())
+                     order by coalesce(k.revoked_at, k.expires_at) desc, k.id
+                     offset private.limit_import_tokens_kept()))
 $$;
 
 -- R-IMPORT-077: revoked at once and for good. Idempotent. Members of its budget.
@@ -1009,8 +1411,37 @@ begin
 end;
 $$;
 
--- R-IMPORT-205: a member who leaves or is removed (or whose account is deleted) takes the
--- tokens they created for that budget with them.
+-- F11: a member deletes a revoked or expired token (one that can still be used: token_active;
+-- revoke it first). Its batches keep its name. Members of its budget.
+create function public.delete_import_token(p_token_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_token public.import_tokens;
+begin
+  select t.* into v_token from public.import_tokens as t where t.id = p_token_id;
+  if v_token.id is null or not private.is_budget_member(v_token.budget_id) then
+    raise exception 'token_not_found' using errcode = 'P0001';
+  end if;
+  perform private.lock_budget(v_token.budget_id);
+  select t.* into v_token from public.import_tokens as t where t.id = p_token_id;
+  if v_token.id is null then
+    raise exception 'token_not_found' using errcode = 'P0001';
+  end if;
+  if v_token.revoked_at is null and v_token.expires_at > now() then
+    raise exception 'token_active' using errcode = 'P0001';
+  end if;
+  delete from public.import_tokens where id = p_token_id;
+end;
+$$;
+
+-- R-IMPORT-205, F2: a member who leaves or is removed takes the tokens they created for that
+-- budget with them (only theirs); a token whose creator's account is deleted is revoked when
+-- the creator is set to null, whichever trigger runs first.
 create function private.revoke_tokens_of_member()
 returns trigger
 language plpgsql
@@ -1019,20 +1450,36 @@ set search_path = ''
 as $$
 begin
   update public.import_tokens set revoked_at = now()
-  where budget_id = old.budget_id and created_by = old.user_id and revoked_at is null;
+  where budget_id = old.budget_id and (created_by = old.user_id or created_by is null) and revoked_at is null;
   return old;
 end;
 $$;
 create trigger budget_members_revoke_tokens after delete on public.budget_members
   for each row execute function private.revoke_tokens_of_member();
 
+create function private.revoke_token_without_creator()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.created_by is null and old.created_by is not null and new.revoked_at is null then
+    new.revoked_at := now();
+  end if;
+  return new;
+end;
+$$;
+create trigger import_tokens_revoke_without_creator before update of created_by on public.import_tokens
+  for each row execute function private.revoke_token_without_creator();
+
 -- ===========================================================================
 -- RPCs: review (R-IMPORT-081, R-IMPORT-007, R-IMPORT-202)
 -- ===========================================================================
 
 -- The transaction is reviewed: to_review becomes confirmed. Not from "to categorise" (choose
--- a category first). Members. Errors: transaction_not_found, record_changed, invalid_revision,
--- not_to_review, category_to_categorise, catching_up.
+-- a category first). Confirming changes no amount, date, category or link, so a frozen
+-- payment of an ended debt can be confirmed (D-374). Members. Errors: transaction_not_found,
+-- record_changed, invalid_revision, not_to_review, category_to_categorise, catching_up.
 create function public.confirm_import(p_transaction_id uuid, p_expected_revision integer)
 returns setof public.transaction_list
 language plpgsql
@@ -1065,9 +1512,10 @@ begin
 end;
 $$;
 
--- Confirm in one call every transaction to review of the budget (or of one batch) that is not
--- in "to categorise". Under the budget lock. Returns how many were confirmed and how many are
--- left in "to categorise". Members. Errors: budget_not_found, import_batch_not_found, catching_up.
+-- Confirm in one call every transaction to review of the budget (or of one of its batches)
+-- that is not in "to categorise". Under the budget lock. Returns how many were confirmed and
+-- how many are left in "to categorise". Members. Errors: budget_not_found,
+-- import_batch_not_found, catching_up.
 create function public.confirm_imports(p_budget_id uuid, p_batch_id uuid default null)
 returns table (confirmed integer, left_to_categorise integer)
 language plpgsql
@@ -1091,15 +1539,18 @@ begin
   get diagnostics v_confirmed = row_count;
   return query select v_confirmed,
     (select pg_catalog.count(*)::integer from public.transactions as t
+     join public.categories as c on c.id = t.category_id and c.is_to_categorise
      where t.budget_id = p_budget_id and t.review_state = 'to_review' and (p_batch_id is null or t.import_batch_id = p_batch_id));
 end;
 $$;
 
--- R-IMPORT-206: undo a batch: its transactions still to review are deleted; the confirmed ones,
--- and the charges it confirmed, stay; the remembered choices stay. Once. Members. Errors:
+-- R-IMPORT-206, F5: undo a batch: its transactions still to review are deleted, except those
+-- linked to a debt, a subscription or a transfer (a payment of an ended debt is frozen; a link
+-- is the member's work): those stay, counted in kept_linked; the confirmed ones and the charges
+-- it confirmed stay; the remembered choices stay. Once. Members. Errors:
 -- import_batch_not_found, batch_undone, catching_up.
 create function public.undo_import_batch(p_batch_id uuid)
-returns table (deleted integer, kept_confirmed integer, charges_confirmed integer)
+returns table (deleted integer, kept_confirmed integer, kept_linked integer, charges_confirmed integer)
 language plpgsql
 volatile
 security definer
@@ -1119,11 +1570,14 @@ begin
   if v_batch.undone_at is not null then
     raise exception 'batch_undone' using errcode = 'P0001';
   end if;
-  delete from public.transactions where import_batch_id = p_batch_id and review_state = 'to_review';
+  delete from public.transactions
+  where import_batch_id = p_batch_id and review_state = 'to_review'
+    and debt_id is null and subscription_id is null and transfer_occurrence_id is null;
   get diagnostics v_deleted = row_count;
   update public.import_batches set undone_at = now(), undone_by = (select auth.uid()) where id = p_batch_id;
   return query select v_deleted,
-    (select pg_catalog.count(*)::integer from public.transactions as t where t.import_batch_id = p_batch_id),
+    (select pg_catalog.count(*)::integer from public.transactions as t where t.import_batch_id = p_batch_id and t.review_state <> 'to_review'),
+    (select pg_catalog.count(*)::integer from public.transactions as t where t.import_batch_id = p_batch_id and t.review_state = 'to_review'),
     v_batch.charges_confirmed_count;
 end;
 $$;
@@ -1158,8 +1612,9 @@ begin
 end;
 $$;
 
--- R-IMPORT-202: move the to-review transactions waiting in "to categorise" whose key contains
--- the rule's fragment to its category, where that category is in force on their date.
+-- R-IMPORT-202, F5: move the to-review transactions waiting in "to categorise" whose key
+-- contains the rule's fragment to its category, where that category is in force on their
+-- date. Never a transaction linked to a debt, a subscription or a transfer.
 create function private.apply_merchant_rule(p_rule public.merchant_rules)
 returns integer
 language plpgsql
@@ -1172,6 +1627,7 @@ begin
   update public.transactions as t set category_id = p_rule.category_id
   from public.categories as tc, public.categories as c
   where t.budget_id = p_rule.budget_id and t.review_state = 'to_review' and t.kind <> 'extra_income'
+    and t.debt_id is null and t.subscription_id is null and t.transfer_occurrence_id is null
     and tc.id = t.category_id and tc.is_to_categorise
     and t.merchant_key is not null and pg_catalog.strpos(t.merchant_key, p_rule.fragment) > 0
     and c.id = p_rule.category_id and not c.is_group
@@ -1296,8 +1752,10 @@ end;
 $$;
 
 -- ===========================================================================
--- Reads: batches, skipped rows, tokens (R-IMPORT-072, R-APP-170)
+-- Reads: batches, skipped rows, tokens, remembered choices (R-IMPORT-072, R-APP-170, F14)
 -- ===========================================================================
+-- Members read batches, skipped rows and remembered choices only through the paged calls
+-- below (no direct select); the views are the calls' row shapes.
 create view public.import_batch_list with (security_invoker = true) as
   select b.id, b.budget_id, b.source, b.statement_from, b.statement_to, b.created_by,
          private.recorder_name(b.budget_id, b.created_by) as created_by_name, b.token_id, b.token_name, b.created_at,
@@ -1310,7 +1768,9 @@ create view public.import_batch_list with (security_invoker = true) as
 
 create view public.import_token_list with (security_invoker = true) as
   select t.id, t.budget_id, t.name, t.created_by, p.display_name as created_by_name, t.created_at, t.expires_at,
-         t.last_used_at, t.revoked_at, (t.revoked_at is null and t.expires_at > now()) as is_active
+         t.last_used_at, t.revoked_at,
+         (t.revoked_at is null and t.expires_at > now()
+          and exists (select 1 from public.budget_members as m where m.budget_id = t.budget_id and m.user_id = t.created_by)) as is_active
   from public.import_tokens as t
   left join public.profiles as p on p.id = t.created_by;
 
@@ -1339,8 +1799,8 @@ end;
 $$;
 
 -- The rows of a batch that were not imported, in their order, at most p_limit (1 to 200);
--- next page: the last row's chunk and row_no. Members. Errors: import_batch_not_found,
--- invalid_limit, invalid_cursor.
+-- next page: the last row's chunk and row_no. row_data: what is kept of the row (bounded,
+-- F3). Members. Errors: import_batch_not_found, invalid_limit, invalid_cursor.
 create function public.list_import_skipped_rows(p_batch_id uuid, p_limit integer default 100,
                                                 p_after_chunk integer default null, p_after_row_no integer default null)
 returns setof public.import_skipped_rows
@@ -1366,6 +1826,43 @@ begin
     where k.batch_id = p_batch_id and (p_after_chunk is null or (k.chunk, k.row_no) > (p_after_chunk, p_after_row_no))
     order by k.chunk, k.row_no limit p_limit;
 end;
+$$;
+
+-- F14: the remembered choices of a budget, by flag and key, at most p_limit (1 to 200); next
+-- page: the last row's flag and counterparty_key. At most 1000 are kept a budget (the least
+-- recently used go). Members. Errors: budget_not_found, invalid_limit, invalid_cursor.
+create function public.list_import_choices(p_budget_id uuid, p_limit integer default 100,
+                                           p_after_flag text default null, p_after_key text default null)
+returns setof public.import_choices
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.assert_member(p_budget_id);
+  if p_limit is null or p_limit not between 1 and private.limit_page_size() then
+    raise exception 'invalid_limit' using errcode = 'P0001';
+  end if;
+  if pg_catalog.num_nonnulls(p_after_flag, p_after_key) = 1 then
+    raise exception 'invalid_cursor' using errcode = 'P0001';
+  end if;
+  return query select c.* from public.import_choices as c
+    where c.budget_id = p_budget_id and (p_after_flag is null or (c.flag, c.counterparty_key) > (p_after_flag, p_after_key))
+    order by c.flag, c.counterparty_key limit p_limit;
+end;
+$$;
+
+-- The source of a transaction's batch, for transaction_list (members do not select batches).
+create function private.import_source(p_batch_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select b.source from public.import_batches as b
+  where b.id = p_batch_id and b.budget_id in (select private.member_budget_ids())
 $$;
 
 -- ===========================================================================
@@ -1502,7 +1999,7 @@ create or replace view public.transaction_list with (security_invoker = true) as
     t.review_state,
     coalesce(d.end_seq is not null, false) as debt_ended,
     t.import_batch_id,
-    ib.source as import_source,
+    private.import_source(t.import_batch_id) as import_source,
     t.bank_transaction_id,
     t.merchant,
     t.merchant_key,
@@ -1513,7 +2010,6 @@ create or replace view public.transaction_list with (security_invoker = true) as
   left join public.categories as pc on pc.id = c.parent_id
   left join public.subscriptions as s on s.id = t.subscription_id
   left join public.debts as d on d.id = t.debt_id
-  left join public.import_batches as ib on ib.id = t.import_batch_id
   left join lateral (
     select pp.id, pp.end_date from public.periods as pp
     where pp.budget_id = t.budget_id and pp.start_date <= t.date
@@ -1540,7 +2036,7 @@ create or replace view public.my_budgets with (security_invoker = true) as
      where t.budget_id = b.id and t.review_state = 'awaiting_confirmation') as charges_awaiting,
     (select pg_catalog.count(*)::integer from public.transactions as t
      where t.budget_id = b.id and t.review_state = 'to_review') as to_review,
-    (select c.id from public.categories as c where c.budget_id = b.id and c.is_to_categorise) as to_categorise_category_id
+    (select c.id from public.categories as c where c.budget_id = b.id and c.is_to_categorise and c.end_seq is null) as to_categorise_category_id
   from public.budgets as b
   join public.budget_members as m on m.budget_id = b.id and m.user_id = (select auth.uid());
 
@@ -1621,6 +2117,165 @@ begin
 end;
 $$;
 
+-- update_transaction of step 4; F7 (R-IMPORT-253): a transaction to review stays to review when its link
+-- changes (only the confirm calls review it).
+CREATE OR REPLACE FUNCTION public.update_transaction(p_transaction_id uuid, p_expected_revision integer, p_kind transaction_kind, p_amount bigint, p_date date, p_category_id uuid DEFAULT NULL::uuid, p_description text DEFAULT NULL::text, p_relink boolean DEFAULT false, p_debt_id uuid DEFAULT NULL::uuid, p_subscription_id uuid DEFAULT NULL::uuid)
+ RETURNS SETOF transaction_list
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_transaction public.transactions;
+  v_description text;
+  v_seq integer;
+  v_same_period boolean;
+  v_debt uuid;
+  v_subscription uuid;
+  v_kept boolean;
+begin
+  perform private.assert_transaction_amount(p_kind, p_amount);
+  v_description := private.clean_description(p_description);
+  v_transaction := private.lock_transaction(p_transaction_id);
+  perform private.assert_revision(v_transaction.revision, p_expected_revision);
+  perform private.assert_debt_not_frozen(v_transaction.debt_id);
+  v_seq := private.transaction_period_seq(v_transaction.budget_id, p_date);
+  v_same_period := v_seq = (
+    select p.seq from public.periods as p
+    where p.budget_id = v_transaction.budget_id and v_transaction.date between p.start_date and p.end_date);
+  perform private.assert_transaction_category(v_transaction.budget_id, p_kind, p_category_id, v_seq,
+    p_category_id is not distinct from v_transaction.category_id and v_same_period);
+  if coalesce(p_relink, false) then
+    v_debt := p_debt_id;
+    v_subscription := p_subscription_id;
+  else
+    v_debt := v_transaction.debt_id;
+    v_subscription := v_transaction.subscription_id;
+  end if;
+  v_kept := v_debt is not distinct from v_transaction.debt_id
+            and v_subscription is not distinct from v_transaction.subscription_id
+            and p_category_id is not distinct from v_transaction.category_id and v_same_period;
+  perform private.assert_transaction_link(v_transaction.budget_id, p_kind, p_category_id, v_seq, p_date,
+    v_debt, v_subscription, v_kept);
+  update public.transactions
+  set kind = p_kind, amount = p_amount, date = p_date, category_id = p_category_id, description = v_description,
+      debt_id = v_debt,
+      subscription_id = v_subscription,
+      charge_date = case when v_subscription is not distinct from subscription_id then charge_date end,
+      review_state = case when review_state = 'to_review' or v_subscription is not distinct from subscription_id then review_state
+                          else 'confirmed' end
+  where id = v_transaction.id;
+  return query select * from public.transaction_list as l where l.id = v_transaction.id;
+end;
+$function$;
+
+-- link_transaction of step 4, with the same F7 rule.
+CREATE OR REPLACE FUNCTION public.link_transaction(p_transaction_id uuid, p_expected_revision integer, p_debt_id uuid DEFAULT NULL::uuid, p_subscription_id uuid DEFAULT NULL::uuid)
+ RETURNS SETOF transaction_list
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_transaction public.transactions;
+  v_seq integer;
+begin
+  v_transaction := private.lock_transaction(p_transaction_id);
+  perform private.assert_revision(v_transaction.revision, p_expected_revision);
+  if p_debt_id is distinct from v_transaction.debt_id then
+    perform private.assert_debt_not_frozen(v_transaction.debt_id);
+  end if;
+  select p.seq into v_seq from public.periods as p
+  where p.budget_id = v_transaction.budget_id and v_transaction.date between p.start_date and p.end_date;
+  perform private.assert_transaction_link(v_transaction.budget_id, v_transaction.kind, v_transaction.category_id, v_seq,
+    v_transaction.date, p_debt_id, p_subscription_id,
+    p_debt_id is not distinct from v_transaction.debt_id and p_subscription_id is not distinct from v_transaction.subscription_id);
+  update public.transactions
+  set debt_id = p_debt_id,
+      subscription_id = p_subscription_id,
+      charge_date = case when p_subscription_id is not distinct from subscription_id then charge_date end,
+      review_state = case when review_state = 'to_review' or p_subscription_id is not distinct from subscription_id then review_state
+                          else 'confirmed' end
+  where id = v_transaction.id;
+  return query select * from public.transaction_list as l where l.id = v_transaction.id;
+end;
+$function$;
+
+-- assert_terms_category of step 4; F12 (R-CATEGORY-250): no subscription, debt or planned transfer on
+-- "to categorise".
+CREATE OR REPLACE FUNCTION private.assert_terms_category(p_budget_id uuid, p_category_id uuid, p_from integer, p_to integer)
+ RETURNS void
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+declare
+  v_category public.categories;
+begin
+  if p_category_id is null then
+    raise exception 'category_required' using errcode = 'P0001';
+  end if;
+  select c.* into v_category from public.categories as c where c.id = p_category_id and c.budget_id = p_budget_id;
+  if v_category.id is null then
+    raise exception 'category_not_found' using errcode = 'P0001';
+  end if;
+  if v_category.is_group then
+    raise exception 'category_is_group' using errcode = 'P0001';
+  end if;
+  if v_category.is_to_categorise then
+    raise exception 'category_to_categorise' using errcode = 'P0001';
+  end if;
+  if p_to is not null and p_to <= p_from then
+    return;  -- the terms govern no period (a void record)
+  end if;
+  if v_category.first_seq > p_from
+     or (v_category.end_seq is not null and (p_to is null or v_category.end_seq < p_to)) then
+    raise exception 'category_not_in_force' using errcode = 'P0001';
+  end if;
+end;
+$function$;
+
+-- assert_category_room of step 4; F12 (R-CATEGORY-250, answers Q-190): "to categorise" does not count
+-- towards the 200 categories in force.
+CREATE OR REPLACE FUNCTION private.assert_category_room(p_budget_id uuid, p_new integer)
+ RETURNS void
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+begin
+  if (select pg_catalog.count(*) from public.categories as c where c.budget_id = p_budget_id and c.end_seq is null and not c.is_to_categorise)
+       + p_new > private.limit_active_categories()
+     or (select pg_catalog.count(*) from public.categories as c
+         where c.budget_id = p_budget_id and (c.end_seq is null or c.end_seq > c.first_seq))
+       + p_new > private.limit_total_categories()
+     or (select pg_catalog.count(*) from public.categories as c where c.budget_id = p_budget_id)
+       + p_new > private.limit_rows_per_kind() then
+    raise exception 'category_limit_reached' using errcode = 'P0001';
+  end if;
+end;
+$function$;
+
+-- F12 (R-CATEGORY-250): only an imported transaction still to review can be in "to categorise":
+-- no hand-typed one, none moved into it, none confirmed there (whatever writes the row).
+create function private.guard_to_categorise_transaction()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.category_id is not null
+     and (tg_op = 'INSERT' or new.category_id is distinct from old.category_id or new.review_state is distinct from old.review_state)
+     and not (new.review_state = 'to_review' and new.import_batch_id is not null)
+     and exists (select 1 from public.categories as c where c.id = new.category_id and c.is_to_categorise) then
+    raise exception 'category_to_categorise' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+create trigger transactions_guard_to_categorise before insert or update on public.transactions
+  for each row execute function private.guard_to_categorise_transaction();
+
 -- ===========================================================================
 -- Row-level security (C-RLS-001 to C-RLS-003): members read; every write is an RPC
 -- ===========================================================================
@@ -1635,6 +2290,8 @@ alter table private.import_token_usage enable row level security;
 create policy "Members can read their budgets' import tokens (never the hash)"
   on public.import_tokens for select to authenticated
   using (budget_id in (select private.member_budget_ids()));
+-- (F14: members read batches, skipped rows and remembered choices through the paged calls only;
+-- the policies stay for defence in depth)
 create policy "Members can read their budgets' import batches"
   on public.import_batches for select to authenticated
   using (budget_id in (select private.member_budget_ids()));
@@ -1655,15 +2312,12 @@ revoke all on table
   public.import_tokens, public.import_batches, public.import_skipped_rows, public.merchant_rules, public.import_choices,
   public.merchant_rule_list, public.import_batch_list, public.import_token_list
 from anon, authenticated, service_role;
-revoke all on table private.import_chunks, private.import_token_usage from public, anon, authenticated, service_role;
+revoke all on table private.import_chunks, private.import_token_usage, private.import_absorbed from public, anon, authenticated, service_role;
 
 -- the token hash is never readable: no column privilege on it
 grant select (id, budget_id, name, created_by, created_at, expires_at, last_used_at, revoked_at, revoked_by)
   on table public.import_tokens to authenticated;
-grant select on table
-  public.import_batches, public.import_skipped_rows, public.merchant_rules, public.import_choices,
-  public.merchant_rule_list, public.import_batch_list, public.import_token_list
-to authenticated;
+grant select on table public.merchant_rules, public.merchant_rule_list, public.import_token_list to authenticated;
 grant select, insert, update, delete on table
   public.import_batches, public.import_skipped_rows, public.merchant_rules, public.import_choices
 to service_role;
@@ -1691,8 +2345,15 @@ begin
 end;
 $$;
 
+-- Used by the security_invoker view transaction_list.
+grant execute on function private.import_source(uuid) to authenticated;
+
 grant execute on function
   public.preview_import(uuid, uuid, jsonb),
+  public.delete_import_token(uuid),
+  public.list_import_choices(uuid, integer, text, text),
+  public.update_transaction(uuid, integer, public.transaction_kind, bigint, date, uuid, text, boolean, uuid, uuid),
+  public.link_transaction(uuid, integer, uuid, uuid),
   public.import_transactions(uuid, uuid, integer, jsonb, text, date, date, text),
   public.import_skipped_anyway(uuid, uuid[]),
   public.create_import_token(uuid, text, integer),
@@ -1709,4 +2370,4 @@ grant execute on function
   public.create_category(uuid, text, uuid, bigint, public.expectation_cadence, uuid, text)
 to authenticated;
 -- R-IMPORT-076, R-SECURITY-005: the only function a visitor without a session can call
-grant execute on function public.import_with_token(text, uuid, integer, jsonb, text, date, date, text) to anon, authenticated;
+grant execute on function public.import_with_token(text, uuid, integer, jsonb, text, date, date) to anon, authenticated;

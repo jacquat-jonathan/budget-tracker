@@ -4,7 +4,7 @@
 -- account an income is paid into, closing an account, ending a transfer, reopen, limits, and
 -- what another user, a member of another budget and an anonymous visitor cannot do.
 begin;
-select plan(187);
+select plan(188);
 
 select tests.create_user('ann', 'Ann');
 select tests.create_user('bob', 'Bob');
@@ -572,16 +572,21 @@ select results_eq(
   'R-ACCOUNT-234: a transfer that never counted before and was never marked is deleted');
 select tests.remember('tx_3a3', (select transaction_id from public.mark_transfer_done(tests.id('t_3a'), tests.id('p2'), 0)));
 select results_eq(
-  format($$select outcome, marks_removed, transactions_unlinked from public.preview_end_transfer(%L)$$, tests.id('t_3a')),
-  $$values ('ended', 1, 1)$$,
-  'R-ACCOUNT-234: the preview of an end says how many marks go and how many transactions stay unlinked');
+  format($$select outcome, refusal from public.preview_end_transfer(%L)$$, tests.id('t_3a')),
+  $$values ('ended', null::text)$$,
+  'R-ACCOUNT-234: the preview of an end gives its outcome (nothing is removed)');
 select is(public.end_transfer(tests.id('t_3a'), 1), 'ended', 'R-ACCOUNT-234: ended from the current period');
 select results_eq(
   format($$select amount, transfer_id from public.transaction_list where id = %L$$, tests.id('tx_3a3')),
-  $$values (50000::bigint, null::uuid)$$,
-  'R-ACCOUNT-234: its transaction stays, as an ordinary transaction');
-select is((select count(*)::integer from public.get_transfer_checklist(tests.id('p2')) where transfer_id = tests.id('t_3a')), 0,
-  'R-ACCOUNT-234: no occurrence from then on');
+  format($$values (50000::bigint, %L::uuid)$$, tests.id('t_3a')),
+  'R-ACCOUNT-234: its transaction stays linked to its occurrence (D-380)');
+select results_eq(
+  format($$select status, is_ended, transaction_id, mark_revision > 0 from public.get_transfer_checklist(%L) where transfer_id = %L$$,
+         tests.id('p2'), tests.id('t_3a')),
+  format($$values ('done', true, %L::uuid, true)$$, tests.id('tx_3a3')),
+  'R-ACCOUNT-234: the period''s checklist still lists the ended transfer where it has a mark, flagged as ended');
+select throws_ok(format($$select * from public.skip_transfer(%L, %L, 0)$$, tests.id('t_3a'), tests.id('p1')),
+  'P0001', 'transfer_not_in_force', 'R-ACCOUNT-234: no occurrence where it was never in force');
 select throws_ok(format($$select public.end_transfer(%L, 2)$$, tests.id('t_3a')),
   'P0001', 'transfer_ended', 'R-ACCOUNT-234: an ended transfer is not ended again');
 select throws_ok(format($$select * from public.update_transfer(%L, 2, p_amount => 5)$$, tests.id('t_3a')),
@@ -611,9 +616,9 @@ select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0, '202
 select is(public.end_transfer(tests.id('t_end'), 1), 'ended', 'R-ACCOUNT-237: (setup: ended from the current period)');
 select results_eq(
   format($$select record_id, change, replaces_previous from public.preview_reopen(%L) where record_kind = 'transfer' order by record_name, change$$, tests.id('b')),
-  format($$values (%L::uuid, 'mark_moved', false), (%L::uuid, 'ended', false), (%L::uuid, 'mark_removed', false),
+  format($$values (%L::uuid, 'mark_moved', false), (%L::uuid, 'ended', false),
                   (%L::uuid, 'mark_removed', true), (%L::uuid, 'transaction_removed', true)$$,
-         tests.id('t_bob'), tests.id('t_end'), tests.id('t_end'), tests.id('t_tax'), tests.id('t_edit')),
+         tests.id('t_bob'), tests.id('t_end'), tests.id('t_tax'), tests.id('t_edit')),
   'R-ACCOUNT-237: preview_reopen lists what happens to the merged period''s marks (Versioned: the catch-up''s transaction of the merged period)');
 create temp table merged_tx on commit drop as
   select x.id from public.transactions as x join public.transfer_occurrences as o on o.id = x.transfer_occurrence_id
@@ -634,8 +639,8 @@ select is((select count(*)::integer from public.transfer_occurrences where budge
 select results_eq(
   format($$select t.end_seq, (select count(*)::integer from public.transfer_occurrences as o where o.transfer_id = t.id)
            from public.transfers as t where t.id = %L$$, tests.id('t_end')),
-  $$values (2, 0)$$,
-  'R-ACCOUNT-237: a transfer ended in the merged period ends in the reopened one, and its mark there goes');
+  $$values (2, 1)$$,
+  'R-ACCOUNT-237: a transfer ended in the merged period ends in the reopened one; its mark there stays (D-380)');
 -- the salary comes early again: the merged period is created again, and the catch-up's
 -- transaction of Versioned in it with it
 select tests.remember('p3b', (select id from public.record_early_pay_date(tests.id('b'), tests.id('p2'),

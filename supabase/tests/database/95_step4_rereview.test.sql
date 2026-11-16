@@ -10,7 +10,7 @@ select tests.create_user('ann', 'Ann');
 select tests.set_today('2026-11-16');
 
 -- ===========================================================================
--- One bounded step of catch-up per call (R-PERIOD-180, D-270)
+-- One bounded step of catch-up per call (R-PERIOD-180, D-387)
 -- ===========================================================================
 select tests.authenticate_as('ann');
 select tests.remember('o', public.create_budget('Old', 'Salary', 500000, 25, 'nearest', '2026-08-01'));
@@ -95,6 +95,9 @@ select f.proname,
         cross join lateral unnest(p.proargnames[1:p.pronargs - p.pronargdefaults]) with ordinality as a (name, i)
         where p.oid = f.oid and not exists (select 1 from arg_values as v where v.name = a.name)) as unknown_args
 from catch_up_fns as f;
+-- the token import answers a refusal in its error column once the call is counted (F10)
+update calls set sql = format($f$do $x$ declare e text; begin select q.error into e from (%s) as q; if e is not null then raise exception '%%', e; end if; end $x$$f$, sql)
+where proname = 'import_with_token';
 create temp table results (proname text, outcome text, periods integer) on commit drop;
 grant select on calls to authenticated;
 grant insert, select on results to authenticated;

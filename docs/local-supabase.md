@@ -159,11 +159,27 @@ run it with `00_helpers.test.sql`.
 and `get_period_progress` (renamed, ended, restored, "Other" and void categories, a reopen, an
 ended budget, catching up, access); the property test also checks them every fourth step.
 
+`91b_step5_review.test.sql` holds the regression tests of the step 5 review: a moved start and
+the debts' interest, far-behind budgets answering `catching_up` at once, `ensure_periods`
+waiting about two seconds for a lock another connection holds (one `dblink` connection that
+only takes an advisory lock; nothing is committed), one step per call, the time bound (the
+test replaces `private.limit_catch_up_work()`), the comparison's flags, default and second
+average, the membership limit and paged invitations, the held charge's preview, `preview_reopen`
+at exactly 1000 changes, and the access and terms cases the earlier tests left open.
+
 `97_import.test.sql` covers the import (preview equal to the write, validation, duplicates by
 count, flags, salaries, matches, merchant rules, "to categorise", review, undo, chunks, tokens,
 access); `97b_import_concurrency.test.sql` races two members sending one chunk, an import
 against an undo, against a category's end, and a token import against its revocation (dblink,
-like `98`). The import script is described in `docs/import-script.md`.
+like `98`), and two calls of one token at its last allowed call.
+`97e_import_review.test.sql` holds the regression tests of the step 6 review: a token's answer
+for every budget state (a matrix), rolling windows and their edges, tokens ending with their
+creator, token limits and deletion, bounded stored rows, duplicates and matches counted per
+batch across chunks, replays and out-of-order chunks, edited imports, null-batch previews,
+undo and rules leaving linked and frozen transactions alone, clean error codes, the salary
+window, "to categorise" restrictions, the shared text cleaner, merchant keys, the batch's
+counts after "import anyway", paged reads, and a GET refused. The import script is described
+in `docs/import-script.md`.
 
 `97c_money_flow.test.sql` covers accounts, planned transfers and their versions, due dates,
 the checklist and its marks, the transactions of linked transfers (by a mark or by the

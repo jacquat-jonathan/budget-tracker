@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-442 rules (435 active, 0 planned), 24 conventions, 215 decisions, 27 open questions. 12 rules and conventions are marked **TEST PENDING**.
+464 rules (457 active, 0 planned), 24 conventions, 238 decisions, 20 open questions. 12 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -266,6 +266,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PLATFORM_
   - Related: D-264, R-TRANSACTION-095, R-DEBT-135, R-COMPARE-070
   - Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-APP-250** A call that creates a record (a transaction, an income, a category, a subscription, a debt, an account, a planned transfer) accepts a client-generated request id: sent again by the same member for the same budget, call and arguments, it creates nothing and answers what the first call created; any other use of a known id is refused (request_reused) and reveals nothing.
+  _active · enforced by test · F-PLATFORM_
+  - Related: D-390, Q-090
+  - Source: owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16; code: supabase/migrations
 
 ### Accounts and sign-in
 
@@ -410,6 +414,26 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-316, R-SECURITY-003
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-250** Every name and description goes through one cleaner: control, bidirectional and zero-width characters are removed, other white space becomes one space, and the result is trimmed; markup and formulas stay text (the screens escape, an export neutralises).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-376
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-251** A token's answer never depends on the budget's content beyond two coarse states (the budget is full; it is far behind): every argument is checked before anything of the budget, and a token cannot name the "to categorise" category.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-371, R-IMPORT-076
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-252** Every call with a valid token counts toward its limits whatever its outcome; the check and the count are one step under the token's own lock, over windows rolling over the last 60 minutes and the last 24 hours.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-370
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-253** A token stops when its creator leaves the budget, is removed from it, or deletes their account.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-370, R-IMPORT-205
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-254** A token import records the token, never the caller, and cannot be called by GET (read-only calls are refused before the token is looked at).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-370
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Money
 
@@ -582,6 +606,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MEMBERS_
   - Related: D-090
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-MEMBER-250** A user belongs to at most 50 budgets (owned ones included): accepting an invitation or creating a budget beyond that is refused (membership_limit_reached); the invitations shown to an invitee come a page at a time.
+  _active · enforced by test · F-MEMBERS_
+  - Related: D-385, R-APP-170
+  - Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
 
 ### Invitations
 
@@ -954,10 +982,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-PERIOD-133, R-PERIOD-100, D-233
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/periods/periods-page.tsx
-- **R-PERIOD-180** No call of any kind creates more than one bounded step of periods: ensure_periods and get_current_period do one step and keep it; every other read, preview and write does at most one step and, when the budget is still behind, answers catching_up and changes nothing.
+- **R-PERIOD-180** No call of any kind creates more than one bounded step of periods, however often it calls the catch-up: ensure_periods and get_current_period do one step and keep it; every other read, preview and write does at most its own roll-over (R-PERIOD-250) and, when the budget is still behind, answers catching_up and changes nothing.
   _active · enforced by test · F-PERIOD_
-  - Related: R-PERIOD-130, D-270
+  - Related: D-270, D-387, R-PERIOD-130
   - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-PERIOD-250** A budget whose last period ended more than 62 days before today (or its end date) is caught up only by ensure_periods and get_current_period: every other call answers catching_up at once, before taking the budget lock and without doing any work; ensure_periods and get_current_period wait at most two seconds for a lock another session holds, then answer catching_up, never the statement timeout.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-387, R-PERIOD-180
+  - Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
 
 ### Versioning: edits never rewrite the past
 
@@ -1186,6 +1218,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: R-CATEGORY-130, R-CATEGORY-131, R-CATEGORY-110, R-ACCOUNT-072
   - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-CATEGORY-250** Only an imported transaction still to review can be in "to categorise": no hand-typed transaction, subscription, debt, planned transfer or merchant rule uses it; it does not count toward the 200 categories in force; my_budgets names it only while it is in force.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-375, R-CATEGORY-200
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Transactions
 
@@ -1471,9 +1507,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-132
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/subscriptions/subscriptions-page.tsx
-- **R-SUBSCRIPTION-180** While a charge of a subscription is due and held back by the transaction limit, its schedule (cadence or next charge date, from now or as a correction) cannot change and it cannot end (charge_held_back); its name, price and category can; its next charge date shows the held date.
+- **R-SUBSCRIPTION-180** While a charge of a subscription is due and held back by the transaction limit, its schedule (cadence or next charge date, from now or as a correction) cannot change and it cannot end (charge_held_back, in the previews too); its name, price and category can; its next charge date shows the held date, and so does the first date of its schedule preview.
   _active · enforced by test · F-SUBSCRIPTION_
-  - Related: R-SUBSCRIPTION-112, D-271
+  - Related: D-271, D-388, R-SUBSCRIPTION-112
   - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Debts
@@ -1561,9 +1597,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-VERSION-140, R-DEBT-114, D-210, D-219, D-230
   - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/debts/components/debt-form-dialog.tsx; code: src/features/debts/debt-mutations.ts; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
-- **R-DEBT-131** A debt's principal is the balance on its opened date; no payment, balance adjustment or interest is dated before it, so its history always starts with the opening. A debt recorded from an earlier period is opened on that period's start.
+- **R-DEBT-131** A debt's principal is the balance on its opened date; no payment, balance adjustment or interest is dated before it, also after a period's boundaries change, so its history always starts with the opening. A debt recorded from an earlier period is opened on that period's start.
   _active · enforced by test · F-DEBT_
-  - Related: R-DEBT-003, D-202
+  - Related: D-202, D-386, R-DEBT-003
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-132** A projected end after the budget's end is flagged as such (expected_end_after_budget_end).
   _active · enforced by test · F-DEBT_
@@ -1629,9 +1665,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: D-114, D-260
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
-- **R-COMPARE-071** The user can show any two periods of the budget side by side (by default the current one and the one before): per category the spending and the planned amount in each and the difference in spending, B minus A, and the same for the totals (income, spent, result, committed).
+- **R-COMPARE-071** The user can show any two periods of the budget side by side (by default the last two completed periods, or the last two periods when fewer than two are completed): per category the spending and the planned amount in each and the difference in spending, B minus A, and the same for the totals (income, spent, result, committed); each side says whether it is still running or completed.
   _active · enforced by test · F-COMPARE_
-  - Related: D-114, D-260
+  - Related: D-114, D-260, D-384
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
 - **R-COMPARE-170** In every period of a comparison, the top-level category lines add up exactly to the period's total spent (expenses minus refunds; extra income is not spending), and so do the subcategory and ordinary category lines; every expense or refund has a category, so no spending is left outside the lines.
   _active · enforced by test · F-COMPARE_
@@ -1641,9 +1677,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: R-PERIOD-130, D-263
   - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
-- **R-COMPARE-172** Averages per period (income, spent, result, and spent per category) are taken over the completed periods of the range only, to the rappen with halves rounded away from zero, and are empty (not zero) when no period of the range is completed.
+- **R-COMPARE-172** Averages per period (income, spent, result, and spent per category) are taken over the completed periods of the range only, to the rappen with halves rounded away from zero, and are empty (not zero) when no period of the range is completed; a category also has an average over the completed periods of the range in which it was in force or had spending, empty when there is none.
   _active · enforced by test · F-COMPARE_
-  - Related: D-261, Q-160
+  - Related: D-261, D-383, Q-160
   - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
 - **R-COMPARE-173** Each period of a comparison gives its start, its end and its number of days; amounts are never scaled to the period's length.
   _active · enforced by test · F-COMPARE_
@@ -1784,9 +1820,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-129, D-314
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-IMPORT-093** A salary credit is skipped on import: one the source calls a salary, or of the amount of an income in force in the period of its date and dated within five days of that period's start; the member may import it as extra income.
+- **R-IMPORT-093** A salary credit is skipped on import: one the source calls a salary, or of the amount of an income in force, dated within five days either side of a period start (R-IMPORT-259); the member may import it as extra income.
   _active · enforced by test · F-IMPORT_
-  - Related: D-130, D-317
+  - Related: D-130, D-377
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 - **R-IMPORT-094** Every other credit is proposed for review, as a refund in a category or as extra income.
   _active · enforced by test · F-IMPORT_
@@ -1838,17 +1874,17 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-117, D-311
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-IMPORT-203** A row is a possible match of an existing transaction of the same kind that was not imported, with the same amount and a date within three days; it is skipped by default, and when the match is a charge awaiting confirmation the import confirms it; each existing transaction absorbs one row.
+- **R-IMPORT-203** A row is a possible match of an existing transaction of the same kind that was not imported, with the same amount and a date within three days either way; it is skipped by default, and when the match is a charge awaiting confirmation the import confirms it; each existing transaction absorbs one row of a batch.
   _active · enforced by test · F-IMPORT_
-  - Related: D-315, Q-068
+  - Related: D-373, Q-068
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 - **R-IMPORT-204** Skipped rows of a batch can be imported anyway, one by one or all at once, through the same import.
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-073, D-313
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-IMPORT-205** An import token imports only with the default choices and never confirms a charge; it reads nothing back beyond counts and the reasons of rows refused for their own content; an unknown, expired or revoked token gets one refusal before any lock or catch-up; its calls and rows are limited per hour and per day; a member who leaves the budget revokes the tokens they created.
+- **R-IMPORT-205** An import token imports only with the default choices and never confirms a charge; it reads nothing back beyond counts and the reasons of rows refused for their own content; an unknown, expired or revoked token, or one whose creator is no longer a member, gets one refusal before any lock or catch-up; its calls and rows are limited over rolling windows of 60 minutes and 24 hours.
   _active · enforced by test · F-IMPORT_
-  - Related: D-116, D-316, R-SECURITY-005
+  - Related: D-116, D-370, D-371, R-SECURITY-005
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 - **R-IMPORT-206** A member can undo an import batch once: its transactions still to review are deleted, the confirmed ones and the charges it confirmed stay, and it takes no more rows.
   _active · enforced by test · F-IMPORT_
@@ -1866,6 +1902,58 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-118, D-312
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-250** What is stored of a row that was not imported is bounded: its known keys within their limits, and only the names of unknown keys; a call whose rows exceed 2 MB is refused whole (the API gateway's body limit is the outer bound).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-378
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-251** Each existing transaction absorbs at most one row of a batch, as its duplicate or its match, counted over the whole batch whatever chunks it is sent in, in whatever order, and however often a chunk is sent again.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-372, D-373
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-252** A preview names the batch its rows will be sent in; a preview with no batch id says what the first chunk of a new batch does, exactly as the write.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-310
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-253** A transaction's review state changes only through confirming it (one or all); an edit, a link or an unlink leaves a transaction to review to review.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-209
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-254** An imported transaction keeps the amount, date and description it was first imported with; a statement line equal to those is a duplicate even after the member edited the transaction.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-372
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-255** The merchant key handles a reference after the merchant, the statement's leading words, a processor prefix, any script, and letters such as ß and œ; the key of a key is itself.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-381, R-IMPORT-201
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-256** A budget holds at most 10 import tokens that can still be used; a revoked or expired token can be deleted, and those kept are pruned to the newest 20 and to 365 days.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-370
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-257** Import batches, skipped rows and remembered choices are read through paged functions only; a budget keeps at most 1000 remembered choices, the least recently used going first.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-370, R-SECURITY-003
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-258** A batch's counts add up to the rows it received, also after rows are imported anyway; a row imported anyway answers with its original chunk and row number, and can be imported anyway again once its transaction is deleted.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-204
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-259** A credit of exactly an income's amount is a salary when it is dated within five days either side of a period start: on or after the start of its own period, or before the start of the next period (projected when that period does not exist yet), at the income's amount in force in that period.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-377, R-IMPORT-093
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-260** Neither undoing a batch nor applying a merchant rule changes a transaction linked to a subscription, a debt or a planned transfer, or a frozen one; undo says how many it kept and why.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-379
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-261** A possible match goes to the row nearest in date (either way, within three days, same kind and amount); ties go to the earlier row, then to a charge awaiting confirmation.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-373
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-262** Every refusal of the import is a stable code: a decimal amount is invalid_amount for its row, two budgets racing for one batch id get import_batch_conflict, a bad name for "to categorise" is invalid_name.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-310
+  - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Accounts and planned transfers (money flow)
 
@@ -1933,10 +2021,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-354, R-ACCOUNT-239
   - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
-- **R-ACCOUNT-234** Ending a planned transfer removes its occurrences and their marks from that period on; their transactions stay, as ordinary transactions; a transfer that never counted before and was never marked is deleted instead.
+- **R-ACCOUNT-234** Ending a planned transfer removes its occurrences from that period on; every mark already made and every transaction link stay, and the period's checklist still lists the transfer, flagged as ended; a transfer that never counted before and was never marked is deleted instead.
   _active · enforced by test · F-MONEYFLOW_
-  - Related: D-355
-  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+  - Related: D-380
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql; owner-request: coordinator review of the step 6 database, step 7 change, 2026-11-16
 - **R-ACCOUNT-235** The money flow of a period adds up: its incomes total the period's salaries, each income flows into its account or into "not assigned", and each account shows what comes in, what goes out and what stays (negative when more is planned out than comes in), never a balance.
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-356, R-ACCOUNT-006, R-ACCOUNT-075
@@ -4475,7 +4563,7 @@ Related: R-COMPARE-002, R-COMPARE-070, R-COMPARE-071, C-LOGIC-001, C-LOGIC-003, 
 
 Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
 
-### D-261 Averages over the completed periods, rounded half away from zero (accepted)
+### D-261 Averages over the completed periods, rounded half away from zero (superseded by D-383)
 
 An average is the sum over the completed periods of the range divided by their number, rounded to the rappen with halves away from zero (also for a negative result); null when none is completed. The average result is the average of the results, so it can differ by a rappen from the average income minus the average spent. A category's average spent divides by every completed period of the range, including those where it was not in force (they count what was spent, usually nothing).
 
@@ -4532,7 +4620,7 @@ Related: R-APP-170, D-153, D-180, D-260, R-COMPARE-070
 
 Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
 
-### D-270 No call does an unbounded catch-up (accepted)
+### D-270 No call does an unbounded catch-up (superseded by D-387)
 
 A catch-up step creates at most 120 periods with their interest and charges (D-276 also bounds its time). ensure_periods and get_current_period do one step and keep it; my_budgets.caught_up says whether more remains, and the client calls ensure_periods until it returns 0. Every other read, preview and write (all of them through private.read_catch_up, private.current_period or private.lock_and_catch_up) does at most one step and, when the budget is still behind, answers catching_up and changes nothing (its step is rolled back with it). A write no longer catches up in full. Step 2's period_generation_runaway error stays gone. Supersedes D-201.
 
@@ -4653,7 +4741,7 @@ Related: Q-057, R-IMPORT-079, R-IMPORT-201, R-IMPORT-207
 
 Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
-### D-312 Uncategorised imports go to a "to categorise" category (accepted)
+### D-312 Uncategorised imports go to a "to categorise" category (superseded by D-375)
 
 Each budget gets, at its first import that needs it, one ordinary top-level category flagged as its "to categorise" place (the name the caller passes; from the first period; created even at the 200 / 500 category limits, within the 900-row bound). Rows without a member's category or an applying rule land there. It is renamable, has no expectation, takes no subcategory, cannot end while it holds transactions, and a transaction in it cannot be confirmed.
 
@@ -4667,7 +4755,7 @@ Related: R-IMPORT-200, R-CATEGORY-200, R-IMPORT-209
 
 Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
-### D-313 Duplicates are counted (accepted)
+### D-313 Duplicates are counted (superseded by D-372)
 
 Rows of one import are never duplicates of each other. A row is compared with every existing transaction of the same kind, whatever its origin: the same bank transaction id, else the same date, amount and description. Each existing transaction absorbs at most one row, so the same statement imported twice imports nothing the second time. Import anyway is per row or for all skipped rows of a batch.
 
@@ -4691,7 +4779,7 @@ Related: Q-063, Q-064, R-IMPORT-091, R-IMPORT-092, D-129
 
 Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
-### D-315 Reconciliation by possible match (accepted)
+### D-315 Reconciliation by possible match (superseded by D-373)
 
 A row is a possible match of an existing transaction of the same kind that was not imported (typed, or a charge), with the same amount and a date within three days. Default: skip the row; when the match is a charge awaiting confirmation, the import confirms it and the preview says so; the member can import the row anyway. Each existing transaction absorbs one row. With a token, matches are skipped and left for the member.
 
@@ -4703,7 +4791,7 @@ Related: Q-068, R-IMPORT-203
 
 Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
-### D-316 Import tokens (accepted)
+### D-316 Import tokens (superseded by D-370)
 
 A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 active and 100 tokens a budget. import_with_token is the only function callable without a session: an unknown, expired or revoked token gets invalid_token after one index lookup, before any lock or catch-up. A token imports with the default choices only, never confirms a charge, remembers nothing, and its answer is counts and the reasons of rows refused for their own content (budget-dependent outcomes are not told). Per token: 60 calls and 5000 rows an hour, 300 calls and 20 000 rows a day. Revoking takes the budget lock; a member leaving (or removed, or deleted) revokes the tokens they created.
 
@@ -4717,7 +4805,7 @@ Related: D-116, R-IMPORT-075, R-IMPORT-076, R-IMPORT-077, R-IMPORT-205, R-SECURI
 
 Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
-### D-317 A salary credit (accepted)
+### D-317 A salary credit (superseded by D-377)
 
 A credit is a salary credit when the source says so (hint salary) or when its amount equals the amount of an income in force in the period of its date and its date is within five days of that period's start. It is skipped by default; imported anyway it is extra income. A different amount than the planned income changes nothing by itself; the preview shows the planned amount beside the row's.
 
@@ -4852,7 +4940,7 @@ Related: R-ACCOUNT-074, R-ACCOUNT-233, R-ACCOUNT-239, D-270, D-276, Q-221
 
 Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
-### D-355 Nothing deletes a transfer's transaction implicitly (accepted)
+### D-355 Nothing deletes a transfer's transaction implicitly (superseded by D-380)
 
 Only a member's act deletes a transfer's transaction: undoing "done", marking an automatic transfer not done, or deleting the transaction. Ending a transfer, closing what it uses, or a member leaving keeps it: when its mark goes, the transaction stays as an ordinary one. The one exception is a reopen (D-358).
 
@@ -4893,7 +4981,7 @@ Related: R-ACCOUNT-230, R-APP-170
 
 Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
-### D-358 Reopen and the marks of the merged period (accepted)
+### D-358 Reopen and the marks of the merged period (superseded by D-382)
 
 A mark of the merged period moves to the reopened period when that period has none for the transfer. Otherwise it goes: one made by the catch-up with its transaction (made again if the period comes back, like a debt's interest), a member's leaving its transaction as an ordinary one. A transfer ended in the merged period ends in the reopened one, and its marks there go the same way. Every transfer is settled again from the reopened period.
 
@@ -4948,6 +5036,301 @@ my_budgets.transfers_to_do and transfers_overdue count the current period's manu
 Related: R-ACCOUNT-241, Q-222
 
 Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-370 Import tokens (revised) (accepted)
+
+A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 tokens that can still be used a budget; a revoked or expired one can be deleted, and those kept are pruned to the newest 20 and 365 days. import_with_token is the only function callable without a session, by POST only (a GET is refused with read_only_call before the token is looked at). An unknown, expired or revoked token, or one whose creator left, was removed or deleted their account, gets invalid_token after one index lookup, before any lock or catch-up. Every call with a valid token counts, whatever its outcome: 60 calls and 5000 rows within any 60 minutes, 300 calls and 20 000 rows within any 24 hours, checked and counted in one step under the token's lock; a refusal after the count is answered in the error column, not raised. The batch records the token, never the caller. Batches, skipped rows and remembered choices are read through paged functions only.
+
+**Why:** The step 6 review: a refused call must cost the attacker too, parallel calls must not pass the limit together, fixed hourly windows let twice the limit through at the boundary, tokens must not pile up, and a token in a URL ends up in logs.
+
+**Rejected:**
+
+- Counting only successful calls: free probing.
+- Fixed clock-hour windows.
+
+Related: D-116, R-IMPORT-256, R-IMPORT-257, R-SECURITY-252, R-SECURITY-253, R-SECURITY-254
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-371 What a token is told (accepted)
+
+A token's answer does not depend on the budget's content: every argument is checked before anything of the budget, "to categorise" is created under its fixed name (the token cannot name it), and a token is never told how many rows would fit. Two coarse states still reach it, because a script must be able to say why nothing was imported: the budget is full (transaction_limit_reached, refused when the rows it sent do not all fit whatever they would become) and the budget is far behind (catching_up).
+
+**Why:** Answer to Q-191 and the step 6 review (F1): any budget-dependent difference is an oracle on the budget's transactions.
+
+**Rejected:**
+
+- Hiding the two coarse states: the script could not explain a refusal.
+
+Related: Q-191, R-SECURITY-251, R-IMPORT-076
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-372 Duplicates are counted per batch (accepted)
+
+Rows of one batch are never duplicates of each other. A row is compared with every existing transaction of the same kind, whatever its origin: the same bank transaction id, else the same date, amount and description, either as the transaction is now or as it was first imported. Each existing transaction absorbs at most one row of the batch, counted over all its chunks, whatever order they arrive in and however often one is sent again; the same statement imported twice imports nothing the second time. Import anyway is per row or for all skipped rows of a batch.
+
+**Why:** The step 6 review (F4, F17): counting per chunk let a statement split in two chunks import a duplicate, and editing an imported transaction made the same line import again.
+
+**Rejected:** none recorded.
+
+Related: D-115, R-IMPORT-003, R-IMPORT-070, R-IMPORT-251, R-IMPORT-254
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-373 Possible matches: nearest date, once per batch (accepted)
+
+A row is a possible match of an existing transaction of the same kind that was not imported (typed, or a charge), with the same amount and a date within three days either way; descriptions are not compared. Each existing transaction goes to the row nearest in date (ties: the earlier row, then a charge awaiting confirmation) and absorbs at most one row of the batch. Default: skip the row; when the match is a charge awaiting confirmation the import confirms it and the preview says so; the member can import the row anyway. The batch counts its matched rows. With a token, matches are skipped and left for the member.
+
+**Why:** Answer to Q-192: bank descriptions rarely look like what a member typed, so comparing them would miss most matches; the nearest date is the likeliest pair.
+
+**Rejected:**
+
+- Matching only when the descriptions look alike.
+
+Related: Q-192, R-IMPORT-203, R-IMPORT-261
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-374 Confirming a frozen import (accepted)
+
+Confirming an imported transaction changes no amount, date, category or link, so it is allowed on a frozen transaction (a payment of an ended debt).
+
+**Why:** Undo keeps frozen transactions (D-379); the member must still be able to empty the review.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-209, D-379
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-375 "To categorise" is the import's place only (accepted)
+
+Each budget gets, at its first import that needs it, one top-level category flagged as its "to categorise" place (the name the member passes, a fixed name for a token; from the first period; created even at the category limits). Only imported transactions still to review can be in it: no hand-typed transaction, subscription, debt, planned transfer or merchant rule uses it, and it does not count toward the 200 categories in force. It is renamable, has no expectation, takes no subcategory, cannot end while it holds transactions, and a transaction in it cannot be confirmed. my_budgets names it only while it is in force; category_overview flags it.
+
+**Why:** Answer to Q-190 and the step 6 review (F12): it is a waiting room, not a category to plan with.
+
+**Rejected:** none recorded.
+
+Related: Q-190, R-IMPORT-200, R-CATEGORY-200, R-CATEGORY-250
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-376 One cleaner for free text (accepted)
+
+Every name and description of every step goes through one helper: control characters and bidirectional or zero-width formatting characters are removed, every other run of white space becomes one space, and the result is trimmed, before validation and before any comparison. An import's details are stored normalised the same way. Markup and spreadsheet formulas stay as text: the screens escape them, and an export must neutralise them.
+
+**Why:** The step 6 review (F13): the same text must compare equal wherever it came from, and invisible characters must not hide what a name says.
+
+**Rejected:** none recorded.
+
+Related: R-SECURITY-250
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-377 A salary credit (revised) (accepted)
+
+A credit is a salary credit when the source says so (hint salary) or when its amount equals an income's amount and its date is within five days either side of a period start: on or after the start of its own period, or before the start of the next period (projected when it does not exist yet), at the income's amount in force in that period. It is skipped by default; imported anyway it is extra income. A different amount changes nothing by itself; the preview shows the planned amount beside the row's.
+
+**Why:** The step 6 review (F9): a salary paid a few days before the period it starts was missed.
+
+**Rejected:** none recorded.
+
+Related: Q-065, R-IMPORT-093, R-IMPORT-259, D-130
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-378 Refused rows are stored bounded (accepted)
+
+Of a row that was not imported, only its known keys are kept, each within its limit, and only the names of unknown keys; a call whose rows argument exceeds 2 MB is refused whole (invalid_rows) before any row is read; the API gateway's body limit is the outer bound.
+
+**Why:** The step 6 review (F3): a stolen token could otherwise store megabytes of arbitrary JSON per call.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-250
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-379 Undo and rules leave linked and frozen transactions alone (accepted)
+
+Undoing a batch deletes only its transactions still to review that are linked to nothing; one linked to a subscription, a debt or a planned transfer stays (it is frozen or belongs to that record) and is counted as kept_linked, the confirmed ones as kept_confirmed. Applying a merchant rule at once moves only transactions to review in "to categorise" that are linked to nothing. Every bulk write of steps 6 and 7 was checked against the freeze rules.
+
+**Why:** The step 6 review (F5): undo deleted a frozen debt payment and a rule moved a linked charge.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-260, R-IMPORT-206, D-374
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-380 Ending a transfer keeps what was done (accepted)
+
+Only a member's act deletes a transfer's transaction: undoing "done", marking an automatic transfer not done, or deleting the transaction. Ending a transfer removes its occurrences from that period on but keeps every mark already made and every transaction link; a period's checklist lists the transfers in force plus those with a mark or a transaction there, flagged as ended (is_ended); preview_end_transfer answers only the outcome or the refusal. The one exception is a reopen (D-382).
+
+**Why:** The step 6 review's step 7 change: what a member recorded is history; ending the plan must not rewrite it.
+
+**Rejected:**
+
+- Removing the marks from the end on (the step 7 version).
+
+Related: R-ACCOUNT-234, R-ACCOUNT-240
+
+Source: owner-request: coordinator review of the step 6 database, step 7 change, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-381 The merchant key's cases (accepted)
+
+The key is the merchant field when it has a letter or digit, else the description; lower case, accents removed (ß, œ, æ, ø spelled out), any script kept; the statement's leading words dropped and a '*' resolved repeatedly: a processor before the merchant ("payup *shop" is "shop"), a merchant before a reference ("amazon.de*ab12cd" is "amazon.de"). The key of a key is itself.
+
+**Why:** The step 6 review: the listed cases gave keys that no rule could match.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-201, R-IMPORT-255, D-311
+
+Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-382 Reopen and the marks of the merged period (revised) (accepted)
+
+A mark of the merged period moves to the reopened period when that period has none for the transfer. Otherwise it goes: one made by the catch-up with its transaction (made again if the period comes back, like a debt's interest), a member's leaving its transaction as an ordinary one. Marks of periods where a transfer is no longer in force after the merge stay, like any mark of an ended transfer (D-380). Every transfer is settled again from the reopened period.
+
+**Why:** D-380: an ended transfer keeps its marks; the reopen follows the same rule.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-237, R-VERSION-011, D-380
+
+Source: owner-request: coordinator review of the step 6 database, step 7 change, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-383 Averages over the completed periods, and a category's own average (accepted)
+
+An average is the sum over the completed periods of the range divided by their number, rounded to the rappen with halves away from zero (also for a negative result); null when none is completed. The average result is the average of the results, so it can differ by a rappen from the average income minus the average spent. A category's average spent divides by every completed period of the range (so the categories' averages add up to the trend's); beside it, active_average_spent divides by active_count, the completed periods of the range in which the category was in force or had spending (null when that count is 0), for a category that started or stopped inside the range.
+
+**Why:** Answer to Q-160 (coordinator decision): Daycare, CHF 800 in each of its 3 periods of 11, showed an average of 218.18.
+
+**Rejected:**
+
+- Replacing the average over the whole range: the lines would no longer add up to the trend.
+
+Related: Q-160, R-COMPARE-172
+
+Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+
+### D-384 The comparison's default and its running periods (accepted)
+
+With no period given, get_period_comparison compares the last two completed periods when two exist, otherwise the last two periods (B the current period, or the last once the budget has ended). With only A given, B is the current (or last) period; with only B given, A is the one before. Every row says, per side, whether it is the current period (a_is_current, b_is_current) and whether it is completed (a_is_completed, b_is_completed; null for a missing side A).
+
+**Why:** Answer to Q-161 (coordinator decision): on day 4 of the running period the default showed a difference of -1606.00, which read as a large saving.
+
+**Rejected:**
+
+- Keeping the current period as the default B.
+
+Related: Q-161, R-COMPARE-071
+
+Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+
+### D-385 Memberships and invitations are bounded (accepted)
+
+A user belongs to at most 50 budgets, owned ones included (owned stays at 20): accepting an invitation or creating a budget beyond that answers membership_limit_reached; both are serialised per user. list_my_invitations is paged: oldest first, p_limit 1 to 200 (default 50), next page after the last row's created_at and id.
+
+**Why:** Answer to Q-162 (coordinator decision): my_budgets took 3.5 s for 1000 rows and would be cut silently; 1020 pending invitations came back as 1000.
+
+**Rejected:** none recorded.
+
+Related: Q-162, R-MEMBER-250, R-APP-170
+
+Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+
+### D-386 Interest and moved boundaries (accepted)
+
+D-272 holds as a statement about the stored data after any change of a period's boundaries: a period's interest entry exists only for a debt opened before the period's start. When a start moves to on or before a debt's opening, that debt's entry in the period is removed (a trigger on the period's start, so every boundary operation is covered); preview_move_period_start says how many go (interest_removed, for the scheduled start or a given p_start_date). The other way, a start moved later so that a debt is now opened before the start of a period without an entry, adds nothing: interest is computed once, when the period is created, on the balance before its start, and computing it afterwards would charge a period that began, as recorded, before the debt existed, on a balance that already includes later rows.
+
+**Why:** The step 5 review (M1): a moved start put a period's interest before the debt's opening, so the history began with interest.
+
+**Rejected:**
+
+- Adding the interest when a start moves later: a retroactive charge on a balance that is no longer the one before the start.
+
+Related: D-272, R-DEBT-131
+
+Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+
+### D-387 Far behind, only the catch-up calls work (accepted)
+
+A call other than ensure_periods and get_current_period answers catching_up at once, before the budget lock and without any work, when the budget's last period ended more than 62 days before today (or its end date); within that it does its own roll-over as before. Only ensure_periods and get_current_period (and create_budget, for its first periods) do multi-period work, one step per call (at most 120 periods and about two seconds), however often the catch-up is called within one statement. They wait at most two seconds for a lock another session holds, then answer catching_up, so the client's loop tries again and never meets the statement timeout. Supersedes D-270 (whose bound and step stay).
+
+**Why:** The step 5 review (S1, S5): a refused call did a whole step under the lock and discarded it, so six calls at once ran into the 8 s timeout, ensure_periods included; clearing the end date of a long-ended budget did two steps in one call.
+
+**Rejected:**
+
+- Every call doing a step and discarding it (the D-270 behaviour).
+
+Related: R-PERIOD-180, R-PERIOD-250, R-PERIOD-130, D-276
+
+Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+
+### D-388 A held charge in the schedule preview (accepted)
+
+preview_update_subscription refuses with charge_held_back where update_subscription would (a new cadence or next charge date while a charge is held), and its schedule starts with the held date, the next charge date subscription_overview shows.
+
+**Why:** The step 5 review (S4): the preview answered dates the write then refused, and started a month late.
+
+**Rejected:** none recorded.
+
+Related: R-SUBSCRIPTION-180, D-271
+
+Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+
+### D-389 The overviews compute only what can differ (accepted)
+
+category_overview computes the per-row helpers only where their answer can differ: a category not in force now (ended, void) has no committed amount, no transfer committed amount and is in no use (terms may only use a category in force, R-CATEGORY-130), and one that started before now never deletes on removal (its references are not looked up).
+
+**Why:** The step 5 review (S8): at the 900-row cap, committed_amount, removal_deletes and in_use cost most of category_overview's 1.2 to 1.6 s.
+
+**Rejected:** none recorded.
+
+Related: R-APP-170, R-CATEGORY-110
+
+Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+
+### D-390 A retried add records once (accepted)
+
+add_transaction, add_income, create_category, create_subscription, create_debt, create_account and create_transfer take an optional p_client_id (a uuid the client generates once per user action and sends with every retry). The first call records the id with the ids of the rows it created (kept 7 days); the same id sent again by the same member, for the same budget, the same call and the same arguments, creates nothing and answers those rows as they are now (none if deleted since). The same id from another member, for another budget, another call or other arguments is refused with request_reused before anything is written, and the refusal says nothing about the first request. The check runs under the budget lock, so a double click waits for the first call and answers its rows. Retries of the other writes are already harmless: edits, ends, marks (mark_transfer_done) and balance adjustments (adjust_debt_balance) name the revision they read and answer record_changed on a retry; an import chunk is idempotent by batch and chunk.
+
+**Why:** Answer to Q-090 (coordinator decision): a lost answer made the screen say nothing was saved, the user saved again, and the transaction was recorded twice.
+
+**Rejected:**
+
+- Overwriting or returning another member's record for a reused id.
+
+Related: Q-090, R-APP-250, R-TRANSACTION-001
+
+Source: owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16; code: supabase/migrations
+
+### D-391 Over the plan, from the progress view (accepted)
+
+get_category_trend has is_overspent (boolean[], aligned with period_ids): get_period_progress's is_overspent of the line in each period, false where the line has no progress row. get_period_comparison's category rows have a_is_overspent and b_is_overspent, the progress view's flag of each side (null where the side has no row, and on the total row). The client never decides it from spent and planned.
+
+**Why:** The screen review: the Compare page decided spent > planned in the client, which differs from the progress view for a category not in force with spending (C-LOGIC-003).
+
+**Rejected:** none recorded.
+
+Related: R-COMPARE-070, R-COMPARE-071, R-PROGRESS-002
+
+Source: owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16; code: supabase/migrations
+
+### D-392 The budget's first and last day in my_budgets (accepted)
+
+my_budgets.first_period_start is the first period's start, the earliest date the budget accepts a transaction; my_budgets.end_date (already there) is the ended budget's last day (the end of the period containing the end date entered, projected while it does not exist).
+
+**Why:** The screen review: beyond 120 periods the transaction form only had the first page of list_periods.
+
+**Rejected:** none recorded.
+
+Related: R-BUDGET-004, R-TRANSACTION-006
+
+Source: owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16; code: supabase/migrations
 
 ## Open questions
 
@@ -5139,7 +5522,7 @@ Source: owner-request: database developer decision for step 7, within the coordi
   - Context: move_period_start and record_early_pay_date always set periods.end_is_manual = true, also when the date goes back to its original day, and the contract has no way to clear the mark on a past period (set_expected_pay_date resets only the current period's end). The client cannot tell a past boundary that matches the schedule (C-LOGIC-003). The periods page now explains on the badge that the mark stays after moving back. Options: the database clears end_is_manual when a boundary is moved back to its projected date, or the mark is dropped for past periods.
   - Related: R-PERIOD-012, R-PERIOD-025, R-PERIOD-014
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16
-- **Q-090** Should add_transaction take a client-generated id, so that a double-submitted or retried save records the transaction once?
+- **Q-090** (resolved by D-390) Should add_transaction take a client-generated id, so that a double-submitted or retried save records the transaction once?
   - Context: The boundary operations name the period they act on (D-151), so a retry is refused; an add has no record to name yet. The review recorded a double-submitted add_transaction as two rows. The screens disable the button while saving, but a retry after a lost response would still record twice.
   - Related: D-151, R-CONCURRENCY-100, R-TRANSACTION-095
   - Source: owner-request: coordinator, step 3 database review, 2026-11-16
@@ -5195,27 +5578,27 @@ Source: owner-request: database developer decision for step 7, within the coordi
   - Context: D-232: the history table shows the oldest events first because get_debt_history pages only in that order; for a long history the latest events, the ones a member usually looks for, are many pages away. A p_newest_first flag with the mirrored cursor would let the table start with them.
   - Related: D-232, R-DEBT-135
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
-- **Q-160** Should a category's average spent count only the periods where it was in force?
+- **Q-160** (resolved by D-383) Should a category's average spent count only the periods where it was in force?
   - Context: D-261: it divides by every completed period of the range, so a category added three periods ago averages over all twelve and looks smaller than its usual spending. Counting only periods in force would make the per-category averages not add up to the trend's average spent.
   - Related: D-261, R-COMPARE-172
   - Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16
-- **Q-161** Should the current, still running period be compared by default, or the last completed one?
+- **Q-161** (resolved by D-384) Should the current, still running period be compared by default, or the last completed one?
   - Context: R-COMPARE-071 (coordinator decision): B defaults to the current period and A to the one before, so early in a period B shows little spending against a whole period A.
   - Related: R-COMPARE-071
   - Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16
-- **Q-162** Should the number of budgets a user can belong to be limited?
+- **Q-162** (resolved by D-385) Should the number of budgets a user can belong to be limited?
   - Context: D-264: my_budgets returns one row per budget the user belongs to. A user owns at most 20, but nothing limits the budgets they are invited to; past 1000 the API would cut the list. No screen pages it.
   - Related: D-264, R-APP-170, R-BUDGET-004
   - Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16
-- **Q-190** Should the "to categorise" category count towards the 200 categories in force?
+- **Q-190** (resolved by D-375) Should the "to categorise" category count towards the 200 categories in force?
   - Context: D-312: it is created even at the limit, then counts like any category, so a budget at 200 must end one before adding its own next category.
   - Related: D-312, R-CATEGORY-094
   - Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16
-- **Q-191** Should a token's refusals also hide that the budget is full or far behind?
+- **Q-191** (resolved by D-371) Should a token's refusals also hide that the budget is full or far behind?
   - Context: D-316: transaction_limit_reached and catching_up reach the token, telling it one fact each about the budget; hiding them would leave the script unable to say why nothing was imported.
   - Related: D-316, R-IMPORT-076
   - Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16
-- **Q-192** Should a possible match only count when the descriptions also look alike?
+- **Q-192** (resolved by D-373) Should a possible match only count when the descriptions also look alike?
   - Context: D-315: a typed purchase and a different purchase of the same amount within three days are matched, and the row is skipped (listed for the member) until imported anyway.
   - Related: D-315, R-IMPORT-203
   - Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16

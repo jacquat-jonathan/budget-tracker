@@ -521,6 +521,12 @@ as $$
   from public.debt_interest as i where i.budget_id = step4_violations.budget
   group by i.debt_id, i.period_id having count(*) > 1
   union all
+  -- D-272, D-386: interest only in a period that starts after the debt was opened (after any
+  -- boundary change), so every history starts with the opening
+  select format('interest of debt %s in the period starting %s, not after its opening on %s', d.name, p.start_date, d.opened_on)
+  from public.debt_interest as i join public.periods as p on p.id = i.period_id join public.debts as d on d.id = i.debt_id
+  where i.budget_id = step4_violations.budget and p.start_date <= d.opened_on
+  union all
   select format('transaction %s: %s', t.id, v.what)
   from public.transactions as t
   cross join lateral (values
@@ -528,7 +534,8 @@ as $$
     (case when (t.subscription_id is not null or t.debt_id is not null) and t.kind <> 'expense' then 'linked but not an expense' end),
     (case when t.review_state = 'awaiting_confirmation' and t.charge_date is null then 'awaiting but not a charge' end),
     (case when t.review_state = 'to_review' and t.import_batch_id is null then 'to review but not imported' end),
-    (case when t.import_batch_id is not null and (t.subscription_id is not null or t.charge_date is not null) then 'imported and a charge' end),
+    -- (an imported transaction may be linked to a subscription by a member: F7)
+    (case when t.import_batch_id is not null and t.charge_date is not null then 'imported and a charge' end),
     (case when t.subscription_id is not null and not exists (select 1 from public.subscriptions as s
             where s.id = t.subscription_id and s.budget_id = t.budget_id) then 'subscription of another budget' end),
     (case when t.debt_id is not null and not exists (select 1 from public.debts as d
@@ -827,8 +834,8 @@ begin
 end;
 $$;
 
--- Step 7 invariants of one budget: marks only where their transfer is in force, on periods of
--- the budget; a mark done by the catch-up has its transaction, a mark not done or skipped none;
+-- Step 7 invariants of one budget: marks on periods of the budget, never before their
+-- transfer started (they stay after its end, D-380); a mark done by the catch-up has its transaction, a mark not done or skipped none;
 -- every occurrence of an automatic transfer linked to a category, due by the horizon, has a
 -- mark (unless the budget is full); every due date equals the naive one; the transfers and
 -- incomes satisfy the shape (accounts and categories in force); every period's money flow
@@ -863,12 +870,12 @@ as $$
     from public.periods as p cross join lateral private.money_flow(p.budget_id, p.seq) as m
     where p.budget_id = (select id from b)
   )
-  select format('mark of transfer %s on period %s where it is not in force', o.transfer_id, p.seq)
+  -- (D-380: a mark stays where its transfer is no longer in force; it is listed as ended)
+  select format('mark of transfer %s on period %s of another budget, or before the transfer started', o.transfer_id, p.seq)
   from public.transfer_occurrences as o
   join public.periods as p on p.id = o.period_id
   join public.transfers as t on t.id = o.transfer_id
-  where o.budget_id = (select id from b)
-    and (p.budget_id <> o.budget_id or not (t.first_seq <= p.seq and (t.end_seq is null or p.seq < t.end_seq)))
+  where o.budget_id = (select id from b) and (p.budget_id <> o.budget_id or p.seq < t.first_seq)
   union all
   select format('mark %s of transfer %s: %s transactions', o.mark, o.transfer_id, count(x.id))
   from public.transfer_occurrences as o

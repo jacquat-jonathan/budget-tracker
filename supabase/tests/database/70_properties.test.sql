@@ -55,7 +55,7 @@ begin;
 create temp table seeds (seed double precision) on commit drop;
 insert into seeds values (0.11), (0.23), (0.37), (0.41), (0.53), (0.67), (0.79), (0.83);
 create temp table prop_config (steps integer) on commit drop;
-insert into prop_config values (250);
+insert into prop_config values (270);
 
 create temp table runs (seed double precision, step integer, budget text, op text, outcome text) on commit drop;
 create temp table failures (seed double precision, step integer, budget text, op text, problem text) on commit drop;
@@ -83,7 +83,7 @@ insert into documented_codes values
   ('subscription_not_in_force'), ('not_a_charge'), ('category_in_use'), ('debt_has_history'),
   ('before_debt_opened'), ('catching_up'), ('preview_required'),
   -- step 6
-  ('category_to_categorise'), ('not_to_review'),
+  ('category_to_categorise'), ('not_to_review'), ('batch_undone'), ('merchant_rule_exists'), ('merchant_rule_limit_reached'),
   -- step 7
   ('account_not_found'), ('transfer_not_found'), ('account_ended'), ('transfer_ended'), ('account_in_use'),
   ('account_limit_reached'), ('transfer_limit_reached'), ('account_not_in_force'), ('account_required'),
@@ -140,6 +140,68 @@ create or replace function pg_temp.made_adjustments(b uuid) returns void languag
   insert into made (kind, budget, id)
   select 'adjustment', b, a.id from public.debt_adjustments as a
   where a.budget_id = b and not exists (select 1 from made as m where m.id = a.id)
+$$;
+-- Step 6: the run's batches, in creation order; statement rows for a budget (deterministic: the
+-- picks come from the run's own rows); a shuffled list.
+create temp table run_batches (ord bigserial primary key, budget uuid not null, batch uuid not null) on commit drop;
+grant select, insert on run_batches to authenticated;
+grant usage on sequence run_batches_ord_seq to authenticated;
+create or replace function pg_temp.import_rows_for(b uuid, first date, today date) returns jsonb language plpgsql as $$
+declare
+  v_rows jsonb := '[]';
+  v_row jsonb;
+  v_pick uuid;
+  v_tx public.transactions;
+  v_cat uuid;
+begin
+  for g in 1 .. 1 + floor(random() * 6)::integer loop
+    v_row := jsonb_build_object(
+      'date', greatest(first, today - floor(random() * 40)::integer)::text,
+      'amount', 1 + floor(random() * 30000)::bigint,
+      'direction', case when random() < 0.8 then 'debit' else 'credit' end,
+      'description', (array['Statement 0', 'Statement 1', 'Migros Bern', 'COOP-1234 Basel', 'Kiosk'])[1 + floor(random() * 5)::integer]);
+    if random() < 0.3 then
+      -- near a transaction already there: a possible match or a duplicate
+      v_pick := pg_temp.pick('transaction', b);
+      select * into v_tx from public.transactions where id = v_pick;
+      if v_tx.id is not null and v_tx.date <= today then
+        v_row := v_row || jsonb_build_object('amount', v_tx.amount, 'direction', case when v_tx.kind = 'expense' then 'debit' else 'credit' end,
+          'date', greatest(first, least(today, v_tx.date + floor(random() * 7)::integer - 3))::text);
+        if random() < 0.5 then
+          v_row := v_row || jsonb_build_object('date', v_tx.date::text, 'description', coalesce(v_tx.description, ''));
+        end if;
+      end if;
+    end if;
+    if random() < 0.15 then
+      v_row := v_row || jsonb_build_object('hint', (array['own_transfer', 'card_bill_payment', 'transfer_to_person', 'salary', 'fee'])[1 + floor(random() * 5)::integer]);
+    end if;
+    if random() < 0.2 then
+      v_row := v_row || jsonb_build_object('bank_transaction_id', 'B' || floor(random() * 5)::integer);
+    end if;
+    if random() < 0.1 then
+      v_row := v_row || jsonb_build_object('action', (array['import', 'skip'])[1 + floor(random() * 2)::integer]);
+    elsif random() < 0.1 and v_row ->> 'direction' = 'debit' then
+      v_cat := pg_temp.pick('category', b);
+      if v_cat is not null then
+        v_row := v_row || jsonb_build_object('category_id', v_cat);
+      end if;
+    end if;
+    v_rows := v_rows || jsonb_build_array(v_row);
+  end loop;
+  return v_rows;
+end;
+$$;
+create or replace function pg_temp.shuffle_int(a integer[]) returns integer[] language plpgsql as $$
+declare
+  j integer;
+  t integer;
+begin
+  for i in reverse cardinality(a)..2 loop
+    j := 1 + floor(random() * i)::integer;
+    t := a[i]; a[i] := a[j]; a[j] := t;
+  end loop;
+  return a;
+end;
 $$;
 -- Step 7 model: every transaction of a transfer the run has not seen yet; one the catch-up
 -- made is checked against a naive due date and the terms in force in its period, once, when
@@ -413,7 +475,7 @@ create or replace function pg_temp.totals_disagree(b uuid) returns setof text la
          or s.result <> s.income_total - s.spent_total)
 $$;
 
-select plan(22);
+select plan(23);
 
 do $prop$
 declare
@@ -461,6 +523,9 @@ declare
   v_check public.transfer_checklist_row;
   v_n integer;
   v_m integer;
+  v_part jsonb;
+  v_again jsonb;
+  v_first_chunk boolean;
 begin
   for v_seed in select seed from seeds order by seed loop
     perform setseed(v_seed);
@@ -487,9 +552,9 @@ begin
       v_budget := tests.id(v_user || v_name);
       v_today := private.today();
       v_r := random();
-      -- Step 2 operations take 8 in 23 of the steps, step 3 operations 7, step 4 (and 6)
-      -- operations 5, step 7 operations 3.
-      v_k := floor(random() * 23)::integer;
+      -- Step 2 operations take 8 in 25 of the steps, step 3 operations 7, step 4 operations 5
+      -- (with absences of up to 40 days for 7 % of them), step 6 operations 2, step 7 operations 3.
+      v_k := floor(random() * 25)::integer;
       if v_k < 8 then
       v_op := case
         when v_r < 0.14 then 'advance_day'
@@ -550,9 +615,16 @@ begin
           when v_r < 0.85 then 'delete_adjustment'
           when v_r < 0.88 then 'remove_debt'
           when v_r < 0.90 then 'link_transaction'
-          when v_r < 0.92 then 'stale_step4_edit'
-          when v_r < 0.97 then 'import_rows'
+          when v_r < 0.93 then 'stale_step4_edit'
           else 'long_absence'
+        end;
+      elsif v_k < 22 then
+        v_op := case
+          when v_r < 0.45 then 'import_rows'
+          when v_r < 0.70 then 'import_chunks'
+          when v_r < 0.82 then 'create_rule'
+          when v_r < 0.91 then 'import_anyway'
+          else 'undo_import'
         end;
       else
         v_op := case
@@ -951,39 +1023,77 @@ begin
                 perform public.link_transaction(v_tx.id, v_tx.revision);
               end if;
             end if;
-          elsif v_op = 'import_rows' then
-            -- step 6: a few statement rows, one a copy of a transaction already there
+          elsif v_op in ('import_rows', 'import_chunks') then
+            -- step 6: statement rows with hints, bank ids, the member's choices, copies of
+            -- transactions already there and amounts and dates near them, sent in one chunk or in
+            -- two or three chunks in any order. Each chunk's preview with the batch id equals its
+            -- write; the first chunk's preview with no batch id equals it too; the rows the batch
+            -- imported, sent again without the member's choices, import nothing.
             select min(start_date) into v_first from public.periods where budget_id = v_budget;
-            v_pick := pg_temp.pick('transaction', v_budget, 't.kind = ''expense''');
-            select jsonb_agg(r order by n) into v_import from (
-              select g as n, jsonb_build_object(
-                       'date', greatest(v_first, v_today - floor(random() * 40)::integer)::text,
-                       'amount', 1 + floor(random() * 30000)::bigint,
-                       'direction', case when random() < 0.8 then 'debit' else 'credit' end,
-                       'description', 'Statement ' || floor(random() * 4)::integer) as r
-              from generate_series(1, 1 + floor(random() * 5)::integer) as g
-              union all
-              select 0, jsonb_build_object('date', t.date::text, 'amount', t.amount, 'direction', 'debit', 'description', coalesce(t.description, ''))
-              from public.transactions as t where t.id = v_pick and t.date <= v_today) as x;
+            v_import := pg_temp.import_rows_for(v_budget, v_first, v_today);
             v_batch := gen_random_uuid();
-            -- a row going to "to categorise" names the category only once the write created it
-            select string_agg(row(p.row_no, p.valid, p.reason, p.action, p.kind, case when p.category_source = 'to_categorise' then null else p.category_id end,
-                                  p.category_source, p.rule_id, p.duplicate_of, p.match_of, p.flag)::text, ';' order by p.row_no)
-            into v_pre from public.preview_import(v_budget, v_batch, v_import) as p;
-            select string_agg(row(p.row_no, p.valid, p.reason, p.action, p.kind, case when p.category_source = 'to_categorise' then null else p.category_id end,
-                                  p.category_source, p.rule_id, p.duplicate_of, p.match_of, p.flag)::text, ';' order by p.row_no)
-            into v_out from public.import_transactions(v_budget, v_batch, 1, v_import, 'csv', p_to_categorise_name => 'To categorise') as p;
+            insert into run_batches (budget, batch) values (v_budget, v_batch);
+            v_k := case when v_op = 'import_rows' then 1 else 2 + floor(random() * 2)::integer end;
+            v_first_chunk := true;
+            v_again := '[]';
+            foreach v_m in array pg_temp.shuffle_int(array(select generate_series(1, v_k))) loop
+              select coalesce(jsonb_agg(e.value order by e.ordinality), '[]') into v_part
+              from jsonb_array_elements(v_import) with ordinality as e where (e.ordinality - 1) % v_k = v_m - 1;
+              continue when jsonb_array_length(v_part) = 0;
+              select string_agg(row(p.row_no, p.valid, p.reason, p.action, p.kind, case when p.category_source = 'to_categorise' then null else p.category_id end,
+                                    p.category_source, p.rule_id, p.duplicate_of, p.match_of, p.flag)::text, ';' order by p.row_no) into v_pre
+              from public.preview_import(v_budget, v_batch, v_part) as p;
+              if v_first_chunk then
+                select string_agg(row(p.row_no, p.valid, p.reason, p.action, p.kind, case when p.category_source = 'to_categorise' then null else p.category_id end,
+                                    p.category_source, p.rule_id, p.duplicate_of, p.match_of, p.flag)::text, ';' order by p.row_no) into v_out
+                from public.preview_import(v_budget, null, v_part) as p;
+                if v_pre is distinct from v_out then
+                  insert into failures values (v_seed, v_step, v_name, v_op, 'the preview with no batch id differs: ' || v_pre || ' / ' || v_out);
+                end if;
+                v_first_chunk := false;
+              end if;
+              select string_agg(row(p.row_no, p.valid, p.reason, p.action, p.kind, case when p.category_source = 'to_categorise' then null else p.category_id end,
+                                    p.category_source, p.rule_id, p.duplicate_of, p.match_of, p.flag)::text, ';' order by p.row_no),
+                     v_again || coalesce(jsonb_agg((v_part -> (p.row_no - 1)) - 'action' - 'category_id') filter (where p.action = 'import'), '[]')
+              into v_out, v_again
+              from public.import_transactions(v_budget, v_batch, v_m, v_part, 'csv', p_to_categorise_name => 'To categorise') as p;
+              if v_pre is distinct from v_out then
+                insert into failures values (v_seed, v_step, v_name, v_op, 'the write did not do what the preview said: ' || v_pre || ' / ' || v_out);
+              end if;
+            end loop;
             perform pg_temp.made('transaction', v_budget, t.id) from public.transactions as t
             where t.import_batch_id = v_batch order by t.date, t.amount, t.id;
             v_touched := pg_temp.seqs_of(v_budget, (select coalesce(array_agg(t.date), '{}') from public.transactions as t where t.import_batch_id = v_batch));
-            if v_pre is distinct from v_out then
-              insert into failures values (v_seed, v_step, v_name, v_op, 'the write did not do what the preview said: ' || v_pre || ' / ' || v_out);
-            end if;
-            if exists (select 1 from public.import_transactions(v_budget, gen_random_uuid(), 1, v_import, 'csv') as p where p.action = 'import') then
+            if jsonb_array_length(v_again) > 0
+               and exists (select 1 from public.preview_import(v_budget, null, v_again) as p where p.action = 'import') then
               insert into failures values (v_seed, v_step, v_name, v_op, 'importing the same rows twice imported something the second time');
             end if;
             if random() < 0.3 then
               perform public.confirm_imports(v_budget);
+            end if;
+          elsif v_op = 'create_rule' then
+            begin
+              v_category := pg_temp.pick('category', v_budget,
+                format('t.id in (select category_id from public.list_categories_for_date(%L, %L))', v_budget, v_today));
+            exception when sqlstate 'P0001' then
+              v_category := null;
+            end;
+            if v_category is not null then
+              perform public.create_merchant_rule(v_budget, (array['statement 1', 'migros', 'coop', 'statement 2', 'kiosk'])[1 + floor(random() * 5)::integer],
+                v_category, random() < 0.5);
+            end if;
+          elsif v_op in ('import_anyway', 'undo_import') then
+            v_batch := (select r.batch from run_batches as r where r.budget = v_budget order by r.ord
+                        offset floor(random() * greatest((select count(*) from run_batches as q where q.budget = v_budget), 1))::integer limit 1);
+            if v_batch is not null then
+              if v_op = 'import_anyway' then
+                perform pg_temp.made('transaction', v_budget, x.transaction_id)
+                from public.import_skipped_anyway(v_batch) as x where x.transaction_id is not null order by x.chunk, x.row_no;
+              else
+                v_touched := pg_temp.seqs_of(v_budget, (select coalesce(array_agg(t.date), '{}') from public.transactions as t where t.import_batch_id = v_batch));
+                perform public.undo_import_batch(v_batch);
+              end if;
+              v_touched := v_touched || pg_temp.seqs_of(v_budget, (select coalesce(array_agg(t.date), '{}') from public.transactions as t where t.import_batch_id = v_batch));
             end if;
           elsif v_op in ('create_account', 'create_account_backdated') then
             perform pg_temp.made('account', v_budget, (select a.id from public.create_account(v_budget, 'Account ' || v_step,
@@ -1091,14 +1201,26 @@ begin
               if random() < 0.3 then
                 v_from := v_period.seq;
               end if;
-              select format('%s/%s/%s', outcome, marks_removed, transactions_unlinked) into v_pre
-              from public.preview_end_transfer(v_tr.id, case when v_from is not null then v_period.id end);
+              -- the preview names the write's outcome or its refusal; ending keeps every mark and
+              -- every transaction link
+              select format('%s/%s', p.outcome, p.refusal) into v_pre
+              from public.preview_end_transfer(v_tr.id, case when v_from is not null then v_period.id end) as p;
               v_n := (select count(*) from public.transfer_occurrences where transfer_id = v_tr.id);
               v_m := (select count(*) from public.transaction_list where transfer_id = v_tr.id);
-              v_out := public.end_transfer(v_tr.id, v_tr.revision, case when v_from is not null then v_period.id end);
-              if v_pre is distinct from format('%s/%s/%s', v_out, v_n - (select count(*) from public.transfer_occurrences where transfer_id = v_tr.id),
-                                               v_m - (select count(*) from public.transaction_list where transfer_id = v_tr.id)) then
+              begin
+                v_out := public.end_transfer(v_tr.id, v_tr.revision, case when v_from is not null then v_period.id end) || '/';
+              exception when sqlstate 'P0001' then
+                v_out := '/' || sqlerrm;
+              end;
+              if v_pre is distinct from v_out then
                 insert into failures values (v_seed, v_step, v_name, v_op, 'the end is not what its preview said: ' || coalesce(v_pre, '-') || ' / ' || v_out);
+              elsif v_out = 'ended/' and (v_n, v_m) is distinct from (
+                      (select count(*) from public.transfer_occurrences where transfer_id = v_tr.id)::integer,
+                      (select count(*) from public.transaction_list where transfer_id = v_tr.id)::integer) then
+                insert into failures values (v_seed, v_step, v_name, v_op, 'ending the transfer removed a mark or a transaction link');
+              end if;
+              if v_out like '/%' then
+                raise exception '%', substr(v_out, 2) using errcode = 'P0001';
               end if;
             end if;
           elsif v_op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark', 'stale_mark') then
@@ -1269,7 +1391,7 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_subcategory', 'correct_expectation', 'end_category', 'end_category_from', 'create_category_backdated')),
   '>=', 60, 'R-VERSION-070 R-CATEGORY-092: and changed categories in every way, corrections included');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('extend_category', 'restore_category')),
-  '>=', 15, 'R-CATEGORY-100 R-CATEGORY-101: including extending and restoring categories');
+  '>=', 20, 'R-CATEGORY-100 R-CATEGORY-101: including extending and restoring categories');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'preview_then_correct_primary'),
   '>=', 5, 'R-PERIOD-036: and the previews of corrections always matched the write');
 select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_edit'),
@@ -1293,13 +1415,15 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op li
 select cmp_ok((select count(*)::integer from made where kind = 'charge'), '>=', 45,
   'R-SUBSCRIPTION-073 Q-054: which were charged automatically, many times, also after long absences');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('confirm_charge', 'dismiss_charge')),
-  '>=', 8, 'R-SUBSCRIPTION-075 R-SUBSCRIPTION-077: and charges were confirmed or dismissed');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'import_rows'), '>=', 15,
-  'R-IMPORT-001 R-IMPORT-003: the runs imported statement rows many times, the preview equal to the write, the second import empty');
+  '>=', 10, 'R-SUBSCRIPTION-075 R-SUBSCRIPTION-077: and charges were confirmed or dismissed');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('import_rows', 'import_chunks')), '>=', 30,
+  'R-IMPORT-001 R-IMPORT-003: the runs imported statement rows many times, in one chunk or several in any order, each preview (with the batch id, and with none for a first chunk) equal to the write, the second import empty');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_rule', 'import_anyway', 'undo_import')), '>=', 20,
+  'R-IMPORT-202 R-IMPORT-204 R-IMPORT-206: and created rules, imported skipped rows anyway and undid batches');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_debt', 'create_debt_backdated', 'update_debt', 'correct_debt', 'add_payment', 'adjust_debt', 'delete_adjustment', 'remove_debt')),
   '>=', 60, 'R-VERSION-004 R-DEBT-075: the runs recorded, paid, adjusted and removed many debts');
 select cmp_ok((select count(*)::integer from public.debt_interest as i join made as m on m.id = i.debt_id),
-  '>=', 10, 'R-DEBT-073: and interest was added to them');
+  '>=', 15, 'R-DEBT-073: and interest was added to them');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_transfer', 'create_transfer_backdated', 'update_transfer', 'correct_transfer', 'end_transfer')),
   '>=', 45, 'R-ACCOUNT-002 R-VERSION-071 R-ACCOUNT-233 R-ACCOUNT-234: the runs created, edited, corrected and ended many transfers, each as its preview said');
 select cmp_ok((select count(*)::integer from catch_up_seen), '>=', 30,

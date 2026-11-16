@@ -25,7 +25,7 @@ set search_path = ''
 as $$
 begin
   perform private.assert_member(p_budget_id);
-  perform private.read_catch_up(p_budget_id);  -- the one catch-up of every read (D-270)
+  perform private.read_catch_up(p_budget_id);  -- the one catch-up of every read (D-387)
   return private.reading_seq(p_budget_id);
 end;
 $$;
@@ -48,7 +48,7 @@ as $$
   where c.budget_id = p_budget_id
 $$;
 
--- R-COMPARE-172, D-261: an average over n periods, to the rappen, halves away from zero (null
+-- R-COMPARE-172, D-383: an average over n periods, to the rappen, halves away from zero (null
 -- when n is 0: there is nothing to average).
 create or replace function private.compare_average(p_sum numeric, p_n integer)
 returns bigint
@@ -132,12 +132,18 @@ $$;
 -- transaction_count 0. The spent elements of the top-level lines (parent_id null) at one
 -- position add up to that period's spent_total, and so do those of the leaves (is_group
 -- false). average_spent: over the completed periods of the range, as in get_period_trend (null
--- when none is completed). Members. Errors: as get_period_trend.
+-- when none is completed). is_overspent: get_period_progress's flag of the line in each period
+-- (false where it has no progress row; D-391). Q-160, D-383: active_count and active_average_spent, over the
+-- completed periods of the range in which the line was in force or had spending (a category
+-- that started or stopped inside the range is averaged over its own periods; null when that
+-- count is 0). Members. Errors: as get_period_trend.
 create or replace function public.get_category_trend(p_budget_id uuid, p_count integer default 12)
 returns table (
   category_id uuid, parent_id uuid, name text, is_group boolean, display_order integer,
   period_ids uuid[], in_force boolean[], planned bigint[], spent bigint[], committed bigint[],
-  transaction_count integer[], completed_count integer, average_spent bigint
+  transaction_count integer[], completed_count integer, average_spent bigint,
+  active_count integer, active_average_spent bigint,
+  is_overspent boolean[]
 )
 language plpgsql
 volatile
@@ -173,7 +179,8 @@ begin
              coalesce(x.in_force, false) as in_force,
              case when x.in_force then x.expected end as planned,
              coalesce(x.spent, 0)::bigint as spent, coalesce(x.committed, 0)::bigint as committed,
-             coalesce(x.transaction_count, 0) as transaction_count
+             coalesce(x.transaction_count, 0) as transaction_count,
+             coalesce(x.is_overspent, false) as is_overspent
       from lines as l cross join ps
       left join rows_ as x on x.category_id = l.category_id and x.pid = ps.id
     ),
@@ -184,12 +191,19 @@ begin
              pg_catalog.array_agg(g.spent order by g.seq) as spent,
              pg_catalog.array_agg(g.committed order by g.seq) as committed,
              pg_catalog.array_agg(g.transaction_count order by g.seq) as transaction_count,
-             coalesce(pg_catalog.sum(g.spent) filter (where g.end_date < v_today), 0) as completed_spent
+             pg_catalog.array_agg(g.is_overspent order by g.seq) as is_overspent,
+             coalesce(pg_catalog.sum(g.spent) filter (where g.end_date < v_today), 0) as completed_spent,
+             (pg_catalog.count(*) filter (where g.end_date < v_today
+                                            and (g.in_force or g.spent <> 0 or g.transaction_count > 0)))::integer as active_n,
+             pg_catalog.sum(g.spent) filter (where g.end_date < v_today
+                                              and (g.in_force or g.spent <> 0 or g.transaction_count > 0)) as active_spent
       from grid as g group by g.category_id
     )
     select c.id, c.parent_id, c.name, c.is_group, o.display_order,
            ids.period_ids, a.in_force, a.planned, a.spent, a.committed, a.transaction_count,
-           n.n, private.compare_average(a.completed_spent, n.n)
+           n.n, private.compare_average(a.completed_spent, n.n),
+           a.active_n, private.compare_average(a.active_spent, a.active_n),
+           a.is_overspent
     from agg as a
     join public.categories as c on c.id = a.category_id
     join private.category_display_order(p_budget_id) as o on o.category_id = c.id
@@ -281,8 +295,15 @@ $$;
 -- R-COMPARE-071, R-COMPARE-173, R-COMPARE-174: two periods side by side
 -- ===========================================================================
 
--- Periods A and B of the budget (default: B the current period, or the last once the budget
--- has ended; A the one before B, none when B is the first). The first row (kind 'total') holds
+-- Periods A and B of the budget. Default (Q-161, D-384): with neither given, the last two
+-- completed periods when two exist, otherwise the last two periods (B the current period, or
+-- the last once the budget has ended); with only A given, B is the current (or last) period;
+-- with only B given, A is the one before B (none when B is the first). Every row says whether
+-- each side is still running (a_is_current, b_is_current) or completed (a_is_completed,
+-- b_is_completed; null for a missing side A), so a running period is never read as a saving.
+-- a_is_overspent, b_is_overspent (category rows): get_period_progress's is_overspent of that
+-- side, null where the side has no row (D-391).
+-- The first row (kind 'total') holds
 -- the totals of each side (period_summaries) and their differences, B minus A; then one row
 -- (kind 'category') per category with a progress row in A or in B, in display order. A side
 -- where the category has no progress row is null (not in force there and nothing on it); a
@@ -306,7 +327,9 @@ returns table (
   a_committed bigint, b_committed bigint, committed_difference bigint,
   a_transaction_count integer, b_transaction_count integer,
   a_income bigint, b_income bigint, income_difference bigint,
-  a_result bigint, b_result bigint, result_difference bigint
+  a_result bigint, b_result bigint, result_difference bigint,
+  a_is_current boolean, a_is_completed boolean, b_is_current boolean, b_is_completed boolean,
+  a_is_overspent boolean, b_is_overspent boolean
 )
 language plpgsql
 volatile
@@ -318,9 +341,23 @@ declare
   v_last integer;
   v_a public.periods;
   v_b public.periods;
+  v_today date;
+  v_a_current boolean;
+  v_a_completed boolean;
+  v_b_current boolean;
+  v_b_completed boolean;
 begin
   v_last := private.compare_reading_seq(p_budget_id);
-  if p_period_b_id is null then
+  v_today := private.today();
+  if p_period_b_id is null and p_period_a_id is null then
+    -- the last completed period when the one before it exists too
+    select p.* into v_b from public.periods as p
+    where p.budget_id = p_budget_id and p.seq <= v_last and p.end_date < v_today and p.seq > 1
+    order by p.seq desc limit 1;
+    if v_b.id is null then
+      select p.* into v_b from public.periods as p where p.budget_id = p_budget_id and p.seq = v_last;
+    end if;
+  elsif p_period_b_id is null then
     select p.* into v_b from public.periods as p where p.budget_id = p_budget_id and p.seq = v_last;
   else
     select p.* into v_b from public.periods as p where p.id = p_period_b_id and p.budget_id = p_budget_id;
@@ -336,6 +373,12 @@ begin
       raise exception 'period_not_found' using errcode = 'P0001';
     end if;
   end if;
+  if v_a.id is not null then
+    v_a_current := v_today between v_a.start_date and v_a.end_date;
+    v_a_completed := v_a.end_date < v_today;
+  end if;
+  v_b_current := v_today between v_b.start_date and v_b.end_date;
+  v_b_completed := v_b.end_date < v_today;
   return query
     select q.* from (
     with sa as (select s.* from public.period_summaries as s where s.id = v_a.id),
@@ -346,7 +389,8 @@ begin
       select coalesce(ga.category_id, gb.category_id) as cid, ga.in_force as ai, gb.in_force as bi,
              case when ga.in_force then ga.expected end as ap, case when gb.in_force then gb.expected end as bp,
              ga.spent as asp, gb.spent as bsp, ga.committed as ac, gb.committed as bc,
-             ga.transaction_count as an, gb.transaction_count as bn
+             ga.transaction_count as an, gb.transaction_count as bn,
+             ga.is_overspent as ao, gb.is_overspent as bo
       from ga full join gb on gb.category_id = ga.category_id
     )
     select 'total'::text as kind, null::uuid, null::uuid, null::text, null::boolean, null::integer as display_order,
@@ -359,12 +403,14 @@ begin
            (select sb.spent_total from sb) - coalesce((select sa.spent_total from sa), 0),
            (select sa.committed_total from sa), (select sb.committed_total from sb),
            (select sb.committed_total from sb) - coalesce((select sa.committed_total from sa), 0),
-           (select pg_catalog.sum(x.transaction_count)::integer from ga as x where x.parent_id is null),
+           case when v_a.id is not null
+                then (select coalesce(pg_catalog.sum(x.transaction_count), 0)::integer from ga as x where x.parent_id is null) end,
            (select coalesce(pg_catalog.sum(x.transaction_count), 0)::integer from gb as x where x.parent_id is null),
            (select sa.income_total from sa), (select sb.income_total from sb),
            (select sb.income_total from sb) - coalesce((select sa.income_total from sa), 0),
            (select sa.result from sa), (select sb.result from sb),
-           (select sb.result from sb) - coalesce((select sa.result from sa), 0)
+           (select sb.result from sb) - coalesce((select sa.result from sa), 0),
+           v_a_current, v_a_completed, v_b_current, v_b_completed, null::boolean, null::boolean
     union all
     select * from (
       select 'category'::text, c.id, c.parent_id, c.name, c.is_group, o.display_order,
@@ -375,7 +421,8 @@ begin
              j.asp, j.bsp, (coalesce(j.bsp, 0) - coalesce(j.asp, 0))::bigint,
              j.ac, j.bc, (coalesce(j.bc, 0) - coalesce(j.ac, 0))::bigint,
              j.an, j.bn,
-             null::bigint, null::bigint, null::bigint, null::bigint, null::bigint, null::bigint
+             null::bigint, null::bigint, null::bigint, null::bigint, null::bigint, null::bigint,
+             v_a_current, v_a_completed, v_b_current, v_b_completed, j.ao, j.bo
       from j
       join public.categories as c on c.id = j.cid
       join private.category_display_order(p_budget_id) as o on o.category_id = c.id

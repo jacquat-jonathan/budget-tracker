@@ -3243,11 +3243,11 @@
     {
       "id": "R-COMPARE-071",
       "area": "compare",
-      "statement": "The user can show any two periods of the budget side by side (by default the current one and the one before): per category the spending and the planned amount in each and the difference in spending, B minus A, and the same for the totals (income, spent, result, committed).",
+      "statement": "The user can show any two periods of the budget side by side (by default the last two completed periods, or the last two periods when fewer than two are completed): per category the spending and the planned amount in each and the difference in spending, B minus A, and the same for the totals (income, spent, result, committed); each side says whether it is still running or completed.",
       "feature": "F-COMPARE",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-114", "D-260"],
+      "related": ["D-114", "D-260", "D-384"],
       "source": [
         "owner-request: product owner decisions on the open questions, 2026-11-16",
         "owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16",
@@ -3634,11 +3634,11 @@
     {
       "id": "R-IMPORT-093",
       "area": "import",
-      "statement": "A salary credit is skipped on import: one the source calls a salary, or of the amount of an income in force in the period of its date and dated within five days of that period's start; the member may import it as extra income.",
+      "statement": "A salary credit is skipped on import: one the source calls a salary, or of the amount of an income in force, dated within five days either side of a period start (R-IMPORT-259); the member may import it as extra income.",
       "feature": "F-IMPORT",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-130", "D-317"],
+      "related": ["D-130", "D-377"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
@@ -5734,11 +5734,11 @@
     {
       "id": "R-DEBT-131",
       "area": "debt",
-      "statement": "A debt's principal is the balance on its opened date; no payment, balance adjustment or interest is dated before it, so its history always starts with the opening. A debt recorded from an earlier period is opened on that period's start.",
+      "statement": "A debt's principal is the balance on its opened date; no payment, balance adjustment or interest is dated before it, also after a period's boundaries change, so its history always starts with the opening. A debt recorded from an earlier period is opened on that period's start.",
       "feature": "F-DEBT",
       "status": "active",
       "enforcement": "test",
-      "related": ["R-DEBT-003", "D-202"],
+      "related": ["D-202", "D-386", "R-DEBT-003"],
       "source": [
         "owner-request: coordinator review of the step 4 database, 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
@@ -6188,11 +6188,11 @@
     {
       "id": "R-COMPARE-172",
       "area": "compare",
-      "statement": "Averages per period (income, spent, result, and spent per category) are taken over the completed periods of the range only, to the rappen with halves rounded away from zero, and are empty (not zero) when no period of the range is completed.",
+      "statement": "Averages per period (income, spent, result, and spent per category) are taken over the completed periods of the range only, to the rappen with halves rounded away from zero, and are empty (not zero) when no period of the range is completed; a category also has an average over the completed periods of the range in which it was in force or had spending, empty when there is none.",
       "feature": "F-COMPARE",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-261", "Q-160"],
+      "related": ["D-261", "D-383", "Q-160"],
       "source": [
         "owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16",
         "code: supabase/migrations/20261118100000_period_comparison.sql"
@@ -6267,11 +6267,11 @@
     {
       "id": "R-PERIOD-180",
       "area": "period",
-      "statement": "No call of any kind creates more than one bounded step of periods: ensure_periods and get_current_period do one step and keep it; every other read, preview and write does at most one step and, when the budget is still behind, answers catching_up and changes nothing.",
+      "statement": "No call of any kind creates more than one bounded step of periods, however often it calls the catch-up: ensure_periods and get_current_period do one step and keep it; every other read, preview and write does at most its own roll-over (R-PERIOD-250) and, when the budget is still behind, answers catching_up and changes nothing.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "related": ["R-PERIOD-130", "D-270"],
+      "related": ["D-270", "D-387", "R-PERIOD-130"],
       "source": [
         "owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql",
@@ -6281,11 +6281,11 @@
     {
       "id": "R-SUBSCRIPTION-180",
       "area": "subscription",
-      "statement": "While a charge of a subscription is due and held back by the transaction limit, its schedule (cadence or next charge date, from now or as a correction) cannot change and it cannot end (charge_held_back); its name, price and category can; its next charge date shows the held date.",
+      "statement": "While a charge of a subscription is due and held back by the transaction limit, its schedule (cadence or next charge date, from now or as a correction) cannot change and it cannot end (charge_held_back, in the previews too); its name, price and category can; its next charge date shows the held date, and so does the first date of its schedule preview.",
       "feature": "F-SUBSCRIPTION",
       "status": "active",
       "enforcement": "test",
-      "related": ["R-SUBSCRIPTION-112", "D-271"],
+      "related": ["D-271", "D-388", "R-SUBSCRIPTION-112"],
       "source": [
         "owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
@@ -6372,11 +6372,11 @@
     {
       "id": "R-IMPORT-203",
       "area": "import",
-      "statement": "A row is a possible match of an existing transaction of the same kind that was not imported, with the same amount and a date within three days; it is skipped by default, and when the match is a charge awaiting confirmation the import confirms it; each existing transaction absorbs one row.",
+      "statement": "A row is a possible match of an existing transaction of the same kind that was not imported, with the same amount and a date within three days either way; it is skipped by default, and when the match is a charge awaiting confirmation the import confirms it; each existing transaction absorbs one row of a batch.",
       "feature": "F-IMPORT",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-315", "Q-068"],
+      "related": ["D-373", "Q-068"],
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
@@ -6398,11 +6398,11 @@
     {
       "id": "R-IMPORT-205",
       "area": "import",
-      "statement": "An import token imports only with the default choices and never confirms a charge; it reads nothing back beyond counts and the reasons of rows refused for their own content; an unknown, expired or revoked token gets one refusal before any lock or catch-up; its calls and rows are limited per hour and per day; a member who leaves the budget revokes the tokens they created.",
+      "statement": "An import token imports only with the default choices and never confirms a charge; it reads nothing back beyond counts and the reasons of rows refused for their own content; an unknown, expired or revoked token, or one whose creator is no longer a member, gets one refusal before any lock or catch-up; its calls and rows are limited over rolling windows of 60 minutes and 24 hours.",
       "feature": "F-IMPORT",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-116", "D-316", "R-SECURITY-005"],
+      "related": ["D-116", "D-370", "D-371", "R-SECURITY-005"],
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
@@ -6541,14 +6541,15 @@
     {
       "id": "R-ACCOUNT-234",
       "area": "account",
-      "statement": "Ending a planned transfer removes its occurrences and their marks from that period on; their transactions stay, as ordinary transactions; a transfer that never counted before and was never marked is deleted instead.",
+      "statement": "Ending a planned transfer removes its occurrences from that period on; every mark already made and every transaction link stay, and the period's checklist still lists the transfer, flagged as ended; a transfer that never counted before and was never marked is deleted instead.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-355"],
+      "related": ["D-380"],
       "source": [
         "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
-        "code: supabase/migrations/20261120100000_money_flow.sql"
+        "code: supabase/migrations/20261120100000_money_flow.sql",
+        "owner-request: coordinator review of the step 6 database, step 7 change, 2026-11-16"
       ]
     },
     {
@@ -6666,6 +6667,292 @@
       "source": [
         "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-250",
+      "area": "import",
+      "statement": "What is stored of a row that was not imported is bounded: its known keys within their limits, and only the names of unknown keys; a call whose rows exceed 2 MB is refused whole (the API gateway's body limit is the outer bound).",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-378"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-251",
+      "area": "import",
+      "statement": "Each existing transaction absorbs at most one row of a batch, as its duplicate or its match, counted over the whole batch whatever chunks it is sent in, in whatever order, and however often a chunk is sent again.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-372", "D-373"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-252",
+      "area": "import",
+      "statement": "A preview names the batch its rows will be sent in; a preview with no batch id says what the first chunk of a new batch does, exactly as the write.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-310"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-253",
+      "area": "import",
+      "statement": "A transaction's review state changes only through confirming it (one or all); an edit, a link or an unlink leaves a transaction to review to review.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-209"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-254",
+      "area": "import",
+      "statement": "An imported transaction keeps the amount, date and description it was first imported with; a statement line equal to those is a duplicate even after the member edited the transaction.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-372"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-255",
+      "area": "import",
+      "statement": "The merchant key handles a reference after the merchant, the statement's leading words, a processor prefix, any script, and letters such as ß and œ; the key of a key is itself.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-381", "R-IMPORT-201"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-256",
+      "area": "import",
+      "statement": "A budget holds at most 10 import tokens that can still be used; a revoked or expired token can be deleted, and those kept are pruned to the newest 20 and to 365 days.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-370"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-257",
+      "area": "import",
+      "statement": "Import batches, skipped rows and remembered choices are read through paged functions only; a budget keeps at most 1000 remembered choices, the least recently used going first.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-370", "R-SECURITY-003"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-258",
+      "area": "import",
+      "statement": "A batch's counts add up to the rows it received, also after rows are imported anyway; a row imported anyway answers with its original chunk and row number, and can be imported anyway again once its transaction is deleted.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-204"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-259",
+      "area": "import",
+      "statement": "A credit of exactly an income's amount is a salary when it is dated within five days either side of a period start: on or after the start of its own period, or before the start of the next period (projected when that period does not exist yet), at the income's amount in force in that period.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-377", "R-IMPORT-093"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-260",
+      "area": "import",
+      "statement": "Neither undoing a batch nor applying a merchant rule changes a transaction linked to a subscription, a debt or a planned transfer, or a frozen one; undo says how many it kept and why.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-379"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-261",
+      "area": "import",
+      "statement": "A possible match goes to the row nearest in date (either way, within three days, same kind and amount); ties go to the earlier row, then to a charge awaiting confirmation.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-373"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-262",
+      "area": "import",
+      "statement": "Every refusal of the import is a stable code: a decimal amount is invalid_amount for its row, two budgets racing for one batch id get import_batch_conflict, a bad name for \"to categorise\" is invalid_name.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-310"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-SECURITY-250",
+      "area": "security",
+      "statement": "Every name and description goes through one cleaner: control, bidirectional and zero-width characters are removed, other white space becomes one space, and the result is trimmed; markup and formulas stay text (the screens escape, an export neutralises).",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-376"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-SECURITY-251",
+      "area": "security",
+      "statement": "A token's answer never depends on the budget's content beyond two coarse states (the budget is full; it is far behind): every argument is checked before anything of the budget, and a token cannot name the \"to categorise\" category.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-371", "R-IMPORT-076"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-SECURITY-252",
+      "area": "security",
+      "statement": "Every call with a valid token counts toward its limits whatever its outcome; the check and the count are one step under the token's own lock, over windows rolling over the last 60 minutes and the last 24 hours.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-370"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-SECURITY-253",
+      "area": "security",
+      "statement": "A token stops when its creator leaves the budget, is removed from it, or deletes their account.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-370", "R-IMPORT-205"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-SECURITY-254",
+      "area": "security",
+      "statement": "A token import records the token, never the caller, and cannot be called by GET (read-only calls are refused before the token is looked at).",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-370"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-CATEGORY-250",
+      "area": "category",
+      "statement": "Only an imported transaction still to review can be in \"to categorise\": no hand-typed transaction, subscription, debt, planned transfer or merchant rule uses it; it does not count toward the 200 categories in force; my_budgets names it only while it is in force.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-375", "R-CATEGORY-200"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-PERIOD-250",
+      "area": "period",
+      "statement": "A budget whose last period ended more than 62 days before today (or its end date) is caught up only by ensure_periods and get_current_period: every other call answers catching_up at once, before taking the budget lock and without doing any work; ensure_periods and get_current_period wait at most two seconds for a lock another session holds, then answer catching_up, never the statement timeout.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-387", "R-PERIOD-180"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "R-MEMBER-250",
+      "area": "member",
+      "statement": "A user belongs to at most 50 budgets (owned ones included): accepting an invitation or creating a budget beyond that is refused (membership_limit_reached); the invitations shown to an invitee come a page at a time.",
+      "feature": "F-MEMBERS",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-385", "R-APP-170"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "R-APP-250",
+      "area": "app",
+      "statement": "A call that creates a record (a transaction, an income, a category, a subscription, a debt, an account, a planned transfer) accepts a client-generated request id: sent again by the same member for the same budget, call and arguments, it creates nothing and answers what the first call created; any other use of a known id is refused (request_reused) and reveals nothing.",
+      "feature": "F-PLATFORM",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-390", "Q-090"],
+      "source": [
+        "owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16",
+        "code: supabase/migrations"
       ]
     }
   ],
@@ -9039,12 +9326,13 @@
         "Averaging a category only over the periods it was in force (Q-160).",
         "Banker's rounding: unusual for amounts shown to people."
       ],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-COMPARE-172", "Q-160"],
       "source": [
         "owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16",
         "code: supabase/migrations/20261118100000_period_comparison.sql"
-      ]
+      ],
+      "supersededBy": "D-383"
     },
     {
       "id": "D-262",
@@ -9101,13 +9389,14 @@
         "Writes catching up in full: the statement timeout at the limits.",
         "Raising the step size: the same cliff later."
       ],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-PERIOD-130", "R-PERIOD-180", "R-PERIOD-031", "D-080", "D-180"],
       "source": [
         "owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql",
         "code: supabase/migrations/20261118100000_period_comparison.sql"
-      ]
+      ],
+      "supersededBy": "D-387"
     },
     {
       "id": "D-271",
@@ -9231,12 +9520,13 @@
       "decision": "Each budget gets, at its first import that needs it, one ordinary top-level category flagged as its \"to categorise\" place (the name the caller passes; from the first period; created even at the 200 / 500 category limits, within the 900-row bound). Rows without a member's category or an applying rule land there. It is renamable, has no expectation, takes no subcategory, cannot end while it holds transactions, and a transaction in it cannot be confirmed.",
       "why": "Every expense and refund keeps a category, so totals, progress and comparison keep adding up; the review has one place to empty.",
       "rejected": ["A null category for imported rows: breaks every per-category sum."],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-IMPORT-200", "R-CATEGORY-200", "R-IMPORT-209"],
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
-      ]
+      ],
+      "supersededBy": "D-375"
     },
     {
       "id": "D-313",
@@ -9244,12 +9534,13 @@
       "decision": "Rows of one import are never duplicates of each other. A row is compared with every existing transaction of the same kind, whatever its origin: the same bank transaction id, else the same date, amount and description. Each existing transaction absorbs at most one row, so the same statement imported twice imports nothing the second time. Import anyway is per row or for all skipped rows of a batch.",
       "why": "Answer to Q-056 (coordinator decision).",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["Q-056", "R-IMPORT-003", "R-IMPORT-070", "R-IMPORT-071", "R-IMPORT-204"],
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
-      ]
+      ],
+      "supersededBy": "D-372"
     },
     {
       "id": "D-314",
@@ -9270,12 +9561,13 @@
       "decision": "A row is a possible match of an existing transaction of the same kind that was not imported (typed, or a charge), with the same amount and a date within three days. Default: skip the row; when the match is a charge awaiting confirmation, the import confirms it and the preview says so; the member can import the row anyway. Each existing transaction absorbs one row. With a token, matches are skipped and left for the member.",
       "why": "Answer to Q-068 (coordinator decision).",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["Q-068", "R-IMPORT-203"],
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
-      ]
+      ],
+      "supersededBy": "D-373"
     },
     {
       "id": "D-316",
@@ -9285,7 +9577,7 @@
       "rejected": [
         "Telling the token which rows were duplicates: an oracle on the budget's transactions."
       ],
-      "status": "accepted",
+      "status": "superseded",
       "related": [
         "D-116",
         "R-IMPORT-075",
@@ -9297,7 +9589,8 @@
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
-      ]
+      ],
+      "supersededBy": "D-370"
     },
     {
       "id": "D-317",
@@ -9305,12 +9598,13 @@
       "decision": "A credit is a salary credit when the source says so (hint salary) or when its amount equals the amount of an income in force in the period of its date and its date is within five days of that period's start. It is skipped by default; imported anyway it is extra income. A different amount than the planned income changes nothing by itself; the preview shows the planned amount beside the row's.",
       "why": "Answer to Q-065 (coordinator decision).",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["Q-065", "R-IMPORT-093", "D-130"],
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
-      ]
+      ],
+      "supersededBy": "D-377"
     },
     {
       "id": "D-318",
@@ -9455,12 +9749,13 @@
       "decision": "Only a member's act deletes a transfer's transaction: undoing \"done\", marking an automatic transfer not done, or deleting the transaction. Ending a transfer, closing what it uses, or a member leaving keeps it: when its mark goes, the transaction stays as an ordinary one. The one exception is a reopen (D-358).",
       "why": "A transaction is money the member sees in the totals; it never disappears behind an edit of the plan.",
       "rejected": ["Deleting the catch-up's transactions when a transfer ends from their period."],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-ACCOUNT-234", "R-ACCOUNT-240", "D-353"],
       "source": [
         "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
-      ]
+      ],
+      "supersededBy": "D-380"
     },
     {
       "id": "D-356",
@@ -9494,12 +9789,13 @@
       "decision": "A mark of the merged period moves to the reopened period when that period has none for the transfer. Otherwise it goes: one made by the catch-up with its transaction (made again if the period comes back, like a debt's interest), a member's leaving its transaction as an ordinary one. A transfer ended in the merged period ends in the reopened one, and its marks there go the same way. Every transfer is settled again from the reopened period.",
       "why": "The reopened period keeps what happened in it; the catch-up's assumption of the merged period would otherwise be counted twice once the period comes back.",
       "rejected": ["Keeping the catch-up's transaction as an ordinary one (counted twice later)."],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-ACCOUNT-237", "R-VERSION-011", "D-355"],
       "source": [
         "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
-      ]
+      ],
+      "supersededBy": "D-382"
     },
     {
       "id": "D-359",
@@ -9538,6 +9834,316 @@
       "source": [
         "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-370",
+      "title": "Import tokens (revised)",
+      "decision": "A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 tokens that can still be used a budget; a revoked or expired one can be deleted, and those kept are pruned to the newest 20 and 365 days. import_with_token is the only function callable without a session, by POST only (a GET is refused with read_only_call before the token is looked at). An unknown, expired or revoked token, or one whose creator left, was removed or deleted their account, gets invalid_token after one index lookup, before any lock or catch-up. Every call with a valid token counts, whatever its outcome: 60 calls and 5000 rows within any 60 minutes, 300 calls and 20 000 rows within any 24 hours, checked and counted in one step under the token's lock; a refusal after the count is answered in the error column, not raised. The batch records the token, never the caller. Batches, skipped rows and remembered choices are read through paged functions only.",
+      "why": "The step 6 review: a refused call must cost the attacker too, parallel calls must not pass the limit together, fixed hourly windows let twice the limit through at the boundary, tokens must not pile up, and a token in a URL ends up in logs.",
+      "rejected": ["Counting only successful calls: free probing.", "Fixed clock-hour windows."],
+      "status": "accepted",
+      "related": [
+        "D-116",
+        "R-IMPORT-256",
+        "R-IMPORT-257",
+        "R-SECURITY-252",
+        "R-SECURITY-253",
+        "R-SECURITY-254"
+      ],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-371",
+      "title": "What a token is told",
+      "decision": "A token's answer does not depend on the budget's content: every argument is checked before anything of the budget, \"to categorise\" is created under its fixed name (the token cannot name it), and a token is never told how many rows would fit. Two coarse states still reach it, because a script must be able to say why nothing was imported: the budget is full (transaction_limit_reached, refused when the rows it sent do not all fit whatever they would become) and the budget is far behind (catching_up).",
+      "why": "Answer to Q-191 and the step 6 review (F1): any budget-dependent difference is an oracle on the budget's transactions.",
+      "rejected": ["Hiding the two coarse states: the script could not explain a refusal."],
+      "status": "accepted",
+      "related": ["Q-191", "R-SECURITY-251", "R-IMPORT-076"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-372",
+      "title": "Duplicates are counted per batch",
+      "decision": "Rows of one batch are never duplicates of each other. A row is compared with every existing transaction of the same kind, whatever its origin: the same bank transaction id, else the same date, amount and description, either as the transaction is now or as it was first imported. Each existing transaction absorbs at most one row of the batch, counted over all its chunks, whatever order they arrive in and however often one is sent again; the same statement imported twice imports nothing the second time. Import anyway is per row or for all skipped rows of a batch.",
+      "why": "The step 6 review (F4, F17): counting per chunk let a statement split in two chunks import a duplicate, and editing an imported transaction made the same line import again.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["D-115", "R-IMPORT-003", "R-IMPORT-070", "R-IMPORT-251", "R-IMPORT-254"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-373",
+      "title": "Possible matches: nearest date, once per batch",
+      "decision": "A row is a possible match of an existing transaction of the same kind that was not imported (typed, or a charge), with the same amount and a date within three days either way; descriptions are not compared. Each existing transaction goes to the row nearest in date (ties: the earlier row, then a charge awaiting confirmation) and absorbs at most one row of the batch. Default: skip the row; when the match is a charge awaiting confirmation the import confirms it and the preview says so; the member can import the row anyway. The batch counts its matched rows. With a token, matches are skipped and left for the member.",
+      "why": "Answer to Q-192: bank descriptions rarely look like what a member typed, so comparing them would miss most matches; the nearest date is the likeliest pair.",
+      "rejected": ["Matching only when the descriptions look alike."],
+      "status": "accepted",
+      "related": ["Q-192", "R-IMPORT-203", "R-IMPORT-261"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-374",
+      "title": "Confirming a frozen import",
+      "decision": "Confirming an imported transaction changes no amount, date, category or link, so it is allowed on a frozen transaction (a payment of an ended debt).",
+      "why": "Undo keeps frozen transactions (D-379); the member must still be able to empty the review.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-209", "D-379"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-375",
+      "title": "\"To categorise\" is the import's place only",
+      "decision": "Each budget gets, at its first import that needs it, one top-level category flagged as its \"to categorise\" place (the name the member passes, a fixed name for a token; from the first period; created even at the category limits). Only imported transactions still to review can be in it: no hand-typed transaction, subscription, debt, planned transfer or merchant rule uses it, and it does not count toward the 200 categories in force. It is renamable, has no expectation, takes no subcategory, cannot end while it holds transactions, and a transaction in it cannot be confirmed. my_budgets names it only while it is in force; category_overview flags it.",
+      "why": "Answer to Q-190 and the step 6 review (F12): it is a waiting room, not a category to plan with.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-190", "R-IMPORT-200", "R-CATEGORY-200", "R-CATEGORY-250"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-376",
+      "title": "One cleaner for free text",
+      "decision": "Every name and description of every step goes through one helper: control characters and bidirectional or zero-width formatting characters are removed, every other run of white space becomes one space, and the result is trimmed, before validation and before any comparison. An import's details are stored normalised the same way. Markup and spreadsheet formulas stay as text: the screens escape them, and an export must neutralise them.",
+      "why": "The step 6 review (F13): the same text must compare equal wherever it came from, and invisible characters must not hide what a name says.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-SECURITY-250"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-377",
+      "title": "A salary credit (revised)",
+      "decision": "A credit is a salary credit when the source says so (hint salary) or when its amount equals an income's amount and its date is within five days either side of a period start: on or after the start of its own period, or before the start of the next period (projected when it does not exist yet), at the income's amount in force in that period. It is skipped by default; imported anyway it is extra income. A different amount changes nothing by itself; the preview shows the planned amount beside the row's.",
+      "why": "The step 6 review (F9): a salary paid a few days before the period it starts was missed.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-065", "R-IMPORT-093", "R-IMPORT-259", "D-130"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-378",
+      "title": "Refused rows are stored bounded",
+      "decision": "Of a row that was not imported, only its known keys are kept, each within its limit, and only the names of unknown keys; a call whose rows argument exceeds 2 MB is refused whole (invalid_rows) before any row is read; the API gateway's body limit is the outer bound.",
+      "why": "The step 6 review (F3): a stolen token could otherwise store megabytes of arbitrary JSON per call.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-250"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-379",
+      "title": "Undo and rules leave linked and frozen transactions alone",
+      "decision": "Undoing a batch deletes only its transactions still to review that are linked to nothing; one linked to a subscription, a debt or a planned transfer stays (it is frozen or belongs to that record) and is counted as kept_linked, the confirmed ones as kept_confirmed. Applying a merchant rule at once moves only transactions to review in \"to categorise\" that are linked to nothing. Every bulk write of steps 6 and 7 was checked against the freeze rules.",
+      "why": "The step 6 review (F5): undo deleted a frozen debt payment and a rule moved a linked charge.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-260", "R-IMPORT-206", "D-374"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-380",
+      "title": "Ending a transfer keeps what was done",
+      "decision": "Only a member's act deletes a transfer's transaction: undoing \"done\", marking an automatic transfer not done, or deleting the transaction. Ending a transfer removes its occurrences from that period on but keeps every mark already made and every transaction link; a period's checklist lists the transfers in force plus those with a mark or a transaction there, flagged as ended (is_ended); preview_end_transfer answers only the outcome or the refusal. The one exception is a reopen (D-382).",
+      "why": "The step 6 review's step 7 change: what a member recorded is history; ending the plan must not rewrite it.",
+      "rejected": ["Removing the marks from the end on (the step 7 version)."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-234", "R-ACCOUNT-240"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database, step 7 change, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-381",
+      "title": "The merchant key's cases",
+      "decision": "The key is the merchant field when it has a letter or digit, else the description; lower case, accents removed (ß, œ, æ, ø spelled out), any script kept; the statement's leading words dropped and a '*' resolved repeatedly: a processor before the merchant (\"payup *shop\" is \"shop\"), a merchant before a reference (\"amazon.de*ab12cd\" is \"amazon.de\"). The key of a key is itself.",
+      "why": "The step 6 review: the listed cases gave keys that no rule could match.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-201", "R-IMPORT-255", "D-311"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-382",
+      "title": "Reopen and the marks of the merged period (revised)",
+      "decision": "A mark of the merged period moves to the reopened period when that period has none for the transfer. Otherwise it goes: one made by the catch-up with its transaction (made again if the period comes back, like a debt's interest), a member's leaving its transaction as an ordinary one. Marks of periods where a transfer is no longer in force after the merge stay, like any mark of an ended transfer (D-380). Every transfer is settled again from the reopened period.",
+      "why": "D-380: an ended transfer keeps its marks; the reopen follows the same rule.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-237", "R-VERSION-011", "D-380"],
+      "source": [
+        "owner-request: coordinator review of the step 6 database, step 7 change, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-383",
+      "title": "Averages over the completed periods, and a category's own average",
+      "decision": "An average is the sum over the completed periods of the range divided by their number, rounded to the rappen with halves away from zero (also for a negative result); null when none is completed. The average result is the average of the results, so it can differ by a rappen from the average income minus the average spent. A category's average spent divides by every completed period of the range (so the categories' averages add up to the trend's); beside it, active_average_spent divides by active_count, the completed periods of the range in which the category was in force or had spending (null when that count is 0), for a category that started or stopped inside the range.",
+      "why": "Answer to Q-160 (coordinator decision): Daycare, CHF 800 in each of its 3 periods of 11, showed an average of 218.18.",
+      "rejected": [
+        "Replacing the average over the whole range: the lines would no longer add up to the trend."
+      ],
+      "status": "accepted",
+      "related": ["Q-160", "R-COMPARE-172"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-384",
+      "title": "The comparison's default and its running periods",
+      "decision": "With no period given, get_period_comparison compares the last two completed periods when two exist, otherwise the last two periods (B the current period, or the last once the budget has ended). With only A given, B is the current (or last) period; with only B given, A is the one before. Every row says, per side, whether it is the current period (a_is_current, b_is_current) and whether it is completed (a_is_completed, b_is_completed; null for a missing side A).",
+      "why": "Answer to Q-161 (coordinator decision): on day 4 of the running period the default showed a difference of -1606.00, which read as a large saving.",
+      "rejected": ["Keeping the current period as the default B."],
+      "status": "accepted",
+      "related": ["Q-161", "R-COMPARE-071"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-385",
+      "title": "Memberships and invitations are bounded",
+      "decision": "A user belongs to at most 50 budgets, owned ones included (owned stays at 20): accepting an invitation or creating a budget beyond that answers membership_limit_reached; both are serialised per user. list_my_invitations is paged: oldest first, p_limit 1 to 200 (default 50), next page after the last row's created_at and id.",
+      "why": "Answer to Q-162 (coordinator decision): my_budgets took 3.5 s for 1000 rows and would be cut silently; 1020 pending invitations came back as 1000.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-162", "R-MEMBER-250", "R-APP-170"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-386",
+      "title": "Interest and moved boundaries",
+      "decision": "D-272 holds as a statement about the stored data after any change of a period's boundaries: a period's interest entry exists only for a debt opened before the period's start. When a start moves to on or before a debt's opening, that debt's entry in the period is removed (a trigger on the period's start, so every boundary operation is covered); preview_move_period_start says how many go (interest_removed, for the scheduled start or a given p_start_date). The other way, a start moved later so that a debt is now opened before the start of a period without an entry, adds nothing: interest is computed once, when the period is created, on the balance before its start, and computing it afterwards would charge a period that began, as recorded, before the debt existed, on a balance that already includes later rows.",
+      "why": "The step 5 review (M1): a moved start put a period's interest before the debt's opening, so the history began with interest.",
+      "rejected": [
+        "Adding the interest when a start moves later: a retroactive charge on a balance that is no longer the one before the start."
+      ],
+      "status": "accepted",
+      "related": ["D-272", "R-DEBT-131"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-387",
+      "title": "Far behind, only the catch-up calls work",
+      "decision": "A call other than ensure_periods and get_current_period answers catching_up at once, before the budget lock and without any work, when the budget's last period ended more than 62 days before today (or its end date); within that it does its own roll-over as before. Only ensure_periods and get_current_period (and create_budget, for its first periods) do multi-period work, one step per call (at most 120 periods and about two seconds), however often the catch-up is called within one statement. They wait at most two seconds for a lock another session holds, then answer catching_up, so the client's loop tries again and never meets the statement timeout. Supersedes D-270 (whose bound and step stay).",
+      "why": "The step 5 review (S1, S5): a refused call did a whole step under the lock and discarded it, so six calls at once ran into the 8 s timeout, ensure_periods included; clearing the end date of a long-ended budget did two steps in one call.",
+      "rejected": ["Every call doing a step and discarding it (the D-270 behaviour)."],
+      "status": "accepted",
+      "related": ["R-PERIOD-180", "R-PERIOD-250", "R-PERIOD-130", "D-276"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-388",
+      "title": "A held charge in the schedule preview",
+      "decision": "preview_update_subscription refuses with charge_held_back where update_subscription would (a new cadence or next charge date while a charge is held), and its schedule starts with the held date, the next charge date subscription_overview shows.",
+      "why": "The step 5 review (S4): the preview answered dates the write then refused, and started a month late.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-SUBSCRIPTION-180", "D-271"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-389",
+      "title": "The overviews compute only what can differ",
+      "decision": "category_overview computes the per-row helpers only where their answer can differ: a category not in force now (ended, void) has no committed amount, no transfer committed amount and is in no use (terms may only use a category in force, R-CATEGORY-130), and one that started before now never deletes on removal (its references are not looked up).",
+      "why": "The step 5 review (S8): at the 900-row cap, committed_amount, removal_deletes and in_use cost most of category_overview's 1.2 to 1.6 s.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-APP-170", "R-CATEGORY-110"],
+      "source": [
+        "owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-390",
+      "title": "A retried add records once",
+      "decision": "add_transaction, add_income, create_category, create_subscription, create_debt, create_account and create_transfer take an optional p_client_id (a uuid the client generates once per user action and sends with every retry). The first call records the id with the ids of the rows it created (kept 7 days); the same id sent again by the same member, for the same budget, the same call and the same arguments, creates nothing and answers those rows as they are now (none if deleted since). The same id from another member, for another budget, another call or other arguments is refused with request_reused before anything is written, and the refusal says nothing about the first request. The check runs under the budget lock, so a double click waits for the first call and answers its rows. Retries of the other writes are already harmless: edits, ends, marks (mark_transfer_done) and balance adjustments (adjust_debt_balance) name the revision they read and answer record_changed on a retry; an import chunk is idempotent by batch and chunk.",
+      "why": "Answer to Q-090 (coordinator decision): a lost answer made the screen say nothing was saved, the user saved again, and the transaction was recorded twice.",
+      "rejected": ["Overwriting or returning another member's record for a reused id."],
+      "status": "accepted",
+      "related": ["Q-090", "R-APP-250", "R-TRANSACTION-001"],
+      "source": [
+        "owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-391",
+      "title": "Over the plan, from the progress view",
+      "decision": "get_category_trend has is_overspent (boolean[], aligned with period_ids): get_period_progress's is_overspent of the line in each period, false where the line has no progress row. get_period_comparison's category rows have a_is_overspent and b_is_overspent, the progress view's flag of each side (null where the side has no row, and on the total row). The client never decides it from spent and planned.",
+      "why": "The screen review: the Compare page decided spent > planned in the client, which differs from the progress view for a category not in force with spending (C-LOGIC-003).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-COMPARE-070", "R-COMPARE-071", "R-PROGRESS-002"],
+      "source": [
+        "owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16",
+        "code: supabase/migrations"
+      ]
+    },
+    {
+      "id": "D-392",
+      "title": "The budget's first and last day in my_budgets",
+      "decision": "my_budgets.first_period_start is the first period's start, the earliest date the budget accepts a transaction; my_budgets.end_date (already there) is the ended budget's last day (the end of the period containing the end date entered, projected while it does not exist).",
+      "why": "The screen review: beyond 120 periods the transaction form only had the first page of list_periods.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-BUDGET-004", "R-TRANSACTION-006"],
+      "source": [
+        "owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16",
+        "code: supabase/migrations"
       ]
     }
   ],
@@ -10216,11 +10822,12 @@
     },
     {
       "id": "Q-090",
-      "status": "open",
+      "status": "resolved",
       "question": "Should add_transaction take a client-generated id, so that a double-submitted or retried save records the transaction once?",
       "context": "The boundary operations name the period they act on (D-151), so a retry is refused; an add has no record to name yet. The review recorded a double-submitted add_transaction as two rows. The screens disable the button while saving, but a retry after a lost response would still record twice.",
       "related": ["D-151", "R-CONCURRENCY-100", "R-TRANSACTION-095"],
-      "source": ["owner-request: coordinator, step 3 database review, 2026-11-16"]
+      "source": ["owner-request: coordinator, step 3 database review, 2026-11-16"],
+      "resolvedBy": "D-390"
     },
     {
       "id": "Q-091",
@@ -10344,61 +10951,67 @@
       "id": "Q-160",
       "question": "Should a category's average spent count only the periods where it was in force?",
       "context": "D-261: it divides by every completed period of the range, so a category added three periods ago averages over all twelve and looks smaller than its usual spending. Counting only periods in force would make the per-category averages not add up to the trend's average spent.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-261", "R-COMPARE-172"],
       "source": [
         "owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-383"
     },
     {
       "id": "Q-161",
       "question": "Should the current, still running period be compared by default, or the last completed one?",
       "context": "R-COMPARE-071 (coordinator decision): B defaults to the current period and A to the one before, so early in a period B shows little spending against a whole period A.",
-      "status": "open",
+      "status": "resolved",
       "related": ["R-COMPARE-071"],
       "source": [
         "owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-384"
     },
     {
       "id": "Q-162",
       "question": "Should the number of budgets a user can belong to be limited?",
       "context": "D-264: my_budgets returns one row per budget the user belongs to. A user owns at most 20, but nothing limits the budgets they are invited to; past 1000 the API would cut the list. No screen pages it.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-264", "R-APP-170", "R-BUDGET-004"],
       "source": [
         "owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-385"
     },
     {
       "id": "Q-190",
       "question": "Should the \"to categorise\" category count towards the 200 categories in force?",
       "context": "D-312: it is created even at the limit, then counts like any category, so a budget at 200 must end one before adding its own next category.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-312", "R-CATEGORY-094"],
       "source": [
         "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-375"
     },
     {
       "id": "Q-191",
       "question": "Should a token's refusals also hide that the budget is full or far behind?",
       "context": "D-316: transaction_limit_reached and catching_up reach the token, telling it one fact each about the budget; hiding them would leave the script unable to say why nothing was imported.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-316", "R-IMPORT-076"],
       "source": [
         "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-371"
     },
     {
       "id": "Q-192",
       "question": "Should a possible match only count when the descriptions also look alike?",
       "context": "D-315: a typed purchase and a different purchase of the same amount within three days are matched, and the row is skipped (listed for the member) until imported anyway.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-315", "R-IMPORT-203"],
       "source": [
         "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-373"
     },
     {
       "id": "Q-220",

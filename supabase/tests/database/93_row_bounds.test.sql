@@ -4,7 +4,7 @@
 -- line; the periods, the transactions and a debt's history are paged; preview_reopen lists at
 -- most 1000 rows.
 begin;
-select plan(23);
+select plan(27);
 
 select tests.create_user('alice', 'Alice');
 select tests.set_today('2026-11-16');
@@ -109,6 +109,14 @@ select is((select row(record_kind, record_id, record_name, change)::text from (
           (select row('more', null::uuid, (n - 999)::text, 'more')::text from impact),
   'R-APP-170: the last says how many more changes there are');
 
+-- step 6 (R-IMPORT-257): batches, skipped rows and remembered choices grow with use: members
+-- read them a page at a time only
+select tests.authenticate_as('alice');
+select throws_ok('select count(*) from public.import_batches', '42501', null, 'R-APP-170 R-IMPORT-257: no direct read of import batches');
+select throws_ok('select count(*) from public.import_skipped_rows', '42501', null, 'R-APP-170 R-IMPORT-257: nor of skipped rows');
+select throws_ok('select count(*) from public.import_choices', '42501', null, 'R-APP-170 R-IMPORT-257: nor of remembered choices');
+select throws_ok(format('select * from public.list_import_choices(%L, 201)', tests.id('b')), 'P0001', 'invalid_limit',
+  'R-APP-170 R-IMPORT-257: remembered choices are read 1 to 200 at a time');
 select tests.clear_authentication();
 select * from finish();
 rollback;

@@ -3,7 +3,7 @@
 -- import racing the token's revocation. Like 98_step4_concurrency, this test opens its own
 -- connections with dblink, commits throwaway users and budgets, and deletes them at the end.
 begin;
-select plan(9);
+select plan(11);
 
 create extension if not exists dblink with schema extensions;
 
@@ -139,13 +139,34 @@ select is(pg_temp.result('two'), 'to_categorise',
 select extensions.dblink_exec('one', 'begin');
 select pg_temp.q('one', format('select public.revoke_import_token(%L)::text', pg_temp.id('token')));
 select pg_temp.act_as('two', null);
-select is(pg_temp.send_and_wait('two', format($$select received::text from public.import_with_token(%L, %L, 1, %L)$$,
+select is(pg_temp.send_and_wait('two', format($$select coalesce(error, received::text) from public.import_with_token(%L, %L, 1, %L)$$,
                                               (select secret from secrets where name = 'token'), extensions.gen_random_uuid(), pg_temp.rows('token'))), 1,
   'R-IMPORT-205: a token import during the revocation waits');
 select extensions.dblink_exec('one', 'commit');
-select is(pg_temp.result('two'), 'error: invalid_token', 'R-IMPORT-077: and is refused once the token is revoked');
+select is(pg_temp.result('two'), 'invalid_token', 'R-IMPORT-077: and is refused once the token is revoked (in error: the call was counted)');
+select extensions.dblink_exec('setup', 'reset role');
 select is(pg_temp.q('setup', format('select count(*)::text from public.import_batches where budget_id = %L and token_id is not null', pg_temp.id('budget'))), '0',
   'R-IMPORT-077: nothing of it was recorded');
+
+-- ===========================================================================
+-- Two calls of one token at its last allowed call: one passes (R-SECURITY-252)
+-- ===========================================================================
+select pg_temp.act_as('setup', pg_temp.id('owner'));
+insert into secrets values ('race', pg_temp.q('setup', format($$select token from public.create_import_token(%L, 'Race 2')$$, pg_temp.id('budget'))));
+select extensions.dblink_exec('setup', 'reset role');
+select extensions.dblink_exec('setup', format($$insert into private.import_token_usage
+  select t.id, date_trunc('minute', clock_timestamp()) - interval '10 minutes', 59, 0 from public.import_tokens as t
+  where t.budget_id = %L and t.name = 'Race 2'$$, pg_temp.id('budget')));
+select pg_temp.act_as('one', null);
+select pg_temp.act_as('two', null);
+select extensions.dblink_exec('one', 'begin');
+select pg_temp.q('one', format($$select coalesce(error, received::text) from public.import_with_token(%L, %L, 1, %L)$$,
+                               (select secret from secrets where name = 'race'), extensions.gen_random_uuid(), pg_temp.rows('race one')));
+select is(pg_temp.send_and_wait('two', format($$select coalesce(error, received::text) from public.import_with_token(%L, %L, 1, %L)$$,
+                                              (select secret from secrets where name = 'race'), extensions.gen_random_uuid(), pg_temp.rows('race two'))), 1,
+  'R-SECURITY-252: a second call of the same token waits for the first (the check and the count are one step)');
+select extensions.dblink_exec('one', 'commit');
+select is(pg_temp.result('two'), 'token_rate_limited', 'R-SECURITY-252: and, the 60th call taken, is refused');
 
 -- Clean up what was committed.
 select extensions.dblink_exec('setup', 'reset role');

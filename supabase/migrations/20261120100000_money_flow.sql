@@ -10,7 +10,8 @@
 -- that period's boundaries and the chosen income's terms); only what a member did, or what the
 -- catch-up created, is stored (public.transfer_occurrences, one row at most per transfer and
 -- period). Nothing here deletes a transaction implicitly: a transaction is deleted only when a
--- member undoes "done", marks an automatic transfer as not done, or deletes it (D-355).
+-- member undoes "done", marks an automatic transfer as not done, or deletes it (D-380). Ending a
+-- transfer keeps every mark and the link of its transactions (D-380).
 
 -- ===========================================================================
 -- Types and limits (one place)                                (R-ACCOUNT-230, D-357)
@@ -181,7 +182,7 @@ alter table public.income_versions add constraint income_versions_account_fk
 create index income_versions_account_idx on public.income_versions (account_id, budget_id);
 
 -- R-ACCOUNT-073, R-ACCOUNT-074: a transaction created for an occurrence. Removing the
--- occurrence keeps the transaction, unlinked (D-355); deleting the transaction puts the
+-- occurrence keeps the transaction, unlinked (D-380); deleting the transaction puts the
 -- occurrence back (private.transfer_transaction_deleted).
 alter table public.transactions add column transfer_occurrence_id uuid;
 alter table public.transactions add constraint transactions_transfer_fk
@@ -832,7 +833,37 @@ begin
 end;
 $$;
 
--- The catch-up of step 4 (D-270, D-276), with the transfers' transactions after the charges.
+-- R-PERIOD-250, D-387: a budget more than limit_roll_over_days() behind (its last period ended
+-- longer ago than that, before today or its end date) is caught up only by ensure_periods and
+-- get_current_period (and create_budget): any other call answers catching_up here, before the
+-- lock, doing nothing.
+create or replace function private.catch_up_gate(p_budget_id uuid)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_last date;
+  v_end date;
+begin
+  if pg_catalog.current_setting('budget_tracker.catch_up', true) = 'multi' then
+    return;
+  end if;
+  select p.end_date into v_last from public.periods as p where p.budget_id = p_budget_id order by p.seq desc limit 1;
+  select b.end_date into v_end from public.budgets as b where b.id = p_budget_id;
+  if v_last < least(private.today(), coalesce(v_end, private.today())) - private.limit_roll_over_days() then
+    raise exception 'catching_up' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+-- The catch-up of step 4 (D-387, D-276), with the transfers' transactions after the charges.
+-- R-PERIOD-180, R-PERIOD-250, D-387: one bounded step per call, whoever calls and however
+-- often within one statement (the periods the statement created so far count toward its
+-- step); far behind, only ensure_periods and get_current_period do the work (catch_up_gate),
+-- and those two wait at most limit_catch_up_wait() for another session's lock, then answer
+-- catching_up (the client's loop tries again), never the statement timeout.
 create or replace function private.ensure_periods(p_budget_id uuid, p_max integer default null)
 returns integer
 language plpgsql
@@ -845,6 +876,10 @@ declare
   v_start date;
   v_created integer := 0;
   v_started timestamptz;
+  v_key text := pg_catalog.statement_timestamp()::text;
+  v_step text := coalesce(pg_catalog.current_setting('budget_tracker.catch_up_step', true), '');
+  v_done integer := 0;
+  v_timeout text;
 begin
   -- Fast path, without the lock: nothing to create, no charge or transfer due.
   select p.* into v_last from public.periods as p
@@ -858,13 +893,29 @@ begin
     return 0;
   end if;
 
-  v_end := (private.lock_budget(p_budget_id)).end_date;
+  perform private.catch_up_gate(p_budget_id);
+  if pg_catalog.current_setting('budget_tracker.catch_up', true) = 'multi' then
+    v_timeout := pg_catalog.current_setting('lock_timeout');
+    perform pg_catalog.set_config('lock_timeout', private.limit_catch_up_wait(), true);
+    begin
+      v_end := (private.lock_budget(p_budget_id)).end_date;
+    exception when lock_not_available then
+      perform pg_catalog.set_config('lock_timeout', v_timeout, true);
+      raise exception 'catching_up' using errcode = 'P0001';
+    end;
+    perform pg_catalog.set_config('lock_timeout', v_timeout, true);
+  else
+    v_end := (private.lock_budget(p_budget_id)).end_date;
+  end if;
+  if pg_catalog.split_part(v_step, '|', 1) = v_key then
+    v_done := pg_catalog.split_part(v_step, '|', 2)::integer;
+  end if;
   v_started := pg_catalog.clock_timestamp();
   loop
-    exit when v_created >= least(coalesce(p_max, private.limit_catch_up_periods()), private.limit_catch_up_periods());
+    exit when v_done + v_created >= least(coalesce(p_max, private.limit_catch_up_periods()), private.limit_catch_up_periods());
     -- D-276: and at most about two seconds of work (with the charges and the commit, a step
     -- stays well under the API's 8 s statement timeout whatever the budget holds)
-    exit when v_created > 0 and pg_catalog.clock_timestamp() - v_started > interval '2 seconds';
+    exit when v_created > 0 and pg_catalog.clock_timestamp() - v_started > private.limit_catch_up_work();
     select p.* into v_last from public.periods as p
     where p.budget_id = p_budget_id order by p.seq desc limit 1;
     exit when v_last.id is null;
@@ -879,6 +930,7 @@ begin
     where budget_id = p_budget_id and ended_after_last;
     v_created := v_created + 1;
   end loop;
+  perform pg_catalog.set_config('budget_tracker.catch_up_step', v_key || '|' || (v_done + v_created)::text, true);
   perform private.materialise_charges(p_budget_id);
   perform private.materialise_transfers(p_budget_id);
   return v_created;
@@ -1092,7 +1144,7 @@ immutable
 set search_path = ''
 as $$
 declare
-  v_label text := btrim(p_label);
+  v_label text := private.clean_text(p_label);
 begin
   if v_label is null or v_label = '' then
     return null;
@@ -1704,38 +1756,28 @@ begin
 end;
 $$;
 
--- What end_transfer from period p_seq does: the outcome, how many marks of the periods from then
--- on go, and how many of their transactions stay as ordinary transactions (D-355).
-create function private.transfer_end_effect(p_transfer public.transfers, p_seq integer)
-returns table (outcome text, marks_removed integer, transactions_unlinked integer)
+-- What end_transfer from period p_seq does: 'deleted' or 'ended' (the write's own check).
+create function private.transfer_end_outcome(p_transfer public.transfers, p_seq integer)
+returns text
 language plpgsql
 stable
 set search_path = ''
 as $$
-declare
-  v_end integer := greatest(p_seq, p_transfer.first_seq);
 begin
   if p_transfer.end_seq is not null and p_seq >= p_transfer.end_seq then
     raise exception 'transfer_ended' using errcode = 'P0001';
   end if;
-  return query
-    select case when p_seq <= p_transfer.first_seq
-                     and not exists (select 1 from public.transfer_occurrences as o where o.transfer_id = p_transfer.id)
-                then 'deleted' else 'ended' end,
-           (select pg_catalog.count(*)::integer from public.transfer_occurrences as o
-            join public.periods as p on p.id = o.period_id
-            where o.transfer_id = p_transfer.id and p.seq >= v_end),
-           (select pg_catalog.count(*)::integer from public.transfer_occurrences as o
-            join public.periods as p on p.id = o.period_id
-            join public.transactions as x on x.transfer_occurrence_id = o.id
-            where o.transfer_id = p_transfer.id and p.seq >= v_end);
+  return case when p_seq <= p_transfer.first_seq
+                   and not exists (select 1 from public.transfer_occurrences as o where o.transfer_id = p_transfer.id)
+              then 'deleted' else 'ended' end;
 end;
 $$;
 
--- R-ACCOUNT-234: no occurrence from then on. Deleted when it never counted before that period
--- and nothing was ever done with it (transfer_overview.removal_deletes); otherwise ended. The
--- marks of the periods from then on go; their transactions stay, as ordinary transactions
--- (D-355); preview_end_transfer says how many.
+-- R-ACCOUNT-234, D-380: no occurrence from then on. Deleted when it never counted before that
+-- period and nothing was ever done with it (transfer_overview.removal_deletes); otherwise
+-- ended. What a member or the catch-up recorded stays: every mark, and the link between a
+-- transaction and its occurrence; a period's checklist still lists the transfer where it has
+-- a mark (is_ended).
 create function public.end_transfer(p_transfer_id uuid, p_expected_revision integer, p_from_period_id uuid default null)
 returns text
 language plpgsql
@@ -1754,14 +1796,11 @@ begin
   else
     v_seq := private.period_seq(v_transfer.budget_id, p_from_period_id);
   end if;
-  if (select e.outcome from private.transfer_end_effect(v_transfer, v_seq) as e) = 'deleted' then
+  if private.transfer_end_outcome(v_transfer, v_seq) = 'deleted' then
     delete from public.transfers where id = v_transfer.id;
     return 'deleted';
   end if;
   v_end := greatest(v_seq, v_transfer.first_seq);
-  delete from public.transfer_occurrences as o
-  using public.periods as p
-  where p.id = o.period_id and o.transfer_id = v_transfer.id and p.seq >= v_end;
   update public.transfers set end_seq = v_end where id = v_transfer.id;
   delete from public.transfer_versions as v
   where v.transfer_id = v_transfer.id and v.effective_from_seq >= v_end and v.effective_from_seq > v_transfer.first_seq;
@@ -1770,7 +1809,7 @@ end;
 $$;
 
 create function public.preview_end_transfer(p_transfer_id uuid, p_from_period_id uuid default null)
-returns table (outcome text, refusal text, marks_removed integer, transactions_unlinked integer)
+returns table (outcome text, refusal text)
 language plpgsql
 security definer
 set search_path = ''
@@ -1778,7 +1817,7 @@ as $$
 declare
   v_t public.transfers;
   v_seq integer;
-  v_effect record;
+  v_outcome text;
 begin
   select t.* into v_t from public.transfers as t where t.id = p_transfer_id;
   if v_t.id is null or not private.is_budget_member(v_t.budget_id) then
@@ -1792,15 +1831,15 @@ begin
       v_seq := private.period_seq(v_t.budget_id, p_from_period_id);
     end if;
     select t.* into v_t from public.transfers as t where t.id = p_transfer_id;
-    select * into v_effect from private.transfer_end_effect(v_t, v_seq);
+    v_outcome := private.transfer_end_outcome(v_t, v_seq);
   exception when sqlstate 'P0001' then
     if sqlerrm = 'catching_up' then
       raise;
     end if;
-    return query select null::text, sqlerrm, null::integer, null::integer;
+    return query select null::text, sqlerrm;
     return;
   end;
-  return query select v_effect.outcome, null::text, v_effect.marks_removed, v_effect.transactions_unlinked;
+  return query select v_outcome, null::text;
 end;
 $$;
 
@@ -1869,7 +1908,10 @@ create type public.transfer_checklist_row as (
   transaction_revision integer,
   mark_revision integer,
   recorded_by uuid,
-  recorded_by_name text
+  recorded_by_name text,
+  -- D-380: the transfer is not in force in this period (ended, or a reopen moved its end) but
+  -- has a mark here; its terms are the last it had
+  is_ended boolean
 );
 
 -- The name of whoever marked an occurrence, for members (also once they have left).
@@ -1886,17 +1928,19 @@ as $$
     and exists (select 1 from public.transfer_occurrences as o where o.recorded_by = p_user_id and o.budget_id = p_budget_id)
 $$;
 
--- One row per transfer in force in the period (R-ACCOUNT-239), with what was done. A manual
--- one is to do (overdue once its due date has passed), done or skipped; an automatic one is
--- upcoming until its due date, then done without confirmation (R-ACCOUNT-004), unless marked
--- not done. A done one linked to a category shows its transaction's date and amount, edits
--- included (R-ACCOUNT-073).
+-- One row per transfer in force in the period (R-ACCOUNT-239), with what was done, and one per
+-- transfer not in force there that has a mark there (is_ended, D-380). A manual one is to do
+-- (overdue once its due date has passed), done or skipped; an automatic one is upcoming until
+-- its due date, then done without confirmation (R-ACCOUNT-004), unless marked not done. A done
+-- one linked to a category shows its transaction's date and amount, edits included
+-- (R-ACCOUNT-073).
 create function private.transfer_checklist(p_budget_id uuid, p_seq integer, p_transfer_id uuid default null)
 returns setof public.transfer_checklist_row
 language sql
 stable
 set search_path = ''
 as $$
+  select * from (
   select pl.transfer_id, pl.period_id, pl.name, pl.from_account_id, fa.name, pl.to_account_id, ta.name,
          pl.amount, pl.due_date, pl.is_automatic, pl.category_id, c.name,
          case when o.id is not null then o.mark::text
@@ -1907,7 +1951,7 @@ as $$
            and pl.due_date <= private.charge_horizon(p_budget_id),
          pl.follows_primary,
          coalesce(x.date, o.done_on), coalesce(x.amount, o.amount), x.id, x.revision,
-         coalesce(o.revision, 0), o.recorded_by, private.marker_name(p_budget_id, o.recorded_by)
+         coalesce(o.revision, 0), o.recorded_by, private.marker_name(p_budget_id, o.recorded_by), false
   from private.transfer_plan(p_budget_id, p_seq) as pl
   join public.accounts as fa on fa.id = pl.from_account_id
   join public.accounts as ta on ta.id = pl.to_account_id
@@ -1915,7 +1959,30 @@ as $$
   left join public.transfer_occurrences as o on o.transfer_id = pl.transfer_id and o.period_id = pl.period_id
   left join public.transactions as x on x.transfer_occurrence_id = o.id
   where p_transfer_id is null or pl.transfer_id = p_transfer_id
-  order by pl.due_date, pl.name, pl.transfer_id
+  union all
+  select t.id, p.id, t.name, v.from_account_id, fa.name, v.to_account_id, ta.name, v.amount,
+         private.transfer_due_date(p.start_date, p.end_date, p.seq, v.schedule, v.offset_days, v.day_of_month, v.income_id),
+         v.is_automatic, v.category_id, c.name, o.mark::text, false, false, false,
+         coalesce(x.date, o.done_on), coalesce(x.amount, o.amount), x.id, x.revision,
+         o.revision, o.recorded_by, private.marker_name(p_budget_id, o.recorded_by), true
+  from public.periods as p
+  join public.transfer_occurrences as o on o.period_id = p.id
+  join public.transfers as t on t.id = o.transfer_id
+  cross join lateral (
+    select y.* from public.transfer_versions as y where y.transfer_id = t.id
+    order by (y.effective_from_seq <= p.seq) desc,
+             case when y.effective_from_seq <= p.seq then -y.effective_from_seq else y.effective_from_seq end
+    limit 1
+  ) as v
+  join public.accounts as fa on fa.id = v.from_account_id
+  join public.accounts as ta on ta.id = v.to_account_id
+  left join public.categories as c on c.id = v.category_id
+  left join public.transactions as x on x.transfer_occurrence_id = o.id
+  where p.budget_id = p_budget_id and p.seq = p_seq
+    and not (t.first_seq <= p.seq and (t.end_seq is null or p.seq < t.end_seq))
+    and (p_transfer_id is null or t.id = p_transfer_id)
+  ) as k
+  order by 9, 3, 1
 $$;
 
 -- R-ACCOUNT-005: the checklist of any period, current or past. Catches up first.
@@ -1946,7 +2013,8 @@ $$;
 -- (0: no mark; R-CONCURRENCY-230).
 create function private.lock_occurrence(p_transfer_id uuid, p_period_id uuid, p_expected_revision integer)
 returns table (budget_id uuid, seq integer, start_date date, end_date date, due_date date, amount bigint,
-               is_automatic boolean, category_id uuid, mark_id uuid, mark public.transfer_mark, by_catch_up boolean)
+               is_automatic boolean, category_id uuid, mark_id uuid, mark public.transfer_mark, by_catch_up boolean,
+               in_force boolean)
 language plpgsql
 set search_path = ''
 as $$
@@ -1959,11 +2027,12 @@ begin
   v_transfer := private.lock_transfer(p_transfer_id);
   v_seq := private.period_seq(v_transfer.budget_id, p_period_id);
   select x.* into v_plan from private.transfer_plan(v_transfer.budget_id, v_seq) as x where x.transfer_id = v_transfer.id;
-  if v_plan.transfer_id is null then
-    raise exception 'transfer_not_in_force' using errcode = 'P0001';
-  end if;
   select o.* into v_mark from public.transfer_occurrences as o
   where o.transfer_id = v_transfer.id and o.period_id = p_period_id;
+  -- not in force there: only a mark kept from before its end (D-380) can be undone
+  if v_plan.transfer_id is null and v_mark.id is null then
+    raise exception 'transfer_not_in_force' using errcode = 'P0001';
+  end if;
   if p_expected_revision is null then
     raise exception 'invalid_revision' using errcode = 'P0001';
   end if;
@@ -1971,7 +2040,8 @@ begin
     raise exception 'record_changed' using errcode = 'P0001';
   end if;
   return query select v_transfer.budget_id, v_seq, v_plan.start_date, v_plan.end_date, v_plan.due_date, v_plan.amount,
-                      v_plan.is_automatic, v_plan.category_id, v_mark.id, v_mark.mark, v_mark.by_catch_up;
+                      v_plan.is_automatic, v_plan.category_id, v_mark.id, v_mark.mark, v_mark.by_catch_up,
+                      v_plan.transfer_id is not null;
 end;
 $$;
 
@@ -2014,6 +2084,9 @@ declare
   v_today date := private.today();
 begin
   select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_expected_revision);
+  if not o.in_force then
+    raise exception 'transfer_not_in_force' using errcode = 'P0001';
+  end if;
   if o.is_automatic then
     raise exception 'transfer_is_automatic' using errcode = 'P0001';
   end if;
@@ -2048,6 +2121,9 @@ declare
   o record;
 begin
   select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_expected_revision);
+  if not o.in_force then
+    raise exception 'transfer_not_in_force' using errcode = 'P0001';
+  end if;
   if o.is_automatic then
     raise exception 'transfer_is_automatic' using errcode = 'P0001';
   end if;
@@ -2072,6 +2148,9 @@ declare
   o record;
 begin
   select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_expected_revision);
+  if not o.in_force then
+    raise exception 'transfer_not_in_force' using errcode = 'P0001';
+  end if;
   if not o.is_automatic then
     raise exception 'transfer_is_manual' using errcode = 'P0001';
   end if;
@@ -2106,7 +2185,7 @@ begin
   if o.mark_id is null or (o.mark = 'done' and o.by_catch_up) then
     raise exception 'nothing_to_undo' using errcode = 'P0001';
   end if;
-  if o.mark = 'not_done' and o.is_automatic and o.category_id is not null
+  if o.in_force and o.mark = 'not_done' and o.is_automatic and o.category_id is not null
      and o.due_date <= private.charge_horizon(o.budget_id) then
     update public.transfer_occurrences
     set mark = 'done', done_on = o.due_date, amount = o.amount, by_catch_up = true, recorded_by = null
@@ -2412,15 +2491,15 @@ join lateral (
 left join public.accounts as a on a.id = t.account_id;
 
 -- ===========================================================================
--- Reopen: occurrences of the merged period                         (R-ACCOUNT-237, D-358)
+-- Reopen: occurrences of the merged period                         (R-ACCOUNT-237, D-382)
 -- ===========================================================================
 -- After the registry's re-keying (step 3 and 4, unchanged), the marks of the merged period:
 -- a mark moves to the reopened period when that period has none for the transfer. Otherwise it
 -- goes: a mark the catch-up made goes with its transaction (it is made again if the period
 -- comes back, like a debt's interest); a member's mark goes and its transaction stays, as an
--- ordinary transaction (D-355). Marks of periods where a transfer is no longer in force after
--- the merge go too, their transactions kept. The transfers' occurrences from the reopened
--- period on are settled again.
+-- ordinary transaction (D-380). Marks of periods where a transfer is no longer in force after
+-- the merge stay, like any mark of an ended transfer (D-380). The transfers' occurrences from
+-- the reopened period on are settled again.
 create or replace function private.rekey_period(p_budget_id uuid, p_from integer, p_to integer)
 returns void
 language plpgsql
@@ -2486,10 +2565,6 @@ begin
                 where k.transfer_id = o.transfer_id and k.period_id = v_to_period);
   update public.transfer_occurrences set period_id = v_to_period
   where budget_id = p_budget_id and period_id = v_from_period;
-  delete from public.transfer_occurrences as o
-  using public.transfers as tr, public.periods as p
-  where o.budget_id = p_budget_id and tr.id = o.transfer_id and p.id = o.period_id
-    and not (tr.first_seq <= p.seq and (tr.end_seq is null or p.seq < tr.end_seq));
   update public.transfers set settled_seq = least(settled_seq, p_to - 1)
   where budget_id = p_budget_id and settled_seq > p_to - 1;
 end;
@@ -2560,15 +2635,6 @@ begin
     left join public.transfer_occurrences as k on k.transfer_id = o.transfer_id and k.period_id = q.id
     left join public.transactions as x on x.transfer_occurrence_id = o.id
     where o.budget_id = p_budget_id and p.seq = p_from
-    order by tr.name;
-  return query
-    select 'transfer'::text, tr.id, tr.name,
-           case when x.id is not null then 'transaction_unlinked' else 'mark_removed' end, false
-    from public.transfer_occurrences as o
-    join public.periods as p on p.id = o.period_id
-    join public.transfers as tr on tr.id = o.transfer_id
-    left join public.transactions as x on x.transfer_occurrence_id = o.id
-    where o.budget_id = p_budget_id and p.seq = p_to and tr.end_seq = p_from
     order by tr.name;
 end;
 $$;
@@ -2881,7 +2947,8 @@ create or replace view public.category_overview with (security_invoker = true) a
     c.updated_at,
     h.committed_amount,
     h.in_use,
-    h.transfer_committed_amount
+    h.transfer_committed_amount,
+    c.is_to_categorise
   from public.categories as c
   cross join lateral (select private.reading_seq(c.budget_id) as seq offset 0) as r  -- once per row
   left join lateral (
@@ -2903,12 +2970,18 @@ create or replace view public.category_overview with (security_invoker = true) a
     ) as x
     where ch.parent_id = c.id and not ch.is_group and ch.first_seq <= r.seq and (ch.end_seq is null or r.seq < ch.end_seq)
   ) as g on c.is_group
+  -- S8 (D-389): the per-row helpers run only where their answer can differ: a category not in
+  -- force now (ended, void) has no committed amount, no transfer and is in no use (terms may
+  -- only use a category in force: R-CATEGORY-130); one that started before now never deletes
   cross join lateral (
     select private.category_has_transactions(c.id) as has_transactions,
-           private.category_referenced(c.id) as referenced,
-           private.category_in_use(c.id, r.seq) as in_use,
-           private.category_committed(c.id, r.seq) as committed_amount,
-           private.category_transfer_committed(c.id, r.seq) as transfer_committed_amount
+           case when c.first_seq >= r.seq then private.category_referenced(c.id) else true end as referenced,
+           case when c.first_seq <= r.seq and (c.end_seq is null or r.seq < c.end_seq)
+                then private.category_in_use(c.id, r.seq) else false end as in_use,
+           case when c.first_seq <= r.seq and (c.end_seq is null or r.seq < c.end_seq)
+                then private.category_committed(c.id, r.seq) else 0::bigint end as committed_amount,
+           case when c.first_seq <= r.seq and (c.end_seq is null or r.seq < c.end_seq)
+                then private.category_transfer_committed(c.id, r.seq) else 0::bigint end as transfer_committed_amount
     offset 0
   ) as h;
 
@@ -2976,9 +3049,11 @@ create or replace view public.my_budgets with (security_invoker = true) as
      where t.budget_id = b.id and t.review_state = 'awaiting_confirmation') as charges_awaiting,
     (select pg_catalog.count(*)::integer from public.transactions as t
      where t.budget_id = b.id and t.review_state = 'to_review') as to_review,
-    (select c.id from public.categories as c where c.budget_id = b.id and c.is_to_categorise) as to_categorise_category_id,
+    (select c.id from public.categories as c where c.budget_id = b.id and c.is_to_categorise and c.end_seq is null) as to_categorise_category_id,
     coalesce(d.to_do, 0) as transfers_to_do,
-    coalesce(d.overdue, 0) as transfers_overdue
+    coalesce(d.overdue, 0) as transfers_overdue,
+    -- D-392: the earliest date the budget accepts (the first period's start; index lookup)
+    (select p.start_date from public.periods as p where p.budget_id = b.id order by p.seq limit 1) as first_period_start
   from public.budgets as b
   join public.budget_members as m on m.budget_id = b.id and m.user_id = (select auth.uid())
   left join lateral private.transfers_to_do(b.id) as d on true;
@@ -3009,7 +3084,7 @@ create or replace view public.transaction_list with (security_invoker = true) as
     t.review_state,
     coalesce(d.end_seq is not null, false) as debt_ended,
     t.import_batch_id,
-    ib.source as import_source,
+    private.import_source(t.import_batch_id) as import_source,
     t.bank_transaction_id,
     t.merchant,
     t.merchant_key,
@@ -3023,7 +3098,6 @@ create or replace view public.transaction_list with (security_invoker = true) as
   left join public.categories as pc on pc.id = c.parent_id
   left join public.subscriptions as s on s.id = t.subscription_id
   left join public.debts as d on d.id = t.debt_id
-  left join public.import_batches as ib on ib.id = t.import_batch_id
   left join public.transfer_occurrences as o on o.id = t.transfer_occurrence_id
   left join public.transfers as tr on tr.id = o.transfer_id
   left join lateral (

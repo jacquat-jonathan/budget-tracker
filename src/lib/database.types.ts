@@ -421,14 +421,14 @@ isOneToOne: false
                   ]
                 },"import_skipped_rows": {
                   Row: {
-                    "batch_id": string,"budget_id": string,"chunk": number,"created_at": string,"detail": string | null,"duplicate_of": string | null,"id": string,"imported_transaction_id": string | null,"match_of": string | null,"reason": string,"row_data": NonNullable<Json>,"row_no": number
+                    "batch_id": string,"budget_id": string,"chunk": number,"created_at": string,"detail": string | null,"duplicate_of": string | null,"id": string,"imported_at": string | null,"imported_transaction_id": string | null,"match_of": string | null,"reason": string,"row_data": NonNullable<Json>,"row_no": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "batch_id": string,"budget_id": string,"chunk": number,"created_at"?: string,"detail"?: string | null,"duplicate_of"?: string | null,"id"?: string,"imported_transaction_id"?: string | null,"match_of"?: string | null,"reason": string,"row_data": NonNullable<Json>,"row_no": number
+                    "batch_id": string,"budget_id": string,"chunk": number,"created_at"?: string,"detail"?: string | null,"duplicate_of"?: string | null,"id"?: string,"imported_at"?: string | null,"imported_transaction_id"?: string | null,"match_of"?: string | null,"reason": string,"row_data": NonNullable<Json>,"row_no": number
                   }
                   Update: {
-                    "batch_id"?: string,"budget_id"?: string,"chunk"?: number,"created_at"?: string,"detail"?: string | null,"duplicate_of"?: string | null,"id"?: string,"imported_transaction_id"?: string | null,"match_of"?: string | null,"reason"?: string,"row_data"?: NonNullable<Json>,"row_no"?: number
+                    "batch_id"?: string,"budget_id"?: string,"chunk"?: number,"created_at"?: string,"detail"?: string | null,"duplicate_of"?: string | null,"id"?: string,"imported_at"?: string | null,"imported_transaction_id"?: string | null,"match_of"?: string | null,"reason"?: string,"row_data"?: NonNullable<Json>,"row_no"?: number
                   }
                   Relationships: [
                     {
@@ -454,6 +454,18 @@ isOneToOne: false
       columns: ["budget_id"]
 isOneToOne: false
       referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "import_skipped_rows_imported_transaction_id_fkey"
+      columns: ["imported_transaction_id"]
+isOneToOne: false
+      referencedRelation: "transaction_list"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "import_skipped_rows_imported_transaction_id_fkey"
+      columns: ["imported_transaction_id"]
+isOneToOne: false
+      referencedRelation: "transactions"
       referencedColumns: ["id"]
     }
                   ]
@@ -703,14 +715,14 @@ isOneToOne: false
                   ]
                 },"transactions": {
                   Row: {
-                    "amount": number,"bank_transaction_id": string | null,"budget_id": string,"category_id": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_id": string | null,"description": string | null,"details": Json | null,"id": string,"import_batch_id": string | null,"kind": Database["public"]['Enums']["transaction_kind"],"merchant": string | null,"merchant_key": string | null,"recorded_by": string | null,"review_state": Database["public"]['Enums']["review_state"],"revision": number,"subscription_id": string | null,"transfer_occurrence_id": string | null,"updated_at": string
+                    "amount": number,"bank_transaction_id": string | null,"budget_id": string,"category_id": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_id": string | null,"description": string | null,"details": Json | null,"id": string,"import_amount": number | null,"import_batch_id": string | null,"import_date": string | null,"import_description": string | null,"kind": Database["public"]['Enums']["transaction_kind"],"merchant": string | null,"merchant_key": string | null,"recorded_by": string | null,"review_state": Database["public"]['Enums']["review_state"],"revision": number,"subscription_id": string | null,"transfer_occurrence_id": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"bank_transaction_id"?: string | null,"budget_id": string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date": string,"debt_id"?: string | null,"description"?: string | null,"details"?: Json | null,"id"?: string,"import_batch_id"?: string | null,"kind"?: Database["public"]['Enums']["transaction_kind"],"merchant"?: string | null,"merchant_key"?: string | null,"recorded_by"?: string | null,"review_state"?: Database["public"]['Enums']["review_state"],"revision"?: number,"subscription_id"?: string | null,"transfer_occurrence_id"?: string | null,"updated_at"?: string
+                    "amount": number,"bank_transaction_id"?: string | null,"budget_id": string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date": string,"debt_id"?: string | null,"description"?: string | null,"details"?: Json | null,"id"?: string,"import_amount"?: number | null,"import_batch_id"?: string | null,"import_date"?: string | null,"import_description"?: string | null,"kind"?: Database["public"]['Enums']["transaction_kind"],"merchant"?: string | null,"merchant_key"?: string | null,"recorded_by"?: string | null,"review_state"?: Database["public"]['Enums']["review_state"],"revision"?: number,"subscription_id"?: string | null,"transfer_occurrence_id"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "amount"?: number,"bank_transaction_id"?: string | null,"budget_id"?: string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date"?: string,"debt_id"?: string | null,"description"?: string | null,"details"?: Json | null,"id"?: string,"import_batch_id"?: string | null,"kind"?: Database["public"]['Enums']["transaction_kind"],"merchant"?: string | null,"merchant_key"?: string | null,"recorded_by"?: string | null,"review_state"?: Database["public"]['Enums']["review_state"],"revision"?: number,"subscription_id"?: string | null,"transfer_occurrence_id"?: string | null,"updated_at"?: string
+                    "amount"?: number,"bank_transaction_id"?: string | null,"budget_id"?: string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date"?: string,"debt_id"?: string | null,"description"?: string | null,"details"?: Json | null,"id"?: string,"import_amount"?: number | null,"import_batch_id"?: string | null,"import_date"?: string | null,"import_description"?: string | null,"kind"?: Database["public"]['Enums']["transaction_kind"],"merchant"?: string | null,"merchant_key"?: string | null,"recorded_by"?: string | null,"review_state"?: Database["public"]['Enums']["review_state"],"revision"?: number,"subscription_id"?: string | null,"transfer_occurrence_id"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -988,7 +1000,7 @@ isOneToOne: false
                   ]
                 },"category_overview": {
                   Row: {
-                    "amount": number | null,"budget_id": string,"cadence": Database["public"]['Enums']["expectation_cadence"] | null,"committed_amount": number | null,"created_at": string,"end_seq": number | null,"first_seq": number,"has_transactions": boolean | null,"id": string,"in_use": boolean | null,"is_active": boolean | null,"is_group": boolean,"monthly_amount": number | null,"name": string,"parent_id": string | null,"removal_deletes": boolean | null,"revision": number,"sort_order": number,"terms_from_seq": number | null,"transfer_committed_amount": number | null,"updated_at": string
+                    "amount": number | null,"budget_id": string,"cadence": Database["public"]['Enums']["expectation_cadence"] | null,"committed_amount": number | null,"created_at": string,"end_seq": number | null,"first_seq": number,"has_transactions": boolean | null,"id": string,"in_use": boolean | null,"is_active": boolean | null,"is_group": boolean,"is_to_categorise": boolean,"monthly_amount": number | null,"name": string,"parent_id": string | null,"removal_deletes": boolean | null,"revision": number,"sort_order": number,"terms_from_seq": number | null,"transfer_committed_amount": number | null,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -1170,7 +1182,7 @@ isOneToOne: false
                   ]
                 },"my_budgets": {
                   Row: {
-                    "caught_up": boolean | null,"charges_awaiting": number | null,"created_at": string,"end_date": string | null,"end_date_entered": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"revision": number,"to_categorise_category_id": string | null,"to_review": number | null,"transfers_overdue": number | null,"transfers_to_do": number | null,"updated_at": string
+                    "caught_up": boolean | null,"charges_awaiting": number | null,"created_at": string,"end_date": string | null,"end_date_entered": string | null,"first_period_start": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"revision": number,"to_categorise_category_id": string | null,"to_review": number | null,"transfers_overdue": number | null,"transfers_to_do": number | null,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -1335,10 +1347,10 @@ isOneToOne: false
 { Args: { "p_invitation_id": string }; Returns: string
                            },
 "add_income":
-{ Args: { "p_account_id"?: string,"p_amount": number,"p_budget_id": string,"p_from_period_id"?: string,"p_name": string,"p_pay_day": number,"p_user_id"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
+{ Args: { "p_account_id"?: string,"p_amount": number,"p_budget_id": string,"p_client_id"?: string,"p_from_period_id"?: string,"p_name": string,"p_pay_day": number,"p_user_id"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
                            },
 "add_transaction":
-{ Args: { "p_amount": number,"p_budget_id": string,"p_category_id"?: string,"p_date": string,"p_debt_id"?: string,"p_description"?: string,"p_kind": Database["public"]['Enums']["transaction_kind"],"p_subscription_id"?: string }; Returns: {
+{ Args: { "p_amount": number,"p_budget_id": string,"p_category_id"?: string,"p_client_id"?: string,"p_date": string,"p_debt_id"?: string,"p_description"?: string,"p_kind": Database["public"]['Enums']["transaction_kind"],"p_subscription_id"?: string }; Returns: {
               "amount": number,
 "bank_transaction_id": string | null,
 "budget_id": string,
@@ -1517,7 +1529,7 @@ isOneToOne: false
 { Args: { "p_budget_id": string,"p_through_date"?: string }; Returns: number
                            },
 "create_account":
-{ Args: { "p_bank_label"?: string,"p_budget_id": string,"p_from_period_id"?: string,"p_kind": Database["public"]['Enums']["account_kind"],"p_name": string,"p_user_id"?: string }; Returns: {
+{ Args: { "p_bank_label"?: string,"p_budget_id": string,"p_client_id"?: string,"p_from_period_id"?: string,"p_kind": Database["public"]['Enums']["account_kind"],"p_name": string,"p_user_id"?: string }; Returns: {
               "bank_label": string | null,
 "budget_id": string,
 "created_at": string,
@@ -1545,7 +1557,7 @@ isOneToOne: false
 { Args: { "p_amount": number,"p_end_date"?: string,"p_income_name": string,"p_name": string,"p_pay_day": number,"p_start_month"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
                            },
 "create_category":
-{ Args: { "p_amount"?: number,"p_budget_id": string,"p_cadence"?: Database["public"]['Enums']["expectation_cadence"],"p_from_period_id"?: string,"p_name": string,"p_other_name"?: string,"p_parent_id"?: string }; Returns: {
+{ Args: { "p_amount"?: number,"p_budget_id": string,"p_cadence"?: Database["public"]['Enums']["expectation_cadence"],"p_client_id"?: string,"p_from_period_id"?: string,"p_name": string,"p_other_name"?: string,"p_parent_id"?: string }; Returns: {
               "amount": number | null,
 "budget_id": string,
 "cadence": Database["public"]['Enums']["expectation_cadence"] | null,
@@ -1558,6 +1570,7 @@ isOneToOne: false
 "in_use": boolean | null,
 "is_active": boolean | null,
 "is_group": boolean,
+"is_to_categorise": boolean,
 "monthly_amount": number | null,
 "name": string,
 "parent_id": string | null,
@@ -1575,7 +1588,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "create_debt":
-{ Args: { "p_budget_id": string,"p_category_id": string,"p_from_period_id"?: string,"p_interest_rate"?: number,"p_monthly_payment": number,"p_name": string,"p_principal": number }; Returns: {
+{ Args: { "p_budget_id": string,"p_category_id": string,"p_client_id"?: string,"p_from_period_id"?: string,"p_interest_rate"?: number,"p_monthly_payment": number,"p_name": string,"p_principal": number }; Returns: {
               "adjustment_total": number | null,
 "budget_id": string,
 "category_id": string,
@@ -1624,7 +1637,7 @@ isOneToOne: false
             }[]
                            },
 "create_subscription":
-{ Args: { "p_budget_id": string,"p_cadence": Database["public"]['Enums']["subscription_cadence"],"p_category_id": string,"p_first_charge_date": string,"p_from_period_id"?: string,"p_name": string,"p_price": number }; Returns: {
+{ Args: { "p_budget_id": string,"p_cadence": Database["public"]['Enums']["subscription_cadence"],"p_category_id": string,"p_client_id"?: string,"p_first_charge_date": string,"p_from_period_id"?: string,"p_name": string,"p_price": number }; Returns: {
               "anchor_date": string,
 "awaiting_count": number | null,
 "budget_id": string,
@@ -1657,7 +1670,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "create_transfer":
-{ Args: { "p_amount": number,"p_budget_id": string,"p_category_id"?: string,"p_day_of_month"?: number,"p_from_account_id": string,"p_from_period_id"?: string,"p_income_id"?: string,"p_is_automatic"?: boolean,"p_name": string,"p_offset_days"?: number,"p_schedule": Database["public"]['Enums']["transfer_schedule"],"p_to_account_id": string }; Returns: {
+{ Args: { "p_amount": number,"p_budget_id": string,"p_category_id"?: string,"p_client_id"?: string,"p_day_of_month"?: number,"p_from_account_id": string,"p_from_period_id"?: string,"p_income_id"?: string,"p_is_automatic"?: boolean,"p_name": string,"p_offset_days"?: number,"p_schedule": Database["public"]['Enums']["transfer_schedule"],"p_to_account_id": string }; Returns: {
               "amount": number,
 "budget_id": string,
 "category_id": string | null,
@@ -1740,6 +1753,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"delete_import_token":
+{ Args: { "p_token_id": string }; Returns: undefined
+                           },
 "delete_merchant_rule":
 { Args: { "p_expected_revision": number,"p_rule_id": string }; Returns: undefined
                            },
@@ -1775,6 +1791,7 @@ isOneToOne: false
 "in_use": boolean | null,
 "is_active": boolean | null,
 "is_group": boolean,
+"is_to_categorise": boolean,
 "monthly_amount": number | null,
 "name": string,
 "parent_id": string | null,
@@ -1798,7 +1815,7 @@ isOneToOne: false
                            },
 "get_category_trend":
 { Args: { "p_budget_id": string,"p_count"?: number }; Returns: {
-              "average_spent": number,"category_id": string,"committed": (number)[],"completed_count": number,"display_order": number,"in_force": (boolean)[],"is_group": boolean,"name": string,"parent_id": string,"period_ids": (string)[],"planned": (number)[],"spent": (number)[],"transaction_count": (number)[]
+              "active_average_spent": number,"active_count": number,"average_spent": number,"category_id": string,"committed": (number)[],"completed_count": number,"display_order": number,"in_force": (boolean)[],"is_group": boolean,"is_overspent": (boolean)[],"name": string,"parent_id": string,"period_ids": (string)[],"planned": (number)[],"spent": (number)[],"transaction_count": (number)[]
             }[]
                            },
 "get_current_period":
@@ -1853,7 +1870,7 @@ isOneToOne: false
                            },
 "get_period_comparison":
 { Args: { "p_budget_id": string,"p_period_a_id"?: string,"p_period_b_id"?: string }; Returns: {
-              "a_committed": number,"a_days": number,"a_end_date": string,"a_in_force": boolean,"a_income": number,"a_period_id": string,"a_planned": number,"a_result": number,"a_spent": number,"a_start_date": string,"a_transaction_count": number,"b_committed": number,"b_days": number,"b_end_date": string,"b_in_force": boolean,"b_income": number,"b_period_id": string,"b_planned": number,"b_result": number,"b_spent": number,"b_start_date": string,"b_transaction_count": number,"category_id": string,"committed_difference": number,"display_order": number,"income_difference": number,"is_group": boolean,"kind": string,"name": string,"parent_id": string,"planned_difference": number,"result_difference": number,"spent_difference": number
+              "a_committed": number,"a_days": number,"a_end_date": string,"a_in_force": boolean,"a_income": number,"a_is_completed": boolean,"a_is_current": boolean,"a_is_overspent": boolean,"a_period_id": string,"a_planned": number,"a_result": number,"a_spent": number,"a_start_date": string,"a_transaction_count": number,"b_committed": number,"b_days": number,"b_end_date": string,"b_in_force": boolean,"b_income": number,"b_is_completed": boolean,"b_is_current": boolean,"b_is_overspent": boolean,"b_period_id": string,"b_planned": number,"b_result": number,"b_spent": number,"b_start_date": string,"b_transaction_count": number,"category_id": string,"committed_difference": number,"display_order": number,"income_difference": number,"is_group": boolean,"kind": string,"name": string,"parent_id": string,"planned_difference": number,"result_difference": number,"spent_difference": number
             }[]
                            },
 "get_period_progress":
@@ -1912,8 +1929,8 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "import_with_token":
-{ Args: { "p_batch_id": string,"p_chunk": number,"p_rows": Json,"p_source"?: string,"p_statement_from"?: string,"p_statement_to"?: string,"p_to_categorise_name"?: string,"p_token": string }; Returns: {
-              "received": number,"refused": number,"refused_rows": Json
+{ Args: { "p_batch_id": string,"p_chunk": number,"p_rows": Json,"p_source"?: string,"p_statement_from"?: string,"p_statement_to"?: string,"p_token": string }; Returns: {
+              "error": string,"received": number,"refused": number,"refused_rows": Json
             }[]
                            },
 "invite_member":
@@ -2045,6 +2062,21 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"list_import_choices":
+{ Args: { "p_after_flag"?: string,"p_after_key"?: string,"p_budget_id": string,"p_limit"?: number }; Returns: {
+              "budget_id": string,
+"choice": string,
+"counterparty_key": string,
+"flag": string,
+"updated_at": string,
+"updated_by": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "import_choices"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "list_import_skipped_rows":
 { Args: { "p_after_chunk"?: number,"p_after_row_no"?: number,"p_batch_id": string,"p_limit"?: number }; Returns: {
               "batch_id": string,
@@ -2054,6 +2086,7 @@ isOneToOne: false
 "detail": string | null,
 "duplicate_of": string | null,
 "id": string,
+"imported_at": string | null,
 "imported_transaction_id": string | null,
 "match_of": string | null,
 "reason": string,
@@ -2067,7 +2100,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "list_my_invitations":
-{ Args: Record<PropertyKey, never>; Returns: {
+{ Args: { "p_after_created_at"?: string,"p_after_id"?: string,"p_limit"?: number }; Returns: {
               "budget_id": string,"budget_name": string,"created_at": string,"expires_at": string,"id": string,"invited_by_email": string,"invited_by_name": string
             }[]
                            },
@@ -2184,7 +2217,7 @@ isOneToOne: false
                            },
 "preview_end_transfer":
 { Args: { "p_from_period_id"?: string,"p_transfer_id": string }; Returns: {
-              "marks_removed": number,"outcome": string,"refusal": string,"transactions_unlinked": number
+              "outcome": string,"refusal": string
             }[]
                            },
 "preview_import":
@@ -2196,8 +2229,8 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "preview_move_period_start":
-{ Args: { "p_period_id": string }; Returns: {
-              "accepted": boolean,"period_id": string,"refusal": string,"scheduled_start": string
+{ Args: { "p_period_id": string,"p_start_date"?: string }; Returns: {
+              "accepted": boolean,"interest_removed": number,"period_id": string,"refusal": string,"scheduled_start": string
             }[]
                            },
 "preview_remove_debt":
@@ -2311,6 +2344,7 @@ isOneToOne: false
 "in_use": boolean | null,
 "is_active": boolean | null,
 "is_group": boolean,
+"is_to_categorise": boolean,
 "monthly_amount": number | null,
 "name": string,
 "parent_id": string | null,
@@ -2337,6 +2371,7 @@ isOneToOne: false
 "created_at": string,
 "end_date": string | null,
 "end_date_entered": string | null,
+"first_period_start": string | null,
 "id": string,
 "is_owner": boolean | null,
 "name": string,
@@ -2398,7 +2433,7 @@ isOneToOne: false
                            },
 "undo_import_batch":
 { Args: { "p_batch_id": string }; Returns: {
-              "charges_confirmed": number,"deleted": number,"kept_confirmed": number
+              "charges_confirmed": number,"deleted": number,"kept_confirmed": number,"kept_linked": number
             }[]
                            },
 "undo_transfer_mark":
@@ -2448,6 +2483,7 @@ isOneToOne: false
 "in_use": boolean | null,
 "is_active": boolean | null,
 "is_group": boolean,
+"is_to_categorise": boolean,
 "monthly_amount": number | null,
 "name": string,
 "parent_id": string | null,
@@ -2637,9 +2673,9 @@ isOneToOne: false
                       },"debt_history_row": {
                         "entry_id": string | null,"kind": string | null,"date": string | null,"amount": number | null,"balance": number | null,"period_id": string | null,"description": string | null,"created_at": string | null
                       },"import_row_result": {
-                        "row_no": number | null,"valid": boolean | null,"reason": string | null,"action": string | null,"kind": Database["public"]['Enums']["transaction_kind"] | null,"category_id": string | null,"category_source": string | null,"rule_id": string | null,"date": string | null,"amount": number | null,"direction": string | null,"description": string | null,"merchant_key": string | null,"flag": string | null,"remembered_choice": string | null,"duplicate_of": string | null,"match_of": string | null,"match_is_charge": boolean | null,"salary_income_id": string | null,"salary_income_amount": number | null,"transaction_id": string | null
+                        "row_no": number | null,"valid": boolean | null,"reason": string | null,"action": string | null,"kind": Database["public"]['Enums']["transaction_kind"] | null,"category_id": string | null,"category_source": string | null,"rule_id": string | null,"date": string | null,"amount": number | null,"direction": string | null,"description": string | null,"merchant_key": string | null,"flag": string | null,"remembered_choice": string | null,"duplicate_of": string | null,"match_of": string | null,"match_is_charge": boolean | null,"salary_income_id": string | null,"salary_income_amount": number | null,"transaction_id": string | null,"chunk": number | null
                       },"transfer_checklist_row": {
-                        "transfer_id": string | null,"period_id": string | null,"name": string | null,"from_account_id": string | null,"from_account_name": string | null,"to_account_id": string | null,"to_account_name": string | null,"amount": number | null,"due_date": string | null,"is_automatic": boolean | null,"category_id": string | null,"category_name": string | null,"status": string | null,"is_overdue": boolean | null,"held_back": boolean | null,"follows_primary": boolean | null,"done_on": string | null,"amount_moved": number | null,"transaction_id": string | null,"transaction_revision": number | null,"mark_revision": number | null,"recorded_by": string | null,"recorded_by_name": string | null
+                        "transfer_id": string | null,"period_id": string | null,"name": string | null,"from_account_id": string | null,"from_account_name": string | null,"to_account_id": string | null,"to_account_name": string | null,"amount": number | null,"due_date": string | null,"is_automatic": boolean | null,"category_id": string | null,"category_name": string | null,"status": string | null,"is_overdue": boolean | null,"held_back": boolean | null,"follows_primary": boolean | null,"done_on": string | null,"amount_moved": number | null,"transaction_id": string | null,"transaction_revision": number | null,"mark_revision": number | null,"recorded_by": string | null,"recorded_by_name": string | null,"is_ended": boolean | null
                       }
           }
         }
