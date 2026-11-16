@@ -171,6 +171,9 @@ select is(pg_temp.period_of(tests.id('nov14')), 2, 'R-TRANSACTION-093: reopening
 select is_empty(format('select * from tests.period_violations(%L)', tests.id('b')),
   'R-TRANSACTION-093: no transaction is outside every period');
 select tests.clear_authentication();
+-- Flush the deferred checks of the boundary operations above, so only this change is checked.
+set constraints all immediate;
+set constraints all deferred;
 savepoint outside;
 update public.transactions set date = '2026-09-01' where id = tests.id('oct27');
 select throws_like('set constraints all immediate', '%transaction_outside_periods%',
