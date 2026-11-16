@@ -103,6 +103,10 @@
       "title": "Accounts and planned transfers (money flow)"
     },
     {
+      "id": "concurrency",
+      "title": "Concurrent edits"
+    },
+    {
       "id": "rls",
       "title": "Row-level security"
     },
@@ -247,7 +251,8 @@
     {
       "id": "G-LEFT",
       "term": "Amount left to assign",
-      "definition": "Budget total minus the sum of expectations."
+      "definition": "Of a period: its income total minus the sum of the expectations in force in that period. Negative when more is assigned than the income.",
+      "see": ["D-101", "D-106"]
     },
     {
       "id": "G-BALANCE",
@@ -257,7 +262,8 @@
     {
       "id": "G-RESULT",
       "term": "Period result",
-      "definition": "The surplus or deficit of a period."
+      "definition": "The surplus or deficit of a period: its income total minus the total spent in it. Per category: the expectation minus what was spent.",
+      "see": ["D-103"]
     },
     {
       "id": "G-TRANSACTION",
@@ -268,7 +274,8 @@
     {
       "id": "G-SUBSCRIPTION",
       "term": "Subscription",
-      "definition": "A recurring charge with a price, a pay date, a cadence and a category.",
+      "definition": "A recurring charge with a price, a first charge date, a cadence (monthly, quarterly, half-yearly or yearly) and a category.",
+      "see": ["D-108"],
       "fr": "Abonnements"
     },
     {
@@ -297,7 +304,8 @@
     {
       "id": "G-TRANSFER",
       "term": "Planned transfer",
-      "definition": "A planned movement of money between two accounts relative to payday, such as \"payday + 2 days: 1000 CHF from A to Savings\". Flagged automatic or manual."
+      "definition": "A planned movement of money between two accounts, scheduled as an offset in days from an income's actual pay date (such as \"payday + 2 days: 1000 CHF from A to Savings\") or on a fixed day of the month. Flagged automatic or manual.",
+      "see": ["D-120"]
     },
     {
       "id": "G-AUTOMATIC",
@@ -854,14 +862,35 @@
           "actor": "A-MEMBER",
           "iWant": "to enter a yearly amount for a yearly cost",
           "soThat": "it is spread as one twelfth per month",
-          "rules": ["R-CATEGORY-003", "R-CATEGORY-004", "R-CATEGORY-005"]
+          "rules": ["R-CATEGORY-003", "R-CATEGORY-004", "R-CATEGORY-005", "R-CATEGORY-070"]
         },
         {
           "id": "US-CATEGORY-003",
           "actor": "A-MEMBER",
-          "iWant": "to see the amount left to assign",
+          "iWant": "to see the amount left to assign in a period, negative when I have assigned more than the income",
           "soThat": "every franc of the budget has a purpose",
-          "rules": ["R-CATEGORY-006"]
+          "rules": ["R-CATEGORY-006", "R-CATEGORY-071"]
+        },
+        {
+          "id": "US-CATEGORY-004",
+          "actor": "A-MEMBER",
+          "iWant": "to delete a category I no longer need",
+          "soThat": "it leaves the budget from now on while past periods keep it",
+          "rules": ["R-CATEGORY-072", "R-CATEGORY-073"]
+        },
+        {
+          "id": "US-CATEGORY-005",
+          "actor": "A-MEMBER",
+          "iWant": "to change a category's expectation from now on, or explicitly correct it from an earlier period",
+          "soThat": "past periods stay as they were unless I fix a mistake on purpose",
+          "rules": ["R-VERSION-002", "R-VERSION-070"]
+        },
+        {
+          "id": "US-CATEGORY-006",
+          "actor": "A-MEMBER",
+          "iWant": "my save to be refused, with a message to reload, when another member changed the same thing in the meantime",
+          "soThat": "I never silently overwrite their change",
+          "rules": ["R-CONCURRENCY-070"]
         }
       ]
     },
@@ -882,15 +911,24 @@
             "R-TRANSACTION-002",
             "R-TRANSACTION-003",
             "R-TRANSACTION-004",
-            "R-TRANSACTION-006"
+            "R-TRANSACTION-006",
+            "R-TRANSACTION-072",
+            "R-TRANSACTION-073"
           ]
         },
         {
           "id": "US-TRANSACTION-002",
           "actor": "A-MEMBER",
-          "iWant": "to enter or correct a transaction in a past period",
+          "iWant": "to add, edit or delete a transaction in a past period",
           "soThat": "late receipts still land in the right period",
           "rules": ["R-TRANSACTION-007", "R-TRANSACTION-008"]
+        },
+        {
+          "id": "US-TRANSACTION-003",
+          "actor": "A-MEMBER",
+          "iWant": "to record money coming back as a refund",
+          "soThat": "it reduces what was spent in its category",
+          "rules": ["R-TRANSACTION-070", "R-TRANSACTION-071"]
         }
       ]
     },
@@ -899,21 +937,28 @@
       "step": 3,
       "title": "Period progress view",
       "status": "planned",
-      "description": "Each period tracked against its expectations, with its result.",
+      "description": "Each period, the current one and past ones, tracked against its expectations, with its result.",
       "userStories": [
         {
           "id": "US-PROGRESS-001",
           "actor": "A-MEMBER",
-          "iWant": "to see how the current period is going against the expectations",
+          "iWant": "to see how the current period is going against the expectations, with overspent categories shown as such",
           "soThat": "I can adjust before the period ends",
-          "rules": ["R-PROGRESS-001"]
+          "rules": ["R-PROGRESS-001", "R-PROGRESS-071"]
         },
         {
           "id": "US-PROGRESS-002",
           "actor": "A-MEMBER",
-          "iWant": "to see a period's surplus or deficit",
+          "iWant": "to see a period's surplus or deficit, and each category's result",
           "soThat": "I know how the period went",
-          "rules": ["R-PROGRESS-002"]
+          "rules": ["R-PROGRESS-002", "R-PROGRESS-070"]
+        },
+        {
+          "id": "US-PROGRESS-003",
+          "actor": "A-MEMBER",
+          "iWant": "to browse past periods and see the progress view of each",
+          "soThat": "I can look back at how any period went",
+          "rules": ["R-COMPARE-001"]
         }
       ]
     },
@@ -929,7 +974,35 @@
           "actor": "A-MEMBER",
           "iWant": "to track subscriptions and see when each will next be charged",
           "soThat": "recurring costs do not surprise me",
-          "rules": ["R-SUBSCRIPTION-001", "R-SUBSCRIPTION-002", "R-VERSION-003"]
+          "rules": [
+            "R-SUBSCRIPTION-001",
+            "R-SUBSCRIPTION-002",
+            "R-SUBSCRIPTION-070",
+            "R-SUBSCRIPTION-071",
+            "R-SUBSCRIPTION-072",
+            "R-VERSION-003"
+          ]
+        },
+        {
+          "id": "US-SUBSCRIPTION-002",
+          "actor": "A-MEMBER",
+          "iWant": "each subscription charge to be recorded automatically on its charge date, and to confirm from the home page that it really went through",
+          "soThat": "I do not enter recurring charges by hand and still catch one that failed",
+          "rules": [
+            "R-SUBSCRIPTION-073",
+            "R-SUBSCRIPTION-074",
+            "R-SUBSCRIPTION-075",
+            "R-SUBSCRIPTION-076",
+            "R-SUBSCRIPTION-077",
+            "R-SUBSCRIPTION-078"
+          ]
+        },
+        {
+          "id": "US-SUBSCRIPTION-003",
+          "actor": "A-MEMBER",
+          "iWant": "to see a subscription's monthly cost as committed within its category's expectation",
+          "soThat": "I see how much of the category is already spoken for",
+          "rules": ["R-SUBSCRIPTION-079"]
         }
       ]
     },
@@ -945,14 +1018,28 @@
           "actor": "A-MEMBER",
           "iWant": "to record a debt with its principal, interest rate and planned monthly payment",
           "soThat": "I can follow it down to zero",
-          "rules": ["R-DEBT-001", "R-DEBT-002", "R-VERSION-004"]
+          "rules": ["R-DEBT-001", "R-DEBT-002", "R-DEBT-070", "R-DEBT-072", "R-VERSION-004"]
         },
         {
           "id": "US-DEBT-002",
           "actor": "A-MEMBER",
-          "iWant": "payments assigned to a debt to reduce what remains, and to see its evolution and expected end date",
-          "soThat": "I know when it will be paid off",
-          "rules": ["R-DEBT-003", "R-DEBT-004", "R-DEBT-005"]
+          "iWant": "payments linked to a debt to reduce what remains, interest to be added to it, and to see its history and expected end date",
+          "soThat": "I know when it will be paid off, or that it never will at this pace",
+          "rules": [
+            "R-DEBT-003",
+            "R-DEBT-004",
+            "R-DEBT-005",
+            "R-DEBT-071",
+            "R-DEBT-073",
+            "R-DEBT-074"
+          ]
+        },
+        {
+          "id": "US-DEBT-003",
+          "actor": "A-MEMBER",
+          "iWant": "to adjust a debt's balance by hand",
+          "soThat": "it matches my bank statement",
+          "rules": ["R-DEBT-075"]
         }
       ]
     },
@@ -961,14 +1048,28 @@
       "step": 5,
       "title": "Period comparison",
       "status": "planned",
-      "description": "Browsing past periods and comparing them in charts.",
+      "description": "Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).",
       "userStories": [
         {
           "id": "US-COMPARE-001",
           "actor": "A-MEMBER",
-          "iWant": "to browse past periods and compare them, for example over a year",
+          "iWant": "to compare the income, spending and result of the last 12 periods in a chart",
           "soThat": "I see how our spending evolves",
-          "rules": ["R-COMPARE-001", "R-COMPARE-002"]
+          "rules": ["R-COMPARE-002"]
+        },
+        {
+          "id": "US-COMPARE-002",
+          "actor": "A-MEMBER",
+          "iWant": "to see the spending per category across periods",
+          "soThat": "I see which categories grow or shrink",
+          "rules": ["R-COMPARE-070"]
+        },
+        {
+          "id": "US-COMPARE-003",
+          "actor": "A-MEMBER",
+          "iWant": "to put two periods side by side",
+          "soThat": "I see exactly what changed between them",
+          "rules": ["R-COMPARE-071"]
         }
       ]
     },
@@ -990,22 +1091,43 @@
             "R-IMPORT-003",
             "R-IMPORT-004",
             "R-IMPORT-005",
+            "R-IMPORT-070",
+            "R-IMPORT-071",
+            "R-IMPORT-072",
+            "R-IMPORT-073",
+            "R-IMPORT-080",
+            "R-IMPORT-082",
+            "R-IMPORT-083",
             "R-TRANSACTION-005"
           ]
         },
         {
           "id": "US-IMPORT-002",
           "actor": "A-CLAUDE",
-          "iWant": "to import transactions by running the import script of this repository",
+          "iWant": "to import transactions by running the import script of this repository with an import token",
           "soThat": "a member can delegate the import without giving Claude raw database access",
-          "rules": ["R-IMPORT-001", "R-IMPORT-006", "R-SECURITY-005"]
+          "rules": ["R-IMPORT-001", "R-IMPORT-006", "R-IMPORT-076", "R-SECURITY-005"]
         },
         {
           "id": "US-IMPORT-003",
           "actor": "A-MEMBER",
-          "iWant": "imported transactions to be marked to review and categorised from saved merchant rules",
+          "iWant": "imported transactions to be marked to review until I confirm them, categorised from saved merchant rules, and to save a new rule in one click when I categorise one",
           "soThat": "I check them quickly and categorisation improves over time",
-          "rules": ["R-IMPORT-004", "R-IMPORT-007"]
+          "rules": ["R-IMPORT-004", "R-IMPORT-007", "R-IMPORT-079", "R-IMPORT-081"]
+        },
+        {
+          "id": "US-IMPORT-004",
+          "actor": "A-MEMBER",
+          "iWant": "to create import tokens for one budget in Settings, and revoke them",
+          "soThat": "I control what a Claude session can do, and can stop it at any time",
+          "rules": ["R-IMPORT-074", "R-IMPORT-075", "R-IMPORT-076", "R-IMPORT-077"]
+        },
+        {
+          "id": "US-IMPORT-005",
+          "actor": "A-MEMBER",
+          "iWant": "to edit the merchant-to-category rules in Settings",
+          "soThat": "I can fix a rule that puts a merchant in the wrong category",
+          "rules": ["R-IMPORT-078"]
         }
       ]
     },
@@ -1021,7 +1143,15 @@
           "actor": "A-MEMBER",
           "iWant": "to define my accounts and the transfers planned between them after payday",
           "soThat": "the money goes where it should every period",
-          "rules": ["R-ACCOUNT-001", "R-ACCOUNT-002", "R-ACCOUNT-003", "R-ACCOUNT-004"]
+          "rules": [
+            "R-ACCOUNT-001",
+            "R-ACCOUNT-002",
+            "R-ACCOUNT-003",
+            "R-ACCOUNT-004",
+            "R-ACCOUNT-070",
+            "R-ACCOUNT-071",
+            "R-VERSION-071"
+          ]
         },
         {
           "id": "US-MONEYFLOW-002",
@@ -1035,7 +1165,14 @@
           "actor": "A-MEMBER",
           "iWant": "a diagram of the planned flow of money",
           "soThat": "I see the whole plan at a glance",
-          "rules": ["R-ACCOUNT-006", "R-ACCOUNT-007"]
+          "rules": ["R-ACCOUNT-006", "R-ACCOUNT-007", "R-ACCOUNT-075"]
+        },
+        {
+          "id": "US-MONEYFLOW-004",
+          "actor": "A-MEMBER",
+          "iWant": "to link a planned transfer to a category, so that its transaction is created when it is done",
+          "soThat": "savings, third pillar or tax transfers count in the budget without being entered twice",
+          "rules": ["R-ACCOUNT-072", "R-ACCOUNT-073", "R-ACCOUNT-074"]
         }
       ]
     }
@@ -2243,6 +2380,27 @@
       "source": ["domain: Versioning: edits never rewrite the past"]
     },
     {
+      "id": "R-VERSION-070",
+      "area": "version",
+      "statement": "An edit to a category expectation can, as an explicit \"correct an earlier period\" choice, apply from an earlier period instead of the current one.",
+      "rationale": "The same optional correction as for incomes (D-065); like an income correction, it applies until the next existing change (D-084).",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-107", "D-065", "D-084"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-VERSION-071",
+      "area": "version",
+      "statement": "An edit to a planned transfer creates a new version effective from the current period.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-121", "Q-015"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
       "id": "R-VERSION-005",
       "area": "version",
       "statement": "Past periods keep reading the version that was in force at the time.",
@@ -2320,32 +2478,83 @@
     {
       "id": "R-CATEGORY-005",
       "area": "category",
-      "statement": "Yearly amounts are shown as one twelfth per month.",
+      "statement": "A yearly amount is shown per month as one twelfth of it, rounded to the nearest rappen.",
       "feature": "F-CATEGORY",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-002"],
-      "source": ["domain: Category and subcategory"]
+      "related": ["Q-002", "D-100", "Q-050"],
+      "source": [
+        "domain: Category and subcategory",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-CATEGORY-006",
       "area": "category",
-      "statement": "Budget total minus the sum of expectations is the amount left to assign.",
+      "statement": "A period's amount left to assign is its income total minus the sum of the expectations in force in that period.",
       "feature": "F-CATEGORY",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-003"],
-      "source": ["domain: Category and subcategory"]
+      "related": ["Q-003", "D-101", "R-PERIOD-018"],
+      "source": [
+        "domain: Category and subcategory",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-CATEGORY-070",
+      "area": "category",
+      "statement": "The twelve monthly shares of a yearly amount are not adjusted to add up to the yearly amount.",
+      "rationale": "Example: CHF 100.00 a year is shown as CHF 8.33 a month; twelve shares make CHF 99.96.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-100", "R-CATEGORY-005"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-CATEGORY-071",
+      "area": "category",
+      "statement": "Expectations that add up to more than a period's income total are accepted, and the amount left to assign is then shown as a negative amount.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-106", "R-CATEGORY-006"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-CATEGORY-072",
+      "area": "category",
+      "statement": "Deleting a category that has transactions or has counted in a past period ends it from the current period; past periods keep it.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-107", "D-030"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-CATEGORY-073",
+      "area": "category",
+      "statement": "Deleting a category that has no transactions and never counted in a past period removes it.",
+      "rationale": "\"Like incomes\" (D-030): what never counted is deleted, not ended.",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-107", "D-030"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-TRANSACTION-001",
       "area": "transaction",
-      "statement": "A transaction has an amount, a date, and a category or subcategory.",
+      "statement": "A transaction has a positive amount, a date, and a category or subcategory.",
       "feature": "F-TRANSACTION",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-004"],
-      "source": ["domain: Transaction"]
+      "related": ["Q-004", "D-102"],
+      "source": [
+        "domain: Transaction",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-TRANSACTION-002",
@@ -2359,12 +2568,15 @@
     {
       "id": "R-TRANSACTION-003",
       "area": "transaction",
-      "statement": "A transaction has an optional link to a debt or a subscription.",
+      "statement": "A transaction has an optional link to at most one of a debt or a subscription.",
       "feature": "F-TRANSACTION",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-005"],
-      "source": ["domain: Transaction"]
+      "related": ["Q-005", "D-111"],
+      "source": [
+        "domain: Transaction",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-TRANSACTION-004",
@@ -2405,12 +2617,56 @@
     {
       "id": "R-TRANSACTION-008",
       "area": "transaction",
-      "statement": "Past periods stay editable.",
+      "statement": "In a past period, transactions can be added, edited and deleted freely.",
+      "rationale": "The rest of a past period changes only through its own path: boundaries through the period actions, incomes and expectations through the explicit \"correct an earlier period\" option (D-105).",
       "feature": "F-TRANSACTION",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-011"],
-      "source": ["domain: Period"]
+      "related": ["Q-011", "D-105"],
+      "source": [
+        "domain: Period",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-TRANSACTION-070",
+      "area": "transaction",
+      "statement": "A transaction is an expense unless the user marks it as a refund.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-102"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-TRANSACTION-071",
+      "area": "transaction",
+      "statement": "A refund reduces what was spent in its category in its period.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-102"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-TRANSACTION-072",
+      "area": "transaction",
+      "statement": "When a category has subcategories, a transaction goes on one of its subcategories, never on the category itself.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-102", "Q-051"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-TRANSACTION-073",
+      "area": "transaction",
+      "statement": "A transaction is never refused because it takes its category over its expectation.",
+      "feature": "F-TRANSACTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-106"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-PROGRESS-001",
@@ -2425,22 +2681,48 @@
     {
       "id": "R-PROGRESS-002",
       "area": "progress",
-      "statement": "The period's surplus or deficit is shown as its result.",
+      "statement": "A period's result is its income total minus the total spent in it, shown as a surplus when positive and a deficit when negative.",
       "feature": "F-PROGRESS",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-012"],
-      "source": ["domain: Period"]
+      "related": ["Q-012", "D-103", "R-PERIOD-018"],
+      "source": [
+        "domain: Period",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-PROGRESS-070",
+      "area": "progress",
+      "statement": "A category's result in a period is its expectation in force in that period minus what was spent in it.",
+      "feature": "F-PROGRESS",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-103"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-PROGRESS-071",
+      "area": "progress",
+      "statement": "A category whose spending in a period exceeds its expectation is shown as overspent.",
+      "feature": "F-PROGRESS",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-106"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-SUBSCRIPTION-001",
       "area": "subscription",
-      "statement": "A subscription has a price, a pay date, a cadence, and a category.",
+      "statement": "A subscription has a price, a first charge date, a cadence, and a category.",
       "feature": "F-SUBSCRIPTION",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-006"],
-      "source": ["domain: Subscription"]
+      "related": ["Q-006", "D-108"],
+      "source": [
+        "domain: Subscription",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-SUBSCRIPTION-002",
@@ -2450,6 +2732,108 @@
       "status": "planned",
       "enforcement": "test",
       "source": ["domain: Subscription"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-070",
+      "area": "subscription",
+      "statement": "A subscription's cadence is monthly, quarterly, half-yearly or yearly.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-108"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-071",
+      "area": "subscription",
+      "statement": "After its first charge date, a subscription is charged once per cadence interval on the first charge's day of the month, clamped to the length of each month.",
+      "rationale": "Example: first charged on 31 January, monthly: 28 (or 29) February, 31 March, 30 April.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-108"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-072",
+      "area": "subscription",
+      "statement": "No weekend rule applies to a subscription's charge dates.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-108"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-073",
+      "area": "subscription",
+      "statement": "On each charge date, a transaction for the subscription's price is created automatically in its category, linked to the subscription.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-109", "Q-054"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-074",
+      "area": "subscription",
+      "statement": "A transaction created from a subscription can be edited or deleted like any other transaction.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-109"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-075",
+      "area": "subscription",
+      "statement": "An automatically created subscription charge is marked as awaiting confirmation until a member confirms that it went through.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-109"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-076",
+      "area": "subscription",
+      "statement": "The dashboard shows a notification for each subscription charge awaiting confirmation, asking whether it really went through.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-109"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-077",
+      "area": "subscription",
+      "statement": "Answering that a subscription charge did not go through removes its transaction.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-109", "Q-054"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-078",
+      "area": "subscription",
+      "statement": "A subscription charge awaiting confirmation counts in totals from the moment it is created.",
+      "rationale": "Assumption stated in D-109, by analogy with imported transactions (D-118); the product owner was not asked.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-109", "D-118"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-SUBSCRIPTION-079",
+      "area": "subscription",
+      "statement": "A subscription's monthly cost is shown as committed within its category's expectation, not added on top of it.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-110", "Q-050"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-DEBT-001",
@@ -2472,50 +2856,148 @@
     {
       "id": "R-DEBT-003",
       "area": "debt",
-      "statement": "A transaction assigned to a debt reduces its remaining amount.",
+      "statement": "A debt's remaining amount is its principal plus the interest added to it, minus the payments linked to it, corrected by its balance adjustments.",
       "feature": "F-DEBT",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-007"],
-      "source": ["domain: Debt"]
+      "related": ["Q-007", "D-113"],
+      "source": [
+        "domain: Debt",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-DEBT-004",
       "area": "debt",
-      "statement": "The app shows the evolution of a debt.",
+      "statement": "The app shows a debt's history: its payments, the interest added each period and its balance adjustments.",
       "feature": "F-DEBT",
       "status": "planned",
       "enforcement": "test",
-      "source": ["domain: Debt"]
+      "related": ["D-113"],
+      "source": [
+        "domain: Debt",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-DEBT-005",
       "area": "debt",
-      "statement": "The app shows the expected end date of a debt.",
+      "statement": "The app shows a debt's expected end date, projected from its remaining amount, its interest rate and its planned monthly payment.",
       "feature": "F-DEBT",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-007"],
-      "source": ["domain: Debt"]
+      "related": ["Q-007", "D-113"],
+      "source": [
+        "domain: Debt",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-DEBT-070",
+      "area": "debt",
+      "statement": "A debt is tied to one category.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-112"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-DEBT-071",
+      "area": "debt",
+      "statement": "A debt payment is a normal transaction in the debt's category, linked to the debt.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-112", "R-TRANSACTION-003"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-DEBT-072",
+      "area": "debt",
+      "statement": "Only money the household owes is tracked as a debt; money owed to the household is not.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "review",
+      "related": ["D-112"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-DEBT-073",
+      "area": "debt",
+      "statement": "When a debt has an interest rate, once per period one twelfth of the yearly rate is applied to its remaining amount and added to it.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-113", "Q-055"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-DEBT-074",
+      "area": "debt",
+      "statement": "When the planned monthly payment does not cover the interest added each period, the app says the debt never ends instead of showing an end date.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-113", "Q-055"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-DEBT-075",
+      "area": "debt",
+      "statement": "A member can add a manual \"adjust balance\" entry to a debt, which changes its remaining amount to match the bank statement.",
+      "feature": "F-DEBT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-113"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-COMPARE-001",
       "area": "compare",
-      "statement": "Users can browse past periods.",
-      "feature": "F-COMPARE",
+      "statement": "Users can browse past periods and see the progress view of each.",
+      "rationale": "Built with step 3 (D-104); the id keeps its original area.",
+      "feature": "F-PROGRESS",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-010"],
-      "source": ["domain: Period"]
+      "related": ["Q-010", "D-104"],
+      "source": [
+        "domain: Period",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-COMPARE-002",
       "area": "compare",
-      "statement": "Users can compare periods, for example in a yearly chart.",
+      "statement": "A chart shows the income total, the total spent and the result of each of the last 12 periods.",
       "feature": "F-COMPARE",
       "status": "planned",
       "enforcement": "test",
-      "source": ["domain: Period"]
+      "related": ["D-114"],
+      "source": [
+        "domain: Period",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-COMPARE-070",
+      "area": "compare",
+      "statement": "A chart shows the spending per category across periods.",
+      "feature": "F-COMPARE",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-114"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-COMPARE-071",
+      "area": "compare",
+      "statement": "The user can show two periods side by side.",
+      "feature": "F-COMPARE",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-114"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-IMPORT-001",
@@ -2542,7 +3024,7 @@
       "feature": "F-IMPORT",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-009"],
+      "related": ["Q-009", "D-115"],
       "source": ["domain: Import (including by a Claude session)"]
     },
     {
@@ -2566,22 +3048,172 @@
     {
       "id": "R-IMPORT-006",
       "area": "import",
-      "statement": "The import is reachable from a script in this repository that a Claude Code session can run.",
+      "statement": "The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.",
       "feature": "F-IMPORT",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-013"],
-      "source": ["domain: Import (including by a Claude session)"]
+      "related": ["Q-013", "D-116"],
+      "source": [
+        "domain: Import (including by a Claude session)",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-IMPORT-007",
       "area": "import",
-      "statement": "Merchant-to-category rules are saved so categorisation improves over time.",
+      "statement": "When a member categorises an imported transaction, the app offers, in one click, to always put that merchant in that category.",
       "feature": "F-IMPORT",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-014"],
-      "source": ["domain: Import (including by a Claude session)"]
+      "related": ["Q-014", "D-117", "Q-057"],
+      "source": [
+        "domain: Import (including by a Claude session)",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-070",
+      "area": "import",
+      "statement": "An imported row is a duplicate when it has the same date, amount and description as an existing transaction of the budget.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-115", "Q-056"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-071",
+      "area": "import",
+      "statement": "When the file gives a bank transaction id, an imported row is also a duplicate when an existing transaction of the budget has the same bank transaction id.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-115", "Q-056"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-072",
+      "area": "import",
+      "statement": "The import summary lists the rows skipped as duplicates.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-115"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-073",
+      "area": "import",
+      "statement": "The user can import a row skipped as a duplicate anyway.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-115", "Q-056"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-074",
+      "area": "import",
+      "statement": "A member creates import tokens in Settings.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-116"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-075",
+      "area": "import",
+      "statement": "An import token is tied to one budget and imports only into it.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-116"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-076",
+      "area": "import",
+      "statement": "An import token can only add transactions through the import function; it cannot read anything.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-116", "R-SECURITY-005"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-077",
+      "area": "import",
+      "statement": "An import token can be revoked, after which it is refused.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-116"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-078",
+      "area": "import",
+      "statement": "Merchant-to-category rules can be edited in Settings.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-117"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-079",
+      "area": "import",
+      "statement": "An imported transaction whose merchant has a merchant-to-category rule is put in that rule's category.",
+      "rationale": "What \"categorisation improves over time\" means once rules exist.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-117", "Q-057"],
+      "source": [
+        "domain: Import (including by a Claude session)",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
+    },
+    {
+      "id": "R-IMPORT-080",
+      "area": "import",
+      "statement": "An imported transaction counts in totals as soon as it is imported, before it is reviewed.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-118"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-081",
+      "area": "import",
+      "statement": "An imported transaction stays \"to review\" until a member confirms it.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-118", "R-IMPORT-004"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-082",
+      "area": "import",
+      "statement": "The generic CSV import lets the user map the file's columns to the transaction fields.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-119"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-IMPORT-083",
+      "area": "import",
+      "statement": "The import offers presets for the exports of Migros Bank, Raiffeisen, One, Yuh and Twint.",
+      "feature": "F-IMPORT",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-119", "Q-058"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-ACCOUNT-001",
@@ -2595,12 +3227,15 @@
     {
       "id": "R-ACCOUNT-002",
       "area": "account",
-      "statement": "The user defines planned transfers between accounts, such as \"payday + 2 days: 1000 CHF from A to Savings\".",
+      "statement": "The user defines planned transfers between accounts, such as \"payday + 2 days: 1000 CHF from A to Savings\" or \"on the 1st: 200 CHF from A to the tax reserve\".",
       "feature": "F-MONEYFLOW",
       "status": "planned",
       "enforcement": "test",
-      "related": ["Q-008", "Q-015"],
-      "source": ["domain: Account and planned transfer (money flow)"]
+      "related": ["Q-008", "Q-015", "D-120", "D-121"],
+      "source": [
+        "domain: Account and planned transfer (money flow)",
+        "owner-request: product owner decisions on the open questions, 2026-11-16"
+      ]
     },
     {
       "id": "R-ACCOUNT-003",
@@ -2647,6 +3282,78 @@
       "enforcement": "review",
       "related": ["D-040"],
       "source": ["domain: Account and planned transfer (money flow)"]
+    },
+    {
+      "id": "R-ACCOUNT-070",
+      "area": "account",
+      "statement": "A planned transfer is scheduled either as an offset in days from the actual pay date of a chosen income, or on a fixed day of the month.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-120", "Q-059"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-ACCOUNT-071",
+      "area": "account",
+      "statement": "A planned transfer scheduled from a pay date refers to the primary income unless the user chooses another income.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-120", "Q-059"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-ACCOUNT-072",
+      "area": "account",
+      "statement": "A planned transfer can be linked to a category.",
+      "rationale": "Examples: savings, third pillar, taxes.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-122"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-ACCOUNT-073",
+      "area": "account",
+      "statement": "Marking a manual transfer linked to a category as done creates its transaction in that category.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-122", "Q-060"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-ACCOUNT-074",
+      "area": "account",
+      "statement": "An automatic transfer linked to a category creates its transaction in that category.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-122", "Q-060"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-ACCOUNT-075",
+      "area": "account",
+      "statement": "Account balances are not tracked: the money flow diagram shows flows only.",
+      "feature": "F-MONEYFLOW",
+      "status": "planned",
+      "enforcement": "review",
+      "related": ["D-123"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "R-CONCURRENCY-070",
+      "area": "concurrency",
+      "statement": "When two members edit the same record at the same time, the second save is refused with a message that someone else changed it and it must be reloaded.",
+      "rationale": "Applies to every editable record. Built with step 3, for the editable records of step 2 (starting with incomes) as well as for those of step 3; every later feature follows it (D-124).",
+      "feature": "F-CATEGORY",
+      "status": "planned",
+      "enforcement": "test",
+      "related": ["D-124", "Q-018", "D-045"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
       "id": "R-PERIOD-021",
@@ -4108,6 +4815,330 @@
         "docs/database.md: RPCs",
         "code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql"
       ]
+    },
+    {
+      "id": "D-100",
+      "title": "A yearly amount shows as one twelfth, rounded to the rappen",
+      "decision": "A yearly amount is stored as yearly. The monthly figure shown is one twelfth of it, rounded to the nearest rappen. The twelve monthly shares are not required to add up exactly to the yearly amount. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-002. A simple, predictable monthly figure matters more than a few rappen of difference over a year.",
+      "rejected": [
+        "Spreading the remainder over some months so that twelve shares add up exactly to the yearly amount."
+      ],
+      "status": "accepted",
+      "related": ["Q-002", "R-CATEGORY-004", "R-CATEGORY-005", "R-CATEGORY-070", "Q-050"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-101",
+      "title": "Left to assign is per period",
+      "decision": "The amount left to assign for a period is that period's income total minus the sum of the category expectations in force in that period. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-003. Incomes and expectations are both versioned per period, so the two sides of the subtraction must come from the same period.",
+      "rejected": ["The monthly total of the incomes in force now."],
+      "status": "accepted",
+      "related": ["Q-003", "R-CATEGORY-006", "R-PERIOD-018"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-102",
+      "title": "Transactions are positive expenses, with a refund option, on the lowest level",
+      "decision": "A transaction is an expense entered as a positive amount. A \"refund\" option records money coming back; a refund reduces what was spent in its category. When a category has subcategories, a transaction goes on a subcategory, never on the parent category. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-004. Users enter what they paid as they see it on the receipt; tracking happens where the expectations are set (R-CATEGORY-002).",
+      "rejected": [
+        "Signed amounts, with a negative amount for money coming back.",
+        "Transactions directly on a category that has subcategories."
+      ],
+      "status": "accepted",
+      "related": [
+        "Q-004",
+        "R-TRANSACTION-001",
+        "R-TRANSACTION-070",
+        "R-TRANSACTION-071",
+        "R-TRANSACTION-072",
+        "Q-051",
+        "Q-052"
+      ],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-103",
+      "title": "A period's result is income minus spending",
+      "decision": "A period's result is its income total minus the total spent in it: a surplus when positive, a deficit when negative. Per category, the result is the expected amount minus what was spent. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-012. It tells the household whether it lived within its income, whatever was assigned.",
+      "rejected": ["Measuring the period's result against the sum of its expectations."],
+      "status": "accepted",
+      "related": ["Q-012", "R-PROGRESS-002", "R-PROGRESS-070"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-104",
+      "title": "Browsing past periods is part of step 3",
+      "decision": "Browsing a past period and seeing its progress view belongs to step 3 (period progress view). The comparison charts stay in step 5. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-010. A past period's progress view is the same view as the current one; only the charts are new work.",
+      "rejected": ["Browsing past periods only with the comparison charts of step 5."],
+      "status": "accepted",
+      "related": ["Q-010", "R-COMPARE-001"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-105",
+      "title": "What stays editable in a past period",
+      "decision": "In a past period, transactions can be added, edited and deleted freely. Its boundaries are changed through the period actions. Incomes and category expectations are changed only through the explicit \"correct an earlier period\" option. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-011. Late receipts and corrections of what was spent are normal; changing the plan of a past period must be deliberate.",
+      "rejected": [
+        "Only transactions are editable in a past period.",
+        "Everything in a past period is editable freely."
+      ],
+      "status": "accepted",
+      "related": ["Q-011", "R-TRANSACTION-008", "R-PERIOD-012", "D-065", "D-082", "R-VERSION-070"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-106",
+      "title": "Overspending and over-assigning are never blocked",
+      "decision": "Overspending a category and assigning more than the income are never blocked. An overspent category is shown as overspent; assigning more than the income shows a negative amount left to assign. Decided by the product owner on 2026-11-16.",
+      "why": "The app records what happens and shows it; it does not stop the household from recording reality or planning.",
+      "rejected": ["Refusing a transaction or an expectation that goes over the limit."],
+      "status": "accepted",
+      "related": ["R-TRANSACTION-073", "R-PROGRESS-071", "R-CATEGORY-071"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-107",
+      "title": "Categories end like incomes; expectations are versioned like incomes",
+      "decision": "Deleting a category that has transactions or has counted in a past period ends it from the current period and keeps it in past periods, like incomes (D-030); one that has neither is deleted. Category expectations are versioned like incomes: an edit applies from the current period, with the same optional \"correct an earlier period\" (D-065). Decided by the product owner on 2026-11-16.",
+      "why": "Past periods must keep showing what was planned and spent in them.",
+      "rejected": ["Deleting a category together with its transactions and its history."],
+      "status": "accepted",
+      "related": [
+        "R-CATEGORY-072",
+        "R-CATEGORY-073",
+        "R-VERSION-002",
+        "R-VERSION-070",
+        "D-030",
+        "D-065",
+        "Q-053"
+      ],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-108",
+      "title": "Subscription cadences and charge dates",
+      "decision": "Subscription cadences are monthly, quarterly, half-yearly and yearly. A subscription has a first charge date and then repeats on the same day of the month, clamped to the month's length. No weekend rule applies to subscriptions. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-006. Providers charge on a calendar day, weekends included.",
+      "rejected": ["Applying the incomes' weekend rule to subscription charges."],
+      "status": "accepted",
+      "related": [
+        "Q-006",
+        "R-SUBSCRIPTION-001",
+        "R-SUBSCRIPTION-070",
+        "R-SUBSCRIPTION-071",
+        "R-SUBSCRIPTION-072"
+      ],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-109",
+      "title": "Subscription charges are recorded automatically and confirmed on the dashboard",
+      "decision": "On its charge date, a subscription's transaction is created automatically, marked as coming from the subscription, and can be edited or deleted. The dashboard shows a notification for each such automatic charge asking the user to confirm that it really went through; until confirmed it is marked as awaiting confirmation. The user can instead say it did not go through, which removes it. Assumption (not asked of the product owner): a charge awaiting confirmation counts in totals immediately, like imported transactions (D-118). Decided by the product owner on 2026-11-16.",
+      "why": "Recurring charges should not have to be typed in, but a failed or cancelled charge must not stay in the budget unnoticed.",
+      "rejected": ["Entering subscription charges by hand."],
+      "status": "accepted",
+      "related": [
+        "R-SUBSCRIPTION-073",
+        "R-SUBSCRIPTION-074",
+        "R-SUBSCRIPTION-075",
+        "R-SUBSCRIPTION-076",
+        "R-SUBSCRIPTION-077",
+        "R-SUBSCRIPTION-078",
+        "D-118",
+        "Q-054"
+      ],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-110",
+      "title": "A subscription is committed inside its category",
+      "decision": "A subscription's monthly cost is shown as \"committed\" inside its category's expectation, not added on top of it. Decided by the product owner on 2026-11-16.",
+      "why": "The category's expectation stays the whole plan for that kind of spending; the subscription shows how much of it is already spoken for.",
+      "rejected": ["Adding subscriptions on top of the category expectations."],
+      "status": "accepted",
+      "related": ["R-SUBSCRIPTION-079", "Q-050"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-111",
+      "title": "A transaction links to at most one of a debt or a subscription",
+      "decision": "A transaction links to at most one of a debt or a subscription. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-005.",
+      "rejected": ["Linking a transaction to both a debt and a subscription."],
+      "status": "accepted",
+      "related": ["Q-005", "R-TRANSACTION-003"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-112",
+      "title": "Debts belong to a category; payments are transactions",
+      "decision": "A debt is tied to a category. A payment is a normal transaction in that category, linked to the debt. Only debts the household owes are tracked, not money owed to it. Decided by the product owner on 2026-11-16.",
+      "why": "Debt payments are spending like any other and must count in the budget without being entered twice.",
+      "rejected": ["Tracking money owed to the household as well."],
+      "status": "accepted",
+      "related": ["R-DEBT-070", "R-DEBT-071", "R-DEBT-072"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-113",
+      "title": "Remaining amount, interest and expected end of a debt",
+      "decision": "A debt's remaining amount is the principal plus accrued interest minus the payments linked to it. When the debt has an interest rate, once per period one twelfth of the yearly rate is applied to the remaining balance and added to it, and shown in the debt's history. The expected end date is projected from the planned monthly payment; when the payment does not cover the interest, the app says the debt never ends. A manual \"adjust balance\" entry lets the user match their bank statement. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-007. A simple model the user can check against the bank, with an escape hatch when the bank computes differently.",
+      "rejected": ["Remaining amount as the principal minus the payments, ignoring interest."],
+      "status": "accepted",
+      "related": [
+        "Q-007",
+        "R-DEBT-003",
+        "R-DEBT-004",
+        "R-DEBT-005",
+        "R-DEBT-073",
+        "R-DEBT-074",
+        "R-DEBT-075",
+        "Q-055"
+      ],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-114",
+      "title": "The comparison charts",
+      "decision": "Step 5 has these charts: income, spent and result per period over the last 12 periods; spending per category across periods; and two periods side by side. The product owner leaves latitude to include anything else that brings value to the user, and sets a quality bar: keep it beautiful. Decided by the product owner on 2026-11-16.",
+      "why": "These answer the household's questions: how are we doing over the year, where does the money go, what changed.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-COMPARE-002", "R-COMPARE-070", "R-COMPARE-071"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-115",
+      "title": "What an import duplicate is",
+      "decision": "An imported row is a duplicate when it has the same date, amount and description as an existing transaction, or the same bank transaction id when the file has one. Duplicates are skipped and listed in the import summary, with an \"import anyway\" option. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-009. Re-importing an overlapping export must not double the spending, but two genuine identical purchases must still be possible.",
+      "rejected": ["Silently dropping duplicates with no way to import them."],
+      "status": "accepted",
+      "related": [
+        "Q-009",
+        "R-IMPORT-003",
+        "R-IMPORT-070",
+        "R-IMPORT-071",
+        "R-IMPORT-072",
+        "R-IMPORT-073",
+        "Q-056"
+      ],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-116",
+      "title": "The import script authenticates with an import token",
+      "decision": "The script a Claude session runs authenticates with an import token the user creates in Settings. A token is tied to one budget, can only add transactions through the import function (it cannot read anything), and can be revoked. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-013. Claude never gets raw database access to real data (R-SECURITY-005), nor the member's own credentials.",
+      "rejected": ["The script signs in as the member."],
+      "status": "accepted",
+      "related": [
+        "Q-013",
+        "R-IMPORT-006",
+        "R-IMPORT-074",
+        "R-IMPORT-075",
+        "R-IMPORT-076",
+        "R-IMPORT-077",
+        "R-SECURITY-005"
+      ],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-117",
+      "title": "Merchant rules are offered in one click",
+      "decision": "When the user categorises an imported transaction, the app offers \"always put this merchant in this category?\" with one click. The rules are editable in Settings. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-014. The user stays in control of the rules, at the cost of one click.",
+      "rejected": ["Saving a rule automatically whenever an imported transaction is categorised."],
+      "status": "accepted",
+      "related": ["Q-014", "R-IMPORT-007", "R-IMPORT-078", "R-IMPORT-079", "Q-057"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-118",
+      "title": "Imported transactions count at once and wait for review",
+      "decision": "Imported transactions count in totals immediately and are flagged \"to review\" until the user confirms them. Decided by the product owner on 2026-11-16.",
+      "why": "Totals stay close to reality right after an import, and the flag still shows what has not been checked.",
+      "rejected": ["Leaving imported transactions out of the totals until they are reviewed."],
+      "status": "accepted",
+      "related": ["R-IMPORT-004", "R-IMPORT-080", "R-IMPORT-081"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-119",
+      "title": "Generic CSV import plus presets for the household's sources",
+      "decision": "The import offers a generic CSV import with column mapping, plus presets for the product owner's sources: Migros Bank, Raiffeisen, One, Yuh and Twint. Which product \"One\" is and what each source exports are open (Q-058). Decided by the product owner on 2026-11-16.",
+      "why": "Any bank's export can be imported, and the household's own sources need no mapping.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-082", "R-IMPORT-083", "Q-058"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-120",
+      "title": "How a planned transfer is scheduled",
+      "decision": "A planned transfer is scheduled either as an offset in days from a chosen income's actual pay date (the primary income by default), or on a fixed day of the month. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-008. Members are paid on different days, and some transfers follow the calendar rather than a salary.",
+      "rejected": ["Always counting from the primary income's pay date (the period start)."],
+      "status": "accepted",
+      "related": ["Q-008", "R-ACCOUNT-002", "R-ACCOUNT-070", "R-ACCOUNT-071", "Q-059"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-121",
+      "title": "Planned transfers are versioned like incomes",
+      "decision": "Planned transfers are versioned like incomes: an edit applies from the current period. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-015. Past periods' checklists and flows keep showing the plan that was in force.",
+      "rejected": ["Edits to a planned transfer rewrite every period."],
+      "status": "accepted",
+      "related": ["Q-015", "R-VERSION-071", "R-ACCOUNT-002"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-122",
+      "title": "A planned transfer can create its transaction in a category",
+      "decision": "A planned transfer can be linked to a category (for example savings, third pillar, taxes). When it is marked done, or when it is automatic, the transaction is created in that category, so it is not entered twice. Decided by the product owner on 2026-11-16.",
+      "why": "Transfers to savings, the third pillar or the tax reserve are part of the budget; recording them once avoids double entry.",
+      "rejected": ["Entering the transfer's transaction by hand as well."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-072", "R-ACCOUNT-073", "R-ACCOUNT-074", "Q-060"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-123",
+      "title": "No account balances",
+      "decision": "Account balances are not tracked; the money flow diagram shows flows only. Decided by the product owner on 2026-11-16.",
+      "why": "The app has no bank connection (D-040); balances kept by hand would drift from the bank's.",
+      "rejected": ["Tracking a balance per account."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-075", "D-040"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-124",
+      "title": "Concurrent edits: the second save is refused",
+      "decision": "When two members edit the same thing at the same time, the second save is refused with a message that it was changed by someone else and must be reloaded. This applies to every editable record, starting with incomes. It is implemented with step 3, for the existing step 2 records as well. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-018. Every member can edit everything (D-045); silently losing another member's change is worse than asking to reload.",
+      "rejected": ["The last write wins without a warning (the step 2 behaviour)."],
+      "status": "accepted",
+      "related": ["Q-018", "R-CONCURRENCY-070", "D-045"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "D-125",
+      "title": "Account deletion comes after step 7",
+      "decision": "There is no account deletion until after step 7. When it is built, an owner must first transfer ownership of their budgets or delete them, and a member deleting their account counts as leaving the budget. Until then, R-BUDGET-016 records the database behaviour only; no client path deletes accounts. Decided by the product owner on 2026-11-16.",
+      "why": "Answer to Q-030. Deleting the owner's account must not delete a budget other members rely on, and a deleted member's incomes must follow the leaving rules (R-MEMBER-007, R-MEMBER-009).",
+      "rejected": ["Deleting the owner's account deletes their budgets for every member."],
+      "status": "accepted",
+      "related": ["Q-030", "R-BUDGET-016", "R-MEMBER-007", "R-MEMBER-009"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     }
   ],
   "conventions": [
@@ -4355,7 +5386,8 @@
       "id": "Q-002",
       "question": "How is one twelfth of a yearly amount rounded to whole rappen, and must twelve monthly shares add up to the yearly amount exactly?",
       "context": "Yearly amounts are stored as yearly and shown as one twelfth per month; amounts are integer rappen, so most yearly amounts do not divide by twelve.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-100",
       "related": ["R-CATEGORY-005", "R-MONEY-002"],
       "source": ["domain: Category and subcategory", "domain: Money"]
     },
@@ -4363,7 +5395,8 @@
       "id": "Q-003",
       "question": "Which \"budget total\" does the amount left to assign use: the monthly total of the incomes in force now, or the income total of a given period?",
       "context": "The source defines the amount left to assign as \"budget total minus the sum of expectations\" and the budget as starting \"from the monthly total of its incomes\"; incomes are versioned per period.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-101",
       "related": ["R-CATEGORY-006", "R-PERIOD-018"],
       "source": ["domain: Category and subcategory", "domain: Period"]
     },
@@ -4371,7 +5404,8 @@
       "id": "Q-004",
       "question": "What does the sign of a transaction amount mean (spending, refund, extra income), and may a transaction be put on a category that has subcategories?",
       "context": "A transaction \"has an amount, a date, and a category or subcategory\"; nothing says how refunds or money coming in are recorded, nor whether a parent category with subcategories can hold transactions directly.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-102",
       "related": ["R-TRANSACTION-001"],
       "source": ["domain: Transaction"]
     },
@@ -4379,7 +5413,8 @@
       "id": "Q-005",
       "question": "Can a transaction be linked to both a debt and a subscription, or to at most one of them?",
       "context": "The source says \"optional link to a debt or a subscription\".",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-111",
       "related": ["R-TRANSACTION-003"],
       "source": ["domain: Transaction"]
     },
@@ -4387,7 +5422,8 @@
       "id": "Q-006",
       "question": "Which cadences does a subscription support, what is its \"pay date\" (a date or a day of the month), and does the weekend rule apply to it?",
       "context": "A subscription \"has a price, a pay date, a cadence, and a category\"; nothing more is said.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-108",
       "related": ["R-SUBSCRIPTION-001", "R-SUBSCRIPTION-002"],
       "source": ["domain: Subscription"]
     },
@@ -4395,7 +5431,8 @@
       "id": "Q-007",
       "question": "How does the interest rate affect a debt's remaining amount and expected end date, and is the remaining amount the principal minus the transactions assigned to it?",
       "context": "A debt has \"a principal, an optional interest rate, and a planned monthly payment\"; \"a transaction assigned to a debt reduces the remaining amount\".",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-113",
       "related": ["R-DEBT-003", "R-DEBT-005"],
       "source": ["domain: Debt"]
     },
@@ -4403,7 +5440,8 @@
       "id": "Q-008",
       "question": "Which payday does a planned transfer refer to (\"payday + 2 days\"): the actual pay date of the primary income (period start), or of a chosen income?",
       "context": "Example from the source: \"payday + 2 days: 1000 CHF from A to Savings\". A budget can have several incomes with different pay days.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-120",
       "related": ["R-ACCOUNT-002"],
       "source": ["domain: Account and planned transfer (money flow)"]
     },
@@ -4411,7 +5449,8 @@
       "id": "Q-009",
       "question": "What makes an imported row a duplicate (same date, amount and description; an import id; something else)?",
       "context": "The import function \"skips duplicates\"; nothing defines a duplicate.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-115",
       "related": ["R-IMPORT-003"],
       "source": ["domain: Import (including by a Claude session)"]
     },
@@ -4419,7 +5458,8 @@
       "id": "Q-010",
       "question": "Is browsing past periods part of step 3 (period progress view) or step 5 (period comparison charts)?",
       "context": "The source lists \"Users can browse past periods and compare them (for example a yearly chart)\" in one sentence; the build order names a \"period progress view\" in step 3 and \"period comparison charts\" in step 5. This spec puts both under step 5 for now.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-104",
       "related": ["R-COMPARE-001"],
       "source": ["domain: Period", "domain: Build order"]
     },
@@ -4427,7 +5467,8 @@
       "id": "Q-011",
       "question": "What exactly stays editable in a past period: its transactions only, or also its boundaries and other data?",
       "context": "\"Past periods stay editable\" comes right after back-dated transactions, while versioning says edits to incomes, expectations, subscriptions and debts never rewrite the past. The step 2 code already lets members move the boundaries of past periods.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-105",
       "related": ["R-TRANSACTION-008", "R-PERIOD-012"],
       "source": ["domain: Period", "domain: Versioning: edits never rewrite the past"]
     },
@@ -4435,7 +5476,8 @@
       "id": "Q-012",
       "question": "What is a period's surplus or deficit measured against: its income total, or the sum of its expectations?",
       "context": "\"At the end of a period, category balances reset. The period's surplus or deficit is shown as its result.\"",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-103",
       "related": ["R-PROGRESS-001", "R-PROGRESS-002"],
       "source": ["domain: Period"]
     },
@@ -4443,7 +5485,8 @@
       "id": "Q-013",
       "question": "How does the import script a Claude session runs authenticate, given that Claude does not get raw database access to real data?",
       "context": "The import is reachable \"from a script in this repo that a Claude Code session can run\", and \"Claude does not get raw database access to real data\". The likely reading is that it calls the import function as a signed-in member, but the source does not say.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-116",
       "related": ["R-IMPORT-006", "R-SECURITY-005"],
       "source": ["domain: Import (including by a Claude session)"]
     },
@@ -4451,7 +5494,8 @@
       "id": "Q-014",
       "question": "How are merchant-to-category rules created: automatically when a user categorises an imported transaction, or explicitly by the user?",
       "context": "\"Merchant-to-category rules are saved so categorisation improves over time.\"",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-117",
       "related": ["R-IMPORT-007"],
       "source": ["domain: Import (including by a Claude session)"]
     },
@@ -4459,7 +5503,8 @@
       "id": "Q-015",
       "question": "Are planned transfers versioned like incomes (edits effective from the current period)?",
       "context": "The versioning rule lists incomes, category expectations, subscriptions and debts; it does not mention accounts or planned transfers, which also appear on a per-period checklist.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-121",
       "related": ["R-ACCOUNT-002", "R-ACCOUNT-005"],
       "source": [
         "domain: Versioning: edits never rewrite the past",
@@ -4491,17 +5536,107 @@
       "id": "Q-030",
       "question": "What should happen to a budget and its incomes when a member's or the owner's account is deleted?",
       "context": "No client path deletes accounts yet. Today, deleting the owner's account deletes their budgets for every member (R-BUDGET-016), and deleting a member's account keeps their incomes with a null owner without the member rules: an income that is primary stays active and primary (review finding 8). Settle before any account-deletion feature.",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-125",
       "related": ["R-BUDGET-016", "R-MEMBER-007", "R-MEMBER-009"],
       "source": ["owner-request: coordinator decisions on the step 2 database review, 2026-11-15"]
     },
     {
       "id": "Q-018",
-      "status": "open",
+      "status": "resolved",
+      "resolvedBy": "D-124",
       "question": "When two members edit the same income at the same time, should the second save be refused (for example with a version check) instead of silently overwriting the first?",
       "context": "Today the last write wins without a warning: update_income_terms and the rename both replace what is there. Every member can edit every income (D-045), so two members of a household can edit the same salary from two browsers.",
       "related": ["D-045", "R-VERSION-006"],
       "source": ["owner-request: step 2 frontend review, finding 11"]
+    },
+    {
+      "id": "Q-050",
+      "question": "How is a half rappen rounded when one twelfth (or another monthly share) falls exactly between two rappen, and do the totals (left to assign, results, committed amounts) add up the rounded monthly shares or round the exact sum?",
+      "context": "D-100 says one twelfth rounded to the nearest rappen. A yearly amount that is 6 rappen more than a multiple of 12 gives exactly half a rappen (CHF 1.50 a year gives 12.5 rappen), and the tie rule is not given. D-110 also needs a monthly cost for quarterly, half-yearly and yearly subscriptions; the answers do not say it uses the same rounding.",
+      "status": "open",
+      "related": ["D-100", "D-110", "R-CATEGORY-005", "R-SUBSCRIPTION-079"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-051",
+      "question": "What happens to the transactions already on a category when the user adds its first subcategory?",
+      "context": "D-102: when a category has subcategories, a transaction goes on a subcategory, never on the parent. A category without subcategories holds transactions directly, so adding a subcategory later would leave them on the parent (they could be moved, refused, or kept for past periods only).",
+      "status": "open",
+      "related": ["D-102", "R-TRANSACTION-072", "R-CATEGORY-002"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-052",
+      "question": "How is money coming in that is neither a salary nor a refund (a gift, a resale, a reimbursement from a third party) recorded?",
+      "context": "Q-004 asked about extra income; D-102 answers spending and refunds only. Incomes are monthly, and one-off incomes are deferred (D-038).",
+      "status": "open",
+      "related": ["D-102", "D-038", "R-TRANSACTION-070"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-053",
+      "question": "Can a transaction be added to, or moved into, a category that has ended, when its date falls in a period where the category was still in force?",
+      "context": "D-105 lets transactions in past periods be added and edited freely; D-107 ends a deleted category from the current period while past periods keep it.",
+      "status": "open",
+      "related": ["D-105", "D-107", "R-TRANSACTION-008", "R-CATEGORY-072"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-054",
+      "question": "When are automatic subscription charges created, given that there is no server: are charge dates missed while nobody opened the app created later, back-dated, and is a charge whose transaction was deleted or answered \"did not go through\" ever created again?",
+      "context": "D-109: the transaction is created on the charge date, can be deleted, and is removed when the user says it did not go through. The app is a static SPA on Supabase (D-003), so creation can only happen when the database is next called. Also open: whether editing the subscription (a new version) changes charges already created.",
+      "status": "open",
+      "related": ["D-109", "D-003", "R-SUBSCRIPTION-073", "R-SUBSCRIPTION-077"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-055",
+      "question": "When in a period is a debt's interest applied (at its start or end, before or after that period's payments), how is it rounded to the rappen, and does a payment exactly equal to the interest count as \"never ends\"?",
+      "context": "D-113: once per period, one twelfth of the yearly rate is applied to the remaining balance and added to it; when the planned payment does not cover the interest the app says the debt never ends. Periods run salary to salary, not by calendar month (D-080), and the expected end date needs a date for each future interest step.",
+      "status": "open",
+      "related": ["D-113", "R-DEBT-073", "R-DEBT-074"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-056",
+      "question": "Are identical rows within the same file duplicates of each other, are refunds and manually entered transactions compared too, and is \"import anyway\" chosen per row or for all skipped rows?",
+      "context": "D-115 compares an imported row with existing transactions. Two identical purchases on one day (two coffees) appear as two identical rows in one export; the answer does not say whether the second is skipped.",
+      "status": "open",
+      "related": ["D-115", "R-IMPORT-070", "R-IMPORT-071", "R-IMPORT-073"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-057",
+      "question": "What identifies a merchant for a merchant-to-category rule: the whole description, a part of it, or a field of the bank export?",
+      "context": "D-117 offers \"always put this merchant in this category?\". Bank descriptions often carry a date, a card number or a location around the merchant name, so an exact match on the description would rarely match again.",
+      "status": "open",
+      "related": ["D-117", "R-IMPORT-007", "R-IMPORT-079"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-058",
+      "question": "Which product is \"One\", what export formats do Migros Bank, Raiffeisen, One, Yuh and Twint actually offer, and can the product owner provide sample export files?",
+      "context": "D-119 asks for presets for these five sources. \"One\" may be Viseca's \"one\" credit-card portal; that is unconfirmed. Twint may offer no export at all. Sample export files are needed before the presets can be built.",
+      "status": "open",
+      "related": ["D-119", "R-IMPORT-083"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-059",
+      "question": "For a planned transfer on a fixed day of the month, is the day clamped to the month's length and does a weekend rule apply; may a pay-date offset be negative; and what happens to a transfer whose chosen income ends?",
+      "context": "D-120 allows an offset in days from a chosen income's actual pay date, or a fixed day of the month. Subscriptions clamp and use no weekend rule (D-108), but nothing says the same for transfers. An income ends when it is removed or its member leaves (R-MEMBER-007).",
+      "status": "open",
+      "related": ["D-120", "R-ACCOUNT-070", "R-ACCOUNT-071", "R-MEMBER-007"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+    },
+    {
+      "id": "Q-060",
+      "question": "On which date is the transaction of an automatic transfer linked to a category created, does it wait for confirmation like a subscription charge, and does unmarking a manual transfer as done remove its transaction?",
+      "context": "D-122: when a transfer linked to a category is marked done, or when it is automatic, its transaction is created in that category. Automatic transfers are assumed done (R-ACCOUNT-004); subscription charges, also automatic, wait for confirmation (D-109).",
+      "status": "open",
+      "related": ["D-122", "D-109", "R-ACCOUNT-073", "R-ACCOUNT-074", "R-ACCOUNT-004"],
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     }
   ]
 }
