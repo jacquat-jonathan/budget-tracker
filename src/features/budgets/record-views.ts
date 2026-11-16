@@ -29,6 +29,15 @@ export function useRecordViews() {
     budgetName: (budget: MyBudget): FieldView[] => [
       { key: 'name', label: label('name'), value: budget.name },
     ],
+    budgetPrimary: (budget: MyBudget, incomes: readonly IncomeOverview[]): FieldView[] => [
+      {
+        key: 'primary',
+        label: t('concurrent.fields.primary'),
+        value:
+          incomes.find((income) => income.id === budget.primary_income_id)?.name ??
+          t('concurrent.none'),
+      },
+    ],
     budgetEnd: (budget: MyBudget): FieldView[] => [
       {
         key: 'endDate',

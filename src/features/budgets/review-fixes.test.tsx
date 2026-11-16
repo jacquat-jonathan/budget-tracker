@@ -237,9 +237,9 @@ describe('a refused write refreshes what it acted on [R-APP-005]', () => {
     })
   })
 
-  it('new terms refused after the rename was saved still show the new name', async () => {
+  it('a refused edit leaves the income as it was: name and terms are one save', async () => {
     const db = householdDb()
-    db.rpc.update_income_terms.mockImplementation(() => rpcError('income_not_found'))
+    db.rpc.update_income.mockImplementation(() => rpcError('income_not_found'))
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/income')
 
@@ -248,14 +248,10 @@ describe('a refused write refreshes what it acted on [R-APP-005]', () => {
     const dialog = await screen.findByRole('dialog')
     await userEvent.clear(within(dialog).getByLabelText('Name'))
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Wages')
-    await userEvent.clear(within(dialog).getByLabelText('Amount per month'))
-    await userEvent.type(within(dialog).getByLabelText('Amount per month'), '7000')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     expect(await within(dialog).findByText('This income no longer exists.')).toBeInTheDocument()
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Wages', hidden: true })).toBeInTheDocument()
-    })
+    expect(db.rpc.update_income).toHaveBeenCalledTimes(1)
   })
 })
 

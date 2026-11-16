@@ -272,9 +272,10 @@ export const fr: Translation = {
       other_name_required:
         'Il faut un nom pour la sous-catégorie qui reprend ce que contenait la catégorie.',
       category_limit_reached:
-        'Ce budget contient déjà le maximum de catégories (200 en usage, ou 2000 au total).',
+        'Ce budget contient déjà le maximum de catégories (200 en usage, ou 500 au total).',
       transaction_limit_reached:
-        'Ce budget contient déjà 200 000 transactions, le maximum possible.',
+        'Ce budget contient déjà 50 000 transactions, le maximum possible.',
+      category_not_ended: 'Cette catégorie n’a pas pris fin : il n’y a rien à restaurer.',
       income_limit_reached:
         'Ce budget compte déjà le maximum de revenus autorisé (50 en vigueur, ou 500 au total).',
     },
@@ -302,6 +303,7 @@ export const fr: Translation = {
       category: 'Catégorie',
       note: 'Note',
       endDate: 'Date de fin',
+      primary: 'Revenu principal',
     },
     remove:
       'Cet élément a changé depuis que vous avez ouvert cette fenêtre. Vérifiez-le, puis confirmez si vous le souhaitez toujours.',
@@ -600,6 +602,36 @@ export const fr: Translation = {
       '« {{name}} » retirée à partir de la période choisie. Les périodes précédentes la gardent.',
     removeEarlierLabel: 'La retirer à partir d’une période antérieure',
     removeEarlier: 'Retirer à partir de cette période',
+    extendAction: 'La compter depuis une période antérieure',
+    extend: 'La compter depuis cette période',
+    extendTitle: 'Compter « {{name}} » depuis une période antérieure ?',
+    extendDescription:
+      'Pour des transactions plus anciennes qui ont besoin de cette catégorie : elle est aussi prévue dans une période antérieure.',
+    extendFrom: 'Comptée depuis',
+    extendNone: 'Elle compte déjà depuis la première période du budget.',
+    extendNoneSub:
+      'Une sous-catégorie ne compte jamais avant son groupe : comptez d’abord « {{group}} » depuis une période antérieure.',
+    extendAmountHelp:
+      'Ce qu’elle prévoit dans les périodes antérieures. Les montants suivants restent tels quels.',
+    extendOutcome:
+      'Cela modifie des périodes passées : à partir du {{start}}, elle y est prévue avec ce montant, ce qui change leurs prévisions et leurs résultats, jusqu’à la période où elle a commencé.',
+    extended: '« {{name}} » compte maintenant depuis la période choisie.',
+    restore: 'Restaurer',
+    restoreFor: 'Restaurer {{name}}',
+    restoreTitle: 'Restaurer « {{name}} » ?',
+    restoreDescription: 'Elle est de nouveau prévue, avec le montant ci-dessous.',
+    restoreAmountHelp: 'Ce qu’elle prévoit à partir de maintenant.',
+    restoreAsCorrection: 'La restaurer comme si elle n’avait jamais pris fin',
+    restoreEndedBudget:
+      'Le budget est terminé : elle ne peut être restaurée que comme si elle n’avait jamais pris fin.',
+    restoreOutcome:
+      'Elle est de nouveau prévue à partir de la période en cours, commencée le {{start}}. Les périodes entre sa fin et maintenant ne prévoient rien pour elle : leurs totaux ne changent pas.',
+    restoreCorrectionOutcome:
+      'Cela modifie des périodes passées : elle est de nouveau prévue à partir de la période où elle a pris fin ({{start}} – {{end}}), comme si elle n’avait jamais pris fin, ce qui change les prévisions et les résultats de toutes les périodes depuis.',
+    restoreGroupNote:
+      'Ses sous-catégories restent telles quelles : restaurez aussi celles que vous voulez.',
+    restoreGroupFirst: 'Son groupe « {{group}} » a pris fin : restaurez d’abord le groupe.',
+    restored: '« {{name}} » est de nouveau prévue.',
     removeFromEarlier:
       'Elle n’est plus prévue à partir de la période choisie, ce qui modifie des périodes passées. Si elle n’a jamais compté avant cette période et n’a aucune transaction, elle est supprimée.',
     edit: 'Modifier',
@@ -819,7 +851,7 @@ export const fr: Translation = {
     manualCurrentHint:
       'Fixée à la main : elle reste telle quelle quand le jour de paie change, jusqu’à ce que vous la remettiez sur la prévision.',
     manualPastHint:
-      'Enregistrée à la main avec l’une des actions. La marque reste même si la date est ensuite ramenée là où elle était.',
+      'Fixée à la main avec l’une des actions. Ramener le début sur le calendrier de paie efface la marque.',
     unavailable: {
       budgetEnds:
         'Indisponible : la date de fin du budget ({{date}}) ne laisse aucun jour où une nouvelle période pourrait commencer.',
@@ -841,8 +873,16 @@ export const fr: Translation = {
       notYet: 'Le salaire de cette période n’est pas encore arrivé',
       moveStart: 'Le salaire de cette période est en fait arrivé un autre jour',
       resetExpected: 'Revenir à la date prévue',
+      moveSchedule: 'Ramener le début de cette période sur le calendrier de paie',
     },
     dialogs: {
+      moveSchedule: {
+        title: 'Ramener le début de cette période sur le calendrier de paie ?',
+        description:
+          'La limite entre cette période et la précédente revient au jour que donne le calendrier de paie.',
+        field: 'Date',
+        range: 'Aucune date n’est nécessaire.',
+      },
       expected: {
         title: 'Quand le prochain salaire est-il attendu ?',
         description:
@@ -922,6 +962,8 @@ export const fr: Translation = {
         'La période précédente (dès le {{start}}) redevient la période en cours jusqu’à sa fin prévue ; cette période disparaît.',
       moveStart:
         'La période précédente se terminera le {{end}}, et celle-ci commencera le {{start}}.',
+      moveSchedule:
+        'La limite revient au jour que donne le calendrier de paie, et sa marque « fixée à la main » disparaît.',
     },
     undo: {
       expected: 'Pour annuler : indiquez une autre date, ou revenez à la date prévue.',
@@ -934,6 +976,10 @@ export const fr: Translation = {
     },
     saved: 'Périodes mises à jour.',
     reset: 'Revenir',
+    moveBack: 'Ramener',
+    changedTitle: 'Les périodes ont changé pendant que cette fenêtre était ouverte',
+    changedDescription:
+      'Quelqu’un d’autre a agi sur elles, ou votre tentative précédente avait déjà abouti : rien n’a donc été modifié maintenant. Ce que vous voyez est à jour : vérifiez les dates, puis recommencez si c’est encore nécessaire.',
     resetDone: 'La date attendue suit de nouveau la prévision.',
     progress: 'Avancement',
     progressFor: 'Voir l’avancement de la période du {{range}}',

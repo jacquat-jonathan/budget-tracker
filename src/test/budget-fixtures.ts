@@ -34,6 +34,7 @@ export function periodRow(
     today: '2026-11-15',
     end_is_manual: false,
     is_current: true,
+    revision: 1,
     income_total: 650_000,
     salary_total: 650_000,
     extra_income_total: 0,

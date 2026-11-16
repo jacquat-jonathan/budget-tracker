@@ -125,11 +125,7 @@ function CategoryForm({
   const create = useCreateCategory(budgetId, { onDone: close })
   const update = useUpdateCategory(budgetId, { onDone: close })
   const mutation = category ? update : create
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
-    error: update.error,
-    sent: update.variables?.revision,
-    submit: () => void onSubmit(),
-  })
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
 
   // Periods are identified by their dates; a subcategory never before its group.
   const periodLabel = (period: PeriodSummary) =>

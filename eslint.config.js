@@ -7,7 +7,8 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'supabase', 'src/lib/database.types.ts']),
+  // .claude holds local agent worktrees (gitignored): never part of the project.
+  globalIgnores(['dist', 'coverage', 'supabase', 'src/lib/database.types.ts', '.claude']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

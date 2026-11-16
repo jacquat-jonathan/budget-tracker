@@ -151,7 +151,7 @@ describe('"has this salary already arrived?" offers only what the database accep
     db.rpc.pay_date.mockImplementation((args) =>
       args.p_pay_day === 13 ? '2026-11-13' : '2026-11-10',
     )
-    db.rpc.preview_expected_pay_date.mockImplementation(() => [
+    db.rpc.preview_update_income.mockImplementation(() => [
       {
         period_id: 'period-2',
         end_date: '2026-12-12',
@@ -204,6 +204,7 @@ describe('"has this salary already arrived?" offers only what the database accep
     await waitFor(() => {
       expect(db.rpc.move_period_start).toHaveBeenCalledWith({
         p_period_id: 'period-2',
+        p_expected_revision: 1,
         p_start_date: '2026-11-13',
       })
     })

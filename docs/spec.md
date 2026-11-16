@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-328 rules (238 active, 83 planned), 24 conventions, 134 decisions, 22 open questions. 0 rules and conventions are marked **TEST PENDING**.
+330 rules (240 active, 83 planned), 24 conventions, 134 decisions, 22 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -116,7 +116,7 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 - **US-PERIOD-001** As a budget member, I want periods to run from pay day to pay day of the primary income, so that the salary is always day one of the period.
   Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018, R-PERIOD-050, R-PERIOD-052
 - **US-PERIOD-002** As a budget member, I want to move a period boundary when the salary arrived on another day, so that public holidays do not put transactions in the wrong period.
-  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051, R-PERIOD-053, R-PERIOD-100
+  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051, R-PERIOD-053, R-PERIOD-100, R-PERIOD-055
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
   Rules: R-PERIOD-007, R-PERIOD-011, R-VERSION-007, R-VERSION-008
 
@@ -133,9 +133,9 @@ Two-level categories with monthly or yearly expectations, and the amount left to
 - **US-CATEGORY-003** As a budget member, I want to see the amount left to assign in a period, negative when I have assigned more than the income, so that every franc of the budget has a purpose.
   Rules: R-CATEGORY-006, R-CATEGORY-071, R-CATEGORY-050
 - **US-CATEGORY-004** As a budget member, I want to delete a category I no longer need, so that it leaves the budget from now on while past periods keep it.
-  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095, R-CATEGORY-052, R-CATEGORY-101
+  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095, R-CATEGORY-052, R-CATEGORY-101, R-CATEGORY-054
 - **US-CATEGORY-005** As a budget member, I want to change a category's expectation from now on, or explicitly correct it from an earlier period, so that past periods stay as they were unless I fix a mistake on purpose.
-  Rules: R-VERSION-002, R-VERSION-070, R-CATEGORY-053, R-CATEGORY-100, R-CATEGORY-101
+  Rules: R-VERSION-002, R-VERSION-070, R-CATEGORY-053, R-CATEGORY-100, R-CATEGORY-101, R-CATEGORY-054
 - **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
   Rules: R-CONCURRENCY-070, R-CONCURRENCY-090, R-CONCURRENCY-091, R-CONCURRENCY-100
 
@@ -693,10 +693,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-PERIOD-029, R-PERIOD-030
   - Source: code: src/features/income/income-mutations.ts
-- **R-INCOME-055** Before new pay terms of the primary income are saved, and before another income is made primary, the app shows the expected next pay date that would result, from the database's preview; an end set by hand is said to stay as set.
+- **R-INCOME-055** Before new pay terms of the primary income are saved, and before another income is made primary, the app shows the expected next pay date that would result, from the database's preview, and Save waits for it; an end set by hand is said to stay as set. The previewed end goes back with the save, which is refused if the period would now end on another day.
   _active · enforced by test · F-INCOME_
   - Related: R-PERIOD-036, R-INCOME-054, R-PERIOD-014
-  - Source: code: src/features/income/pay-date-preview.ts; code: src/features/income/components/pay-date-preview-notice.tsx
+  - Source: code: src/features/income/pay-date-preview.ts; code: src/features/income/components/pay-date-preview-notice.tsx; owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16
 - **R-INCOME-056** Every place that announces the primary income's next salary (the dashboard, the income card, the periods page, the message after saving, the previews before saving) gives the same date, the day after the current period ends (projected or set by hand), never the schedule's next pay date; in the budget's last period it announces the budget's end instead, and an ended budget announces none. Another income's card shows its own next pay date only while the budget runs and not after its end.
   _active · enforced by test · F-INCOME_
   - Related: D-135, R-PERIOD-010, R-INCOME-054, R-INCOME-055, R-BUDGET-008
@@ -898,6 +898,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-020, R-PERIOD-034, R-PERIOD-012, R-BUDGET-008
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/periods/boundary-ranges.ts
+- **R-PERIOD-055** Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its "set by hand" mark.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-CONCURRENCY-100, R-PERIOD-100, R-PERIOD-051, D-151, D-152
+  - Source: owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16; code: src/features/periods/periods-page.tsx
 - **R-PERIOD-100** A boundary moved to where the schedule puts it (the previous period's projected end) is not marked as set by hand, and a past boundary can be moved back to the schedule without giving a date.
   _active · enforced by test · F-PERIOD_
   - Related: D-152, Q-071, R-PERIOD-014, R-PERIOD-025
@@ -1059,6 +1063,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: R-VERSION-002, R-VERSION-070, R-INCOME-051
   - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/category-form-dialog.tsx
+- **R-CATEGORY-054** A category can be counted from an earlier period and a removed one restored, each said beforehand: counting from an earlier period is an explicit correction that changes those periods' plans and results; restoring plans it again from the current period with nothing expected in the periods between (their totals unchanged), or, as an explicit correction, as if it had never ended (the only way in an ended budget); a subcategory needs its group in force first.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CATEGORY-100, R-CATEGORY-101, R-VERSION-070
+  - Source: owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16; code: src/features/budget/components/category-history-dialog.tsx
 - **R-CATEGORY-100** An existing category can be made to count from an earlier period, as an explicit correction, with its earliest expectation there unless another amount is given; a subcategory never before its group.
   _active · enforced by test · F-CATEGORY_
   - Related: D-154, Q-082, R-VERSION-070

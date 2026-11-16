@@ -271,7 +271,7 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     expect(screen.queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
   })
 
-  it('a save refused only for a field the form does not show is sent again by itself [R-CONCURRENCY-091]', async () => {
+  it('a save refused only for a field the form does not show says so, keeps the name, and is never resent by itself [R-CONCURRENCY-091]', async () => {
     const { db } = await openSettings(true)
     // Another member switched the primary income: the budget's revision moved, its name did not.
     db.rpc.rename_budget.mockImplementationOnce(() => {
@@ -282,6 +282,12 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     await userEvent.clear(name)
     await userEvent.type(name, 'Our home')
     await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    expect(await screen.findByText(/Someone else changed this in the meantime/)).toBeInTheDocument()
+    expect(screen.queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Budget name')).toHaveValue('Our home')
+    expect(db.rpc.rename_budget).toHaveBeenCalledTimes(1)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
     await waitFor(() => {
       expect(db.rpc.rename_budget).toHaveBeenLastCalledWith({
         p_budget_id: BUDGET_ID,
@@ -289,7 +295,6 @@ describe('settings as the owner [R-MEMBER-050]', () => {
         p_expected_revision: 5,
       })
     })
-    expect(screen.queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
   })
 
   it('sets and clears the end date, showing the date entered and the last day [R-BUDGET-054]', async () => {

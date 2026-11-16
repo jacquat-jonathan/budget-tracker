@@ -19,7 +19,46 @@ import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
-type ProgressRow = Database['public']['Functions']['get_period_progress']['Returns'][number]
+type ProgressRowRead = Database['public']['Functions']['get_period_progress']['Returns'][number]
+
+/**
+ * A progress row as the contract describes it: only parent_id (top level), amount and cadence
+ * (groups, rows not in force) are ever null; the generated type marks every field of the
+ * composite type nullable, so the others are read once here.
+ */
+interface ProgressRow {
+  category_id: string
+  parent_id: string | null
+  name: string
+  is_group: boolean
+  in_force: boolean
+  amount: number | null
+  cadence: ProgressRowRead['cadence']
+  expected: number
+  spent: number
+  result: number
+  is_overspent: boolean
+  transaction_count: number
+  display_order: number
+}
+
+function readRow(row: ProgressRowRead): ProgressRow {
+  return {
+    category_id: row.category_id ?? '',
+    parent_id: row.parent_id,
+    name: row.name ?? '',
+    is_group: row.is_group === true,
+    in_force: row.in_force === true,
+    amount: row.amount,
+    cadence: row.cadence,
+    expected: row.expected ?? 0,
+    spent: row.spent ?? 0,
+    result: row.result ?? 0,
+    is_overspent: row.is_overspent === true,
+    transaction_count: row.transaction_count ?? 0,
+    display_order: row.display_order ?? 0,
+  }
+}
 
 /** R-PROGRESS-090: one period's progress, current or past, from get_period_progress. */
 function usePeriodProgress(budgetId: string, periodId: string | undefined) {
@@ -27,7 +66,9 @@ function usePeriodProgress(budgetId: string, periodId: string | undefined) {
     queryKey: budgetKeys.progress(budgetId, periodId ?? ''),
     enabled: periodId !== undefined,
     queryFn: async (): Promise<ProgressRow[]> =>
-      unwrap(await supabase.rpc('get_period_progress', { p_period_id: periodId ?? '' })),
+      unwrap(await supabase.rpc('get_period_progress', { p_period_id: periodId ?? '' })).map(
+        readRow,
+      ),
   })
 }
 
@@ -247,8 +288,7 @@ function SpendingBar({
 
 function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary }) {
   const { t } = useTranslation()
-  // The generated type misses that a top-level row has no parent.
-  const sub = (row.parent_id as string | null) !== null
+  const sub = row.parent_id !== null
   // Spending on a category not planned then is shown as such ("Not planned"), not as an
   // overshoot of a plan that did not exist.
   const over = row.is_overspent && row.in_force

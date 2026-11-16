@@ -183,6 +183,7 @@ export function IncomePage() {
       <MakePrimaryDialog
         budgetId={budgetId}
         income={dialog.kind === 'primary' ? dialog.income : null}
+        incomes={incomes.data}
         currentPeriod={currentPeriod}
         previousPeriod={previousOf(periods.data ?? [], currentPeriod)}
         mutation={makePrimary}

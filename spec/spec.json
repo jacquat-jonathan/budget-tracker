@@ -842,7 +842,8 @@
             "R-PERIOD-020",
             "R-PERIOD-051",
             "R-PERIOD-053",
-            "R-PERIOD-100"
+            "R-PERIOD-100",
+            "R-PERIOD-055"
           ]
         },
         {
@@ -911,7 +912,8 @@
             "R-CATEGORY-073",
             "R-CATEGORY-095",
             "R-CATEGORY-052",
-            "R-CATEGORY-101"
+            "R-CATEGORY-101",
+            "R-CATEGORY-054"
           ]
         },
         {
@@ -924,7 +926,8 @@
             "R-VERSION-070",
             "R-CATEGORY-053",
             "R-CATEGORY-100",
-            "R-CATEGORY-101"
+            "R-CATEGORY-101",
+            "R-CATEGORY-054"
           ]
         },
         {
@@ -4276,11 +4279,12 @@
       "id": "R-INCOME-055",
       "area": "income",
       "feature": "F-INCOME",
-      "statement": "Before new pay terms of the primary income are saved, and before another income is made primary, the app shows the expected next pay date that would result, from the database's preview; an end set by hand is said to stay as set.",
+      "statement": "Before new pay terms of the primary income are saved, and before another income is made primary, the app shows the expected next pay date that would result, from the database's preview, and Save waits for it; an end set by hand is said to stay as set. The previewed end goes back with the save, which is refused if the period would now end on another day.",
       "related": ["R-PERIOD-036", "R-INCOME-054", "R-PERIOD-014"],
       "source": [
         "code: src/features/income/pay-date-preview.ts",
-        "code: src/features/income/components/pay-date-preview-notice.tsx"
+        "code: src/features/income/components/pay-date-preview-notice.tsx",
+        "owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16"
       ]
     },
     {
@@ -4539,6 +4543,19 @@
     {
       "status": "active",
       "enforcement": "test",
+      "id": "R-CATEGORY-054",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "A category can be counted from an earlier period and a removed one restored, each said beforehand: counting from an earlier period is an explicit correction that changes those periods' plans and results; restoring plans it again from the current period with nothing expected in the periods between (their totals unchanged), or, as an explicit correction, as if it had never ended (the only way in an ended budget); a subcategory needs its group in force first.",
+      "related": ["R-CATEGORY-100", "R-CATEGORY-101", "R-VERSION-070"],
+      "source": [
+        "owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16",
+        "code: src/features/budget/components/category-history-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
       "id": "R-CONCURRENCY-090",
       "area": "concurrency",
       "feature": "F-CATEGORY",
@@ -4754,6 +4771,19 @@
       "source": [
         "owner-request: coordinator, step 2 browser review fixes, 2026-11-16",
         "code: src/features/periods/boundary-ranges.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-055",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its \"set by hand\" mark.",
+      "related": ["R-CONCURRENCY-100", "R-PERIOD-100", "R-PERIOD-051", "D-151", "D-152"],
+      "source": [
+        "owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16",
+        "code: src/features/periods/periods-page.tsx"
       ]
     },
     {

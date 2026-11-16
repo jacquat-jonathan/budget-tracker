@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FieldValues, UseFormReturn } from 'react-hook-form'
 
-import { isRecordChanged, type EditBase, type FieldView } from '@/hooks/use-edit-base'
+import type { EditBase, FieldView } from '@/hooks/use-edit-base'
 
 /**
  * The form side of concurrent edits (R-CONCURRENCY-091), the same for every edit form:
@@ -10,9 +10,9 @@ import { isRecordChanged, type EditBase, type FieldView } from '@/hooks/use-edit
  * - Something typed: what was typed stays; the user loads their version (the form is
  *   refilled) or keeps theirs: then only the fields they edited keep their value, every
  *   other field takes the other member's, so saving sends only what they changed.
- * - A save refused (record_changed) only because of a field this form does not show: once
- *   the record is read again nothing conflicts, so the save is sent again with the new
- *   revision (`resend`), once per revision.
+ * - A save refused (record_changed) only because of a field this form does not show: the
+ *   record is read again and becomes the base in silence; the error says to check and save
+ *   again. Never resent automatically (docs/database.md, "Concurrent edits").
  */
 export function useConcurrentForm<
   T extends { revision: number },
@@ -23,32 +23,10 @@ export function useConcurrentForm<
   edit: EditBase<T>,
   valuesOf: (record: T) => TIn,
   onResolved?: () => void,
-  resend?: {
-    /** The write's error, if any. */
-    error: unknown
-    /** The revision the refused write sent. */
-    sent: number | undefined
-    /** Submit the form again. */
-    submit: () => void
-  },
 ) {
   const [updated, setUpdated] = useState<FieldView[] | null>(null)
   const { isDirty } = form.formState
-  const { changed, live, gone } = edit
-  const baseRevision = edit.base?.revision
-  const refusedOnlyElsewhere =
-    resend !== undefined &&
-    isRecordChanged(resend.error) &&
-    !changed &&
-    !gone &&
-    baseRevision !== undefined &&
-    resend.sent !== undefined &&
-    baseRevision !== resend.sent
-  useEffect(() => {
-    if (refusedOnlyElsewhere) resend.submit()
-    // Once per newly read revision.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refusedOnlyElsewhere, baseRevision])
+  const { changed, live } = edit
   useEffect(() => {
     if (changed && live && !isDirty) {
       // Synchronising the form (an external store) with a record read anew: an effect's job;

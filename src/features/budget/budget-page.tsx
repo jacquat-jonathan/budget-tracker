@@ -8,6 +8,8 @@ import {
   PiggyBankIcon,
   PlusIcon,
   Trash2Icon,
+  ArchiveRestoreIcon,
+  HistoryIcon,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -25,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { CategoryFormDialog } from '@/features/budget/components/category-form-dialog'
+import { CategoryHistoryDialog } from '@/features/budget/components/category-history-dialog'
 import { EndCategoryDialog } from '@/features/budget/components/end-category-dialog'
 import { BudgetTotals } from '@/features/budget/components/budget-totals'
 import { useCurrentPeriod, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
@@ -40,6 +43,8 @@ type DialogState =
   | { kind: 'add'; parent: Category | null }
   | { kind: 'edit'; category: Category }
   | { kind: 'end'; category: Category }
+  | { kind: 'extend'; category: Category }
+  | { kind: 'restore'; category: Category }
 
 /**
  * The budget: the categories and subcategories in force now with their expectations, and
@@ -157,6 +162,7 @@ export function BudgetPage() {
                     onEdit={() => setDialog({ kind: 'edit', category })}
                     onAddSub={() => setDialog({ kind: 'add', parent: category })}
                     onEnd={() => setDialog({ kind: 'end', category })}
+                    onExtend={() => setDialog({ kind: 'extend', category })}
                     onMove={(by) => move(topLevel, index, by)}
                   />
                   {category.is_group && (
@@ -175,6 +181,7 @@ export function BudgetPage() {
                             last={childIndex === children.length - 1}
                             onEdit={() => setDialog({ kind: 'edit', category: child })}
                             onEnd={() => setDialog({ kind: 'end', category: child })}
+                            onExtend={() => setDialog({ kind: 'extend', category: child })}
                             onMove={(by) => move(children, childIndex, by)}
                           />
                         </li>
@@ -188,7 +195,12 @@ export function BudgetPage() {
         </Card>
       )}
       {tree.ended.length > 0 && (
-        <EndedCategories categories={tree.ended} all={all} periods={periods.data} />
+        <EndedCategories
+          categories={tree.ended}
+          all={all}
+          periods={periods.data}
+          onRestore={(category) => setDialog({ kind: 'restore', category })}
+        />
       )}
 
       <CategoryFormDialog
@@ -214,6 +226,19 @@ export function BudgetPage() {
         currentPeriod={current.data}
         onClose={close}
       />
+      <CategoryHistoryDialog
+        budgetId={budgetId}
+        mode={dialog.kind === 'restore' ? 'restore' : 'extend'}
+        category={dialog.kind === 'extend' || dialog.kind === 'restore' ? dialog.category : null}
+        parent={
+          dialog.kind === 'extend' || dialog.kind === 'restore'
+            ? (all.find((item) => item.id === dialog.category.parent_id) ?? null)
+            : null
+        }
+        periods={periods.data}
+        currentPeriod={current.data}
+        onClose={close}
+      />
     </div>
   )
 }
@@ -227,6 +252,7 @@ function CategoryRow({
   onEdit,
   onAddSub,
   onEnd,
+  onExtend,
   onMove,
 }: {
   category: Category
@@ -236,6 +262,7 @@ function CategoryRow({
   onEdit: () => void
   onAddSub?: () => void
   onEnd: () => void
+  onExtend: () => void
   onMove: (by: -1 | 1) => void
 }) {
   const { t } = useTranslation()
@@ -299,6 +326,10 @@ function CategoryRow({
             <ArrowDownIcon />
             {t('categories.moveDown')}
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onExtend}>
+            <HistoryIcon />
+            {t('categories.extendAction')}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={onEnd} disabled={readOnly}>
             <Trash2Icon />
@@ -315,10 +346,12 @@ function EndedCategories({
   categories,
   all,
   periods,
+  onRestore,
 }: {
   categories: Category[]
   all: Category[]
   periods: PeriodSummary[]
+  onRestore: (category: Category) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -333,18 +366,32 @@ function EndedCategories({
           return (
             <li
               key={category.id}
-              className="flex flex-col gap-1 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+              className="flex items-center gap-3 px-4 py-3 text-sm"
+              data-testid="ended-category-row"
             >
-              <p className="truncate font-medium">
-                {parent
-                  ? t('categories.path', { parent: parent.name, name: category.name })
-                  : category.name}
-              </p>
-              <p className="text-muted-foreground">
-                {lastPeriod
-                  ? t('categories.lastCounted', { date: formatCalendarDate(lastPeriod.end_date) })
-                  : t('categories.endedLabel')}
-              </p>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="truncate font-medium">
+                  {parent
+                    ? t('categories.path', { parent: parent.name, name: category.name })
+                    : category.name}
+                </p>
+                <p className="text-muted-foreground">
+                  {lastPeriod
+                    ? t('categories.lastCounted', {
+                        date: formatCalendarDate(lastPeriod.end_date),
+                      })
+                    : t('categories.endedLabel')}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRestore(category)}
+                aria-label={t('categories.restoreFor', { name: category.name })}
+              >
+                <ArchiveRestoreIcon />
+                {t('categories.restore')}
+              </Button>
             </li>
           )
         })}

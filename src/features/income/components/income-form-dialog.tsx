@@ -135,9 +135,9 @@ function IncomeForm({
     resolver: zodResolver(incomeSchema),
     defaultValues: valuesOf(income),
   })
-  const [correct, payDay, weekendRule] = useWatch({
+  const [correct, payDay, weekendRule, fromPeriodId] = useWatch({
     control: form.control,
-    name: ['correct', 'payDay', 'weekendRule'],
+    name: ['correct', 'payDay', 'weekendRule', 'fromPeriodId'],
   })
   // Before saving new terms for the primary income: what the database would then expect.
   const primaryTermsChanged =
@@ -146,7 +146,13 @@ function IncomeForm({
     (payDay !== income.pay_day || weekendRule !== income.weekend_rule)
   const preview = useExpectedPayDatePreview(
     budgetId,
-    { kind: 'terms', payDay, weekendRule },
+    {
+      kind: 'terms',
+      incomeId: income?.id ?? '',
+      payDay,
+      weekendRule,
+      fromPeriodId: correct ? fromPeriodId || null : null,
+    },
     primaryTermsChanged,
   )
   const arrivedOffer = useArrivedUnderNewTerms({
@@ -178,11 +184,7 @@ function IncomeForm({
     },
   })
   const mutation = income ? edit : add
-  const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset(), {
-    error: edit.error,
-    sent: edit.variables?.revision,
-    submit: () => void onSubmit(),
-  })
+  const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset())
 
   const onSubmit = form.handleSubmit((values) => {
     const terms = {
@@ -195,7 +197,8 @@ function IncomeForm({
       ? edit.mutateAsync({
           ...terms,
           revision: income.revision,
-          onRenamed: editBase.savedAs,
+          // R-INCOME-055: refused if the period would now end on another day than shown.
+          previewedEndDate: primaryTermsChanged ? (preview.data?.end_date ?? null) : null,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
       : add.mutateAsync({
@@ -303,7 +306,12 @@ function IncomeForm({
           </Button>
           <Button
             type="submit"
-            disabled={mutation.isPending || sync.pending !== null || editBase.gone}
+            disabled={
+              mutation.isPending ||
+              sync.pending !== null ||
+              editBase.gone ||
+              (primaryTermsChanged && !preview.isSuccess)
+            }
           >
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>

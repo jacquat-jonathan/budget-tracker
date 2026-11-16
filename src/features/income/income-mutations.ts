@@ -52,8 +52,11 @@ export function useAddIncome(budgetId: string, options: { onDone: () => void }) 
 export interface EditIncomeInput extends IncomeTerms {
   /** The income's revision when the form was opened (useEditBase). */
   revision: number
-  /** Told the new revision once the rename is saved, should the terms then be refused. */
-  onRenamed?: (revision: number) => void
+  /**
+   * The current period's end the preview showed (preview_update_income), sent so the save is
+   * refused when the period would now end on another day. Null when nothing was previewed.
+   */
+  previewedEndDate: string | null
   /**
    * An explicit correction: the terms apply from this earlier period on, changing past
    * totals. Null for the normal edit, from the current period.
@@ -77,10 +80,11 @@ async function nextExpectedPayDate(
 }
 
 /**
- * Edit an income, sending the revision the form was opened with (D-142): a new name through
- * rename_income, then new terms through update_income_terms with the revision the rename
- * returned (docs/database.md). Either refuses with record_changed when another member
- * changed the income meanwhile.
+ * Edit an income in one call (update_income), with the revision the form was opened with
+ * (D-150): only what changed is sent, the name and any of the terms; a correction sends all
+ * the terms, so it can also re-apply today's terms to earlier periods. Refused with
+ * record_changed when another member changed the income meanwhile, or when the period
+ * would now end on another day than the preview said.
  */
 export function useEditIncome(
   budgetId: string,
@@ -93,35 +97,27 @@ export function useEditIncome(
     errorDisplay: 'inline',
     mutationFn: async (input) => {
       if (!income) throw new DbError('income_not_found')
-      const termsChanged =
-        input.amount !== income.amount ||
-        input.payDay !== income.pay_day ||
-        input.weekendRule !== income.weekend_rule
-      let revision = input.revision
-      if (input.name !== income.name) {
-        revision = unwrap(
-          await supabase.rpc('rename_income', {
-            p_income_id: income.id,
-            p_name: input.name,
-            p_expected_revision: revision,
-          }),
-        )
-        input.onRenamed?.(revision)
-      }
-      // A correction is always sent: it can also re-apply today's terms to earlier periods.
-      if (termsChanged || input.fromPeriodId) {
-        unwrap(
-          await supabase.rpc('update_income_terms', {
-            p_income_id: income.id,
-            p_amount: input.amount,
-            p_pay_day: input.payDay,
-            p_weekend_rule: input.weekendRule,
-            p_expected_revision: revision,
-            ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
-          }),
-        )
-      }
-      return income.is_primary && termsChanged
+      const correcting = input.fromPeriodId !== null
+      const amount = correcting || input.amount !== income.amount
+      const payDay = correcting || input.payDay !== income.pay_day
+      const weekendRule = correcting || input.weekendRule !== income.weekend_rule
+      const renamed = input.name !== income.name
+      if (!renamed && !amount && !payDay && !weekendRule) return null
+      unwrap(
+        await supabase.rpc('update_income', {
+          p_income_id: income.id,
+          p_expected_revision: input.revision,
+          ...(renamed ? { p_name: input.name } : {}),
+          ...(amount ? { p_amount: input.amount } : {}),
+          ...(payDay ? { p_pay_day: input.payDay } : {}),
+          ...(weekendRule ? { p_weekend_rule: input.weekendRule } : {}),
+          ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
+          ...(input.previewedEndDate ? { p_previewed_end_date: input.previewedEndDate } : {}),
+        }),
+      )
+      const scheduleChanged =
+        input.payDay !== income.pay_day || input.weekendRule !== income.weekend_rule
+      return income.is_primary && scheduleChanged
         ? nextExpectedPayDate(budgetId, budget.end_date_entered)
         : null
     },
@@ -134,16 +130,31 @@ export function useEditIncome(
   })
 }
 
+export interface SetPrimaryInput {
+  income: IncomeOverview
+  /** The budget's revision when the confirmation was opened. */
+  budgetRevision: number
+  /** The current period's end the preview showed. */
+  previewedEndDate: string | null
+}
+
 export function useSetPrimaryIncome(budgetId: string) {
   const { t } = useTranslation()
   const { budget } = useCurrentBudget()
-  return useAppMutation<string | null, IncomeOverview>({
+  return useAppMutation<string | null, SetPrimaryInput>({
     errorDisplay: 'inline',
-    mutationFn: async (income) => {
-      unwrap(await supabase.rpc('set_primary_income', { p_income_id: income.id }))
+    mutationFn: async ({ income, budgetRevision, previewedEndDate }) => {
+      unwrap(
+        await supabase.rpc('set_primary_income', {
+          p_income_id: income.id,
+          // The primary income is a field of the budget: the budget's revision (D-150).
+          p_expected_revision: budgetRevision,
+          ...(previewedEndDate ? { p_previewed_end_date: previewedEndDate } : {}),
+        }),
+      )
       return nextExpectedPayDate(budgetId, budget.end_date_entered)
     },
-    success: (next, income) =>
+    success: (next, { income }) =>
       next
         ? t('income.madePrimaryNextExpected', { name: income.name, date: formatCalendarDate(next) })
         : t('income.madePrimary', { name: income.name }),

@@ -8,8 +8,31 @@ import { supabase } from '@/lib/supabase'
 
 export type Category = Tables<'category_overview'>
 export type Cadence = Database['public']['Enums']['expectation_cadence']
-export type CategoryForDate =
+type CategoryChoiceRead =
   Database['public']['Functions']['list_categories_for_date']['Returns'][number]
+
+/**
+ * A leaf a transaction may use, as the contract describes it: only parent_id and parent_name
+ * (top level) are ever null; the generated type marks every field of the composite type
+ * nullable, so the others are read once here.
+ */
+export interface CategoryForDate {
+  category_id: string
+  parent_id: string | null
+  name: string
+  parent_name: string | null
+  display_order: number
+}
+
+function readChoice(row: CategoryChoiceRead): CategoryForDate {
+  return {
+    category_id: row.category_id ?? '',
+    parent_id: row.parent_id,
+    name: row.name ?? '',
+    parent_name: row.parent_name,
+    display_order: row.display_order ?? 0,
+  }
+}
 
 export const CADENCES: readonly Cadence[] = ['monthly', 'yearly']
 
@@ -72,6 +95,6 @@ export function useCategoriesForDate(budgetId: string, date: string) {
     queryFn: async (): Promise<CategoryForDate[]> =>
       unwrap(
         await supabase.rpc('list_categories_for_date', { p_budget_id: budgetId, p_date: date }),
-      ),
+      ).map(readChoice),
   })
 }

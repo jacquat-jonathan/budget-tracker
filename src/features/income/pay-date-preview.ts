@@ -12,29 +12,46 @@ import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
 export type ExpectedPayDatePreview =
-  Database['public']['Functions']['preview_expected_pay_date']['Returns'][number]
+  Database['public']['Functions']['preview_set_primary_income']['Returns'][number]
 
-/** What is proposed: new terms for the primary income, or another income made primary. */
+/** What is proposed: new terms for an income, or that income made primary. */
 export type Proposal =
-  | { kind: 'terms'; payDay: number; weekendRule: WeekendRule }
+  | {
+      kind: 'terms'
+      incomeId: string
+      payDay: number
+      weekendRule: WeekendRule
+      /** An explicit correction from an earlier period. */
+      fromPeriodId: string | null
+    }
   | { kind: 'primary'; incomeId: string }
 
 /**
  * R-INCOME-055: the current period's end and the expected next pay date under the proposal,
- * from preview_expected_pay_date (the same function the write uses). Never projected here.
+ * from preview_update_income or preview_set_primary_income (the write's own functions).
+ * Never projected here. The `end_date` it returns goes back to the write as
+ * p_previewed_end_date.
  */
 export function useExpectedPayDatePreview(budgetId: string, proposal: Proposal, enabled: boolean) {
   return useQuery({
     queryKey: [...budgetKeys.budget(budgetId), 'preview-pay-date', proposal] as const,
     enabled,
     queryFn: async (): Promise<ExpectedPayDatePreview | null> => {
-      const args =
+      const rows =
         proposal.kind === 'terms'
-          ? { p_pay_day: proposal.payDay, p_weekend_rule: proposal.weekendRule }
-          : { p_income_id: proposal.incomeId }
-      const rows = unwrap(
-        await supabase.rpc('preview_expected_pay_date', { p_budget_id: budgetId, ...args }),
-      )
+          ? unwrap(
+              await supabase.rpc('preview_update_income', {
+                p_income_id: proposal.incomeId,
+                p_pay_day: proposal.payDay,
+                p_weekend_rule: proposal.weekendRule,
+                ...(proposal.fromPeriodId ? { p_from_period_id: proposal.fromPeriodId } : {}),
+              }),
+            )
+          : unwrap(
+              await supabase.rpc('preview_set_primary_income', {
+                p_income_id: proposal.incomeId,
+              }),
+            )
       return rows[0] ?? null
     },
   })

@@ -90,6 +90,19 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
   }
 
   const handler = (impl: RpcHandler) => vi.fn<RpcHandler>(impl)
+  const currentPreview = () => {
+    const current = db.tables.period_summaries.find((period) => period.is_current)
+    if (!current) rpcError('budget_ended')
+    const next = new Date(Date.parse(`${current.end_date}T00:00:00Z`) + 86_400_000)
+    return [
+      {
+        period_id: current.id,
+        end_date: current.end_date,
+        expected_pay_date: next.toISOString().slice(0, 10),
+        end_is_manual: current.end_is_manual,
+      },
+    ]
+  }
   db.rpc = {
     accept_invitation: handler(() => 'accepted-budget-id'),
     add_income: handler(() => 'new-income-id'),
@@ -125,21 +138,9 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     leave_budget: handler(() => null),
     list_my_invitations: handler(() => []),
     move_period_start: handler(() => null),
-    preview_expected_pay_date: handler((args) => {
-      const current = db.tables.period_summaries.find(
-        (period) => period.budget_id === args.p_budget_id && period.is_current,
-      )
-      if (!current) rpcError('budget_ended')
-      const next = new Date(Date.parse(`${current.end_date}T00:00:00Z`) + 86_400_000)
-      return [
-        {
-          period_id: current.id,
-          end_date: current.end_date,
-          expected_pay_date: next.toISOString().slice(0, 10),
-          end_is_manual: current.end_is_manual,
-        },
-      ]
-    }),
+    // The current period's end as it stands (tests give the projection when they need one).
+    preview_update_income: handler(() => currentPreview()),
+    preview_set_primary_income: handler(() => currentPreview()),
     preview_reopen: handler(() => []),
     record_early_pay_date: handler(() => []),
     reopen_previous_period: handler(() => []),
@@ -155,7 +156,6 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
       return [{ ...budget }]
     }),
     set_primary_income: handler(() => null),
-    update_income_terms: handler(() => null),
     rename_budget: handler((args) => {
       const budget = db.tables.my_budgets.find((row) => row.id === args.p_budget_id)
       if (!budget) rpcError('budget_not_found')
@@ -164,14 +164,18 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
       budget.revision += 1
       return budget.revision
     }),
-    rename_income: handler((args) => {
+    update_income: handler((args) => {
       const income = db.tables.income_overview.find((row) => row.id === args.p_income_id)
       if (!income) rpcError('income_not_found')
       if (args.p_expected_revision !== income.revision) rpcError('record_changed')
-      income.name = String(args.p_name)
+      if (typeof args.p_name === 'string') income.name = args.p_name
+      if (typeof args.p_amount === 'number') income.amount = args.p_amount
+      if (typeof args.p_pay_day === 'number') income.pay_day = args.p_pay_day
       income.revision += 1
       return income.revision
     }),
+    extend_category: handler(() => []),
+    restore_category: handler(() => []),
     // Step 3: tests that use these give them their behaviour.
     create_category: handler(() => []),
     update_category: handler(() => []),

@@ -57,6 +57,7 @@ export const DB_ERROR_CODES = [
   'other_name_required',
   'category_limit_reached',
   'transaction_limit_reached',
+  'category_not_ended',
 ] as const
 
 export type DbErrorCode = (typeof DB_ERROR_CODES)[number]

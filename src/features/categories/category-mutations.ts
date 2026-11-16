@@ -98,9 +98,8 @@ export function useReorderCategories(budgetId: string) {
       unwrap(
         await supabase.rpc('reorder_categories', {
           p_budget_id: budgetId,
-          // The generated type says string, but the contract takes null for the top level.
-          p_parent_id: parentId as string,
           p_category_ids: ids,
+          ...(parentId ? { p_parent_id: parentId } : {}),
         }),
       )
       return null
@@ -138,6 +137,74 @@ export function useEndCategory(budgetId: string) {
           : keptVoid
             ? t('categories.endedKeptVoid', { name: category.name })
             : t('categories.ended', { name: category.name }),
+    invalidate: () => affected(budgetId),
+  })
+}
+
+export interface ExtendCategoryInput {
+  category: Category
+  revision: number
+  /** The earlier period it now counts from (before its first one). */
+  fromPeriodId: string
+  /** The expectation there; null for a group. */
+  amount: number | null
+  cadence: Cadence | null
+}
+
+/** R-CATEGORY-100: an explicit correction: an existing category counts from an earlier period. */
+export function useExtendCategory(budgetId: string, options: { onDone: () => void }) {
+  const { t } = useTranslation()
+  return useAppMutation<null, ExtendCategoryInput>({
+    errorDisplay: 'inline',
+    mutationFn: async ({ category, revision, fromPeriodId, amount, cadence }) => {
+      unwrap(
+        await supabase.rpc('extend_category', {
+          p_category_id: category.id,
+          p_expected_revision: revision,
+          p_from_period_id: fromPeriodId,
+          ...(amount !== null ? { p_amount: amount } : {}),
+          ...(cadence !== null ? { p_cadence: cadence } : {}),
+        }),
+      )
+      return null
+    },
+    success: (_data, { category }) => t('categories.extended', { name: category.name }),
+    onSuccess: () => options.onDone(),
+    invalidate: () => affected(budgetId),
+  })
+}
+
+export interface RestoreCategoryInput {
+  category: Category
+  revision: number
+  /**
+   * As a correction, the period it ended in: as if it had never ended. Null: in force again
+   * from the current period, nothing expected in the periods between.
+   */
+  fromPeriodId: string | null
+  amount: number | null
+  cadence: Cadence | null
+}
+
+/** R-CATEGORY-101: an ended category in force again. */
+export function useRestoreCategory(budgetId: string, options: { onDone: () => void }) {
+  const { t } = useTranslation()
+  return useAppMutation<null, RestoreCategoryInput>({
+    errorDisplay: 'inline',
+    mutationFn: async ({ category, revision, fromPeriodId, amount, cadence }) => {
+      unwrap(
+        await supabase.rpc('restore_category', {
+          p_category_id: category.id,
+          p_expected_revision: revision,
+          ...(fromPeriodId ? { p_from_period_id: fromPeriodId } : {}),
+          ...(amount !== null ? { p_amount: amount } : {}),
+          ...(cadence !== null ? { p_cadence: cadence } : {}),
+        }),
+      )
+      return null
+    },
+    success: (_data, { category }) => t('categories.restored', { name: category.name }),
+    onSuccess: () => options.onDone(),
     invalidate: () => affected(budgetId),
   })
 }

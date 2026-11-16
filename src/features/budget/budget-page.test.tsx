@@ -234,7 +234,6 @@ describe('budget page [R-CATEGORY-050]', () => {
     await waitFor(() => {
       expect(db.rpc.reorder_categories).toHaveBeenCalledWith({
         p_budget_id: BUDGET_ID,
-        p_parent_id: null,
         p_category_ids: ['cat-groceries', 'cat-rent', 'cat-insurance'],
       })
     })
@@ -335,5 +334,50 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
     )
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
     expect(within(dialog).getByLabelText('Name')).toHaveValue('Groceries and drinks')
+  })
+
+  it('restores an ended category from now on, or as if it had never ended [R-CATEGORY-054] [R-CATEGORY-101]', async () => {
+    const { db } = await openBudget()
+    await userEvent.click(screen.getByRole('button', { name: 'Restore Old hobby' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Restore “Old hobby”?' })
+    expect(within(dialog).getByTestId('history-outcome')).toHaveTextContent(
+      'The periods between its end and now expect nothing for it: their totals do not change.',
+    )
+    await userEvent.click(within(dialog).getByLabelText('Restore it as if it had never ended'))
+    expect(within(dialog).getByTestId('history-outcome')).toHaveTextContent(
+      'as if it had never ended, so the plans and results of every period since change',
+    )
+    await userEvent.click(within(dialog).getByLabelText('Restore it as if it had never ended'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }))
+    await waitFor(() => {
+      expect(db.rpc.restore_category).toHaveBeenCalledWith({
+        p_category_id: 'cat-hobby',
+        p_expected_revision: 1,
+        p_amount: 90_000,
+        p_cadence: 'monthly',
+      })
+    })
+  })
+
+  it('counts a category from an earlier period, as an explicit correction [R-CATEGORY-100]', async () => {
+    const db = categoriesDb({
+      category_overview: [categoryRow({ id: 'cat-new', name: 'New', first_seq: 2 })],
+    })
+    await openBudget(db)
+    await action('New', 'Count from an earlier period')
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByTestId('history-outcome')).toHaveTextContent(
+      'This changes past periods: from 25.09.2026 on',
+    )
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Count from that period' }))
+    await waitFor(() => {
+      expect(db.rpc.extend_category).toHaveBeenCalledWith({
+        p_category_id: 'cat-new',
+        p_expected_revision: 1,
+        p_from_period_id: 'period-1',
+        p_amount: 90_000,
+        p_cadence: 'monthly',
+      })
+    })
   })
 })

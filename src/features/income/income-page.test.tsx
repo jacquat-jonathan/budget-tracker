@@ -171,12 +171,11 @@ describe('income page', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
-      expect(db.rpc.update_income_terms).toHaveBeenCalledWith({
+      // Only what changed is sent, in one call.
+      expect(db.rpc.update_income).toHaveBeenCalledWith({
         p_income_id: 'income-2',
-        p_amount: 225_000,
-        p_pay_day: 31,
-        p_weekend_rule: 'next',
         p_expected_revision: 1,
+        p_amount: 225_000,
       })
     })
   })
@@ -200,12 +199,12 @@ describe('income page', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
-      expect(db.rpc.update_income_terms).toHaveBeenCalledWith({
+      expect(db.rpc.update_income).toHaveBeenCalledWith({
         p_income_id: 'income-2',
+        p_expected_revision: 1,
         p_amount: 210_000,
         p_pay_day: 31,
         p_weekend_rule: 'next',
-        p_expected_revision: 1,
         p_from_period_id: 'period-1',
       })
     })
@@ -213,7 +212,7 @@ describe('income page', () => {
 
   it('shows the expected next pay date before saving a new pay day [R-INCOME-055]', async () => {
     const db = await openIncomePage()
-    db.rpc.preview_expected_pay_date.mockImplementation((args) => [
+    db.rpc.preview_update_income.mockImplementation((args) => [
       {
         period_id: 'period-2',
         end_date: args.p_pay_day === 28 ? '2026-11-27' : '2026-11-24',
@@ -235,16 +234,26 @@ describe('income page', () => {
     expect(await within(dialog).findByTestId('pay-date-preview')).toHaveTextContent(
       'The next salary would then be expected on 28.11.2026: the current period would end on 27.11.2026.',
     )
-    expect(db.rpc.preview_expected_pay_date).toHaveBeenLastCalledWith({
-      p_budget_id: BUDGET_ID,
+    expect(db.rpc.preview_update_income).toHaveBeenLastCalledWith({
+      p_income_id: 'income-1',
       p_pay_day: 28,
       p_weekend_rule: 'nearest',
+    })
+    // The previewed end goes back with the save, which is refused if it no longer holds.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_income).toHaveBeenCalledWith({
+        p_income_id: 'income-1',
+        p_expected_revision: 1,
+        p_pay_day: 28,
+        p_previewed_end_date: '2026-11-27',
+      })
     })
   })
 
   it('says that an end set by hand stays as set [R-INCOME-055] [R-PERIOD-014]', async () => {
     const db = await openIncomePage()
-    db.rpc.preview_expected_pay_date.mockImplementation(() => [
+    db.rpc.preview_update_income.mockImplementation(() => [
       {
         period_id: 'period-2',
         end_date: '2026-11-20',
@@ -273,7 +282,7 @@ describe('income page', () => {
     db.rpc.pay_date.mockImplementation((args) =>
       args.p_pay_day === 10 ? '2026-11-10' : '2026-11-25',
     )
-    db.rpc.preview_expected_pay_date.mockImplementation(() => [
+    db.rpc.preview_update_income.mockImplementation(() => [
       {
         period_id: 'period-2',
         end_date: '2026-12-09',
@@ -341,13 +350,12 @@ describe('income page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
-      expect(db.rpc.rename_income).toHaveBeenCalledWith({
+      expect(db.rpc.update_income).toHaveBeenCalledWith({
         p_income_id: 'income-2',
-        p_name: 'Evening job',
         p_expected_revision: 1,
+        p_name: 'Evening job',
       })
     })
-    expect(db.rpc.update_income_terms).not.toHaveBeenCalled()
   })
 
   it('makes another income primary, and does not offer to remove the primary one', async () => {
@@ -374,14 +382,16 @@ describe('income page', () => {
     expect(await within(confirm).findByTestId('pay-date-preview')).toHaveTextContent(
       'The next salary would then be expected on 25.11.2026: the current period would end on 24.11.2026.',
     )
-    expect(db.rpc.preview_expected_pay_date).toHaveBeenCalledWith({
-      p_budget_id: BUDGET_ID,
-      p_income_id: 'income-2',
-    })
+    expect(db.rpc.preview_set_primary_income).toHaveBeenCalledWith({ p_income_id: 'income-2' })
     expect(db.rpc.set_primary_income).not.toHaveBeenCalled()
     await userEvent.click(within(confirm).getByRole('button', { name: 'Make primary' }))
     await waitFor(() => {
-      expect(db.rpc.set_primary_income).toHaveBeenCalledWith({ p_income_id: 'income-2' })
+      // The budget's revision, and the end the preview showed.
+      expect(db.rpc.set_primary_income).toHaveBeenCalledWith({
+        p_income_id: 'income-2',
+        p_expected_revision: 1,
+        p_previewed_end_date: '2026-11-24',
+      })
     })
     expect(
       await screen.findByText(
@@ -392,11 +402,11 @@ describe('income page', () => {
 
   it('after the primary income’s pay day changes, says when the next salary is now expected [R-INCOME-054]', async () => {
     const db = await openIncomePage()
-    db.rpc.update_income_terms.mockImplementation(() => {
+    db.rpc.update_income.mockImplementation(() => {
       db.tables.period_summaries = db.tables.period_summaries.map((period) =>
         period.is_current ? { ...period, end_date: '2026-11-27' } : period,
       )
-      return null
+      return 2
     })
 
     await userEvent.click(

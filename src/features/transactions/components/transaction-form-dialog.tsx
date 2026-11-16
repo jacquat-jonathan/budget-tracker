@@ -166,8 +166,7 @@ function TransactionForm({
         parent_name: transaction.parent_category_name,
         display_order: list.length,
         kept: true,
-        // The generated type misses that a top-level category has no parent.
-      } as CategoryChoice,
+      },
     ]
   }, [choices.data, kept, transaction])
   useEffect(() => {
@@ -185,11 +184,7 @@ function TransactionForm({
   const add = useAddTransaction(budgetId)
   const update = useUpdateTransaction(budgetId, { onDone: close })
   const mutation = transaction ? update : add
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
-    error: update.error,
-    sent: update.variables?.revision,
-    submit: () => void submit(false)(),
-  })
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
   /** The fast path: what was just saved, while the next one is typed. */
   const [lastSaved, setLastSaved] = useState<{ amount: number; count: number } | null>(null)
   // Ready for the next receipt: back to the amount once the form shows the cleared values.

@@ -56,6 +56,7 @@ import {
 import { nextSalary } from '@/features/periods/next-salary'
 import { progressPath } from '@/features/progress/progress-path'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
+import { isRecordChanged } from '@/hooks/use-edit-base'
 import { addDays, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
 import type { Database } from '@/lib/database.types'
@@ -84,6 +85,8 @@ type Action =
   | { kind: 'early'; period: PeriodSummary; date?: string }
   | { kind: 'reopen'; period: PeriodSummary; previous: PeriodSummary }
   | { kind: 'moveStart'; period: PeriodSummary; previous: PeriodSummary; date?: string }
+  /** The boundary before `period` back to the schedule's day; clears the "set by hand" mark. */
+  | { kind: 'moveSchedule'; period: PeriodSummary; previous: PeriodSummary }
 
 interface BoundaryWrite {
   action: Action
@@ -97,22 +100,27 @@ function useBoundaryAction(budgetId: string) {
     errorDisplay: 'inline',
     mutationFn: async ({ action, date }) => {
       const pay = date ? { p_pay_date: date } : {}
+      // R-PERIOD-055 R-CONCURRENCY-100: every operation names the period the user was looking at, with
+      // its revision; another member acting first, or a retry of a call that went through,
+      // is refused (record_changed), never applied twice.
+      const named = {
+        p_budget_id: budgetId,
+        p_period_id: action.period.id,
+        p_expected_revision: action.period.revision,
+      }
       if (action.kind === 'expected' || action.kind === 'resetExpected') {
-        unwrap(await supabase.rpc('set_expected_pay_date', { p_budget_id: budgetId, ...pay }))
+        unwrap(await supabase.rpc('set_expected_pay_date', { ...named, ...pay }))
       } else if (action.kind === 'early') {
-        unwrap(
-          await supabase.rpc('record_early_pay_date', {
-            p_budget_id: budgetId,
-            p_pay_date: date ?? '',
-          }),
-        )
+        unwrap(await supabase.rpc('record_early_pay_date', { ...named, p_pay_date: date ?? '' }))
       } else if (action.kind === 'reopen') {
-        unwrap(await supabase.rpc('reopen_previous_period', { p_budget_id: budgetId, ...pay }))
+        unwrap(await supabase.rpc('reopen_previous_period', { ...named, ...pay }))
       } else {
         unwrap(
           await supabase.rpc('move_period_start', {
             p_period_id: action.period.id,
-            p_start_date: date ?? '',
+            p_expected_revision: action.period.revision,
+            // Without a date: back to the day the schedule gives (R-PERIOD-100).
+            ...(action.kind === 'moveStart' && date ? { p_start_date: date } : {}),
           }),
         )
       }
@@ -158,8 +166,12 @@ export function PeriodsPage() {
   const close = () => setAction(null)
   const open = (next: Action) => {
     write.reset()
+    setChangedElsewhere(false)
     setAction(next)
   }
+  // The periods changed under an open action (another member, or an earlier attempt that
+  // went through): the action is closed and the page, read again, says so.
+  const [changedElsewhere, setChangedElsewhere] = useState(false)
 
   const header = <PageHeader title={t('nav.periods')} description={t('periods.description')} />
 
@@ -196,6 +208,23 @@ export function PeriodsPage() {
     <div className="flex flex-col gap-6">
       {header}
       <ListConsistency list={list} current={current.data} refetch={periods.refetch} />
+      {changedElsewhere && (
+        <Alert data-testid="periods-changed" className="border-amber-500/50 bg-amber-500/5">
+          <RotateCcwIcon aria-hidden />
+          <AlertTitle>{t('periods.changedTitle')}</AlertTitle>
+          <AlertDescription>
+            <p>{t('periods.changedDescription')}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              onClick={() => setChangedElsewhere(false)}
+            >
+              {t('budgetLost.dismiss')}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {ended && (
         <Alert>
           <CalendarOffIcon aria-hidden />
@@ -341,6 +370,14 @@ export function PeriodsPage() {
                             {t('periods.unavailable.moveStart')}
                           </p>
                         )}
+                        {previous?.end_is_manual && (
+                          <DropdownMenuItem
+                            onSelect={() => open({ kind: 'moveSchedule', period, previous })}
+                          >
+                            <RotateCcwIcon />
+                            {t('periods.actions.moveSchedule')}
+                          </DropdownMenuItem>
+                        )}
                         {isCurrent && period.end_is_manual && (
                           <>
                             <DropdownMenuSeparator />
@@ -365,7 +402,15 @@ export function PeriodsPage() {
         </ol>
       )}
 
-      <BoundaryDialog action={action} mutation={write} onClose={close} />
+      <BoundaryDialog
+        action={action}
+        mutation={write}
+        onClose={close}
+        onChangedElsewhere={() => {
+          close()
+          setChangedElsewhere(true)
+        }}
+      />
     </div>
   )
 }
@@ -379,10 +424,12 @@ function BoundaryDialog({
   action,
   mutation,
   onClose,
+  onChangedElsewhere,
 }: {
   action: Action | null
   mutation: ReturnType<typeof useBoundaryAction>
   onClose: () => void
+  onChangedElsewhere: () => void
 }) {
   const { t } = useTranslation()
   return (
@@ -403,7 +450,12 @@ function BoundaryDialog({
                 {t(`periods.dialogs.${action.kind}.description`)}
               </DialogDescription>
             </DialogHeader>
-            <BoundaryForm action={action} mutation={mutation} onClose={onClose} />
+            <BoundaryForm
+              action={action}
+              mutation={mutation}
+              onClose={onClose}
+              onChangedElsewhere={onChangedElsewhere}
+            />
           </>
         )}
       </DialogContent>
@@ -415,10 +467,12 @@ function BoundaryForm({
   action,
   mutation,
   onClose,
+  onChangedElsewhere,
 }: {
   action: Action
   mutation: ReturnType<typeof useBoundaryAction>
   onClose: () => void
+  onChangedElsewhere: () => void
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
@@ -426,7 +480,7 @@ function BoundaryForm({
   const today = period.today ?? period.end_date
   const fmt = formatCalendarDate
   // Reset takes no date; reopening may take one (otherwise the projection).
-  const hasField = action.kind !== 'resetExpected'
+  const hasField = action.kind !== 'resetExpected' && action.kind !== 'moveSchedule'
   const optional = action.kind === 'reopen'
 
   const { budget } = useCurrentBudget()
@@ -493,13 +547,20 @@ function BoundaryForm({
             : null,
           undo: t('periods.undo.moveStart', { date: fmt(period.start_date) }),
         }
+      case 'moveSchedule':
+        return {
+          result: t('periods.preview.moveSchedule'),
+          undo: t('periods.undo.moveStart', { date: fmt(period.start_date) }),
+        }
     }
   })()
 
   const onSubmit = form.handleSubmit((values) =>
     mutation
       .mutateAsync({ action, date: hasField ? values.date : null }, { onSuccess: onClose })
-      .catch(() => undefined),
+      .catch((error: unknown) => {
+        if (isRecordChanged(error)) onChangedElsewhere()
+      }),
   )
 
   return (
@@ -563,7 +624,9 @@ function BoundaryForm({
               ? t('common.saving')
               : action.kind === 'resetExpected'
                 ? t('periods.reset')
-                : t('common.save')}
+                : action.kind === 'moveSchedule'
+                  ? t('periods.moveBack')
+                  : t('common.save')}
           </Button>
         </DialogFooter>
       </FieldGroup>

@@ -74,6 +74,8 @@ describe('periods page [R-PERIOD-051]', () => {
     await waitFor(() => {
       expect(db.rpc.set_expected_pay_date).toHaveBeenCalledWith({
         p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+        p_period_id: 'period-2',
+        p_expected_revision: 1,
         p_pay_date: '2026-11-27',
       })
     })
@@ -93,6 +95,8 @@ describe('periods page [R-PERIOD-051]', () => {
     await waitFor(() => {
       expect(db.rpc.set_expected_pay_date).toHaveBeenCalledWith({
         p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+        p_period_id: 'period-2',
+        p_expected_revision: 1,
       })
     })
   })
@@ -111,6 +115,8 @@ describe('periods page [R-PERIOD-051]', () => {
     await waitFor(() => {
       expect(db.rpc.record_early_pay_date).toHaveBeenCalledWith({
         p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+        p_period_id: 'period-2',
+        p_expected_revision: 1,
         p_pay_date: '2026-11-14',
       })
     })
@@ -135,6 +141,8 @@ describe('periods page [R-PERIOD-051]', () => {
     await waitFor(() => {
       expect(db.rpc.reopen_previous_period).toHaveBeenCalledWith({
         p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+        p_period_id: 'period-2',
+        p_expected_revision: 1,
       })
     })
   })
@@ -213,6 +221,8 @@ describe('periods page [R-PERIOD-051]', () => {
     await waitFor(() => {
       expect(db.rpc.reopen_previous_period).toHaveBeenCalledWith({
         p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+        p_period_id: 'period-2',
+        p_expected_revision: 1,
         p_pay_date: '2026-11-20',
       })
     })
@@ -237,6 +247,7 @@ describe('periods page [R-PERIOD-051]', () => {
     await waitFor(() => {
       expect(db.rpc.move_period_start).toHaveBeenCalledWith({
         p_period_id: 'period-2',
+        p_expected_revision: 1,
         p_start_date: '2026-10-27',
       })
     })
@@ -344,5 +355,42 @@ describe('periods page [R-PERIOD-051]', () => {
     expect(within(dialog).queryByTestId('boundary-preview')).not.toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
     expect(db.rpc.record_early_pay_date).not.toHaveBeenCalled()
+  })
+
+  it('a period action raced by someone else is refused, closed and explained, never retried [R-PERIOD-055] [R-CONCURRENCY-100]', async () => {
+    const { db, rows } = await openPeriods()
+    db.rpc.reopen_previous_period.mockImplementation(() => rpcError('record_changed'))
+
+    const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
+    await within(dialog).findByTestId('reopen-preview')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByTestId('periods-changed')).toHaveTextContent(
+      'The periods changed while you had this open',
+    )
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(db.rpc.reopen_previous_period).toHaveBeenCalledTimes(1)
+    expect(db.rpc.reopen_previous_period).toHaveBeenCalledWith({
+      p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+      p_period_id: 'period-2',
+      p_expected_revision: 1,
+    })
+  })
+
+  it('moves a start set by hand back to the schedule, which clears the mark [R-PERIOD-055] [R-PERIOD-100]', async () => {
+    const { db, rows } = await openPeriods()
+    const dialog = await choose(rows[0]!, CURRENT, 'Move this period’s start back to the schedule')
+    expect(within(dialog).getByTestId('boundary-preview')).toHaveTextContent(
+      'its “set by hand” mark is cleared',
+    )
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Move back' }))
+    await waitFor(() => {
+      expect(db.rpc.move_period_start).toHaveBeenCalledWith({
+        p_period_id: 'period-2',
+        p_expected_revision: 1,
+      })
+    })
   })
 })

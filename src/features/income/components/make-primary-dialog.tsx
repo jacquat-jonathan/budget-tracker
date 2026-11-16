@@ -9,9 +9,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import type { IncomeOverview, PeriodSummary } from '@/features/budgets/budget-queries'
+import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import type { IncomeOverview, MyBudget, PeriodSummary } from '@/features/budgets/budget-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { PayDatePreviewNotice } from '@/features/income/components/pay-date-preview-notice'
@@ -21,11 +22,13 @@ import {
   useExpectedPayDatePreview,
 } from '@/features/income/pay-date-preview'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useEditBase } from '@/hooks/use-edit-base'
 
 /** "Make primary", with the expected next pay date it would give before confirming. */
 export function MakePrimaryDialog({
   budgetId,
   income,
+  incomes,
   currentPeriod,
   previousPeriod,
   mutation,
@@ -34,6 +37,8 @@ export function MakePrimaryDialog({
 }: {
   budgetId: string
   income: IncomeOverview | null
+  /** Every income, to name the primary one if another member switched it. */
+  incomes: IncomeOverview[]
   currentPeriod: PeriodSummary | null
   previousPeriod: PeriodSummary | undefined
   mutation: ReturnType<typeof useSetPrimaryIncome>
@@ -58,6 +63,7 @@ export function MakePrimaryDialog({
             <PrimaryBody
               budgetId={budgetId}
               income={income}
+              incomes={incomes}
               currentPeriod={currentPeriod}
               previousPeriod={previousPeriod}
               mutation={mutation}
@@ -74,6 +80,7 @@ export function MakePrimaryDialog({
 function PrimaryBody({
   budgetId,
   income,
+  incomes,
   currentPeriod,
   previousPeriod,
   mutation,
@@ -82,6 +89,7 @@ function PrimaryBody({
 }: {
   budgetId: string
   income: IncomeOverview
+  incomes: IncomeOverview[]
   currentPeriod: PeriodSummary | null
   previousPeriod: PeriodSummary | undefined
   mutation: ReturnType<typeof useSetPrimaryIncome>
@@ -91,6 +99,11 @@ function PrimaryBody({
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
   const { budget } = useCurrentBudget()
+  const views = useRecordViews()
+  // The primary income is a field of the budget: the confirmation saves over the budget's
+  // revision as it was opened (D-150), and says so if another member switched it meanwhile.
+  const describe = (record: MyBudget) => views.budgetPrimary(record, incomes)
+  const edit = useEditBase(budget, budget, describe)
   const enabled = currentPeriod !== null
   const preview = useExpectedPayDatePreview(
     budgetId,
@@ -115,23 +128,36 @@ function PrimaryBody({
           endDateEntered={budget.end_date_entered}
         />
       )}
-      {mutation.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{errorMessage(mutation.error)}</AlertDescription>
-        </Alert>
+      {edit.changed && (
+        <ChangedElsewhere
+          kind="remove"
+          changes={edit.theirs}
+          onKeepMine={() => {
+            edit.adopt()
+            mutation.reset()
+          }}
+        />
       )}
+      <SaveError error={mutation.error} hidden={edit.changed} message={errorMessage} />
       <AlertDialogFooter>
         <AlertDialogCancel disabled={mutation.isPending}>{t('common.cancel')}</AlertDialogCancel>
         <Button
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || edit.changed || (enabled && !preview.isSuccess)}
           onClick={() =>
-            mutation.mutate(income, {
-              onSuccess: () => {
-                onClose()
-                // R-PERIOD-037: the new primary's salary this month may already have arrived.
-                if (arrivedOffer) onSalaryMayHaveArrived(arrivedOffer)
+            mutation.mutate(
+              {
+                income,
+                budgetRevision: (edit.base ?? budget).revision,
+                previewedEndDate: preview.data?.end_date ?? null,
               },
-            })
+              {
+                onSuccess: () => {
+                  onClose()
+                  // R-PERIOD-037: the new primary's salary this month may already have arrived.
+                  if (arrivedOffer) onSalaryMayHaveArrived(arrivedOffer)
+                },
+              },
+            )
           }
         >
           {mutation.isPending ? t('common.saving') : t('income.makePrimary')}

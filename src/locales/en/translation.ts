@@ -259,9 +259,10 @@ export const en = {
       other_name_required:
         'A name is needed for the subcategory that takes what the category held.',
       category_limit_reached:
-        'This budget already has the most categories it can hold (200 in use, or 2000 in all).',
+        'This budget already has the most categories it can hold (200 in use, or 500 in all).',
       transaction_limit_reached:
-        'This budget already holds 200 000 transactions, the most it can hold.',
+        'This budget already holds 50 000 transactions, the most it can hold.',
+      category_not_ended: 'This category has not ended, so there is nothing to restore.',
     },
   },
   concurrent: {
@@ -286,6 +287,7 @@ export const en = {
       category: 'Category',
       note: 'Note',
       endDate: 'End date',
+      primary: 'Primary income',
     },
     remove:
       'It has changed since you opened this. Look at it again, then confirm if you still want to.',
@@ -568,6 +570,33 @@ export const en = {
     endedFromEarlier: '“{{name}}” removed from the period you chose. Earlier periods keep it.',
     removeEarlierLabel: 'Remove it from an earlier period',
     removeEarlier: 'Remove from that period',
+    extendAction: 'Count from an earlier period',
+    extend: 'Count from that period',
+    extendTitle: 'Count “{{name}}” from an earlier period?',
+    extendDescription:
+      'For older transactions that need this category: it is planned from an earlier period too.',
+    extendFrom: 'Counts from',
+    extendNone: 'It already counts from the first period of the budget.',
+    extendNoneSub:
+      'A subcategory never counts before its group: count “{{group}}” from an earlier period first.',
+    extendAmountHelp: 'What it expects in the earlier periods. Later amounts stay as they are.',
+    extendOutcome:
+      'This changes past periods: from {{start}} on, it is planned in them with this amount, so their plans and results change, until the period it started in.',
+    extended: '“{{name}}” now counts from the period you chose.',
+    restore: 'Restore',
+    restoreFor: 'Restore {{name}}',
+    restoreTitle: 'Restore “{{name}}”?',
+    restoreDescription: 'It is planned again, with the amount below.',
+    restoreAmountHelp: 'What it expects from now on.',
+    restoreAsCorrection: 'Restore it as if it had never ended',
+    restoreEndedBudget: 'The budget has ended: it can only be restored as if it had never ended.',
+    restoreOutcome:
+      'It is planned again from the current period, which started on {{start}}. The periods between its end and now expect nothing for it: their totals do not change.',
+    restoreCorrectionOutcome:
+      'This changes past periods: it is planned again from the period it ended in ({{start}} – {{end}}), as if it had never ended, so the plans and results of every period since change.',
+    restoreGroupNote: 'Its subcategories stay as they are: restore the ones you want too.',
+    restoreGroupFirst: 'Its group “{{group}}” has ended: restore the group first.',
+    restored: '“{{name}}” is planned again.',
     removeFromEarlier:
       'It stops being planned from the period you choose, which changes past periods. If it never counted before that period and has no transactions, it is deleted.',
     edit: 'Edit',
@@ -779,7 +808,7 @@ export const en = {
     manualCurrentHint:
       'Set by hand: it stays as set when the pay day changes, until you reset it to the projection.',
     manualPastHint:
-      'Recorded by hand with one of the actions. The mark stays even if the date is later moved back to where it was.',
+      'Set by hand with one of the actions. Moving the start back to the schedule clears the mark.',
     unavailable: {
       budgetEnds:
         'Not available: the budget’s end date ({{date}}) leaves no day on which a new period could start.',
@@ -800,8 +829,16 @@ export const en = {
       notYet: 'This period’s salary has not arrived yet',
       moveStart: 'This period’s salary actually arrived on another day',
       resetExpected: 'Reset the expected date to the projection',
+      moveSchedule: 'Move this period’s start back to the schedule',
     },
     dialogs: {
+      moveSchedule: {
+        title: 'Move this period’s start back to the schedule?',
+        description:
+          'The boundary between this period and the previous one goes back to the day the pay schedule gives.',
+        field: 'Date',
+        range: 'No date is needed.',
+      },
       expected: {
         title: 'When is the next salary expected?',
         description:
@@ -879,6 +916,8 @@ export const en = {
       reopenProjected:
         'The previous period (from {{start}}) is current again until its projected end; this period disappears.',
       moveStart: 'The previous period will end on {{end}}, and this one starts on {{start}}.',
+      moveSchedule:
+        'The boundary goes back to the day the schedule gives, and its “set by hand” mark is cleared.',
     },
     undo: {
       expected: 'To undo: set another date, or reset it to the projection.',
@@ -889,6 +928,10 @@ export const en = {
     },
     saved: 'Periods updated.',
     reset: 'Reset',
+    moveBack: 'Move back',
+    changedTitle: 'The periods changed while you had this open',
+    changedDescription:
+      'Someone else acted on them, or your earlier attempt had already gone through, so nothing was changed now. What you see is up to date: check the dates, then act again if it is still needed.',
     resetDone: 'The expected date follows the projection again.',
     progress: 'Progress',
     progressFor: 'See the progress of the period {{range}}',
