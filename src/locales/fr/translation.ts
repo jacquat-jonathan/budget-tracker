@@ -572,6 +572,7 @@ export const fr: Translation = {
         made_primary: 'il devient le revenu principal dès la période rouverte.',
         other: 'ce changement passera à la période rouverte.',
       },
+      item: '{{kind}} : {{change}}',
       replaces: 'Il remplace ce que la période rouverte avait pour lui.',
       datesOnly:
         'Enregistrer de nouveau ce salaire plus tard (« Le salaire est arrivé en avance ») rétablit seulement les dates, pas ces changements.',

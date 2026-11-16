@@ -544,6 +544,7 @@ export const en = {
         made_primary: 'it becomes the primary income from the reopened period.',
         other: 'this change will move to the reopened period.',
       },
+      item: '{{kind}}: {{change}}',
       replaces: 'It replaces what the reopened period had for it.',
       datesOnly:
         'Recording this salary again later (“The salary arrived early”) restores the dates only, not these changes.',

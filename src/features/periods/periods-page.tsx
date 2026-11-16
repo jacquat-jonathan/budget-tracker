@@ -543,7 +543,7 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
             : t('periods.reopen.changes.other')
           return (
             <li key={`${item.record_kind}-${item.record_id}-${item.change}`}>
-              {kind}: {change}
+              {t('periods.reopen.item', { kind, change })}
               {item.replaces_previous && item.change !== 'removed'
                 ? ` ${t('periods.reopen.replaces')}`
                 : ''}
