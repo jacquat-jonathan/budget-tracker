@@ -328,7 +328,7 @@ function BoundaryDialog({
         {action && (
           <>
             <DialogHeader>
-              <DialogTitle>{t(`periods.dialogs.${action.kind}.title`)}</DialogTitle>
+              <DialogTitle className="pr-8">{t(`periods.dialogs.${action.kind}.title`)}</DialogTitle>
               <DialogDescription>
                 {t(`periods.dialogs.${action.kind}.description`)}
               </DialogDescription>
