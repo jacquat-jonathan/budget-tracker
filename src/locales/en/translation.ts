@@ -303,6 +303,8 @@ export const en = {
     edit: 'What you typed is still here. Load their version to start again from it, or keep yours: saving then changes only the fields you edited.',
     updatedTitle: 'Someone else changed this; the form now shows their version:',
     goneTitle: 'Someone else deleted this',
+    endedTitle: 'Someone else removed this',
+    ended: 'It is no longer in use from the current period, so these changes cannot be saved. Close this window; it is listed with the removed ones and can be restored.',
     gone: 'It no longer exists, so it cannot be saved. Close this window.',
     none: 'none',
     amountPer: {
@@ -627,8 +629,13 @@ export const en = {
     restoreCorrectionOutcome:
       'This changes past periods: it is planned again from the period it ended in ({{start}} – {{end}}), as if it had never ended, so the plans and results of every period since change.',
     restoreGroupNote: 'Its subcategories stay as they are: restore the ones you want too.',
+    restoreThisPeriodOutcome:
+      'It was removed from the current period (which started on {{start}}): it is planned again from that period, as if it had never been removed. Earlier periods do not change.',
     restoreGroupFirst: 'Its group “{{group}}” has ended: restore the group first.',
     restored: '“{{name}}” is planned again.',
+    restoredElsewhere: 'Someone else has already restored “{{name}}”: there is nothing left to restore.',
+    becameGroup:
+      'Someone else added a subcategory, so “{{name}}” is now a group with no amount of its own. The amount you typed ({{amount}}) cannot be saved here: set it on one of its subcategories. You can still rename it.',
     removeFromEarlier:
       'It stops being planned from the period you choose, which changes past periods. If it never counted before that period and has no transactions, it is deleted.',
     edit: 'Edit',
@@ -657,6 +664,7 @@ export const en = {
     endedTitle: 'Removed categories',
     endedHelp: 'They are no longer planned, but past periods keep them and their transactions.',
     endedLabel: 'Removed',
+    neverPlanned: 'Removed in the period it was added; its transactions still count',
     lastCounted: 'Last planned in the period ending {{date}}',
     groupHasNoAmount:
       'This category has subcategories: its amount is the total of theirs. Change the amounts on the subcategories.',
@@ -782,6 +790,8 @@ export const en = {
       dateRange: 'From {{min}} to {{max}} (today at the latest).',
       dateRangeEnded: 'From {{min}} to {{max}}, the budget’s last day.',
       keptCategory: '{{name}} (kept: not planned on this date)',
+      keptElsewhere:
+        '“{{name}}” is not planned in the period of this date: choose a category again, or keep the date in its own period.',
       categoriesFailed: 'The categories for this date could not be loaded: {{reason}}',
       category: 'Category',
       chooseCategory: 'Choose a category',
@@ -995,6 +1005,8 @@ export const en = {
     saved: 'Periods updated.',
     reset: 'Reset',
     moveBack: 'Move back',
+    moveScheduleRefused:
+      'This start cannot go back to the schedule now: the day the pay schedule gives for it is after today, or it would make a period shorter than 7 days or longer than 92. It stays as it is; you can still move it to a day you choose.',
     changedTitle: 'The periods changed while you had this open',
     changedDescription:
       'Someone else acted on them, or your earlier attempt had already gone through, so nothing was changed now. What you see is up to date: check the dates, then act again if it is still needed.',

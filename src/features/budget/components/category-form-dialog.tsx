@@ -104,9 +104,14 @@ function CategoryForm({
   const views = useRecordViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
   const live = useRecord('category_overview', budgetId, opened?.id)
-  const edit = useEditBase(opened, live, views.category)
+  // R-CONCURRENCY-091: removed from the current period by someone else: nothing to save here.
+  const endedElsewhere = (record: Category) =>
+    opened?.is_active === true && record.is_active !== true
+  const edit = useEditBase(opened, live, views.category, endedElsewhere)
   const category = edit.base
   const isGroup = category?.is_group === true
+  // Someone else added its first subcategory: it is now a group, with no amount of its own.
+  const becameGroup = opened?.is_group === false && live?.is_group === true
 
   const valuesOf = (from: Category | undefined): CategoryInput => ({
     name: from?.name ?? '',
@@ -163,8 +168,24 @@ function CategoryForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FieldGroup>
+        {becameGroup && !edit.gone && (
+          <Alert data-testid="became-group">
+            <InfoIcon aria-hidden />
+            <AlertDescription>
+              {t('categories.becameGroup', {
+                name: live.name,
+                amount: formatMoney(
+                  typeof form.getValues('amount') === 'number'
+                    ? (form.getValues('amount') as number)
+                    : 0,
+                ),
+              })}
+            </AlertDescription>
+          </Alert>
+        )}
         <ConcurrentNotices
           gone={edit.gone}
+          ended={live !== null && live !== undefined}
           pending={sync.pending}
           updated={sync.updated}
           onUseTheirs={sync.useTheirs}

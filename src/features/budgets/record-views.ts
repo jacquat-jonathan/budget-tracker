@@ -51,7 +51,9 @@ export function useRecordViews() {
       { key: 'name', label: label('name'), value: income.name },
       { key: 'amount', label: label('amount'), value: formatMoney(income.amount) },
       {
+        // One field: a pay day only means something with its weekend rule (D-160).
         key: 'payDay',
+        fields: ['payDay', 'weekendRule'],
         label: label('payDay'),
         value: t('income.payDayWithRule', {
           day: income.pay_day,
@@ -65,7 +67,9 @@ export function useRecordViews() {
         ? []
         : [
             {
+              // One field: an amount only means something with its cadence (D-160).
               key: 'amount',
+              fields: ['amount', 'cadence'],
               label: label('amount'),
               value: t(`concurrent.amountPer.${category.cadence}`, {
                 amount: formatMoney(category.amount),
@@ -79,6 +83,7 @@ export function useRecordViews() {
       { key: 'date', label: label('date'), value: formatCalendarDate(transaction.date) },
       {
         key: 'category',
+        fields: ['categoryId'],
         label: label('category'),
         value: transaction.category_name
           ? transaction.parent_category_name
@@ -91,6 +96,7 @@ export function useRecordViews() {
       },
       {
         key: 'note',
+        fields: ['description'],
         label: label('note'),
         value: transaction.description ?? t('concurrent.none'),
       },

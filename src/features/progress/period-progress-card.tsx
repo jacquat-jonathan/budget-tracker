@@ -387,7 +387,8 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
           className={cn(
             'text-sm whitespace-nowrap tabular-nums',
             weight || 'font-medium',
-            over && 'text-red-700 dark:text-red-300',
+            // Below zero is shown the same whether over a plan or spent without one.
+            row.result < 0 && 'text-red-700 dark:text-red-300',
           )}
         >
           {formatMoney(row.result)}

@@ -2,11 +2,25 @@ import { useState } from 'react'
 
 import { dbErrorCode } from '@/lib/db-errors'
 
-/** One field of a record as the user sees it, to compare two versions and to show theirs. */
+/**
+ * One field of a record as the user sees it, to compare two versions and to show theirs.
+ *
+ * A field may be a group of form fields whose values only mean something together (an
+ * amount and its cadence, a pay day and its weekend rule): `fields` names them. A group is
+ * one field everywhere: it is compared and shown as one value, it counts as edited when any
+ * of its form fields was edited, and "Keep mine" keeps or gives up all of it at once (D-160).
+ */
 export interface FieldView {
   key: string
   label: string
   value: string
+  /** The form fields this view stands for; [key] when absent. */
+  fields?: readonly string[]
+}
+
+/** The form fields a view stands for. */
+export function formFieldsOf(view: FieldView): readonly string[] {
+  return view.fields ?? [view.key]
 }
 
 /**
@@ -28,6 +42,11 @@ export function useEditBase<T extends { revision: number }>(
   opened: T | undefined,
   live: T | null | undefined,
   describe: (record: T) => FieldView[],
+  /**
+   * The record still exists but can no longer be edited here (another member ended it, for
+   * example): treated like a record that is gone.
+   */
+  goneWhen?: (live: T) => boolean,
 ) {
   const [base, setBase] = useState<T | undefined>(opened)
   // A revision this form saved itself: not someone else's change once it is read back.
@@ -56,7 +75,8 @@ export function useEditBase<T extends { revision: number }>(
     theirs: changed ? theirs : [],
     changed,
     /** Removed by someone else meanwhile. */
-    gone: base !== undefined && live === null,
+    gone:
+      base !== undefined && (live === null || (live !== undefined && goneWhen?.(live) === true)),
     /** Take the latest version as the base (after the user chose). */
     adopt: () => {
       if (live) setBase(live)

@@ -33,7 +33,12 @@ import { BudgetTotals } from '@/features/budget/components/budget-totals'
 import { useCurrentPeriod, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useReorderCategories } from '@/features/categories/category-mutations'
-import { categoryTree, useCategories, type Category } from '@/features/categories/category-queries'
+import {
+  categoryTree,
+  isVoid,
+  useCategories,
+  type Category,
+} from '@/features/categories/category-queries'
 import { cn } from '@/lib/utils'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -384,11 +389,13 @@ function EndedCategories({
                     : category.name}
                 </p>
                 <p className="text-muted-foreground">
-                  {lastPeriod
-                    ? t('categories.lastCounted', {
-                        date: formatCalendarDate(lastPeriod.end_date),
-                      })
-                    : t('categories.endedLabel')}
+                  {isVoid(category)
+                    ? t('categories.neverPlanned')
+                    : lastPeriod
+                      ? t('categories.lastCounted', {
+                          date: formatCalendarDate(lastPeriod.end_date),
+                        })
+                      : t('categories.endedLabel')}
                 </p>
               </div>
               <Button

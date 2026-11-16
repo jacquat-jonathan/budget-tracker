@@ -393,4 +393,15 @@ describe('periods page [R-PERIOD-051]', () => {
       })
     })
   })
+
+  it('says in its own words when the start cannot go back to the schedule now [R-PERIOD-055]', async () => {
+    const { db, rows } = await openPeriods()
+    db.rpc.move_period_start.mockImplementation(() => rpcError('invalid_boundary'))
+    const dialog = await choose(rows[0]!, CURRENT, 'Move this period’s start back to the schedule')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Move back' }))
+    expect(
+      await within(dialog).findByText(/This start cannot go back to the schedule now/),
+    ).toBeInTheDocument()
+    expect(within(dialog).queryByText(/range shown under the field/)).not.toBeInTheDocument()
+  })
 })

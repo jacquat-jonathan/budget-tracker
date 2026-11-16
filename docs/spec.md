@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-343 rules (279 active, 57 planned), 24 conventions, 146 decisions, 23 open questions. 1 rules and conventions are marked **TEST PENDING**.
+343 rules (279 active, 57 planned), 24 conventions, 147 decisions, 24 open questions. 1 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -898,9 +898,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-020, R-PERIOD-034, R-PERIOD-012, R-BUDGET-008
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/periods/boundary-ranges.ts
-- **R-PERIOD-055** Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its "set by hand" mark.
+- **R-PERIOD-055** Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its "set by hand" mark; when the database refuses that move as an invalid boundary, the confirmation says the schedule's day does not fit between the neighbouring periods (it names no date: Q-091).
   _active · enforced by test · F-PERIOD_
-  - Related: R-CONCURRENCY-100, R-PERIOD-100, R-PERIOD-051, D-151, D-152
+  - Related: R-CONCURRENCY-100, R-PERIOD-100, R-PERIOD-051, D-151, D-152, Q-091
   - Source: owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16; code: src/features/periods/periods-page.tsx
 - **R-PERIOD-100** A boundary moved to where the schedule puts it (the previous period's projected end) is not marked as set by hand, and a past boundary can be moved back to the schedule without giving a date.
   _active · enforced by test · F-PERIOD_
@@ -1067,7 +1067,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: R-VERSION-002, R-VERSION-070, R-INCOME-051
   - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/category-form-dialog.tsx
-- **R-CATEGORY-054** A category can be counted from an earlier period and a removed one restored, each said beforehand: counting from an earlier period is an explicit correction that changes those periods' plans and results; restoring plans it again from the current period with nothing expected in the periods between (their totals unchanged), or, as an explicit correction, as if it had never ended (the only way in an ended budget); a subcategory needs its group in force first.
+- **R-CATEGORY-054** A category can be counted from an earlier period and a removed one restored, each said beforehand: counting from an earlier period is an explicit correction that changes those periods' plans and results; restoring plans it again from the current period with nothing expected in the periods between (their totals unchanged), or, as an explicit correction, as if it had never ended (the only way in an ended budget); a subcategory needs its group in force first. A category removed in the period it was added (never planned) is listed among the removed ones while it has transactions and can be restored; one removed from the current period is restored from that period, as if it had never been removed, without a correction to choose. A removed category restored by another member first is said so, and cannot be restored again.
   _active · enforced by test · F-CATEGORY_
   - Related: R-CATEGORY-100, R-CATEGORY-101, R-VERSION-070
   - Source: owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16; code: src/features/budget/components/category-history-dialog.tsx
@@ -1160,7 +1160,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: D-149, D-088
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Transactions
-- **R-TRANSACTION-050** The transaction form records an expense, a refund or an extra income (no category); its date is limited to what the database accepts (the first period's start to today, or an ended budget's last day) and today by default; its category choices are read from the database for the date and read again whenever the date changes, a failed read is shown with a retry, and a transaction being edited keeps the category it already has even when that category is no longer planned on its date (shown as such); "save and add another" keeps the kind, date and category for the next receipt.
+- **R-TRANSACTION-050** The transaction form records an expense, a refund or an extra income (no category); its date is limited to what the database accepts (the first period's start to today, or an ended budget's last day) and today by default; its category choices are read from the database for the date and read again whenever the date changes, a failed read is shown with a retry, and a transaction being edited keeps the category it already has even when that category is no longer planned on its date (shown as such), only while the date stays within the transaction's own period (D-159); moved to another period, a category no longer planned there must be chosen again, and the form says so; "save and add another" keeps the kind, date and category for the next receipt.
   _active · enforced by test · F-TRANSACTION_
   - Related: R-TRANSACTION-090, R-TRANSACTION-091, R-TRANSACTION-092, R-TRANSACTION-004
   - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
@@ -1598,9 +1598,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: D-142, R-CONCURRENCY-070, D-006, D-150
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Concurrent edits
-- **R-CONCURRENCY-091** An edit form or removal confirmation reads its record by id, never from a list, and saves over the version it opened. When another member changes a field it shows (the save is refused, or a later read shows it), it says so with their values field by field: with nothing typed it takes their version; with something typed it keeps what was typed and lets the user load their version or keep theirs, and keeping theirs saves only the fields they edited. A change to fields it does not show (the user's own save in another form, another member's change elsewhere) is taken silently. A record deleted meanwhile is said to be gone and cannot be saved.
+- **R-CONCURRENCY-091** An edit form or removal confirmation reads its record by id, never from a list, and saves over the version it opened. When another member changes a field it shows (the save is refused, or a later read shows it), it says so with their values field by field: with nothing typed it takes their version; with something typed it keeps what was typed and lets the user load their version or keep theirs, and keeping theirs saves only the fields they edited. Values that only mean something together (a category's amount and cadence, an income's pay day and weekend rule) are one field throughout: an edit to any part keeps and sends the whole group as the form shows it, and a group not edited takes the other member's version whole (D-160). The note that the form took their version goes once the user types or saves. A change to fields it does not show (the user's own save in another form, another member's change elsewhere) is taken silently. A record deleted meanwhile is said to be gone and cannot be saved; a category ended meanwhile is said to be removed, and one turned into a group meanwhile is said so and only its name can still be saved, with the typed amount named so it is not lost silently.
   _active · enforced by test · F-CATEGORY_
-  - Related: R-CONCURRENCY-070, D-142, D-136
+  - Related: R-CONCURRENCY-070, D-142, D-136, D-160
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: src/hooks/use-edit-base.ts; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
 - **R-CONCURRENCY-100** A boundary operation names the period the client saw (its id and revision) and is refused with record_changed when that period changed or is gone, so a second click, a retry or another member's concurrent action never applies the operation twice.
   _active · enforced by test · F-CATEGORY_
@@ -3469,6 +3469,21 @@ Related: R-TRANSACTION-100, D-144
 
 Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
+### D-160 Values that only mean something together are one field for concurrent edits (accepted)
+
+A view of a record's fields (FieldView in src/hooks/use-edit-base.ts) can name several form fields as one group: a category's amount and cadence, an income's pay day and weekend rule (step 4: a subscription's price and cadence). The group is one field everywhere a concurrent edit looks: detection and the banner compare and show it as one value; "Keep mine" keeps the whole group as the form shows it when the user edited any part of it, and takes the other member's version whole when they edited none; and the save sends the whole group when any part differs. This amends D-136's "keeps only the fields the user edited" for groups.
+
+**Why:** Keeping dirty fields one by one combined two members' edits into a value neither chose: with 200.00 per month, Sam set 50.00 per month while Ann switched the cadence to per year, and "Keep mine" sent only the cadence, storing 50.00 per year, which neither chose; Ann's form showed 200.00 per year, which is what is now kept.
+
+**Rejected:**
+
+- Keeping each dirty form field on its own (D-136 as first built).
+- Treating the whole record as one field: an untouched name would revert the other member's rename.
+
+Related: D-136, R-CONCURRENCY-091
+
+Source: owner-request: coordinator, step 3 final review, 2026-11-16; code: src/hooks/use-concurrent-form.ts
+
 ### D-170 Editing a subscription's schedule sets its next charge (accepted)
 
 A subscription's terms carry the date its schedule counts from. An edit from now that gives a next charge date (after today) makes it the next charge, the later ones following at the cadence; a new cadence without a date continues from the next charge date of the current schedule; any other edit keeps the schedule. A charge already created never moves and a date already passed is never charged. A correction from an earlier period may name any date: it changes the terms recorded for those periods and the charges still to come, never those already created. Decided by the project coordinator on 2026-11-16 (step 4 brief: decide what an edit to the schedule does to the next charge date).
@@ -3825,6 +3840,10 @@ Source: owner-request: database developer decision for step 4, within the coordi
   - Context: The boundary operations name the period they act on (D-151), so a retry is refused; an add has no record to name yet. The review recorded a double-submitted add_transaction as two rows. The screens disable the button while saving, but a retry after a lost response would still record twice.
   - Related: D-151, R-CONCURRENCY-100, R-TRANSACTION-095
   - Source: owner-request: coordinator, step 3 database review, 2026-11-16
+- **Q-091** Should the database say where the schedule would put a period's start, and whether moving it back there would be accepted?
+  - Context: "Move this period's start back to the schedule" calls move_period_start without a date; the client cannot know the schedule's day (C-LOGIC-003), so the confirmation names no date and the action is offered even when the database will refuse it (invalid_boundary), which the dialog then says. Options: a period_summaries.scheduled_start column (null when it equals the start), or preview_move_period_start(p_period_id) returning the scheduled date and whether it fits between the neighbouring periods, so the action is offered only when it can work and names its date.
+  - Related: R-PERIOD-055, D-152, C-LOGIC-003
+  - Source: owner-request: coordinator, step 3 final review, 2026-11-16
 - **Q-100** When the transaction limit holds automatic charges back, should the app tell the members?
   - Context: D-176: charges wait, none skipped, until there is room; nothing tells the user that some are waiting. Reaching 50 000 transactions takes decades of normal use.
   - Related: D-176, R-SUBSCRIPTION-112

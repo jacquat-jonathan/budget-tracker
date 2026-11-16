@@ -127,8 +127,11 @@ function HistoryForm({
   const earlier = periods.filter(
     (period) => period.seq < category.first_seq && (!parent || period.seq >= parent.first_seq),
   )
-  // restore as a correction: the period it ended in.
+  // restore as a correction: the period it ended in. When that is the current period (a
+  // category removed in the period it was added, kept void for its transactions), the
+  // default restore already plans it from there: there is no separate correction.
   const endedIn = periods.find((period) => period.seq === category.end_seq) ?? null
+  const endedThisPeriod = endedIn !== null && endedIn.is_current === true
   // In an ended budget only the correction can restore.
   const [asCorrection, setAsCorrection] = useState(mode === 'restore' && currentPeriod === null)
   const groupEnded = parent !== null && parent.end_seq !== null
@@ -153,7 +156,11 @@ function HistoryForm({
   const sync = useConcurrentForm(form, edit, valuesOf, () => mutation.reset())
   const chosen = periods.find((period) => period.id === fromPeriodId)
 
+  // Someone else restored it first: there is nothing left to restore.
+  const restoredElsewhere =
+    mode === 'restore' && live !== null && live !== undefined && live.end_seq === null
   const blocked =
+    restoredElsewhere ||
     (mode === 'extend' && earlier.length === 0) ||
     (mode === 'restore' && (groupEnded || (asCorrection && !endedIn)))
 
@@ -201,6 +208,14 @@ function HistoryForm({
             </AlertDescription>
           </Alert>
         )}
+        {restoredElsewhere && (
+          <Alert data-testid="restored-elsewhere">
+            <InfoIcon aria-hidden />
+            <AlertDescription>
+              {t('categories.restoredElsewhere', { name: live.name })}
+            </AlertDescription>
+          </Alert>
+        )}
         {mode === 'restore' && groupEnded && (
           <Alert>
             <InfoIcon aria-hidden />
@@ -244,7 +259,7 @@ function HistoryForm({
             />
           </>
         )}
-        {mode === 'restore' && !groupEnded && endedIn && (
+        {mode === 'restore' && !groupEnded && endedIn && !endedThisPeriod && (
           <div className="flex flex-col gap-3 rounded-lg border p-3">
             <Field orientation="horizontal">
               <Checkbox
@@ -284,9 +299,13 @@ function HistoryForm({
                       start: fmt(endedIn.start_date),
                       end: fmt(endedIn.end_date),
                     })
-                  : currentPeriod
-                    ? t('categories.restoreOutcome', { start: fmt(currentPeriod.start_date) })
-                    : null}
+                  : currentPeriod && endedThisPeriod
+                    ? t('categories.restoreThisPeriodOutcome', {
+                        start: fmt(currentPeriod.start_date),
+                      })
+                    : currentPeriod
+                      ? t('categories.restoreOutcome', { start: fmt(currentPeriod.start_date) })
+                      : null}
               {isGroup && mode === 'restore' && (
                 <p className="mt-1">{t('categories.restoreGroupNote')}</p>
               )}
@@ -295,7 +314,7 @@ function HistoryForm({
         )}
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover sm:flex-wrap">
           <Button type="button" variant="outline" onClick={close}>
-            {t('common.cancel')}
+            {restoredElsewhere ? t('ui.close') : t('common.cancel')}
           </Button>
           <Button
             type="submit"

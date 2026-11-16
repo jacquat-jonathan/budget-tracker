@@ -283,6 +283,7 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
         p_category_id: 'cat-groceries',
         p_expected_revision: 2,
         p_amount: 95_000,
+        p_cadence: 'monthly',
       })
     })
   })
@@ -336,8 +337,90 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
     expect(within(dialog).getByLabelText('Name')).toHaveValue('Groceries and drinks')
   })
 
+  it('a category ended by someone else while open says so once and offers no save [R-CONCURRENCY-091]', async () => {
+    const { db, queryClient } = await openBudget()
+    await action('Groceries', 'Edit')
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Name'), ' and drinks')
+    db.tables.category_overview = db.tables.category_overview.map((category) =>
+      category.id === 'cat-groceries'
+        ? { ...category, is_active: false, end_seq: 2, revision: 2 }
+        : category,
+    )
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budget'] }))
+    expect(await within(dialog).findByTestId('gone-elsewhere')).toHaveTextContent(
+      'Someone else removed this',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(dialog).queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+  })
+
+  it('a category turned into a group while open says the typed amount cannot be saved, and keeps the rename [R-CONCURRENCY-091]', async () => {
+    const { db, queryClient } = await openBudget()
+    await action('Groceries', 'Edit')
+    const dialog = await screen.findByRole('dialog')
+    const amount = within(dialog).getByLabelText('Amount per month')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '950')
+    db.tables.category_overview = db.tables.category_overview.map((category) =>
+      category.id === 'cat-groceries'
+        ? { ...category, is_group: true, amount: null, cadence: null, revision: 2 }
+        : category,
+    )
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budget'] }))
+    expect(await within(dialog).findByTestId('became-group')).toHaveTextContent(
+      'The amount you typed (CHF 950.00) cannot be saved here',
+    )
+    expect(within(dialog).queryByLabelText('Amount per month')).not.toBeInTheDocument()
+    await userEvent.type(within(dialog).getByLabelText('Name'), ' and drinks')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_category).toHaveBeenCalledWith({
+        p_category_id: 'cat-groceries',
+        p_expected_revision: 2,
+        p_name: 'Groceries and drinks',
+      })
+    })
+  })
+
+  it('a category someone else restored first says there is nothing left to restore [R-CONCURRENCY-091]', async () => {
+    const { db, queryClient } = await openBudget()
+    await userEvent.click(screen.getByRole('button', { name: 'Restore Old hobby' }))
+    const dialog = await screen.findByRole('dialog')
+    db.tables.category_overview = db.tables.category_overview.map((category) =>
+      category.id === 'cat-hobby'
+        ? { ...category, is_active: true, end_seq: null, revision: 2 }
+        : category,
+    )
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budget'] }))
+    expect(await within(dialog).findByTestId('restored-elsewhere')).toHaveTextContent(
+      'Someone else has already restored “Old hobby”',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Restore' })).toBeDisabled()
+  })
+
   it('restores an ended category from now on, or as if it had never ended [R-CATEGORY-054] [R-CATEGORY-101]', async () => {
-    const { db } = await openBudget()
+    // Three periods: Old hobby counted in the first and ended from the second (past).
+    const db = categoriesDb({
+      period_summaries: [
+        periodRow({
+          id: 'period-1',
+          seq: 1,
+          start_date: '2026-08-25',
+          end_date: '2026-09-24',
+          is_current: false,
+        }),
+        periodRow({
+          id: 'period-2',
+          seq: 2,
+          start_date: '2026-09-25',
+          end_date: '2026-10-22',
+          is_current: false,
+        }),
+        periodRow({ id: 'period-3', seq: 3 }),
+      ],
+    })
+    const { db: same } = await openBudget(db)
     await userEvent.click(screen.getByRole('button', { name: 'Restore Old hobby' }))
     const dialog = await screen.findByRole('dialog', { name: 'Restore “Old hobby”?' })
     expect(within(dialog).getByTestId('history-outcome')).toHaveTextContent(
@@ -347,16 +430,77 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
     expect(within(dialog).getByTestId('history-outcome')).toHaveTextContent(
       'as if it had never ended, so the plans and results of every period since change',
     )
-    await userEvent.click(within(dialog).getByLabelText('Restore it as if it had never ended'))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }))
     await waitFor(() => {
-      expect(db.rpc.restore_category).toHaveBeenCalledWith({
+      expect(same.rpc.restore_category).toHaveBeenCalledWith({
         p_category_id: 'cat-hobby',
         p_expected_revision: 1,
+        p_from_period_id: 'period-2',
         p_amount: 90_000,
         p_cadence: 'monthly',
       })
     })
+  })
+
+  it('a category removed in the current period, even one never in force but with transactions, is listed and restored from this period [R-CATEGORY-054]', async () => {
+    const db = categoriesDb({
+      category_overview: [
+        categoryRow({ id: 'cat-rent', name: 'Rent', sort_order: 0 }),
+        // Void: removed in the period it was added (2), kept for its transactions.
+        categoryRow({
+          id: 'cat-courses',
+          name: 'Courses',
+          sort_order: 1,
+          first_seq: 2,
+          end_seq: 2,
+          is_active: false,
+        }),
+      ],
+    })
+    const { db: same } = await openBudget(db)
+    const removed = screen.getByTestId('ended-category-row')
+    expect(removed).toHaveTextContent(
+      'Removed in the period it was added; its transactions still count',
+    )
+    await userEvent.click(within(removed).getByRole('button', { name: 'Restore Courses' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByTestId('history-outcome')).toHaveTextContent(
+      'It was removed from the current period (which started on 23.10.2026): it is planned again from that period',
+    )
+    expect(
+      within(dialog).queryByLabelText('Restore it as if it had never ended'),
+    ).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Restore' }))
+    await waitFor(() => {
+      expect(same.rpc.restore_category).toHaveBeenCalledWith(
+        expect.objectContaining({ p_category_id: 'cat-courses', p_expected_revision: 1 }),
+      )
+    })
+  })
+
+  it('the removed list keeps each group before its subcategories [R-CATEGORY-054]', async () => {
+    const ended = { is_active: false, end_seq: 2 }
+    const db = categoriesDb({
+      category_overview: [
+        categoryRow({
+          id: 'g',
+          name: 'Insurance',
+          is_group: true,
+          amount: null,
+          cadence: null,
+          sort_order: 0,
+          ...ended,
+        }),
+        categoryRow({ id: 's1', parent_id: 'g', name: 'Health', sort_order: 0, ...ended }),
+        categoryRow({ id: 'x', name: 'Hobby', sort_order: 1, ...ended }),
+        categoryRow({ id: 's2', parent_id: 'g', name: 'Car', sort_order: 1, ...ended }),
+        categoryRow({ id: 'r', name: 'Rent', sort_order: 2 }),
+      ],
+    })
+    await openBudget(db)
+    expect(
+      screen.getAllByTestId('ended-category-row').map((row) => row.querySelector('p')?.textContent),
+    ).toEqual(['Insurance', 'Insurance › Health', 'Insurance › Car', 'Hobby'])
   })
 
   it('counts a category from an earlier period, as an explicit correction [R-CATEGORY-100]', async () => {
@@ -377,6 +521,83 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
         p_from_period_id: 'period-1',
         p_amount: 90_000,
         p_cadence: 'monthly',
+      })
+    })
+  })
+
+  it('an amount and its cadence are one field: “Keep mine” keeps or gives up both together [R-CONCURRENCY-091]', async () => {
+    const db = categoriesDb({
+      category_overview: [
+        categoryRow({ id: 'cat-leisure', name: 'Leisure', amount: 20_000, monthly_amount: 20_000 }),
+      ],
+    })
+    const { db: same } = await openBudget(db)
+    // Sam sets 50.00 per month first; Ann only switches to per year.
+    same.rpc.update_category.mockImplementationOnce(() => {
+      same.tables.category_overview = [
+        categoryRow({
+          id: 'cat-leisure',
+          name: 'Leisure',
+          amount: 5_000,
+          monthly_amount: 5_000,
+          revision: 2,
+        }),
+      ]
+      rpcError('record_changed')
+    })
+    await action('Leisure', 'Edit')
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Per year' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    const notice = await within(dialog).findByTestId('changed-elsewhere')
+    expect(notice).toHaveTextContent('AmountCHF 50.00 per month')
+    await userEvent.click(within(notice).getByRole('button', { name: 'Keep mine' }))
+    // Mine is the whole value as the form shows it: 200.00 per year, never 50.00 per year.
+    expect(within(dialog).getByLabelText('Amount per year')).toHaveValue('200.00')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(same.rpc.update_category).toHaveBeenLastCalledWith({
+        p_category_id: 'cat-leisure',
+        p_expected_revision: 2,
+        p_amount: 20_000,
+        p_cadence: 'yearly',
+      })
+    })
+  })
+
+  it('a group I did not edit takes the other member’s value whole [R-CONCURRENCY-091]', async () => {
+    const db = categoriesDb({
+      category_overview: [
+        categoryRow({ id: 'cat-leisure', name: 'Leisure', amount: 20_000, monthly_amount: 20_000 }),
+      ],
+    })
+    const { db: same } = await openBudget(db)
+    same.rpc.update_category.mockImplementationOnce(() => {
+      same.tables.category_overview = [
+        categoryRow({
+          id: 'cat-leisure',
+          name: 'Leisure',
+          amount: 60_000,
+          cadence: 'yearly',
+          monthly_amount: 5_000,
+          revision: 2,
+        }),
+      ]
+      rpcError('record_changed')
+    })
+    await action('Leisure', 'Edit')
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Name'), ' and sport')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    const notice = await within(dialog).findByTestId('changed-elsewhere')
+    await userEvent.click(within(notice).getByRole('button', { name: 'Keep mine' }))
+    expect(within(dialog).getByLabelText('Amount per year')).toHaveValue('600.00')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(same.rpc.update_category).toHaveBeenLastCalledWith({
+        p_category_id: 'cat-leisure',
+        p_expected_revision: 2,
+        p_name: 'Leisure and sport',
       })
     })
   })

@@ -63,7 +63,11 @@ export function isVoid(category: Pick<Category, 'first_seq' | 'end_seq'>): boole
 export interface CategoryTree {
   /** Top-level categories in force now, each with its subcategories in force. */
   active: { category: Category; children: Category[] }[]
-  /** Categories and subcategories that have ended (not void), for the record. */
+  /**
+   * Categories and subcategories that have ended, for the record and to be restored: those
+   * that counted in some period, and void ones (never in force) that still hold transactions
+   * (R-CATEGORY-054). Each group comes before its subcategories, in display order.
+   */
   ended: Category[]
 }
 
@@ -77,9 +81,16 @@ export function categoryTree(categories: readonly Category[]): CategoryTree {
         (child) => child.parent_id === category.id && child.is_active === true,
       ),
     }))
-  const ended = categories.filter(
-    (category) => category.is_active !== true && category.end_seq !== null && !isVoid(category),
-  )
+  const isEnded = (category: Category) =>
+    category.is_active !== true &&
+    category.end_seq !== null &&
+    (!isVoid(category) || category.has_transactions === true)
+  // Display order: each top-level category (by sort_order), then its subcategories.
+  const ended: Category[] = []
+  for (const top of categories.filter((category) => category.parent_id === null)) {
+    if (isEnded(top)) ended.push(top)
+    ended.push(...categories.filter((child) => child.parent_id === top.id && isEnded(child)))
+  }
   return { active, ended }
 }
 

@@ -24,7 +24,7 @@ function groupThousands(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, "'")
 }
 
-/** Format integer rappen as Swiss francs, e.g. 123450 -> "CHF 1'234.50". */
+/** Format integer rappen as Swiss francs, e.g. 123450 -> "CHF 1'234.50" (a no-break space). */
 export function formatMoney(rappen: number, options: FormatMoneyOptions = {}): string {
   assertRappen(rappen)
   const { currency = true } = options
@@ -33,7 +33,8 @@ export function formatMoney(rappen: number, options: FormatMoneyOptions = {}): s
   const francs = Math.trunc(absolute / 100)
   const cents = absolute % 100
   const amount = `${sign}${groupThousands(String(francs))}.${String(cents).padStart(2, '0')}`
-  return currency ? `${CURRENCY} ${amount}` : amount
+  // A no-break space: the currency never ends a line apart from its amount.
+  return currency ? `${CURRENCY}\u00a0${amount}` : amount
 }
 
 /**

@@ -170,7 +170,8 @@ describe('period progress [R-PROGRESS-050]', () => {
     expect(
       within(leisure)
         .getAllByRole('cell')
-        .map((c) => c.textContent),
+        // The money formatter's space is a no-break space.
+        .map((c) => c.textContent.replace(/\u00a0/g, ' ')),
     ).toEqual(['CHF 300.00', 'CHF 412.00', 'LeftCHF -112.00'])
   })
 

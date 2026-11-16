@@ -246,6 +246,7 @@ describe('income page', () => {
         p_income_id: 'income-1',
         p_expected_revision: 1,
         p_pay_day: 28,
+        p_weekend_rule: 'nearest',
         p_previewed_end_date: '2026-11-27',
       })
     })
@@ -503,5 +504,36 @@ describe('income page', () => {
 
     expect(await screen.findByText('This budget has ended')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add income' })).toBeDisabled()
+  })
+
+  it('a pay day and its weekend rule are one field: “Keep mine” keeps both together [R-CONCURRENCY-091]', async () => {
+    const db = await openIncomePage()
+    // Sam moved the pay day to 28 first; Ann only changes the weekend rule.
+    db.rpc.update_income.mockImplementationOnce(() => {
+      db.tables.income_overview = db.tables.income_overview.map((income) =>
+        income.id === 'income-2' ? { ...income, pay_day: 28, revision: 2 } : income,
+      )
+      rpcError('record_changed')
+    })
+    await userEvent.click(
+      within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('radio', { name: /^Friday before/ }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    const notice = await within(dialog).findByTestId('changed-elsewhere')
+    expect(notice).toHaveTextContent('Pay dayDay 28, Monday after')
+    await userEvent.click(within(notice).getByRole('button', { name: 'Keep mine' }))
+    expect(within(dialog).getByRole('combobox', { name: 'Pay day' })).toHaveTextContent('Day 31')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_income).toHaveBeenLastCalledWith({
+        p_income_id: 'income-2',
+        p_expected_revision: 2,
+        p_pay_day: 31,
+        p_weekend_rule: 'previous',
+      })
+    })
   })
 })

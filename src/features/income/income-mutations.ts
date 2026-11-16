@@ -99,8 +99,10 @@ export function useEditIncome(
       if (!income) throw new DbError('income_not_found')
       const correcting = input.fromPeriodId !== null
       const amount = correcting || input.amount !== income.amount
-      const payDay = correcting || input.payDay !== income.pay_day
-      const weekendRule = correcting || input.weekendRule !== income.weekend_rule
+      // The pay day and its weekend rule are one value (D-160): either changed sends both.
+      const payDay =
+        correcting || input.payDay !== income.pay_day || input.weekendRule !== income.weekend_rule
+      const weekendRule = payDay
       const renamed = input.name !== income.name
       if (!renamed && !amount && !payDay && !weekendRule) return null
       unwrap(

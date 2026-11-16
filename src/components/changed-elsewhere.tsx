@@ -73,14 +73,17 @@ export function UpdatedElsewhere({ changes }: { changes: FieldView[] }) {
   )
 }
 
-/** The record was removed by someone else while this was open: nothing can be saved. */
-export function GoneElsewhere() {
+/**
+ * The record was deleted, or ended (removed from the current period), by someone else while
+ * this was open: nothing can be saved here any more.
+ */
+export function GoneElsewhere({ ended = false }: { ended?: boolean }) {
   const { t } = useTranslation()
   return (
     <Alert data-testid="gone-elsewhere" variant="destructive">
       <Trash2Icon aria-hidden />
-      <AlertTitle>{t('concurrent.goneTitle')}</AlertTitle>
-      <AlertDescription>{t('concurrent.gone')}</AlertDescription>
+      <AlertTitle>{ended ? t('concurrent.endedTitle') : t('concurrent.goneTitle')}</AlertTitle>
+      <AlertDescription>{ended ? t('concurrent.ended') : t('concurrent.gone')}</AlertDescription>
     </Alert>
   )
 }
@@ -113,6 +116,7 @@ export function SaveError({
  */
 export function ConcurrentNotices({
   gone,
+  ended = false,
   pending,
   updated,
   onUseTheirs,
@@ -121,6 +125,8 @@ export function ConcurrentNotices({
   message,
 }: {
   gone: boolean
+  /** Gone because another member ended it, not deleted. */
+  ended?: boolean
   pending: FieldView[] | null
   updated: FieldView[] | null
   onUseTheirs: () => void
@@ -130,7 +136,7 @@ export function ConcurrentNotices({
 }) {
   return (
     <>
-      {gone && <GoneElsewhere />}
+      {gone && <GoneElsewhere ended={ended} />}
       {!gone && pending && (
         <ChangedElsewhere changes={pending} onUseTheirs={onUseTheirs} onKeepMine={onKeepMine} />
       )}
