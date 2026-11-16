@@ -219,6 +219,7 @@ describe('income page', () => {
         name: 'Part-time job',
         first_seq: 1,
         end_seq: null,
+        ended_after_last: false,
         created_at: '2026-10-01T10:00:00+00:00',
         updated_at: '2026-10-01T10:00:00+00:00',
       },

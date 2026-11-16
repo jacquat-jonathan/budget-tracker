@@ -120,6 +120,22 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     leave_budget: handler(() => null),
     list_my_invitations: handler(() => []),
     move_period_start: handler(() => null),
+    preview_expected_pay_date: handler((args) => {
+      const current = db.tables.period_summaries.find(
+        (period) => period.budget_id === args.p_budget_id && period.is_current,
+      )
+      if (!current) rpcError('budget_ended')
+      const next = new Date(Date.parse(`${current.end_date}T00:00:00Z`) + 86_400_000)
+      return [
+        {
+          period_id: current.id,
+          end_date: current.end_date,
+          expected_pay_date: next.toISOString().slice(0, 10),
+          end_is_manual: current.end_is_manual,
+        },
+      ]
+    }),
+    preview_reopen: handler(() => []),
     record_early_pay_date: handler(() => []),
     reopen_previous_period: handler(() => []),
     set_expected_pay_date: handler(() => []),

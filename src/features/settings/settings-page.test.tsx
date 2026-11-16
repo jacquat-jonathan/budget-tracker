@@ -29,6 +29,7 @@ const budgetsTableRow = {
   owner_id: DEFAULT_USER_ID,
   primary_income_id: 'income-1',
   end_date: null,
+  primary_since_seq: 1,
   created_at: '2026-10-01T10:00:00+00:00',
   updated_at: '2026-10-01T10:00:00+00:00',
 }

@@ -34,6 +34,11 @@ import {
   type PeriodSummary,
 } from '@/features/budgets/budget-queries'
 import { PayDayField, WeekendRuleField } from '@/features/income/components/income-term-fields'
+import { PayDatePreviewNotice } from '@/features/income/components/pay-date-preview-notice'
+import {
+  useArrivedUnderNewTerms,
+  useExpectedPayDatePreview,
+} from '@/features/income/pay-date-preview'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
@@ -62,6 +67,8 @@ interface IncomeFormDialogProps {
   members: BudgetMember[]
   periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
+  /** After saving new primary terms under which this month's salary is already due. */
+  onSalaryMayHaveArrived?: (dueDate: string) => void
 }
 
 /** Add or edit an income. Mount it only while open, so it starts from fresh values. */
@@ -91,6 +98,7 @@ function IncomeForm({
   members,
   periods,
   currentPeriod,
+  onSalaryMayHaveArrived,
 }: IncomeFormDialogProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -110,7 +118,26 @@ function IncomeForm({
       correct: false,
     },
   })
-  const correct = useWatch({ control: form.control, name: 'correct' })
+  const [correct, payDay, weekendRule] = useWatch({
+    control: form.control,
+    name: ['correct', 'payDay', 'weekendRule'],
+  })
+  // Before saving new terms for the primary income: what the database would then expect.
+  const primaryTermsChanged =
+    income?.is_primary === true &&
+    currentPeriod !== null &&
+    (payDay !== income.pay_day || weekendRule !== income.weekend_rule)
+  const preview = useExpectedPayDatePreview(
+    budgetId,
+    { kind: 'terms', payDay, weekendRule },
+    primaryTermsChanged,
+  )
+  const arrivedDue = useArrivedUnderNewTerms({
+    currentPeriod,
+    payDay,
+    weekendRule,
+    enabled: primaryTermsChanged,
+  })
   // Periods are identified by their dates.
   const periodLabel = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
@@ -123,7 +150,13 @@ function IncomeForm({
     : []
 
   const add = useAddIncome(budgetId, { onDone: close })
-  const edit = useEditIncome(budgetId, income, { onDone: close })
+  const edit = useEditIncome(budgetId, income, {
+    onDone: () => {
+      close()
+      // R-PERIOD-037: the salary under the corrected terms may already have arrived.
+      if (arrivedDue) onSalaryMayHaveArrived?.(arrivedDue)
+    },
+  })
   const mutation = income ? edit : add
 
   const onSubmit = form.handleSubmit((values) => {
@@ -211,6 +244,7 @@ function IncomeForm({
             }}
           />
         )}
+        {primaryTermsChanged && <PayDatePreviewNotice preview={preview} arrivedDue={arrivedDue} />}
         <Alert>
           <InfoIcon aria-hidden />
           <AlertDescription>
