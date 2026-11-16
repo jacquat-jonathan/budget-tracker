@@ -798,48 +798,95 @@ as $$
   join public.periods as p on p.id = u.period_id
 $$;
 
--- Step 7: a transfer's due date in a period, written without the migration's helpers: on a
--- fixed day, walk from the period's start to the first date whose day is that day (or the
--- month's last day when shorter); from a pay date, the chosen income's first actual pay date on
--- or after the start (tests.naive_next_pay, its terms in force then), or the start itself (the
--- primary income, or a chosen one not in force), plus the offset; never after the last day.
-create or replace function tests.naive_transfer_due(p_start date, p_end date, p_seq integer, p_schedule text,
-                                                    p_offset integer, p_day integer, p_income uuid)
-returns date
+-- Step 7 (D-420 to D-424): every occurrence of a budget's transfers, written without the
+-- migration's helpers, from the stored facts only (the periods' boundaries and scheduled pay
+-- dates, each transfer's validity, first counted day and terms): a fixed-day transfer's
+-- calendar dates (tests.naive_charge_dates) in each period where it is in force, from its first
+-- counted day; a pay-date transfer's chosen income's actual pay dates in the period
+-- (tests.naive_next_pay, its terms then), due that day plus the offset, never after the period's
+-- end; otherwise one occurrence keyed by the period's scheduled pay date, due on its start plus
+-- the offset, never after its end. A key two periods give belongs to the earlier.
+create or replace function tests.naive_occurrence_candidates(budget uuid)
+returns table (transfer_id uuid, seq integer, period_id uuid, occurrence_date date, due_date date,
+               is_automatic boolean, category_id uuid, amount bigint)
 language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
 declare
+  t record;
+  p record;
+  v record;
   d date;
+  k date;
   v_pay_day integer;
   v_rule public.weekend_rule;
 begin
-  if p_schedule = 'day_of_month' then
-    d := p_start;
-    while extract(day from d)::integer
-          <> least(p_day, extract(day from (date_trunc('month', d::timestamp) + interval '1 month' - interval '1 day'))::integer) loop
-      d := d + 1;
+  for t in select x.* from public.transfers as x where x.budget_id = budget order by x.id loop
+    for p in select y.* from public.periods as y
+             where y.budget_id = budget and y.seq >= t.first_seq and (t.end_seq is null or y.seq < t.end_seq)
+             order by y.seq loop
+      select x.* into v from public.transfer_versions as x
+      where x.transfer_id = t.id and x.effective_from_seq <= p.seq order by x.effective_from_seq desc limit 1;
+      transfer_id := t.id; seq := p.seq; period_id := p.id;
+      is_automatic := v.is_automatic; category_id := v.category_id; amount := v.amount;
+      if v.schedule::text = 'day_of_month' then
+        for k in select c from tests.naive_charge_dates(v.anchor_date, v.cadence::text, v.day_of_month,
+                                                         greatest(p.start_date, t.starts_on), p.end_date) as c loop
+          occurrence_date := k; due_date := k;
+          return next;
+        end loop;
+      else
+        v_pay_day := null;
+        if v.income_id is not null then
+          select iv.pay_day, iv.weekend_rule into v_pay_day, v_rule
+          from public.incomes as i join public.income_versions as iv on iv.income_id = i.id
+          where i.id = v.income_id and i.first_seq <= p.seq and (i.end_seq is null or p.seq < i.end_seq)
+            and iv.effective_from_seq <= p.seq
+          order by iv.effective_from_seq desc limit 1;
+        end if;
+        if v_pay_day is not null then
+          d := greatest(p.start_date, t.starts_on);
+          loop
+            k := tests.naive_next_pay(d, v_pay_day, v_rule);
+            exit when k > p.end_date;
+            occurrence_date := k; due_date := least(k + v.offset_days, p.end_date);
+            return next;
+            d := k + 1;
+          end loop;
+        elsif p.pay_key is not null and p.pay_key >= t.starts_on then
+          occurrence_date := p.pay_key; due_date := least(p.start_date + v.offset_days, p.end_date);
+          return next;
+        end if;
+      end if;
     end loop;
-  else
-    select v.pay_day, v.weekend_rule into v_pay_day, v_rule
-    from public.incomes as i join public.income_versions as v on v.income_id = i.id
-    where i.id = p_income and i.first_seq <= p_seq and (i.end_seq is null or p_seq < i.end_seq)
-      and v.effective_from_seq <= p_seq
-    order by v.effective_from_seq desc limit 1;
-    d := case when v_pay_day is null then p_start else tests.naive_next_pay(p_start, v_pay_day, v_rule) end + p_offset;
-  end if;
-  return least(d, p_end);
+  end loop;
 end;
 $$;
 
--- Step 7 invariants of one budget: marks on periods of the budget, never before their
--- transfer started (they stay after its end, D-380); a mark done by the catch-up has its transaction, a mark not done or skipped none;
--- every occurrence of an automatic transfer linked to a category, due by the horizon, has a
--- mark (unless the budget is full); every due date equals the naive one; the transfers and
--- incomes satisfy the shape (accounts and categories in force); every period's money flow
--- adds up (incomes = salaries, what stays = incomes, each account's in and out = its links).
+create or replace function tests.naive_occurrences(budget uuid)
+returns table (transfer_id uuid, seq integer, period_id uuid, occurrence_date date, due_date date,
+               is_automatic boolean, category_id uuid, amount bigint)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select distinct on (c.transfer_id, c.occurrence_date) c.*
+  from tests.naive_occurrence_candidates(budget) as c
+  order by c.transfer_id, c.occurrence_date, c.seq
+$$;
+
+-- Step 7 invariants of one budget (the property walk checks them after every step, once the
+-- budget is caught up): the plan (private.transfer_plan_range) equals the naive occurrences, key,
+-- period and due date; a mark done by the catch-up has its one transaction, a mark not done or
+-- skipped none, a member's done at most one; every naive occurrence of an automatic transfer
+-- linked to a category, due by the horizon, without a mark, has its mark (unless the budget is
+-- full); no mark of the catch-up exists for anything that is not a naive occurrence due by the
+-- horizon; the transfers and incomes satisfy the shape; every period's money flow adds up
+-- (incomes = salaries, what stays = incomes, each account's in and out = its links, each
+-- transfer at its monthly share).
 create or replace function tests.moneyflow_violations(budget uuid)
 returns setof text
 language sql
@@ -849,55 +896,47 @@ set search_path = ''
 as $$
   with b as (select moneyflow_violations.budget as id),
   h as (select least(private.today(), (select max(p.end_date) from public.periods as p where p.budget_id = (select id from b))) as d),
-  occ as materialized (
-    select p.id as period_id, p.seq, p.start_date, p.end_date, t.id as transfer_id, t.name, v.*,
-           tests.naive_transfer_due(p.start_date, p.end_date, p.seq, v.schedule, v.offset_days, v.day_of_month, v.income_id) as naive_due
-    from public.periods as p
-    join public.transfers as t on t.budget_id = p.budget_id and t.first_seq <= p.seq and (t.end_seq is null or p.seq < t.end_seq)
-    cross join lateral (select x.schedule::text as schedule, x.offset_days, x.day_of_month, x.income_id, x.is_automatic,
-                               x.category_id, x.amount
-                        from public.transfer_versions as x where x.transfer_id = t.id and x.effective_from_seq <= p.seq
-                        order by x.effective_from_seq desc limit 1) as v
-    where p.budget_id = (select id from b)
+  full_budget as (select (select count(*) from public.transactions as x where x.budget_id = (select id from b))
+                           >= private.limit_transactions() as f),
+  naive as materialized (select * from tests.naive_occurrences((select id from b))),
+  plan as materialized (
+    select pl.* from private.transfer_plan_range((select id from b), null, 1,
+                                                 (select max(p.seq) from public.periods as p where p.budget_id = (select id from b))) as pl
   ),
-  plans as materialized (
-    select p.seq, pl.transfer_id, pl.due_date
-    from public.periods as p cross join lateral private.transfer_plan(p.budget_id, p.seq) as pl
-    where p.budget_id = (select id from b)
+  marks as materialized (
+    select o.*, (select count(*) from public.transactions as x where x.transfer_occurrence_id = o.id) as tx
+    from public.transfer_occurrences as o where o.budget_id = (select id from b)
   ),
   mf as materialized (
     select p.seq, m.*
     from public.periods as p cross join lateral private.money_flow(p.budget_id, p.seq) as m
     where p.budget_id = (select id from b)
   )
-  -- (D-380: a mark stays where its transfer is no longer in force; it is listed as ended)
-  select format('mark of transfer %s on period %s of another budget, or before the transfer started', o.transfer_id, p.seq)
-  from public.transfer_occurrences as o
-  join public.periods as p on p.id = o.period_id
-  join public.transfers as t on t.id = o.transfer_id
-  where o.budget_id = (select id from b) and (p.budget_id <> o.budget_id or p.seq < t.first_seq)
+  select format('transfer %s, key %s: planned in %s due %s, naive in %s due %s', coalesce(n.transfer_id, pl.transfer_id),
+                coalesce(n.occurrence_date, pl.occurrence_date), pl.seq, pl.due_date, n.seq, n.due_date)
+  from naive as n
+  full join plan as pl on pl.transfer_id = n.transfer_id and pl.occurrence_date = n.occurrence_date
+  where pl.seq is distinct from n.seq or pl.due_date is distinct from n.due_date
+     or pl.is_automatic is distinct from n.is_automatic or pl.category_id is distinct from n.category_id
+     or pl.amount is distinct from n.amount
   union all
-  select format('mark %s of transfer %s: %s transactions', o.mark, o.transfer_id, count(x.id))
-  from public.transfer_occurrences as o
-  left join public.transactions as x on x.transfer_occurrence_id = o.id
-  where o.budget_id = (select id from b)
-  group by o.id, o.mark, o.by_catch_up, o.transfer_id
-  having (o.mark = 'done' and o.by_catch_up and count(x.id) <> 1) or (o.mark <> 'done' and count(x.id) > 0)
+  select format('mark %s of transfer %s on %s (catch-up %s): %s transactions', m.mark, m.transfer_id, m.occurrence_date,
+                m.by_catch_up, m.tx)
+  from marks as m
+  where (m.mark = 'done' and m.by_catch_up and m.tx <> 1) or (m.mark <> 'done' and m.tx > 0) or m.tx > 1
   union all
-  select format('transfer %s, period %s: automatic and linked, due %s, no mark', occ.name, occ.seq, occ.naive_due)
-  from occ
-  where occ.is_automatic and occ.category_id is not null and occ.naive_due <= (select d from h)
-    and not exists (select 1 from public.transfer_occurrences as o where o.transfer_id = occ.transfer_id and o.period_id = occ.period_id)
-    and (select count(*) from public.transactions as x where x.budget_id = (select id from b)) < private.limit_transactions()
+  select format('transfer %s, key %s: automatic and linked, due %s, no transaction', n.transfer_id, n.occurrence_date, n.due_date)
+  from naive as n
+  where n.is_automatic and n.category_id is not null and n.due_date <= (select d from h)
+    and not exists (select 1 from marks as m where m.transfer_id = n.transfer_id and m.occurrence_date = n.occurrence_date)
+    and not (select f from full_budget)
   union all
-  select format('transfer %s, period %s: due %s, naive %s', occ.name, occ.seq, pl.due_date, occ.naive_due)
-  from occ
-  left join plans as pl on pl.seq = occ.seq and pl.transfer_id = occ.transfer_id
-  where pl.due_date is distinct from occ.naive_due
-  union all
-  select format('period %s: an occurrence of transfer %s not in force', pl.seq, pl.transfer_id)
-  from plans as pl
-  where not exists (select 1 from occ where occ.seq = pl.seq and occ.transfer_id = pl.transfer_id)
+  select format('transfer %s, key %s: a transaction of the catch-up for an occurrence not planned or not due', m.transfer_id,
+                m.occurrence_date)
+  from marks as m
+  where m.by_catch_up
+    and not exists (select 1 from naive as n where n.transfer_id = m.transfer_id and n.occurrence_date = m.occurrence_date
+                                              and n.due_date <= (select d from h))
   union all
   select format('%s %s: %s', k.kind, k.id, private.moneyflow_shape_violation(k.kind, k.id))
   from (select 'transfer' as kind, t.id from public.transfers as t where t.budget_id = (select id from b)
@@ -918,6 +957,16 @@ as $$
   cross join lateral (select coalesce(sum(m.amount), 0) as s from mf as m
                       where m.seq = a.seq and m.row_kind = 'transfer' and m.source_id = a.id) as o
   where a.row_kind = 'account' and (a.inflow <> i.s or a.outflow <> o.s)
+  union all
+  select format('period %s: transfer %s at %s, its monthly share is %s', t.seq, t.name, t.amount,
+                case when t.cadence is null or t.cadence = 'monthly' then t.planned_amount
+                     when t.cadence = 'quarterly' then (2 * t.planned_amount + 3) / 6
+                     else (2 * t.planned_amount + 12) / 24 end)
+  from mf as t
+  where t.row_kind = 'transfer'
+    and t.amount <> case when t.cadence is null or t.cadence = 'monthly' then t.planned_amount
+                         when t.cadence = 'quarterly' then (2 * t.planned_amount + 3) / 6
+                         else (2 * t.planned_amount + 12) / 24 end
 $$;
 
 grant execute on all functions in schema tests to anon, authenticated;
