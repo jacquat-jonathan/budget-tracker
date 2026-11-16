@@ -5,10 +5,11 @@
 -- one undo out of every state; the monthly share; the bounded catch-up step. The reviewer's
 -- reproductions (M2, M3, R6, R7, the Q-224 cases) are here with what the bank did as expected.
 begin;
-select plan(109);
+select plan(143);
 
 select tests.create_user('gina', 'Gina');
 select tests.create_user('hugo', 'Hugo');
+select tests.create_user('gina2', 'Gina too');
 select tests.set_today('2026-11-16');
 select tests.authenticate_as('gina');
 
@@ -17,7 +18,7 @@ create function pg_temp.day(d date) returns void language plpgsql as $$
 begin
   perform tests.clear_authentication();
   perform tests.set_today(d);
-  perform tests.authenticate_as('gina');
+  perform tests.authenticate_as(coalesce(nullif(current_setting('test.actor', true), ''), 'gina'));
 end $$;
 create function pg_temp.budget(n text) returns void language plpgsql as $$
 declare
@@ -484,6 +485,183 @@ select lives_ok(format($$select public.move_period_start(%L, %s, '2026-10-27')$$
                        (select revision from public.periods where id = tests.id('v_p2'))), 'R-ACCOUNT-303: (the move)');
 select is((select count(*)::integer from pg_temp.txs(tests.id('v_d'))), 0, 'R-ACCOUNT-302: as its preview said');
 select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('v')), 'R-ACCOUNT-302: the invariants hold');
+
+-- ===========================================================================
+-- Edges: the first counted day, capped pay dates, keys given twice, dues that move, marks
+-- that stay, the monthly share of what is in force (R-ACCOUNT-300 to R-ACCOUNT-305, D-421)
+-- ===========================================================================
+-- (another member's budgets: one owns at most 20)
+select set_config('test.actor', 'gina2', false);
+-- a fixed day with a first date in the past, created in a period that is then reopened: nothing
+-- before its first counted day
+select pg_temp.budget('e1');
+select pg_temp.day('2026-11-26');
+select public.ensure_periods(tests.id('e1'));
+select tests.remember('e1_p3', pg_temp.period_at(tests.id('e1'), '2026-11-26'));
+select tests.remember('e1_t', (select id from public.create_transfer(tests.id('e1'), 'Monthly', tests.id('e1_main'), tests.id('e1_sav'),
+  100, 'day_of_month', p_is_automatic => true, p_category_id => tests.id('e1_cat'), p_first_date => '2026-11-01')));
+select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('e1'), tests.id('e1_p3'),
+                       (select revision from public.periods where id = tests.id('e1_p3'))), 'R-ACCOUNT-306: (reopened)');
+select results_eq(
+  format($$select occurrence_date, status from public.get_transfer_checklist(%L) where transfer_id = %L$$, tests.id('e1_p2'), tests.id('e1_t')),
+  $$values ('2026-12-01'::date, 'upcoming')$$,
+  'R-ACCOUNT-305: the reopened period has no occurrence before the transfer''s first counted day (1 November), only 1 December');
+-- a chosen income's pay date plus the offset is capped at its period's end
+select pg_temp.budget('e2');
+select tests.remember('e2_inc', public.add_income(tests.id('e2'), 'Partner', 300000, 15, 'none', null, tests.id('e2_p1')));
+select tests.remember('e2_t', (select id from public.create_transfer(tests.id('e2'), 'Late', tests.id('e2_main'), tests.id('e2_sav'),
+  100, 'pay_date', 31, null, tests.id('e2_inc'))));
+select results_eq(
+  format($$select occurrence_date, due_date from public.get_transfer_checklist(%L) where transfer_id = %L$$, tests.id('e2_p2'), tests.id('e2_t')),
+  $$values ('2026-11-15'::date, '2026-11-24'::date)$$,
+  'R-ACCOUNT-301: a pay date plus the offset, never after the end of the period containing the pay date');
+-- a key two periods give (the chosen income, then the primary one after a late salary) belongs
+-- to the earlier period
+select pg_temp.budget('e3');
+select tests.remember('e3_inc', public.add_income(tests.id('e3'), 'Partner', 300000, 25, 'none', null, tests.id('e3_p1')));
+select tests.remember('e3_t', (select id from public.create_transfer(tests.id('e3'), 'Partner''s', tests.id('e3_main'), tests.id('e3_sav'),
+  100, 'pay_date', 0, null, tests.id('e3_inc'), false, null, tests.id('e3_p1'))));
+select lives_ok(format($$select * from public.set_expected_pay_date(%L, %L, %s, '2026-11-28')$$, tests.id('e3'), tests.id('e3_p2'),
+                       (select revision from public.periods where id = tests.id('e3_p2'))), 'R-ACCOUNT-301: (the salary is expected late)');
+select pg_temp.day('2026-11-28');
+select public.ensure_periods(tests.id('e3'));
+select tests.remember('e3_p3', pg_temp.period_at(tests.id('e3'), '2026-11-28'));
+select is(public.remove_income(tests.id('e3_inc'), (select revision from public.incomes where id = tests.id('e3_inc'))), 'ended',
+  'R-ACCOUNT-071: (the partner''s income ends: the transfer follows the primary income)');
+select results_eq(
+  format($$select (select string_agg(occurrence_date::text, ',' order by occurrence_date) from public.get_transfer_checklist(%1$L) where transfer_id = %3$L),
+                  (select count(*)::integer from public.get_transfer_checklist(%2$L) where transfer_id = %3$L)$$,
+         tests.id('e3_p2'), tests.id('e3_p3'), tests.id('e3_t')),
+  $$values ('2026-10-25,2026-11-25', 0)$$,
+  'R-ACCOUNT-301: the 25th of November, the partner''s pay date and the primary''s scheduled one, is one occurrence, of the earlier period');
+-- a salary recorded more than 15 days early, then the next on its scheduled day: that key once
+select pg_temp.budget('e4');
+select tests.remember('e4_t', (select id from public.create_transfer(tests.id('e4'), 'Payday', tests.id('e4_main'), tests.id('e4_sav'),
+  100, 'pay_date', p_from_period_id => tests.id('e4_p1'))));
+select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, '2026-11-09')$$, tests.id('e4'), tests.id('e4_p2'),
+                       (select revision from public.periods where id = tests.id('e4_p2'))), 'R-ACCOUNT-302: (a salary 16 days early)');
+select pg_temp.day('2026-11-26');
+select public.ensure_periods(tests.id('e4'));
+select results_eq(
+  format($$select p.start_date, p.pay_key, (select string_agg(c.occurrence_date::text, ',') from public.get_transfer_checklist(p.id) as c where c.transfer_id = %L)
+           from public.periods as p where p.budget_id = %L and p.seq >= 3 order by p.seq$$, tests.id('e4_t'), tests.id('e4')),
+  $$values ('2026-11-09'::date, '2026-11-25'::date, '2026-11-25'), ('2026-11-25'::date, null::date, null)$$,
+  'R-ACCOUNT-302: the next period, created on the scheduled day the early salary already took, gets no key and no occurrence');
+-- a due date that moves after today: the catch-up's transaction goes until it is due again
+select pg_temp.budget('e5');
+select tests.remember('e5_inc', public.add_income(tests.id('e5'), 'Partner', 300000, 20, 'none', null, tests.id('e5_p1')));
+select tests.remember('e5_t', (select id from public.create_transfer(tests.id('e5'), 'Partner + 5', tests.id('e5_main'), tests.id('e5_sav'),
+  100, 'pay_date', 5, null, tests.id('e5_inc'), true, tests.id('e5_cat'), tests.id('e5_p1'))));
+select pg_temp.day('2026-11-23');
+select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, '2026-11-23')$$, tests.id('e5'), tests.id('e5_p2'),
+                       (select revision from public.periods where id = tests.id('e5_p2'))), 'R-ACCOUNT-302: (the salary comes on the 23rd)');
+select results_eq(format($$select occurrence_date, date from pg_temp.txs(%L) where occurrence_date = '2026-11-20'$$, tests.id('e5_t')),
+  $$values ('2026-11-20'::date, '2026-11-22'::date)$$,
+  'R-ACCOUNT-301: (due on the period''s last day, the 22nd: made)');
+select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('e5'),
+                       pg_temp.period_at(tests.id('e5'), '2026-11-23'),
+                       (select revision from public.periods where id = pg_temp.period_at(tests.id('e5'), '2026-11-23'))),
+  'R-ACCOUNT-302: (it has not come: reopen; the period now ends on the 24th)');
+select is((select count(*)::integer from pg_temp.txs(tests.id('e5_t')) where occurrence_date = '2026-11-20'), 0,
+  'R-ACCOUNT-302: the occurrence is due on the 24th now: the catch-up''s transaction goes until then');
+select pg_temp.day('2026-11-24');
+select public.ensure_periods(tests.id('e5'));
+select results_eq(format($$select date from pg_temp.txs(%L) where occurrence_date = '2026-11-20'$$, tests.id('e5_t')),
+  $$values ('2026-11-24'::date)$$, 'R-ACCOUNT-302: and comes back on its due date, once');
+-- a member's done stays when the transfer is made automatic: not done asks for undo first
+select pg_temp.budget('e6');
+select tests.remember('e6_t', (select id from public.create_transfer(tests.id('e6'), 'By hand', tests.id('e6_main'), tests.id('e6_sav'),
+  100, 'day_of_month', p_day_of_month => 1, p_category_id => tests.id('e6_cat'))));
+select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('e6_t'), tests.id('e6_p2')), 'R-ACCOUNT-305: (done)');
+select lives_ok(format($$select * from public.update_transfer(%L, 1, p_is_automatic => true)$$, tests.id('e6_t')), 'R-ACCOUNT-305: (made automatic)');
+select throws_ok(format($$select * from public.mark_transfer_not_done(%L, %L, 1)$$, tests.id('e6_t'), tests.id('e6_p2')),
+  'P0001', 'transfer_already_marked', 'R-ACCOUNT-305: a member''s done stays: not done is refused until it is undone');
+-- created in a period whose salary came late: its payday is its own (the first counted day is
+-- the scheduled pay date)
+select pg_temp.budget('e7');
+select lives_ok(format($$select * from public.set_expected_pay_date(%L, %L, %s, '2026-11-28')$$, tests.id('e7'), tests.id('e7_p2'),
+                       (select revision from public.periods where id = tests.id('e7_p2'))), 'R-ACCOUNT-302: (the salary is expected on the 28th)');
+select pg_temp.day('2026-11-28');
+select public.ensure_periods(tests.id('e7'));
+select tests.remember('e7_t', (select id from public.create_transfer(tests.id('e7'), 'Payday', tests.id('e7_main'), tests.id('e7_sav'), 100, 'pay_date')));
+select results_eq(
+  format($$select t.starts_on, c.occurrence_date, c.due_date from public.transfers as t
+           cross join lateral public.get_transfer_checklist(%L) as c where t.id = %L and c.transfer_id = t.id$$,
+         pg_temp.period_at(tests.id('e7'), '2026-11-28'), tests.id('e7_t')),
+  $$values ('2026-11-25'::date, '2026-11-25'::date, '2026-11-28'::date)$$,
+  'R-ACCOUNT-305: created in a period whose salary came late, it counts from the scheduled pay date, so that payday is its own');
+-- a new day keeps a yearly transfer's month
+select pg_temp.budget('e8');
+select tests.remember('e8_t', (select id from public.create_transfer(tests.id('e8'), 'Yearly', tests.id('e8_main'), tests.id('e8_sav'),
+  100, 'day_of_month', p_cadence => 'yearly', p_first_date => '2026-12-20')));
+select results_eq(
+  format($$select first_date, day_of_month, next_due_date from public.update_transfer(%L, 1, p_day_of_month => 10)$$, tests.id('e8_t')),
+  $$values ('2026-12-10'::date, 10, '2026-12-10'::date)$$,
+  'R-ACCOUNT-300: a new day without a first date keeps the schedule''s phase (December stays its month)');
+-- a preview whose terms govern no occurrence carries its counts in one row
+select pg_temp.budget('e9');
+select lives_ok(format($$select * from public.set_budget_end_date(%L, %s, '2026-11-20')$$, tests.id('e9'),
+                       (select revision from public.budgets where id = tests.id('e9'))), 'R-BUDGET-008: (the budget ends this period)');
+select tests.remember('e9_t', (select id from public.create_transfer(tests.id('e9'), 'Spring', tests.id('e9_main'), tests.id('e9_sav'),
+  100, 'day_of_month', p_cadence => 'yearly', p_first_date => '2027-03-01')));
+select results_eq(
+  format($$select occurrence_date, created_at_once_count, transactions_removed_count, marks_unplanned_count
+           from public.preview_update_transfer(%L, p_amount => 5)$$, tests.id('e9_t')),
+  $$values (null::date, 0, 0, 0)$$,
+  'R-ACCOUNT-303: terms that govern no occurrence: one row with the counts only');
+-- committed: what is in force in the period, at the terms then; category_overview the terms now
+select pg_temp.budget('e10');
+select tests.remember('e10_a', (select id from public.create_transfer(tests.id('e10'), 'A', tests.id('e10_main'), tests.id('e10_sav'),
+  1000, 'pay_date', p_category_id => tests.id('e10_cat'), p_from_period_id => tests.id('e10_p1'))));
+select tests.remember('e10_b', (select id from public.create_transfer(tests.id('e10'), 'B', tests.id('e10_main'), tests.id('e10_sav'),
+  2000, 'pay_date', p_category_id => tests.id('e10_cat'), p_from_period_id => tests.id('e10_p1'))));
+select is(public.end_transfer(tests.id('e10_b'), 1), 'ended', 'R-ACCOUNT-238: (B ends from the current period)');
+select lives_ok(format($$select * from public.update_transfer(%L, 1, p_amount => 4000)$$, tests.id('e10_a')), 'R-ACCOUNT-238: (A from now: 4000)');
+select results_eq(
+  format($$select (select transfer_committed_total from public.period_summaries where id = %L),
+                  (select transfer_committed_total from public.period_summaries where id = %L),
+                  (select transfer_committed_amount from public.category_overview where id = %L)$$,
+         tests.id('e10_p1'), tests.id('e10_p2'), tests.id('e10_cat')),
+  $$values (3000::bigint, 4000::bigint, 4000::bigint)$$,
+  'R-ACCOUNT-238: committed: the transfers in force in each period at their terms then (an ended one no more), and now');
+-- past use never blocks closing an account; one a transfer named is ended, never deleted
+select pg_temp.budget('e12');
+select tests.remember('e12_old', (select id from public.create_account(tests.id('e12'), 'Old', 'savings', p_from_period_id => tests.id('e12_p1'))));
+select tests.remember('e12_t', (select id from public.create_transfer(tests.id('e12'), 'Past', tests.id('e12_main'), tests.id('e12_old'),
+  100, 'day_of_month', p_day_of_month => 1, p_from_period_id => tests.id('e12_p1'))));
+select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('e12_t'), tests.id('e12_p1')), 'R-ACCOUNT-232: (setup)');
+select is(public.end_transfer(tests.id('e12_t'), 1), 'ended', 'R-ACCOUNT-232: (setup: the transfer ends from now)');
+select is(public.close_account(tests.id('e12_old'), 1), 'ended',
+  'R-ACCOUNT-232: an account used only in the past can close; it is ended, not deleted');
+select tests.remember('e12_new', (select id from public.create_account(tests.id('e12'), 'New', 'cash')));
+select tests.remember('e12_v', (select id from public.create_transfer(tests.id('e12'), 'Void', tests.id('e12_main'), tests.id('e12_new'),
+  100, 'day_of_month', p_day_of_month => 1)));
+select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('e12_v'), tests.id('e12_p2')), 'R-ACCOUNT-232: (setup)');
+select is(public.end_transfer(tests.id('e12_v'), 1), 'ended', 'R-ACCOUNT-232: (setup: kept void, its terms naming the account)');
+select is(public.close_account(tests.id('e12_new'), 1), 'ended',
+  'R-ACCOUNT-232: an account a transfer named is ended, never deleted, even closed from its first period');
+-- the subscriptions' catch-up is bounded per step too
+select pg_temp.budget('e11');
+select tests.remember('e11_s', (select id from public.create_subscription(tests.id('e11'), 'Monthly', 1000, 'monthly', tests.id('e11_cat'), '2026-11-17')));
+select tests.clear_authentication();
+create or replace function private.limit_catch_up_transactions() returns integer language sql immutable set search_path = '' as $f$ select 1 $f$;
+select tests.set_today('2027-03-20');
+select tests.authenticate_as('gina2');
+select ok(public.ensure_periods(tests.id('e11')) > 0, 'R-PERIOD-300: (a step)');
+select results_eq(
+  format($$select (select count(*)::integer from public.transactions where subscription_id = %L),
+                  (select caught_up from public.my_budgets where id = %L)$$, tests.id('e11_s'), tests.id('e11')),
+  $$values (1, false)$$,
+  'R-PERIOD-300: the subscriptions'' charges too: one step makes at most its bound, the rest stays due');
+select ok(public.ensure_periods(tests.id('e11')) > 0, 'R-PERIOD-300: a step that stops early never answers 0');
+select tests.clear_authentication();
+create or replace function private.limit_catch_up_transactions() returns integer language sql immutable set search_path = '' as $f$ select 4000 $f$;
+select tests.authenticate_as('gina2');
+select public.ensure_periods(tests.id('e11'));
+select is((select count(*)::integer from public.transactions where subscription_id = tests.id('e11_s')), 5,
+  'R-PERIOD-300: none skipped, none twice (17 November to 17 March)');
+select set_config('test.actor', 'gina', false);
+select pg_temp.day('2026-11-16');
 
 -- ===========================================================================
 -- At most 1000 rows in a checklist (R-APP-170)
