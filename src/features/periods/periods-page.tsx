@@ -127,10 +127,11 @@ export function PeriodsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requested = searchParams.get('record') === 'early' ? searchParams.get('date') : null
   const currentRow = current.data
-  useEffect(() => {
-    if (!requested || !currentRow) return
-    setSearchParams({}, { replace: true })
+  if (requested && currentRow && action === null) {
     setAction({ kind: 'early', period: currentRow, date: requested })
+  }
+  useEffect(() => {
+    if (requested && currentRow) setSearchParams({}, { replace: true })
   }, [requested, currentRow, setSearchParams])
   const close = () => setAction(null)
   const open = (next: Action) => {

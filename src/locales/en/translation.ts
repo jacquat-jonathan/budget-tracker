@@ -380,6 +380,25 @@ export const en = {
       'The new terms apply from the period you chose until the next change already recorded: the totals of those periods change.',
     editPrimaryNote:
       'This is the primary income: no period that has started moves. Only the current period’s expected end follows the new pay date (unless you set it by hand), never before today.',
+    primaryTitle: 'Make “{{name}}” the primary income?',
+    primaryDescription:
+      'Periods then follow this income’s pay day. Periods that have started do not move.',
+    preview: {
+      checking: 'Checking when the next salary would be expected…',
+      failed: 'Could not check when the next salary would be expected: {{reason}}',
+      expected:
+        'The next salary would then be expected on {{date}}: the current period would end on {{end}}.',
+      manual: 'The current period’s end was set by hand and stays as set: {{end}}.',
+      arrivedDue:
+        'With this pay day, this month’s salary was due on {{date}}. After saving, you will be asked whether it has already arrived.',
+    },
+    arrivedPrompt: {
+      title: 'Has this salary already arrived?',
+      description:
+        'With the new pay day, this month’s salary was due on {{date}}. If it has arrived, record it: otherwise the current period runs on until next month’s salary.',
+      notYet: 'Not yet',
+      record: 'Record the pay date',
+    },
     savedNextExpected: 'Income “{{name}}” saved. The next salary is now expected on {{date}}.',
     madePrimaryNextExpected:
       '“{{name}}” is now the primary income. The next salary is now expected on {{date}}.',
@@ -509,8 +528,26 @@ export const en = {
       },
     },
     thisPeriod: 'This period: {{start}} – {{end}}.',
-    reopenMoves:
-      'What was recorded in this period (income changes, incomes added or ended, a primary switch) moves to the reopened period.',
+    reopen: {
+      title: 'What was recorded in this period will apply to the reopened period:',
+      nothing: 'Nothing was recorded in this period: only the dates change.',
+      failed: 'Could not list what this period holds: {{reason}}',
+      kinds: {
+        income: 'Income “{{name}}”',
+        other: '“{{name}}”',
+      },
+      changes: {
+        added: 'added in this period, it will count from the reopened period.',
+        ended: 'its end will apply from the reopened period.',
+        removed: 'it will disappear: it would never be in force.',
+        terms_changed: 'its new terms will apply to the reopened period.',
+        made_primary: 'it becomes the primary income from the reopened period.',
+        other: 'this change will move to the reopened period.',
+      },
+      replaces: 'It replaces what the reopened period had for it.',
+      datesOnly:
+        'Recording this salary again later (“The salary arrived early”) restores the dates only, not these changes.',
+    },
     preview: {
       expected:
         'This period will end on {{end}}; the next one starts when the salary arrives on {{date}}.',
@@ -526,7 +563,7 @@ export const en = {
       expected: 'To undo: set another date, or reset it to the projection.',
       resetExpected: 'To undo: set the expected date again.',
       early: 'To undo: on the new period, use “This period’s salary has not arrived yet”.',
-      reopen: 'To undo: use “The salary arrived early” with {{date}}.',
+      reopen: 'To undo the dates: use “The salary arrived early” with {{date}}.',
       moveStart: 'To undo: move it back to {{date}}.',
     },
     saved: 'Periods updated.',

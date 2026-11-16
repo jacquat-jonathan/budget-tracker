@@ -402,6 +402,26 @@ export const fr: Translation = {
       'Les nouvelles conditions s’appliquent dès la période choisie jusqu’au prochain changement déjà enregistré : les totaux de ces périodes changent.',
     editPrimaryNote:
       'C’est le revenu principal : aucune période déjà commencée ne bouge. Seule la fin prévue de la période en cours suit la nouvelle date de paie (sauf si vous l’avez fixée à la main), jamais avant aujourd’hui.',
+    primaryTitle: 'Faire de « {{name}} » le revenu principal ?',
+    primaryDescription:
+      'Les périodes suivent alors le jour de paie de ce revenu. Les périodes déjà commencées ne bougent pas.',
+    preview: {
+      checking: 'Vérification de la date du prochain salaire…',
+      failed: 'Impossible de vérifier la date du prochain salaire : {{reason}}',
+      expected:
+        'Le prochain salaire serait alors attendu le {{date}} : la période en cours se terminerait le {{end}}.',
+      manual:
+        'La fin de la période en cours a été fixée à la main et reste telle quelle : {{end}}.',
+      arrivedDue:
+        'Avec ce jour de paie, le salaire de ce mois était dû le {{date}}. Après l’enregistrement, on vous demandera s’il est déjà arrivé.',
+    },
+    arrivedPrompt: {
+      title: 'Ce salaire est-il déjà arrivé ?',
+      description:
+        'Avec le nouveau jour de paie, le salaire de ce mois était dû le {{date}}. S’il est arrivé, enregistrez-le ; sinon, la période en cours continue jusqu’au salaire du mois prochain.',
+      notYet: 'Pas encore',
+      record: 'Enregistrer la date de paie',
+    },
     savedNextExpected:
       'Revenu « {{name}} » enregistré. Le prochain salaire est désormais attendu le {{date}}.',
     madePrimaryNextExpected:
@@ -536,8 +556,26 @@ export const fr: Translation = {
       },
     },
     thisPeriod: 'Cette période : du {{start}} au {{end}}.',
-    reopenMoves:
-      'Ce qui a été enregistré dans cette période (changements de revenus, revenus ajoutés ou terminés, changement de revenu principal) passe à la période rouverte.',
+    reopen: {
+      title: 'Ce qui a été enregistré dans cette période s’appliquera à la période rouverte :',
+      nothing: 'Rien n’a été enregistré dans cette période : seules les dates changent.',
+      failed: 'Impossible de lister le contenu de cette période : {{reason}}',
+      kinds: {
+        income: 'Revenu « {{name}} »',
+        other: '« {{name}} »',
+      },
+      changes: {
+        added: 'ajouté dans cette période, il comptera dès la période rouverte.',
+        ended: 'sa fin s’appliquera dès la période rouverte.',
+        removed: 'il disparaîtra : il ne serait jamais en vigueur.',
+        terms_changed: 'ses nouvelles conditions s’appliqueront à la période rouverte.',
+        made_primary: 'il devient le revenu principal dès la période rouverte.',
+        other: 'ce changement passera à la période rouverte.',
+      },
+      replaces: 'Il remplace ce que la période rouverte avait pour lui.',
+      datesOnly:
+        'Enregistrer de nouveau ce salaire plus tard (« Le salaire est arrivé en avance ») rétablit seulement les dates, pas ces changements.',
+    },
     preview: {
       expected:
         'Cette période se terminera le {{end}} ; la suivante commencera à l’arrivée du salaire le {{date}}.',
@@ -556,7 +594,8 @@ export const fr: Translation = {
       resetExpected: 'Pour annuler : indiquez de nouveau la date attendue.',
       early:
         'Pour annuler : sur la nouvelle période, utilisez « Le salaire de cette période n’est pas encore arrivé ».',
-      reopen: 'Pour annuler : utilisez « Le salaire est arrivé en avance » avec le {{date}}.',
+      reopen:
+        'Pour annuler les dates : utilisez « Le salaire est arrivé en avance » avec le {{date}}.',
       moveStart: 'Pour annuler : remettez-la au {{date}}.',
     },
     saved: 'Périodes mises à jour.',
