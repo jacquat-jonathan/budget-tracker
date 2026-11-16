@@ -3,7 +3,7 @@
 -- commits throwaway users and budgets, and deletes them at the end (and at the start, should
 -- an earlier run have failed half-way). The main transaction only observes and rolls back.
 begin;
-select plan(21);
+select plan(23);
 
 create extension if not exists dblink with schema extensions;
 
@@ -178,6 +178,38 @@ select is(
   '0',
   'R-INVITE-010: so the cancelled invitee did not become a member'
 );
+
+-- ===========================================================================
+-- Accepting while the owner re-invites the same address: one lock order, no deadlock
+-- ===========================================================================
+insert into ids values ('reinvitee', pg_temp.mkuser('reinvitee'));
+select pg_temp.act_as('setup', (select id from ids where name = 'owner'));
+insert into ids values ('inv_re', pg_temp.q('setup', format(
+  'select public.invite_member(%L, %L)::text',
+  (select id from ids where name = 'budget'),
+  (select email from auth.users where id = (select id from ids where name = 'reinvitee'))))::uuid);
+select extensions.dblink_exec('setup', 'reset role');
+-- Session one holds the budget lock (as an RPC in progress would) ...
+select extensions.dblink_exec('one', 'reset role');
+select extensions.dblink_exec('one', 'begin');
+select pg_temp.q('one', format('select (private.lock_budget(%L)).id::text', (select id from ids where name = 'budget')));
+-- ... the invitee accepts (and must wait for the budget lock before touching the row) ...
+select pg_temp.act_as('two', (select id from ids where name = 'reinvitee'));
+select pg_temp.send_and_wait('two', format('select public.accept_invitation(%L)::text', (select id from ids where name = 'inv_re')));
+-- ... and the owner, in session one, re-invites the address, which updates that row.
+select extensions.dblink_exec('one', format(
+  'set request.jwt.claims to %L; set role authenticated',
+  json_build_object('sub', (select id from ids where name = 'owner'), 'role', 'authenticated')));
+select is(
+  pg_temp.q('one', format('select public.invite_member(%L, %L)::text',
+    (select id from ids where name = 'budget'),
+    (select email from auth.users where id = (select id from ids where name = 'reinvitee')))),
+  (select id::text from ids where name = 'inv_re'),
+  'R-INVITE-011: the owner''s re-invite does not deadlock with the accept'
+);
+select extensions.dblink_exec('one', 'commit');
+select is(pg_temp.result('two'), (select id::text from ids where name = 'budget'),
+  'R-INVITE-011: and the accept then succeeds');
 
 -- ===========================================================================
 -- Two invitees accepting the last free place
