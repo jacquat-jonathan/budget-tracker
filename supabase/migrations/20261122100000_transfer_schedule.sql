@@ -34,9 +34,6 @@ declare
   v_ids uuid[];
   v_id uuid;
 begin
-  -- membership first, before the request id, the catch-up gate and the lock: a replay answers
-  -- only to a current member (D-390)
-  perform private.assert_member(p_budget_id);
   if p_client_id is null then
     v_id := private.create_transfer_core(p_budget_id, p_name, p_from_account_id, p_to_account_id, p_amount, p_schedule,
       p_offset_days, p_day_of_month, p_income_id, p_is_automatic, p_category_id, p_from_period_id, p_cadence, p_first_date);
@@ -46,10 +43,12 @@ begin
   v_digest := private.client_request_digest(pg_catalog.jsonb_build_array(p_name, p_from_account_id, p_to_account_id, p_amount,
     p_schedule, p_offset_days, p_day_of_month, p_income_id, p_is_automatic, p_category_id, p_from_period_id, p_cadence,
     p_first_date));
+  -- like every guarded call: membership, the catch-up gate, the lock, membership again, then the
+  -- request id; a replay answers a current member only rows of this budget (D-390)
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'create_transfer', v_digest);
   if v_ids is not null then
-    return query select t.* from public.transfer_overview as t where t.id = any (v_ids);
+    return query select t.* from public.transfer_overview as t where t.id = any (v_ids) and t.budget_id = p_budget_id;
     return;
   end if;
   v_id := private.create_transfer_core(p_budget_id, p_name, p_from_account_id, p_to_account_id, p_amount, p_schedule,

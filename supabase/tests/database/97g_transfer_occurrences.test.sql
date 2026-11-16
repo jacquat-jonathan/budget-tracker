@@ -5,7 +5,7 @@
 -- one undo out of every state; the monthly share; the bounded catch-up step. The reviewer's
 -- reproductions (M2, M3, R6, R7, the Q-224 cases) are here with what the bank did as expected.
 begin;
-select plan(153);
+select plan(154);
 
 select tests.create_user('gina', 'Gina');
 select tests.create_user('hugo', 'Hugo');
@@ -737,12 +737,18 @@ select public.accept_invitation(tests.id('rm_inv'));
 select tests.remember('rm_req', extensions.gen_random_uuid());
 select tests.remember('rm_t', (select id from public.create_transfer(tests.id('rm'), 'Retried', tests.id('rm_main'), tests.id('rm_sav'),
   100, 'pay_date', p_client_id => tests.id('rm_req'))));
+select tests.remember('rm_areq', extensions.gen_random_uuid());
+select tests.remember('rm_a', (select id from public.create_account(tests.id('rm'), 'Retried account', 'savings',
+  p_client_id => tests.id('rm_areq'))));
 select tests.authenticate_as('gina');
 select lives_ok(format($$select public.remove_member(%L, %L)$$, tests.id('rm'), tests.get_user_id('gina2')), 'R-SECURITY-002: (gina2 removed)');
 select tests.authenticate_as('gina2');
 select throws_ok(format($$select * from public.create_transfer(%L, 'Retried', %L, %L, 100, 'pay_date', p_client_id => %L)$$,
                         tests.id('rm'), tests.id('rm_main'), tests.id('rm_sav'), tests.id('rm_req')),
   'P0001', 'budget_not_found', 'R-SECURITY-002: a removed member replaying a create_transfer is refused before the request is looked up');
+select throws_ok(format($$select * from public.create_account(%L, 'Retried account', 'savings', p_client_id => %L)$$,
+                        tests.id('rm'), tests.id('rm_areq')),
+  'P0001', 'budget_not_found', 'R-SECURITY-002: a removed member replaying a create_account is refused before the request is looked up');
 select tests.clear_authentication();
 
 -- ===========================================================================

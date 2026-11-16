@@ -1800,6 +1800,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"forget_import_choice":
+{ Args: { "p_budget_id": string,"p_counterparty_key": string,"p_flag": string }; Returns: boolean
+                           },
 "get_category_terms":
 { Args: { "p_category_id": string,"p_period_id": string }; Returns: {
               "amount": number,"cadence": Database["public"]['Enums']["expectation_cadence"],"in_force": boolean,"period_id": string,"terms_from_period_id": string,"until_period_id": string
@@ -1850,6 +1853,37 @@ isOneToOne: false
               "category_id": string,"in_force": boolean,"interest_rate": number,"monthly_payment": number,"period_id": string,"terms_from_period_id": string,"until_period_id": string
             }[]
                            },
+"get_import_batch":
+{ Args: { "p_batch_id": string }; Returns: {
+              "budget_id": string,
+"charges_confirmed_count": number,
+"chosen_skip_count": number,
+"chunk_count": number,
+"created_at": string,
+"created_by": string | null,
+"created_by_name": string | null,
+"duplicate_count": number,
+"flagged_count": number,
+"id": string,
+"imported_count": number,
+"invalid_count": number,
+"matched_count": number,
+"row_count": number,
+"source": string,
+"statement_from": string | null,
+"statement_to": string | null,
+"to_review_count": number | null,
+"token_id": string | null,
+"token_name": string | null,
+"undone_at": string | null,
+"undone_by": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "import_batch_list"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "get_income_terms":
 { Args: { "p_income_id": string,"p_period_id": string }; Returns: {
               "account_id": string,"amount": number,"in_force": boolean,"pay_day": number,"period_id": string,"terms_from_period_id": string,"until_period_id": string,"weekend_rule": Database["public"]['Enums']["weekend_rule"]
@@ -1921,7 +1955,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "import_with_token":
-{ Args: { "p_batch_id": string,"p_chunk": number,"p_rows": Json,"p_source"?: string,"p_statement_from"?: string,"p_statement_to"?: string,"p_token": string }; Returns: {
+{ Args: { "p_batch_id": string,"p_chunk": string,"p_rows": Json,"p_source"?: string,"p_statement_from"?: string,"p_statement_to"?: string,"p_token": string }; Returns: {
               "error": string,"received": number,"refused": number,"refused_rows": Json
             }[]
                            },
@@ -2220,6 +2254,14 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"preview_import_part":
+{ Args: { "p_batch_id": string,"p_budget_id": string,"p_part": number,"p_rows": Json }; Returns: Json
+                           },
+"preview_merchant_rule":
+{ Args: { "p_budget_id": string,"p_category_id"?: string,"p_fragment": string }; Returns: {
+              "covered_by_fragment": string,"covered_by_rule_id": string,"fragment": string,"rule_exists": boolean,"would_move": number
+            }[]
+                           },
 "preview_move_period_start":
 { Args: { "p_period_id": string,"p_start_date"?: string }; Returns: {
               "accepted": boolean,"interest_removed": number,"period_id": string,"refusal": string,"scheduled_start": string,"transfer_marks_unplanned": number,"transfer_transactions_created": number,"transfer_transactions_removed": number
@@ -2669,7 +2711,7 @@ isOneToOne: false
                       },"debt_history_row": {
                         "entry_id": string | null,"kind": string | null,"date": string | null,"amount": number | null,"balance": number | null,"period_id": string | null,"description": string | null,"created_at": string | null
                       },"import_row_result": {
-                        "row_no": number | null,"valid": boolean | null,"reason": string | null,"action": string | null,"kind": Database["public"]['Enums']["transaction_kind"] | null,"category_id": string | null,"category_source": string | null,"rule_id": string | null,"date": string | null,"amount": number | null,"direction": string | null,"description": string | null,"merchant_key": string | null,"flag": string | null,"remembered_choice": string | null,"duplicate_of": string | null,"match_of": string | null,"match_is_charge": boolean | null,"salary_income_id": string | null,"salary_income_amount": number | null,"transaction_id": string | null,"chunk": number | null
+                        "row_no": number | null,"valid": boolean | null,"reason": string | null,"action": string | null,"kind": Database["public"]['Enums']["transaction_kind"] | null,"category_id": string | null,"category_source": string | null,"rule_id": string | null,"date": string | null,"amount": number | null,"direction": string | null,"description": string | null,"merchant_key": string | null,"flag": string | null,"remembered_choice": string | null,"duplicate_of": string | null,"match_of": string | null,"match_is_charge": boolean | null,"salary_income_id": string | null,"salary_income_amount": number | null,"transaction_id": string | null,"chunk": number | null,"choice_key": string | null
                       },"transfer_checklist_row": {
                         "transfer_id": string | null,"period_id": string | null,"occurrence_date": string | null,"name": string | null,"from_account_id": string | null,"from_account_name": string | null,"to_account_id": string | null,"to_account_name": string | null,"amount": number | null,"due_date": string | null,"is_automatic": boolean | null,"category_id": string | null,"category_name": string | null,"status": string | null,"is_overdue": boolean | null,"held_back": boolean | null,"follows_primary": boolean | null,"done_on": string | null,"amount_moved": number | null,"transaction_id": string | null,"transaction_revision": number | null,"mark_revision": number | null,"recorded_by": string | null,"recorded_by_name": string | null,"is_ended": boolean | null,"planned": boolean | null,"cadence": Database["public"]['Enums']["subscription_cadence"] | null,"assumed": boolean | null
                       }
