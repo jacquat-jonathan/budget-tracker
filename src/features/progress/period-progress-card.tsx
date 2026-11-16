@@ -249,7 +249,9 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
   const { t } = useTranslation()
   // The generated type misses that a top-level row has no parent.
   const sub = (row.parent_id as string | null) !== null
-  const over = row.is_overspent
+  // Spending on a category not planned then is shown as such ("Not planned"), not as an
+  // overshoot of a plan that did not exist.
+  const over = row.is_overspent && row.in_force
   const weight = row.is_group ? 'font-semibold' : sub ? '' : 'font-medium'
   const transactionsLink = `${paths.transactions}?period=${period.id}&category=${row.category_id}`
   return (
