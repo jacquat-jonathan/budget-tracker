@@ -518,10 +518,9 @@ set search_path = ''
 as $$
 declare
   v_first integer;
-  v_end integer;
 begin
   if p_kind = 'subscription' then
-    select s.first_seq, s.end_seq into v_first, v_end from public.subscriptions as s where s.id = p_id;
+    select s.first_seq into v_first from public.subscriptions as s where s.id = p_id;
     if v_first is null then
       return null;
     end if;
@@ -537,7 +536,7 @@ begin
       return 'subscription_category_not_in_force';
     end if;
   else
-    select d.first_seq, d.end_seq into v_first, v_end from public.debts as d where d.id = p_id;
+    select d.first_seq into v_first from public.debts as d where d.id = p_id;
     if v_first is null then
       return null;
     end if;
@@ -684,7 +683,7 @@ returns bigint
 language plpgsql
 stable
 set search_path = ''
-set plan_cache_mode = force_custom_plan
+set enable_seqscan = off
 as $$
 begin
   -- one statement, so one plan per call
@@ -825,6 +824,10 @@ declare
   v_budget_id uuid := (select s.budget_id from public.subscriptions as s where s.id = p_subscription_id);
   v_through date;
 begin
+  if exists (select 1 from public.subscriptions as s
+             where s.id = p_subscription_id and s.next_due <= private.charge_horizon(v_budget_id)) then
+    return;  -- charges held back by the transaction limit: they stay due (R-SUBSCRIPTION-112)
+  end if;
   select greatest(s.charged_through, coalesce(private.charge_horizon(v_budget_id), s.charged_through))
   into v_through from public.subscriptions as s where s.id = p_subscription_id;
   update public.subscriptions
@@ -1041,30 +1044,185 @@ $$;
 -- Committed amounts (R-SUBSCRIPTION-079, D-110, D-173)
 -- ===========================================================================
 
--- The subscriptions in force in period p_seq with the terms in force then and their monthly
--- cost. The one source of committed amounts (progress rows, period totals and the category
--- overview all read it).
-create or replace function private.subscriptions_in_force(p_budget_id uuid, p_seq integer)
-returns table (subscription_id uuid, category_id uuid, price bigint, cadence public.subscription_cadence,
-               anchor_date date, effective_from_seq integer, monthly_cost bigint)
-language sql
+
+
+
+-- ===========================================================================
+-- Step 3's per-period figures, the same queries in plpgsql (D-212): a SQL function with a
+-- search_path setting is planned again on every call, which made period_summaries cost a
+-- plan per period and figure; plpgsql keeps its plans for the session.
+-- ===========================================================================
+create or replace function private.salary_total(p_budget_id uuid, p_seq integer)
+returns bigint
+language plpgsql
 stable
 set search_path = ''
 as $$
-  select s.id, v.category_id, v.price, v.cadence, v.anchor_date, v.effective_from_seq,
-         private.subscription_monthly_cost(v.price, v.cadence)
-  from public.subscriptions as s
-  cross join lateral (
-    select sv.category_id, sv.price, sv.cadence, sv.anchor_date, sv.effective_from_seq
-    from public.subscription_versions as sv
-    where sv.subscription_id = s.id and sv.effective_from_seq <= p_seq
-    order by sv.effective_from_seq desc
-    limit 1
-  ) as v
-  where s.budget_id = p_budget_id and s.first_seq <= p_seq and (s.end_seq is null or p_seq < s.end_seq)
+begin
+  return (
+    select coalesce(pg_catalog.sum(v.amount), 0)::bigint
+    from public.incomes as i
+    join lateral (
+      select iv.amount from public.income_versions as iv
+      where iv.income_id = i.id and iv.effective_from_seq <= p_seq
+      order by iv.effective_from_seq desc
+      limit 1
+    ) as v on true
+    where i.budget_id = p_budget_id and i.first_seq <= p_seq and (i.end_seq is null or p_seq < i.end_seq));
+end;
 $$;
 
+create or replace function private.expectations_in_force(p_budget_id uuid, p_seq integer)
+returns table (category_id uuid, amount bigint, cadence public.expectation_cadence,
+               effective_from_seq integer, expected bigint)
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  return query
+    select c.id, e.amount, e.cadence, e.effective_from_seq, private.monthly_share(e.amount, e.cadence)
+    from public.categories as c
+    cross join lateral (
+      select ce.amount, ce.cadence, ce.effective_from_seq
+      from public.category_expectations as ce
+      where ce.category_id = c.id and ce.effective_from_seq <= p_seq
+      order by ce.effective_from_seq desc
+      limit 1
+    ) as e
+    where c.budget_id = p_budget_id and not c.is_group
+      and c.first_seq <= p_seq and (c.end_seq is null or p_seq < c.end_seq);
+end;
+$$;
 
+create or replace function private.spending_between(p_budget_id uuid, p_start date, p_end date)
+returns table (category_id uuid, spent bigint, transaction_count integer)
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  return query
+    select t.category_id,
+           pg_catalog.sum(case t.kind when 'expense' then t.amount else -t.amount end)::bigint,
+           pg_catalog.count(*)::integer
+    from public.transactions as t
+    where t.budget_id = p_budget_id and t.date between p_start and p_end and t.kind <> 'extra_income'
+    group by t.category_id;
+end;
+$$;
+
+create or replace function private.extra_income_between(p_budget_id uuid, p_start date, p_end date)
+returns bigint
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  return (
+    select coalesce(pg_catalog.sum(t.amount), 0)::bigint
+    from public.transactions as t
+    where t.budget_id = p_budget_id and t.date between p_start and p_end and t.kind = 'extra_income');
+end;
+$$;
+
+-- The total of the expectations in force in a period (period_summaries.expected_total).
+create or replace function private.expected_total(p_budget_id uuid, p_seq integer)
+returns bigint
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  -- the expectation versions of the budget's leaves as spans of periods: one scan by budget
+  return coalesce((
+    -- private.monthly_share written out (a function call per row cost more than the scan)
+    select pg_catalog.sum(case x.cadence when 'monthly' then x.amount else (x.amount + 6) / 12 end)
+    from (
+      select e.amount, e.cadence, greatest(e.effective_from_seq, c.first_seq) as sf,
+             case when e.nxt is null then c.end_seq when c.end_seq is null then e.nxt else least(e.nxt, c.end_seq) end as st
+      from (
+        select ce.category_id, ce.amount, ce.cadence, ce.effective_from_seq,
+               pg_catalog.lead(ce.effective_from_seq) over (partition by ce.category_id order by ce.effective_from_seq) as nxt
+        from public.category_expectations as ce where ce.budget_id = p_budget_id
+      ) as e
+      join public.categories as c on c.id = e.category_id and not c.is_group
+    ) as x
+    where x.sf <= p_seq and (x.st is null or p_seq < x.st)), 0)::bigint;
+end;
+$$;
+
+-- The spending of a period (period_summaries.spent_total).
+create or replace function private.spent_total(p_budget_id uuid, p_start date, p_end date)
+returns bigint
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  return coalesce((
+    select pg_catalog.sum(case t.kind when 'expense' then t.amount else -t.amount end)
+    from public.transactions as t
+    where t.budget_id = p_budget_id and t.date between p_start and p_end and t.kind <> 'extra_income'), 0)::bigint;
+end;
+$$;
+
+-- R-TRANSACTION-095: step 3's recorder_name, the same answer from the index on (recorded_by,
+-- budget_id): a sequential scan could read thousands of automatic charges (recorded by
+-- nobody) before the first row of the person (D-212).
+create or replace function private.recorder_name(p_budget_id uuid, p_user_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+set enable_seqscan = off
+as $$
+  select p.display_name from public.profiles as p
+  where p.id = p_user_id
+    and p_budget_id in (select private.member_budget_ids())
+    and exists (select 1 from public.transactions as t where t.recorded_by = p_user_id and t.budget_id = p_budget_id)
+$$;
+
+-- Step 3's category_has_transactions, the same answer with index lookups forced instead of a
+-- custom plan per call (D-212; D-153's concern, a generic plan scanning every transaction for
+-- a category with many, is met by disabling sequential scans in the function).
+create or replace function private.category_has_transactions(p_category_id uuid)
+returns boolean
+language plpgsql
+stable
+set search_path = ''
+set enable_seqscan = off
+as $$
+begin
+  return exists (select 1 from public.transactions as t where t.category_id = p_category_id)
+      or exists (select 1 from public.categories as ch
+                 where ch.parent_id = p_category_id
+                   and exists (select 1 from public.transactions as t where t.category_id = ch.id));
+end;
+$$;
+
+-- Step 2's reading_seq, the same answer in plpgsql (D-212): the views call it for every row.
+create or replace function private.reading_seq(p_budget_id uuid)
+returns integer
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_today date := private.today();
+  v_seq integer;
+begin
+  select p.seq into v_seq from public.periods as p
+  where p.budget_id = p_budget_id and p.start_date <= v_today
+  order by p.start_date desc limit 1;
+  if v_seq is not null and exists (select 1 from public.periods as p
+                                   where p.budget_id = p_budget_id and p.seq = v_seq and p.end_date >= v_today) then
+    return v_seq;
+  end if;
+  return (select pg_catalog.max(p.seq) from public.periods as p where p.budget_id = p_budget_id);
+end;
+$$;
 
 -- ===========================================================================
 -- Spans of terms: the periods each subscription version governs (set-based, per budget)
@@ -1075,35 +1233,44 @@ $$;
 -- open. Committed amounts are sums over these spans; one scan of the budget's versions.
 create or replace function private.subscription_spans(p_budget_id uuid)
 returns table (subscription_id uuid, category_id uuid, monthly_cost bigint, span_from integer, span_to integer)
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
-  select x.subscription_id, x.category_id, x.monthly_cost, x.sf, x.st
-  from (
-    select v.subscription_id, v.category_id, private.subscription_monthly_cost(v.price, v.cadence) as monthly_cost,
-           greatest(v.effective_from_seq, s.first_seq) as sf,
-           case when v.nxt is null then s.end_seq when s.end_seq is null then v.nxt else least(v.nxt, s.end_seq) end as st
+begin
+  return query
+    select x.subscription_id, x.category_id, x.monthly_cost, x.sf, x.st
     from (
-      select sv.*, pg_catalog.lead(sv.effective_from_seq) over (partition by sv.subscription_id order by sv.effective_from_seq) as nxt
-      from public.subscription_versions as sv where sv.budget_id = p_budget_id
-    ) as v
-    join public.subscriptions as s on s.id = v.subscription_id
-  ) as x
-  where x.st is null or x.st > x.sf
+      -- the monthly cost written out (private.subscription_monthly_cost, inlined: a function
+      -- call per row cost more than the rest of the query)
+      select v.subscription_id, v.category_id, (2 * v.price + (case v.cadence when 'monthly' then 1 when 'quarterly' then 3 when 'half_yearly' then 6 else 12 end)) / (2 * (case v.cadence when 'monthly' then 1 when 'quarterly' then 3 when 'half_yearly' then 6 else 12 end)) as monthly_cost,
+             greatest(v.effective_from_seq, s.first_seq) as sf,
+             case when v.nxt is null then s.end_seq when s.end_seq is null then v.nxt else least(v.nxt, s.end_seq) end as st
+      from (
+        select sv.subscription_id, sv.category_id, sv.price, sv.cadence, sv.effective_from_seq,
+               pg_catalog.lead(sv.effective_from_seq) over (partition by sv.subscription_id order by sv.effective_from_seq) as nxt
+        from public.subscription_versions as sv where sv.budget_id = p_budget_id
+      ) as v
+      join public.subscriptions as s on s.id = v.subscription_id
+    ) as x
+    where x.st is null or x.st > x.sf;
+end;
 $$;
 
 -- R-SUBSCRIPTION-079: the committed amount per category in period p_seq.
 create or replace function private.committed_by_category(p_budget_id uuid, p_seq integer)
 returns table (category_id uuid, committed bigint)
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
-  select x.category_id, pg_catalog.sum(x.monthly_cost)::bigint
-  from private.subscription_spans(p_budget_id) as x
-  where x.span_from <= p_seq and (x.span_to is null or p_seq < x.span_to)
-  group by x.category_id
+begin
+  return query
+    select x.category_id, pg_catalog.sum(x.monthly_cost)::bigint
+    from private.subscription_spans(p_budget_id) as x
+    where x.span_from <= p_seq and (x.span_to is null or p_seq < x.span_to)
+    group by x.category_id;
+end;
 $$;
 
 -- Step 3's progress rows, now with `committed`: the monthly cost of the subscriptions in force
@@ -1181,15 +1348,13 @@ returns boolean
 language plpgsql
 stable
 set search_path = ''
-set plan_cache_mode = force_custom_plan
+set enable_seqscan = off
 as $$
+declare
+  v_ids uuid[] := array(select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id);
 begin
-  return exists (select 1 from public.subscription_versions as v
-                 where v.category_id in (select c.id from public.categories as c
-                                         where c.id = p_category_id or c.parent_id = p_category_id))
-      or exists (select 1 from public.debt_versions as v
-                 where v.category_id in (select c.id from public.categories as c
-                                         where c.id = p_category_id or c.parent_id = p_category_id));
+  return exists (select 1 from public.subscription_versions as v where v.category_id = any (v_ids))
+      or exists (select 1 from public.debt_versions as v where v.category_id = any (v_ids));
 end;
 $$;
 
@@ -1201,14 +1366,20 @@ returns boolean
 language plpgsql
 stable
 set search_path = ''
-set plan_cache_mode = force_custom_plan
+set enable_seqscan = off
 as $$
+declare
+  v_ids uuid[] := array(select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id);
 begin
+  if not exists (select 1 from public.subscription_versions as v where v.category_id = any (v_ids))
+     and not exists (select 1 from public.debt_versions as v where v.category_id = any (v_ids)) then
+    return false;  -- nothing ever used it (most categories): two index probes
+  end if;
   return exists (
     select 1
     from public.subscription_versions as v
     join public.subscriptions as s on s.id = v.subscription_id
-    where v.category_id in (select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id)
+    where v.category_id = any (v_ids)
       and (s.end_seq is null or s.end_seq > p_from)
       and coalesce((select pg_catalog.min(x.effective_from_seq) from public.subscription_versions as x
                     where x.subscription_id = v.subscription_id and x.effective_from_seq > v.effective_from_seq),
@@ -1218,7 +1389,7 @@ begin
     select 1
     from public.debt_versions as v
     join public.debts as d on d.id = v.debt_id
-    where v.category_id in (select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id)
+    where v.category_id = any (v_ids)
       and (d.end_seq is null or d.end_seq > p_from)
       and coalesce((select pg_catalog.min(x.effective_from_seq) from public.debt_versions as x
                     where x.debt_id = v.debt_id and x.effective_from_seq > v.effective_from_seq),
@@ -1226,6 +1397,33 @@ begin
       and (d.end_seq is null or d.end_seq > greatest(v.effective_from_seq, d.first_seq))
   );
 end;
+$$;
+
+-- R-CATEGORY-131: the subscriptions and debts whose terms use a category (or a subcategory)
+-- in some period from p_from on, as JSON [{kind, id, name}] (what category_in_use refuses for).
+create or replace function private.category_users(p_category_id uuid, p_from integer)
+returns jsonb
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('kind', u.kind, 'id', u.id, 'name', u.name)
+                                       order by u.kind, u.name, u.id), '[]'::jsonb)
+  from (
+    select distinct 'subscription' as kind, s.id, s.name
+    from public.subscriptions as s
+    cross join lateral private.terms_spans('subscription', s.id) as x
+    where s.budget_id = (select c.budget_id from public.categories as c where c.id = p_category_id)
+      and x.category_id in (select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id)
+      and (x.span_to is null or x.span_to > p_from)
+    union
+    select distinct 'debt', d.id, d.name
+    from public.debts as d
+    cross join lateral private.terms_spans('debt', d.id) as x
+    where d.budget_id = (select c.budget_id from public.categories as c where c.id = p_category_id)
+      and x.category_id in (select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id)
+      and (x.span_to is null or x.span_to > p_from)
+  ) as u
 $$;
 
 -- R-CATEGORY-130, R-SUBSCRIPTION-001, R-DEBT-070: the category new terms may use: a leaf of
@@ -1281,7 +1479,7 @@ returns table (charge_count integer, awaiting_count integer, transaction_count i
 language plpgsql
 stable
 set search_path = ''
-set plan_cache_mode = force_custom_plan
+set enable_seqscan = off
 as $$
 begin
   return query
@@ -1299,7 +1497,7 @@ returns table (interest_total bigint, interest_count integer, adjustment_total b
 language plpgsql
 stable
 set search_path = ''
-set plan_cache_mode = force_custom_plan
+set enable_seqscan = off
 as $$
 begin
   return query
@@ -1361,7 +1559,6 @@ returns table (status public.debt_payoff, payments_left integer, end_date date, 
 language plpgsql
 stable
 set search_path = ''
-set plan_cache_mode = force_custom_plan
 as $$
 declare
   v_debt public.debts;
@@ -1376,6 +1573,8 @@ declare
   v_k bigint;
   v_end date;
   v_budget_end date;
+  v_limit bigint := private.limit_debt_balance();
+  v_rate_milli bigint;
 begin
   select d.* into v_debt from public.debts as d where d.id = p_debt_id;
   select p.* into v_current from public.periods as p
@@ -1392,6 +1591,7 @@ begin
   select v.interest_rate, v.monthly_payment into v_rate, v_payment from public.debt_versions as v
   where v.debt_id = v_debt.id and v.effective_from_seq <= v_current.seq
   order by v.effective_from_seq desc limit 1;
+  v_rate_milli := (v_rate * 1000)::bigint;
   select coalesce(pg_catalog.sum(t.amount), 0)::bigint into v_paid from public.transactions as t
   where t.debt_id = v_debt.id and t.date between v_current.start_date and v_current.end_date;
   v_due := greatest(v_payment - v_paid, 0);
@@ -1416,7 +1616,10 @@ begin
   end if;
   if v_k is null then
     for k in 1..private.limit_projection_periods() loop
-      v_interest := private.period_interest(v_remaining, v_rate);
+      -- private.period_interest written out in integers (called up to 600 times per debt): the
+      -- rate in thousandths of a percent, half up: (2 x R x r + 1 200 000) / 2 400 000
+      v_interest := case when v_remaining <= 0 or v_rate_milli <= 0 or v_remaining >= v_limit then 0
+                         else least((2 * v_remaining * v_rate_milli + 1200000) / 2400000, v_limit - v_remaining) end;
       if v_payment <= v_interest then
         return query select 'never'::public.debt_payoff, null::integer, null::date, null::boolean;  -- R-DEBT-074
         return;
@@ -1442,13 +1645,15 @@ $$;
 -- R-SUBSCRIPTION-079: a period's committed total.
 create or replace function private.committed_total(p_budget_id uuid, p_seq integer)
 returns bigint
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
-  select coalesce(pg_catalog.sum(x.monthly_cost), 0)::bigint
-  from private.subscription_spans(p_budget_id) as x
-  where x.span_from <= p_seq and (x.span_to is null or p_seq < x.span_to)
+begin
+  return coalesce((
+    select pg_catalog.sum(x.monthly_cost) from private.subscription_spans(p_budget_id) as x
+    where x.span_from <= p_seq and (x.span_to is null or p_seq < x.span_to)), 0)::bigint;
+end;
 $$;
 
 -- R-SUBSCRIPTION-079: the committed amount on a category and its subcategories in period
@@ -1458,14 +1663,16 @@ returns bigint
 language plpgsql
 stable
 set search_path = ''
-set plan_cache_mode = force_custom_plan
+set enable_seqscan = off
 as $$
+declare
+  v_ids uuid[] := array(select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id);
 begin
   return coalesce((
-    select pg_catalog.sum(private.subscription_monthly_cost(v.price, v.cadence))
+    select pg_catalog.sum((2 * v.price + (case v.cadence when 'monthly' then 1 when 'quarterly' then 3 when 'half_yearly' then 6 else 12 end)) / (2 * (case v.cadence when 'monthly' then 1 when 'quarterly' then 3 when 'half_yearly' then 6 else 12 end)))
     from public.subscription_versions as v
     join public.subscriptions as s on s.id = v.subscription_id
-    where v.category_id in (select c.id from public.categories as c where c.id = p_category_id or c.parent_id = p_category_id)
+    where v.category_id = any (v_ids)
       and greatest(v.effective_from_seq, s.first_seq) <= p_seq
       and (s.end_seq is null or p_seq < s.end_seq)
       and not exists (select 1 from public.subscription_versions as x
@@ -1504,10 +1711,8 @@ create or replace view public.period_summaries with (security_invoker = true) as
     select
       private.salary_total(p.budget_id, p.seq) as salary_total,
       private.extra_income_between(p.budget_id, p.start_date, p.end_date) as extra_income_total,
-      coalesce((select pg_catalog.sum(e.expected) from private.expectations_in_force(p.budget_id, p.seq) as e), 0)::bigint
-        as expected_total,
-      coalesce((select pg_catalog.sum(s.spent) from private.spending_between(p.budget_id, p.start_date, p.end_date) as s), 0)::bigint
-        as spent_total,
+      private.expected_total(p.budget_id, p.seq) as expected_total,
+      private.spent_total(p.budget_id, p.start_date, p.end_date) as spent_total,
       private.committed_total(p.budget_id, p.seq) as committed_total
   ) as a;
 
@@ -1538,7 +1743,7 @@ create or replace view public.category_overview with (security_invoker = true) a
     h.committed_amount,
     h.in_use
   from public.categories as c
-  cross join lateral (select private.reading_seq(c.budget_id) as seq) as r
+  cross join lateral (select private.reading_seq(c.budget_id) as seq offset 0) as r  -- once per row
   left join lateral (
     select ce.amount, ce.cadence, ce.effective_from_seq
     from public.category_expectations as ce
@@ -1602,7 +1807,7 @@ create view public.subscription_overview with (security_invoker = true) as
     s.updated_at,
     v.charge_day
   from public.subscriptions as s
-  cross join lateral (select private.reading_seq(s.budget_id) as seq, private.budget_end_date(s.budget_id) as budget_end) as r
+  cross join lateral (select private.reading_seq(s.budget_id) as seq, private.budget_end_date(s.budget_id) as budget_end offset 0) as r
   join lateral (
     select sv.price, sv.cadence, sv.category_id, sv.anchor_date, sv.charge_day, sv.effective_from_seq
     from public.subscription_versions as sv
@@ -1647,9 +1852,19 @@ create view public.debt_overview with (security_invoker = true) as
     d.revision,
     d.created_at,
     d.updated_at,
-    pr.after_budget_end as expected_end_after_budget_end
+    pr.after_budget_end as expected_end_after_budget_end,
+    -- R-DEBT-136: how much it is overpaid by (0 unless remaining is negative)
+    greatest(-(d.principal + a.interest_total + a.adjustment_total - a.paid_total), 0)::bigint as overpaid_by,
+    -- R-DEBT-137, D-210: the payments as a share of everything owed so far (principal +
+    -- interest + adjustments), a whole percent rounded down: 100 exactly when nothing
+    -- remains, 0 while nothing has been paid
+    (case
+       when d.principal + a.interest_total + a.adjustment_total - a.paid_total <= 0 then 100
+       when a.paid_total <= 0 then 0
+       else least(99, (100 * a.paid_total) / (d.principal + a.interest_total + a.adjustment_total))
+     end)::integer as paid_percent
   from public.debts as d
-  cross join lateral (select private.reading_seq(d.budget_id) as seq) as r
+  cross join lateral (select private.reading_seq(d.budget_id) as seq offset 0) as r
   join lateral (
     select dv.interest_rate, dv.monthly_payment, dv.category_id, dv.effective_from_seq
     from public.debt_versions as dv
@@ -1661,16 +1876,22 @@ create view public.debt_overview with (security_invoker = true) as
   left join public.categories as c on c.id = v.category_id
   left join public.categories as pc on pc.id = c.parent_id
   cross join lateral (select * from private.debt_amounts(d.id)) as a
-  cross join lateral (select * from private.debt_projection(d.id)) as pr;
+  -- the projection only for a debt in force (an ended one has none: no call)
+  left join lateral (select * from private.debt_projection(d.id) as x where d.end_seq is null offset 0) as pr on true;
 
--- R-DEBT-133: the remaining amount of a budget's debts in force now, added up (D-191, Q-110).
+-- R-DEBT-133, D-211: what a budget still owes: the positive remaining amounts of its debts in
+-- force now, added up (an overpaid or paid-off debt adds nothing), and how many debts still
+-- owe something (D-191, Q-110). One row per budget that has a debt in force.
 create view public.debt_totals with (security_invoker = true) as
-  select d.budget_id,
-         coalesce(pg_catalog.sum(private.debt_remaining(d.id)), 0)::bigint as remaining_total,
-         pg_catalog.count(*)::integer as active_count
-  from public.debts as d
-  where d.end_seq is null and d.first_seq <= private.reading_seq(d.budget_id)
-  group by d.budget_id;
+  select x.budget_id,
+         coalesce(pg_catalog.sum(greatest(x.remaining, 0)), 0)::bigint as remaining_total,
+         (pg_catalog.count(*) filter (where x.remaining > 0))::integer as owing_count
+  from (
+    select d.budget_id, private.debt_remaining(d.id) as remaining
+    from public.debts as d
+    where d.end_seq is null and d.first_seq <= private.reading_seq(d.budget_id)
+  ) as x
+  group by x.budget_id;
 
 -- As in step 3, plus caught_up (R-PERIOD-130): false while a very long absence still needs
 -- more catch-up calls (ensure_periods until it returns 0).
@@ -1686,7 +1907,10 @@ create or replace view public.my_budgets with (security_invoker = true) as
     b.updated_at,
     (b.owner_id = (select auth.uid())) as is_owner,
     b.revision,
-    private.caught_up(b.id) as caught_up
+    private.caught_up(b.id) as caught_up,
+    -- R-SUBSCRIPTION-135: how many automatic charges await confirmation (the partial index)
+    (select pg_catalog.count(*)::integer from public.transactions as t
+     where t.budget_id = b.id and t.review_state = 'awaiting_confirmation') as charges_awaiting
   from public.budgets as b
   join public.budget_members as m on m.budget_id = b.id and m.user_id = (select auth.uid());
 
@@ -2149,7 +2373,9 @@ begin
     raise exception 'category_ended' using errcode = 'P0001';
   end if;
   if private.category_in_use(v_category.id, v_seq) then
-    raise exception 'category_in_use' using errcode = 'P0001';
+    -- R-CATEGORY-131: the detail names what uses it, as JSON [{kind, id, name}]
+    raise exception 'category_in_use' using errcode = 'P0001',
+      detail = private.category_users(v_category.id, v_seq)::text;
   end if;
 
   if v_seq <= v_category.first_seq and not private.category_has_transactions(v_category.id)
@@ -2332,7 +2558,7 @@ begin
 end;
 $$;
 
--- As in step 3, and (R-PERIOD-130, R-PERIOD-036, D-205) an edit of the primary income's terms
+-- As in step 3, and (R-PERIOD-134, R-PERIOD-036, D-205) an edit of the primary income's terms
 -- that moves the current period's end must send the end its preview showed
 -- (p_previewed_end_date): without it the write is refused with preview_required rather than
 -- moving the end unseen. R-VERSION-001, R-VERSION-005, R-VERSION-006, R-VERSION-010,
@@ -2666,8 +2892,9 @@ begin
 end;
 $$;
 
--- As in step 3, plus two filters (R-TRANSACTION-132): p_subscription_id (its charges and the
--- transactions linked to it) and p_debt_id (its payments), each by its index.
+-- As in step 3, plus three filters (R-TRANSACTION-132): p_subscription_id (its charges and the
+-- transactions linked to it), p_debt_id (its payments), each by its index, and
+-- p_awaiting_only (the charges awaiting confirmation, by the partial index).
 -- R-TRANSACTION-095, D-149
 drop function public.list_transactions(uuid, integer, date, date, uuid, public.transaction_kind, date, timestamptz, uuid);
 create function public.list_transactions(
@@ -2681,7 +2908,8 @@ create function public.list_transactions(
   p_before_created_at timestamptz default null,
   p_before_id uuid default null,
   p_subscription_id uuid default null,
-  p_debt_id uuid default null
+  p_debt_id uuid default null,
+  p_awaiting_only boolean default false
 )
 returns setof public.transaction_list
 language plpgsql
@@ -2723,6 +2951,7 @@ begin
   if p_from_date is not null then v_sql := v_sql || ' and l.date >= $2'; end if;
   if p_to_date is not null then v_sql := v_sql || ' and l.date <= $3'; end if;
   if p_kind is not null then v_sql := v_sql || ' and l.kind = $4'; end if;
+  if coalesce(p_awaiting_only, false) then v_sql := v_sql || ' and l.review_state = ''awaiting_confirmation'''; end if;
   if p_before_id is not null then
     v_sql := v_sql || ' and (l.date, l.created_at, l.id) < ($6, $7, $8)';
   end if;
@@ -3065,7 +3294,18 @@ begin
   end if;
   perform private.ensure_periods(v_subscription.budget_id, private.limit_catch_up_periods());
   select s.* into v_subscription from public.subscriptions as s where s.id = p_subscription_id;
-  v_current := private.current_seq(v_subscription.budget_id);
+  if p_from_period_id is null then
+    v_current := private.current_seq(v_subscription.budget_id);
+  else
+    -- a correction is allowed in an ended budget, where no charge comes any more
+    begin
+      v_current := private.current_seq(v_subscription.budget_id);
+    exception when sqlstate 'P0001' then
+      if sqlerrm <> 'budget_ended' then
+        raise;
+      end if;
+    end;
+  end if;
   if num_nonnulls(p_price, p_cadence, p_category_id, p_next_charge_date) > 0 then
     select * into v_span from private.subscription_edit_span(v_subscription, p_from_period_id);
     select * into v_terms from private.subscription_new_terms(v_subscription, v_span.from_seq, p_from_period_id is not null,
@@ -3608,6 +3848,226 @@ end;
 $$;
 
 -- ===========================================================================
+-- RPCs: what a correction will start from and reach (R-VERSION-132, R-VERSION-133)
+-- ===========================================================================
+
+-- The terms in force in a chosen period, for a correction form: the version in force there
+-- (null fields: none, the record is not in force in that period), the period it took effect
+-- (terms_from_period_id) and the first period of the next existing change or of the end
+-- (until_period_id; null: open-ended, or the end lies beyond the latest period). A correction
+-- from that period applies up to the period before until_period_id. Members. Errors:
+-- subscription_not_found / debt_not_found / category_not_found / income_not_found,
+-- period_not_found.
+create or replace function private.version_window(p_table regclass, p_entity_column text, p_id uuid, p_seq integer, p_end integer)
+returns table (from_seq integer, until_seq integer)
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_from integer;
+  v_next integer;
+begin
+  execute pg_catalog.format('select max(effective_from_seq) from %s where %I = $1 and effective_from_seq <= $2', p_table, p_entity_column)
+    into v_from using p_id, p_seq;
+  execute pg_catalog.format('select min(effective_from_seq) from %s where %I = $1 and effective_from_seq > $2', p_table, p_entity_column)
+    into v_next using p_id, p_seq;
+  return query select v_from, case when v_next is null then p_end when p_end is null then v_next else least(v_next, p_end) end;
+end;
+$$;
+
+create or replace function public.get_subscription_terms(p_subscription_id uuid, p_period_id uuid)
+returns table (period_id uuid, in_force boolean, price bigint, cadence public.subscription_cadence, category_id uuid,
+               anchor_date date, charge_day integer, terms_from_period_id uuid, until_period_id uuid)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_s public.subscriptions;
+  v_seq integer;
+  w record;
+begin
+  select s.* into v_s from public.subscriptions as s where s.id = p_subscription_id;
+  if v_s.id is null or not private.is_budget_member(v_s.budget_id) then
+    raise exception 'subscription_not_found' using errcode = 'P0001';
+  end if;
+  v_seq := private.period_seq(v_s.budget_id, p_period_id);
+  select * into w from private.version_window('public.subscription_versions', 'subscription_id', v_s.id, v_seq, v_s.end_seq);
+  return query
+    select p_period_id, v_s.first_seq <= v_seq and (v_s.end_seq is null or v_seq < v_s.end_seq),
+           v.price, v.cadence, v.category_id, v.anchor_date, v.charge_day,
+           (select p.id from public.periods as p where p.budget_id = v_s.budget_id and p.seq = w.from_seq),
+           (select p.id from public.periods as p where p.budget_id = v_s.budget_id and p.seq = w.until_seq)
+    from (select 1) as one
+    left join public.subscription_versions as v on v.subscription_id = v_s.id and v.effective_from_seq = w.from_seq;
+end;
+$$;
+
+create or replace function public.get_debt_terms(p_debt_id uuid, p_period_id uuid)
+returns table (period_id uuid, in_force boolean, category_id uuid, interest_rate numeric, monthly_payment bigint,
+               terms_from_period_id uuid, until_period_id uuid)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_d public.debts;
+  v_seq integer;
+  w record;
+begin
+  select d.* into v_d from public.debts as d where d.id = p_debt_id;
+  if v_d.id is null or not private.is_budget_member(v_d.budget_id) then
+    raise exception 'debt_not_found' using errcode = 'P0001';
+  end if;
+  v_seq := private.period_seq(v_d.budget_id, p_period_id);
+  select * into w from private.version_window('public.debt_versions', 'debt_id', v_d.id, v_seq, v_d.end_seq);
+  return query
+    select p_period_id, v_d.first_seq <= v_seq and (v_d.end_seq is null or v_seq < v_d.end_seq),
+           v.category_id, v.interest_rate, v.monthly_payment,
+           (select p.id from public.periods as p where p.budget_id = v_d.budget_id and p.seq = w.from_seq),
+           (select p.id from public.periods as p where p.budget_id = v_d.budget_id and p.seq = w.until_seq)
+    from (select 1) as one
+    left join public.debt_versions as v on v.debt_id = v_d.id and v.effective_from_seq = w.from_seq;
+end;
+$$;
+
+create or replace function public.get_category_terms(p_category_id uuid, p_period_id uuid)
+returns table (period_id uuid, in_force boolean, amount bigint, cadence public.expectation_cadence,
+               terms_from_period_id uuid, until_period_id uuid)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_c public.categories;
+  v_seq integer;
+  w record;
+begin
+  select c.* into v_c from public.categories as c where c.id = p_category_id;
+  if v_c.id is null or not private.is_budget_member(v_c.budget_id) then
+    raise exception 'category_not_found' using errcode = 'P0001';
+  end if;
+  v_seq := private.period_seq(v_c.budget_id, p_period_id);
+  select * into w from private.version_window('public.category_expectations', 'category_id', v_c.id, v_seq, v_c.end_seq);
+  return query
+    select p_period_id, v_c.first_seq <= v_seq and (v_c.end_seq is null or v_seq < v_c.end_seq),
+           v.amount, v.cadence,
+           (select p.id from public.periods as p where p.budget_id = v_c.budget_id and p.seq = w.from_seq),
+           (select p.id from public.periods as p where p.budget_id = v_c.budget_id and p.seq = w.until_seq)
+    from (select 1) as one
+    left join public.category_expectations as v on v.category_id = v_c.id and v.effective_from_seq = w.from_seq;
+end;
+$$;
+
+create or replace function public.get_income_terms(p_income_id uuid, p_period_id uuid)
+returns table (period_id uuid, in_force boolean, amount bigint, pay_day integer, weekend_rule public.weekend_rule,
+               terms_from_period_id uuid, until_period_id uuid)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_i public.incomes;
+  v_seq integer;
+  w record;
+begin
+  select i.* into v_i from public.incomes as i where i.id = p_income_id;
+  if v_i.id is null or not private.is_budget_member(v_i.budget_id) then
+    raise exception 'income_not_found' using errcode = 'P0001';
+  end if;
+  v_seq := private.period_seq(v_i.budget_id, p_period_id);
+  select * into w from private.version_window('public.income_versions', 'income_id', v_i.id, v_seq, v_i.end_seq);
+  return query
+    select p_period_id, v_i.first_seq <= v_seq and (v_i.end_seq is null or v_seq < v_i.end_seq),
+           v.amount, v.pay_day, v.weekend_rule,
+           (select p.id from public.periods as p where p.budget_id = v_i.budget_id and p.seq = w.from_seq),
+           (select p.id from public.periods as p where p.budget_id = v_i.budget_id and p.seq = w.until_seq)
+    from (select 1) as one
+    left join public.income_versions as v on v.income_id = v_i.id and v.effective_from_seq = w.from_seq;
+end;
+$$;
+
+-- R-SUBSCRIPTION-136, R-DEBT-138: what end_subscription / remove_debt from p_from_period_id
+-- (null: the current period) would do now: 'deleted', 'ended', or the refusal's code in
+-- refusal (outcome null). The same conditions as the writes; changes nothing.
+create or replace function public.preview_end_subscription(p_subscription_id uuid, p_from_period_id uuid default null)
+returns table (outcome text, refusal text)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_s public.subscriptions;
+  v_seq integer;
+begin
+  select s.* into v_s from public.subscriptions as s where s.id = p_subscription_id;
+  if v_s.id is null or not private.is_budget_member(v_s.budget_id) then
+    raise exception 'subscription_not_found' using errcode = 'P0001';
+  end if;
+  perform private.ensure_periods(v_s.budget_id, private.limit_catch_up_periods());
+  begin
+    if p_from_period_id is null then
+      v_seq := private.current_seq(v_s.budget_id);
+    else
+      v_seq := private.period_seq(v_s.budget_id, p_from_period_id);
+    end if;
+    if v_s.end_seq is not null and v_seq >= v_s.end_seq then
+      raise exception 'subscription_ended' using errcode = 'P0001';
+    end if;
+  exception when sqlstate 'P0001' then
+    return query select null::text, sqlerrm;
+    return;
+  end;
+  return query select case when v_seq <= v_s.first_seq
+                            and not exists (select 1 from public.transactions as t where t.subscription_id = v_s.id)
+                       then 'deleted' else 'ended' end, null::text;
+end;
+$$;
+
+create or replace function public.preview_remove_debt(p_debt_id uuid, p_from_period_id uuid default null)
+returns table (outcome text, refusal text)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_d public.debts;
+  v_seq integer;
+  a record;
+begin
+  select d.* into v_d from public.debts as d where d.id = p_debt_id;
+  if v_d.id is null or not private.is_budget_member(v_d.budget_id) then
+    raise exception 'debt_not_found' using errcode = 'P0001';
+  end if;
+  perform private.ensure_periods(v_d.budget_id, private.limit_catch_up_periods());
+  begin
+    if p_from_period_id is null then
+      v_seq := private.current_seq(v_d.budget_id);
+    else
+      v_seq := private.period_seq(v_d.budget_id, p_from_period_id);
+    end if;
+    if v_d.end_seq is not null and v_seq >= v_d.end_seq then
+      raise exception 'debt_ended' using errcode = 'P0001';
+    end if;
+  exception when sqlstate 'P0001' then
+    return query select null::text, sqlerrm;
+    return;
+  end;
+  select * into a from private.debt_amounts(v_d.id);
+  return query select case when v_seq <= v_d.first_seq and a.interest_count = 0 and a.adjustment_count = 0
+                                and a.payment_count = 0
+                       then 'deleted' else 'ended' end, null::text;
+end;
+$$;
+
+-- ===========================================================================
 -- Privileges
 -- ===========================================================================
 revoke all on table
@@ -3658,10 +4118,11 @@ grant execute on function
   private.charge_dates(date, public.subscription_cadence, date, date, integer),
   private.next_charge_date(date, public.subscription_cadence, date, integer),
   private.subscription_monthly_cost(bigint, public.subscription_cadence),
-  private.subscriptions_in_force(uuid, integer),
   private.subscription_spans(uuid),
   private.committed_by_category(uuid, integer),
   private.committed_total(uuid, integer),
+  private.expected_total(uuid, integer),
+  private.spent_total(uuid, date, date),
   private.category_committed(uuid, integer),
   private.category_referenced(uuid),
   private.category_in_use(uuid, integer),
@@ -3684,7 +4145,7 @@ to authenticated;
 grant execute on function
   public.add_transaction(uuid, public.transaction_kind, bigint, date, uuid, text, uuid, uuid),
   public.update_transaction(uuid, integer, public.transaction_kind, bigint, date, uuid, text, boolean, uuid, uuid),
-  public.list_transactions(uuid, integer, date, date, uuid, public.transaction_kind, date, timestamptz, uuid, uuid, uuid),
+  public.list_transactions(uuid, integer, date, date, uuid, public.transaction_kind, date, timestamptz, uuid, uuid, uuid, boolean),
   public.link_transaction(uuid, integer, uuid, uuid),
   public.subscription_charge_dates(date, public.subscription_cadence, date, integer),
   public.create_subscription(uuid, text, bigint, public.subscription_cadence, uuid, date, uuid),
@@ -3702,7 +4163,13 @@ grant execute on function
   public.adjust_debt_balance(uuid, integer, bigint, date, text),
   public.delete_debt_adjustment(uuid, integer),
   public.get_debt_history(uuid, integer, date, text, timestamptz, uuid),
-  public.preview_move_period_start(uuid)
+  public.preview_move_period_start(uuid),
+  public.get_subscription_terms(uuid, uuid),
+  public.get_debt_terms(uuid, uuid),
+  public.get_category_terms(uuid, uuid),
+  public.get_income_terms(uuid, uuid),
+  public.preview_end_subscription(uuid, uuid),
+  public.preview_remove_debt(uuid, uuid)
 to authenticated;
 
 -- ===========================================================================

@@ -685,6 +685,7 @@ begin
     end if;
     m := (m + interval '1 month')::date;
   end loop;
+  return null;  -- not reached
 end;
 $$;
 

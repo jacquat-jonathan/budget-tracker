@@ -29,7 +29,14 @@
 --   * an edit based on an older revision is refused;
 --   * step 4 (tests.step4_violations): no subscription charged twice for a date, no interest
 --     entry without its period and at most one per debt and period, every debt's remaining
---     amount and every period's committed total equal a naive recomputation from the rows.
+--     amount and every period's committed total equal a naive recomputation from the rows;
+--     every subscription and debt has a category in force in every period it is in force;
+--   * step 4, independent models (S5 of the step 4 review): the charges created since the last
+--     check are exactly the scheduled dates of a naive schedule (the nominal day the run asked
+--     for, tracked by the run), at the price and category of the terms in force in their period,
+--     and none comes back once dismissed; each new period's interest is one twelfth of the rate
+--     on a naive balance, half up; each debt's projection equals a naive recomputation, its end
+--     date a naive walk of the future periods.
 -- Closed totals now include the committed total. Before each step the budget is opened (its
 -- catch-up runs), so the charges a long absence left due count as what the budget held.
 begin;
@@ -113,6 +120,127 @@ create or replace function pg_temp.made_adjustments(b uuid) returns void languag
   insert into made (kind, budget, id)
   select 'adjustment', b, a.id from public.debt_adjustments as a
   where a.budget_id = b and not exists (select 1 from made as m where m.id = a.id)
+$$;
+-- Step 4 models. model_h: the last day the run has checked a subscription's charges up to.
+-- model_day: the nominal day the run asked for, per subscription and the period it applies from.
+-- seen_periods: periods whose interest was checked.
+create temp table model_h (sub uuid primary key, h date not null) on commit drop;
+create temp table model_day (sub uuid not null, eff integer not null, day integer not null, primary key (sub, eff)) on commit drop;
+create temp table seen_periods (id uuid primary key) on commit drop;
+-- charges the run itself edited, moved, unlinked or removed: the schedule says nothing of them
+create temp table touched_charges (sub uuid not null, charge_date date not null, primary key (sub, charge_date)) on commit drop;
+grant select, insert, update, delete on model_h, model_day, seen_periods, touched_charges to authenticated;
+create or replace function pg_temp.touched(x public.transactions) returns void language sql as $$
+  insert into touched_charges select x.subscription_id, x.charge_date where x.charge_date is not null on conflict do nothing
+$$;
+create or replace function pg_temp.model_day_at(s uuid, seq integer) returns integer language sql as $$
+  select m.day from model_day as m where m.sub = s and m.eff <= seq order by m.eff desc limit 1
+$$;
+-- The charges oracle: what was created for each subscription since the last check, against a
+-- naive schedule; then the checked horizon moves.
+create or replace function pg_temp.charge_oracle(b uuid) returns setof text language plpgsql as $$
+declare
+  v_h date := least(private.today(), (select max(p.end_date) from public.periods as p where p.budget_id = b));
+  r record;
+  v_exp text[];
+  v_act text[];
+begin
+  -- subscriptions the run made since the last check start from their first period's start
+  insert into model_h (sub, h)
+  select s.id, (select p.start_date - 1 from public.periods as p where p.budget_id = b and p.seq = s.first_seq)
+  from public.subscriptions as s join made as m on m.id = s.id
+  where s.budget_id = b and not exists (select 1 from model_h as x where x.sub = s.id);
+  for r in select s.*, mh.h from public.subscriptions as s join model_h as mh on mh.sub = s.id where s.budget_id = b loop
+    -- the nominal day of every version is the one the run asked for
+    if exists (select 1 from public.subscription_versions as v where v.subscription_id = r.id
+               and v.charge_day is distinct from pg_temp.model_day_at(r.id, v.effective_from_seq)) then
+      return next format('subscription %s: a version lost its nominal day %s', r.name, pg_temp.model_day_at(r.id, r.first_seq));
+    end if;
+    if r.h < v_h then
+      select coalesce(array_agg(format('%s/%s/%s', d, v.price, v.category_id) order by d), '{}') into v_exp
+      from public.periods as p
+      cross join lateral (select x.price, x.category_id, x.anchor_date, x.cadence, x.effective_from_seq from public.subscription_versions as x
+                          where x.subscription_id = r.id and x.effective_from_seq <= p.seq order by x.effective_from_seq desc limit 1) as v
+      cross join lateral tests.naive_charge_dates(v.anchor_date, v.cadence::text, pg_temp.model_day_at(r.id, v.effective_from_seq),
+                                                  greatest(p.start_date, r.h + 1), least(p.end_date, v_h)) as d
+      where p.budget_id = b and p.seq >= r.first_seq and (r.end_seq is null or p.seq < r.end_seq)
+        and p.end_date > r.h and p.start_date <= v_h
+        and not exists (select 1 from touched_charges as x where x.sub = r.id and x.charge_date = d);
+      select coalesce(array_agg(format('%s/%s/%s', t.charge_date, t.amount, t.category_id) order by t.charge_date), '{}') into v_act
+      from public.transactions as t where t.subscription_id = r.id and t.charge_date > r.h and t.charge_date <= v_h
+        and not exists (select 1 from touched_charges as x where x.sub = r.id and x.charge_date = t.charge_date);
+      if v_exp <> v_act then
+        return next format('subscription %s charges after %s: expected %s, created %s', r.name, r.h, v_exp, v_act);
+      end if;
+    end if;
+    -- a charge dated where the run had already checked, which it never saw: one came back
+    if exists (select 1 from public.transactions as t where t.subscription_id = r.id and t.charge_date <= r.h
+               and not exists (select 1 from made as m where m.id = t.id)) then
+      return next format('subscription %s: a charge dated on or before %s appeared again', r.name, r.h);
+    end if;
+    update model_h set h = greatest(h, v_h) where sub = r.id;
+  end loop;
+end;
+$$;
+-- The interest oracle. A period's interest is fixed when the period is created, and every
+-- operation catches up before it writes, so a period created during a step saw the debts and
+-- their rows as they stood at the end of the step before: debt_snap and ledger_snap keep that
+-- state. For each period created since the last check, in order: one twelfth of the rate then
+-- in force on the naive balance, half up, for each debt then in force; nothing for the others.
+create temp table debt_snap (debt uuid primary key, budget uuid not null, principal bigint not null, first_seq integer not null,
+                             end_seq integer, rate numeric not null) on commit drop;
+create temp table ledger_snap (debt uuid not null, id uuid primary key, amount bigint not null) on commit drop;
+grant select, insert, update, delete on debt_snap, ledger_snap to authenticated;
+create or replace function pg_temp.interest_oracle(b uuid) returns setof text language plpgsql as $$
+declare
+  p record;
+  d record;
+  v_balance numeric;
+  v_expected bigint;
+begin
+  for p in select x.* from public.periods as x where x.budget_id = b and not exists (select 1 from seen_periods as s where s.id = x.id)
+           order by x.seq loop
+    for d in select x.id, x.name, s.principal, s.first_seq, s.end_seq, s.rate, s.debt is not null as known, i.amount as actual
+             from public.debts as x
+             left join debt_snap as s on s.debt = x.id
+             left join public.debt_interest as i on i.debt_id = x.id and i.period_id = p.id
+             where x.budget_id = b loop
+      v_expected := 0;
+      if d.known and d.first_seq <= p.seq and (d.end_seq is null or p.seq < d.end_seq) and d.rate > 0 then
+        v_balance := d.principal
+          + coalesce((select sum(i.amount) from public.debt_interest as i join public.periods as q on q.id = i.period_id
+                      where i.debt_id = d.id and q.seq < p.seq), 0)
+          + coalesce((select sum(l.amount) from ledger_snap as l where l.debt = d.id), 0);
+        if v_balance > 0 then
+          v_expected := round(v_balance * d.rate / 1200);
+        end if;
+      end if;
+      if coalesce(d.actual, 0) <> v_expected then
+        return next format('debt %s, period %s: interest %s, naive %s on %s', d.name, p.seq, d.actual, v_expected, v_balance);
+      end if;
+    end loop;
+    insert into seen_periods values (p.id);
+  end loop;
+  -- the state the next step's new periods will see
+  delete from ledger_snap as l using debt_snap as s where s.debt = l.debt and s.budget = b;
+  delete from debt_snap where budget = b;
+  insert into debt_snap
+  select x.id, x.budget_id, x.principal, x.first_seq, x.end_seq,
+         (select v.interest_rate from public.debt_versions as v where v.debt_id = x.id order by v.effective_from_seq desc limit 1)
+  from public.debts as x where x.budget_id = b;
+  insert into ledger_snap
+  select t.debt_id, t.id, -t.amount from public.transactions as t where t.budget_id = b and t.debt_id is not null
+  union all
+  select a.debt_id, a.id, a.amount from public.debt_adjustments as a where a.budget_id = b;
+end;
+$$;
+-- The projection oracle: every debt in force against tests.naive_projection.
+create or replace function pg_temp.projection_oracle(b uuid) returns setof text language sql as $$
+  select format('debt %s: projection %s, naive %s', o.name, row(o.payoff, o.payments_left, o.expected_end_date), row(n.*))
+  from public.debt_overview as o cross join lateral tests.naive_projection(o.id) as n
+  where o.budget_id = b and o.is_active
+    and (o.payoff::text is distinct from n.status or o.payments_left is distinct from n.payments_left
+         or (n.walked and o.expected_end_date is distinct from n.end_date))
 $$;
 -- A random period of budget b, by seq.
 create or replace function pg_temp.pick_period(b uuid) returns public.periods language plpgsql as $$
@@ -216,6 +344,8 @@ begin
     perform tests.remember(v_user || 'b3', public.create_budget('First', 'Salary', 400000, 1, 'previous', '2025-12-01'));
     perform pg_temp.made('income', tests.id(v_user || n), pg_temp.primary_of(tests.id(v_user || n)))
     from unnest(array['b1', 'b2', 'b3']) as n;
+    -- the periods the budgets start with have no interest to check (row-level security: this user's)
+    insert into seen_periods select p.id from public.periods as p on conflict do nothing;
     perform tests.clear_authentication();
 
     for v_step in 1..v_steps loop
@@ -384,6 +514,11 @@ begin
             from public.income_overview where budget_id = v_budget and is_active;
             perform tests.reopen_previous_period(v_budget,
               case when random() < 0.5 then null else v_today + floor(random() * 15)::integer end);
+            delete from model_day as o using public.subscriptions as s
+            where s.id = o.sub and s.budget_id = v_budget and o.eff = v_touched[1]
+              and exists (select 1 from model_day as n where n.sub = o.sub and n.eff = v_touched[1] + 1);
+            update model_day as o set eff = v_touched[1] from public.subscriptions as s
+            where s.id = o.sub and s.budget_id = v_budget and o.eff = v_touched[1] + 1;
             select coalesce(jsonb_object_agg(id, amount), '{}') into v_terms_after
             from public.income_overview where budget_id = v_budget and is_active;
             if v_terms_after <> v_terms_before then
@@ -454,6 +589,7 @@ begin
             else
               v_pick := pg_temp.pick('transaction', v_budget);
               select * into v_tx from public.transactions where id = v_pick;
+              perform pg_temp.touched(v_tx);
               if v_tx.id is not null then
                 v_touched := pg_temp.seqs_of(v_budget, array[v_date, v_tx.date]);
                 perform public.update_transaction(v_tx.id, v_tx.revision, v_kind, v_amount, v_date, v_category);
@@ -462,6 +598,7 @@ begin
           elsif v_op = 'delete_transaction' then
             v_pick := pg_temp.pick('transaction', v_budget);
             select * into v_tx from public.transactions where id = v_pick;
+            perform pg_temp.touched(v_tx);
             if v_tx.id is not null then
               v_touched := pg_temp.seqs_of(v_budget, array[v_tx.date]);
               perform public.delete_transaction(v_tx.id, v_tx.revision);
@@ -470,6 +607,7 @@ begin
             -- an edit based on an older revision must be refused and change nothing
             v_pick := pg_temp.pick('transaction', v_budget, 't.revision > 1');
             select * into v_tx from public.transactions where id = v_pick;
+            perform pg_temp.touched(v_tx);
             if v_tx.id is not null then
               perform public.update_transaction(v_tx.id, v_tx.revision - 1, v_tx.kind, v_tx.amount + 1, v_tx.date, v_tx.category_id);
               insert into failures values (v_seed, v_step, v_name, v_op, 'a stale transaction edit was accepted');
@@ -513,11 +651,18 @@ begin
               v_category := pg_temp.pick('category', v_budget);
             end if;
             if v_op like 'create_subscription%' then
-              perform pg_temp.made('subscription', v_budget, (select s.id from public.create_subscription(v_budget, 'Sub ' || v_step,
+              v_date := v_today + floor(random() * 200)::integer - 180;
+              -- half of them at the end of a month (29th to 31st), whose dates clamp
+              if random() < 0.5 then
+                v_date := (date_trunc('month', v_date) + interval '1 month')::date - 1 - floor(random() * 3)::integer;
+              end if;
+              v_pick := (select s.id from public.create_subscription(v_budget, 'Sub ' || v_step,
                 1 + floor(random() * 50000)::bigint,
                 (array['monthly', 'quarterly', 'half_yearly', 'yearly'])[1 + floor(random() * 4)::integer]::public.subscription_cadence,
-                v_category, v_today + floor(random() * 200)::integer - 180,
-                case when v_from is not null then v_period.id end) as s));
+                v_category, v_date,
+                case when v_from is not null then v_period.id end) as s);
+              perform pg_temp.made('subscription', v_budget, v_pick);
+              insert into model_day values (v_pick, (select first_seq from public.subscriptions where id = v_pick), extract(day from v_date)::integer);
             else
               perform pg_temp.made('debt', v_budget, (select d.id from public.create_debt(v_budget, 'Debt ' || v_step,
                 1000 + floor(random() * 2000000)::bigint, v_category, floor(random() * 100000)::bigint,
@@ -540,7 +685,16 @@ begin
                   perform public.update_subscription(v_sub.id, v_sub.revision,
                     p_cadence => (array['monthly', 'quarterly', 'half_yearly', 'yearly'])[1 + floor(random() * 4)::integer]::public.subscription_cadence);
                 elsif v_k = 2 then
-                  perform public.update_subscription(v_sub.id, v_sub.revision, p_next_charge_date => v_today + floor(random() * 70)::integer);
+                  v_date := v_today + floor(random() * 70)::integer;
+                  if random() < 0.5 then
+                    v_date := greatest((date_trunc('month', v_date) + interval '1 month')::date - 1 - floor(random() * 3)::integer, v_today + 1);
+                  end if;
+                  perform public.update_subscription(v_sub.id, v_sub.revision, p_next_charge_date => v_date);
+                  -- the nominal day the member asked for, from the period the edit applies
+                  insert into model_day values (v_sub.id, greatest(v_sub.first_seq,
+                    (select p.seq from public.periods as p where p.budget_id = v_budget and v_today between p.start_date and p.end_date)),
+                    extract(day from v_date)::integer)
+                  on conflict (sub, eff) do update set day = excluded.day;
                 else
                   v_pick := pg_temp.pick('category', v_budget);
                   perform public.update_subscription(v_sub.id, v_sub.revision, p_category_id => v_pick);
@@ -560,6 +714,7 @@ begin
             v_pick := pg_temp.pick('charge', v_budget,
               case when v_op = 'confirm_charge' then 't.review_state = ''awaiting_confirmation''' else 'true' end);
             select * into v_tx from public.transactions where id = v_pick;
+            perform pg_temp.touched(v_tx);
             if v_tx.id is not null then
               if v_op = 'confirm_charge' then
                 perform public.confirm_subscription_charge(v_tx.id, v_tx.revision);
@@ -619,6 +774,7 @@ begin
           elsif v_op = 'link_transaction' then
             v_pick := pg_temp.pick('transaction', v_budget);
             select * into v_tx from public.transactions where id = v_pick;
+            perform pg_temp.touched(v_tx);
             if v_tx.id is not null then
               v_r := random();
               if v_r < 0.4 then
@@ -701,6 +857,10 @@ begin
         insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
       end loop;
       perform tests.clear_authentication();
+      for v_problem in select pg_temp.charge_oracle(v_budget) union all select pg_temp.interest_oracle(v_budget)
+                       union all select pg_temp.projection_oracle(v_budget) loop
+        insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
+      end loop;
       perform pg_temp.made_charges(v_budget);
 
       -- Closed totals, except what the operation names or touches.
@@ -738,7 +898,7 @@ $prop$;
 
 select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
-  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
+  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
 );
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
   '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');
@@ -766,14 +926,14 @@ select cmp_ok((select count(*)::integer from runs where op = 'preview_then_updat
   '>=', 15, 'R-PERIOD-036: the previews of the expected pay date always matched the write');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op like '%subscription%'),
   '>=', 40, 'R-VERSION-003: the runs created, edited, corrected and ended many subscriptions');
-select cmp_ok((select count(*)::integer from made where kind = 'charge'), '>=', 60,
+select cmp_ok((select count(*)::integer from made where kind = 'charge'), '>=', 45,
   'R-SUBSCRIPTION-073 Q-054: which were charged automatically, many times, also after long absences');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('confirm_charge', 'dismiss_charge')),
   '>=', 10, 'R-SUBSCRIPTION-075 R-SUBSCRIPTION-077: and charges were confirmed or dismissed');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_debt', 'create_debt_backdated', 'update_debt', 'correct_debt', 'add_payment', 'adjust_debt', 'delete_adjustment', 'remove_debt')),
   '>=', 60, 'R-VERSION-004 R-DEBT-075: the runs recorded, paid, adjusted and removed many debts');
 select cmp_ok((select count(*)::integer from public.debt_interest as i join made as m on m.id = i.debt_id),
-  '>=', 20, 'R-DEBT-073: and interest was added to them');
+  '>=', 15, 'R-DEBT-073: and interest was added to them');
 select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 

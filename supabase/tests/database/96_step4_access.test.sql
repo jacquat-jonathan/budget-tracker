@@ -175,7 +175,7 @@ select throws_ok(sql, 'P0001', message, 'R-SECURITY-002 R-SECURITY-004: non-memb
 select throws_ok(sql, '42501', null, 'R-SECURITY-001 R-SECURITY-002: no privilege: ' || sql) from carol_denied;
 select is(private.debt_remaining(tests.id('a_debt')), null::bigint,
   'R-SECURITY-002: the remaining-amount helper reveals nothing of a budget I am not in');
-select is((select count(*)::integer from private.subscriptions_in_force(tests.id('a'), 1)), 0,
+select is((select count(*)::integer from private.subscription_spans(tests.id('a'))), 0,
   'R-SECURITY-002: nor the committed-amount helper');
 
 select tests.clear_authentication();

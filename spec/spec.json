@@ -2908,12 +2908,12 @@
     {
       "id": "R-SUBSCRIPTION-071",
       "area": "subscription",
-      "statement": "After its first charge date, a subscription is charged once per cadence interval on the first charge's day of the month, clamped to the length of each month.",
+      "statement": "After its first charge date, a subscription is charged once per cadence interval on its nominal day of the month (the day of the first charge date, or of a next charge date given with a change), clamped to the length of each month; a clamped date never moves the nominal day.",
       "rationale": "Example: first charged on 31 January, monthly: 28 (or 29) February, 31 March, 30 April.",
       "feature": "F-SUBSCRIPTION",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-108"],
+      "related": ["D-108", "D-200"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
@@ -3085,11 +3085,11 @@
     {
       "id": "R-DEBT-070",
       "area": "debt",
-      "statement": "A debt is tied to one category.",
+      "statement": "A debt is tied to one category at a time; the category is part of its terms, so a change from a period on keeps the category of the periods before.",
       "feature": "F-DEBT",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-112"],
+      "related": ["D-112", "D-207"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
     },
     {
@@ -4253,11 +4253,11 @@
     {
       "id": "R-PERIOD-031",
       "area": "period",
-      "statement": "A budget can never get stuck: creating the missing periods always succeeds, each starting the day after the previous one ends, until one contains today or the budget's end is reached.",
+      "statement": "A budget can never get stuck: creating the missing periods always succeeds, each starting the day after the previous one ends, until one contains today or the budget's end is reached; after a very long absence a read may create them over several calls, each keeping its progress (R-PERIOD-130).",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-080"],
+      "related": ["D-080", "D-201"],
       "source": [
         "owner-request: coordinator decision on the second step 2 database review, 2026-11-16",
         "docs/database.md: RPCs"
@@ -5103,11 +5103,11 @@
     {
       "id": "R-TRANSACTION-110",
       "area": "transaction",
-      "statement": "A transaction linked to a debt or a subscription is an expense; a debt payment is in the debt's category; the debt or subscription is in force in the period of the date, except that a linked transaction keeping its period and category keeps its link.",
+      "statement": "A transaction linked to a debt or a subscription is an expense; a debt payment is in the category of the debt's terms in force in the period of its date; the debt or subscription is in force in the period of the date, except that a linked transaction keeping its period and category keeps its link.",
       "feature": "F-DEBT",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-177"],
+      "related": ["D-177", "D-207"],
       "source": [
         "owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
@@ -5287,6 +5287,410 @@
         "owner-request: coordinator brief for the step 4 screens, 2026-11-16",
         "code: src/features/progress/period-progress-card.tsx",
         "code: src/features/budget/budget-page.tsx"
+      ]
+    },
+    {
+      "id": "R-PERIOD-130",
+      "area": "period",
+      "statement": "A read's catch-up creates at most 120 periods (ten years) per call, with their interest and charges, never fails and always keeps its progress; until the budget is caught up my_budgets.caught_up is false and the current period is not answered (catching_up for the writes that need it); a write catches up in full first.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-PERIOD-031", "D-201"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-PERIOD-131",
+      "area": "period",
+      "statement": "The end date of a future period, as the debt projection uses it, is the one the catch-up will give it under the terms in force, whatever the current period's end (set by hand early or late).",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-DEBT-005", "D-203"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-PERIOD-132",
+      "area": "period",
+      "statement": "Undoing a reopen with the original date leaves the closed period's end as the schedule put it: the end counts as set by hand only when the salary did not arrive on the schedule's day.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-PERIOD-012", "D-152"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-PERIOD-133",
+      "area": "period",
+      "statement": "preview_move_period_start says, without changing anything, which start a move to the schedule would give a period and whether the move would be accepted now, with the refusal's code when not.",
+      "feature": "F-PERIOD",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["Q-091"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-PERIOD-134",
+      "area": "period",
+      "statement": "An edit of the primary income's terms that moves the current period's end must send the end its preview showed; without it the write is refused (preview_required) rather than moving the end unseen.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-PERIOD-036", "D-205"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-SUBSCRIPTION-130",
+      "area": "subscription",
+      "statement": "A subscription's terms keep its nominal day of the month apart from its anchor date: a schedule re-anchored on a clamped date (a change of cadence without a date) keeps charging on the nominal day, never drifting to the clamped one.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-SUBSCRIPTION-071", "D-200"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-SUBSCRIPTION-131",
+      "area": "subscription",
+      "statement": "A charge is pending only when a subscription's next scheduled date has come and the budget has room for it; a read with nothing due neither waits for a writer nor writes; a subscription's revision and updated_at change with an edit, never with the catch-up's bookkeeping.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-SECURITY-006", "D-204"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-SUBSCRIPTION-132",
+      "area": "subscription",
+      "statement": "A subscription's next charge date is not given when it falls after the budget's end (it will never be charged).",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-SUBSCRIPTION-002"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-SUBSCRIPTION-133",
+      "area": "subscription",
+      "statement": "The charge dates a subscription form previews come from the database with the write's own arguments and schedule (preview_create_subscription, preview_update_subscription), so the charges then created are the ones shown.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-SUBSCRIPTION-121", "D-193"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-SUBSCRIPTION-134",
+      "area": "subscription",
+      "statement": "A member can confirm, in one call, every charge awaiting confirmation up to a date; two members doing it at once confirm each charge once.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-SUBSCRIPTION-075", "D-195"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-SUBSCRIPTION-135",
+      "area": "subscription",
+      "statement": "The number of charges awaiting confirmation in a budget is read with the budget (my_budgets.charges_awaiting).",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-SUBSCRIPTION-076"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-SUBSCRIPTION-136",
+      "area": "subscription",
+      "statement": "What ending a subscription from a chosen period would do (deleted, ended, or the refusal) can be asked beforehand, with the same conditions as the write.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-SUBSCRIPTION-113", "R-SUBSCRIPTION-124"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-131",
+      "area": "debt",
+      "statement": "A debt's principal is the balance on its opened date; no payment or balance adjustment is dated before it. A debt recorded from an earlier period is opened on that period's start.",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-DEBT-003", "D-202"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-132",
+      "area": "debt",
+      "statement": "A projected end after the budget's end is flagged as such (expected_end_after_budget_end).",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-DEBT-005"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-133",
+      "area": "debt",
+      "statement": "What a budget still owes is the sum of the positive remaining amounts of its debts in force (an overpaid or paid-off debt adds nothing), given with the number of debts still owing.",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["Q-110", "D-211"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-134",
+      "area": "debt",
+      "statement": "An ended debt is frozen: no payment can be linked to it, changed or removed, and no balance adjustment added or removed, so its remaining amount stays.",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-DEBT-113", "D-209"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-135",
+      "area": "debt",
+      "statement": "A debt's history is read a page at a time (at most 1000 rows), each page continuing after the last row of the one before, the running balance over the whole history.",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-DEBT-004"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-136",
+      "area": "debt",
+      "statement": "The amount a debt is overpaid by is given (zero unless its remaining amount is negative).",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-DEBT-003"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-137",
+      "area": "debt",
+      "statement": "A debt's paid share is its payments as a whole percent, rounded down, of its principal plus its interest plus its adjustments: 100 exactly when nothing remains, 0 while nothing has been paid.",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-210"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-DEBT-138",
+      "area": "debt",
+      "statement": "What removing a debt from a chosen period would do (deleted, ended, or the refusal) can be asked beforehand, with the same conditions as the write.",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-DEBT-001"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-CATEGORY-130",
+      "area": "category",
+      "statement": "In every period where a subscription or debt is in force, the category of its terms in force then is in force too: new terms, corrections, ending or extending a category and reopens all keep it so.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-CATEGORY-110", "D-179"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-CATEGORY-131",
+      "area": "category",
+      "statement": "When a category cannot end because subscriptions or debts still use it, the refusal names them.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-CATEGORY-110"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-TRANSACTION-131",
+      "area": "transaction",
+      "statement": "One call can change a transaction and its debt or subscription link together, checked against the new fields, all or nothing.",
+      "feature": "F-DEBT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["Q-111", "D-213"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-TRANSACTION-132",
+      "area": "transaction",
+      "statement": "The transactions list can be filtered to one subscription, one debt, or the charges awaiting confirmation.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-TRANSACTION-095"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-VERSION-130",
+      "area": "version",
+      "statement": "No version of a category, subscription, debt or income is kept at or after its end; a reopen that leaves a category without referrers deletes it rather than leaving it void.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-VERSION-014", "D-208"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-VERSION-131",
+      "area": "version",
+      "statement": "Extending a category back stretches its first terms to the new first period; a correction from that period runs to the next change the user made.",
+      "feature": "F-CATEGORY",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-CATEGORY-093"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-VERSION-132",
+      "area": "version",
+      "statement": "The terms of a subscription, debt, category or income in force in a chosen period can be read, with the period they took effect.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": [],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-VERSION-133",
+      "area": "version",
+      "statement": "A correction from a chosen period applies up to the period before the next existing change or end, and that period is given with the terms.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-VERSION-132"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-CONCURRENCY-130",
+      "area": "concurrency",
+      "statement": "A change to a subcategory raises its group's revision, so removing the group confirmed from an older read is refused.",
+      "feature": "F-CATEGORY",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-CATEGORY-052"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-CONCURRENCY-131",
+      "area": "concurrency",
+      "statement": "Changing which income is primary gives both incomes involved a new revision, so an edit opened before is refused.",
+      "feature": "F-INCOME",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-INCOME-055"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-BUDGET-130",
+      "area": "budget",
+      "statement": "Once a budget has ended, its subscriptions and debts can still be corrected from an earlier period, their charges answered, payments recorded within its periods and balances adjusted (dated on its last day by default); changes from the current period, which no longer exists, are refused.",
+      "feature": "F-SUBSCRIPTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-BUDGET-008", "D-206"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
       ]
     }
   ],
@@ -7303,6 +7707,196 @@
       "status": "accepted",
       "related": ["D-160", "R-SUBSCRIPTION-122"],
       "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"]
+    },
+    {
+      "id": "D-200",
+      "title": "A subscription's nominal day is kept apart from its anchor",
+      "decision": "Each version of a subscription's terms stores its nominal day of the month (charge_day, 1 to 31) beside the anchor date: the day of the first charge date, or of a next charge date given with a change. Charge dates fall on that day, clamped to each month's length. A change of cadence without a date re-anchors on the next charge of the current schedule and keeps the nominal day.",
+      "why": "A schedule re-anchored on a clamped date (28 February) otherwise drifts to the 28th for good.",
+      "rejected": [
+        "Deriving the day from the anchor date: a clamped anchor loses the day (the review's S2 finding)."
+      ],
+      "status": "accepted",
+      "related": ["R-SUBSCRIPTION-071", "R-SUBSCRIPTION-130", "D-170"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-201",
+      "title": "Catch-up in bounded steps, no runaway error",
+      "decision": "A read's catch-up (ensure_periods, get_current_period, the charge list, the previews) creates at most 120 periods per call with their interest and charges and keeps them; my_budgets.caught_up says whether more remains and the client calls ensure_periods until it returns 0. A write catches up in full first. Step 2's period_generation_runaway error is gone: the loop is bounded by the dates, so opening a budget always succeeds and progresses after any absence.",
+      "why": "Review finding M2: after about 13 years of absence a budget could never be opened again.",
+      "rejected": ["Raising the runaway limit: still a cliff, only further away."],
+      "status": "accepted",
+      "related": ["R-PERIOD-031", "R-PERIOD-130", "D-080", "D-180"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-202",
+      "title": "A debt's opened date bounds its history",
+      "decision": "A debt has an opened date (opened_on): today for a debt recorded from now, its first period's start for one recorded from an earlier period. Payments and balance adjustments dated before it are refused with before_debt_opened.",
+      "why": "The principal is the balance on the opened date; an entry before it would count twice or not at all.",
+      "rejected": [
+        "Moving opened_on back to the earliest entry: the principal would no longer be the balance on that date."
+      ],
+      "status": "accepted",
+      "related": ["R-DEBT-131", "D-178"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-203",
+      "title": "Future period ends follow the catch-up",
+      "decision": "The debt projection takes the end of the k-th future period from the catch-up's own projected end: the next period starts the day after the current one ends, whatever its end (set by hand early or late), and later ones follow the pay schedule in force.",
+      "why": "Review finding M1: a closed form from the current period's start was wrong when its end had been set early.",
+      "rejected": [
+        "A separate closed form from the current period: a second implementation (C-LOGIC-001)."
+      ],
+      "status": "accepted",
+      "related": ["R-DEBT-005", "R-PERIOD-131", "C-LOGIC-001"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-204",
+      "title": "A charge is pending when its date is due",
+      "decision": "Each subscription keeps the first scheduled date not yet charged (next_due). The fast path of every read checks it without the lock; only a due date with room in the budget makes a read take the lock and write. The bookkeeping columns (charged_through, next_due) change neither the revision nor updated_at.",
+      "why": "Review finding S4: a read crossing a day with no charge due took the lock and touched every subscription row.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-SUBSCRIPTION-131", "R-SECURITY-006"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-205",
+      "title": "Moving the period end through an income edit needs its preview",
+      "decision": "update_income on the primary income takes p_previewed_end_date; when the edit would move the current period's end, a missing or different value is refused with preview_required.",
+      "why": "A step 3 leftover from the review: the end of the current period moved without the member having seen it.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-PERIOD-134", "R-PERIOD-036"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-206",
+      "title": "A balance adjustment without a date",
+      "decision": "adjust_debt_balance without a date dates the adjustment at the charge horizon: today, or the budget's last day once the budget has ended.",
+      "why": "An ended budget has no today in it; its last day is the latest date an entry can have.",
+      "rejected": ["Refusing an adjustment without a date in an ended budget."],
+      "status": "accepted",
+      "related": ["R-DEBT-075", "R-BUDGET-130"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-207",
+      "title": "A debt's category is part of its terms",
+      "decision": "The category moves from the debt to its versions (debt_versions.category_id): a change of category from a period on keeps the payments of earlier periods in the category they were in, and the coverage rule (R-CATEGORY-130) is checked per version like a subscription's.",
+      "why": "Review finding S1: a debt's category changed for all periods at once, leaving earlier payments in another category than their debt.",
+      "rejected": ["Keeping one category per debt and refusing a change once paid."],
+      "status": "accepted",
+      "related": ["R-DEBT-070", "R-TRANSACTION-110", "R-CATEGORY-130", "D-177"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-208",
+      "title": "Reopen re-keys referrers before categories and trims versions at an end",
+      "decision": "The period registry gets a merge order: subscriptions, debts and incomes are re-keyed before categories, and after the merge any version at or after its row's end is deleted; a category whose only referrers the reopen removed is deleted with them.",
+      "why": "A review step 3 leftover: after a reopen a version could sit at the end (never in force) or a void category remain.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-VERSION-130", "D-146"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-209",
+      "title": "An ended debt is frozen",
+      "decision": "Once a debt has ended, its payments cannot be added, changed or deleted and its adjustments cannot be added or deleted (debt_ended); its remaining amount stays as it was when it ended.",
+      "why": "Ending a debt keeps its history (R-DEBT-113); changing it afterwards would change a closed record nobody looks at.",
+      "rejected": ["Allowing payments dated in the periods the debt was in force."],
+      "status": "accepted",
+      "related": ["R-DEBT-134", "R-DEBT-113"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-210",
+      "title": "A debt's paid share",
+      "decision": "debt_overview.paid_percent is the payments over principal plus interest plus adjustments, a whole percent rounded down, 100 exactly when nothing remains, 0 while nothing has been paid (and when the total owed is not positive with nothing paid).",
+      "why": "Rounding down never shows 100 % for a debt that still owes a rappen.",
+      "rejected": [
+        "Payments over principal only: interest would let it exceed 100 % while still owing."
+      ],
+      "status": "accepted",
+      "related": ["R-DEBT-137"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-211",
+      "title": "The database gives the total still owed",
+      "decision": "A view debt_totals gives per budget the sum of the positive remaining amounts of its debts in force and the number still owing; overpaid and paid-off debts add nothing.",
+      "why": "Answer to Q-110: the client no longer adds amounts up (C-LOGIC-003), and an overpaid debt cannot hide another's debt.",
+      "rejected": ["Adding up debt_overview.remaining in the client (D-191)."],
+      "status": "accepted",
+      "related": ["Q-110", "R-DEBT-133", "D-191"],
+      "source": [
+        "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-212",
+      "title": "Hot helper functions are plpgsql",
+      "decision": "Helpers called per row or per period by the views (totals, spans, reading_seq, the projection) are plpgsql, so their plans are kept for the session; a SQL function with a search_path setting is planned again on each call. A lookup that a generic plan would scan sequentially disables sequential scans in the function rather than forcing custom plans.",
+      "why": "The pages at the limits (50 subscriptions, 50 debts, 200 categories, 120 periods) must read in about 250 ms.",
+      "rejected": ["force_custom_plan: one planning per call again."],
+      "status": "accepted",
+      "related": ["C-LOGIC-001"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "D-213",
+      "title": "Changing a transaction and its link in one call",
+      "decision": "update_transaction takes p_relink: with it, p_debt_id and p_subscription_id (both null: no link) replace the link in the same call, checked against the new fields; without it the link is kept as before.",
+      "why": "Answer to Q-111: a payment is never left half-changed by a failure between calls.",
+      "rejected": ["Keeping three calls (D-194)."],
+      "status": "accepted",
+      "related": ["Q-111", "R-TRANSACTION-131", "D-194"],
+      "source": [
+        "owner-request: coordinator review of the step 4 database, 2026-11-16",
+        "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
     }
   ],
   "conventions": [
@@ -8017,19 +8611,21 @@
     },
     {
       "id": "Q-110",
-      "status": "open",
+      "status": "resolved",
       "question": "Should the database give the total remaining across a budget's debts?",
       "context": "D-191: the debts page adds up debt_overview.remaining for the debts in force. A database total would follow C-LOGIC-003 to the letter and could exclude or include ended debts by rule.",
       "related": ["D-191", "R-DEBT-121"],
-      "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"]
+      "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"],
+      "resolvedBy": "D-211"
     },
     {
       "id": "Q-111",
-      "status": "open",
+      "status": "resolved",
       "question": "Should one call change a transaction and its debt link together?",
       "context": "D-194: changing the debt a transaction pays takes up to three calls (unlink, update, link), not atomic; a failure part-way leaves part of the change.",
       "related": ["D-194", "D-177"],
-      "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"]
+      "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"],
+      "resolvedBy": "D-213"
     },
     {
       "id": "Q-112",
@@ -8038,6 +8634,22 @@
       "context": "add_transaction and link_transaction accept p_subscription_id; the step 4 screens offer only the debt link, as the brief asked. A charge recorded by hand would show as a subscription charge without being an automatic one.",
       "related": ["R-TRANSACTION-003", "D-177"],
       "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"]
+    },
+    {
+      "id": "Q-120",
+      "question": "Can an ended debt be restored, or a payment recorded after it ended?",
+      "context": "D-209 freezes an ended debt: a payment forgotten before it was removed cannot be added any more. Undoing the removal is possible only as a correction of its end (none exists for debts yet).",
+      "status": "open",
+      "related": ["D-209", "R-DEBT-134"],
+      "source": ["owner-request: coordinator review of the step 4 database, 2026-11-16"]
+    },
+    {
+      "id": "Q-121",
+      "question": "Should the app show progress while a very long absence is caught up?",
+      "context": "D-201: after more than ten years away, reading a budget takes several ensure_periods calls (120 periods each); my_budgets.caught_up is false meanwhile and get_current_period answers no row.",
+      "status": "open",
+      "related": ["D-201", "R-PERIOD-130"],
+      "source": ["owner-request: coordinator review of the step 4 database, 2026-11-16"]
     }
   ]
 }

@@ -100,8 +100,15 @@ select * from tests.naive_totals(<period id>);  -- a period's totals recomputed 
 select tests.naive_committed(<period id>);    -- step 4: its committed total, from the rows
 select tests.naive_remaining(<debt id>);      -- step 4: a debt's remaining amount, from the rows
 select * from tests.step4_violations(<budget id>);  -- step 4 invariants (charges once,
-                                              -- interest once per period, naive figures);
+                                              -- interest once per period, naive figures,
+                                              -- categories in force, no entry before a
+                                              -- debt's opened_on, no version at an end);
                                               -- call it as a member of the budget
+select * from tests.naive_charge_dates(<anchor>, 'monthly', <day>, <from>, <to>);
+                                              -- step 4: a schedule's dates, walked naively
+select * from tests.naive_projection(<debt id>);  -- step 4: a debt's payoff, payments left
+                                              -- and end, walked period by period
+select tests.naive_next_pay(<from>, <pay day>, 'nearest');  -- the next actual pay date
 select tests.remember('budget', public.create_budget(...));  -- name an id ...
 select tests.id('budget');                    -- ... and use it under any role
 select tests.reopen_previous_period(<budget id>);  -- step 2's argument lists for the RPCs
@@ -125,7 +132,12 @@ commit, and tests roll back, so assert them with
 40 % of the steps, the category and transaction ones for 35 %, the subscription and debt
 ones, with absences of up to 40 days, for 25 %) for eight fixed seeds (220 steps each, about
 80 seconds) and checks the invariants after each step, including every period's totals
-against `tests.naive_totals` and its progress rows, and `tests.step4_violations`. Before
+against `tests.naive_totals` and its progress rows, and `tests.step4_violations`. It also
+keeps its own models of step 4 and checks them after each step: the charges created since
+the last check against `tests.naive_charge_dates` (the nominal day the run asked for, the
+price and category of the terms in force in each period), every new period's interest
+against a naive balance (the state the step before left, since a period's interest is fixed
+when it is created), and every debt's projection against `tests.naive_projection`. Before
 each step the budget is opened (`ensure_periods`), so charges an absence left due count as
 what the budget held. A seed walks the same
 way on any database: every pick comes from the run's own rows in creation order
@@ -135,6 +147,10 @@ names its seed and step; to replay it, keep only that seed in `seeds`. The `fing
 diagnostic changes exactly when a walk changes. To run it longer, add seeds or raise the step
 count in the `seeds` / `prop_config` tables at the top of the file (do not commit that), then
 run it with `00_helpers.test.sql`.
+
+`99_step4_review.test.sql` holds the regression tests of the step 4 database review (one
+section per finding: the projection's period ends, catch-up after 13 and 40 years, category
+coverage, the nominal day, opened dates, due charges, previews, and the contract additions).
 
 `60_concurrency.test.sql`, `62_concurrent_edits.test.sql` and
 `98_step4_concurrency.test.sql` are the exceptions to the rollback rule: each opens extra connections with `dblink` (local credentials

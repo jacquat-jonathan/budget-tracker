@@ -210,6 +210,48 @@ check(ok(outsiderDebts) && outsiderDebts.body.length === 0, 'a non-member reads 
 const anonSubs = await get(null, `subscription_overview?budget_id=eq.${budget}`)
 check(anonSubs.status >= 400 && anonSubs.body?.code === '42501', 'an anonymous visitor cannot read subscriptions (no privilege)', anonSubs)
 
+// --- step 4 review additions ------------------------------------------------------------
+const debtTotals = await get(bob, `debt_totals?budget_id=eq.${budget}`)
+check(ok(debtTotals) && debtTotals.body[0]?.remaining_total === 940000 && debtTotals.body[0]?.owing_count === 1,
+  'debt_totals gives what is still owed and how many debts owe', debtTotals)
+const debtRow = (await get(bob, `debt_overview?id=eq.${debt.body[0].id}`)).body[0]
+check(debtRow.paid_percent === 5 && debtRow.overpaid_by === 0 && debtRow.expected_end_after_budget_end === false,
+  'debt_overview carries the paid share, the overpayment and the budget-end flag', debtRow)
+const page1 = await rpc(bob, 'get_debt_history', { p_debt_id: debt.body[0].id, p_limit: 2 })
+const last = page1.body?.at(-1)
+const page2 = await rpc(bob, 'get_debt_history', {
+  p_debt_id: debt.body[0].id,
+  p_limit: 2,
+  p_after_date: last?.date,
+  p_after_kind: last?.kind,
+  p_after_created_at: last?.created_at,
+  p_after_id: last?.entry_id,
+})
+check(ok(page1) && ok(page2) && page1.body.length === 2 && page2.body.map((row) => row.kind).join() === 'adjustment' && page2.body[0].balance === 940000,
+  'get_debt_history pages through the history with a cursor', [page1, page2])
+const debtTerms = await rpc(bob, 'get_debt_terms', { p_debt_id: debt.body[0].id, p_period_id: periods.at(-1).id })
+check(ok(debtTerms) && debtTerms.body[0]?.in_force === true && debtTerms.body[0]?.category_id === food.body[0].id,
+  'get_debt_terms gives the terms in force in a period', debtTerms)
+const inUse = await rpc(alice, 'end_category', { p_category_id: food.body[0].id, p_expected_revision: (await get(alice, `category_overview?id=eq.${food.body[0].id}`)).body[0].revision })
+check(refused(inUse, 'category_in_use') && JSON.parse(inUse.body?.details ?? '[]').some((user) => user.kind === 'debt' && user.name === 'Car'),
+  'category_in_use names what uses the category in its details', inUse)
+const subPreview = await rpc(alice, 'preview_update_subscription', { p_subscription_id: sub.body[0].id, p_cadence: 'quarterly', p_count: 2 })
+check(ok(subPreview) && subPreview.body.length === 2, 'preview_update_subscription answers with the write\'s arguments', subPreview)
+const relinked = await rpc(bob, 'update_transaction', {
+  p_transaction_id: payment.body[0].id,
+  p_expected_revision: payment.body[0].revision,
+  p_kind: 'expense',
+  p_amount: 50000,
+  p_date: today,
+  p_category_id: food.body[0].id,
+  p_relink: true,
+})
+check(ok(relinked) && relinked.body[0]?.debt_id === null, 'update_transaction with p_relink changes the link in the same call', relinked)
+const budgetRow = (await get(bob, `my_budgets?id=eq.${budget}`)).body[0]
+check(budgetRow.caught_up === true && budgetRow.charges_awaiting === 0, 'my_budgets says it is caught up and counts the charges awaiting', budgetRow)
+const confirmedAll = await rpc(bob, 'confirm_subscription_charges', { p_budget_id: budget })
+check(ok(confirmedAll) && confirmedAll.body === 0, 'confirm_subscription_charges confirms what awaits (nothing here)', confirmedAll)
+
 // --- access ---------------------------------------------------------------------------
 const anonRead = await get(null, `transaction_list?budget_id=eq.${budget}`)
 check(anonRead.status >= 400 && anonRead.body?.code === '42501', 'an anonymous visitor cannot read transactions (no privilege)', anonRead)

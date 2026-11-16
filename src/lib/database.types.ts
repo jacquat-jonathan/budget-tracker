@@ -255,14 +255,14 @@ isOneToOne: false
                   ]
                 },"debt_versions": {
                   Row: {
-                    "budget_id": string,"created_at": string,"debt_id": string,"effective_from_seq": number,"id": string,"interest_rate": number,"monthly_payment": number,"updated_at": string
+                    "budget_id": string,"category_id": string,"created_at": string,"debt_id": string,"effective_from_seq": number,"id": string,"interest_rate": number,"monthly_payment": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"debt_id": string,"effective_from_seq": number,"id"?: string,"interest_rate"?: number,"monthly_payment": number,"updated_at"?: string
+                    "budget_id": string,"category_id": string,"created_at"?: string,"debt_id": string,"effective_from_seq": number,"id"?: string,"interest_rate"?: number,"monthly_payment": number,"updated_at"?: string
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"debt_id"?: string,"effective_from_seq"?: number,"id"?: string,"interest_rate"?: number,"monthly_payment"?: number,"updated_at"?: string
+                    "budget_id"?: string,"category_id"?: string,"created_at"?: string,"debt_id"?: string,"effective_from_seq"?: number,"id"?: string,"interest_rate"?: number,"monthly_payment"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -277,6 +277,18 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "my_budgets"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "debt_versions_category_fk"
+      columns: ["category_id","budget_id"]
+isOneToOne: false
+      referencedRelation: "categories"
+      referencedColumns: ["id","budget_id"]
+    },{
+      foreignKeyName: "debt_versions_category_fk"
+      columns: ["category_id","budget_id"]
+isOneToOne: false
+      referencedRelation: "category_overview"
+      referencedColumns: ["id","budget_id"]
     },{
       foreignKeyName: "debt_versions_debt_fk"
       columns: ["debt_id","budget_id"]
@@ -293,14 +305,14 @@ isOneToOne: false
                   ]
                 },"debts": {
                   Row: {
-                    "budget_id": string,"category_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"name": string,"opened_on": string,"principal": number,"revision": number,"updated_at": string
+                    "budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"name": string,"opened_on": string,"principal": number,"revision": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"category_id": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"name": string,"opened_on": string,"principal": number,"revision"?: number,"updated_at"?: string
+                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"name": string,"opened_on": string,"principal": number,"revision"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "budget_id"?: string,"category_id"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"name"?: string,"opened_on"?: string,"principal"?: number,"revision"?: number,"updated_at"?: string
+                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"name"?: string,"opened_on"?: string,"principal"?: number,"revision"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -315,18 +327,6 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "my_budgets"
       referencedColumns: ["id"]
-    },{
-      foreignKeyName: "debts_category_fk"
-      columns: ["category_id","budget_id"]
-isOneToOne: false
-      referencedRelation: "categories"
-      referencedColumns: ["id","budget_id"]
-    },{
-      foreignKeyName: "debts_category_fk"
-      columns: ["category_id","budget_id"]
-isOneToOne: false
-      referencedRelation: "category_overview"
-      referencedColumns: ["id","budget_id"]
     }
                   ]
                 },"income_versions": {
@@ -423,14 +423,14 @@ isOneToOne: false
                   ]
                 },"subscription_versions": {
                   Row: {
-                    "anchor_date": string,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"created_at": string,"effective_from_seq": number,"id": string,"price": number,"subscription_id": string,"updated_at": string
+                    "anchor_date": string,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"charge_day": number,"created_at": string,"effective_from_seq": number,"id": string,"price": number,"subscription_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "anchor_date": string,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"created_at"?: string,"effective_from_seq": number,"id"?: string,"price": number,"subscription_id": string,"updated_at"?: string
+                    "anchor_date": string,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"charge_day": number,"created_at"?: string,"effective_from_seq": number,"id"?: string,"price": number,"subscription_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "anchor_date"?: string,"budget_id"?: string,"cadence"?: Database["public"]['Enums']["subscription_cadence"],"category_id"?: string,"created_at"?: string,"effective_from_seq"?: number,"id"?: string,"price"?: number,"subscription_id"?: string,"updated_at"?: string
+                    "anchor_date"?: string,"budget_id"?: string,"cadence"?: Database["public"]['Enums']["subscription_cadence"],"category_id"?: string,"charge_day"?: number,"created_at"?: string,"effective_from_seq"?: number,"id"?: string,"price"?: number,"subscription_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -473,14 +473,14 @@ isOneToOne: false
                   ]
                 },"subscriptions": {
                   Row: {
-                    "budget_id": string,"charged_through": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"name": string,"revision": number,"updated_at": string
+                    "budget_id": string,"charged_through": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"name": string,"next_due": string | null,"revision": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"charged_through": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"name": string,"revision"?: number,"updated_at"?: string
+                    "budget_id": string,"charged_through": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"name": string,"next_due"?: string | null,"revision"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "budget_id"?: string,"charged_through"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"name"?: string,"revision"?: number,"updated_at"?: string
+                    "budget_id"?: string,"charged_through"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"name"?: string,"next_due"?: string | null,"revision"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -499,14 +499,14 @@ isOneToOne: false
                   ]
                 },"transactions": {
                   Row: {
-                    "amount": number,"budget_id": string,"category_id": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_id": string | null,"description": string | null,"id": string,"kind": Database["public"]['Enums']["transaction_kind"],"recorded_by": string | null,"review_state": string,"revision": number,"subscription_id": string | null,"updated_at": string
+                    "amount": number,"budget_id": string,"category_id": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_id": string | null,"description": string | null,"id": string,"kind": Database["public"]['Enums']["transaction_kind"],"recorded_by": string | null,"review_state": Database["public"]['Enums']["review_state"],"revision": number,"subscription_id": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"budget_id": string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date": string,"debt_id"?: string | null,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["transaction_kind"],"recorded_by"?: string | null,"review_state"?: string,"revision"?: number,"subscription_id"?: string | null,"updated_at"?: string
+                    "amount": number,"budget_id": string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date": string,"debt_id"?: string | null,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["transaction_kind"],"recorded_by"?: string | null,"review_state"?: Database["public"]['Enums']["review_state"],"revision"?: number,"subscription_id"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "amount"?: number,"budget_id"?: string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date"?: string,"debt_id"?: string | null,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["transaction_kind"],"recorded_by"?: string | null,"review_state"?: string,"revision"?: number,"subscription_id"?: string | null,"updated_at"?: string
+                    "amount"?: number,"budget_id"?: string,"category_id"?: string | null,"charge_date"?: string | null,"created_at"?: string,"date"?: string,"debt_id"?: string | null,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["transaction_kind"],"recorded_by"?: string | null,"review_state"?: Database["public"]['Enums']["review_state"],"revision"?: number,"subscription_id"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -616,7 +616,7 @@ isOneToOne: false
                   ]
                 },"debt_overview": {
                   Row: {
-                    "adjustment_total": number | null,"budget_id": string,"category_id": string,"category_name": string | null,"created_at": string,"end_seq": number | null,"expected_end_date": string | null,"first_seq": number,"has_history": boolean | null,"id": string,"interest_rate": number,"interest_total": number | null,"is_active": boolean | null,"monthly_payment": number,"name": string,"opened_on": string,"paid_total": number | null,"parent_category_id": string | null,"parent_category_name": string | null,"payments_left": number | null,"payoff": string | null,"principal": number,"remaining": number | null,"removal_deletes": boolean | null,"revision": number,"terms_from_seq": number,"updated_at": string
+                    "adjustment_total": number | null,"budget_id": string,"category_id": string,"category_name": string | null,"created_at": string,"end_seq": number | null,"expected_end_after_budget_end": boolean | null,"expected_end_date": string | null,"first_seq": number,"has_history": boolean | null,"id": string,"interest_rate": number,"interest_total": number | null,"is_active": boolean | null,"monthly_payment": number,"name": string,"opened_on": string,"overpaid_by": number | null,"paid_percent": number | null,"paid_total": number | null,"parent_category_id": string | null,"parent_category_name": string | null,"payments_left": number | null,"payoff": Database["public"]['Enums']["debt_payoff"] | null,"principal": number,"remaining": number | null,"removal_deletes": boolean | null,"revision": number,"terms_from_seq": number,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -632,18 +632,26 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "my_budgets"
       referencedColumns: ["id"]
-    },{
-      foreignKeyName: "debts_category_fk"
-      columns: ["category_id","budget_id"]
+    }
+                  ]
+                },"debt_totals": {
+                  Row: {
+                    "budget_id": string,"owing_count": number | null,"remaining_total": number | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "debts_budget_id_fkey"
+      columns: ["budget_id"]
 isOneToOne: false
-      referencedRelation: "categories"
-      referencedColumns: ["id","budget_id"]
+      referencedRelation: "budgets"
+      referencedColumns: ["id"]
     },{
-      foreignKeyName: "debts_category_fk"
-      columns: ["category_id","budget_id"]
+      foreignKeyName: "debts_budget_id_fkey"
+      columns: ["budget_id"]
 isOneToOne: false
-      referencedRelation: "category_overview"
-      referencedColumns: ["id","budget_id"]
+      referencedRelation: "my_budgets"
+      referencedColumns: ["id"]
     }
                   ]
                 },"income_overview": {
@@ -668,7 +676,7 @@ isOneToOne: false
                   ]
                 },"my_budgets": {
                   Row: {
-                    "created_at": string,"end_date": string | null,"end_date_entered": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"revision": number,"updated_at": string
+                    "caught_up": boolean | null,"charges_awaiting": number | null,"created_at": string,"end_date": string | null,"end_date_entered": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"revision": number,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -708,7 +716,7 @@ isOneToOne: false
                   ]
                 },"subscription_overview": {
                   Row: {
-                    "anchor_date": string,"awaiting_count": number | null,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"category_name": string | null,"charge_count": number | null,"charged_through": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"is_active": boolean | null,"monthly_cost": number | null,"name": string,"next_charge_date": string | null,"parent_category_id": string | null,"parent_category_name": string | null,"price": number,"removal_deletes": boolean | null,"revision": number,"terms_from_seq": number,"updated_at": string
+                    "anchor_date": string,"awaiting_count": number | null,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"category_name": string | null,"charge_count": number | null,"charge_day": number,"charged_through": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"is_active": boolean | null,"monthly_cost": number | null,"name": string,"next_charge_date": string | null,"parent_category_id": string | null,"parent_category_name": string | null,"price": number,"removal_deletes": boolean | null,"revision": number,"terms_from_seq": number,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -728,7 +736,7 @@ isOneToOne: false
                   ]
                 },"transaction_list": {
                   Row: {
-                    "amount": number,"budget_id": string,"category_id": string | null,"category_name": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_id": string | null,"debt_name": string | null,"description": string | null,"id": string,"kind": Database["public"]['Enums']["transaction_kind"],"parent_category_id": string | null,"parent_category_name": string | null,"period_id": string | null,"recorded_by": string | null,"recorded_by_name": string | null,"review_state": string,"revision": number,"subscription_id": string | null,"subscription_name": string | null,"updated_at": string
+                    "amount": number,"budget_id": string,"category_id": string | null,"category_name": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_id": string | null,"debt_name": string | null,"description": string | null,"id": string,"kind": Database["public"]['Enums']["transaction_kind"],"parent_category_id": string | null,"parent_category_name": string | null,"period_id": string | null,"recorded_by": string | null,"recorded_by_name": string | null,"review_state": Database["public"]['Enums']["review_state"],"revision": number,"subscription_id": string | null,"subscription_name": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -810,7 +818,7 @@ isOneToOne: false
 "period_id": string | null,
 "recorded_by": string | null,
 "recorded_by_name": string | null,
-"review_state": string,
+"review_state": Database["public"]['Enums']["review_state"],
 "revision": number,
 "subscription_id": string | null,
 "subscription_name": string | null,
@@ -830,6 +838,7 @@ isOneToOne: false
 "category_name": string | null,
 "created_at": string,
 "end_seq": number | null,
+"expected_end_after_budget_end": boolean | null,
 "expected_end_date": string | null,
 "first_seq": number,
 "has_history": boolean | null,
@@ -840,11 +849,13 @@ isOneToOne: false
 "monthly_payment": number,
 "name": string,
 "opened_on": string,
+"overpaid_by": number | null,
+"paid_percent": number | null,
 "paid_total": number | null,
 "parent_category_id": string | null,
 "parent_category_name": string | null,
 "payments_left": number | null,
-"payoff": string | null,
+"payoff": Database["public"]['Enums']["debt_payoff"] | null,
 "principal": number,
 "remaining": number | null,
 "removal_deletes": boolean | null,
@@ -880,7 +891,7 @@ isOneToOne: false
 "period_id": string | null,
 "recorded_by": string | null,
 "recorded_by_name": string | null,
-"review_state": string,
+"review_state": Database["public"]['Enums']["review_state"],
 "revision": number,
 "subscription_id": string | null,
 "subscription_name": string | null,
@@ -892,6 +903,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"confirm_subscription_charges":
+{ Args: { "p_budget_id": string,"p_through_date"?: string }; Returns: number
+                           },
 "create_budget":
 { Args: { "p_amount": number,"p_end_date"?: string,"p_income_name": string,"p_name": string,"p_pay_day": number,"p_start_month"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: string
                            },
@@ -932,6 +946,7 @@ isOneToOne: false
 "category_name": string | null,
 "created_at": string,
 "end_seq": number | null,
+"expected_end_after_budget_end": boolean | null,
 "expected_end_date": string | null,
 "first_seq": number,
 "has_history": boolean | null,
@@ -942,11 +957,13 @@ isOneToOne: false
 "monthly_payment": number,
 "name": string,
 "opened_on": string,
+"overpaid_by": number | null,
+"paid_percent": number | null,
 "paid_total": number | null,
 "parent_category_id": string | null,
 "parent_category_name": string | null,
 "payments_left": number | null,
-"payoff": string | null,
+"payoff": Database["public"]['Enums']["debt_payoff"] | null,
 "principal": number,
 "remaining": number | null,
 "removal_deletes": boolean | null,
@@ -969,6 +986,7 @@ isOneToOne: false
 "category_id": string,
 "category_name": string | null,
 "charge_count": number | null,
+"charge_day": number,
 "charged_through": string,
 "created_at": string,
 "end_seq": number | null,
@@ -1006,6 +1024,7 @@ isOneToOne: false
 "category_name": string | null,
 "created_at": string,
 "end_seq": number | null,
+"expected_end_after_budget_end": boolean | null,
 "expected_end_date": string | null,
 "first_seq": number,
 "has_history": boolean | null,
@@ -1016,11 +1035,13 @@ isOneToOne: false
 "monthly_payment": number,
 "name": string,
 "opened_on": string,
+"overpaid_by": number | null,
+"paid_percent": number | null,
 "paid_total": number | null,
 "parent_category_id": string | null,
 "parent_category_name": string | null,
 "payments_left": number | null,
-"payoff": string | null,
+"payoff": Database["public"]['Enums']["debt_payoff"] | null,
 "principal": number,
 "remaining": number | null,
 "removal_deletes": boolean | null,
@@ -1078,6 +1099,11 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"get_category_terms":
+{ Args: { "p_category_id": string,"p_period_id": string }; Returns: {
+              "amount": number,"cadence": Database["public"]['Enums']["expectation_cadence"],"in_force": boolean,"period_id": string,"terms_from_period_id": string,"until_period_id": string
+            }[]
+                           },
 "get_current_period":
 { Args: { "p_budget_id": string }; Returns: {
               "budget_id": string,
@@ -1105,13 +1131,23 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "get_debt_history":
-{ Args: { "p_debt_id": string }; Returns: Database["public"]['CompositeTypes']["debt_history_row"][]
+{ Args: { "p_after_created_at"?: string,"p_after_date"?: string,"p_after_id"?: string,"p_after_kind"?: string,"p_debt_id": string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["debt_history_row"][]
                           SetofOptions: {
         from: "*"
         to: "debt_history_row"
         isOneToOne: false
         isSetofReturn: true
       } },
+"get_debt_terms":
+{ Args: { "p_debt_id": string,"p_period_id": string }; Returns: {
+              "category_id": string,"in_force": boolean,"interest_rate": number,"monthly_payment": number,"period_id": string,"terms_from_period_id": string,"until_period_id": string
+            }[]
+                           },
+"get_income_terms":
+{ Args: { "p_income_id": string,"p_period_id": string }; Returns: {
+              "amount": number,"in_force": boolean,"pay_day": number,"period_id": string,"terms_from_period_id": string,"until_period_id": string,"weekend_rule": Database["public"]['Enums']["weekend_rule"]
+            }[]
+                           },
 "get_period_progress":
 { Args: { "p_period_id": string }; Returns: Database["public"]['CompositeTypes']["category_progress_row"][]
                           SetofOptions: {
@@ -1123,6 +1159,11 @@ isOneToOne: false
 "get_start_months":
 { Args: { "p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
               "is_default": boolean,"month": string,"start_date": string,"today": string
+            }[]
+                           },
+"get_subscription_terms":
+{ Args: { "p_period_id": string,"p_subscription_id": string }; Returns: {
+              "anchor_date": string,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"charge_day": number,"in_force": boolean,"period_id": string,"price": number,"terms_from_period_id": string,"until_period_id": string
             }[]
                            },
 "get_today":
@@ -1153,7 +1194,7 @@ isOneToOne: false
 "period_id": string | null,
 "recorded_by": string | null,
 "recorded_by_name": string | null,
-"review_state": string,
+"review_state": Database["public"]['Enums']["review_state"],
 "revision": number,
 "subscription_id": string | null,
 "subscription_name": string | null,
@@ -1192,7 +1233,7 @@ isOneToOne: false
 "period_id": string | null,
 "recorded_by": string | null,
 "recorded_by_name": string | null,
-"review_state": string,
+"review_state": Database["public"]['Enums']["review_state"],
 "revision": number,
 "subscription_id": string | null,
 "subscription_name": string | null,
@@ -1210,7 +1251,7 @@ isOneToOne: false
             }[]
                            },
 "list_transactions":
-{ Args: { "p_before_created_at"?: string,"p_before_date"?: string,"p_before_id"?: string,"p_budget_id": string,"p_category_id"?: string,"p_from_date"?: string,"p_kind"?: Database["public"]['Enums']["transaction_kind"],"p_limit"?: number,"p_to_date"?: string }; Returns: {
+{ Args: { "p_awaiting_only"?: boolean,"p_before_created_at"?: string,"p_before_date"?: string,"p_before_id"?: string,"p_budget_id": string,"p_category_id"?: string,"p_debt_id"?: string,"p_from_date"?: string,"p_kind"?: Database["public"]['Enums']["transaction_kind"],"p_limit"?: number,"p_subscription_id"?: string,"p_to_date"?: string }; Returns: {
               "amount": number,
 "budget_id": string,
 "category_id": string | null,
@@ -1228,7 +1269,7 @@ isOneToOne: false
 "period_id": string | null,
 "recorded_by": string | null,
 "recorded_by_name": string | null,
-"review_state": string,
+"review_state": Database["public"]['Enums']["review_state"],
 "revision": number,
 "subscription_id": string | null,
 "subscription_name": string | null,
@@ -1246,6 +1287,26 @@ isOneToOne: false
 "pay_date":
 { Args: { "p_month": number,"p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"],"p_year": number }; Returns: string
                            },
+"preview_create_subscription":
+{ Args: { "p_budget_id": string,"p_cadence": Database["public"]['Enums']["subscription_cadence"],"p_count"?: number,"p_first_charge_date": string,"p_from_period_id"?: string }; Returns: {
+              "charge_date": string,"charged_at_once": boolean
+            }[]
+                           },
+"preview_end_subscription":
+{ Args: { "p_from_period_id"?: string,"p_subscription_id": string }; Returns: {
+              "outcome": string,"refusal": string
+            }[]
+                           },
+"preview_move_period_start":
+{ Args: { "p_period_id": string }; Returns: {
+              "accepted": boolean,"period_id": string,"refusal": string,"scheduled_start": string
+            }[]
+                           },
+"preview_remove_debt":
+{ Args: { "p_debt_id": string,"p_from_period_id"?: string }; Returns: {
+              "outcome": string,"refusal": string
+            }[]
+                           },
 "preview_reopen":
 { Args: { "p_budget_id": string }; Returns: {
               "change": string,"record_id": string,"record_kind": string,"record_name": string,"replaces_previous": boolean
@@ -1260,6 +1321,9 @@ isOneToOne: false
 { Args: { "p_amount"?: number,"p_from_period_id"?: string,"p_income_id": string,"p_pay_day"?: number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
               "end_date": string,"end_is_manual": boolean,"expected_pay_date": string,"period_id": string
             }[]
+                           },
+"preview_update_subscription":
+{ Args: { "p_cadence"?: Database["public"]['Enums']["subscription_cadence"],"p_category_id"?: string,"p_count"?: number,"p_from_period_id"?: string,"p_next_charge_date"?: string,"p_price"?: number,"p_subscription_id": string }; Returns: string[]
                            },
 "record_early_pay_date":
 { Args: { "p_budget_id": string,"p_expected_revision": number,"p_pay_date": string,"p_period_id": string }; Returns: {
@@ -1359,7 +1423,9 @@ isOneToOne: false
       } },
 "set_budget_end_date":
 { Args: { "p_budget_id": string,"p_end_date"?: string,"p_expected_revision": number }; Returns: {
-              "created_at": string,
+              "caught_up": boolean | null,
+"charges_awaiting": number | null,
+"created_at": string,
 "end_date": string | null,
 "end_date_entered": string | null,
 "id": string,
@@ -1445,6 +1511,7 @@ isOneToOne: false
 "category_name": string | null,
 "created_at": string,
 "end_seq": number | null,
+"expected_end_after_budget_end": boolean | null,
 "expected_end_date": string | null,
 "first_seq": number,
 "has_history": boolean | null,
@@ -1455,11 +1522,13 @@ isOneToOne: false
 "monthly_payment": number,
 "name": string,
 "opened_on": string,
+"overpaid_by": number | null,
+"paid_percent": number | null,
 "paid_total": number | null,
 "parent_category_id": string | null,
 "parent_category_name": string | null,
 "payments_left": number | null,
-"payoff": string | null,
+"payoff": Database["public"]['Enums']["debt_payoff"] | null,
 "principal": number,
 "remaining": number | null,
 "removal_deletes": boolean | null,
@@ -1485,6 +1554,7 @@ isOneToOne: false
 "category_id": string,
 "category_name": string | null,
 "charge_count": number | null,
+"charge_day": number,
 "charged_through": string,
 "created_at": string,
 "end_seq": number | null,
@@ -1509,7 +1579,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "update_transaction":
-{ Args: { "p_amount": number,"p_category_id"?: string,"p_date": string,"p_description"?: string,"p_expected_revision": number,"p_kind": Database["public"]['Enums']["transaction_kind"],"p_transaction_id": string }; Returns: {
+{ Args: { "p_amount": number,"p_category_id"?: string,"p_date": string,"p_debt_id"?: string,"p_description"?: string,"p_expected_revision": number,"p_kind": Database["public"]['Enums']["transaction_kind"],"p_relink"?: boolean,"p_subscription_id"?: string,"p_transaction_id": string }; Returns: {
               "amount": number,
 "budget_id": string,
 "category_id": string | null,
@@ -1527,7 +1597,7 @@ isOneToOne: false
 "period_id": string | null,
 "recorded_by": string | null,
 "recorded_by_name": string | null,
-"review_state": string,
+"review_state": Database["public"]['Enums']["review_state"],
 "revision": number,
 "subscription_id": string | null,
 "subscription_name": string | null,
@@ -1541,7 +1611,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "expectation_cadence": "monthly"|"yearly","subscription_cadence": "monthly"|"quarterly"|"half_yearly"|"yearly","transaction_kind": "expense"|"refund"|"extra_income","weekend_rule": "nearest"|"previous"|"next"|"none"
+            "debt_payoff": "paid_off"|"ends"|"never","expectation_cadence": "monthly"|"yearly","review_state": "confirmed"|"awaiting_confirmation","subscription_cadence": "monthly"|"quarterly"|"half_yearly"|"yearly","transaction_kind": "expense"|"refund"|"extra_income","weekend_rule": "nearest"|"previous"|"next"|"none"
           }
           CompositeTypes: {
             "category_choice": {
@@ -1667,7 +1737,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "expectation_cadence": ["monthly", "yearly"],"subscription_cadence": ["monthly", "quarterly", "half_yearly", "yearly"],"transaction_kind": ["expense", "refund", "extra_income"],"weekend_rule": ["nearest", "previous", "next", "none"]
+            "debt_payoff": ["paid_off", "ends", "never"],"expectation_cadence": ["monthly", "yearly"],"review_state": ["confirmed", "awaiting_confirmation"],"subscription_cadence": ["monthly", "quarterly", "half_yearly", "yearly"],"transaction_kind": ["expense", "refund", "extra_income"],"weekend_rule": ["nearest", "previous", "next", "none"]
           }
         }
 } as const
