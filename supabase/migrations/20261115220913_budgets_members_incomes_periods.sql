@@ -1,45 +1,42 @@
 -- Step 2: budgets, members, invitations, incomes (versioned) and periods.
 --
 -- The client contract (tables, views, RPCs, error codes) is documented in docs/database.md;
--- the rules are in spec/spec.json (docs/spec.md). Conventions from the profiles migration
--- apply: explicit privileges, RLS with policies in the same migration, helpers in `private`,
+-- the rules are in spec/spec.json (docs/spec.md) and their ids are named in the comments
+-- below, at the object that enforces each. Conventions from the profiles migration apply:
+-- explicit privileges, RLS with policies in the same migration, helpers in `private`,
 -- `set search_path = ''`, schema-qualified names.
 --
 -- Access model
 --   * Every read goes through RLS. Policies use the set-returning helpers
 --     private.member_budget_ids() / private.owned_budget_ids() as `in (select ...)`, so the
 --     helper runs once per statement (initPlan) and, being security definer, never
---     re-enters the policies of budget_members (no recursion).
---   * Writes that touch several rows or need invariants go through security definer RPCs in
---     `public`, which check membership themselves. The client can write directly only
---     budgets.name and incomes.name (members); deletes go through RPCs that say why.
+--     re-enters the policies of budget_members (no recursion).          (C-RLS-003)
+--   * Writes go through security definer RPCs in `public`, which check membership
+--     themselves. The client can write directly only budgets.name and incomes.name.
 --   * RPC errors are raised with SQLSTATE P0001 and a stable snake_case message code.
---   * Every RPC that changes a budget's periods, incomes or members first takes the
---     budget's advisory lock (private.lock_budget) and only then reads the rows it checks.
+--   * One lock order everywhere: the budget's advisory lock (private.lock_budget) first,
+--     then any row. Each write RPC takes the lock, catches the periods up to today, and only
+--     then reads the rows it checks.                         (R-SECURITY-007, R-PERIOD-032)
 --
--- Periods: one per calendar month
---   * Each period belongs to one month (`month`, the first day of that month) and starts on
---     that month's salary: `anchor_date` is the actual pay date of the primary income for
---     that month, computed when the period was created. Consecutive periods have consecutive
---     months, so no month ever has two periods and a month's salary never counts twice.
---   * A period ends the day before the next period starts. The latest period's end is a
---     projection: the day before the next month's actual pay date under the terms in force
---     for the next period, unless set by hand.
---   * A boundary set by hand lies within 14 days of the salary it stands for.
---   * No period starts after today. Periods are created on demand up to the one containing
---     today, and never after the budget's final month (`end_month`).
+-- Periods: salary to salary                                         (D-080)
+--   * Stored periods are facts: contiguous, numbered 1..n, none starting after today, each
+--     7 to 92 days long. Only boundary operations move a stored boundary.
+--   * The schedule only predicts the next pay date: the first actual pay date of the
+--     primary income that falls at least 15 days after the period's start (and, when
+--     re-projecting after a change of terms, after today). The latest period's end is the
+--     day before it, unless set by hand.
 --
 -- Versions
---   * Periods are numbered per budget (seq 1, 2, ...). Income validity and versions refer to
---     seq, not to dates, so moving a period boundary never changes which version applies.
---   * An income counts in period seq p when first_seq <= p and (end_seq is null or p < end_seq),
---     at the version with the greatest effective_from_seq <= p.
---   * Writing a version for period s discards the versions keyed to later periods
---     (trigger private.discard_later_versions, reused by every versioned table).
+--   * Income validity and versions refer to the period number (seq), not to dates.
+--     An income counts in period p when first_seq <= p and (end_seq is null or p < end_seq),
+--     at the version with the greatest effective_from_seq <= p.         (R-PERIOD-018)
+--   * Nothing is ever keyed beyond the latest period: merging the latest period into the
+--     previous one re-keys everything keyed to it (private.rekey_period).  (R-VERSION-011)
 
 -- ===========================================================================
 -- Types
 -- ===========================================================================
+-- R-PAYDATE-007
 create type public.weekend_rule as enum ('nearest', 'previous', 'next', 'none');
 comment on type public.weekend_rule is
   'What happens when a pay date falls on a weekend: nearest (Sat->Fri, Sun->Mon), previous (->Fri), next (->Mon), none.';
@@ -49,34 +46,42 @@ grant usage on schema private to authenticated;
 -- ===========================================================================
 -- Limits (one place, so the docs and tests can refer to them)
 -- ===========================================================================
+-- R-BUDGET-012
 create or replace function private.limit_owned_budgets() returns integer
 language sql immutable set search_path = '' as $$ select 20 $$;
+-- R-MEMBER-010
 create or replace function private.limit_members() returns integer
 language sql immutable set search_path = '' as $$ select 20 $$;
+-- R-INVITE-006
 create or replace function private.limit_pending_invitations() returns integer
 language sql immutable set search_path = '' as $$ select 20 $$;
--- Incomes in force (not ended) per budget.
+-- R-INCOME-013: incomes in force (not ended) per budget.
 create or replace function private.limit_active_incomes() returns integer
 language sql immutable set search_path = '' as $$ select 50 $$;
--- All income rows per budget, ended ones included: the abuse bound.
+-- R-INCOME-016: all income rows per budget, ended ones included.
 create or replace function private.limit_total_incomes() returns integer
 language sql immutable set search_path = '' as $$ select 500 $$;
--- How far back a budget may start tracking, in months.
+-- R-PERIOD-019: how far back a budget may start tracking, in months.
 create or replace function private.limit_start_months_back() returns integer
 language sql immutable set search_path = '' as $$ select 60 $$;
--- Largest income amount in rappen (CHF 10 million per month).
+-- R-INCOME-014: largest income amount in rappen (CHF 10 million per month).
 create or replace function private.limit_amount() returns bigint
 language sql immutable set search_path = '' as $$ select 1000000000::bigint $$;
--- How far a boundary set by hand may lie from the salary it stands for, in days.
-create or replace function private.limit_boundary_shift_days() returns integer
-language sql immutable set search_path = '' as $$ select 14 $$;
--- How long an invitation stays valid, in days.
+-- R-PERIOD-020: shortest and longest period, in days (start and end included).
+create or replace function private.limit_period_min_days() returns integer
+language sql immutable set search_path = '' as $$ select 7 $$;
+create or replace function private.limit_period_max_days() returns integer
+language sql immutable set search_path = '' as $$ select 92 $$;
+-- R-PERIOD-030: the next pay date is at least this many days after a period's start.
+create or replace function private.limit_projection_min_days() returns integer
+language sql immutable set search_path = '' as $$ select 15 $$;
+-- R-INVITE-007: how long an invitation stays valid, in days.
 create or replace function private.limit_invitation_days() returns integer
 language sql immutable set search_path = '' as $$ select 30 $$;
 
 -- ===========================================================================
 -- "Today": the Europe/Zurich calendar date. The only source of the current date; tests
--- pin it by replacing this function inside their transaction.
+-- pin it by replacing this function inside their transaction.            (R-PERIOD-017)
 -- ===========================================================================
 create or replace function private.today()
 returns date
@@ -92,8 +97,7 @@ $$;
 -- ===========================================================================
 
 -- Actual pay date in a month: clamp the nominal day to the month's length, then apply the
--- weekend rule. May fall in the previous or next month (for example the 1st on a Saturday
--- with `nearest` is paid on the last day of the previous month).
+-- weekend rule. May fall in the previous or next month.   (R-PAYDATE-001 to R-PAYDATE-006)
 create or replace function public.pay_date(
   p_year integer,
   p_month integer,
@@ -176,8 +180,27 @@ as $$
   where d >= p_from
 $$;
 
--- The latest month whose actual pay date is on or before p_on: the month of the period
--- that contains p_on for a budget with these terms.
+-- R-PERIOD-030: the projection rule, pure. The next pay date after a period that started
+-- on p_start: the first actual pay date at least 15 days after p_start and, when p_after is
+-- given (re-projection after a change of terms), after p_after.
+create or replace function private.next_salary_date(
+  p_start date,
+  p_pay_day integer,
+  p_weekend_rule public.weekend_rule,
+  p_after date default null
+)
+returns date
+language sql
+immutable
+set search_path = ''
+as $$
+  select private.next_pay_date(
+    greatest(p_start + private.limit_projection_min_days(), coalesce(p_after + 1, p_start)),
+    p_pay_day, p_weekend_rule
+  )
+$$;
+
+-- The latest month whose actual pay date is on or before p_on (R-PERIOD-015).
 create or replace function private.month_paid_by(
   p_on date,
   p_pay_day integer,
@@ -211,17 +234,19 @@ $$;
 -- ===========================================================================
 -- Tables
 -- ===========================================================================
+-- R-BUDGET-001: everything belongs to exactly one budget (budget_id, on delete cascade).
 create table public.budgets (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  -- R-BUDGET-002, R-BUDGET-016
   owner_id uuid not null references auth.users (id) on delete cascade,
+  -- R-INCOME-006: exactly one primary income (not null, foreign key below)
   primary_income_id uuid not null,
-  -- The last month tracked (first day of the month): no period after it. Null: no end.
-  end_month date,
+  -- R-BUDGET-005, R-BUDGET-008: the end date the owner entered; no period starts after it.
+  end_date date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint budgets_name_valid check (name = btrim(name) and char_length(name) between 1 and 100),
-  constraint budgets_end_month_valid check (end_month is null or end_month = date_trunc('month', end_month)::date)
+  constraint budgets_name_valid check (name = btrim(name) and char_length(name) between 1 and 100)
 );
 comment on table public.budgets is 'A budget. Deleting the owner''s account deletes the budget.';
 create index budgets_owner_id_idx on public.budgets (owner_id);
@@ -240,12 +265,12 @@ create table public.budget_invitations (
   email text not null,
   invited_by uuid references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
-  expires_at timestamptz not null default (now() + interval '30 days'),
+  expires_at timestamptz not null default (now() + interval '30 days'),  -- R-INVITE-007
   constraint budget_invitations_email_valid check (
     email = lower(btrim(email)) and char_length(email) between 3 and 254
     and email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
   ),
-  constraint budget_invitations_unique unique (budget_id, email)
+  constraint budget_invitations_unique unique (budget_id, email)  -- R-INVITE-009
 );
 create index budget_invitations_email_idx on public.budget_invitations (email);
 create index budget_invitations_invited_by_idx on public.budget_invitations (invited_by);
@@ -267,6 +292,7 @@ create table public.incomes (
 create index incomes_budget_id_idx on public.incomes (budget_id);
 create index incomes_user_id_idx on public.incomes (user_id);
 
+-- R-INCOME-006: the primary income is an income of the same budget.
 alter table public.budgets
   add constraint budgets_primary_income_fk
   foreign key (primary_income_id, id) references public.incomes (id, budget_id)
@@ -278,42 +304,38 @@ create table public.income_versions (
   income_id uuid not null,
   budget_id uuid not null,
   effective_from_seq integer not null,
-  amount bigint not null,
+  amount bigint not null,  -- R-MONEY-002, C-MONEY-002: integer rappen
   pay_day integer not null,
-  weekend_rule public.weekend_rule not null default 'nearest',
+  weekend_rule public.weekend_rule not null default 'nearest',  -- R-INCOME-005
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint income_versions_income_fk foreign key (income_id, budget_id)
     references public.incomes (id, budget_id) on delete cascade,
-  constraint income_versions_unique unique (income_id, effective_from_seq),
+  constraint income_versions_unique unique (income_id, effective_from_seq),  -- R-VERSION-006
   constraint income_versions_seq_valid check (effective_from_seq >= 1),
-  constraint income_versions_amount_valid check (amount between 1 and 1000000000),
-  constraint income_versions_pay_day_valid check (pay_day between 1 and 31)
+  constraint income_versions_amount_valid check (amount between 1 and 1000000000),  -- R-INCOME-014
+  constraint income_versions_pay_day_valid check (pay_day between 1 and 31)  -- R-INCOME-004
 );
 create index income_versions_budget_id_idx on public.income_versions (budget_id);
 create index income_versions_income_budget_idx on public.income_versions (income_id, budget_id);
 
+-- R-PERIOD-004: periods are stored rows.
 create table public.periods (
   id uuid primary key default gen_random_uuid(),
   budget_id uuid not null references public.budgets (id) on delete cascade,
   seq integer not null,
-  -- The month this period belongs to (first day of the month).
-  month date not null,
-  -- The primary income's actual pay date for that month, when the period was created.
-  anchor_date date not null,
   start_date date not null,
   end_date date not null,
-  -- true once a person has set this period's end (and so the next period's start) by hand;
-  -- recomputation never overwrites it.
+  -- true once a person has set this period's end by hand; a change of terms never
+  -- re-projects it (R-PERIOD-014).
   end_is_manual boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint periods_seq_unique unique (budget_id, seq),
-  constraint periods_month_unique unique (budget_id, month),
   constraint periods_start_unique unique (budget_id, start_date),
   constraint periods_seq_valid check (seq >= 1),
-  constraint periods_month_valid check (month = date_trunc('month', month)::date),
-  constraint periods_dates_valid check (end_date >= start_date and end_date - start_date <= 92)
+  -- R-PERIOD-020
+  constraint periods_length_valid check (end_date - start_date + 1 between 7 and 92)
 );
 
 -- updated_at
@@ -327,9 +349,10 @@ create trigger periods_set_updated_at before update on public.periods
   for each row execute function private.set_updated_at();
 
 -- ===========================================================================
--- Membership helpers, reused by the policies of every budget-owned table.
+-- Membership helpers, reused by the policies of every budget-owned table (C-RLS-003).
 -- security definer: they read budget_members / budgets without going through RLS.
 -- ===========================================================================
+-- R-SECURITY-002
 create or replace function private.member_budget_ids()
 returns setof uuid
 language sql
@@ -340,6 +363,7 @@ as $$
   select m.budget_id from public.budget_members as m where m.user_id = (select auth.uid())
 $$;
 
+-- R-MEMBER-002, R-MEMBER-004
 create or replace function private.owned_budget_ids()
 returns setof uuid
 language sql
@@ -350,8 +374,8 @@ as $$
   select b.id from public.budgets as b where b.owner_id = (select auth.uid())
 $$;
 
--- Profiles the caller may read: their own, people who share a budget with them, and the
--- owners of incomes in their budgets (so a former member's income keeps its label).
+-- R-PROFILE-003: profiles the caller may read: their own and those of people who share a
+-- budget with them now.
 create or replace function private.visible_profile_ids()
 returns setof uuid
 language sql
@@ -365,11 +389,18 @@ as $$
   from public.budget_members as mine
   join public.budget_members as other on other.budget_id = mine.budget_id
   where mine.user_id = (select auth.uid())
-  union
-  select i.user_id
-  from public.budget_members as mine
-  join public.incomes as i on i.budget_id = mine.budget_id
-  where mine.user_id = (select auth.uid()) and i.user_id is not null
+$$;
+
+-- R-PROFILE-004: the display name (only) of an income's owner, for income_overview, also
+-- after they left. Only reachable through that view, which shows my budgets' incomes.
+create or replace function private.display_name_of(p_user_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.display_name from public.profiles as p where p.id = p_user_id
 $$;
 
 create or replace function private.is_budget_member(p_budget_id uuid)
@@ -398,8 +429,7 @@ as $$
   )
 $$;
 
--- Raise budget_not_found unless the caller is a member (non-members cannot tell a budget
--- they may not see from one that does not exist).
+-- R-SECURITY-004: budget_not_found unless the caller is a member.
 create or replace function private.assert_member(p_budget_id uuid)
 returns void
 language plpgsql
@@ -414,6 +444,7 @@ begin
 end;
 $$;
 
+-- R-MEMBER-002, R-MEMBER-003, R-MEMBER-004
 create or replace function private.assert_owner(p_budget_id uuid)
 returns void
 language plpgsql
@@ -429,8 +460,8 @@ begin
 end;
 $$;
 
--- Verified email of the caller, or null. Relies on the Auth setting "Confirm email" being on
--- in the hosted project (docs/deployment.md).
+-- R-INVITE-003: verified email of the caller, or null. Relies on the Auth setting
+-- "Confirm email" being on in the hosted project (docs/deployment.md, D-068).
 create or replace function private.current_verified_email()
 returns text
 language sql
@@ -445,10 +476,10 @@ $$;
 
 -- ===========================================================================
 -- Invariants (constraint triggers, checked at commit so multi-row RPCs can pass through
--- intermediate states)
+-- intermediate states). None depends on the terms of an income.
 -- ===========================================================================
 
--- The owner is always a member, and keeps their membership while the budget exists.
+-- R-BUDGET-003: the owner is always a member while the budget exists.
 create or replace function private.check_budget_owner_membership()
 returns trigger
 language plpgsql
@@ -484,7 +515,7 @@ create constraint trigger budget_members_owner_stays
   deferrable initially deferred
   for each row execute function private.check_budget_owner_membership();
 
--- The primary income is an active income of the same budget (the FK covers "same budget").
+-- R-INCOME-006, R-INCOME-009: the primary income is never ended.
 create or replace function private.check_primary_income()
 returns trigger
 language plpgsql
@@ -517,7 +548,7 @@ create constraint trigger incomes_primary_stays_active
   deferrable initially deferred
   for each row execute function private.check_primary_income();
 
--- Every income has a version in force from its first period.
+-- R-INCOME-004: every income has a version in force from its first period.
 create or replace function private.check_income_has_first_version()
 returns trigger
 language plpgsql
@@ -552,9 +583,9 @@ create constraint trigger income_versions_keep_first
   deferrable initially deferred
   for each row execute function private.check_income_has_first_version();
 
--- Periods: numbered 1..n without gaps, one per month with consecutive months, contiguous,
--- each starting within 14 days of its month's salary, none starting after today, none
--- after the budget's final month.
+-- R-PERIOD-005, R-PERIOD-006, R-PERIOD-022, R-BUDGET-007: periods are numbered 1..n,
+-- contiguous, none starts after today, none starts after the budget's end date.
+-- (Lengths: check constraint periods_length_valid, R-PERIOD-020.)
 create or replace function private.check_periods()
 returns trigger
 language plpgsql
@@ -563,7 +594,7 @@ set search_path = ''
 as $$
 declare
   v_budget_id uuid;
-  v_end_month date;
+  v_end date;
 begin
   if tg_table_name = 'budgets' then
     v_budget_id := new.id;
@@ -572,27 +603,23 @@ begin
   else
     v_budget_id := new.budget_id;
   end if;
-  select b.end_month into v_end_month from public.budgets as b where b.id = v_budget_id;
+  select b.end_date into v_end from public.budgets as b where b.id = v_budget_id;
   if not found then
     return null;  -- budget deleted: its periods go with it
   end if;
   if exists (
     select 1
     from (
-      select p.seq, p.month, p.anchor_date, p.start_date, p.end_date,
-             pg_catalog.lag(p.end_date) over w as prev_end,
-             pg_catalog.lag(p.month) over w as prev_month,
-             pg_catalog.row_number() over w as rn
+      select p.seq, p.start_date,
+             pg_catalog.lag(p.end_date) over (order by p.seq) as prev_end,
+             pg_catalog.row_number() over (order by p.seq) as rn
       from public.periods as p
       where p.budget_id = v_budget_id
-      window w as (order by p.seq)
     ) as s
     where s.seq <> s.rn
        or (s.prev_end is not null and s.start_date <> s.prev_end + 1)
-       or (s.prev_month is not null and s.month <> (s.prev_month + interval '1 month')::date)
-       or abs(s.start_date - s.anchor_date) > private.limit_boundary_shift_days()
        or s.start_date > private.today()
-       or (v_end_month is not null and s.month > v_end_month)
+       or (v_end is not null and s.start_date > v_end)
   ) then
     raise exception 'periods_invalid' using errcode = '23514';
   end if;
@@ -605,43 +632,126 @@ create constraint trigger periods_valid
   deferrable initially deferred
   for each row execute function private.check_periods();
 
-create constraint trigger budgets_end_month_keeps_periods
-  after update of end_month on public.budgets
+create constraint trigger budgets_end_date_keeps_periods
+  after update of end_date on public.budgets
   deferrable initially deferred
   for each row execute function private.check_periods();
 
--- Versions: writing a version for period s discards the versions of the same entity keyed
--- to later periods, so the version just written is in force from s on. Generic: the first
--- trigger argument names the entity column (income_id here; category, subscription and
--- debt versions reuse it). Runs as the table owner so it sees every version.
-create or replace function private.discard_later_versions()
+-- R-VERSION-011: nothing is keyed beyond the latest period.
+create or replace function private.check_nothing_beyond_latest()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
-  v_key text := pg_catalog.to_jsonb(new) ->> tg_argv[0];
+  v_budget_id uuid;
+  v_latest integer;
 begin
-  execute pg_catalog.format(
-    'delete from %I.%I where %I = $1::uuid and effective_from_seq > $2',
-    tg_table_schema, tg_table_name, tg_argv[0]
-  ) using v_key, new.effective_from_seq;
+  if tg_op = 'DELETE' then v_budget_id := old.budget_id; else v_budget_id := new.budget_id; end if;
+  select pg_catalog.max(p.seq) into v_latest from public.periods as p where p.budget_id = v_budget_id;
+  if v_latest is null then
+    return null;  -- budget being created or deleted
+  end if;
+  if exists (select 1 from public.incomes as i where i.budget_id = v_budget_id
+               and (i.first_seq > v_latest or i.end_seq > v_latest))
+     or exists (select 1 from public.income_versions as v where v.budget_id = v_budget_id
+                  and v.effective_from_seq > v_latest) then
+    raise exception 'keyed_beyond_latest_period' using errcode = '23514';
+  end if;
   return null;
 end;
 $$;
 
-create trigger income_versions_discard_later
-  after insert or update of effective_from_seq, amount, pay_day, weekend_rule on public.income_versions
-  for each row execute function private.discard_later_versions('income_id');
+create constraint trigger incomes_not_beyond_latest
+  after insert or update of first_seq, end_seq on public.incomes
+  deferrable initially deferred
+  for each row execute function private.check_nothing_beyond_latest();
+
+create constraint trigger income_versions_not_beyond_latest
+  after insert or update of effective_from_seq on public.income_versions
+  deferrable initially deferred
+  for each row execute function private.check_nothing_beyond_latest();
+
+create constraint trigger periods_nothing_beyond_latest
+  after delete on public.periods
+  deferrable initially deferred
+  for each row execute function private.check_nothing_beyond_latest();
+
+-- ===========================================================================
+-- Re-keying when the latest period is merged into the previous one (R-VERSION-011)
+-- ===========================================================================
+
+-- Every table keyed to periods registers here, so a merge re-keys it:
+--   kind 'version':  rows (entity_column, effective_from_seq), one per entity and period;
+--   kind 'validity': rows with first_seq / end_seq.
+-- Later versioned tables (categories, subscriptions, debts) add a row in their migration.
+create table private.period_keyed_tables (
+  table_name regclass primary key,
+  kind text not null check (kind in ('version', 'validity')),
+  entity_column text
+);
+revoke all on private.period_keyed_tables from public;
+
+insert into private.period_keyed_tables values
+  ('public.incomes', 'validity', null),
+  ('public.income_versions', 'version', 'income_id');
+
+-- Re-key everything a budget keys to period p_from onto period p_to (p_to = p_from - 1).
+-- Versions: when both periods have one, the later write wins (ties go to p_from, the newer
+-- period). Validity: starting in p_from becomes starting in p_to; ending at p_from becomes
+-- ending at p_to, and a row that would then never count is deleted.
+create or replace function private.rekey_period(p_budget_id uuid, p_from integer, p_to integer)
+returns void
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  t record;
+begin
+  for t in select * from private.period_keyed_tables order by kind loop
+    if t.kind = 'version' then
+      execute pg_catalog.format($q$
+        delete from %1$s as older
+        using %1$s as newer
+        where older.budget_id = $1 and newer.budget_id = $1
+          and older.%2$I = newer.%2$I
+          and older.effective_from_seq = $3 and newer.effective_from_seq = $2
+          and newer.updated_at >= older.updated_at$q$, t.table_name, t.entity_column)
+        using p_budget_id, p_from, p_to;
+      execute pg_catalog.format($q$
+        delete from %1$s as stale
+        where stale.budget_id = $1 and stale.effective_from_seq = $2
+          and exists (select 1 from %1$s as kept
+                      where kept.budget_id = $1 and kept.%2$I = stale.%2$I
+                        and kept.effective_from_seq = $3)$q$, t.table_name, t.entity_column)
+        using p_budget_id, p_from, p_to;
+      execute pg_catalog.format(
+        'update %1$s set effective_from_seq = $3 where budget_id = $1 and effective_from_seq = $2',
+        t.table_name) using p_budget_id, p_from, p_to;
+    else
+      execute pg_catalog.format(
+        'delete from %1$s where budget_id = $1 and end_seq = $2 and first_seq >= $3',
+        t.table_name) using p_budget_id, p_from, p_to;
+      execute pg_catalog.format(
+        'update %1$s set first_seq = $3 where budget_id = $1 and first_seq = $2',
+        t.table_name) using p_budget_id, p_from, p_to;
+      execute pg_catalog.format(
+        'update %1$s set end_seq = $3 where budget_id = $1 and end_seq = $2',
+        t.table_name) using p_budget_id, p_from, p_to;
+    end if;
+  end loop;
+end;
+$$;
 
 -- ===========================================================================
 -- Period mechanics (internal, no access checks: callers check membership)
 -- ===========================================================================
 
--- Serialise every change to a budget's periods, incomes and members. A transaction-level
--- advisory lock, so it never waits on (or blocks) the row locks that inserts referencing the
--- budget take. Returns the budget row, read after the lock is held.
+-- R-SECURITY-006, R-SECURITY-007: serialise every change to a budget. A transaction-level
+-- advisory lock, taken before any row lock, so it never waits on (or blocks) the row locks
+-- that inserts referencing the budget take. Returns the budget row, read after the lock.
 create or replace function private.lock_budget(p_budget_id uuid)
 returns public.budgets
 language plpgsql
@@ -657,8 +767,7 @@ begin
 end;
 $$;
 
--- Terms of an income in force for period seq p (the version with the greatest
--- effective_from_seq <= p; the first version if the income starts later).
+-- R-PERIOD-018: terms of an income in force for period seq p.
 create or replace function private.terms_at(p_income_id uuid, p_seq integer)
 returns table (amount bigint, pay_day integer, weekend_rule public.weekend_rule, effective_from_seq integer)
 language sql
@@ -673,57 +782,25 @@ as $$
   limit 1
 $$;
 
--- The primary income's actual pay date for p_month, under its terms for period seq p_seq.
-create or replace function private.scheduled_pay_date(p_budget_id uuid, p_month date, p_seq integer)
+-- R-PERIOD-002, R-PERIOD-010, R-PERIOD-030: projected end of period seq p_seq that started
+-- on p_start: the day before the next salary date under the primary income's terms in force
+-- for the next period. p_after: re-projection after a change of terms (never before today).
+create or replace function private.projected_end(p_budget_id uuid, p_start date, p_seq integer, p_after date default null)
 returns date
 language sql
 stable
 set search_path = ''
 as $$
-  select private.month_pay_date(p_month, t.pay_day, t.weekend_rule)
+  select private.next_salary_date(p_start, t.pay_day, t.weekend_rule, p_after) - 1
   from public.budgets as b
-  cross join lateral private.terms_at(b.primary_income_id, p_seq) as t
+  cross join lateral private.terms_at(b.primary_income_id, p_seq + 1) as t
   where b.id = p_budget_id
 $$;
 
--- The scheduled end of a period: the day before the next month's salary (never before the
--- period's own start).
-create or replace function private.scheduled_end(p_budget_id uuid, p_period public.periods)
-returns date
-language sql
-stable
-set search_path = ''
-as $$
-  select greatest(
-    p_period.start_date,
-    private.scheduled_pay_date(p_budget_id, (p_period.month + interval '1 month')::date, p_period.seq + 1) - 1
-  )
-$$;
-
--- The budget's last day tracked: the end of its final month's period (projected when that
--- period does not exist yet). Null when the budget has no end.
-create or replace function private.budget_end_date(p_budget_id uuid)
-returns date
-language sql
-stable
-set search_path = ''
-as $$
-  select case
-    when b.end_month is null then null
-    when f.end_date is not null then f.end_date
-    else private.scheduled_pay_date(
-      b.id, (b.end_month + interval '1 month')::date,
-      (select pg_catalog.max(p.seq) + 1 from public.periods as p where p.budget_id = b.id)
-    ) - 1
-  end
-  from public.budgets as b
-  left join public.periods as f on f.budget_id = b.id and f.month = b.end_month
-  where b.id = p_budget_id
-$$;
-
--- Create the missing periods up to the one containing today (never after the final month).
--- Idempotent. Returns how many periods were created. Takes the budget lock only when there
--- is something to create.
+-- R-PERIOD-008, R-PERIOD-009, R-PERIOD-031: create the missing periods up to the one
+-- containing today, never one starting after the end date. Cannot fail: each new period
+-- starts the day after the previous one ends (so not after today) and ends at its
+-- projection (15 to about 50 days later). Takes the lock only when there is work.
 create or replace function private.ensure_periods(p_budget_id uuid)
 returns integer
 language plpgsql
@@ -732,44 +809,34 @@ set search_path = ''
 as $$
 declare
   v_today date := private.today();
-  v_end_month date;
+  v_end date;
   v_last public.periods;
-  v_month date;
   v_start date;
-  v_new public.periods;
   v_created integer := 0;
 begin
   -- Fast path, without the lock: nothing to create.
   select p.* into v_last from public.periods as p
   where p.budget_id = p_budget_id order by p.seq desc limit 1;
-  select b.end_month into v_end_month from public.budgets as b where b.id = p_budget_id;
+  select b.end_date into v_end from public.budgets as b where b.id = p_budget_id;
   if v_last.id is null or v_last.end_date >= v_today
-     or (v_end_month is not null and v_last.month >= v_end_month) then
+     or (v_end is not null and v_last.end_date >= v_end) then
     return 0;
   end if;
 
-  v_end_month := (private.lock_budget(p_budget_id)).end_month;
+  v_end := (private.lock_budget(p_budget_id)).end_date;
   loop
     select p.* into v_last from public.periods as p
     where p.budget_id = p_budget_id order by p.seq desc limit 1;
     exit when v_last.id is null;
     exit when v_last.end_date >= v_today;
-    exit when v_end_month is not null and v_last.month >= v_end_month;
-    v_month := (v_last.month + interval '1 month')::date;
+    exit when v_end is not null and v_last.end_date >= v_end;
     v_start := v_last.end_date + 1;
-    v_new.seq := v_last.seq + 1;
-    v_new.month := v_month;
-    v_new.start_date := v_start;
-    insert into public.periods (budget_id, seq, month, anchor_date, start_date, end_date)
-    values (
-      p_budget_id, v_new.seq, v_month,
-      private.scheduled_pay_date(p_budget_id, v_month, v_new.seq),
-      v_start,
-      private.scheduled_end(p_budget_id, v_new)
-    );
+    insert into public.periods (budget_id, seq, start_date, end_date)
+    values (p_budget_id, v_last.seq + 1, v_start,
+            private.projected_end(p_budget_id, v_start, v_last.seq + 1));
     v_created := v_created + 1;
     -- Bounded by the start-month limit; this guard only stops a logic error from looping.
-    if v_created > private.limit_start_months_back() + 24 then
+    if v_created > 2 * private.limit_start_months_back() + 24 then
       raise exception 'period_generation_runaway' using errcode = 'P0001';
     end if;
   end loop;
@@ -825,8 +892,10 @@ as $$
   )
 $$;
 
--- seq from which a removal takes effect: the current period, or after the last period of a
--- budget that has ended (so nothing in its history changes).
+-- R-MEMBER-007, R-MEMBER-008: seq from which a removal takes effect: the current period,
+-- or after the last period of a budget that has ended (so nothing in its history changes).
+-- The latter is never stored beyond the latest period: such incomes are simply left as they
+-- are (see end_member_incomes).
 create or replace function private.removal_seq(p_budget_id uuid)
 returns integer
 language plpgsql
@@ -844,37 +913,36 @@ begin
 end;
 $$;
 
--- Re-project the current period's end after the primary income's terms changed or the
--- primary was switched: the day before the next month's salary under the new terms. The
--- start of the current period never moves. A manual end is kept while it still lies within
--- 14 days of the new schedule; otherwise it is reset to the schedule. Caller holds the lock.
-create or replace function private.recompute_projected_end(p_budget_id uuid)
+-- R-PERIOD-011, R-PERIOD-014, R-PERIOD-029: after the primary's terms change or another
+-- income becomes primary, re-project the current period's end unless it was set by hand,
+-- never to before today; nothing else moves. Caller holds the lock and has caught up.
+create or replace function private.reproject_current_end(p_budget_id uuid)
 returns void
 language plpgsql
 volatile
 set search_path = ''
 as $$
 declare
-  v_last public.periods;
+  v_today date := private.today();
+  v_current public.periods;
   v_end date;
 begin
-  select p.* into v_last from public.periods as p
-  where p.budget_id = p_budget_id order by p.seq desc limit 1;
-  if v_last.id is null or v_last.end_date < private.today() then
-    return;  -- no current period: closed periods are never recomputed
-  end if;
-  v_end := private.scheduled_end(p_budget_id, v_last);
-  if v_last.end_is_manual
-     and abs(v_last.end_date - v_end) <= private.limit_boundary_shift_days() then
+  select p.* into v_current from public.periods as p
+  where p.budget_id = p_budget_id and v_today between p.start_date and p.end_date;
+  if v_current.id is null or v_current.end_is_manual then
     return;
   end if;
-  update public.periods set end_date = v_end, end_is_manual = false
-  where id = v_last.id and (end_date <> v_end or end_is_manual);
-  perform private.ensure_periods(p_budget_id);
+  v_end := private.projected_end(p_budget_id, v_current.start_date, v_current.seq, v_today);
+  -- Keep the length bound (cannot be reached with the 15-day rule; a defence).
+  v_end := least(v_end, v_current.start_date + private.limit_period_max_days() - 1);
+  if v_end <> v_current.end_date and v_end >= v_today then
+    update public.periods set end_date = v_end where id = v_current.id;
+  end if;
 end;
 $$;
 
--- End or delete the incomes of a person leaving a budget. Caller holds the lock.
+-- R-MEMBER-007, R-MEMBER-009: end or delete the incomes of a person leaving a budget.
+-- Caller holds the lock.
 create or replace function private.end_member_incomes(p_budget_id uuid, p_user_id uuid)
 returns void
 language plpgsql
@@ -883,6 +951,7 @@ set search_path = ''
 as $$
 declare
   v_seq integer;
+  v_latest integer;
 begin
   if exists (
     select 1 from public.budgets as b
@@ -892,6 +961,10 @@ begin
     raise exception 'member_has_primary_income' using errcode = 'P0001';
   end if;
   v_seq := private.removal_seq(p_budget_id);
+  select pg_catalog.max(p.seq) into v_latest from public.periods as p where p.budget_id = p_budget_id;
+  if v_seq > v_latest then
+    return;  -- the budget has ended: its incomes stay as they are (R-MEMBER-008)
+  end if;
   delete from public.incomes as i
   where i.budget_id = p_budget_id and i.user_id = p_user_id and i.end_seq is null
     and i.first_seq >= v_seq;
@@ -900,7 +973,7 @@ begin
 end;
 $$;
 
--- Shared validation of income terms.
+-- Shared validation of income terms (R-INCOME-004, R-INCOME-014, R-PAYDATE-007).
 create or replace function private.assert_income_terms(
   p_amount bigint,
   p_pay_day integer,
@@ -940,7 +1013,7 @@ begin
 end;
 $$;
 
--- seq of a period of the given budget, or period_not_found.
+-- seq of a period of the given budget, or period_not_found (R-SECURITY-004).
 create or replace function private.period_seq(p_budget_id uuid, p_period_id uuid)
 returns integer
 language plpgsql
@@ -959,8 +1032,8 @@ begin
 end;
 $$;
 
--- Lock the budget of an income and return the income, read after the lock; income_not_found
--- unless it exists and the caller is a member.
+-- Lock the budget of an income, catch up, and return the income read after the lock;
+-- income_not_found unless it exists and the caller is a member. (R-PERIOD-032, R-SECURITY-007)
 create or replace function private.lock_income(p_income_id uuid)
 returns public.incomes
 language plpgsql
@@ -976,6 +1049,7 @@ begin
     raise exception 'income_not_found' using errcode = 'P0001';
   end if;
   perform private.lock_budget(v_budget_id);
+  perform private.ensure_periods(v_budget_id);
   select i.* into v_income from public.incomes as i where i.id = p_income_id;
   if v_income.id is null then
     raise exception 'income_not_found' using errcode = 'P0001';
@@ -984,14 +1058,64 @@ begin
 end;
 $$;
 
+-- Lock a budget and catch its periods up (R-PERIOD-032). Returns the budget row.
+create or replace function private.lock_and_catch_up(p_budget_id uuid)
+returns public.budgets
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  v_budget public.budgets;
+begin
+  v_budget := private.lock_budget(p_budget_id);
+  perform private.ensure_periods(p_budget_id);
+  return v_budget;
+end;
+$$;
+
+-- R-BUDGET-008, R-BUDGET-014: the budget's last day tracked: the end of the period that
+-- contains its end date (projected while that period does not exist). Null: no end.
+create or replace function private.budget_end_date(p_budget_id uuid)
+returns date
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_end date;
+  v_probe public.periods;
+  v_steps integer := 0;
+begin
+  select b.end_date into v_end from public.budgets as b where b.id = p_budget_id;
+  if v_end is null then
+    return null;
+  end if;
+  select p.* into v_probe from public.periods as p
+  where p.budget_id = p_budget_id order by p.seq desc limit 1;
+  while v_probe.end_date < v_end and v_steps < 200 loop
+    v_probe.start_date := v_probe.end_date + 1;
+    v_probe.seq := v_probe.seq + 1;
+    v_probe.end_date := private.projected_end(p_budget_id, v_probe.start_date, v_probe.seq);
+    v_steps := v_steps + 1;
+  end loop;
+  -- The last period is the one containing the end date (or the latest, if it ends later).
+  return coalesce(
+    (select p.end_date from public.periods as p
+     where p.budget_id = p_budget_id and v_end between p.start_date and p.end_date),
+    v_probe.end_date
+  );
+end;
+$$;
+
 -- ===========================================================================
--- Profiles: email for member lists; readable by co-members and by members of budgets where
--- the person has an income
+-- Profiles: email for member lists, readable by co-members (R-PROFILE-003, R-PROFILE-005)
 -- ===========================================================================
 alter table public.profiles add column email text;
 
 update public.profiles as p set email = u.email from auth.users as u where u.id = p.id;
 
+-- R-PROFILE-001, R-PROFILE-005
 create or replace function private.handle_new_user()
 returns trigger
 language plpgsql
@@ -1009,6 +1133,7 @@ begin
 end;
 $$;
 
+-- R-PROFILE-005
 create or replace function private.handle_user_email_change()
 returns trigger
 language plpgsql
@@ -1028,6 +1153,7 @@ create trigger on_auth_user_email_changed
   when (old.email is distinct from new.email)
   execute function private.handle_user_email_change();
 
+-- R-PROFILE-003
 drop policy "Users can read their own profile" on public.profiles;
 create policy "Users can read their own and co-members' profiles"
   on public.profiles
@@ -1039,14 +1165,14 @@ create policy "Users can read their own and co-members' profiles"
 -- Views (security_invoker: the caller's RLS applies)
 -- ===========================================================================
 
--- Budgets I belong to, with my role.
+-- R-BUDGET-004, R-BUDGET-008: budgets I belong to, with my role and the end date shown.
 create view public.my_budgets with (security_invoker = true) as
   select
     b.id,
     b.name,
     b.owner_id,
     b.primary_income_id,
-    b.end_month,
+    b.end_date as end_date_entered,
     private.budget_end_date(b.id) as end_date,
     b.created_at,
     b.updated_at,
@@ -1054,7 +1180,7 @@ create view public.my_budgets with (security_invoker = true) as
   from public.budgets as b
   join public.budget_members as m on m.budget_id = b.id and m.user_id = (select auth.uid());
 
--- Members of the budgets I belong to, with what the UI shows.
+-- R-MEMBER-001: members of the budgets I belong to, with what the UI shows.
 create view public.budget_member_list with (security_invoker = true) as
   select
     m.budget_id,
@@ -1067,16 +1193,18 @@ create view public.budget_member_list with (security_invoker = true) as
   join public.budgets as b on b.id = m.budget_id
   left join public.profiles as p on p.id = m.user_id;
 
--- Incomes with their terms in force now, owner's name, primary flag and next pay date.
+-- R-INCOME-003, R-INCOME-006, R-PROFILE-004, R-VERSION-001: incomes with their terms in
+-- force now, owner's name, primary flag and next pay date. is_active: in force in the
+-- current period.
 create view public.income_overview with (security_invoker = true) as
   select
     i.id,
     i.budget_id,
     i.user_id,
-    p.display_name as user_display_name,
+    private.display_name_of(i.user_id) as user_display_name,
     i.name,
     (b.primary_income_id = i.id) as is_primary,
-    (i.end_seq is null) as is_active,
+    (i.end_seq is null and i.first_seq <= private.reading_seq(i.budget_id)) as is_active,
     i.first_seq,
     i.end_seq,
     t.amount,
@@ -1090,7 +1218,6 @@ create view public.income_overview with (security_invoker = true) as
     i.updated_at
   from public.incomes as i
   join public.budgets as b on b.id = i.budget_id
-  left join public.profiles as p on p.id = i.user_id
   -- the terms in force for the period being read (as private.terms_at, inlined so the
   -- columns keep their table types)
   join lateral (
@@ -1103,14 +1230,13 @@ create view public.income_overview with (security_invoker = true) as
     limit 1
   ) as t on true;
 
--- Periods with the total of the incomes in force in each, at the version in force.
+-- R-PERIOD-018, R-INCOME-011, R-PERIOD-028: periods with the total of the incomes in force
+-- in each, at the version in force, and the database's today.
 create view public.period_summaries with (security_invoker = true) as
   select
     p.id,
     p.budget_id,
     p.seq,
-    p.month,
-    p.anchor_date,
     p.start_date,
     p.end_date,
     p.end_is_manual,
@@ -1136,9 +1262,19 @@ create view public.period_summaries with (security_invoker = true) as
 -- RPCs
 -- ===========================================================================
 
--- The database's today and the months a new budget may start from, for the given primary
--- income terms: the current period's month first, then up to 60 months back, each with the
--- date its first period would start.
+-- R-PERIOD-028: the database's today, for display.
+create or replace function public.get_today()
+returns date
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select private.today()
+$$;
+
+-- R-PERIOD-027, R-PERIOD-015, R-PERIOD-016, R-PERIOD-019: the database's today and the
+-- months a new budget may start from, with the date its first period would start.
 create or replace function public.get_start_months(
   p_pay_day integer,
   p_weekend_rule public.weekend_rule default 'nearest'
@@ -1167,6 +1303,34 @@ begin
 end;
 $$;
 
+-- Set or clear the end date the owner entered (caller holds the lock and has caught up).
+-- R-BUDGET-005, R-BUDGET-007, R-BUDGET-008, R-BUDGET-013
+create or replace function private.apply_end_date(p_budget_id uuid, p_end_date date)
+returns void
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  v_latest_start date;
+begin
+  if p_end_date is not null then
+    if not private.is_sane_date(p_end_date) or p_end_date > private.today() + 3660 then
+      raise exception 'invalid_end_date' using errcode = 'P0001';
+    end if;
+    select pg_catalog.max(p.start_date) into v_latest_start from public.periods as p
+    where p.budget_id = p_budget_id;
+    if p_end_date < v_latest_start then
+      raise exception 'end_date_before_last_period' using errcode = 'P0001';
+    end if;
+  end if;
+  update public.budgets set end_date = p_end_date where id = p_budget_id;
+  perform private.ensure_periods(p_budget_id);
+end;
+$$;
+
+-- R-BUDGET-010, R-BUDGET-011, R-BUDGET-017, R-BUDGET-012, R-PERIOD-001, R-PERIOD-015,
+-- R-PERIOD-016, R-PERIOD-019, R-PERIOD-022
 create or replace function public.create_budget(
   p_name text,
   p_income_name text,
@@ -1190,7 +1354,7 @@ declare
   v_budget_id uuid := gen_random_uuid();
   v_income_id uuid := gen_random_uuid();
   v_month date;
-  v_first public.periods;
+  v_start date;
 begin
   if v_user is null then
     raise exception 'not_authenticated' using errcode = 'P0001';
@@ -1210,6 +1374,7 @@ begin
       raise exception 'invalid_start_month' using errcode = 'P0001';
     end if;
   end if;
+  v_start := private.month_pay_date(v_month, p_pay_day, p_weekend_rule);
 
   -- Serialise budget creation per user so the limit cannot be raced.
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('create_budget:' || v_user, 0));
@@ -1225,13 +1390,8 @@ begin
   values (v_income_id, v_budget_id, v_user, v_income_name, 1);
   insert into public.income_versions (income_id, budget_id, effective_from_seq, amount, pay_day, weekend_rule)
   values (v_income_id, v_budget_id, 1, p_amount, p_pay_day, p_weekend_rule);
-
-  v_first.seq := 1;
-  v_first.month := v_month;
-  v_first.start_date := private.month_pay_date(v_month, p_pay_day, p_weekend_rule);
-  insert into public.periods (budget_id, seq, month, anchor_date, start_date, end_date)
-  values (v_budget_id, 1, v_month, v_first.start_date, v_first.start_date,
-          private.scheduled_end(v_budget_id, v_first));
+  insert into public.periods (budget_id, seq, start_date, end_date)
+  values (v_budget_id, 1, v_start, private.projected_end(v_budget_id, v_start, 1));
   perform private.ensure_periods(v_budget_id);
   if p_end_date is not null then
     perform private.apply_end_date(v_budget_id, p_end_date);
@@ -1240,52 +1400,8 @@ begin
 end;
 $$;
 
--- Set the final month to the one whose period contains p_end_date (projected with the
--- current terms), or clear it with null. No access check; the caller holds the lock.
-create or replace function private.apply_end_date(p_budget_id uuid, p_end_date date)
-returns void
-language plpgsql
-volatile
-set search_path = ''
-as $$
-declare
-  v_last public.periods;
-  v_probe public.periods;
-  v_steps integer := 0;
-begin
-  if p_end_date is null then
-    update public.budgets set end_month = null where id = p_budget_id;
-    perform private.ensure_periods(p_budget_id);
-    return;
-  end if;
-  if not private.is_sane_date(p_end_date) or p_end_date > private.today() + 3660 then
-    raise exception 'invalid_end_date' using errcode = 'P0001';
-  end if;
-  select p.* into v_last from public.periods as p
-  where p.budget_id = p_budget_id order by p.seq desc limit 1;
-  if p_end_date < v_last.start_date then
-    raise exception 'end_date_before_last_period' using errcode = 'P0001';
-  end if;
-
-  -- Walk the projected periods from the last one to the one containing p_end_date.
-  v_probe := v_last;
-  while v_probe.end_date < p_end_date loop
-    v_probe.start_date := v_probe.end_date + 1;
-    v_probe.month := (v_probe.month + interval '1 month')::date;
-    v_probe.seq := v_probe.seq + 1;
-    v_probe.end_date := private.scheduled_end(p_budget_id, v_probe);
-    v_steps := v_steps + 1;
-    if v_steps > 130 then
-      raise exception 'invalid_end_date' using errcode = 'P0001';
-    end if;
-  end loop;
-  update public.budgets set end_month = v_probe.month where id = p_budget_id;
-  perform private.ensure_periods(p_budget_id);
-end;
-$$;
-
--- Owner: set the end date (see private.apply_end_date) or clear it with null. Returns the
--- budget as my_budgets shows it.
+-- Owner: set the end date (or clear it with null). Returns the budget as my_budgets shows it.
+-- R-MEMBER-003, R-BUDGET-005, R-BUDGET-007, R-BUDGET-008, R-BUDGET-013, R-PERIOD-032
 create or replace function public.set_budget_end_date(p_budget_id uuid, p_end_date date default null)
 returns setof public.my_budgets
 language plpgsql
@@ -1295,13 +1411,13 @@ set search_path = ''
 as $$
 begin
   perform private.assert_owner(p_budget_id);
-  perform private.lock_budget(p_budget_id);
+  perform private.lock_and_catch_up(p_budget_id);
   perform private.apply_end_date(p_budget_id, p_end_date);
   return query select * from public.my_budgets where id = p_budget_id;
 end;
 $$;
 
--- Owner: delete the budget with everything in it.
+-- Owner: delete the budget with everything in it. R-MEMBER-002, R-BUDGET-009, R-BUDGET-018
 create or replace function public.delete_budget(p_budget_id uuid)
 returns void
 language plpgsql
@@ -1316,40 +1432,7 @@ begin
 end;
 $$;
 
--- Owner: cancel a pending invitation.
-create or replace function public.cancel_invitation(p_invitation_id uuid)
-returns void
-language plpgsql
-volatile
-security definer
-set search_path = ''
-as $$
-declare
-  v_budget_id uuid;
-begin
-  select i.budget_id into v_budget_id from public.budget_invitations as i where i.id = p_invitation_id;
-  if v_budget_id is null or not private.is_budget_member(v_budget_id) then
-    raise exception 'invitation_not_found' using errcode = 'P0001';
-  end if;
-  perform private.assert_owner(v_budget_id);
-  delete from public.budget_invitations where id = p_invitation_id;
-  if not found then
-    raise exception 'invitation_not_found' using errcode = 'P0001';
-  end if;
-end;
-$$;
-
--- The database's today (Europe/Zurich), for display.
-create or replace function public.get_today()
-returns date
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select private.today()
-$$;
-
+-- R-INVITE-001, R-INVITE-005, R-INVITE-006, R-INVITE-009, R-MEMBER-004
 create or replace function public.invite_member(p_budget_id uuid, p_email text)
 returns uuid
 language plpgsql
@@ -1398,7 +1481,32 @@ begin
 end;
 $$;
 
--- Pending, unexpired invitations addressed to my verified email.
+-- Owner: cancel a pending invitation. R-MEMBER-004, R-BUDGET-018
+create or replace function public.cancel_invitation(p_invitation_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_budget_id uuid;
+begin
+  select i.budget_id into v_budget_id from public.budget_invitations as i where i.id = p_invitation_id;
+  if v_budget_id is null or not private.is_budget_member(v_budget_id) then
+    raise exception 'invitation_not_found' using errcode = 'P0001';
+  end if;
+  perform private.assert_owner(v_budget_id);
+  perform private.lock_budget(v_budget_id);
+  delete from public.budget_invitations where id = p_invitation_id;
+  if not found then
+    raise exception 'invitation_not_found' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+-- R-INVITE-003, R-INVITE-007, R-INVITE-008: pending, unexpired invitations addressed to my
+-- verified email.
 create or replace function public.list_my_invitations()
 returns table (
   id uuid,
@@ -1422,6 +1530,7 @@ as $$
   order by i.created_at
 $$;
 
+-- R-INVITE-003, R-INVITE-004, R-INVITE-007, R-INVITE-010, R-INVITE-011, R-MEMBER-010
 create or replace function public.accept_invitation(p_invitation_id uuid)
 returns uuid
 language plpgsql
@@ -1432,18 +1541,22 @@ as $$
 declare
   v_user uuid := (select auth.uid());
   v_email text := private.current_verified_email();
+  v_budget_id uuid;
   v_invitation public.budget_invitations;
 begin
-  -- Lock the invitation row: a concurrent cancel either waits for this accept or, if it
-  -- committed first, leaves nothing to accept.
+  select i.budget_id into v_budget_id from public.budget_invitations as i where i.id = p_invitation_id;
+  if v_budget_id is null or v_user is null or v_email is null then
+    raise exception 'invitation_not_found' using errcode = 'P0001';
+  end if;
+  -- Lock order: the budget first, then the invitation row (as invite_member and
+  -- cancel_invitation). A cancel that committed first leaves nothing to accept.
+  perform private.lock_budget(v_budget_id);
   select i.* into v_invitation from public.budget_invitations as i
-  where i.id = p_invitation_id and v_user is not null and v_email is not null
-    and i.email = v_email and i.expires_at > now()
+  where i.id = p_invitation_id and i.email = v_email and i.expires_at > now()
   for update;
   if v_invitation.id is null then
     raise exception 'invitation_not_found' using errcode = 'P0001';
   end if;
-  perform private.lock_budget(v_invitation.budget_id);
   if not exists (select 1 from public.budget_members
                  where budget_id = v_invitation.budget_id and user_id = v_user) then
     if (select pg_catalog.count(*) from public.budget_members
@@ -1457,6 +1570,7 @@ begin
 end;
 $$;
 
+-- R-INVITE-004, R-INVITE-007, R-INVITE-011
 create or replace function public.decline_invitation(p_invitation_id uuid)
 returns void
 language plpgsql
@@ -1466,7 +1580,13 @@ set search_path = ''
 as $$
 declare
   v_email text := private.current_verified_email();
+  v_budget_id uuid;
 begin
+  select i.budget_id into v_budget_id from public.budget_invitations as i
+  where i.id = p_invitation_id and v_email is not null and i.email = v_email;
+  if v_budget_id is not null then
+    perform private.lock_budget(v_budget_id);
+  end if;
   delete from public.budget_invitations as i
   where i.id = p_invitation_id and v_email is not null and i.email = v_email
     and i.expires_at > now();
@@ -1476,6 +1596,7 @@ begin
 end;
 $$;
 
+-- R-MEMBER-004, R-MEMBER-006, R-MEMBER-007, R-MEMBER-008, R-MEMBER-009
 create or replace function public.remove_member(p_budget_id uuid, p_user_id uuid)
 returns void
 language plpgsql
@@ -1488,7 +1609,7 @@ begin
   if p_user_id = (select auth.uid()) then
     raise exception 'owner_cannot_leave' using errcode = 'P0001';
   end if;
-  perform private.lock_budget(p_budget_id);
+  perform private.lock_and_catch_up(p_budget_id);
   if not exists (select 1 from public.budget_members
                  where budget_id = p_budget_id and user_id = p_user_id) then
     raise exception 'member_not_found' using errcode = 'P0001';
@@ -1498,6 +1619,7 @@ begin
 end;
 $$;
 
+-- R-MEMBER-005, R-MEMBER-006, R-MEMBER-007, R-MEMBER-008, R-MEMBER-009
 create or replace function public.leave_budget(p_budget_id uuid)
 returns void
 language plpgsql
@@ -1510,13 +1632,14 @@ begin
   if private.is_budget_owner(p_budget_id) then
     raise exception 'owner_cannot_leave' using errcode = 'P0001';
   end if;
-  perform private.lock_budget(p_budget_id);
+  perform private.lock_and_catch_up(p_budget_id);
   perform private.end_member_incomes(p_budget_id, (select auth.uid()));
   delete from public.budget_members
   where budget_id = p_budget_id and user_id = (select auth.uid());
 end;
 $$;
 
+-- R-INCOME-003, R-INCOME-013, R-INCOME-016, R-INCOME-050, R-MEMBER-001
 create or replace function public.add_income(
   p_budget_id uuid,
   p_name text,
@@ -1540,7 +1663,7 @@ declare
 begin
   perform private.assert_member(p_budget_id);
   perform private.assert_income_terms(p_amount, p_pay_day, p_weekend_rule);
-  perform private.lock_budget(p_budget_id);
+  perform private.lock_and_catch_up(p_budget_id);
   if not exists (select 1 from public.budget_members
                  where budget_id = p_budget_id and user_id = v_user) then
     raise exception 'member_not_found' using errcode = 'P0001';
@@ -1564,9 +1687,11 @@ begin
 end;
 $$;
 
--- New terms from the current period (default) or, as an explicit correction, from an
--- earlier period of the income. Versions keyed to later periods are discarded. A second
--- edit in the same period overwrites it.
+-- New terms from the current period (default), or, as an explicit correction, from an
+-- earlier period of the income until its next change. A second edit in the same period
+-- overwrites it. For the primary, the current period's end is re-projected (M1).
+-- R-VERSION-001, R-VERSION-005, R-VERSION-006, R-VERSION-010, R-VERSION-007, R-VERSION-008,
+-- R-PERIOD-011, R-PERIOD-029, R-INCOME-050
 create or replace function public.update_income_terms(
   p_income_id uuid,
   p_amount bigint,
@@ -1605,11 +1730,12 @@ begin
   on conflict (income_id, effective_from_seq) do update
     set amount = excluded.amount, pay_day = excluded.pay_day, weekend_rule = excluded.weekend_rule;
   if exists (select 1 from public.budgets where id = v_income.budget_id and primary_income_id = v_income.id) then
-    perform private.recompute_projected_end(v_income.budget_id);
+    perform private.reproject_current_end(v_income.budget_id);
   end if;
 end;
 $$;
 
+-- R-INCOME-007, R-INCOME-008, R-INCOME-017, R-PERIOD-029
 create or replace function public.set_primary_income(p_income_id uuid)
 returns void
 language plpgsql
@@ -1619,25 +1745,27 @@ set search_path = ''
 as $$
 declare
   v_income public.incomes;
+  v_seq integer;
 begin
   v_income := private.lock_income(p_income_id);
   if v_income.end_seq is not null then
     raise exception 'income_ended' using errcode = 'P0001';
   end if;
-  if v_income.first_seq > private.current_seq(v_income.budget_id) then
+  v_seq := private.current_seq(v_income.budget_id);
+  if v_income.first_seq > v_seq then
     raise exception 'income_not_in_force' using errcode = 'P0001';
   end if;
   update public.budgets set primary_income_id = v_income.id
   where id = v_income.budget_id and primary_income_id <> v_income.id;
   if found then
-    perform private.recompute_projected_end(v_income.budget_id);
+    perform private.reproject_current_end(v_income.budget_id);
   end if;
 end;
 $$;
 
 -- Remove an income from the current period (default) or, as an explicit correction, from an
--- earlier period. Removed from its first period (or before it started) it is deleted;
--- otherwise it ends at that period. Returns 'deleted' or 'ended'.
+-- earlier period. Removed from the period it started in it is deleted; otherwise it ends
+-- there. Returns 'deleted' or 'ended'. R-INCOME-009, R-INCOME-012, R-INCOME-015, R-INCOME-050
 create or replace function public.remove_income(p_income_id uuid, p_from_period_id uuid default null)
 returns text
 language plpgsql
@@ -1654,7 +1782,7 @@ begin
     raise exception 'income_is_primary' using errcode = 'P0001';
   end if;
   if p_from_period_id is null then
-    v_seq := private.removal_seq(v_income.budget_id);
+    v_seq := private.current_seq(v_income.budget_id);
   else
     v_seq := private.period_seq(v_income.budget_id, p_from_period_id);
   end if;
@@ -1671,6 +1799,7 @@ begin
 end;
 $$;
 
+-- R-PERIOD-008, R-PERIOD-009, R-PERIOD-031
 create or replace function public.ensure_periods(p_budget_id uuid)
 returns integer
 language plpgsql
@@ -1684,7 +1813,8 @@ begin
 end;
 $$;
 
--- The current period (zero rows when the budget has ended).
+-- The current period (zero rows when the budget has ended). R-PERIOD-010, R-PERIOD-028,
+-- R-PERIOD-031, R-SECURITY-006
 create or replace function public.get_current_period(p_budget_id uuid)
 returns setof public.period_summaries
 language plpgsql
@@ -1701,15 +1831,157 @@ begin
 end;
 $$;
 
--- Set the boundary after a period (its last day, and so the next period's first day) by
--- hand, or reset it to the schedule with p_new_end = null. The next period must then start
--- within 14 days of its month's salary.
---   * On the latest period: sets its end. Before today, the period closes and the next one
---     starts (salary arrived early).
---   * On the period before the latest: a new end on or after today means the salary has not
---     arrived yet, so the latest period is removed and this one is current again.
---   * On older periods: moves the boundary between two closed periods.
-create or replace function public.move_period_boundary(p_period_id uuid, p_new_end date default null)
+-- ---------------------------------------------------------------------------
+-- Boundary operations (R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020,
+-- R-PERIOD-023, R-PERIOD-025, R-PERIOD-033, R-PERIOD-034). Each catches up first and leaves
+-- the structural invariants intact; each has an inverse.
+-- ---------------------------------------------------------------------------
+
+-- Lock, catch up and return the current period, or budget_ended.
+create or replace function private.lock_current_period(p_budget_id uuid)
+returns public.periods
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  v_current public.periods;
+begin
+  perform private.assert_member(p_budget_id);
+  perform private.lock_and_catch_up(p_budget_id);
+  v_current := private.current_period(p_budget_id);
+  if v_current.id is null then
+    raise exception 'budget_ended' using errcode = 'P0001';
+  end if;
+  return v_current;
+end;
+$$;
+
+create or replace function private.assert_length(p_start date, p_end date)
+returns void
+language plpgsql
+immutable
+set search_path = ''
+as $$
+begin
+  if p_end - p_start + 1 not between private.limit_period_min_days() and private.limit_period_max_days() then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+-- The salary is expected on p_pay_date (after today): the current period ends the day
+-- before. p_pay_date = null resets the end to the projection. Inverse: call again, or reset.
+-- R-PERIOD-013, R-PERIOD-014, R-PERIOD-025, R-PERIOD-033
+create or replace function public.set_expected_pay_date(p_budget_id uuid, p_pay_date date default null)
+returns setof public.period_summaries
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_current public.periods;
+  v_today date := private.today();
+  v_end date;
+begin
+  if p_pay_date is not null and not private.is_sane_date(p_pay_date) then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  v_current := private.lock_current_period(p_budget_id);
+  if p_pay_date is null then
+    v_end := private.projected_end(p_budget_id, v_current.start_date, v_current.seq, v_today);
+  else
+    v_end := p_pay_date - 1;
+    if v_end < v_today then
+      raise exception 'invalid_boundary' using errcode = 'P0001';
+    end if;
+  end if;
+  perform private.assert_length(v_current.start_date, v_end);
+  update public.periods set end_date = v_end, end_is_manual = p_pay_date is not null
+  where id = v_current.id;
+  return query select s.* from public.period_summaries as s where s.id = v_current.id;
+end;
+$$;
+
+-- The salary arrived early, on p_pay_date (today or earlier): the current period closes the
+-- day before and the next one starts on p_pay_date. Inverse: reopen_previous_period.
+-- R-PERIOD-012, R-PERIOD-025, R-PERIOD-034
+create or replace function public.record_early_pay_date(p_budget_id uuid, p_pay_date date)
+returns setof public.period_summaries
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_current public.periods;
+  v_end_date date;
+begin
+  if not private.is_sane_date(p_pay_date) then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  v_current := private.lock_current_period(p_budget_id);
+  select b.end_date into v_end_date from public.budgets as b where b.id = p_budget_id;
+  if p_pay_date > private.today() or (v_end_date is not null and p_pay_date > v_end_date) then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  perform private.assert_length(v_current.start_date, p_pay_date - 1);
+  update public.periods set end_date = p_pay_date - 1, end_is_manual = true where id = v_current.id;
+  perform private.ensure_periods(p_budget_id);
+  return query select s.* from public.period_summaries as s
+               where s.budget_id = p_budget_id and s.seq = v_current.seq + 1;
+end;
+$$;
+
+-- The salary that started the current period has not arrived yet: the current (latest)
+-- period is merged into the previous one, which ends the day before p_pay_date (after
+-- today) or at its projection when p_pay_date is null. Everything keyed to the merged
+-- period is re-keyed to the previous one (R-VERSION-011). Inverse: record_early_pay_date
+-- with the original date. R-PERIOD-023, R-PERIOD-025, R-VERSION-011
+create or replace function public.reopen_previous_period(p_budget_id uuid, p_pay_date date default null)
+returns setof public.period_summaries
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_current public.periods;
+  v_previous public.periods;
+  v_today date := private.today();
+  v_end date;
+begin
+  if p_pay_date is not null and not private.is_sane_date(p_pay_date) then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  v_current := private.lock_current_period(p_budget_id);
+  select p.* into v_previous from public.periods as p
+  where p.budget_id = p_budget_id and p.seq = v_current.seq - 1;
+  if v_previous.id is null then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  if p_pay_date is null then
+    v_end := private.projected_end(p_budget_id, v_previous.start_date, v_previous.seq, v_today);
+  else
+    v_end := p_pay_date - 1;
+  end if;
+  if v_end < v_today then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  perform private.assert_length(v_previous.start_date, v_end);
+  perform private.rekey_period(p_budget_id, v_current.seq, v_previous.seq);
+  delete from public.periods where id = v_current.id;
+  update public.periods set end_date = v_end, end_is_manual = p_pay_date is not null
+  where id = v_previous.id;
+  return query select s.* from public.period_summaries as s where s.id = v_previous.id;
+end;
+$$;
+
+-- Move the boundary between a period and the one before it: p_period_id starts on
+-- p_start_date (today or earlier), the previous one ends the day before. Inverse: move it
+-- back. R-PERIOD-012, R-PERIOD-025
+create or replace function public.move_period_start(p_period_id uuid, p_start_date date)
 returns void
 language plpgsql
 volatile
@@ -1719,62 +1991,29 @@ as $$
 declare
   v_budget_id uuid;
   v_period public.periods;
-  v_next public.periods;
-  v_today date := private.today();
-  v_salary date;  -- the actual pay date the next period's start stands for
-  v_end date;
-  v_manual boolean := p_new_end is not null;
-  v_has_after boolean;
+  v_previous public.periods;
 begin
   select p.budget_id into v_budget_id from public.periods as p where p.id = p_period_id;
   if v_budget_id is null or not private.is_budget_member(v_budget_id) then
     raise exception 'period_not_found' using errcode = 'P0001';
   end if;
-  if p_new_end is not null and not private.is_sane_date(p_new_end) then
+  if not private.is_sane_date(p_start_date) then
     raise exception 'invalid_boundary' using errcode = 'P0001';
   end if;
-  perform private.lock_budget(v_budget_id);
+  perform private.lock_and_catch_up(v_budget_id);
   select p.* into v_period from public.periods as p where p.id = p_period_id;
   if v_period.id is null then
     raise exception 'period_not_found' using errcode = 'P0001';
   end if;
-  select p.* into v_next from public.periods as p
-  where p.budget_id = v_budget_id and p.seq = v_period.seq + 1;
-
-  if v_next.id is not null then
-    v_salary := v_next.anchor_date;
-  else
-    v_salary := private.scheduled_pay_date(
-      v_budget_id, (v_period.month + interval '1 month')::date, v_period.seq + 1);
-  end if;
-  v_end := coalesce(p_new_end, greatest(v_period.start_date, v_salary - 1));
-  if v_end < v_period.start_date
-     or abs((v_end + 1) - v_salary) > private.limit_boundary_shift_days() then
+  select p.* into v_previous from public.periods as p
+  where p.budget_id = v_budget_id and p.seq = v_period.seq - 1;
+  if v_previous.id is null or p_start_date > private.today() then
     raise exception 'invalid_boundary' using errcode = 'P0001';
   end if;
-
-  if v_next.id is null then
-    update public.periods set end_date = v_end, end_is_manual = v_manual where id = v_period.id;
-    perform private.ensure_periods(v_budget_id);
-    return;
-  end if;
-
-  select exists (select 1 from public.periods as p
-                 where p.budget_id = v_budget_id and p.seq > v_next.seq) into v_has_after;
-  if v_end + 1 > v_today then
-    if v_has_after then
-      raise exception 'boundary_after_today' using errcode = 'P0001';
-    end if;
-    -- The salary that starts the latest period has not arrived yet.
-    delete from public.periods where id = v_next.id;
-    update public.periods set end_date = v_end, end_is_manual = v_manual where id = v_period.id;
-    return;
-  end if;
-  if v_end + 1 > v_next.end_date then
-    raise exception 'invalid_boundary' using errcode = 'P0001';
-  end if;
-  update public.periods set end_date = v_end, end_is_manual = v_manual where id = v_period.id;
-  update public.periods set start_date = v_end + 1 where id = v_next.id;
+  perform private.assert_length(v_previous.start_date, p_start_date - 1);
+  perform private.assert_length(p_start_date, v_period.end_date);
+  update public.periods set end_date = p_start_date - 1, end_is_manual = true where id = v_previous.id;
+  update public.periods set start_date = p_start_date where id = v_period.id;
 end;
 $$;
 
@@ -1804,71 +2043,43 @@ grant select on table
 to service_role;
 
 -- Functions: nothing executable by default; the client gets exactly the RPCs below.
-revoke all on function
-  private.limit_owned_budgets(), private.limit_members(), private.limit_pending_invitations(),
-  private.limit_active_incomes(), private.limit_total_incomes(), private.limit_start_months_back(),
-  private.limit_amount(), private.limit_boundary_shift_days(), private.limit_invitation_days(),
-  private.today(),
-  private.month_pay_date(date, integer, public.weekend_rule),
-  private.next_pay_date(date, integer, public.weekend_rule),
-  private.month_paid_by(date, integer, public.weekend_rule),
-  private.is_sane_date(date),
-  private.member_budget_ids(), private.owned_budget_ids(), private.visible_profile_ids(),
-  private.is_budget_member(uuid), private.is_budget_owner(uuid),
-  private.assert_member(uuid), private.assert_owner(uuid),
-  private.current_verified_email(),
-  private.check_budget_owner_membership(), private.check_primary_income(),
-  private.check_income_has_first_version(), private.check_periods(),
-  private.discard_later_versions(),
-  private.lock_budget(uuid), private.terms_at(uuid, integer),
-  private.scheduled_pay_date(uuid, date, integer), private.scheduled_end(uuid, public.periods),
-  private.budget_end_date(uuid),
-  private.ensure_periods(uuid), private.current_period(uuid), private.current_seq(uuid),
-  private.reading_seq(uuid), private.removal_seq(uuid), private.recompute_projected_end(uuid),
-  private.end_member_incomes(uuid, uuid),
-  private.assert_income_terms(bigint, integer, public.weekend_rule),
-  private.clean_name(text), private.period_seq(uuid, uuid), private.lock_income(uuid),
-  private.apply_end_date(uuid, date),
-  public.pay_date(integer, integer, integer, public.weekend_rule),
-  public.get_start_months(integer, public.weekend_rule),
-  public.create_budget(text, text, bigint, integer, public.weekend_rule, date, date),
-  public.set_budget_end_date(uuid, date),
-  public.delete_budget(uuid),
-  public.cancel_invitation(uuid),
-  public.get_today(),
-  public.invite_member(uuid, text),
-  public.list_my_invitations(),
-  public.accept_invitation(uuid),
-  public.decline_invitation(uuid),
-  public.remove_member(uuid, uuid),
-  public.leave_budget(uuid),
-  public.add_income(uuid, text, bigint, integer, public.weekend_rule, uuid, uuid),
-  public.update_income_terms(uuid, bigint, integer, public.weekend_rule, uuid),
-  public.set_primary_income(uuid),
-  public.remove_income(uuid, uuid),
-  public.ensure_periods(uuid),
-  public.get_current_period(uuid),
-  public.move_period_boundary(uuid, date)
-from public, anon, authenticated;
+do $$
+declare
+  f regprocedure;
+begin
+  for f in
+    select p.oid::regprocedure
+    from pg_catalog.pg_proc as p
+    join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+    where n.nspname in ('public', 'private')
+      and p.proname <> 'set_updated_at' and p.proname <> 'handle_new_user'
+  loop
+    execute pg_catalog.format('revoke all on function %s from public, anon, authenticated', f);
+  end loop;
+end;
+$$;
 
 -- Used by policies and security_invoker views, so the calling role needs them.
 grant execute on function
   private.member_budget_ids(), private.owned_budget_ids(), private.visible_profile_ids(),
+  private.display_name_of(uuid),
   private.today(), private.next_pay_date(date, integer, public.weekend_rule),
   private.month_pay_date(date, integer, public.weekend_rule),
+  private.next_salary_date(date, integer, public.weekend_rule, date),
+  private.limit_projection_min_days(),
   private.terms_at(uuid, integer), private.reading_seq(uuid),
-  private.scheduled_pay_date(uuid, date, integer), private.budget_end_date(uuid)
+  private.projected_end(uuid, date, integer, date), private.budget_end_date(uuid)
 to authenticated;
 
 grant execute on function
   public.pay_date(integer, integer, integer, public.weekend_rule),
+  public.get_today(),
   public.get_start_months(integer, public.weekend_rule),
   public.create_budget(text, text, bigint, integer, public.weekend_rule, date, date),
   public.set_budget_end_date(uuid, date),
   public.delete_budget(uuid),
-  public.cancel_invitation(uuid),
-  public.get_today(),
   public.invite_member(uuid, text),
+  public.cancel_invitation(uuid),
   public.list_my_invitations(),
   public.accept_invitation(uuid),
   public.decline_invitation(uuid),
@@ -1880,11 +2091,14 @@ grant execute on function
   public.remove_income(uuid, uuid),
   public.ensure_periods(uuid),
   public.get_current_period(uuid),
-  public.move_period_boundary(uuid, date)
+  public.set_expected_pay_date(uuid, date),
+  public.record_early_pay_date(uuid, date),
+  public.reopen_previous_period(uuid, date),
+  public.move_period_start(uuid, date)
 to authenticated;
 
 -- ===========================================================================
--- Row-level security
+-- Row-level security (C-RLS-001, C-RLS-002, R-SECURITY-001 to R-SECURITY-003)
 -- ===========================================================================
 alter table public.budgets enable row level security;
 alter table public.budget_members enable row level security;

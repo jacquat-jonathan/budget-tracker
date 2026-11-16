@@ -14,6 +14,7 @@ select tests.authenticate_as('alice');
 select tests.remember('a', public.create_budget('A', 'Alice salary', 500000, 25, 'nearest', '2026-09-01'));
 select tests.remember('a_income', (select primary_income_id from public.budgets where id = tests.id('a')));
 select tests.remember('a_period', (select id from public.periods where budget_id = tests.id('a') and seq = 1));
+select tests.remember('a_period2', (select id from public.periods where budget_id = tests.id('a') and seq = 2));
 select tests.remember('a_inv_bob', public.invite_member(tests.id('a'), tests.get_user_email('bob')));
 select tests.remember('a_inv_dave', public.invite_member(tests.id('a'), tests.get_user_email('dave')));
 select tests.authenticate_as('bob');
@@ -56,15 +57,19 @@ insert into carol_calls values
   (format('select public.remove_income(%L)', tests.id('a_bob_income')), 'income_not_found'),
   (format('select public.ensure_periods(%L)', tests.id('a')), 'budget_not_found'),
   (format('select public.get_current_period(%L)', tests.id('a')), 'budget_not_found'),
-  (format('select public.move_period_boundary(%L, %L)', tests.id('a_period'), '2026-10-20'), 'period_not_found'),
-  (format('select public.move_period_boundary(%L, null)', tests.id('a_period')), 'period_not_found'),
+  (format('select public.move_period_start(%L, %L)', tests.id('a_period2'), '2026-11-01'), 'period_not_found'),
+  (format('select public.set_expected_pay_date(%L, %L)', tests.id('a'), '2026-11-30'), 'budget_not_found'),
+  (format('select public.set_expected_pay_date(%L)', tests.id('a')), 'budget_not_found'),
+  (format('select public.record_early_pay_date(%L, %L)', tests.id('a'), '2026-11-14'), 'budget_not_found'),
+  (format('select public.reopen_previous_period(%L)', tests.id('a')), 'budget_not_found'),
   (format('select public.accept_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
   (format('select public.decline_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
   (format('select public.delete_budget(%L)', tests.id('a')), 'budget_not_found'),
   (format('select public.cancel_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
   -- hostile arguments
   ('select public.ensure_periods(null)', 'budget_not_found'),
-  ('select public.move_period_boundary(null, null)', 'period_not_found'),
+  ('select public.move_period_start(null, null)', 'period_not_found'),
+  ('select public.reopen_previous_period(null)', 'budget_not_found'),
   ('select public.accept_invitation(null)', 'invitation_not_found'),
   ($$select public.create_budget(null, 'x', 1, 1)$$, 'invalid_name'),
   ($$select public.create_budget('x', 'x', null, 1)$$, 'invalid_amount'),
@@ -74,7 +79,9 @@ insert into carol_calls values
   ($$select public.create_budget(repeat('x', 101), 'x', 1, 1)$$, 'invalid_name'),
   ($$select public.get_start_months(32)$$, 'invalid_pay_day'),
   ($$select public.get_start_months(1, null)$$, 'invalid_weekend_rule'),
-  (format('select public.move_period_boundary(%L, %L)', tests.id('c_period'), 'infinity'), 'invalid_boundary'),
+  (format('select public.set_expected_pay_date(%L, %L)', tests.id('c'), 'infinity'), 'invalid_boundary'),
+  (format('select public.record_early_pay_date(%L, %L)', tests.id('c'), '-infinity'), 'invalid_boundary'),
+  (format('select public.reopen_previous_period(%L)', tests.id('c')), 'invalid_boundary'),
   (format('select public.set_budget_end_date(%L, %L)', tests.id('c'), '-infinity'), 'invalid_end_date');
 
 -- Direct writes carol must not be able to make at all (no privilege).
@@ -88,7 +95,7 @@ insert into carol_denied values
   (format($$insert into public.periods (budget_id, seq, start_date, end_date) values (%L, 9, '2030-01-01', '2030-01-30')$$, tests.id('a'))),
   (format('update public.periods set end_date = end_date where budget_id = %L', tests.id('a'))),
   (format('update public.income_versions set amount = 1 where budget_id = %L', tests.id('a'))),
-  (format('update public.budgets set end_month = null where id = %L', tests.id('a'))),
+  (format('update public.budgets set end_date = null where id = %L', tests.id('a'))),
   (format('update public.incomes set end_seq = 1 where budget_id = %L', tests.id('a'))),
   (format('delete from public.incomes where budget_id = %L', tests.id('a'))),
   (format('delete from public.periods where budget_id = %L', tests.id('a'))),
@@ -124,7 +131,10 @@ insert into anon_calls values
   (format('select public.remove_income(%L)', tests.id('a_bob_income'))),
   (format('select public.ensure_periods(%L)', tests.id('a'))),
   (format('select public.get_current_period(%L)', tests.id('a'))),
-  (format('select public.move_period_boundary(%L, null)', tests.id('a_period')));
+  (format('select public.move_period_start(%L, %L)', tests.id('a_period2'), '2026-11-01')),
+  (format('select public.set_expected_pay_date(%L)', tests.id('a'))),
+  (format('select public.record_early_pay_date(%L, %L)', tests.id('a'), '2026-11-14')),
+  (format('select public.reopen_previous_period(%L)', tests.id('a')));
 
 grant select on relations, carol_calls, carol_denied, anon_calls to anon, authenticated;
 
@@ -211,7 +221,7 @@ select throws_ok(
   '42501', null, 'R-INCOME-006: nor switch the primary income without the RPC'
 );
 select throws_ok(
-  format('update public.budgets set end_month = %L where id = %L', '2027-01-01', tests.id('a')),
+  format('update public.budgets set end_date = %L where id = %L', '2027-01-01', tests.id('a')),
   '42501', null, 'R-MEMBER-003: nor set the end date without the RPC'
 );
 

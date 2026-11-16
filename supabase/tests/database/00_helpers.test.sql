@@ -248,11 +248,10 @@ begin
 end;
 $$;
 
--- Independent check of the period invariants of one budget, written without the
+-- Independent check of the structural invariants of one budget, written without the
 -- migration's helpers: returns one line per violation (no rows: all hold).
---   one period per calendar month, consecutive months, numbered 1..n, contiguous,
---   none starting after today, none after the final month, each start within 14 days of
---   its month's salary (anchor_date).
+--   numbered 1..n, contiguous, each 7 to 92 days long, none starting after today, none
+--   starting after the budget's end date, nothing keyed beyond the latest period.
 create or replace function tests.period_violations(budget uuid)
 returns setof text
 language sql
@@ -261,26 +260,30 @@ security definer
 set search_path = ''
 as $$
   with p as (
-    select seq, month, anchor_date, start_date, end_date,
+    select seq, start_date, end_date,
            lag(end_date) over (order by seq) as prev_end,
-           lag(month) over (order by seq) as prev_month,
            row_number() over (order by seq) as rn
     from public.periods where budget_id = period_violations.budget
-  ), b as (select end_month from public.budgets where id = period_violations.budget)
+  ), b as (select end_date from public.budgets where id = period_violations.budget),
+  latest as (select max(seq) as seq from public.periods where budget_id = period_violations.budget)
   select format('period %s: %s', p.seq, v.what)
   from p cross join b
   cross join lateral (values
     (case when p.seq <> p.rn then 'numbering gap' end),
-    (case when p.month <> date_trunc('month', p.month)::date then 'month not a first day' end),
-    (case when p.prev_month is not null and p.month <> (p.prev_month + interval '1 month')::date
-          then 'months not consecutive' end),
     (case when p.prev_end is not null and p.start_date <> p.prev_end + 1 then 'not contiguous' end),
-    (case when p.end_date < p.start_date then 'empty' end),
+    (case when p.end_date - p.start_date + 1 not between 7 and 92 then 'length out of bounds' end),
     (case when p.start_date > private.today() then 'starts after today' end),
-    (case when b.end_month is not null and p.month > b.end_month then 'after the final month' end),
-    (case when abs(p.start_date - p.anchor_date) > 14 then 'start more than 14 days from its salary' end)
+    (case when b.end_date is not null and p.start_date > b.end_date then 'starts after the end date' end)
   ) as v (what)
   where v.what is not null
+  union all
+  select format('income %s keyed beyond the latest period', i.name)
+  from public.incomes as i cross join latest
+  where i.budget_id = period_violations.budget and (i.first_seq > latest.seq or i.end_seq > latest.seq)
+  union all
+  select format('version from period %s beyond the latest period', v.effective_from_seq)
+  from public.income_versions as v cross join latest
+  where v.budget_id = period_violations.budget and v.effective_from_seq > latest.seq
 $$;
 
 grant execute on all functions in schema tests to anon, authenticated;

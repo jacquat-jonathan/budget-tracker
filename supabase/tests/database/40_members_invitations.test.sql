@@ -1,6 +1,6 @@
 -- Members, roles and invitations.
 begin;
-select plan(66);
+select plan(69);
 
 select tests.create_user('alice', 'Alice');
 select tests.create_user('bob', 'Bob');
@@ -94,6 +94,8 @@ select tests.authenticate_as('dave');
 select is_empty('select 1 from public.list_my_invitations()', 'R-INVITE-007: an expired invitation is not listed');
 select throws_ok(format('select public.accept_invitation(%L)', tests.id('inv_dave')),
   'P0001', 'invitation_not_found', 'R-INVITE-007 R-INVITE-010: nor can it be accepted');
+select throws_ok(format('select public.decline_invitation(%L)', tests.id('inv_dave')),
+  'P0001', 'invitation_not_found', 'R-INVITE-007: nor declined');
 select tests.authenticate_as('alice');
 select is(public.invite_member(tests.id('b'), tests.get_user_email('dave')), tests.id('inv_dave'),
   'R-INVITE-007 R-INVITE-009: the owner re-invites: the same invitation is valid again');
@@ -218,6 +220,14 @@ select is(
   'Bob',
   'R-PROFILE-004: the former member''s ended income keeps their name'
 );
+select tests.remember('inv_dave2', public.invite_member(tests.id('b'), tests.get_user_email('dave')));
+select tests.authenticate_as('dave');
+select public.accept_invitation(tests.id('inv_dave2'));
+select is_empty(format('select 1 from public.profiles where id = %L', tests.get_user_id('bob')),
+  'R-PROFILE-003 R-PROFILE-004: someone who joined after he left cannot read the former member''s profile or email');
+select is((select user_display_name from public.income_overview where id = tests.id('bob_past')), 'Bob',
+  'R-PROFILE-004: but sees his name on the income');
+select tests.authenticate_as('alice');
 
 -- ---------------------------------------------------------------------------
 -- Limits
@@ -275,8 +285,8 @@ select lives_ok(format('select public.remove_member(%L, %L)', tests.id('over'), 
   'R-MEMBER-007: removing a member after the budget has ended');
 select results_eq(
   format('select end_seq from public.incomes where id = %L', tests.id('bob_over')),
-  $$values (3)$$,
-  'R-MEMBER-008: ends their income after the last period'
+  $$values (null::integer)$$,
+  'R-MEMBER-008: leaves the incomes of an ended budget as they are (nothing is keyed beyond its last period)'
 );
 select results_eq(
   format('select seq, income_total from public.period_summaries where budget_id = %L order by seq', tests.id('over')),

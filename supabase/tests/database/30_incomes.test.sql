@@ -2,7 +2,7 @@
 -- Budget from January 2026, pay day 25: periods 1..10, period 10 (October's, 26 Oct -
 -- 24 Nov) is current on 15 November.
 begin;
-select plan(53);
+select plan(54);
 
 select tests.create_user('alice', 'Alice');
 select tests.create_user('bob', 'Bob');
@@ -185,35 +185,54 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- An edit for the current period is never shadowed by a later version (P5)
+-- A correction from period K applies until the next change only (finding 3)
 -- ---------------------------------------------------------------------------
-select tests.remember('p5', public.create_budget('P5', 'Salary', 500000, 25));  -- October's period
+select tests.remember('m7', public.create_budget('M7', 'Salary', 500000, 25, 'nearest', '2026-07-01'));
+select tests.remember('m7_primary', (select primary_income_id from public.budgets where id = tests.id('m7')));
+select public.update_income_terms(tests.id('m7_primary'), 510000, 25, 'nearest',
+  (select id from public.periods where budget_id = tests.id('m7') and seq = 2));
+select public.update_income_terms(tests.id('m7_primary'), 520000, 25, 'nearest');  -- now: period 4
+select public.update_income_terms(tests.id('m7_primary'), 505000, 25, 'nearest',
+  (select id from public.periods where budget_id = tests.id('m7') and seq = 1));
+select results_eq(
+  format('select * from pg_temp.totals(%L)', tests.id('m7')),
+  $$values (1, 505000::bigint), (2, 510000::bigint), (3, 510000::bigint), (4, 520000::bigint)$$,
+  'R-VERSION-012: correcting period 1 leaves the later changes (periods 2 and 4) alone'
+);
+
+-- ---------------------------------------------------------------------------
+-- An edit made in a period that is then merged back is in force now (M6)
+-- ---------------------------------------------------------------------------
+select tests.remember('m6', public.create_budget('M6', 'Salary', 500000, 25));  -- October's period
 select tests.clear_authentication();
 select tests.set_today('2026-11-25');
 select tests.authenticate_as('alice');
-select public.ensure_periods(tests.id('p5'));                                    -- November's starts
-select tests.remember('p5_primary', (select primary_income_id from public.budgets where id = tests.id('p5')));
-select public.update_income_terms(tests.id('p5_primary'), 600000, 25, 'nearest');  -- version for seq 2
-select public.move_period_boundary(
-  (select id from public.periods where budget_id = tests.id('p5') and seq = 1), '2026-11-26');  -- late salary
-select is(
-  (select seq from public.get_current_period(tests.id('p5'))), 1,
-  'R-VERSION-009: the salary is late: October''s period is current again'
-);
-select public.update_income_terms(tests.id('p5_primary'), 700000, 25, 'nearest');  -- version for seq 1
+select public.ensure_periods(tests.id('m6'));                                    -- the 25 Nov period starts
+select tests.remember('m6_primary', (select primary_income_id from public.budgets where id = tests.id('m6')));
+select public.update_income_terms(tests.id('m6_primary'), 600000, 25, 'nearest');  -- keyed to period 2
+select tests.clear_authentication();
+select tests.set_today('2026-11-26');
+select tests.authenticate_as('alice');
+select public.reopen_previous_period(tests.id('m6'));                            -- the salary is late
 select results_eq(
-  format('select effective_from_seq, amount from public.income_versions where income_id = %L order by 1', tests.id('p5_primary')),
+  format('select amount, terms_from_seq from public.income_overview where id = %L', tests.id('m6_primary')),
+  $$values (600000::bigint, 1)$$,
+  'R-VERSION-011: the edit made in the merged period is re-keyed to the reopened one and in force now'
+);
+select public.update_income_terms(tests.id('m6_primary'), 700000, 25, 'nearest');
+select results_eq(
+  format('select effective_from_seq, amount from public.income_versions where income_id = %L order by 1', tests.id('m6_primary')),
   $$values (1, 700000::bigint)$$,
-  'R-VERSION-009: writing the current period''s version discards the one for the later period'
+  'R-VERSION-006 R-VERSION-011: a new edit now replaces it: one version per period, nothing beyond the latest'
 );
 select tests.clear_authentication();
 select tests.set_today('2026-11-27');
 select tests.authenticate_as('alice');
-select public.ensure_periods(tests.id('p5'));
+select public.record_early_pay_date(tests.id('m6'), '2026-11-27');
 select results_eq(
-  format('select * from pg_temp.totals(%L)', tests.id('p5')),
+  format('select * from pg_temp.totals(%L)', tests.id('m6')),
   $$values (1, 700000::bigint), (2, 700000::bigint)$$,
-  'R-VERSION-009: so the edit just saved also holds for November'
+  'R-VERSION-011: when the salary arrives, the next period reads the edit just saved'
 );
 
 -- ---------------------------------------------------------------------------
