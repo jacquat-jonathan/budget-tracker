@@ -35,11 +35,14 @@ export function useSubscriptionViews() {
           }),
           date: formatCalendarDate(subscription.anchor_date),
         }),
+        // One field for conflicts (D-160): the form's price, cadence and new next charge date.
+        fields: ['price', 'cadence', 'chargeDate'],
       },
       {
         key: 'category',
         label: t('concurrent.fields.category'),
         value: path(subscription.category_name, subscription.parent_category_name),
+        fields: ['categoryId'],
       },
     ],
     debt: (debt: Debt): FieldView[] => [
@@ -48,6 +51,7 @@ export function useSubscriptionViews() {
         key: 'category',
         label: t('concurrent.fields.category'),
         value: path(debt.category_name, debt.parent_category_name),
+        fields: ['categoryId'],
       },
       {
         key: 'principal',
@@ -66,6 +70,7 @@ export function useSubscriptionViews() {
         key: 'payment',
         label: t('debts.fields.payment'),
         value: formatMoney(debt.monthly_payment),
+        fields: ['monthlyPayment'],
       },
     ],
     /** The debt's balance as an adjustment sees it: changing it is what matters there. */

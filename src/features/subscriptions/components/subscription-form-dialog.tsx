@@ -36,7 +36,6 @@ import {
   type Subscription,
   type SubscriptionCadence,
 } from '@/features/subscriptions/subscription-queries'
-import { keepMineAsGroup } from '@/features/subscriptions/terms-group'
 import {
   CategorySelectField,
   type CategoryChoice,
@@ -157,7 +156,6 @@ function SubscriptionForm({
   const update = useUpdateSubscription(budgetId, { onDone: close })
   const mutation = editing ? update : create
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
-  const keepMine = keepMineAsGroup(form, ['price', 'cadence', 'chargeDate'], sync.keepMine)
 
   const periodLabel = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
@@ -225,7 +223,7 @@ function SubscriptionForm({
           pending={sync.pending}
           updated={sync.updated}
           onUseTheirs={sync.useTheirs}
-          onKeepMine={keepMine}
+          onKeepMine={sync.keepMine}
           error={mutation.error}
           message={errorMessage}
         />
@@ -308,6 +306,7 @@ function SubscriptionForm({
           chargeDate={chargeDate}
           firstPeriodStart={effective?.start_date ?? null}
           today={today}
+          correcting={correct}
         />
         <Alert>
           <InfoIcon aria-hidden />
@@ -351,10 +350,12 @@ function SchedulePreview({
   chargeDate,
   firstPeriodStart,
   today,
+  correcting,
 }: {
   subscription: Subscription | undefined
   cadence: SubscriptionCadence
   chargeDate: string
+  correcting: boolean
   firstPeriodStart: string | null
   today: string | null
 }) {
@@ -369,7 +370,8 @@ function SchedulePreview({
   } else if (chargeDate !== '') {
     anchor = typed
     note = 'date'
-  } else if (cadence !== subscription.cadence) {
+  } else if (cadence !== subscription.cadence && !correcting) {
+    // From now only: a correction keeps the date its schedule counts from (D-170).
     anchor = subscription.next_charge_date
     note = 'cadence'
   } else {

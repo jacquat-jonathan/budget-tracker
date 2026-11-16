@@ -1,6 +1,70 @@
 import type { Tables } from '@/lib/database.types'
 import { createMockDb, type MockDb, type MockTables } from '@/test/mock-db'
 
+export function subscriptionRow(
+  overrides: Partial<Tables<'subscription_overview'>> = {},
+): Tables<'subscription_overview'> {
+  return {
+    id: 'sub-netflix',
+    budget_id: BUDGET_ID,
+    name: 'Netflix',
+    is_active: true,
+    first_seq: 2,
+    end_seq: null,
+    price: 1_990,
+    cadence: 'monthly',
+    category_id: 'cat-groceries',
+    category_name: 'Groceries',
+    parent_category_id: null,
+    parent_category_name: null,
+    anchor_date: '2026-11-05',
+    terms_from_seq: 2,
+    monthly_cost: 1_990,
+    next_charge_date: '2026-12-05',
+    charged_through: '2026-11-15',
+    charge_count: 1,
+    awaiting_count: 0,
+    removal_deletes: false,
+    revision: 1,
+    created_at: '2026-11-01T10:00:00+00:00',
+    updated_at: '2026-11-01T10:00:00+00:00',
+    ...overrides,
+  }
+}
+
+export function debtRow(overrides: Partial<Tables<'debt_overview'>> = {}): Tables<'debt_overview'> {
+  return {
+    id: 'debt-car',
+    budget_id: BUDGET_ID,
+    name: 'Car loan',
+    category_id: 'cat-groceries',
+    category_name: 'Groceries',
+    parent_category_id: null,
+    parent_category_name: null,
+    principal: 1_200_000,
+    opened_on: '2026-10-23',
+    is_active: true,
+    first_seq: 2,
+    end_seq: null,
+    interest_rate: 4.875,
+    monthly_payment: 50_000,
+    terms_from_seq: 2,
+    interest_total: 0,
+    adjustment_total: 0,
+    paid_total: 50_000,
+    remaining: 1_150_000,
+    payoff: 'ends',
+    payments_left: 24,
+    expected_end_date: '2028-11-24',
+    has_history: true,
+    removal_deletes: false,
+    revision: 1,
+    created_at: '2026-10-23T10:00:00+00:00',
+    updated_at: '2026-10-23T10:00:00+00:00',
+    ...overrides,
+  }
+}
+
 export const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001'
 export const OTHER_USER_ID = '00000000-0000-0000-0000-000000000002'
 export const BUDGET_ID = 'bbbbbbbb-0000-0000-0000-000000000001'

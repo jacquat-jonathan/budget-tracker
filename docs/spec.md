@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-343 rules (279 active, 57 planned), 24 conventions, 147 decisions, 24 open questions. 1 rules and conventions are marked **TEST PENDING**.
+354 rules (290 active, 57 planned), 24 conventions, 154 decisions, 27 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -133,7 +133,7 @@ Two-level categories with monthly or yearly expectations, and the amount left to
 - **US-CATEGORY-003** As a budget member, I want to see the amount left to assign in a period, negative when I have assigned more than the income, so that every franc of the budget has a purpose.
   Rules: R-CATEGORY-006, R-CATEGORY-071, R-CATEGORY-050
 - **US-CATEGORY-004** As a budget member, I want to delete a category I no longer need, so that it leaves the budget from now on while past periods keep it.
-  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095, R-CATEGORY-052, R-CATEGORY-101, R-CATEGORY-054
+  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095, R-CATEGORY-052, R-CATEGORY-101, R-CATEGORY-054, R-CATEGORY-120
 - **US-CATEGORY-005** As a budget member, I want to change a category's expectation from now on, or explicitly correct it from an earlier period, so that past periods stay as they were unless I fix a mistake on purpose.
   Rules: R-VERSION-002, R-VERSION-070, R-CATEGORY-053, R-CATEGORY-100, R-CATEGORY-101, R-CATEGORY-054
 - **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
@@ -168,22 +168,22 @@ Each period, the current one and past ones, tracked against its expectations, wi
 Recurring charges and their next charge date.
 
 - **US-SUBSCRIPTION-001** As a budget member, I want to track subscriptions and see when each will next be charged, so that recurring costs do not surprise me.
-  Rules: R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-071, R-SUBSCRIPTION-072, R-VERSION-003, R-SUBSCRIPTION-110, R-SUBSCRIPTION-114, R-CATEGORY-110
+  Rules: R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-071, R-SUBSCRIPTION-072, R-VERSION-003, R-SUBSCRIPTION-110, R-SUBSCRIPTION-114, R-CATEGORY-110, R-SUBSCRIPTION-120, R-SUBSCRIPTION-121, R-SUBSCRIPTION-122, R-SUBSCRIPTION-124
 - **US-SUBSCRIPTION-002** As a budget member, I want each subscription charge to be recorded automatically on its charge date, and to confirm from the home page that it really went through, so that I do not enter recurring charges by hand and still catch one that failed.
-  Rules: R-SUBSCRIPTION-073, R-SUBSCRIPTION-074, R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, R-SUBSCRIPTION-077, R-SUBSCRIPTION-078, R-SUBSCRIPTION-111, R-SUBSCRIPTION-112, R-SUBSCRIPTION-113, R-TRANSACTION-003, R-VERSION-110
+  Rules: R-SUBSCRIPTION-073, R-SUBSCRIPTION-074, R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, R-SUBSCRIPTION-077, R-SUBSCRIPTION-078, R-SUBSCRIPTION-111, R-SUBSCRIPTION-112, R-SUBSCRIPTION-113, R-TRANSACTION-003, R-VERSION-110, R-SUBSCRIPTION-123
 - **US-SUBSCRIPTION-003** As a budget member, I want to see a subscription's monthly cost as committed within its category's expectation, so that I see how much of the category is already spoken for.
-  Rules: R-SUBSCRIPTION-079
+  Rules: R-SUBSCRIPTION-079, R-PROGRESS-120
 
 #### F-DEBT Debts (in-progress)
 
 Debts with planned payments, their evolution and expected end date.
 
 - **US-DEBT-001** As a budget member, I want to record a debt with its principal, interest rate and planned monthly payment, so that I can follow it down to zero.
-  Rules: R-DEBT-001, R-DEBT-002, R-DEBT-070, R-DEBT-072, R-VERSION-004, R-DEBT-110, R-DEBT-114
+  Rules: R-DEBT-001, R-DEBT-002, R-DEBT-070, R-DEBT-072, R-VERSION-004, R-DEBT-110, R-DEBT-114, R-DEBT-120
 - **US-DEBT-002** As a budget member, I want payments linked to a debt to reduce what remains, interest to be added to it, and to see its history and expected end date, so that I know when it will be paid off, or that it never will at this pace.
-  Rules: R-DEBT-003, R-DEBT-004, R-DEBT-005, R-DEBT-071, R-DEBT-073, R-DEBT-074, R-DEBT-111, R-DEBT-112, R-DEBT-113, R-TRANSACTION-110
+  Rules: R-DEBT-003, R-DEBT-004, R-DEBT-005, R-DEBT-071, R-DEBT-073, R-DEBT-074, R-DEBT-111, R-DEBT-112, R-DEBT-113, R-TRANSACTION-110, R-DEBT-121, R-DEBT-122, R-DEBT-123
 - **US-DEBT-003** As a budget member, I want to adjust a debt's balance by hand, so that it matches my bank statement.
-  Rules: R-DEBT-075
+  Rules: R-DEBT-075, R-DEBT-122
 
 ### Step 5: Period comparison charts (planned)
 
@@ -1087,6 +1087,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-179
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-CATEGORY-120** Removing a category that a subscription or debt in force uses (category_overview.in_use) is not offered: the confirmation says what uses it and where to end or move it.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CATEGORY-110, D-179
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/budget/components/category-in-use.tsx
 
 ### Transactions
 
@@ -1211,6 +1215,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PROGRESS_
   - Related: R-PROGRESS-090, R-PROGRESS-071, R-PROGRESS-002, R-COMPARE-001, D-137
   - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/progress/period-progress-card.tsx; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
+- **R-PROGRESS-120** What subscriptions commit is shown inside the plan, never added to it: per category on the budget page and in the progress view ("of which … committed"), and for the period with its planned total.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-079, D-173
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/progress/period-progress-card.tsx; code: src/features/budget/budget-page.tsx
 
 ### Subscriptions
 
@@ -1247,9 +1255,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-109
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-SUBSCRIPTION-076** The dashboard shows a notification for each subscription charge awaiting confirmation, asking whether it really went through.
-  _active · enforced by test · F-SUBSCRIPTION_ · **TEST PENDING** (supabase/tests)
+  _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-109
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/components/charges-to-confirm-card.tsx
 - **R-SUBSCRIPTION-077** Answering that a subscription charge did not go through removes its transaction, and that charge is never created again.
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-109, Q-054, D-171
@@ -1284,6 +1292,26 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-170
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-120** The subscriptions page lists the subscriptions in force with their price and cadence, category, next charge date, monthly cost and, in words with an icon, how many charges await confirmation; the total committed per month is the current period's committed figure; ended subscriptions are folded away; with none, the page says what subscriptions are for and offers to add one. Every date and figure is the database's.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-002, R-SUBSCRIPTION-079, C-LOGIC-003
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/subscriptions-page.tsx
+- **R-SUBSCRIPTION-121** The subscription form previews the upcoming charge dates as subscription_charge_dates gives them (a new one from the start of the period it counts from, flagging the dates up to today as charged at once; an edit from the new next charge date, from the next charge for a new cadence alone, otherwise the schedule as it stands); an edit says that new terms apply from the current period and past periods keep theirs; a new next charge date from now must be after today; counting from an earlier period is an explicit, warned correction.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-071, R-SUBSCRIPTION-114, D-170, D-193
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/components/subscription-form-dialog.tsx
+- **R-SUBSCRIPTION-122** A subscription's price, cadence and new next charge date are one field for concurrent edits: shown as one value of the other member's version, kept or taken whole by "Keep mine", and saved together whenever any of them differs.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-160, R-CONCURRENCY-091, D-196
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/subscription-views.ts; code: src/features/subscriptions/subscription-mutations.ts
+- **R-SUBSCRIPTION-123** The transactions list marks automatic charges and, in words with an icon, those awaiting confirmation, and lets a member answer them there as on the dashboard; debt payments name their debt.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, D-195
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/transactions/transactions-page.tsx
+- **R-SUBSCRIPTION-124** Removing a subscription says beforehand, from the database's removal_deletes, whether it is deleted or ended from the current period (its charges kept, those awaiting confirmation still to answer); ending it from an earlier period is an explicit, warned correction.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-113
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/components/end-subscription-dialog.tsx
 
 ### Debts
 
@@ -1350,6 +1378,22 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: D-178
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-120** A debt's interest rate is typed as a percentage, optional, from 0 to 100 with at most three decimals (a comma or a dot), read and checked as a decimal string, never through float arithmetic, and sent exactly as typed.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-110, C-MONEY-001
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/lib/interest-rate.ts
+- **R-DEBT-121** The debts page shows each debt in force with its remaining amount, how much is paid off (a bar with its figure in words), its planned payment and rate, and the database's projection in words: "Paid off", "Ends around <month year> · N payments left" said to be an estimate, or a "Never ends at this payment" warning with an icon; and the total remaining across the debts in force.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-005, R-DEBT-074, R-DEBT-112, D-191
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debts-page.tsx; code: src/features/debts/components/payoff.tsx
+- **R-DEBT-122** A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative), payments leading to their transactions; it records a payment (the transaction form with the debt and its category chosen), adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history) and removes it, saying beforehand whether it is deleted or ended.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-004, R-DEBT-075, R-DEBT-114, D-190, D-192
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debt-detail-page.tsx; code: src/features/debts/components/debt-chart.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx
+- **R-DEBT-123** The transaction form offers "This is a payment on …" for an expense in a category that debts in force are paid from; a payment stays an expense; on an existing transaction the link is changed through link_transaction (removed before its fields change, added after), never through update_transaction.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-071, R-TRANSACTION-110, D-177, D-194
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx; code: src/features/transactions/transaction-mutations.ts
 
 ### Browsing and comparing periods
 
@@ -3646,6 +3690,92 @@ Related: D-172, R-DEBT-005, R-DEBT-112
 
 Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
+### D-190 Charts: shadcn chart (Recharts), theme colours, lazy route (accepted)
+
+Charts use shadcn's chart component on Recharts. Series colours are the theme tokens --chart-1 to --chart-5, set for light and dark to a categorical palette validated for colour-vision deficiencies (the first three also all together); identity is never colour alone (marks have shapes, a legend and a table). The page that draws a chart is its own lazily loaded route, so Recharts never reaches the first load. A debt's chart is a step line of the balance on a time axis (dates spaced by days, no time zone), from zero.
+
+**Why:** Step 5 needs more charts; shadcn's component fits the existing UI kit; the production Content-Security-Policy allows the inline style element it writes (style-src 'unsafe-inline') and no script.
+
+**Rejected:**
+
+- A hand-drawn SVG chart (no library): step 5 would redo it.
+
+Related: R-DEBT-122, C-CSP-001
+
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+
+### D-191 The total remaining across debts is added up in the client (accepted)
+
+debt_overview has no total: the debts page adds up the remaining amounts the database gives for the debts in force (integer rappen, no rounding). Nothing else about a debt is computed in the client.
+
+**Why:** The contract offers no total; adding integers cannot round. Q-110 asks whether the database should give it.
+
+**Rejected:** none recorded.
+
+Related: R-DEBT-121, Q-110, C-LOGIC-003
+
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+
+### D-192 A debt has its own page (accepted)
+
+Each debt opens on its own route (/debts/<id>), with its figures, chart, history and actions; an unknown or deleted id says the debt does not exist. A payment in the history leads to the transactions of its period (there is no page for one transaction).
+
+**Why:** The chart and the history need room, and the route can be loaded lazily (D-190).
+
+**Rejected:** none recorded.
+
+Related: R-DEBT-122, D-190
+
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+
+### D-193 What the subscription form previews (accepted)
+
+The form asks the database for the dates (subscription_charge_dates) of the schedule it describes: a new subscription from its first charge date, starting at the period it counts from, the dates up to today flagged as charged at once; an edit with a new next charge date from that date; a new cadence alone, from now, from the current next charge date; otherwise the current schedule from its next charge. The next charge date of an edit is optional (blank keeps the schedule) and, from now, must be after today.
+
+**Why:** D-170 decides what an edit does to the schedule; the form must show it before saving without computing a schedule itself (C-LOGIC-003).
+
+**Rejected:** none recorded.
+
+Related: R-SUBSCRIPTION-121, D-170
+
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+
+### D-194 Changing a transaction's debt link takes several calls (accepted)
+
+update_transaction never changes a link (D-177), so an edit that changes the debt a transaction pays calls link_transaction to remove the old link before the fields change, update_transaction, then link_transaction to add the new one, each with the revision the previous call returned. They are not one transaction: a failure part-way leaves the steps already done (the form shows the error, the lists are read again).
+
+**Why:** Removing first and linking last keeps every intermediate state valid (a payment is always in its debt's category). Q-111 asks for one call.
+
+**Rejected:** none recorded.
+
+Related: R-DEBT-123, D-177, Q-111
+
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+
+### D-195 Answering an automatic charge (accepted)
+
+A charge awaiting confirmation is answered from the dashboard card or from the transactions list. "It went through" confirms at once; "It did not go through" asks first and says the charge will not be created again for that date. When another member answered first (record_changed, or the charge is gone), the list is read again and a message says so; nothing is resent.
+
+**Why:** Dismissing deletes a transaction for good (R-SUBSCRIPTION-077); confirming is harmless.
+
+**Rejected:** none recorded.
+
+Related: R-SUBSCRIPTION-076, R-SUBSCRIPTION-077, R-SUBSCRIPTION-123
+
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+
+### D-196 A subscription's terms are one group for concurrent edits (accepted)
+
+Applying D-160 to subscriptions: price, cadence and the new next charge date of the edit form are one group (a new cadence moves the schedule, so the date belongs with it). A debt's rate and planned payment stay independent fields.
+
+**Why:** A price kept from one member and a cadence from another would charge an amount nobody chose (the step 3 category case).
+
+**Rejected:** none recorded.
+
+Related: D-160, R-SUBSCRIPTION-122
+
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -3856,6 +3986,18 @@ Source: owner-request: database developer decision for step 4, within the coordi
   - Context: D-175: a charge awaits confirmation until a member answers; the dashboard list can grow if nobody does. It counts in totals meanwhile (R-SUBSCRIPTION-078).
   - Related: D-175, R-SUBSCRIPTION-076
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16
+- **Q-110** Should the database give the total remaining across a budget's debts?
+  - Context: D-191: the debts page adds up debt_overview.remaining for the debts in force. A database total would follow C-LOGIC-003 to the letter and could exclude or include ended debts by rule.
+  - Related: D-191, R-DEBT-121
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+- **Q-111** Should one call change a transaction and its debt link together?
+  - Context: D-194: changing the debt a transaction pays takes up to three calls (unlink, update, link), not atomic; a failure part-way leaves part of the change.
+  - Related: D-194, D-177
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+- **Q-112** Should the transaction form also link a transaction to a subscription (a charge recorded by hand)?
+  - Context: add_transaction and link_transaction accept p_subscription_id; the step 4 screens offer only the debt link, as the brief asked. A charge recorded by hand would show as a subscription charge without being an automatic one.
+  - Related: R-TRANSACTION-003, D-177
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
 
 ## Glossary
 
