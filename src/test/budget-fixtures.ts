@@ -34,7 +34,7 @@ export function subscriptionRow(
 
 export function debtRow(overrides: Partial<Tables<'debt_overview'>> = {}): Tables<'debt_overview'> {
   return {
-    id: 'debt-car',
+    id: DEBT_ID,
     budget_id: BUDGET_ID,
     name: 'Car loan',
     category_id: 'cat-groceries',
@@ -64,6 +64,9 @@ export function debtRow(overrides: Partial<Tables<'debt_overview'>> = {}): Table
     ...overrides,
   }
 }
+
+/** A debt id: debt pages take uuids only. */
+export const DEBT_ID = 'dddddddd-0000-0000-0000-000000000001'
 
 export const DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000001'
 export const OTHER_USER_ID = '00000000-0000-0000-0000-000000000002'

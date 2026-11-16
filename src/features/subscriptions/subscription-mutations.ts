@@ -49,9 +49,18 @@ export function useCreateSubscription(budgetId: string, options: { onDone: () =>
   })
 }
 
+/** The terms a save compares with: those in force now, or in the period a correction starts. */
+export interface TermsBase {
+  price: number
+  cadence: SubscriptionCadence
+  category_id: string
+}
+
 export interface UpdateSubscriptionInput {
   /** The version the form saves over (useEditBase). */
   subscription: Subscription
+  /** What the form started from: the terms now, or those of the corrected period. */
+  base: TermsBase
   name: string
   price: number
   cadence: SubscriptionCadence
@@ -63,26 +72,29 @@ export interface UpdateSubscriptionInput {
 }
 
 /**
- * One edit: rename and/or new terms. Only what changed is sent, except that price, cadence
- * and the next charge date form one group: when any of them changed, the group is sent whole,
- * as the form shows it, so a save never combines one member's price with another's cadence.
- * A correction always sends the terms. Returns false when there was nothing to save.
+ * One edit: rename and/or new terms. Only what differs from the terms the form started from is
+ * sent (for a correction, those of the period it corrects: never today's terms written over
+ * the past), except that price, cadence and the next charge date form one group: when any of
+ * them changed, the group is sent whole, as the form shows it, so a save never combines one
+ * member's price with another's cadence. A correction that changes no term is no correction:
+ * only the name, if changed, is sent. Returns false when there was nothing to save.
  */
-// R-SUBSCRIPTION-122: price, cadence and schedule are saved together.
+// R-SUBSCRIPTION-122 R-SUBSCRIPTION-140: the group together; only what the user changed.
 export function useUpdateSubscription(budgetId: string, options: { onDone: () => void }) {
   const { t } = useTranslation()
   return useAppMutation<boolean, UpdateSubscriptionInput>({
     errorDisplay: 'inline',
+    // Shown only when what changed is not on the form (the banner says the rest).
+    errorMessages: { record_changed: 'subscriptions.changedNotShown' },
     mutationFn: async (input) => {
-      const { subscription } = input
-      const correcting = input.fromPeriodId !== null
+      const { subscription, base } = input
       const renamed = input.name !== subscription.name
       const terms =
-        correcting ||
-        input.price !== subscription.price ||
-        input.cadence !== subscription.cadence ||
+        input.price !== base.price ||
+        input.cadence !== base.cadence ||
         input.nextChargeDate !== null
-      const category = correcting || input.categoryId !== subscription.category_id
+      const category = input.categoryId !== base.category_id
+      const correcting = input.fromPeriodId !== null && (terms || category)
       if (!renamed && !terms && !category) return false
       unwrap(
         await supabase.rpc('update_subscription', {
@@ -114,6 +126,7 @@ export function useEndSubscription(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<string, EndSubscriptionInput>({
     errorDisplay: 'inline',
+    errorMessages: { record_changed: 'subscriptions.changedNotShown' },
     mutationFn: async ({ subscription, revision, fromPeriodId }) =>
       unwrap(
         await supabase.rpc('end_subscription', {

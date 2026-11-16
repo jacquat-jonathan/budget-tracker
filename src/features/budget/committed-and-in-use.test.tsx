@@ -46,7 +46,10 @@ describe('a category in use [R-CATEGORY-120]', () => {
     await within(notice).findByText('Debt “Car loan”')
     expect(within(notice).getByText('Subscription “Rent insurance”')).toBeInTheDocument()
     expect(within(notice).queryByText(/Groceries box/)).not.toBeInTheDocument()
+    expect(dialog).toHaveTextContent('“Rent” cannot be removed yet')
     expect(within(dialog).getByRole('button', { name: 'Remove from now on' })).toBeDisabled()
+    // Not from an earlier period either: the database would refuse it too.
+    expect(within(dialog).queryByLabelText(/earlier period/)).not.toBeInTheDocument()
     expect(db.rpc.end_category).not.toHaveBeenCalled()
   })
 })
@@ -79,21 +82,24 @@ describe('committed figures [R-PROGRESS-120]', () => {
     ])
     mock.current = createSupabaseMock(fakeSession(), db)
     const { unmount } = renderRoutes(routes, '/budget')
+    // Under the amount it is part of, saying so; never next to the name.
     expect(await screen.findByTestId('category-committed')).toHaveTextContent(
-      `of which ${money(2_990)} committed to subscriptions`,
+      `incl. ${money(2_990)} for subscriptions`,
     )
     expect(screen.getByTestId('total-expected')).toHaveTextContent(
-      `of which ${money(2_990)} committed`,
+      `Includes ${money(2_990)} for subscriptions`,
     )
     unmount()
 
     renderRoutes(routes, '/')
+    // A narrow row names the planned amount the committed one is part of, never "spent".
     expect(await screen.findByTestId('row-committed')).toHaveTextContent(
-      `of which ${money(2_990)} committed`,
+      `The ${money(90_000)} planned include ${money(2_990)} for subscriptions`,
     )
-    expect(screen.getByTestId('progress-committed')).toHaveTextContent(
-      `of which ${money(2_990)} committed`,
-    )
+    // The period's: right under "Planned", before what is left to assign.
+    const committed = screen.getByTestId('progress-committed')
+    expect(committed).toHaveTextContent(`Includes ${money(2_990)} for subscriptions`)
+    expect(committed.nextElementSibling).toHaveTextContent('left to assign')
   })
 })
 

@@ -1,5 +1,5 @@
 import type { Translation } from '@/locales/en/translation'
-import { chargesFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
+import { chargesFr, correctionsFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
 
 // French typography: a narrow no-break space (U+202F) precedes ? ! : and ;.
 export const fr: Translation = {
@@ -710,6 +710,7 @@ export const fr: Translation = {
         '« {{name}} » deviendra un groupe de sous-catégories : elle n’aura plus de montant propre, et son montant sera le total de ses sous-catégories.',
       moves:
         '« {{name}} » deviendra un groupe de sous-catégories. Ce qu’elle contient maintenant (son montant, {{amount}} par mois, et ses transactions) passe dans une nouvelle sous-catégorie « {{other}} », de sorte qu’aucun total de période ne change.',
+      movesLinks: 'Ses abonnements et ses dettes passent aussi dans « {{other}} ».',
     },
     fields: {
       name: 'Nom',
@@ -757,13 +758,13 @@ export const fr: Translation = {
       overAssignedHint:
         'Vous prévoyez plus que vos revenus. C’est permis : baissez certains montants si vous voulez que cela tienne.',
     },
-    committedNote: 'dont {{amount}} engagés en abonnements',
     inUse: {
-      title: 'Encore utilisée',
+      title: 'Utilisée par',
       description:
         'Un abonnement ou une dette en cours utilise cette catégorie (ou une de ses sous-catégories). Terminez-le ou déplacez-le dans une autre catégorie avant de retirer la catégorie.',
       subscription: 'Abonnement « {{name}} »',
       debt: 'Dette « {{name}} »',
+      cannotTitle: '« {{name}} » ne peut pas encore être retirée',
     },
   },
   transactions: {
@@ -900,7 +901,9 @@ export const fr: Translation = {
     emptyHelp:
       'Prévoyez vos dépenses par catégorie sur la page Budget, puis enregistrez vos transactions.',
     toBudget: 'Aller au budget',
-    committed: 'dont {{amount}} engagés',
+    plannedIncludes: 'Dont {{amount}} pour des abonnements',
+    rowPlannedIncludes: 'Les {{expected}} prévus comprennent {{amount}} d’abonnements',
+    includes: 'dont {{amount}} d’abonnements',
   },
   periods: {
     description:
@@ -1099,6 +1102,7 @@ export const fr: Translation = {
       saved: 'Nom affiché enregistré.',
     },
   },
+  corrections: correctionsFr,
   subscriptions: subscriptionsFr,
   charges: chargesFr,
   debts: debtsFr,

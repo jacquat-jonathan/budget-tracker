@@ -1,4 +1,4 @@
-import { chargesEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
+import { chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
 
 export const en = {
   app: {
@@ -673,6 +673,7 @@ export const en = {
         '“{{name}}” will become a group of subcategories: it no longer has an amount of its own, and its amount becomes the total of its subcategories.',
       moves:
         '“{{name}}” will become a group of subcategories. What it holds now (its amount, {{amount}} a month, and its transactions) moves to a new subcategory “{{other}}”, so no period’s totals change.',
+      movesLinks: 'Its subscriptions and debts move to “{{other}}” too.',
     },
     fields: {
       name: 'Name',
@@ -720,13 +721,13 @@ export const en = {
       overAssignedHint:
         'You plan more than the income. This is allowed: lower some amounts if you want it to fit.',
     },
-    committedNote: 'of which {{amount}} committed to subscriptions',
     inUse: {
-      title: 'Still in use',
+      title: 'Used by',
       description:
         'A subscription or a debt in force uses this category (or one of its subcategories). End it, or move it to another category, before removing the category.',
       subscription: 'Subscription “{{name}}”',
       debt: 'Debt “{{name}}”',
+      cannotTitle: '“{{name}}” cannot be removed yet',
     },
   },
   transactions: {
@@ -859,7 +860,9 @@ export const en = {
     empty: 'Nothing planned or spent in this period',
     emptyHelp: 'Plan your spending in categories on the Budget page, then record transactions.',
     toBudget: 'Go to the budget',
-    committed: 'of which {{amount}} committed',
+    plannedIncludes: 'Includes {{amount}} for subscriptions',
+    rowPlannedIncludes: 'The {{expected}} planned include {{amount}} for subscriptions',
+    includes: 'incl. {{amount}} for subscriptions',
   },
   periods: {
     description:
@@ -1050,6 +1053,7 @@ export const en = {
       saved: 'Display name saved.',
     },
   },
+  corrections: correctionsEn,
   subscriptions: subscriptionsEn,
   charges: chargesEn,
   debts: debtsEn,

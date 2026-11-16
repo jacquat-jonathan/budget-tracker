@@ -202,14 +202,19 @@ function Totals({ period }: { period: PeriodSummary }) {
         amount={period.expected_total ?? 0}
         hint={
           <>
-            {left < 0
-              ? t('progress.overAssigned', { amount: formatMoney(-left) })
-              : t('progress.leftToAssign', { amount: formatMoney(left) })}
+            {/* R-PROGRESS-120: right under the planned figure it is part of, saying so. */}
             {(period.committed_total ?? 0) > 0 && (
               <span className="block" data-testid="progress-committed">
-                {t('progress.committed', { amount: formatMoney(period.committed_total ?? 0) })}
+                {t('progress.plannedIncludes', {
+                  amount: formatMoney(period.committed_total ?? 0),
+                })}
               </span>
             )}
+            <span className="block">
+              {left < 0
+                ? t('progress.overAssigned', { amount: formatMoney(-left) })
+                : t('progress.leftToAssign', { amount: formatMoney(left) })}
+            </span>
           </>
         }
       />
@@ -354,9 +359,15 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
           })}
         </span>
         {row.committed > 0 && (
-          // R-PROGRESS-120: the subscriptions' share of the plan, inside it.
-          <span className="text-xs text-muted-foreground tabular-nums" data-testid="row-committed">
-            {t('progress.committed', { amount: formatMoney(row.committed) })}
+          // On a narrow card: a sentence that names the planned amount it is part of.
+          <span
+            className="text-xs text-muted-foreground tabular-nums @2xl/progress:hidden"
+            data-testid="row-committed"
+          >
+            {t('progress.rowPlannedIncludes', {
+              expected: formatMoney(row.expected),
+              amount: formatMoney(row.committed),
+            })}
           </span>
         )}
       </div>
@@ -365,6 +376,12 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
         className={cn('sr-only text-right text-sm tabular-nums @2xl/progress:not-sr-only', weight)}
       >
         {formatMoney(row.expected)}
+        {row.committed > 0 && (
+          // Wide: under the planned figure, in its column.
+          <span className="block text-[11px] font-normal text-muted-foreground">
+            {t('progress.includes', { amount: formatMoney(row.committed) })}
+          </span>
+        )}
       </span>
       <span
         role="cell"

@@ -24,6 +24,7 @@ import {
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { useRemoveDebt } from '@/features/debts/debt-mutations'
 import { useDebtRecord, type Debt } from '@/features/debts/debt-queries'
+import { useRecordSettled } from '@/features/budgets/record-settled'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useEditBase } from '@/hooks/use-edit-base'
@@ -35,7 +36,8 @@ import { formatMoney } from '@/lib/money'
  * (removal_deletes), otherwise ended from the current period, its history and remaining
  * amount kept (R-DEBT-001, R-DEBT-113). Said before it happens.
  */
-// R-DEBT-122: which of the two happens, said before it does.
+// R-DEBT-122: which of the two happens, said before it does; from an earlier period, where the
+// database does not say beforehand, both outcomes are said (R-SUBSCRIPTION-141).
 export function RemoveDebtDialog({
   budgetId,
   debt,
@@ -76,7 +78,7 @@ export function RemoveDebtDialog({
 
 function RemoveBody({
   budgetId,
-  opened,
+  opened: openedNow,
   periods,
   currentPeriod,
   onClose,
@@ -90,25 +92,31 @@ function RemoveBody({
   onRemoved?: (outcome: string) => void
 }) {
   const { t } = useTranslation()
+  // The version the dialog was opened on, kept: the page may pass newer ones while it is open.
+  const [opened] = useState(openedNow)
   const errorMessage = useErrorMessage()
   const views = useSubscriptionViews()
   const live = useDebtRecord(budgetId, opened.id)
-  const removal = useEditBase(opened, live, views.debt)
+  // Ended by someone else meanwhile: there is nothing left to end.
+  const removal = useEditBase(opened, live, views.debt, (record) => !record.is_active)
+  const settled = useRecordSettled(budgetId, 'debt_overview', opened.id, live)
   const debt = live ?? removal.base ?? opened
   const remove = useRemoveDebt(budgetId)
   const correctable = periods.filter((period) => !period.is_current && period.seq >= debt.first_seq)
   const [correct, setCorrect] = useState(false)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
   const deletes = !correct && debt.removal_deletes
-  const blocked = removal.changed || removal.gone
+  const blocked = removal.changed || removal.gone || !settled
 
   return (
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>
-          {deletes
-            ? t('debts.remove.deleteTitle', { name: debt.name })
-            : t('debts.remove.endTitle', { name: debt.name })}
+          {correct
+            ? t('debts.remove.endOrDeleteTitle', { name: debt.name })
+            : deletes
+              ? t('debts.remove.deleteTitle', { name: debt.name })
+              : t('debts.remove.endTitle', { name: debt.name })}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="remove-debt-outcome">
@@ -156,7 +164,12 @@ function RemoveBody({
           </Field>
         </CorrectionToggle>
       )}
-      {removal.gone && <GoneElsewhere />}
+      {removal.gone && (
+        <GoneElsewhere
+          ended={live !== null && live !== undefined}
+          endedText={t('debts.endedElsewhere')}
+        />
+      )}
       {removal.changed && (
         <ChangedElsewhere
           kind="remove"
@@ -191,9 +204,11 @@ function RemoveBody({
         >
           {remove.isPending
             ? t('common.saving')
-            : deletes
-              ? t('debts.remove.delete')
-              : t('debts.remove.end')}
+            : correct
+              ? t('debts.remove.endOrDelete')
+              : deletes
+                ? t('debts.remove.delete')
+                : t('debts.remove.end')}
         </Button>
       </AlertDialogFooter>
     </>

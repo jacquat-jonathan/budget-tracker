@@ -30,7 +30,7 @@ export const subscriptionsFr: Translation['subscriptions'] = {
     nextCharge: 'Nouvelle date du prochain prélèvement (facultatif)',
     nextChargeHelp:
       'Laissez vide pour garder le calendrier. Une date après aujourd’hui devient le prochain prélèvement ; les suivants en découlent.',
-    from: 'Compte à partir de',
+    from: 'Première période où il compte',
     fromHelp:
       'Normalement la période en cours. Une période antérieure est une correction : ses prélèvements depuis sont créés aussitôt, à confirmer.',
     terms: 'Prix et calendrier',
@@ -72,7 +72,7 @@ export const subscriptionsFr: Translation['subscriptions'] = {
     deleteTitle: 'Supprimer « {{name}} » ?',
     endTitle: 'Terminer « {{name}} » ?',
     fromEarlier:
-      'Il se termine dès la période choisie : plus aucun prélèvement à partir de là. Les périodes précédentes le conservent.',
+      'Dès la période choisie, il ne compte plus et aucun prélèvement n’est créé. S’il n’a jamais compté avant cette période et n’a aucun prélèvement, il est supprimé ; sinon il se termine là, et les périodes précédentes le conservent avec leurs prélèvements.',
     deletes:
       'Il n’a jamais compté dans une période passée et n’a aucun prélèvement : il est supprimé.',
     ends: 'Il se termine dès la période en cours (depuis le {{date}}) : plus de prélèvements. Les périodes passées le conservent.',
@@ -88,6 +88,8 @@ export const subscriptionsFr: Translation['subscriptions'] = {
       'Cela modifie des périodes passées : dès la période choisie, il ne compte plus et aucun prélèvement n’est créé.',
     delete: 'Supprimer',
     end: 'Terminer l’abonnement',
+    endOrDeleteTitle: 'Terminer ou supprimer « {{name}} » ?',
+    endOrDelete: 'Terminer ou supprimer',
   },
   endedBudget: 'Le budget est terminé : les abonnements ne peuvent plus être ajoutés ni modifiés.',
   empty: 'Aucun abonnement pour l’instant',
@@ -108,6 +110,10 @@ export const subscriptionsFr: Translation['subscriptions'] = {
   endedHelp: 'Les périodes passées les conservent, avec leurs prélèvements.',
   lastCounted: 'Compté pour la dernière fois dans la période terminée le {{date}}',
   endedLabel: 'Terminé',
+  endedElsewhere:
+    'Il ne compte plus dès la période en cours : ces modifications ne peuvent donc pas être enregistrées. Fermez cette fenêtre ; il figure parmi les abonnements terminés, avec ses prélèvements.',
+  changedNotShown:
+    'Un autre membre a modifié entre-temps quelque chose que cette fenêtre n’affiche pas (un nom, un remboursement…). Rien n’a été enregistré ; vos saisies sont toujours là : enregistrez de nouveau.',
 }
 
 export const chargesFr: Translation['charges'] = {
@@ -116,19 +122,22 @@ export const chargesFr: Translation['charges'] = {
   description:
     'Ces prélèvements d’abonnement ont été enregistrés automatiquement. Ont-ils vraiment eu lieu ?',
   what: '{{name}}, {{amount}} le {{date}}',
-  wentThrough: 'Il a eu lieu',
-  wentThroughFor: 'Il a eu lieu : {{what}}',
-  didNot: 'Il n’a pas eu lieu',
-  didNotFor: 'Il n’a pas eu lieu : {{what}}',
+  wentThrough: 'Bien prélevé',
+  wentThroughFor: 'Bien prélevé : {{what}}',
+  didNot: 'Pas prélevé',
+  didNotFor: 'Pas prélevé : {{what}}',
   dismissTitle: 'Retirer ce prélèvement ?',
   dismissDescription: 'Le prélèvement {{what}} est retiré du budget.',
   dismissNever:
-    'Il ne sera pas recréé pour cette date. S’il est finalement prélevé plus tard, enregistrez-le comme transaction.',
+    'Il ne sera pas recréé pour sa date prévue, le {{date}}. S’il est finalement prélevé plus tard, enregistrez-le comme transaction.',
   dismissConfirm: 'Retirer le prélèvement',
   confirmed: 'Prélèvement de {{name}} ({{amount}}) confirmé.',
   dismissed: 'Prélèvement de {{name}} ({{amount}}) retiré.',
   answeredElsewhere:
     'Un autre membre a déjà répondu pour ce prélèvement. La liste a été actualisée.',
+  scheduledFor: '(prévu le {{date}})',
+  seeAll_one: 'Et 1 autre : voir les transactions',
+  seeAll_other: 'Et {{count}} autres : voir les transactions',
 }
 
 export const debtsFr: Translation['debts'] = {
@@ -158,7 +167,7 @@ export const debtsFr: Translation['debts'] = {
     payment: 'Remboursement prévu par mois',
     termsHelp:
       'Un douzième du taux annuel est ajouté à chaque période. Le remboursement prévu donne la fin attendue.',
-    from: 'Compte à partir de',
+    from: 'Première période où elle compte',
     fromHelp:
       'Normalement la période en cours. Une période antérieure est une correction : aucun intérêt n’est ajouté pour les périodes qui existent déjà.',
   },
@@ -176,7 +185,7 @@ export const debtsFr: Translation['debts'] = {
     deleteTitle: 'Supprimer « {{name}} » ?',
     endTitle: 'Terminer « {{name}} » ?',
     fromEarlier:
-      'Elle se termine dès la période choisie : plus d’intérêts ni de nouveaux remboursements à partir de là. Son historique est conservé.',
+      'Dès la période choisie : plus d’intérêts ni de remboursement daté de là. Si elle n’a jamais compté avant cette période et n’a ni remboursement, ni intérêt, ni ajustement, elle est supprimée ; sinon elle se termine là et garde son historique.',
     deletes: 'Elle n’a encore ni remboursement, ni intérêt, ni ajustement : elle est supprimée.',
     ends: 'Elle se termine dès la période en cours (depuis le {{date}}) : plus d’intérêts ni de nouveaux remboursements. Son historique est conservé, tout comme son montant restant ({{amount}}).',
     endsNoPeriod:
@@ -186,6 +195,8 @@ export const debtsFr: Translation['debts'] = {
       'Cela modifie des périodes passées : dès la période choisie, aucun intérêt n’est ajouté et aucun remboursement ne peut y être daté.',
     delete: 'Supprimer',
     end: 'Terminer la dette',
+    endOrDeleteTitle: 'Terminer ou supprimer « {{name}} » ?',
+    endOrDelete: 'Terminer ou supprimer',
   },
   adjust: {
     action: 'Ajuster le solde',
@@ -214,17 +225,21 @@ export const debtsFr: Translation['debts'] = {
     never: 'Ne se termine jamais à ce rythme',
     neverHelp:
       'Le remboursement prévu ne couvre pas les intérêts. Augmentez-le pour voir une date de fin.',
-    neverNoPayment: 'Aucun remboursement n’est prévu. Prévoyez-en un pour voir une date de fin.',
+    neverNoPayment: 'Prévoyez un remboursement mensuel pour voir quand elle sera remboursée.',
     ends: 'Se termine vers {{month}}',
     endsNoDate: 'Se termine',
     paymentsLeft_one: '1 remboursement restant',
     paymentsLeft_other: '{{count}} remboursements restants',
     estimate:
       'Une estimation : les prochaines dates de paie suivent le calendrier du revenu principal.',
+    overpaid: 'Remboursée · trop-payé de {{amount}}',
+    budgetEnded: 'Pas de projection : le budget est terminé.',
+    unknown: 'Pas encore de projection.',
+    noPayment: 'Aucun remboursement prévu',
   },
   endedBudget: 'Le budget est terminé : les dettes ne peuvent plus être ajoutées ni modifiées.',
-  totalRemaining_one: 'Restant sur 1 dette',
-  totalRemaining_other: 'Restant sur {{count}} dettes',
+  totalRemaining_one: 'Encore dû sur 1 dette',
+  totalRemaining_other: 'Encore dû sur {{count}} dettes',
   empty: 'Aucune dette',
   emptyHelp:
     'Ajoutez un prêt ou un crédit pour le suivre jusqu’à zéro : les remboursements le diminuent, les intérêts s’ajoutent à chaque période.',
@@ -256,6 +271,12 @@ export const debtsFr: Translation['debts'] = {
       'Montant restant au fil du temps, 1 événement ; actuellement {{amount}}. Le tableau ci-dessous le détaille.',
     label_other:
       'Montant restant au fil du temps, {{count}} événements ; actuellement {{amount}}. Le tableau ci-dessous les détaille.',
+    onlyOpened:
+      'Seulement l’ouverture pour l’instant : {{amount}} dus depuis le {{date}}. Le graphique apparaît avec le premier remboursement ou les premiers intérêts.',
+    nothing: 'Rien d’enregistré pour l’instant.',
+    today: 'Aujourd’hui (aucun nouvel événement)',
+    marksNote:
+      'Avec autant d’événements, seuls les ajustements de solde sont marqués ; pointez la courbe pour voir chaque événement d’une date, ou lisez l’historique ci-dessous.',
   },
   history: {
     title: 'Historique',
@@ -271,5 +292,23 @@ export const debtsFr: Translation['debts'] = {
     },
     see: 'Voir',
     seePayment: 'Voir le remboursement de {{amount}} du {{date}} parmi les transactions',
+    showLatest: 'N’afficher que les {{count}} derniers',
+    showAll: 'Afficher les {{count}} événements',
   },
+  overpaid: 'Trop-payé',
+  overpaidHint: 'Plus a été remboursé que ce qui était dû.',
+  overpaidAmount: '{{amount}} de trop-payé',
+  nothingOwed: 'Plus rien à rembourser sur vos dettes',
+  interestHint: 'Ajoutés au début de chaque période, selon le taux.',
+  adjustmentsHint: 'Vos corrections pour correspondre au relevé bancaire (« Ajuster le solde »).',
+  endedElsewhere:
+    'Elle s’est terminée dès la période en cours : ces modifications ne peuvent donc pas être enregistrées. Fermez cette fenêtre ; son historique et son montant restant sont conservés.',
+  changedNotShown:
+    'Un autre membre a modifié entre-temps quelque chose que cette fenêtre n’affiche pas (un nom, un remboursement…). Rien n’a été enregistré ; vos saisies sont toujours là : enregistrez de nouveau.',
+}
+
+export const correctionsFr: Translation['corrections'] = {
+  period: 'Corriger à partir de la période',
+  showsPeriodTerms:
+    'Les champs ci-dessous montrent maintenant ce qui était en vigueur dans cette période. Ne changez que ce qui était faux : ce que vous laissez tel quel reste tel qu’il était.',
 }

@@ -23,12 +23,15 @@ import {
 import { FieldGroup } from '@/components/ui/field'
 import { TextField } from '@/features/auth/components/text-field'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
+import { useRecordSettled } from '@/features/budgets/record-settled'
+import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useCategoriesForDate } from '@/features/categories/category-queries'
 import { ChargeDatesPreview } from '@/features/subscriptions/components/charge-dates-preview'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
 import {
   useCreateSubscription,
   useUpdateSubscription,
+  type TermsBase,
 } from '@/features/subscriptions/subscription-mutations'
 import {
   SUBSCRIPTION_CADENCES,
@@ -128,7 +131,11 @@ function SubscriptionForm({
   const views = useSubscriptionViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
   const live = useSubscriptionRecord(budgetId, opened?.id)
-  const edit = useEditBase(opened, live, views.subscription)
+  // Ended by someone else meanwhile: nothing can be saved from now (as step 3's forms).
+  const endedElsewhere = (record: Subscription) => opened?.is_active === true && !record.is_active
+  const edit = useEditBase(opened, live, views.subscription, endedElsewhere)
+  const endedNow = live !== null && live !== undefined && edit.gone
+  const settled = useRecordSettled(budgetId, 'subscription_overview', opened?.id, live)
   const subscription = edit.base
   const editing = subscription !== undefined
   const today = currentPeriod?.today ?? periods[0]?.today ?? null
@@ -175,6 +182,35 @@ function SubscriptionForm({
   const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
   const effective = (editing ? (correct ? fromPeriod : null) : fromPeriod) ?? currentPeriod
   const choices = useCategoriesForDate(budgetId, effective?.start_date ?? '')
+
+  // R-SUBSCRIPTION-140: a correction starts from the terms of the period chosen, read from the
+  // database, and sends only what the user changes from them.
+  const correcting = editing && correct && fromPeriod !== null
+  const termsAt = useTermsAt(
+    'subscription',
+    budgetId,
+    subscription?.id,
+    correcting ? fromPeriod.seq : null,
+  )
+  const periodTerms = correcting ? (termsAt.data ?? null) : null
+  const base: (TermsBase & { anchor_date: string }) | null = subscription
+    ? correcting
+      ? periodTerms && {
+          price: periodTerms.price,
+          cadence: periodTerms.cadence,
+          category_id: periodTerms.category_id,
+          anchor_date: periodTerms.anchor_date,
+        }
+      : subscription
+    : null
+  useStartFrom(
+    form,
+    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    base && subscription
+      ? { price: base.price, cadence: base.cadence, categoryId: base.category_id }
+      : null,
+  )
+
   const options = useMemo((): CategoryChoice[] => {
     const list: CategoryChoice[] = choices.data ?? []
     if (!subscription || list.some((choice) => choice.category_id === subscription.category_id)) {
@@ -194,9 +230,11 @@ function SubscriptionForm({
   }, [choices.data, subscription])
 
   const onSubmit = form.handleSubmit((values) => {
+    if (subscription && !base) return
     const done = subscription
       ? update.mutateAsync({
           subscription,
+          base: base ?? subscription,
           name: values.name,
           price: values.price,
           cadence: values.cadence,
@@ -226,6 +264,8 @@ function SubscriptionForm({
           onKeepMine={sync.keepMine}
           error={mutation.error}
           message={errorMessage}
+          ended={endedNow}
+          endedText={t('subscriptions.endedElsewhere')}
         />
         <TextField
           control={form.control}
@@ -235,6 +275,35 @@ function SubscriptionForm({
           autoComplete="off"
           autoFocus
         />
+        {/* The period first: the terms below then show what was in force in it. */}
+        {subscription && correctable.length > 0 && (
+          <CorrectionToggle
+            checked={correct}
+            onCheckedChange={(next) => {
+              form.setValue('correct', next)
+              form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
+            }}
+            label={t('income.correction.label')}
+            warning={t('subscriptions.correctionWarning')}
+          >
+            <SelectField
+              control={form.control}
+              name="fromPeriodId"
+              label={t('corrections.period')}
+              options={correctable.map((period) => ({
+                value: period.id,
+                label: periodLabel(period),
+              }))}
+            />
+            <p className="text-sm text-muted-foreground" data-testid="correction-start">
+              {periodTerms
+                ? t('corrections.showsPeriodTerms')
+                : termsAt.isError
+                  ? errorMessage(termsAt.error)
+                  : t('common.loading')}
+            </p>
+          </CorrectionToggle>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <MoneyField control={form.control} name="price" label={t('subscriptions.fields.price')} />
           <SelectField
@@ -279,34 +348,13 @@ function SubscriptionForm({
             ]}
           />
         )}
-        {subscription && correctable.length > 0 && (
-          <CorrectionToggle
-            checked={correct}
-            onCheckedChange={(next) => {
-              form.setValue('correct', next)
-              form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
-            }}
-            label={t('income.correction.label')}
-            warning={t('subscriptions.correctionWarning')}
-          >
-            <SelectField
-              control={form.control}
-              name="fromPeriodId"
-              label={t('income.correction.from')}
-              options={correctable.map((period) => ({
-                value: period.id,
-                label: periodLabel(period),
-              }))}
-            />
-          </CorrectionToggle>
-        )}
         <SchedulePreview
           subscription={subscription}
           cadence={cadence}
           chargeDate={chargeDate}
           firstPeriodStart={effective?.start_date ?? null}
           today={today}
-          correcting={correct}
+          correctionAnchor={correcting ? (periodTerms?.anchor_date ?? null) : undefined}
         />
         <Alert>
           <InfoIcon aria-hidden />
@@ -326,7 +374,16 @@ function SubscriptionForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending || sync.pending !== null || edit.gone}>
+          <Button
+            type="submit"
+            disabled={
+              mutation.isPending ||
+              sync.pending !== null ||
+              edit.gone ||
+              !settled ||
+              (editing && !base)
+            }
+          >
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
@@ -350,12 +407,13 @@ function SchedulePreview({
   chargeDate,
   firstPeriodStart,
   today,
-  correcting,
+  correctionAnchor,
 }: {
   subscription: Subscription | undefined
   cadence: SubscriptionCadence
   chargeDate: string
-  correcting: boolean
+  /** A correction: the date the chosen period's schedule counts from (undefined otherwise). */
+  correctionAnchor?: string | null
   firstPeriodStart: string | null
   today: string | null
 }) {
@@ -370,8 +428,12 @@ function SchedulePreview({
   } else if (chargeDate !== '') {
     anchor = typed
     note = 'date'
-  } else if (cadence !== subscription.cadence && !correcting) {
-    // From now only: a correction keeps the date its schedule counts from (D-170).
+  } else if (correctionAnchor !== undefined) {
+    // A correction keeps the date its schedule counts from (D-170): the charges still to come.
+    anchor = correctionAnchor
+    from = subscription.next_charge_date
+    note = 'kept'
+  } else if (cadence !== subscription.cadence) {
     anchor = subscription.next_charge_date
     note = 'cadence'
   } else {

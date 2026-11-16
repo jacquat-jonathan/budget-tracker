@@ -17,14 +17,14 @@ export function BudgetTotals({ period }: { period: PeriodSummary }) {
   const left = period.left_to_assign ?? 0
   return (
     <Card data-testid="budget-totals">
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="@container/totals flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
           {t('categories.totals.period', {
             start: formatCalendarDate(period.start_date),
             end: formatCalendarDate(period.end_date),
           })}
         </p>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-4 @xl/totals:grid-cols-3">
           <MoneyStat
             label={t('categories.totals.income')}
             amount={period.income_total ?? 0}
@@ -36,7 +36,7 @@ export function BudgetTotals({ period }: { period: PeriodSummary }) {
             testId="total-expected"
             hint={
               (period.committed_total ?? 0) > 0
-                ? t('categories.committedNote', {
+                ? t('progress.plannedIncludes', {
                     amount: formatMoney(period.committed_total ?? 0),
                   })
                 : undefined

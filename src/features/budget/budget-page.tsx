@@ -277,7 +277,7 @@ function CategoryRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={cn('truncate', sub ? 'text-sm' : 'font-medium')}
+            className={cn('line-clamp-2 break-words', sub ? 'text-sm' : 'font-medium')}
             data-testid="category-name"
           >
             {category.name}
@@ -292,23 +292,26 @@ function CategoryRow({
         {category.is_group && (
           <span className="text-xs text-muted-foreground">{t('categories.groupNote')}</span>
         )}
+      </div>
+      <span className="flex shrink-0 flex-col items-end">
+        <span
+          className={cn(
+            'text-right tabular-nums',
+            category.is_group ? 'font-semibold' : sub ? 'text-sm' : 'font-medium',
+          )}
+          data-testid="category-amount"
+        >
+          {formatMoney(category.monthly_amount ?? 0)}
+        </span>
         {(category.committed_amount ?? 0) > 0 && (
-          // R-PROGRESS-120: the subscriptions' share, inside the amount, never added to it.
-          <span className="text-xs text-muted-foreground" data-testid="category-committed">
-            {t('categories.committedNote', {
-              amount: formatMoney(category.committed_amount ?? 0),
-            })}
+          // R-PROGRESS-120: under the amount it is part of, never next to the name.
+          <span
+            className="text-right text-xs text-muted-foreground tabular-nums"
+            data-testid="category-committed"
+          >
+            {t('progress.includes', { amount: formatMoney(category.committed_amount ?? 0) })}
           </span>
         )}
-      </div>
-      <span
-        className={cn(
-          'shrink-0 text-right tabular-nums',
-          category.is_group ? 'font-semibold' : sub ? 'text-sm' : 'font-medium',
-        )}
-        data-testid="category-amount"
-      >
-        {formatMoney(category.monthly_amount ?? 0)}
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

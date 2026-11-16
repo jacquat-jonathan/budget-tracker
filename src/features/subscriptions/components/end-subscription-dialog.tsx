@@ -27,6 +27,7 @@ import {
   useSubscriptionRecord,
   type Subscription,
 } from '@/features/subscriptions/subscription-queries'
+import { useRecordSettled } from '@/features/budgets/record-settled'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useEditBase } from '@/hooks/use-edit-base'
@@ -37,7 +38,8 @@ import { formatCalendarDate } from '@/lib/date'
  * (removal_deletes): deleted when it never counted and has no charge, otherwise ended from
  * the current period with its charges kept (R-SUBSCRIPTION-113).
  */
-// R-SUBSCRIPTION-124: which of the two happens, said before it does.
+// R-SUBSCRIPTION-124: which of the two happens, said before it does; from an earlier period,
+// where the database does not say beforehand, both outcomes are said (R-SUBSCRIPTION-141).
 export function EndSubscriptionDialog({
   budgetId,
   subscription,
@@ -90,7 +92,9 @@ function EndBody({
   const errorMessage = useErrorMessage()
   const views = useSubscriptionViews()
   const live = useSubscriptionRecord(budgetId, opened.id)
-  const removal = useEditBase(opened, live, views.subscription)
+  // Ended by someone else meanwhile: there is nothing left to end (as step 3's dialogs).
+  const removal = useEditBase(opened, live, views.subscription, (record) => !record.is_active)
+  const settled = useRecordSettled(budgetId, 'subscription_overview', opened.id, live)
   const subscription = live ?? removal.base ?? opened
   const end = useEndSubscription(budgetId)
   const correctable = periods.filter(
@@ -99,7 +103,7 @@ function EndBody({
   const [correct, setCorrect] = useState(false)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
   const deletes = !correct && subscription.removal_deletes
-  const blocked = removal.changed || removal.gone
+  const blocked = removal.changed || removal.gone || !settled
   const label = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
       start: formatCalendarDate(period.start_date),
@@ -110,9 +114,11 @@ function EndBody({
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>
-          {deletes
-            ? t('subscriptions.remove.deleteTitle', { name: subscription.name })
-            : t('subscriptions.remove.endTitle', { name: subscription.name })}
+          {correct
+            ? t('subscriptions.remove.endOrDeleteTitle', { name: subscription.name })
+            : deletes
+              ? t('subscriptions.remove.deleteTitle', { name: subscription.name })
+              : t('subscriptions.remove.endTitle', { name: subscription.name })}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="end-subscription-outcome">
@@ -127,7 +133,7 @@ function EndBody({
                       })
                     : t('subscriptions.remove.endsNoPeriod')}
             </p>
-            {!deletes && subscription.charge_count > 0 && (
+            {!deletes && !correct && subscription.charge_count > 0 && (
               <p>{t('subscriptions.remove.keepsCharges', { count: subscription.charge_count })}</p>
             )}
             {subscription.awaiting_count > 0 && (
@@ -164,7 +170,12 @@ function EndBody({
           </Field>
         </CorrectionToggle>
       )}
-      {removal.gone && <GoneElsewhere />}
+      {removal.gone && (
+        <GoneElsewhere
+          ended={live !== null && live !== undefined}
+          endedText={t('subscriptions.endedElsewhere')}
+        />
+      )}
       {removal.changed && (
         <ChangedElsewhere
           kind="remove"
@@ -194,9 +205,11 @@ function EndBody({
         >
           {end.isPending
             ? t('common.saving')
-            : deletes
-              ? t('subscriptions.remove.delete')
-              : t('subscriptions.remove.end')}
+            : correct
+              ? t('subscriptions.remove.endOrDelete')
+              : deletes
+                ? t('subscriptions.remove.delete')
+                : t('subscriptions.remove.end')}
         </Button>
       </AlertDialogFooter>
     </>

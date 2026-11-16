@@ -42,6 +42,7 @@ import {
 } from '@/features/income/pay-date-preview'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
@@ -174,6 +175,19 @@ function IncomeForm({
   const correctable = income
     ? periods.filter((period) => !period.is_current && period.seq >= income.first_seq)
     : []
+  // A correction starts from the terms in force in the period chosen (database's rows).
+  const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
+  const correcting = income !== undefined && correct && fromPeriod !== null
+  const termsAt = useTermsAt('income', budgetId, income?.id, correcting ? fromPeriod.seq : null)
+  const periodTerms = correcting ? (termsAt.data ?? null) : null
+  const base = income ? (correcting ? periodTerms : income) : null
+  useStartFrom(
+    form,
+    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    base && income
+      ? { amount: base.amount, payDay: base.pay_day, weekendRule: base.weekend_rule }
+      : null,
+  )
 
   const add = useAddIncome(budgetId, { onDone: close })
   const edit = useEditIncome(budgetId, income, {
@@ -193,9 +207,11 @@ function IncomeForm({
       payDay: values.payDay,
       weekendRule: values.weekendRule,
     }
+    if (correcting && !periodTerms) return
     const done = income
       ? edit.mutateAsync({
           ...terms,
+          base: base ?? income,
           revision: income.revision,
           // R-INCOME-055: refused if the period would now end on another day than shown.
           previewedEndDate: primaryTermsChanged ? (preview.data?.end_date ?? null) : null,
@@ -242,6 +258,7 @@ function IncomeForm({
           label={t('income.fields.name')}
           placeholder={t('income.fields.namePlaceholder')}
           autoComplete="off"
+          autoFocus
         />
         {!income && (
           <SelectField
@@ -250,18 +267,6 @@ function IncomeForm({
             label={t('income.fields.owner')}
             description={t('income.fields.ownerHelp')}
             options={memberOptions}
-          />
-        )}
-        <MoneyField control={form.control} name="amount" label={t('income.fields.amount')} />
-        <PayDayField control={form.control} name="payDay" />
-        <WeekendRuleField control={form.control} name="weekendRule" />
-        {!income && periodOptions.length > 1 && (
-          <SelectField
-            control={form.control}
-            name="fromPeriodId"
-            label={t('income.fields.from')}
-            description={t('income.fields.fromHelp')}
-            options={periodOptions}
           />
         )}
         {income && correctable.length > 0 && (
@@ -276,6 +281,18 @@ function IncomeForm({
               form.setValue('correct', next)
               form.setValue('fromPeriodId', next ? (correctable[0]?.id ?? '') : '')
             }}
+          />
+        )}
+        <MoneyField control={form.control} name="amount" label={t('income.fields.amount')} />
+        <PayDayField control={form.control} name="payDay" />
+        <WeekendRuleField control={form.control} name="weekendRule" />
+        {!income && periodOptions.length > 1 && (
+          <SelectField
+            control={form.control}
+            name="fromPeriodId"
+            label={t('income.fields.from')}
+            description={t('income.fields.fromHelp')}
+            options={periodOptions}
           />
         )}
         {primaryTermsChanged && (
@@ -354,7 +371,7 @@ function CorrectionFields({
           <SelectField
             control={control}
             name="fromPeriodId"
-            label={t('income.correction.from')}
+            label={t('corrections.period')}
             options={options}
           />
           <Alert variant="destructive">

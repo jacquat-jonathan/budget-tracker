@@ -114,46 +114,55 @@ function EndCategoryBody({
   const keptVoid =
     !correct && !deletes && currentPeriod !== null && category.first_seq >= currentPeriod.seq
   const from = currentPeriod ? formatCalendarDate(currentPeriod.start_date) : null
-  // A removal from now is refused while a subscription or debt in force uses it.
-  const inUse = !correct && category.in_use === true
+  // R-CATEGORY-120: refused while a subscription or debt in force uses it, from now and from
+  // any earlier period alike (in force now means in force from there on): nothing to offer.
+  const inUse = category.in_use === true
   const blocked = removal.changed || removal.gone || inUse
 
   return (
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>
-          {deletes
-            ? t('categories.removeDeleteTitle', { name: category.name })
-            : t('categories.removeEndTitle', { name: category.name })}
+          {inUse
+            ? t('categories.inUse.cannotTitle', { name: category.name })
+            : deletes
+              ? t('categories.removeDeleteTitle', { name: category.name })
+              : t('categories.removeEndTitle', { name: category.name })}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="end-category-outcome">
-            <p>
-              {correct
-                ? t('categories.removeFromEarlier')
-                : deletes
-                  ? t('categories.removeDeletes')
-                  : keptVoid
-                    ? t('categories.removeKeptVoid')
-                    : from
-                      ? t('categories.removeEnds', { date: from })
-                      : t('categories.removeEndsNoPeriod')}
-            </p>
-            {!deletes && !keptVoid && category.has_transactions === true && (
-              <p>{t('categories.removeKeepsTransactions')}</p>
-            )}
-            {subcategories.length > 0 && (
-              <p>
-                {t('categories.removeWithSubs', {
-                  count: subcategories.length,
-                  names: subcategories.map((sub) => sub.name).join(', '),
-                })}
-              </p>
+            {inUse ? (
+              <p>{t('categories.inUse.description')}</p>
+            ) : (
+              <>
+                <p>
+                  {correct
+                    ? t('categories.removeFromEarlier')
+                    : deletes
+                      ? t('categories.removeDeletes')
+                      : keptVoid
+                        ? t('categories.removeKeptVoid')
+                        : from
+                          ? t('categories.removeEnds', { date: from })
+                          : t('categories.removeEndsNoPeriod')}
+                </p>
+                {!deletes && !keptVoid && category.has_transactions === true && (
+                  <p>{t('categories.removeKeepsTransactions')}</p>
+                )}
+                {subcategories.length > 0 && (
+                  <p>
+                    {t('categories.removeWithSubs', {
+                      count: subcategories.length,
+                      names: subcategories.map((sub) => sub.name).join(', '),
+                    })}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </AlertDialogDescription>
       </AlertDialogHeader>
-      {correctable.length > 0 && (
+      {correctable.length > 0 && !inUse && (
         <div className="flex flex-col gap-3 rounded-lg border p-3">
           <Field orientation="horizontal">
             <Checkbox

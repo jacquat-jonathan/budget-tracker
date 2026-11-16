@@ -57,25 +57,28 @@ export interface UpdateCategoryInput {
   cadence: Cadence | null
   /** An explicit correction from an earlier period; the current period when null. */
   fromPeriodId: string | null
+  /** The expectation the form started from: the one now, or that of the corrected period. */
+  base?: { amount: number | null; cadence: Cadence | null }
 }
 
 /**
- * Rename and/or change the expectation, in one call. Only what changed is sent; a correction
- * always sends the expectation, so it can re-apply today's amount to earlier periods.
- * Returns false when there was nothing to save.
+ * Rename and/or change the expectation, in one call. Only what differs from the expectation
+ * the form started from is sent (for a correction, the one in force in its period: today's
+ * amount is never written over the past unasked); a correction that changes nothing is sent
+ * without it. Returns false when there was nothing to save.
  */
+// R-VERSION-140: a correction sends only what the user changed.
 export function useUpdateCategory(budgetId: string, options: { onDone: () => void }) {
   const { t } = useTranslation()
   return useAppMutation<boolean, UpdateCategoryInput>({
     errorDisplay: 'inline',
-    mutationFn: async ({ category, revision, name, amount, cadence, fromPeriodId }) => {
+    mutationFn: async ({ category, revision, name, amount, cadence, fromPeriodId, base }) => {
       const renamed = name !== category.name
-      const correcting = fromPeriodId !== null && !category.is_group
+      const from = base ?? category
       // The amount and its cadence are one value (D-160): either changed sends both.
       const expectationChanged =
-        amount !== null &&
-        cadence !== null &&
-        (correcting || amount !== category.amount || cadence !== category.cadence)
+        amount !== null && cadence !== null && (amount !== from.amount || cadence !== from.cadence)
+      const correcting = fromPeriodId !== null && !category.is_group && expectationChanged
       const amountChanged = expectationChanged
       const cadenceChanged = expectationChanged
       if (!renamed && !amountChanged && !cadenceChanged) return false

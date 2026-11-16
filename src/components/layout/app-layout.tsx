@@ -74,7 +74,9 @@ export function AppLayout() {
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={readSidebarOpen()}>
         <AppSidebar />
-        <SidebarInset>
+        {/* min-w-0: the page shrinks beside the sidebar instead of pushing past the screen,
+            so long names truncate rather than scroll the page sideways. */}
+        <SidebarInset className="min-w-0">
           <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80">
             <SidebarTrigger className="-ml-1" />
             <Separator
@@ -83,7 +85,7 @@ export function AppLayout() {
             />
             <AppBreadcrumb />
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
+          <div className="flex min-w-0 flex-1 flex-col gap-4 p-4 md:p-6">
             {/* An email link that landed while signed in and did not sign anyone in. */}
             <LinkErrorAlert />
             <AccountSwitchedAlert />

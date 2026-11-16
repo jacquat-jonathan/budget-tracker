@@ -48,6 +48,8 @@ export function useCreateDebt(budgetId: string, options: { onDone: (id: string) 
 export interface UpdateDebtInput {
   /** The version the form saves over (useEditBase). */
   debt: Debt
+  /** The terms the form started from: those now, or those of the corrected period. */
+  base: Pick<Debt, 'interest_rate' | 'monthly_payment'>
   name: string
   categoryId: string
   /** Only while the debt has no history. */
@@ -57,25 +59,32 @@ export interface UpdateDebtInput {
   fromPeriodId: string | null
 }
 
-/** One edit, only what changed; a correction always sends the terms. */
+/**
+ * One edit, only what changed. The rate and the planned payment are compared with the terms
+ * the form started from (for a correction, those of its period), so a correction never writes
+ * today's terms over the past; one that changes neither is sent without the correction.
+ */
+// R-DEBT-140: a correction sends only what the user changed.
 export function useUpdateDebt(budgetId: string, options: { onDone: () => void }) {
   const { t } = useTranslation()
   return useAppMutation<boolean, UpdateDebtInput>({
     errorDisplay: 'inline',
+    // Shown only when what changed is not on the form (the banner says the rest).
+    errorMessages: { record_changed: 'debts.changedNotShown' },
     mutationFn: async (input) => {
-      const { debt } = input
-      const correcting = input.fromPeriodId !== null
+      const { debt, base } = input
       const rate = interestRateValue(input.rate)
+      const rateChanged = rate !== base.interest_rate
+      const paymentChanged = input.monthlyPayment !== base.monthly_payment
+      const correcting = input.fromPeriodId !== null && (rateChanged || paymentChanged)
       const changes = {
         ...(input.name !== debt.name ? { p_name: input.name } : {}),
         ...(input.categoryId !== debt.category_id ? { p_category_id: input.categoryId } : {}),
         ...(!debt.has_history && input.principal !== debt.principal
           ? { p_principal: input.principal }
           : {}),
-        ...(correcting || rate !== debt.interest_rate ? { p_interest_rate: rate } : {}),
-        ...(correcting || input.monthlyPayment !== debt.monthly_payment
-          ? { p_monthly_payment: input.monthlyPayment }
-          : {}),
+        ...(rateChanged ? { p_interest_rate: rate } : {}),
+        ...(paymentChanged ? { p_monthly_payment: input.monthlyPayment } : {}),
       }
       if (Object.keys(changes).length === 0) return false
       unwrap(
@@ -98,6 +107,7 @@ export function useRemoveDebt(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<string, { debt: Debt; revision: number; fromPeriodId: string | null }>({
     errorDisplay: 'inline',
+    errorMessages: { record_changed: 'debts.changedNotShown' },
     mutationFn: async ({ debt, revision, fromPeriodId }) =>
       unwrap(
         await supabase.rpc('remove_debt', {
@@ -129,6 +139,7 @@ export function useAdjustBalance(budgetId: string, options: { onDone: () => void
   const { t } = useTranslation()
   return useAppMutation<null, AdjustBalanceInput>({
     errorDisplay: 'inline',
+    errorMessages: { record_changed: 'debts.changedNotShown' },
     mutationFn: async ({ debt, revision, balance, date, note }) => {
       const trimmed = note.trim()
       unwrap(

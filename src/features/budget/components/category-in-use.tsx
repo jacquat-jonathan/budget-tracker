@@ -38,7 +38,6 @@ export function CategoryInUse({
       <LinkIcon aria-hidden />
       <AlertTitle>{t('categories.inUse.title')}</AlertTitle>
       <AlertDescription>
-        <p>{t('categories.inUse.description')}</p>
         {(usingSubscriptions.length > 0 || usingDebts.length > 0) && (
           <ul className="mt-1 list-disc pl-5">
             {usingSubscriptions.map((item) => (

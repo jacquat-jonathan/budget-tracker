@@ -46,8 +46,8 @@ import { RemoveDebtDialog } from '@/features/debts/components/remove-debt-dialog
 import { useDeleteAdjustment } from '@/features/debts/debt-mutations'
 import {
   paidShare,
+  useDebt,
   useDebtHistory,
-  useDebtRecord,
   type Debt,
   type HistoryEntry,
 } from '@/features/debts/debt-queries'
@@ -58,6 +58,9 @@ import { formatCalendarDate } from '@/lib/date'
 import { formatInterestRate } from '@/lib/interest-rate'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
+
+/** Events shown before the whole history is asked for. */
+const HISTORY_SHOWN = 12
 
 type DialogState =
   | { kind: 'closed' }
@@ -77,7 +80,11 @@ export function DebtDetailPage() {
   const { t } = useTranslation()
   const { debtId = '' } = useParams()
   const { budgetId } = useCurrentBudget()
-  const debt = useDebtRecord(budgetId, debtId)
+  const read = useDebt(budgetId, debtId)
+  // While a dialog is open, the debt it was opened on stays on screen even if another member
+  // deletes it meanwhile: the dialog says so itself.
+  const [lastSeen, setLastSeen] = useState<Debt | null>(null)
+  if (read.data && read.data !== lastSeen) setLastSeen(read.data)
   const history = useDebtHistory(budgetId, debtId)
   const current = useCurrentPeriod(budgetId)
   const periods = usePeriods(budgetId)
@@ -96,11 +103,29 @@ export function DebtDetailPage() {
       </Link>
     </Button>
   )
+  const debt = read.data ?? (dialog.kind !== 'closed' ? lastSeen : read.data)
+  if (read.isError && !debt) {
+    return (
+      <div className="flex flex-col gap-6">
+        {back}
+        <ErrorState error={read.error} onRetry={() => void read.refetch()} />
+      </div>
+    )
+  }
   if (debt === null) {
     return (
       <div className="flex flex-col gap-6">
         {back}
         <EmptyState title={t('debts.notFound')} description={t('debts.notFoundHelp')} />
+      </div>
+    )
+  }
+  const failed = [current, periods].find((query) => query.isError)
+  if (failed) {
+    return (
+      <div className="flex flex-col gap-6">
+        {back}
+        <ErrorState error={failed.error} onRetry={failed.refetch} />
       </div>
     )
   }
@@ -112,59 +137,63 @@ export function DebtDetailPage() {
       </div>
     )
   }
-  const inForce = debt.is_active && !ended
+  // Not ended: payments can still be dated in its periods, even once the budget has ended
+  // (the database's rule); editing and removing need a current period.
+  const notEnded = debt.end_seq === null
+  const editable = notEnded && !ended
   const share = paidShare(debt)
 
   return (
     <div className="flex flex-col gap-6">
       {back}
-      <PageHeader
-        title={debt.name}
-        description={path(debt.category_name, debt.parent_category_name)}
-        action={
-          <>
-            {inForce && range && (
-              <Button onClick={() => setDialog({ kind: 'payment' })}>
-                <PlusIcon />
-                {t('debts.recordPayment')}
+      {/* The name over its actions: a long name never squeezes into a narrow column. */}
+      <div className="flex flex-col gap-3">
+        <PageHeader
+          title={debt.name}
+          description={path(debt.category_name, debt.parent_category_name)}
+        />
+        <div className="flex flex-wrap gap-2">
+          {notEnded && range && (
+            <Button onClick={() => setDialog({ kind: 'payment' })}>
+              <PlusIcon />
+              {t('debts.recordPayment')}
+            </Button>
+          )}
+          {range && (
+            <Button variant="outline" onClick={() => setDialog({ kind: 'adjust' })}>
+              <ScaleIcon />
+              {t('debts.adjust.action')}
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={t('debts.actionsFor', { name: debt.name })}
+              >
+                <EllipsisVerticalIcon />
               </Button>
-            )}
-            {range && (
-              <Button variant="outline" onClick={() => setDialog({ kind: 'adjust' })}>
-                <ScaleIcon />
-                {t('debts.adjust.action')}
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label={t('debts.actionsFor', { name: debt.name })}
-                >
-                  <EllipsisVerticalIcon />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-48">
-                <DropdownMenuItem onSelect={() => setDialog({ kind: 'edit' })} disabled={!inForce}>
-                  <PencilIcon />
-                  {t('debts.edit')}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={() => setDialog({ kind: 'remove' })}
-                  disabled={!inForce}
-                >
-                  <Trash2Icon />
-                  {t('debts.remove.action')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
-        }
-      />
-      {!debt.is_active && (
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuItem onSelect={() => setDialog({ kind: 'edit' })} disabled={!editable}>
+                <PencilIcon />
+                {t('debts.edit')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => setDialog({ kind: 'remove' })}
+                disabled={!editable}
+              >
+                <Trash2Icon />
+                {t('debts.remove.action')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+      {!notEnded && (
         <Alert>
           <CalendarOffIcon aria-hidden />
           <AlertTitle>{t('debts.endedTitleOne')}</AlertTitle>
@@ -173,16 +202,35 @@ export function DebtDetailPage() {
       )}
       <Card>
         <CardContent className="flex flex-col gap-5">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-4">
-            <MoneyStat
-              label={t('debts.remaining')}
-              amount={debt.remaining}
-              emphasis
-              testId="detail-remaining"
-            />
+          {/* One column on a phone: seven-figure amounts never meet. */}
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-5 min-[480px]:grid-cols-2 xl:grid-cols-4">
+            {debt.remaining < 0 ? (
+              <MoneyStat
+                label={t('debts.overpaid')}
+                amount={-debt.remaining}
+                emphasis
+                hint={t('debts.overpaidHint')}
+                testId="detail-remaining"
+              />
+            ) : (
+              <MoneyStat
+                label={t('debts.remaining')}
+                amount={debt.remaining}
+                emphasis
+                testId="detail-remaining"
+              />
+            )}
             <MoneyStat label={t('debts.paid')} amount={debt.paid_total} />
-            <MoneyStat label={t('debts.interestAdded')} amount={debt.interest_total} />
-            <MoneyStat label={t('debts.adjustments')} amount={debt.adjustment_total} />
+            <MoneyStat
+              label={t('debts.interestAdded')}
+              amount={debt.interest_total}
+              hint={t('debts.interestHint')}
+            />
+            <MoneyStat
+              label={t('debts.adjustments')}
+              amount={debt.adjustment_total}
+              hint={t('debts.adjustmentsHint')}
+            />
           </dl>
           <div className="flex flex-col gap-1">
             <Progress value={share} aria-label={t('debts.paidShare', { percent: share })} />
@@ -209,7 +257,7 @@ export function DebtDetailPage() {
             <div className="col-span-2 sm:col-span-1">
               <dt className="text-xs text-muted-foreground">{t('debts.projection')}</dt>
               <dd>
-                <Payoff debt={debt} />
+                <Payoff debt={debt} budgetEnded={ended} />
               </dd>
             </div>
           </dl>
@@ -230,7 +278,7 @@ export function DebtDetailPage() {
             <LoadingState rows={2} />
           ) : (
             <>
-              <DebtChart entries={history.data} />
+              <DebtChart entries={history.data} today={today} />
               <HistoryTable
                 debt={debt}
                 entries={history.data}
@@ -263,6 +311,7 @@ export function DebtDetailPage() {
           debt={dialog.kind === 'adjust' ? debt : null}
           range={range}
           today={today}
+          ended={ended}
           onClose={close}
         />
       )}
@@ -333,7 +382,10 @@ function HistoryTable({
   onDeleteAdjustment: (entry: HistoryEntry) => void
 }) {
   const { t } = useTranslation()
-  const rows = [...entries].reverse()
+  // The latest events first; a long history is opened on request, so the page stays short.
+  const [all, setAll] = useState(false)
+  const newest = [...entries].reverse()
+  const rows = all ? newest : newest.slice(0, HISTORY_SHOWN)
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">{t('debts.history.title')}</h3>
@@ -359,11 +411,14 @@ function HistoryTable({
                   <KindLegendMark kind={entry.kind} />
                   <span className="font-medium">{t(`debts.history.kind.${entry.kind}`)}</span>
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
+                {/* On a phone the amount has its own line: never cut off. */}
+                <div className="text-xs text-muted-foreground tabular-nums">
                   <CalendarDate value={entry.date} />
-                  <span className="tabular-nums sm:hidden"> · {formatMoney(entry.amount)}</span>
-                  {entry.description ? ` · ${entry.description}` : ''}
+                  <span className="sm:hidden"> · {formatMoney(entry.amount)}</span>
                 </div>
+                {entry.description && (
+                  <div className="truncate text-xs text-muted-foreground">{entry.description}</div>
+                )}
               </TableCell>
               <TableCell
                 className={cn(
@@ -409,6 +464,20 @@ function HistoryTable({
           ))}
         </TableBody>
       </Table>
+      {newest.length > HISTORY_SHOWN && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => setAll((open) => !open)}
+          aria-expanded={all}
+          data-testid="history-toggle"
+        >
+          {all
+            ? t('debts.history.showLatest', { count: HISTORY_SHOWN })
+            : t('debts.history.showAll', { count: newest.length })}
+        </Button>
+      )}
     </div>
   )
 }
