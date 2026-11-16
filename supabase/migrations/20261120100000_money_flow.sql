@@ -760,45 +760,55 @@ $$;
 -- The start of period p_seq (beyond the latest: the day after it; before the first: its start).
 create function private.seq_start(p_budget_id uuid, p_seq integer)
 returns date
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+begin
+  return (
   select coalesce(
     (select p.start_date from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq),
     case when p_seq < 1
          then (select p.start_date from public.periods as p where p.budget_id = p_budget_id order by p.seq limit 1)
-         else (select p.end_date + 1 from public.periods as p where p.budget_id = p_budget_id order by p.seq desc limit 1) end)
+         else (select p.end_date + 1 from public.periods as p where p.budget_id = p_budget_id order by p.seq desc limit 1) end));
+end;
 $$;
 
 -- D-424: the period that lists a date: the one containing it; a date before the first period
 -- belongs to the first, one after the latest to the latest.
 create function private.listing_seq(p_budget_id uuid, p_date date)
 returns integer
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+begin
+  return (
   select coalesce(
     (select p.seq from public.periods as p where p.budget_id = p_budget_id and p.start_date <= p_date
      order by p.start_date desc limit 1),
-    1)
+    1));
+end;
 $$;
 
 -- An income's actual pay dates between two dates (its terms in force in period p_seq).
 create function private.income_pay_dates(p_income_id uuid, p_seq integer, p_from date, p_to date)
 returns setof date
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+#variable_conflict use_column
+begin
+  return query
   select s.d from (
     select private.month_pay_date(pg_catalog.make_date(i / 12, i % 12 + 1, 1), t.pay_day, t.weekend_rule) as d
     from private.terms_at(p_income_id, p_seq) as t
     cross join pg_catalog.generate_series(private.month_index(p_from) - 1, private.month_index(p_to) + 1) as i
   ) as s
   where s.d between p_from and p_to
-  order by s.d
+  order by s.d;
+end;
 $$;
 
 -- The monthly share of a transfer's amount: a pay-date or monthly transfer counts its amount
@@ -807,12 +817,15 @@ $$;
 create function private.transfer_monthly_amount(p_amount bigint, p_schedule public.transfer_schedule,
                                                 p_cadence public.subscription_cadence)
 returns bigint
-language sql
+language plpgsql
 immutable
 set search_path = ''
 as $$
+begin
+  return (
   select case when p_schedule = 'day_of_month' then private.subscription_monthly_cost(p_amount, p_cadence)
-              else p_amount end
+              else p_amount end);
+end;
 $$;
 
 -- R-ACCOUNT-300 to R-ACCOUNT-303, D-420, D-422: the occurrences of one transfer in one period
@@ -860,10 +873,13 @@ returns table (
   cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
   is_automatic boolean, category_id uuid
 )
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+#variable_conflict use_column
+begin
+  return query
   select k.transfer_id, k.name, k.period_id, k.seq, k.start_date, k.end_date, k.occurrence_date, k.due_date,
          k.follows_primary, k.terms_from_seq, k.from_account_id, k.to_account_id, k.amount, k.schedule, k.cadence,
          k.offset_days, k.day_of_month, k.income_id, k.is_automatic, k.category_id
@@ -886,7 +902,8 @@ as $$
     where p.budget_id = p_budget_id and p.seq between p_from_seq - 2 and p_to_seq
       and (p_transfer_id is null or t.id = p_transfer_id)
   ) as k
-  where k.rn = 1 and k.seq >= p_from_seq
+  where k.rn = 1 and k.seq >= p_from_seq;
+end;
 $$;
 
 -- The planned occurrence of a transfer with that key, if it is planned (no row otherwise).
@@ -930,6 +947,9 @@ as $$
   set needs_check = true, settled_through = least(t.settled_through, p_from - 1)
   where t.budget_id = p_budget_id
     and (p_transfer_id is null or t.id = p_transfer_id)
+    -- a transfer ended before the period before the one containing p_from has nothing there
+    and (t.end_seq is null or p_transfer_id is not null
+         or t.end_seq >= (select private.listing_seq(p_budget_id, p_from)) - 1)
     and (p_income_id is null
          or exists (select 1 from public.transfer_versions as v where v.transfer_id = t.id and v.income_id = p_income_id))
     and (not t.needs_check or t.settled_through > p_from - 1)
@@ -2310,13 +2330,13 @@ begin
   else
     v_seq := private.current_seq(p_budget_id);
   end if;
-  v_before := private.transfer_marks_snapshot(p_budget_id, null, private.seq_start(p_budget_id, v_seq) - 93);
+  v_before := '[]'::jsonb;  -- a new transfer has no mark, and creating it changes no other's
   begin
     v_id := private.create_transfer_core(p_budget_id, 'preview', p_from_account_id, p_to_account_id, p_amount,
       p_schedule, p_offset_days, p_day_of_month, p_income_id, p_is_automatic, p_category_id, p_from_period_id,
       p_cadence, p_first_date);
     v_rows := private.transfer_preview_rows(p_budget_id, v_id, v_seq, null, p_count, v_before,
-      private.transfer_marks_snapshot(p_budget_id, null, private.seq_start(p_budget_id, v_seq) - 93));
+      private.transfer_marks_snapshot(p_budget_id, v_id, private.seq_start(p_budget_id, v_seq) - 93));
     raise exception 'preview' using errcode = 'P0050';
   exception when sqlstate 'P0050' then
     null;  -- rolled back
@@ -2434,7 +2454,8 @@ begin
     raise exception 'invalid_period' using errcode = 'P0001';
   end if;
   select * into v_span from private.transfer_edit_span(v_transfer, p_from_period_id);
-  v_before := private.transfer_marks_snapshot(v_transfer.budget_id, null,
+  -- an edit changes only this transfer's marks
+  v_before := private.transfer_marks_snapshot(v_transfer.budget_id, v_transfer.id,
                                               private.seq_start(v_transfer.budget_id, v_span.from_seq) - 93);
   begin
     if v_terms then
@@ -2443,7 +2464,7 @@ begin
         p_clear_income, p_clear_category, p_from_period_id, p_cadence, p_first_date);
     end if;
     v_rows := private.transfer_preview_rows(v_transfer.budget_id, v_transfer.id, v_span.from_seq, v_span.to_seq, p_count,
-      v_before, private.transfer_marks_snapshot(v_transfer.budget_id, null,
+      v_before, private.transfer_marks_snapshot(v_transfer.budget_id, v_transfer.id,
                                                 private.seq_start(v_transfer.budget_id, v_span.from_seq) - 93));
     raise exception 'preview' using errcode = 'P0050';
   exception when sqlstate 'P0050' then
@@ -2678,10 +2699,13 @@ $$;
 create function private.transfer_checklist(p_budget_id uuid, p_seq integer, p_transfer_id uuid default null,
                                            p_occurrence_date date default null)
 returns setof public.transfer_checklist_row
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+#variable_conflict use_column
+begin
+  return query
   with per as (
     select p.*, p.seq = 1 as is_first,
            not exists (select 1 from public.periods as q where q.budget_id = p.budget_id and q.seq > p.seq) as is_last
@@ -2738,7 +2762,8 @@ as $$
   left join public.transactions as x on x.transfer_occurrence_id = o.id
   ) as k
   where p_occurrence_date is null or k.occurrence_date = p_occurrence_date
-  order by coalesce(k.due_date, k.occurrence_date), k.name, k.transfer_id, k.occurrence_date
+  order by coalesce(k.due_date, k.occurrence_date), k.name, k.transfer_id, k.occurrence_date;
+end;
 $$;
 
 -- R-ACCOUNT-005: the checklist of any period, current or past. Catches up first. R-APP-170: at
@@ -3000,19 +3025,25 @@ $$;
 create function private.transfers_in_force(p_budget_id uuid, p_seq integer)
 returns table (transfer_id uuid, name text, from_account_id uuid, to_account_id uuid, amount bigint,
                cadence public.subscription_cadence, monthly_amount bigint, is_automatic boolean, category_id uuid)
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+#variable_conflict use_column
+begin
+  return query
   select t.id, t.name, v.from_account_id, v.to_account_id, v.amount, v.cadence,
-         private.transfer_monthly_amount(v.amount, v.schedule, v.cadence), v.is_automatic, v.category_id
+         case when v.schedule = 'day_of_month' and v.cadence <> 'monthly'
+              then private.subscription_monthly_cost(v.amount, v.cadence) else v.amount end,
+         v.is_automatic, v.category_id
   from public.transfers as t
   cross join lateral (
     select x.* from public.transfer_versions as x
     where x.transfer_id = t.id and x.effective_from_seq <= p_seq
     order by x.effective_from_seq desc limit 1
   ) as v
-  where t.budget_id = p_budget_id and t.first_seq <= p_seq and (t.end_seq is null or p_seq < t.end_seq)
+  where t.budget_id = p_budget_id and t.first_seq <= p_seq and (t.end_seq is null or p_seq < t.end_seq);
+end;
 $$;
 
 -- From the plan in force in the period, never from transactions. Typed rows:
@@ -3687,25 +3718,39 @@ $$;
 -- due date needed).
 create function private.transfer_committed_by_category(p_budget_id uuid, p_seq integer)
 returns table (category_id uuid, committed bigint)
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+#variable_conflict use_column
+begin
+  return query
   select f.category_id, pg_catalog.sum(f.monthly_amount)::bigint
   from private.transfers_in_force(p_budget_id, p_seq) as f
   where f.category_id is not null
-  group by f.category_id
+  group by f.category_id;
+end;
 $$;
 
 create function private.transfer_committed_total(p_budget_id uuid, p_seq integer)
 returns bigint
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
-  select coalesce(pg_catalog.sum(f.monthly_amount), 0)::bigint
-  from private.transfers_in_force(p_budget_id, p_seq) as f
-  where f.category_id is not null
+begin
+  return (
+  select coalesce(pg_catalog.sum(case when v.schedule = 'day_of_month' and v.cadence <> 'monthly'
+                                     then private.subscription_monthly_cost(v.amount, v.cadence) else v.amount end), 0)::bigint
+  from public.transfers as t
+  cross join lateral (
+    select x.amount, x.category_id, x.schedule, x.cadence from public.transfer_versions as x
+    where x.transfer_id = t.id and x.effective_from_seq <= p_seq
+    order by x.effective_from_seq desc limit 1
+  ) as v
+  where t.budget_id = p_budget_id and t.first_seq <= p_seq and (t.end_seq is null or p_seq < t.end_seq)
+    and v.category_id is not null);
+end;
 $$;
 
 -- One category (a group: its subcategories), like private.category_committed.
@@ -3723,7 +3768,8 @@ begin
     return 0;
   end if;
   return coalesce((
-    select pg_catalog.sum(private.transfer_monthly_amount(v.amount, v.schedule, v.cadence))
+    select pg_catalog.sum(case when v.schedule = 'day_of_month' and v.cadence <> 'monthly'
+                               then private.subscription_monthly_cost(v.amount, v.cadence) else v.amount end)
     from (select distinct x.transfer_id from public.transfer_versions as x where x.category_id = any (v_ids)) as u
     join public.transfers as t on t.id = u.transfer_id
     cross join lateral (
@@ -4056,17 +4102,21 @@ create or replace view public.period_summaries with (security_invoker = true) as
 -- dashboard). 0 when the budget has ended.
 create function private.transfers_to_do(p_budget_id uuid)
 returns table (to_do integer, overdue integer)
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
+#variable_conflict use_column
+begin
+  return query
   select (pg_catalog.count(*) filter (where o.id is null))::integer,
          (pg_catalog.count(*) filter (where o.id is null and pl.due_date < private.today()))::integer
   from public.periods as cur
   cross join lateral private.transfer_plan_range(p_budget_id, null, cur.seq - 1, cur.seq) as pl
   left join public.transfer_occurrences as o on o.transfer_id = pl.transfer_id and o.occurrence_date = pl.occurrence_date
   where cur.budget_id = p_budget_id and private.today() between cur.start_date and cur.end_date
-    and not pl.is_automatic
+    and not pl.is_automatic;
+end;
 $$;
 
 create or replace view public.my_budgets with (security_invoker = true) as

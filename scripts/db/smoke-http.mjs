@@ -815,6 +815,66 @@ check(
   'close_account refuses an account in use and names the transfer in the detail',
   closeInUse,
 )
+// step 7, the occurrence model: a yearly fixed-day transfer (cadence, first date, monthly
+// share), occurrences keyed by date, the previews' counts, a mark naming its occurrence
+const yearlyArgs = {
+  p_budget_id: budget,
+  p_from_account_id: mainAccount.body[0].id,
+  p_to_account_id: savingsAccount.body[0].id,
+  p_amount: 705600,
+  p_schedule: 'day_of_month',
+  p_cadence: 'yearly',
+  p_first_date: periods.at(-1).start_date,
+}
+const yearlyPreview = await rpc(alice, 'preview_create_transfer', { ...yearlyArgs, p_count: 2 })
+const yearly = await rpc(alice, 'create_transfer', { ...yearlyArgs, p_name: 'Third pillar' })
+check(
+  ok(yearlyPreview) &&
+    ok(yearly) &&
+    yearly.body[0]?.cadence === 'yearly' &&
+    yearly.body[0]?.monthly_amount === 58800 &&
+    yearly.body[0]?.first_date === periods.at(-1).start_date &&
+    yearlyPreview.body.length === 2 &&
+    yearlyPreview.body.every(
+      (row) =>
+        'occurrence_date' in row &&
+        'transactions_removed_count' in row &&
+        'marks_unplanned_count' in row,
+    ),
+  'create_transfer: a yearly transfer with its first date, its monthly share, and the preview with its counts',
+  [yearlyPreview, yearly],
+)
+const yearlyRow = (await rpc(bob, 'get_transfer_checklist', { p_period_id: periods.at(-1).id })).body?.find(
+  (row) => row.transfer_id === yearly.body[0].id,
+)
+const yearlyDone = await rpc(bob, 'mark_transfer_done', {
+  p_transfer_id: yearly.body[0].id,
+  p_period_id: periods.at(-1).id,
+  p_expected_revision: 0,
+  p_occurrence_date: yearlyRow?.occurrence_date,
+})
+const yearlyFlow = (await rpc(alice, 'get_money_flow', { p_budget_id: budget })).body?.find(
+  (row) => row.id === yearly.body[0].id,
+)
+check(
+  yearlyRow?.occurrence_date === periods.at(-1).start_date &&
+    yearlyRow?.planned === true &&
+    ok(yearlyDone) &&
+    yearlyDone.body[0]?.status === 'done' &&
+    yearlyFlow?.amount === 58800 &&
+    yearlyFlow?.planned_amount === 705600 &&
+    yearlyFlow?.cadence === 'yearly',
+  'the checklist names the occurrence by its date, a mark names it back, the money flow carries the monthly share and the real amount',
+  [yearlyRow, yearlyDone, yearlyFlow],
+)
+const twice = await rpc(bob, 'skip_transfer', {
+  p_transfer_id: yearly.body[0].id,
+  p_period_id: periods.at(-1).id,
+  p_expected_revision: 1,
+  p_occurrence_date: '1999-01-01',
+})
+check(refused(twice, 'transfer_not_in_force'), 'a mark naming a date that is no occurrence is refused', twice)
+
 const endPreview = await rpc(alice, 'preview_end_transfer', { p_transfer_id: transfer.body[0].id })
 const transferNow = (await get(alice, `transfer_overview?id=eq.${transfer.body[0].id}`)).body[0]
 const ended = await rpc(alice, 'end_transfer', {
