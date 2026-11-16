@@ -105,6 +105,8 @@ interface TransactionFormDialogProps {
   prefill?: { categoryId: string; debtId: string }
   /** Editing: the bounds of the period the transaction is in (the database's period_id). */
   ownPeriod?: { start_date: string; end_date: string } | null
+  /** After an edit was saved: the transaction before and as the database now has it. */
+  onSaved?: (before: Transaction, after: Transaction) => void
 }
 
 /** Add or edit a transaction. The form mounts only while open. */
@@ -152,6 +154,7 @@ function TransactionForm({
   ended,
   prefill,
   ownPeriod,
+  onSaved,
 }: TransactionFormDialogProps) {
   const { t } = useTranslation()
   // R-DEBT-151: an ended debt's refusal said for what was tried.
@@ -190,7 +193,8 @@ function TransactionForm({
     kind: from?.kind ?? 'expense',
     amount: from?.amount ?? null,
     date: from?.date ?? (today > range.max ? range.max : today),
-    categoryId: from?.category_id ?? prefill?.categoryId ?? '',
+    // An import waiting in "to categorise" is given a real category here, never kept there.
+    categoryId: from?.in_to_categorise ? '' : (from?.category_id ?? prefill?.categoryId ?? ''),
     description: from?.description ?? '',
     debtId: from ? (from.debt_id ?? '') : (prefill?.debtId ?? ''),
   })
@@ -263,8 +267,10 @@ function TransactionForm({
     isCalendarDate(date) &&
     ownPeriod.start_date <= date &&
     date <= ownPeriod.end_date
-  const kept = inOwnPeriod ? (transaction?.category_id ?? null) : null
+  const waiting = transaction?.in_to_categorise === true
+  const kept = inOwnPeriod && !waiting ? (transaction?.category_id ?? null) : null
   const keptLost =
+    !waiting &&
     !inOwnPeriod &&
     transaction?.category_id !== undefined &&
     transaction.category_id !== null &&
@@ -299,7 +305,7 @@ function TransactionForm({
 
   const add = useAddTransaction(budgetId)
   const request = useClientId()
-  const update = useUpdateTransaction(budgetId, { onDone: close })
+  const update = useUpdateTransaction(budgetId, { onDone: close, onSaved })
   const mutation = transaction ? update : add
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
     error: update.error,

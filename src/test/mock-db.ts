@@ -519,7 +519,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
   return db
 }
 
-type Filter = { column: string; value: unknown; op?: 'eq' | 'lte' }
+type Filter = { column: string; value: unknown; op?: 'eq' | 'lte' | 'in' }
 type Order = { column: string; ascending: boolean }
 
 function compare(a: unknown, b: unknown): number {
@@ -548,7 +548,9 @@ export function mockDataClient(db: MockDb) {
       filters.every((filter) =>
         filter.op === 'lte'
           ? compare(row[filter.column], filter.value) <= 0
-          : row[filter.column] === filter.value,
+          : filter.op === 'in'
+            ? (filter.value as unknown[]).includes(row[filter.column])
+            : row[filter.column] === filter.value,
       )
 
     const run = (): { data: unknown; error: MockError | null } => {
@@ -592,6 +594,10 @@ export function mockDataClient(db: MockDb) {
       }),
       eq: vi.fn((column: string, value: unknown) => {
         filters.push({ column, value })
+        return builder
+      }),
+      in: vi.fn((column: string, values: unknown[]) => {
+        filters.push({ column, value: values, op: 'in' })
         return builder
       }),
       lte: vi.fn((column: string, value: unknown) => {

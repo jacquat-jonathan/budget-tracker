@@ -4,6 +4,7 @@ import {
   ChartColumnIcon,
   CreditCardIcon,
   HandCoinsIcon,
+  ImportIcon,
   LayoutDashboardIcon,
   PiggyBankIcon,
   RepeatIcon,
@@ -25,6 +26,7 @@ export type NavKey =
   | 'compare'
   | 'moneyFlow'
   | 'income'
+  | 'import'
   | 'settings'
   | 'newBudget'
 
@@ -41,6 +43,7 @@ export const mainNavItems: NavItem[] = [
   { key: 'compare', path: paths.compare, icon: ChartColumnIcon },
   { key: 'budget', path: paths.budget, icon: PiggyBankIcon },
   { key: 'transactions', path: paths.transactions, icon: ArrowLeftRightIcon },
+  { key: 'import', path: paths.import, icon: ImportIcon },
   { key: 'subscriptions', path: paths.subscriptions, icon: RepeatIcon },
   { key: 'debts', path: paths.debts, icon: CreditCardIcon },
   { key: 'periods', path: paths.periods, icon: CalendarRangeIcon },

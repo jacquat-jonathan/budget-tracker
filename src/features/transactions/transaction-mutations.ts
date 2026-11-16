@@ -75,7 +75,13 @@ export interface UpdateTransactionInput extends TransactionFields, PaymentLink {
  * all, so a refused save leaves the transaction, and both debts, as they were.
  */
 // R-DEBT-123: the payment link changes in the one update_transaction call, all or nothing.
-export function useUpdateTransaction(budgetId: string, options: { onDone: () => void }) {
+export function useUpdateTransaction(
+  budgetId: string,
+  options: {
+    onDone: () => void
+    onSaved?: (before: Transaction, after: Transaction) => void
+  },
+) {
   const { t } = useTranslation()
   return useAppMutation<Transaction | null, UpdateTransactionInput>({
     errorDisplay: 'inline',
@@ -95,7 +101,10 @@ export function useUpdateTransaction(budgetId: string, options: { onDone: () => 
       return rows[0] ?? null
     },
     success: () => t('transactions.saved'),
-    onSuccess: () => options.onDone(),
+    onSuccess: (row, input) => {
+      options.onDone()
+      if (row) options.onSaved?.(input.transaction, row)
+    },
     invalidate: () => affected(budgetId),
   })
 }

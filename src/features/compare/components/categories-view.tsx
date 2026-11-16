@@ -1,3 +1,4 @@
+import { ToCategoriseMark } from '@/components/to-categorise-badge'
 import { ChevronRightIcon, LayersIcon, TriangleAlertIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -288,6 +289,7 @@ function LineRow({
           >
             {line.name}
           </span>
+          <ToCategoriseMark id={line.category_id} />
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Checkbox

@@ -117,7 +117,8 @@ function CategoryForm({
     opened?.is_active === true && record.is_active !== true
   const edit = useEditBase(opened, live, views.category, endedElsewhere)
   const category = edit.base
-  const isGroup = category?.is_group === true
+  // "To categorise" takes no expectation either: only its name changes (R-CATEGORY-200).
+  const isGroup = category?.is_group === true || category?.is_to_categorise === true
   // Someone else added its first subcategory: it is now a group, with no amount of its own.
   const becameGroup = opened?.is_group === false && live?.is_group === true
 

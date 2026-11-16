@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 
 import { PageHeader } from '@/components/states'
 import { CurrentPeriodCard } from '@/features/dashboard/current-period-card'
+import { ToReviewCard } from '@/features/import/components/review'
 import { MyInvitations } from '@/features/invitations/my-invitations'
 import { PeriodProgressCard } from '@/features/progress/period-progress-card'
 import { ChargesToConfirmCard } from '@/features/subscriptions/components/charges-to-confirm-card'
@@ -20,6 +21,7 @@ export function DashboardPage() {
       {/* One column of full-width cards: no hole beside a narrower one at any width. */}
       <div className="flex flex-col gap-4">
         <ChargesToConfirmCard />
+        <ToReviewCard />
         <CurrentPeriodCard />
         <PeriodProgressCard />
       </div>

@@ -1,3 +1,4 @@
+import { importFr } from '@/locales/fr/import'
 import { compareFr } from '@/locales/fr/compare'
 import type { Translation } from '@/locales/en/translation'
 import { catchUpFr, chargesFr, correctionsFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
@@ -30,6 +31,7 @@ export const fr: Translation = {
     compare: 'Comparer',
     moneyFlow: 'Flux financiers',
     income: 'Revenus',
+    import: 'Importer',
     settings: 'Paramètres',
     newBudget: 'Nouveau budget',
   },
@@ -54,6 +56,10 @@ export const fr: Translation = {
       description: 'La répartition de votre argent entre vos comptes après le jour de paie.',
     },
     income: { description: 'Les revenus qui composent votre budget mensuel.' },
+    import: {
+      description:
+        'Importez un relevé bancaire ou un fichier CSV plutôt que de saisir chaque transaction.',
+    },
     settings: { description: 'Le budget, les personnes qui le partagent et votre compte.' },
   },
   userMenu: {
@@ -1209,6 +1215,7 @@ export const fr: Translation = {
   debts: debtsFr,
   compare: compareFr,
   catchUp: catchUpFr,
+  import: importFr,
   ui: {
     close: 'Fermer',
     more: 'Plus',

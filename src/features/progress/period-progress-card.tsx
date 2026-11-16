@@ -1,3 +1,4 @@
+import { ToCategoriseMark } from '@/components/to-categorise-badge'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeftIcon, ChevronRightIcon, PieChartIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -348,6 +349,7 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
           >
             {row.name}
           </Link>
+          <ToCategoriseMark id={row.category_id} />
           {over && (
             <Badge
               variant="outline"

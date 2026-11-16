@@ -50,6 +50,10 @@ export interface TransactionFilters {
   debtId?: string | null
   /** Only the charges awaiting confirmation. */
   awaitingOnly?: boolean
+  /** Only the imported transactions to review. */
+  toReviewOnly?: boolean
+  /** One import batch's transactions. */
+  importBatchId?: string | null
 }
 
 interface Cursor {
@@ -79,6 +83,8 @@ export function useTransactions(budgetId: string, filters: TransactionFilters, e
           ...(filters.subscriptionId ? { p_subscription_id: filters.subscriptionId } : {}),
           ...(filters.debtId ? { p_debt_id: filters.debtId } : {}),
           ...(filters.awaitingOnly ? { p_awaiting_only: true } : {}),
+          ...(filters.toReviewOnly ? { p_to_review_only: true } : {}),
+          ...(filters.importBatchId ? { p_import_batch_id: filters.importBatchId } : {}),
           ...(pageParam
             ? {
                 p_before_date: pageParam.date,

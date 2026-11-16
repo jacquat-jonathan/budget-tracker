@@ -4,6 +4,7 @@ import {
   CalendarOffIcon,
   CheckIcon,
   EllipsisVerticalIcon,
+  ListChecksIcon,
   PencilIcon,
   PlusIcon,
   RepeatIcon,
@@ -65,6 +66,13 @@ import { useAwaitingCharges } from '@/features/subscriptions/subscription-querie
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { isVoid, useCategories, type Category } from '@/features/categories/category-queries'
 import { isUuid } from '@/lib/uuid'
+import {
+  ConfirmImportButton,
+  ConfirmImportsButton,
+  ImportedDetails,
+  ReviewBadge,
+  RuleOffer,
+} from '@/features/import/components/review'
 import {
   TransactionFormDialog,
   type DateRange,
@@ -139,6 +147,10 @@ export function TransactionsPage() {
   const subscriptionParam = params.get('subscription')
   const debtParam = params.get('debt')
   const awaitingOnly = params.get('awaiting') === '1'
+  // Step 6: the imported transactions to review, and one import's (a link from the import).
+  const toReviewOnly = params.get('review') === '1'
+  const batchParam = params.get('batch')
+  const importBatchId = isUuid(batchParam) ? batchParam : null
   // Read by id (undefined while unknown, null when the budget has no such record).
   const subscriptionRow = useRecord(
     'subscription_overview',
@@ -156,6 +168,8 @@ export function TransactionsPage() {
     subscriptionId: subscription?.id ?? null,
     debtId: debt?.id ?? null,
     awaitingOnly,
+    toReviewOnly,
+    importBatchId,
   }
   const ready =
     periodList !== undefined &&
@@ -176,13 +190,21 @@ export function TransactionsPage() {
   // Like a category: a subscription or debt the budget does not have drops its filter.
   const unknownSubscription = subscriptionParam !== null && subscription === null
   const unknownDebt = debtParam !== null && debt === null
+  // A batch that is not an id is never sent: its filter goes.
+  const badBatch = batchParam !== null && importBatchId === null
   useEffect(() => {
-    if (!unknownSubscription && !unknownDebt) return
+    if (!unknownSubscription && !unknownDebt && !badBatch) return
     const next = new URLSearchParams(params)
     if (unknownSubscription) next.delete('subscription')
     if (unknownDebt) next.delete('debt')
+    if (badBatch) next.delete('batch')
     setParams(next, { replace: true })
-  }, [unknownSubscription, unknownDebt, params, setParams])
+  }, [unknownSubscription, unknownDebt, badBatch, params, setParams])
+  const status = useBudgetStatus(budgetId)
+  const toReviewCount = status.data?.to_review ?? 0
+  const [ruleOffer, setRuleOffer] = useState<{ before: Transaction; after: Transaction } | null>(
+    null,
+  )
   // R-SUBSCRIPTION-191: after a chip is removed, focus goes to the chip now at its place, else
   // to the period filter, once the page shows the filters that remain (never the page's body).
   const chipRemoved = useRef<number | null>(null)
@@ -252,8 +274,12 @@ export function TransactionsPage() {
     kind !== null ||
     !!subscription ||
     !!debt ||
-    awaitingOnly
+    awaitingOnly ||
+    toReviewOnly ||
+    importBatchId !== null
   const linkFilters = [
+    toReviewOnly && { key: 'review', label: t('import.review.filterChip') },
+    importBatchId && { key: 'batch', label: t('import.review.batchChip') },
     subscription && {
       key: 'subscription',
       label: t('subscriptions.filterChip', { name: subscription.name }),
@@ -296,7 +322,31 @@ export function TransactionsPage() {
             }}
           />
           {awaitingOnly && <ConfirmAllAwaiting budgetId={budgetId} today={today} />}
+          {(toReviewOnly || importBatchId) && toReviewCount > 0 && (
+            <ConfirmImportsButton budgetId={budgetId} batchId={importBatchId} />
+          )}
         </div>
+      )}
+      {!toReviewOnly && toReviewCount > 0 && (
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter('review', '1')}
+          >
+            <ListChecksIcon aria-hidden />
+            {t('import.review.showOnly', { count: toReviewCount })}
+          </Button>
+        </div>
+      )}
+      {ruleOffer && (
+        <RuleOffer
+          budgetId={budgetId}
+          before={ruleOffer.before}
+          after={ruleOffer.after}
+          onClose={() => setRuleOffer(null)}
+        />
       )}
       {!ready || list.isPending ? (
         <LoadingState rows={5} />
@@ -356,6 +406,7 @@ export function TransactionsPage() {
               ? (periodList?.find((item) => item.id === dialog.transaction.period_id) ?? null)
               : undefined
           }
+          onSaved={(before, after) => setRuleOffer({ before, after })}
         />
       )}
       <DeleteTransactionDialog
@@ -764,7 +815,9 @@ function TransactionRow({
     <li className="flex items-center gap-3 px-3 py-2.5 sm:px-4" data-testid="transaction-row">
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-medium">{row.description || what}</span>
+          <span className="truncate font-medium" dir="auto">
+            {row.description || what}
+          </span>
           {row.kind === 'refund' && (
             // On a phone the badge would crowd out the name: it joins the line below.
             <Badge variant="secondary" className="hidden sm:inline-flex">
@@ -772,6 +825,7 @@ function TransactionRow({
             </Badge>
           )}
           <LinkBadges row={row} />
+          <ReviewBadge row={row} />
         </div>
         <span className="truncate text-xs text-muted-foreground">
           {/* The parts that apply, joined: never a separator with nothing after it. */}
@@ -790,6 +844,16 @@ function TransactionRow({
             .filter((part) => part !== null)
             .flatMap((part, index) => (index === 0 ? [part] : [' · ', part]))}
         </span>
+        {budgetId && row.review_state === 'to_review' && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2" data-answer>
+            <ConfirmImportButton
+              budgetId={budgetId}
+              row={row}
+              label={`${row.description || what}, ${formatMoney(row.amount)}, ${formatCalendarDate(row.date)}`}
+            />
+          </div>
+        )}
+        <ImportedDetails row={row} />
         {inlineAnswers && budgetId && row.review_state === 'awaiting_confirmation' && (
           <div className="mt-1.5" data-answer>
             <ChargeAnswers budgetId={budgetId} charge={row} size="xs" onAnswer={onAnswered} />
@@ -941,7 +1005,7 @@ function DeleteTransactionBody({
 
 /** The address's link filters (the chips), as one key: a change re-runs the chip focus. */
 function linkFilterKeys(params: URLSearchParams): string {
-  return ['subscription', 'debt', 'awaiting']
+  return ['subscription', 'debt', 'awaiting', 'review', 'batch']
     .map((key) => `${key}=${params.get(key) ?? ''}`)
     .join('&')
 }

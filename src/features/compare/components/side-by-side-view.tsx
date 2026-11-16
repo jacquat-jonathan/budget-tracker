@@ -1,3 +1,4 @@
+import { ToCategoriseMark } from '@/components/to-categorise-badge'
 import {
   ArrowDownIcon,
   ArrowLeftRightIcon,
@@ -367,6 +368,7 @@ export function SideBySideView({
                             >
                               {row.name}
                             </span>
+                            <ToCategoriseMark id={row.category_id} />
                           </div>
                         </th>
                         <td

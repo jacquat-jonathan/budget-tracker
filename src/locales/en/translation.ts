@@ -1,3 +1,4 @@
+import { importEn } from '@/locales/en/import'
 import { compareEn } from '@/locales/en/compare'
 import { catchUpEn, chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
 
@@ -28,6 +29,7 @@ export const en = {
     compare: 'Compare',
     moneyFlow: 'Money flow',
     income: 'Income',
+    import: 'Import',
     settings: 'Settings',
     newBudget: 'New budget',
   },
@@ -46,6 +48,9 @@ export const en = {
     },
     moneyFlow: { description: 'How money moves between your accounts after payday.' },
     income: { description: 'The incomes that make up your monthly budget.' },
+    import: {
+      description: 'Bring in a bank statement or a CSV file instead of typing each transaction.',
+    },
     settings: { description: 'The budget, the people who share it, and your account.' },
   },
   userMenu: {
@@ -1157,6 +1162,7 @@ export const en = {
   debts: debtsEn,
   compare: compareEn,
   catchUp: catchUpEn,
+  import: importEn,
   ui: {
     close: 'Close',
     more: 'More',

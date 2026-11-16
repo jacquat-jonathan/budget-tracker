@@ -70,6 +70,10 @@ const MoneyFlowPage = lazy(() =>
 const IncomePage = lazy(() =>
   import('@/features/income/income-page').then((m) => ({ default: m.IncomePage })),
 )
+// The import page; pdf.js, the statement parsers and the CSV code load from it on demand.
+const ImportPage = lazy(() =>
+  import('@/features/import/import-page').then((m) => ({ default: m.ImportPage })),
+)
 const WelcomePage = lazy(() =>
   import('@/features/budgets/pages/welcome-page').then((m) => ({ default: m.WelcomePage })),
 )
@@ -146,6 +150,7 @@ export const routes: RouteObject[] = [
                         ...page('moneyFlow'),
                       },
                       { path: paths.income, element: <IncomePage />, ...page('income') },
+                      { path: paths.import, element: <ImportPage />, ...page('import') },
                       { path: paths.settings, element: <SettingsPage />, ...page('settings') },
                       {
                         path: paths.newBudget,

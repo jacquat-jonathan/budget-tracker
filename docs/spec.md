@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-508 rules (500 active, 0 planned), 24 conventions, 276 decisions, 40 open questions. 2 rules and conventions are marked **TEST PENDING**.
+516 rules (508 active, 0 planned), 24 conventions, 282 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1266,6 +1266,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-375, R-CATEGORY-200
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-CATEGORY-320** "To categorise" is marked in words wherever categories are listed (the budget page, progress, compare); it is offered as a target in no transaction, subscription, debt or rule form (an import waiting in it is edited to a real category); its form changes only the name, and its removal is not offered while it holds transactions, saying why.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-CATEGORY-200, R-CATEGORY-250, D-447
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/categories/category-queries.ts
 
 ### Transactions
 
@@ -1826,7 +1830,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-005** The import is reachable from a paste/CSV screen in the app.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-006** The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.
   _active · enforced by test · F-IMPORT_
@@ -1886,7 +1890,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-118, R-IMPORT-004
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-082** The generic CSV import lets the user map the file's columns to the transaction fields.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: D-119, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-083** The import offers presets for the exports of Migros Bank, Raiffeisen, One, Yuh and Twint.
@@ -2110,6 +2114,34 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-310
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-320** A statement the reader refuses is explained in words for every reason it gives (with the control, both figures, the language or the limit where it has one); the line in question is shown on the device only, apart from the explanation, and is never logged, stored or sent; nothing is sent to the budget.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-085, D-342
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/statement-words.ts
+- **R-IMPORT-321** The preview is asked under the batch id the import will use, with exactly the rows it will send; a changed choice is asked again (debounced), the rows whose answer is on its way are marked as being checked and never shown as current, and the import is offered only once every part has a current answer; the summary counts the rows the database answered, and no amount is added up in the client.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-252, D-442
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/use-import.ts
+- **R-IMPORT-322** The import sends its parts in order under one batch id; a part whose answer is lost is sent again with the same number and the same rows; a budget that must catch up first is caught up and the part sent again; the transaction limit stops the import and says how many rows would fit and that nothing of that part was written.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-208, D-442
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/use-import.ts
+- **R-IMPORT-323** While an import is sent, leaving the page asks first; an interrupted import is noted on the device (its batch id and a fingerprint of its rows, never the rows) and the page says so; the same statement opened again goes on under the same batch, so what was recorded is not recorded twice.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-208, D-443
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/pending-import.ts
+- **R-IMPORT-324** The CSV import reads quoted cells (separators, doubled quotes and line breaks inside), a byte-order mark and CRLF, detects the separator among comma, semicolon and tab and lets the user change it; asks for the date format whenever the dates can be read more than one way; reads amounts into integer rappen without floating-point arithmetic, in either decimal style, with a stated sign or two columns; lists every line it cannot read with its line number and why, and sends none of them; remembers the mapping per budget on the device only.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-082, D-444
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/csv/csv-map.ts
+- **R-IMPORT-325** Text from a bank file or a token (descriptions, merchants, details, token and category names) is rendered as text only, never as markup or a link, isolated so that right-to-left characters cannot reorder the words around it, and wraps rather than widening the page.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-SECURITY-250, D-376
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/components/external-text.tsx
+- **R-IMPORT-326** A new import token's secret is shown once, with a copy button and where to put it (the environment of the session that runs the script, never a conversation); it is held only in that dialog while it is open: never in the address, browser storage, the query or mutation cache, or a log.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-074, D-446
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/settings/import-tokens.tsx
 
 ### Accounts and planned transfers (money flow)
 
@@ -6047,6 +6079,73 @@ Related: D-383, D-384, D-391, D-392, Q-181, R-COMPARE-071, R-COMPARE-192
 
 Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16
 
+### D-442 The import page: read here, previewed under the import's own batch, sent in parts (accepted)
+
+A PDF is read with readStatementFile (pdf.js and the parsers load on the first file, in chunks of their own) and mapped with toImportBatch; a CSV is mapped on the page. The client generates the batch id when the rows are ready and names it in every preview and every part. A member's choice is sent only where it differs from what the database proposes (a row's action, a credit's kind, a category in force on its date), so choices are remembered only where the member made one. The preview is asked per part of 500 rows, again 400 ms after the last change; the import is offered only once every part's answer is current, then sends the same rows. The rows are drawn 100 at a time with a filter (all, to import, skipped, invalid); the statement's extra data is in a disclosure per row. After the import: the counts from the answers, the rows not imported (list_import_skipped_rows) with "import anyway", the link to the review and undo.
+
+**Why:** R-IMPORT-252 and R-IMPORT-208 ask the preview to equal the write; the page must stay usable with 1200 rows on a phone.
+
+**Rejected:**
+
+- Sending every choice explicitly (it would remember choices the member never made).
+- One preview call for all rows (the function takes 500).
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-443 An interrupted import is resumed by opening the same file (accepted)
+
+While parts are sent the page asks before leaving. The batch id, the parts confirmed, the source and a SHA-256 fingerprint of the rows are kept in localStorage (never the rows: they hold bank data); after a reload the page says an import stopped after part n of m. Opening the same statement again (same fingerprint) reuses the batch id: every part is sent again and those already recorded answer as before. A finished import removes the note; "forget it" removes it by hand.
+
+**Why:** The rows must not be stored on the device; the import is idempotent by batch and part, so sending all parts again is safe.
+
+**Rejected:**
+
+- Keeping the rows to resume without the file (bank data in browser storage).
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-444 The CSV mapping (accepted)
+
+The separator is detected among semicolon, comma and tab (the one that splits the first lines into equal numbers of cells, the most cells winning) and can be changed; a file that is not UTF-8 is read as Windows-1252. The header's names pre-fill the mapping for the user to check. A date format fills itself only when it alone reads every date; otherwise the user chooses among DD.MM.YYYY, DD.MM.YY, MM.DD.YYYY, DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD and DD-MM-YYYY. Amounts: one signed column (the user says what a negative is) or money out and money in; a decimal point or comma; apostrophes, spaces or the other mark as thousands separators; a trailing minus or brackets; more than two non-zero decimals is refused, never rounded. The statement dates sent are the earliest and latest row dates. The mapping is remembered per budget and header in localStorage.
+
+**Why:** R-IMPORT-082; Swiss exports use semicolons, decimal commas and DD.MM.YYYY, and 03.04 is ambiguous.
+
+**Rejected:**
+
+- Guessing day-first for ambiguous dates.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-445 The review in the transactions list (accepted)
+
+A "to review" filter (review=1) and an import's filter (batch=<id>) are chips kept in the address; each imported row shows "to review" or "needs a category", a confirm button (none, with why, while in "to categorise") and the statement's data in a disclosure. Confirm all applies to the batch when one is filtered. After an edit gives an imported transaction to review a real category, the page offers "always put this merchant in this category?" with the merchant key the database computed and the number of others waiting in "to categorise" whose key contains it (read from list_transactions, up to 200); not offered when a rule's fragment is already contained in the key. One click calls create_merchant_rule with p_apply and says how many moved.
+
+**Why:** R-IMPORT-007, R-IMPORT-209; the database has no preview of a rule (Q-271).
+
+**Rejected:** none recorded.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-446 An import token's secret stays in its dialog (accepted)
+
+create_import_token is called from the mutation, which hands the secret to the dialog's state and returns only the token id, so the mutation cache never holds it; closing the dialog drops it. The dialog says it is shown once, offers a copy button, and says to put it in the environment of the session that runs the script as BUDGET_IMPORT_TOKEN, never in a conversation (docs/import-script.md).
+
+**Why:** R-IMPORT-074, R-SECURITY-005.
+
+**Rejected:** none recorded.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-447 "To categorise" in the screens (accepted)
+
+Pickers (transaction, subscription, debt, rule) drop the categories flagged is_to_categorise from list_categories_for_date / category_overview. An import waiting there opens in the transaction form with no category chosen, so saving it gives it a real one. The budget page lists it with a mark ("Import"), "No plan", what it is for, and an edit form that changes the name only; "add a subcategory" is not offered and "remove" is disabled with the reason while it holds transactions. Progress and compare mark its line. category_to_categorise is one text naming every case.
+
+**Why:** R-CATEGORY-200, R-CATEGORY-250; conservative where update_transaction's rule for keeping it is unclear (Q-273).
+
+**Rejected:** none recorded.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -6425,6 +6524,30 @@ Source: owner-request: coordinator brief for the step 6 screens (part A, contrac
   - Context: D-404: the current budget is chosen in the sidebar and not in any address; a comparison link opened by a member whose current budget differs falls back to the defaults (R-COMPARE-283). Naming the budget in every address would make shared links exact.
   - Related: D-404, R-COMPARE-283
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **Q-270** Should preview_import take the rows of the batch's earlier parts that are not written yet, so that a later part's preview accounts for them?
+  - Context: A part is previewed on its own; a row of part 2 that duplicates or matches the same existing transaction as a row of part 1 is previewed as absorbing it, but at the write part 1 absorbs it first. The screens compare the answers with the preview and say how many rows turned out differently (D-442). Only imports above 500 rows are affected.
+  - Related: R-IMPORT-252, R-IMPORT-251
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-271** Should the database preview a merchant rule: whether an existing rule already covers a key, and how many transactions waiting in "to categorise" it would move?
+  - Context: The one-click offer decides "already covered" and counts the others by testing whether the database's keys contain a fragment in the client (D-445), which repeats R-IMPORT-201's "contains" and reads at most 200 waiting transactions; the count after the click is the database's (moved).
+  - Related: R-IMPORT-007, R-IMPORT-201, C-LOGIC-003
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-272** Should a member be able to forget a remembered choice for a flagged entry?
+  - Context: list_import_choices shows them; no call deletes one. The settings card says to choose otherwise at the next import instead.
+  - Related: R-IMPORT-092
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-273** Can an imported transaction waiting in "to categorise" be edited (amount, note) while it stays there, or must every update give it a real category?
+  - Context: docs/database.md says update_transaction refuses "to categorise" for a transaction moved into it; it does not say whether one already there may keep it. The form asks for a real category (the conservative reading, D-447).
+  - Related: R-CATEGORY-250
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-274** Should the preview give the total amount to import (money out and money in), for the summary above the table?
+  - Context: The summary counts rows from the answers; it shows no amount, since the client never adds amounts (C-LOGIC-003). preview_import would have to return per-call totals by action.
+  - Related: R-IMPORT-252, C-LOGIC-003
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-275** Should one batch be readable by its id (list_import_batches with p_batch_id)?
+  - Context: After an import the summary counts the answers rather than reading the batch's own counts, which the paged list gives only by scanning pages; a link to one batch cannot be opened either.
+  - Related: R-IMPORT-257
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
 
 ## Glossary
 

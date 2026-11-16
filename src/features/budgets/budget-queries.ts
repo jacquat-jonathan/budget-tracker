@@ -5,6 +5,7 @@ import { budgetKeys } from '@/features/budgets/budget-keys'
 import { calendarMonth } from '@/lib/date'
 import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
+import { dbErrorCode } from '@/lib/db-errors'
 import { isUuid } from '@/lib/uuid'
 
 export type MyBudget = Tables<'my_budgets'>
@@ -58,17 +59,32 @@ export function useEnsurePeriods(budgetId: string | undefined) {
     // A tab left open across a pay day or midnight catches up: new period, new "today".
     refetchInterval: 15 * 60_000,
     refetchOnWindowFocus: true,
-    // R-PERIOD-150: called until caught up, before anything that needs the current period.
-    queryFn: async (): Promise<number> => {
-      let created = 0
-      for (let round = 0; round < ENSURE_ROUNDS; round += 1) {
-        const made = unwrap(await supabase.rpc('ensure_periods', { p_budget_id: budgetId ?? '' }))
-        if (made === 0) return created
-        created += made
-      }
-      throw new Error('ensure_periods did not catch up')
-    },
+    queryFn: () => catchUpBudget(budgetId ?? ''),
   })
+}
+
+/** How long to wait before asking again when another session holds the catch-up. */
+const LOCK_WAIT_MS = 1000
+
+/**
+ * Calls ensure_periods until it answers 0 and says how many periods it made. When another
+ * session holds the budget for more than two seconds the call answers catching_up at once
+ * (D-387): it is simply asked again after a moment, never shown as an error.
+ */
+// R-PERIOD-150: called until caught up, before anything that needs the current period.
+export async function catchUpBudget(budgetId: string): Promise<number> {
+  let created = 0
+  for (let round = 0; round < ENSURE_ROUNDS; round += 1) {
+    const result = await supabase.rpc('ensure_periods', { p_budget_id: budgetId })
+    if (result.error && dbErrorCode(result.error) === 'catching_up') {
+      await new Promise((resolve) => window.setTimeout(resolve, LOCK_WAIT_MS))
+      continue
+    }
+    const made = unwrap(result)
+    if (made === 0) return created
+    created += made
+  }
+  throw new Error('ensure_periods did not catch up')
 }
 
 export interface BudgetStatus {

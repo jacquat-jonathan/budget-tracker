@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, usePeriodDependentQuery, type PeriodRead } from '@/features/budgets/budget-queries'
@@ -100,7 +101,9 @@ export function categoryTree(categories: readonly Category[]): CategoryTree {
  */
 export function useCategoriesForDate(budgetId: string, date: string) {
   const valid = isCalendarDate(date)
-  return useQuery({
+  // The budget's "to categorise" category is the import's waiting room: never a choice.
+  const hidden = useToCategoriseIds(budgetId)
+  const query = useQuery({
     queryKey: budgetKeys.categoriesForDate(budgetId, date),
     enabled: valid,
     queryFn: async (): Promise<CategoryForDate[]> =>
@@ -108,4 +111,32 @@ export function useCategoriesForDate(budgetId: string, date: string) {
         await supabase.rpc('list_categories_for_date', { p_budget_id: budgetId, p_date: date }),
       ).map(readChoice),
   })
+  const raw = query.data
+  const data = useMemo(
+    () => (raw && hidden ? raw.filter((choice) => !hidden.has(choice.category_id)) : undefined),
+    [raw, hidden],
+  )
+  return { ...query, data, isPending: query.isPending || (raw !== undefined && !hidden) }
+}
+
+/**
+ * The ids of the budget's "to categorise" category (category_overview.is_to_categorise), once
+ * the categories are read; undefined until then.
+ */
+// R-CATEGORY-250: "to categorise" is offered as a target nowhere.
+export function useToCategoriseIds(budgetId: string): ReadonlySet<string> | undefined {
+  const categories = useCategories(budgetId)
+  const list = categories.data
+  return useMemo(
+    () =>
+      list
+        ? new Set(
+            list.filter((category) => category.is_to_categorise).map((category) => category.id),
+          )
+        : // A failed read hides nothing rather than holding every picker back.
+          categories.isError
+          ? new Set<string>()
+          : undefined,
+    [list, categories.isError],
+  )
 }

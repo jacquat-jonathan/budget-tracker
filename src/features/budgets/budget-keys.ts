@@ -31,4 +31,8 @@ export const budgetKeys = {
   compare: (budgetId: string) => ['budget', budgetId, 'compare'] as const,
   debtHistory: (budgetId: string, debtId: string) =>
     ['budget', budgetId, 'debt-history', debtId] as const,
+  /** Import: batches, a batch's skipped rows, previews, remembered choices. */
+  imports: (budgetId: string) => ['budget', budgetId, 'imports'] as const,
+  importTokens: (budgetId: string) => ['budget', budgetId, 'import-tokens'] as const,
+  merchantRules: (budgetId: string) => ['budget', budgetId, 'merchant-rules'] as const,
 }
