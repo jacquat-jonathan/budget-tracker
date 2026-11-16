@@ -15,6 +15,7 @@ import {
 } from '@/test/budget-fixtures'
 import { createMockDb, rpcError } from '@/test/mock-db'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -35,6 +36,9 @@ function twoBudgets() {
     ],
   })
 }
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('dashboard', 'periods', 'settings', 'welcome', 'newBudget'))
 
 describe('first-run setup [R-BUDGET-050]', () => {
   it('a signed-in user without a budget lands on the setup, not on an empty dashboard', async () => {

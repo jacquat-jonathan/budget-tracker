@@ -6,6 +6,7 @@ import { formatMoney } from '@/lib/money'
 import { renderRoutes } from '@/test/render'
 import { BUDGET_ID, categoriesDb, DEBT_ID, debtRow } from '@/test/budget-fixtures'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -95,6 +96,9 @@ function card(name: string) {
   if (!match) throw new Error(`No card for ${name}`)
   return match
 }
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('debts', 'dashboard'))
 
 describe('debts page [R-DEBT-121]', () => {
   it('shows each debt’s remaining amount, rate, payment and projection in words', async () => {

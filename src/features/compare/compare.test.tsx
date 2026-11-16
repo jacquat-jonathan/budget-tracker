@@ -8,6 +8,7 @@ import { BUDGET_ID, budgetRow, householdDb, periodRow } from '@/test/budget-fixt
 import { rpcError, type MockDb } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -252,6 +253,9 @@ function open(db: MockDb, path: string) {
 /** Text with the narrow spaces and apostrophes of the formatted amounts made plain. */
 const plain = (element: HTMLElement) =>
   element.textContent.replace(/[\u202f\u00a0]/g, ' ').replace(/\s+/g, ' ')
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('compare', 'dashboard'))
 
 describe('the compare page [R-COMPARE-190]', () => {
   it('is in the sidebar and keeps its view and choices in the address', async () => {

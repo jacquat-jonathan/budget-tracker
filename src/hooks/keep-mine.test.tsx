@@ -17,6 +17,7 @@ import {
 } from '@/test/budget-fixtures'
 import { rpcError } from '@/test/mock-db'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -44,6 +45,9 @@ const valuesOf = (row: Row) => ({
   cadence: row.cadence,
   note: row.note,
 })
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('budget', 'income', 'subscriptions', 'transactions', 'dashboard'))
 
 describe('"Keep mine" keeps exactly what was typed [R-CONCURRENCY-190]', () => {
   it('keeps the fields and groups the user changed and takes every other one from now', () => {

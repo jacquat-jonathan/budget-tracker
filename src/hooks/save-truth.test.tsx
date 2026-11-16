@@ -14,6 +14,7 @@ import {
 import { rpcError, type MockDb } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -93,6 +94,9 @@ async function retype(field: HTMLElement, value: string) {
   await userEvent.type(field, value)
   await userEvent.tab()
 }
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('budget', 'income', 'subscriptions', 'transactions', 'dashboard'))
 
 describe('a refused save is never reported as saved [R-CONCURRENCY-280]', () => {
   // Sam saved the same value Ann typed in one field; Ann also typed something else. Ann's
