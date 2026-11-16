@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-210 rules (164 active, 42 planned), 24 conventions, 72 decisions, 16 open questions. 0 rules and conventions are marked **TEST PENDING**.
+263 rules (164 active, 93 planned), 24 conventions, 98 decisions, 11 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -75,7 +75,7 @@ Create, rename, end and delete a budget, created atomically with its first incom
 - **US-BUDGET-002** As a signed-in user, I want to belong to several budgets, so that I can keep a personal budget next to the household one.
   Rules: R-BUDGET-004, R-SECURITY-002, R-SECURITY-003, R-SECURITY-004, R-BUDGET-051, R-BUDGET-053
 - **US-BUDGET-003** As a budget owner, I want to give a budget an end date or run it indefinitely, so that tracking stops when the budget is no longer needed.
-  Rules: R-BUDGET-005, R-BUDGET-006, R-BUDGET-007, R-BUDGET-008, R-BUDGET-013, R-MEMBER-003
+  Rules: R-BUDGET-005, R-BUDGET-006, R-BUDGET-007, R-BUDGET-008, R-BUDGET-013, R-MEMBER-003, R-BUDGET-054
 - **US-BUDGET-004** As a budget member, I want to rename a budget, so that its name stays meaningful.
   Rules: R-BUDGET-009, R-MEMBER-001
 - **US-BUDGET-005** As a budget owner, I want to delete a budget with everything in it, so that I can remove one I no longer use.
@@ -103,9 +103,9 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 - **US-INCOME-001** As a budget member, I want to add my income with its amount, pay day and weekend rule, so that it counts in the budget's monthly total.
   Rules: R-INCOME-002, R-INCOME-003, R-INCOME-004, R-INCOME-005, R-INCOME-010, R-INCOME-011, R-INCOME-013, R-INCOME-014, R-MONEY-002, R-PAYDATE-001, R-PAYDATE-002, R-PAYDATE-003, R-PAYDATE-004, R-PAYDATE-005, R-PAYDATE-006, R-PAYDATE-007, R-INCOME-050
 - **US-INCOME-002** As a budget member, I want to change an income's terms when my salary changes, so that the change applies from now on and past periods stay as they were.
-  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-052
+  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-054
 - **US-INCOME-003** As a budget member, I want to make another income the primary one, so that periods follow the salary that really sets our rhythm.
-  Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008, R-INCOME-053
+  Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008, R-INCOME-054
 - **US-INCOME-004** As a budget member, I want to remove an income, so that it stops counting without rewriting past periods.
   Rules: R-INCOME-001, R-INCOME-009, R-INCOME-012, R-INCOME-051
 
@@ -129,27 +129,37 @@ Two-level categories with monthly or yearly expectations, and the amount left to
 - **US-CATEGORY-001** As a budget member, I want to split the budget into categories and subcategories with a monthly expectation each, so that I know how much I plan to spend on what.
   Rules: R-CATEGORY-001, R-CATEGORY-002, R-VERSION-002
 - **US-CATEGORY-002** As a budget member, I want to enter a yearly amount for a yearly cost, so that it is spread as one twelfth per month.
-  Rules: R-CATEGORY-003, R-CATEGORY-004, R-CATEGORY-005
-- **US-CATEGORY-003** As a budget member, I want to see the amount left to assign, so that every franc of the budget has a purpose.
-  Rules: R-CATEGORY-006
+  Rules: R-CATEGORY-003, R-CATEGORY-004, R-CATEGORY-005, R-CATEGORY-070
+- **US-CATEGORY-003** As a budget member, I want to see the amount left to assign in a period, negative when I have assigned more than the income, so that every franc of the budget has a purpose.
+  Rules: R-CATEGORY-006, R-CATEGORY-071
+- **US-CATEGORY-004** As a budget member, I want to delete a category I no longer need, so that it leaves the budget from now on while past periods keep it.
+  Rules: R-CATEGORY-072, R-CATEGORY-073
+- **US-CATEGORY-005** As a budget member, I want to change a category's expectation from now on, or explicitly correct it from an earlier period, so that past periods stay as they were unless I fix a mistake on purpose.
+  Rules: R-VERSION-002, R-VERSION-070
+- **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
+  Rules: R-CONCURRENCY-070
 
 #### F-TRANSACTION Transactions (planned)
 
 Manual transactions, landing in the period that contains their date.
 
 - **US-TRANSACTION-001** As a budget member, I want to record a transaction with an amount, a date and a category, so that spending is tracked against the budget.
-  Rules: R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-004, R-TRANSACTION-006
-- **US-TRANSACTION-002** As a budget member, I want to enter or correct a transaction in a past period, so that late receipts still land in the right period.
+  Rules: R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-004, R-TRANSACTION-006, R-TRANSACTION-072, R-TRANSACTION-073
+- **US-TRANSACTION-002** As a budget member, I want to add, edit or delete a transaction in a past period, so that late receipts still land in the right period.
   Rules: R-TRANSACTION-007, R-TRANSACTION-008
+- **US-TRANSACTION-003** As a budget member, I want to record money coming back as a refund, so that it reduces what was spent in its category.
+  Rules: R-TRANSACTION-070, R-TRANSACTION-071
 
 #### F-PROGRESS Period progress view (planned)
 
-Each period tracked against its expectations, with its result.
+Each period, the current one and past ones, tracked against its expectations, with its result.
 
-- **US-PROGRESS-001** As a budget member, I want to see how the current period is going against the expectations, so that I can adjust before the period ends.
-  Rules: R-PROGRESS-001
-- **US-PROGRESS-002** As a budget member, I want to see a period's surplus or deficit, so that I know how the period went.
-  Rules: R-PROGRESS-002
+- **US-PROGRESS-001** As a budget member, I want to see how the current period is going against the expectations, with overspent categories shown as such, so that I can adjust before the period ends.
+  Rules: R-PROGRESS-001, R-PROGRESS-071
+- **US-PROGRESS-002** As a budget member, I want to see a period's surplus or deficit, and each category's result, so that I know how the period went.
+  Rules: R-PROGRESS-002, R-PROGRESS-070
+- **US-PROGRESS-003** As a budget member, I want to browse past periods and see the progress view of each, so that I can look back at how any period went.
+  Rules: R-COMPARE-001
 
 ### Step 4: Subscriptions and debts (planned)
 
@@ -158,25 +168,35 @@ Each period tracked against its expectations, with its result.
 Recurring charges and their next charge date.
 
 - **US-SUBSCRIPTION-001** As a budget member, I want to track subscriptions and see when each will next be charged, so that recurring costs do not surprise me.
-  Rules: R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-VERSION-003
+  Rules: R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-071, R-SUBSCRIPTION-072, R-VERSION-003
+- **US-SUBSCRIPTION-002** As a budget member, I want each subscription charge to be recorded automatically on its charge date, and to confirm from the home page that it really went through, so that I do not enter recurring charges by hand and still catch one that failed.
+  Rules: R-SUBSCRIPTION-073, R-SUBSCRIPTION-074, R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, R-SUBSCRIPTION-077, R-SUBSCRIPTION-078
+- **US-SUBSCRIPTION-003** As a budget member, I want to see a subscription's monthly cost as committed within its category's expectation, so that I see how much of the category is already spoken for.
+  Rules: R-SUBSCRIPTION-079
 
 #### F-DEBT Debts (planned)
 
 Debts with planned payments, their evolution and expected end date.
 
 - **US-DEBT-001** As a budget member, I want to record a debt with its principal, interest rate and planned monthly payment, so that I can follow it down to zero.
-  Rules: R-DEBT-001, R-DEBT-002, R-VERSION-004
-- **US-DEBT-002** As a budget member, I want payments assigned to a debt to reduce what remains, and to see its evolution and expected end date, so that I know when it will be paid off.
-  Rules: R-DEBT-003, R-DEBT-004, R-DEBT-005
+  Rules: R-DEBT-001, R-DEBT-002, R-DEBT-070, R-DEBT-072, R-VERSION-004
+- **US-DEBT-002** As a budget member, I want payments linked to a debt to reduce what remains, interest to be added to it, and to see its history and expected end date, so that I know when it will be paid off, or that it never will at this pace.
+  Rules: R-DEBT-003, R-DEBT-004, R-DEBT-005, R-DEBT-071, R-DEBT-073, R-DEBT-074
+- **US-DEBT-003** As a budget member, I want to adjust a debt's balance by hand, so that it matches my bank statement.
+  Rules: R-DEBT-075
 
 ### Step 5: Period comparison charts (planned)
 
 #### F-COMPARE Period comparison (planned)
 
-Browsing past periods and comparing them in charts.
+Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).
 
-- **US-COMPARE-001** As a budget member, I want to browse past periods and compare them, for example over a year, so that I see how our spending evolves.
-  Rules: R-COMPARE-001, R-COMPARE-002
+- **US-COMPARE-001** As a budget member, I want to compare the income, spending and result of the last 12 periods in a chart, so that I see how our spending evolves.
+  Rules: R-COMPARE-002
+- **US-COMPARE-002** As a budget member, I want to see the spending per category across periods, so that I see which categories grow or shrink.
+  Rules: R-COMPARE-070
+- **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
+  Rules: R-COMPARE-071
 
 ### Step 6: Import (CSV and Claude) (planned)
 
@@ -185,11 +205,15 @@ Browsing past periods and comparing them in charts.
 Bulk import of transactions from CSV or by a Claude session, through one database function.
 
 - **US-IMPORT-001** As a budget member, I want to paste or upload a CSV of transactions, so that I do not type them one by one.
-  Rules: R-IMPORT-001, R-IMPORT-002, R-IMPORT-003, R-IMPORT-004, R-IMPORT-005, R-TRANSACTION-005
-- **US-IMPORT-002** As a Claude session, I want to import transactions by running the import script of this repository, so that a member can delegate the import without giving Claude raw database access.
-  Rules: R-IMPORT-001, R-IMPORT-006, R-SECURITY-005
-- **US-IMPORT-003** As a budget member, I want imported transactions to be marked to review and categorised from saved merchant rules, so that I check them quickly and categorisation improves over time.
-  Rules: R-IMPORT-004, R-IMPORT-007
+  Rules: R-IMPORT-001, R-IMPORT-002, R-IMPORT-003, R-IMPORT-004, R-IMPORT-005, R-IMPORT-070, R-IMPORT-071, R-IMPORT-072, R-IMPORT-073, R-IMPORT-080, R-IMPORT-082, R-IMPORT-083, R-TRANSACTION-005
+- **US-IMPORT-002** As a Claude session, I want to import transactions by running the import script of this repository with an import token, so that a member can delegate the import without giving Claude raw database access.
+  Rules: R-IMPORT-001, R-IMPORT-006, R-IMPORT-076, R-SECURITY-005
+- **US-IMPORT-003** As a budget member, I want imported transactions to be marked to review until I confirm them, categorised from saved merchant rules, and to save a new rule in one click when I categorise one, so that I check them quickly and categorisation improves over time.
+  Rules: R-IMPORT-004, R-IMPORT-007, R-IMPORT-079, R-IMPORT-081
+- **US-IMPORT-004** As a budget member, I want to create import tokens for one budget in Settings, and revoke them, so that I control what a Claude session can do, and can stop it at any time.
+  Rules: R-IMPORT-074, R-IMPORT-075, R-IMPORT-076, R-IMPORT-077
+- **US-IMPORT-005** As a budget member, I want to edit the merchant-to-category rules in Settings, so that I can fix a rule that puts a merchant in the wrong category.
+  Rules: R-IMPORT-078
 
 ### Step 7: Accounts and the money flow diagram (planned)
 
@@ -198,11 +222,13 @@ Bulk import of transactions from CSV or by a Claude session, through one databas
 Accounts, planned transfers after payday, a per-period checklist and the money flow diagram.
 
 - **US-MONEYFLOW-001** As a budget member, I want to define my accounts and the transfers planned between them after payday, so that the money goes where it should every period.
-  Rules: R-ACCOUNT-001, R-ACCOUNT-002, R-ACCOUNT-003, R-ACCOUNT-004
+  Rules: R-ACCOUNT-001, R-ACCOUNT-002, R-ACCOUNT-003, R-ACCOUNT-004, R-ACCOUNT-070, R-ACCOUNT-071, R-VERSION-071
 - **US-MONEYFLOW-002** As a budget member, I want a per-period checklist of the manual transfers, so that I do not forget one.
   Rules: R-ACCOUNT-005
 - **US-MONEYFLOW-003** As a budget member, I want a diagram of the planned flow of money, so that I see the whole plan at a glance.
-  Rules: R-ACCOUNT-006, R-ACCOUNT-007
+  Rules: R-ACCOUNT-006, R-ACCOUNT-007, R-ACCOUNT-075
+- **US-MONEYFLOW-004** As a budget member, I want to link a planned transfer to a category, so that its transaction is created when it is done, so that savings, third pillar or tax transfers count in the budget without being entered twice.
+  Rules: R-ACCOUNT-072, R-ACCOUNT-073, R-ACCOUNT-074
 
 ## Business rules
 
@@ -476,6 +502,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-BUDGET_
   - Related: R-BUDGET-051, C-QUERY-001
   - Source: code: src/components/layout/app-layout.tsx
+- **R-BUDGET-054** The budget settings show the end date the owner entered and the last day that results from it, and say that the last period is the one containing that date.
+  _active · enforced by test · F-BUDGET_
+  - Related: D-086, R-BUDGET-008
+  - Source: code: src/features/settings/budget-settings.tsx
 
 ### Members and roles
 
@@ -622,22 +652,28 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-066
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
-- **R-INCOME-051** Changing or removing an income from an earlier period is offered only as an explicit option, off by default, with a warning that past periods' totals change.
+- **R-INCOME-051** Changing or removing an income from an earlier period is offered only as an explicit option, off by default, with a warning that past periods' totals change; a changed term is said to apply from the chosen period until the next change already recorded.
   _active · enforced by test · F-INCOME_
-  - Related: R-VERSION-010, R-INCOME-015, D-065
+  - Related: R-VERSION-010, R-VERSION-012, R-INCOME-015, D-084
   - Source: code: src/features/income/components/income-form-dialog.tsx; code: src/features/income/components/remove-income-dialog.tsx
 - **R-INCOME-052** Before new terms of the primary income are saved, the form says what they do to the current period: that it closes at once (the next month's pay date under the new terms has already come), the day it now ends, or, when its end was set by hand, the 14-day rule that decides; Save waits until this is known, and the form says so when it cannot be checked.
-  _active · enforced by test · F-INCOME_
-  - Related: R-PERIOD-026, R-VERSION-008
+  _retired · enforced by test · F-INCOME_
+  - Retired: A change of terms can no longer close or move a period (R-PERIOD-029); the form instead reports the next pay date the database then expects (R-INCOME-054).
+  - Related: R-PERIOD-026, R-VERSION-008, R-PERIOD-029, R-INCOME-054
   - Source: code: src/features/income/components/income-form-dialog.tsx
 - **R-INCOME-053** Making another income primary is confirmed first, with what it does to the current period (it may close at once) and how to undo that.
-  _active · enforced by test · F-INCOME_
-  - Related: R-INCOME-052, R-INCOME-008, R-PERIOD-026
+  _retired · enforced by test · F-INCOME_
+  - Retired: Switching the primary income can no longer close or move a period (R-PERIOD-029), so it needs no confirmation; the app reports the next pay date the database then expects (R-INCOME-054).
+  - Related: R-INCOME-052, R-INCOME-008, R-PERIOD-026, R-PERIOD-029, R-INCOME-054
   - Source: code: src/features/income/components/make-primary-dialog.tsx
 - **R-INCOME-017** Only an income in force in the current period can become the primary income.
   _active · enforced by test · F-INCOME_
   - Related: R-INCOME-008
   - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-INCOME-054** After the primary income's terms change or another income becomes primary, the app says when the next salary is now expected, as read back from the database.
+  _active · enforced by test · F-INCOME_
+  - Related: R-PERIOD-029, R-PERIOD-030
+  - Source: code: src/features/income/income-mutations.ts
 
 ### Pay dates and the weekend rule
 
@@ -777,9 +813,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-070, Q-016
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
-- **R-PERIOD-051** The periods page offers boundary changes as what happened to a salary (it arrived on another day, it has not arrived yet, the next one arrived early), shows the resulting dates before saving, and offers a reset to the schedule for every boundary set by hand.
+- **R-PERIOD-051** The periods page labels periods by their dates and offers the boundary operations as what happened to a salary (the next one is expected on another day, and reset; it arrived early; this period's salary has not arrived yet; it actually arrived on another day), each showing the resulting dates and how to undo it before saving.
   _active · enforced by test · F-PERIOD_
-  - Related: R-PERIOD-023, R-PERIOD-025, D-063
+  - Related: R-PERIOD-012, R-PERIOD-013, R-PERIOD-023, R-PERIOD-025, R-PERIOD-033, R-PERIOD-034, D-082
   - Source: code: src/features/periods/periods-page.tsx
 - **R-PERIOD-052** Reads that depend on which periods exist wait for ensure_periods, are read again after each of its runs (at least every 15 minutes while the page is open), and show an error with a retry when it fails; whether a budget has ended is the database's answer, never the absence of a current row.
   _active · enforced by test · F-PERIOD_
@@ -824,6 +860,15 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-VERSION-004** An edit to a debt's terms creates a new version effective from the current period.
   _planned · enforced by test · F-DEBT_
   - Source: domain: Versioning: edits never rewrite the past
+- **R-VERSION-070** An edit to a category expectation can, as an explicit "correct an earlier period" choice, apply from an earlier period instead of the current one.
+  _planned · enforced by test · F-CATEGORY_
+  - Why: The same optional correction as for incomes (D-065); like an income correction, it applies until the next existing change (D-084).
+  - Related: D-107, D-065, D-084
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-VERSION-071** An edit to a planned transfer creates a new version effective from the current period.
+  _planned · enforced by test · F-MONEYFLOW_
+  - Related: D-121, Q-015
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-VERSION-005** Past periods keep reading the version that was in force at the time.
   _active · enforced by test · F-INCOME_
   - Source: domain: Versioning: edits never rewrite the past
@@ -871,28 +916,46 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-CATEGORY-004** Yearly amounts are stored as yearly.
   _planned · enforced by test · F-CATEGORY_
   - Source: domain: Category and subcategory
-- **R-CATEGORY-005** Yearly amounts are shown as one twelfth per month.
+- **R-CATEGORY-005** A yearly amount is shown per month as one twelfth of it, rounded to the nearest rappen.
   _planned · enforced by test · F-CATEGORY_
-  - Related: Q-002
-  - Source: domain: Category and subcategory
-- **R-CATEGORY-006** Budget total minus the sum of expectations is the amount left to assign.
+  - Related: Q-002, D-100, Q-050
+  - Source: domain: Category and subcategory; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-CATEGORY-006** A period's amount left to assign is its income total minus the sum of the expectations in force in that period.
   _planned · enforced by test · F-CATEGORY_
-  - Related: Q-003
-  - Source: domain: Category and subcategory
+  - Related: Q-003, D-101, R-PERIOD-018
+  - Source: domain: Category and subcategory; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-CATEGORY-070** The twelve monthly shares of a yearly amount are not adjusted to add up to the yearly amount.
+  _planned · enforced by test · F-CATEGORY_
+  - Why: Example: CHF 100.00 a year is shown as CHF 8.33 a month; twelve shares make CHF 99.96.
+  - Related: D-100, R-CATEGORY-005
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-CATEGORY-071** Expectations that add up to more than a period's income total are accepted, and the amount left to assign is then shown as a negative amount.
+  _planned · enforced by test · F-CATEGORY_
+  - Related: D-106, R-CATEGORY-006
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-CATEGORY-072** Deleting a category that has transactions or has counted in a past period ends it from the current period; past periods keep it.
+  _planned · enforced by test · F-CATEGORY_
+  - Related: D-107, D-030
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-CATEGORY-073** Deleting a category that has no transactions and never counted in a past period removes it.
+  _planned · enforced by test · F-CATEGORY_
+  - Why: "Like incomes" (D-030): what never counted is deleted, not ended.
+  - Related: D-107, D-030
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ### Transactions
 
-- **R-TRANSACTION-001** A transaction has an amount, a date, and a category or subcategory.
+- **R-TRANSACTION-001** A transaction has a positive amount, a date, and a category or subcategory.
   _planned · enforced by test · F-TRANSACTION_
-  - Related: Q-004
-  - Source: domain: Transaction
+  - Related: Q-004, D-102
+  - Source: domain: Transaction; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-002** A transaction has an optional description.
   _planned · enforced by test · F-TRANSACTION_
   - Source: domain: Transaction
-- **R-TRANSACTION-003** A transaction has an optional link to a debt or a subscription.
+- **R-TRANSACTION-003** A transaction has an optional link to at most one of a debt or a subscription.
   _planned · enforced by test · F-TRANSACTION_
-  - Related: Q-005
-  - Source: domain: Transaction
+  - Related: Q-005, D-111
+  - Source: domain: Transaction; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-004** Transactions are created manually in the UI.
   _planned · enforced by test · F-TRANSACTION_
   - Source: domain: Transaction
@@ -905,10 +968,27 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-TRANSACTION-007** A back-dated transaction lands in the right past period.
   _planned · enforced by test · F-TRANSACTION_
   - Source: domain: Period
-- **R-TRANSACTION-008** Past periods stay editable.
+- **R-TRANSACTION-008** In a past period, transactions can be added, edited and deleted freely.
   _planned · enforced by test · F-TRANSACTION_
-  - Related: Q-011
-  - Source: domain: Period
+  - Why: The rest of a past period changes only through its own path: boundaries through the period actions, incomes and expectations through the explicit "correct an earlier period" option (D-105).
+  - Related: Q-011, D-105
+  - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-TRANSACTION-070** A transaction is an expense unless the user marks it as a refund.
+  _planned · enforced by test · F-TRANSACTION_
+  - Related: D-102
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-TRANSACTION-071** A refund reduces what was spent in its category in its period.
+  _planned · enforced by test · F-TRANSACTION_
+  - Related: D-102
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-TRANSACTION-072** When a category has subcategories, a transaction goes on one of its subcategories, never on the category itself.
+  _planned · enforced by test · F-TRANSACTION_
+  - Related: D-102, Q-051
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-TRANSACTION-073** A transaction is never refused because it takes its category over its expectation.
+  _planned · enforced by test · F-TRANSACTION_
+  - Related: D-106
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ### Period progress and result
 
@@ -916,20 +996,70 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _planned · enforced by test · F-PROGRESS_
   - Related: D-039
   - Source: domain: Period
-- **R-PROGRESS-002** The period's surplus or deficit is shown as its result.
+- **R-PROGRESS-002** A period's result is its income total minus the total spent in it, shown as a surplus when positive and a deficit when negative.
   _planned · enforced by test · F-PROGRESS_
-  - Related: Q-012
-  - Source: domain: Period
+  - Related: Q-012, D-103, R-PERIOD-018
+  - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-PROGRESS-070** A category's result in a period is its expectation in force in that period minus what was spent in it.
+  _planned · enforced by test · F-PROGRESS_
+  - Related: D-103
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-PROGRESS-071** A category whose spending in a period exceeds its expectation is shown as overspent.
+  _planned · enforced by test · F-PROGRESS_
+  - Related: D-106
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ### Subscriptions
 
-- **R-SUBSCRIPTION-001** A subscription has a price, a pay date, a cadence, and a category.
+- **R-SUBSCRIPTION-001** A subscription has a price, a first charge date, a cadence, and a category.
   _planned · enforced by test · F-SUBSCRIPTION_
-  - Related: Q-006
-  - Source: domain: Subscription
+  - Related: Q-006, D-108
+  - Source: domain: Subscription; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-SUBSCRIPTION-002** The app shows when the next charge of a subscription will occur.
   _planned · enforced by test · F-SUBSCRIPTION_
   - Source: domain: Subscription
+- **R-SUBSCRIPTION-070** A subscription's cadence is monthly, quarterly, half-yearly or yearly.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-108
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-071** After its first charge date, a subscription is charged once per cadence interval on the first charge's day of the month, clamped to the length of each month.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Why: Example: first charged on 31 January, monthly: 28 (or 29) February, 31 March, 30 April.
+  - Related: D-108
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-072** No weekend rule applies to a subscription's charge dates.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-108
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-073** On each charge date, a transaction for the subscription's price is created automatically in its category, linked to the subscription.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-109, Q-054
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-074** A transaction created from a subscription can be edited or deleted like any other transaction.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-109
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-075** An automatically created subscription charge is marked as awaiting confirmation until a member confirms that it went through.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-109
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-076** The dashboard shows a notification for each subscription charge awaiting confirmation, asking whether it really went through.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-109
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-077** Answering that a subscription charge did not go through removes its transaction.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-109, Q-054
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-078** A subscription charge awaiting confirmation counts in totals from the moment it is created.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Why: Assumption stated in D-109, by analogy with imported transactions (D-118); the product owner was not asked.
+  - Related: D-109, D-118
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-079** A subscription's monthly cost is shown as committed within its category's expectation, not added on top of it.
+  _planned · enforced by test · F-SUBSCRIPTION_
+  - Related: D-110, Q-050
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ### Debts
 
@@ -939,27 +1069,62 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-DEBT-002** A debt has a principal, an optional interest rate, and a planned monthly payment.
   _planned · enforced by test · F-DEBT_
   - Source: domain: Debt
-- **R-DEBT-003** A transaction assigned to a debt reduces its remaining amount.
+- **R-DEBT-003** A debt's remaining amount is its principal plus the interest added to it, minus the payments linked to it, corrected by its balance adjustments.
   _planned · enforced by test · F-DEBT_
-  - Related: Q-007
-  - Source: domain: Debt
-- **R-DEBT-004** The app shows the evolution of a debt.
+  - Related: Q-007, D-113
+  - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-004** The app shows a debt's history: its payments, the interest added each period and its balance adjustments.
   _planned · enforced by test · F-DEBT_
-  - Source: domain: Debt
-- **R-DEBT-005** The app shows the expected end date of a debt.
+  - Related: D-113
+  - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-005** The app shows a debt's expected end date, projected from its remaining amount, its interest rate and its planned monthly payment.
   _planned · enforced by test · F-DEBT_
-  - Related: Q-007
-  - Source: domain: Debt
+  - Related: Q-007, D-113
+  - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-070** A debt is tied to one category.
+  _planned · enforced by test · F-DEBT_
+  - Related: D-112
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-071** A debt payment is a normal transaction in the debt's category, linked to the debt.
+  _planned · enforced by test · F-DEBT_
+  - Related: D-112, R-TRANSACTION-003
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-072** Only money the household owes is tracked as a debt; money owed to the household is not.
+  _planned · enforced by review · F-DEBT_
+  - Related: D-112
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-073** When a debt has an interest rate, once per period one twelfth of the yearly rate is applied to its remaining amount and added to it.
+  _planned · enforced by test · F-DEBT_
+  - Related: D-113, Q-055
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-074** When the planned monthly payment does not cover the interest added each period, the app says the debt never ends instead of showing an end date.
+  _planned · enforced by test · F-DEBT_
+  - Related: D-113, Q-055
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-DEBT-075** A member can add a manual "adjust balance" entry to a debt, which changes its remaining amount to match the bank statement.
+  _planned · enforced by test · F-DEBT_
+  - Related: D-113
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ### Browsing and comparing periods
 
-- **R-COMPARE-001** Users can browse past periods.
+- **R-COMPARE-001** Users can browse past periods and see the progress view of each.
+  _planned · enforced by test · F-PROGRESS_
+  - Why: Built with step 3 (D-104); the id keeps its original area.
+  - Related: Q-010, D-104
+  - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-COMPARE-002** A chart shows the income total, the total spent and the result of each of the last 12 periods.
   _planned · enforced by test · F-COMPARE_
-  - Related: Q-010
-  - Source: domain: Period
-- **R-COMPARE-002** Users can compare periods, for example in a yearly chart.
+  - Related: D-114
+  - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-COMPARE-070** A chart shows the spending per category across periods.
   _planned · enforced by test · F-COMPARE_
-  - Source: domain: Period
+  - Related: D-114
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-COMPARE-071** The user can show two periods side by side.
+  _planned · enforced by test · F-COMPARE_
+  - Related: D-114
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ### Import
 
@@ -971,7 +1136,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-003** The import function skips duplicates.
   _planned · enforced by test · F-IMPORT_
-  - Related: Q-009
+  - Related: Q-009, D-115
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-004** The import function marks imported transactions "to review".
   _planned · enforced by test · F-IMPORT_
@@ -979,24 +1144,81 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-IMPORT-005** The import is reachable from a paste/CSV screen in the app.
   _planned · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
-- **R-IMPORT-006** The import is reachable from a script in this repository that a Claude Code session can run.
+- **R-IMPORT-006** The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.
   _planned · enforced by test · F-IMPORT_
-  - Related: Q-013
-  - Source: domain: Import (including by a Claude session)
-- **R-IMPORT-007** Merchant-to-category rules are saved so categorisation improves over time.
+  - Related: Q-013, D-116
+  - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-007** When a member categorises an imported transaction, the app offers, in one click, to always put that merchant in that category.
   _planned · enforced by test · F-IMPORT_
-  - Related: Q-014
-  - Source: domain: Import (including by a Claude session)
+  - Related: Q-014, D-117, Q-057
+  - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-070** An imported row is a duplicate when it has the same date, amount and description as an existing transaction of the budget.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-115, Q-056
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-071** When the file gives a bank transaction id, an imported row is also a duplicate when an existing transaction of the budget has the same bank transaction id.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-115, Q-056
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-072** The import summary lists the rows skipped as duplicates.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-115
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-073** The user can import a row skipped as a duplicate anyway.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-115, Q-056
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-074** A member creates import tokens in Settings.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-116
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-075** An import token is tied to one budget and imports only into it.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-116
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-076** An import token can only add transactions through the import function; it cannot read anything.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-116, R-SECURITY-005
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-077** An import token can be revoked, after which it is refused.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-116
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-078** Merchant-to-category rules can be edited in Settings.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-117
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-079** An imported transaction whose merchant has a merchant-to-category rule is put in that rule's category.
+  _planned · enforced by test · F-IMPORT_
+  - Why: What "categorisation improves over time" means once rules exist.
+  - Related: D-117, Q-057
+  - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-080** An imported transaction counts in totals as soon as it is imported, before it is reviewed.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-118
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-081** An imported transaction stays "to review" until a member confirms it.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-118, R-IMPORT-004
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-082** The generic CSV import lets the user map the file's columns to the transaction fields.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-119
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-083** The import offers presets for the exports of Migros Bank, Raiffeisen, One, Yuh and Twint.
+  _planned · enforced by test · F-IMPORT_
+  - Related: D-119, Q-058
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ### Accounts and planned transfers (money flow)
 
 - **R-ACCOUNT-001** The user defines accounts (salary account, savings, third pillar, tax reserve, possibly at different banks).
   _planned · enforced by test · F-MONEYFLOW_
   - Source: domain: Account and planned transfer (money flow)
-- **R-ACCOUNT-002** The user defines planned transfers between accounts, such as "payday + 2 days: 1000 CHF from A to Savings".
+- **R-ACCOUNT-002** The user defines planned transfers between accounts, such as "payday + 2 days: 1000 CHF from A to Savings" or "on the 1st: 200 CHF from A to the tax reserve".
   _planned · enforced by test · F-MONEYFLOW_
-  - Related: Q-008, Q-015
-  - Source: domain: Account and planned transfer (money flow)
+  - Related: Q-008, Q-015, D-120, D-121
+  - Source: domain: Account and planned transfer (money flow); owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-ACCOUNT-003** Each planned transfer is flagged automatic or manual.
   _planned · enforced by test · F-MONEYFLOW_
   - Source: domain: Account and planned transfer (money flow)
@@ -1013,6 +1235,39 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _planned · enforced by review · F-MONEYFLOW_
   - Related: D-040
   - Source: domain: Account and planned transfer (money flow)
+- **R-ACCOUNT-070** A planned transfer is scheduled either as an offset in days from the actual pay date of a chosen income, or on a fixed day of the month.
+  _planned · enforced by test · F-MONEYFLOW_
+  - Related: D-120, Q-059
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-ACCOUNT-071** A planned transfer scheduled from a pay date refers to the primary income unless the user chooses another income.
+  _planned · enforced by test · F-MONEYFLOW_
+  - Related: D-120, Q-059
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-ACCOUNT-072** A planned transfer can be linked to a category.
+  _planned · enforced by test · F-MONEYFLOW_
+  - Why: Examples: savings, third pillar, taxes.
+  - Related: D-122
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-ACCOUNT-073** Marking a manual transfer linked to a category as done creates its transaction in that category.
+  _planned · enforced by test · F-MONEYFLOW_
+  - Related: D-122, Q-060
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-ACCOUNT-074** An automatic transfer linked to a category creates its transaction in that category.
+  _planned · enforced by test · F-MONEYFLOW_
+  - Related: D-122, Q-060
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-ACCOUNT-075** Account balances are not tracked: the money flow diagram shows flows only.
+  _planned · enforced by review · F-MONEYFLOW_
+  - Related: D-123
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### Concurrent edits
+
+- **R-CONCURRENCY-070** When two members edit the same record at the same time, the second save is refused with a message that someone else changed it and it must be reloaded.
+  _planned · enforced by test · F-CATEGORY_
+  - Why: Applies to every editable record. Built with step 3, for the editable records of step 2 (starting with incomes) as well as for those of step 3; every later feature follows it (D-124).
+  - Related: D-124, Q-018, D-045
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ## Conventions
 
@@ -2023,65 +2278,427 @@ Related: R-PROFILE-003, R-PROFILE-004
 
 Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
+### D-100 A yearly amount shows as one twelfth, rounded to the rappen (accepted)
+
+A yearly amount is stored as yearly. The monthly figure shown is one twelfth of it, rounded to the nearest rappen. The twelve monthly shares are not required to add up exactly to the yearly amount. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-002. A simple, predictable monthly figure matters more than a few rappen of difference over a year.
+
+**Rejected:**
+
+- Spreading the remainder over some months so that twelve shares add up exactly to the yearly amount.
+
+Related: Q-002, R-CATEGORY-004, R-CATEGORY-005, R-CATEGORY-070, Q-050
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-101 Left to assign is per period (accepted)
+
+The amount left to assign for a period is that period's income total minus the sum of the category expectations in force in that period. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-003. Incomes and expectations are both versioned per period, so the two sides of the subtraction must come from the same period.
+
+**Rejected:**
+
+- The monthly total of the incomes in force now.
+
+Related: Q-003, R-CATEGORY-006, R-PERIOD-018
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-102 Transactions are positive expenses, with a refund option, on the lowest level (accepted)
+
+A transaction is an expense entered as a positive amount. A "refund" option records money coming back; a refund reduces what was spent in its category. When a category has subcategories, a transaction goes on a subcategory, never on the parent category. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-004. Users enter what they paid as they see it on the receipt; tracking happens where the expectations are set (R-CATEGORY-002).
+
+**Rejected:**
+
+- Signed amounts, with a negative amount for money coming back.
+- Transactions directly on a category that has subcategories.
+
+Related: Q-004, R-TRANSACTION-001, R-TRANSACTION-070, R-TRANSACTION-071, R-TRANSACTION-072, Q-051, Q-052
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-103 A period's result is income minus spending (accepted)
+
+A period's result is its income total minus the total spent in it: a surplus when positive, a deficit when negative. Per category, the result is the expected amount minus what was spent. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-012. It tells the household whether it lived within its income, whatever was assigned.
+
+**Rejected:**
+
+- Measuring the period's result against the sum of its expectations.
+
+Related: Q-012, R-PROGRESS-002, R-PROGRESS-070
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-104 Browsing past periods is part of step 3 (accepted)
+
+Browsing a past period and seeing its progress view belongs to step 3 (period progress view). The comparison charts stay in step 5. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-010. A past period's progress view is the same view as the current one; only the charts are new work.
+
+**Rejected:**
+
+- Browsing past periods only with the comparison charts of step 5.
+
+Related: Q-010, R-COMPARE-001
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-105 What stays editable in a past period (accepted)
+
+In a past period, transactions can be added, edited and deleted freely. Its boundaries are changed through the period actions. Incomes and category expectations are changed only through the explicit "correct an earlier period" option. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-011. Late receipts and corrections of what was spent are normal; changing the plan of a past period must be deliberate.
+
+**Rejected:**
+
+- Only transactions are editable in a past period.
+- Everything in a past period is editable freely.
+
+Related: Q-011, R-TRANSACTION-008, R-PERIOD-012, D-065, D-082, R-VERSION-070
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-106 Overspending and over-assigning are never blocked (accepted)
+
+Overspending a category and assigning more than the income are never blocked. An overspent category is shown as overspent; assigning more than the income shows a negative amount left to assign. Decided by the product owner on 2026-11-16.
+
+**Why:** The app records what happens and shows it; it does not stop the household from recording reality or planning.
+
+**Rejected:**
+
+- Refusing a transaction or an expectation that goes over the limit.
+
+Related: R-TRANSACTION-073, R-PROGRESS-071, R-CATEGORY-071
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-107 Categories end like incomes; expectations are versioned like incomes (accepted)
+
+Deleting a category that has transactions or has counted in a past period ends it from the current period and keeps it in past periods, like incomes (D-030); one that has neither is deleted. Category expectations are versioned like incomes: an edit applies from the current period, with the same optional "correct an earlier period" (D-065). Decided by the product owner on 2026-11-16.
+
+**Why:** Past periods must keep showing what was planned and spent in them.
+
+**Rejected:**
+
+- Deleting a category together with its transactions and its history.
+
+Related: R-CATEGORY-072, R-CATEGORY-073, R-VERSION-002, R-VERSION-070, D-030, D-065, Q-053
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-108 Subscription cadences and charge dates (accepted)
+
+Subscription cadences are monthly, quarterly, half-yearly and yearly. A subscription has a first charge date and then repeats on the same day of the month, clamped to the month's length. No weekend rule applies to subscriptions. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-006. Providers charge on a calendar day, weekends included.
+
+**Rejected:**
+
+- Applying the incomes' weekend rule to subscription charges.
+
+Related: Q-006, R-SUBSCRIPTION-001, R-SUBSCRIPTION-070, R-SUBSCRIPTION-071, R-SUBSCRIPTION-072
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-109 Subscription charges are recorded automatically and confirmed on the dashboard (accepted)
+
+On its charge date, a subscription's transaction is created automatically, marked as coming from the subscription, and can be edited or deleted. The dashboard shows a notification for each such automatic charge asking the user to confirm that it really went through; until confirmed it is marked as awaiting confirmation. The user can instead say it did not go through, which removes it. Assumption (not asked of the product owner): a charge awaiting confirmation counts in totals immediately, like imported transactions (D-118). Decided by the product owner on 2026-11-16.
+
+**Why:** Recurring charges should not have to be typed in, but a failed or cancelled charge must not stay in the budget unnoticed.
+
+**Rejected:**
+
+- Entering subscription charges by hand.
+
+Related: R-SUBSCRIPTION-073, R-SUBSCRIPTION-074, R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, R-SUBSCRIPTION-077, R-SUBSCRIPTION-078, D-118, Q-054
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-110 A subscription is committed inside its category (accepted)
+
+A subscription's monthly cost is shown as "committed" inside its category's expectation, not added on top of it. Decided by the product owner on 2026-11-16.
+
+**Why:** The category's expectation stays the whole plan for that kind of spending; the subscription shows how much of it is already spoken for.
+
+**Rejected:**
+
+- Adding subscriptions on top of the category expectations.
+
+Related: R-SUBSCRIPTION-079, Q-050
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-111 A transaction links to at most one of a debt or a subscription (accepted)
+
+A transaction links to at most one of a debt or a subscription. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-005.
+
+**Rejected:**
+
+- Linking a transaction to both a debt and a subscription.
+
+Related: Q-005, R-TRANSACTION-003
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-112 Debts belong to a category; payments are transactions (accepted)
+
+A debt is tied to a category. A payment is a normal transaction in that category, linked to the debt. Only debts the household owes are tracked, not money owed to it. Decided by the product owner on 2026-11-16.
+
+**Why:** Debt payments are spending like any other and must count in the budget without being entered twice.
+
+**Rejected:**
+
+- Tracking money owed to the household as well.
+
+Related: R-DEBT-070, R-DEBT-071, R-DEBT-072
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-113 Remaining amount, interest and expected end of a debt (accepted)
+
+A debt's remaining amount is the principal plus accrued interest minus the payments linked to it. When the debt has an interest rate, once per period one twelfth of the yearly rate is applied to the remaining balance and added to it, and shown in the debt's history. The expected end date is projected from the planned monthly payment; when the payment does not cover the interest, the app says the debt never ends. A manual "adjust balance" entry lets the user match their bank statement. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-007. A simple model the user can check against the bank, with an escape hatch when the bank computes differently.
+
+**Rejected:**
+
+- Remaining amount as the principal minus the payments, ignoring interest.
+
+Related: Q-007, R-DEBT-003, R-DEBT-004, R-DEBT-005, R-DEBT-073, R-DEBT-074, R-DEBT-075, Q-055
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-114 The comparison charts (accepted)
+
+Step 5 has these charts: income, spent and result per period over the last 12 periods; spending per category across periods; and two periods side by side. The product owner leaves latitude to include anything else that brings value to the user, and sets a quality bar: keep it beautiful. Decided by the product owner on 2026-11-16.
+
+**Why:** These answer the household's questions: how are we doing over the year, where does the money go, what changed.
+
+**Rejected:** none recorded.
+
+Related: R-COMPARE-002, R-COMPARE-070, R-COMPARE-071
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-115 What an import duplicate is (accepted)
+
+An imported row is a duplicate when it has the same date, amount and description as an existing transaction, or the same bank transaction id when the file has one. Duplicates are skipped and listed in the import summary, with an "import anyway" option. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-009. Re-importing an overlapping export must not double the spending, but two genuine identical purchases must still be possible.
+
+**Rejected:**
+
+- Silently dropping duplicates with no way to import them.
+
+Related: Q-009, R-IMPORT-003, R-IMPORT-070, R-IMPORT-071, R-IMPORT-072, R-IMPORT-073, Q-056
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-116 The import script authenticates with an import token (accepted)
+
+The script a Claude session runs authenticates with an import token the user creates in Settings. A token is tied to one budget, can only add transactions through the import function (it cannot read anything), and can be revoked. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-013. Claude never gets raw database access to real data (R-SECURITY-005), nor the member's own credentials.
+
+**Rejected:**
+
+- The script signs in as the member.
+
+Related: Q-013, R-IMPORT-006, R-IMPORT-074, R-IMPORT-075, R-IMPORT-076, R-IMPORT-077, R-SECURITY-005
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-117 Merchant rules are offered in one click (accepted)
+
+When the user categorises an imported transaction, the app offers "always put this merchant in this category?" with one click. The rules are editable in Settings. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-014. The user stays in control of the rules, at the cost of one click.
+
+**Rejected:**
+
+- Saving a rule automatically whenever an imported transaction is categorised.
+
+Related: Q-014, R-IMPORT-007, R-IMPORT-078, R-IMPORT-079, Q-057
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-118 Imported transactions count at once and wait for review (accepted)
+
+Imported transactions count in totals immediately and are flagged "to review" until the user confirms them. Decided by the product owner on 2026-11-16.
+
+**Why:** Totals stay close to reality right after an import, and the flag still shows what has not been checked.
+
+**Rejected:**
+
+- Leaving imported transactions out of the totals until they are reviewed.
+
+Related: R-IMPORT-004, R-IMPORT-080, R-IMPORT-081
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-119 Generic CSV import plus presets for the household's sources (accepted)
+
+The import offers a generic CSV import with column mapping, plus presets for the product owner's sources: Migros Bank, Raiffeisen, One, Yuh and Twint. Which product "One" is and what each source exports are open (Q-058). Decided by the product owner on 2026-11-16.
+
+**Why:** Any bank's export can be imported, and the household's own sources need no mapping.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-082, R-IMPORT-083, Q-058
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-120 How a planned transfer is scheduled (accepted)
+
+A planned transfer is scheduled either as an offset in days from a chosen income's actual pay date (the primary income by default), or on a fixed day of the month. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-008. Members are paid on different days, and some transfers follow the calendar rather than a salary.
+
+**Rejected:**
+
+- Always counting from the primary income's pay date (the period start).
+
+Related: Q-008, R-ACCOUNT-002, R-ACCOUNT-070, R-ACCOUNT-071, Q-059
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-121 Planned transfers are versioned like incomes (accepted)
+
+Planned transfers are versioned like incomes: an edit applies from the current period. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-015. Past periods' checklists and flows keep showing the plan that was in force.
+
+**Rejected:**
+
+- Edits to a planned transfer rewrite every period.
+
+Related: Q-015, R-VERSION-071, R-ACCOUNT-002
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-122 A planned transfer can create its transaction in a category (accepted)
+
+A planned transfer can be linked to a category (for example savings, third pillar, taxes). When it is marked done, or when it is automatic, the transaction is created in that category, so it is not entered twice. Decided by the product owner on 2026-11-16.
+
+**Why:** Transfers to savings, the third pillar or the tax reserve are part of the budget; recording them once avoids double entry.
+
+**Rejected:**
+
+- Entering the transfer's transaction by hand as well.
+
+Related: R-ACCOUNT-072, R-ACCOUNT-073, R-ACCOUNT-074, Q-060
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-123 No account balances (accepted)
+
+Account balances are not tracked; the money flow diagram shows flows only. Decided by the product owner on 2026-11-16.
+
+**Why:** The app has no bank connection (D-040); balances kept by hand would drift from the bank's.
+
+**Rejected:**
+
+- Tracking a balance per account.
+
+Related: R-ACCOUNT-075, D-040
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-124 Concurrent edits: the second save is refused (accepted)
+
+When two members edit the same thing at the same time, the second save is refused with a message that it was changed by someone else and must be reloaded. This applies to every editable record, starting with incomes. It is implemented with step 3, for the existing step 2 records as well. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-018. Every member can edit everything (D-045); silently losing another member's change is worse than asking to reload.
+
+**Rejected:**
+
+- The last write wins without a warning (the step 2 behaviour).
+
+Related: Q-018, R-CONCURRENCY-070, D-045
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
+### D-125 Account deletion comes after step 7 (accepted)
+
+There is no account deletion until after step 7. When it is built, an owner must first transfer ownership of their budgets or delete them, and a member deleting their account counts as leaving the budget. Until then, R-BUDGET-016 records the database behaviour only; no client path deletes accounts. Decided by the product owner on 2026-11-16.
+
+**Why:** Answer to Q-030. Deleting the owner's account must not delete a budget other members rely on, and a deleted member's incomes must follow the leaving rules (R-MEMBER-007, R-MEMBER-009).
+
+**Rejected:**
+
+- Deleting the owner's account deletes their budgets for every member.
+
+Related: Q-030, R-BUDGET-016, R-MEMBER-007, R-MEMBER-009
+
+Source: owner-request: product owner decisions on the open questions, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
   - Context: The source says "Each member adds their own incomes (person A adds income A, person B adds income B)" and also "every member can read and edit everything in the budget". The step 2 code lets any member add an income for another member (add_income p_user_id) and change any income's terms.
   - Related: R-INCOME-002, R-MEMBER-001
   - Source: domain: Income; domain: Budget; docs/database.md: RPCs
-- **Q-002** How is one twelfth of a yearly amount rounded to whole rappen, and must twelve monthly shares add up to the yearly amount exactly?
+- **Q-002** (resolved by D-100) How is one twelfth of a yearly amount rounded to whole rappen, and must twelve monthly shares add up to the yearly amount exactly?
   - Context: Yearly amounts are stored as yearly and shown as one twelfth per month; amounts are integer rappen, so most yearly amounts do not divide by twelve.
   - Related: R-CATEGORY-005, R-MONEY-002
   - Source: domain: Category and subcategory; domain: Money
-- **Q-003** Which "budget total" does the amount left to assign use: the monthly total of the incomes in force now, or the income total of a given period?
+- **Q-003** (resolved by D-101) Which "budget total" does the amount left to assign use: the monthly total of the incomes in force now, or the income total of a given period?
   - Context: The source defines the amount left to assign as "budget total minus the sum of expectations" and the budget as starting "from the monthly total of its incomes"; incomes are versioned per period.
   - Related: R-CATEGORY-006, R-PERIOD-018
   - Source: domain: Category and subcategory; domain: Period
-- **Q-004** What does the sign of a transaction amount mean (spending, refund, extra income), and may a transaction be put on a category that has subcategories?
+- **Q-004** (resolved by D-102) What does the sign of a transaction amount mean (spending, refund, extra income), and may a transaction be put on a category that has subcategories?
   - Context: A transaction "has an amount, a date, and a category or subcategory"; nothing says how refunds or money coming in are recorded, nor whether a parent category with subcategories can hold transactions directly.
   - Related: R-TRANSACTION-001
   - Source: domain: Transaction
-- **Q-005** Can a transaction be linked to both a debt and a subscription, or to at most one of them?
+- **Q-005** (resolved by D-111) Can a transaction be linked to both a debt and a subscription, or to at most one of them?
   - Context: The source says "optional link to a debt or a subscription".
   - Related: R-TRANSACTION-003
   - Source: domain: Transaction
-- **Q-006** Which cadences does a subscription support, what is its "pay date" (a date or a day of the month), and does the weekend rule apply to it?
+- **Q-006** (resolved by D-108) Which cadences does a subscription support, what is its "pay date" (a date or a day of the month), and does the weekend rule apply to it?
   - Context: A subscription "has a price, a pay date, a cadence, and a category"; nothing more is said.
   - Related: R-SUBSCRIPTION-001, R-SUBSCRIPTION-002
   - Source: domain: Subscription
-- **Q-007** How does the interest rate affect a debt's remaining amount and expected end date, and is the remaining amount the principal minus the transactions assigned to it?
+- **Q-007** (resolved by D-113) How does the interest rate affect a debt's remaining amount and expected end date, and is the remaining amount the principal minus the transactions assigned to it?
   - Context: A debt has "a principal, an optional interest rate, and a planned monthly payment"; "a transaction assigned to a debt reduces the remaining amount".
   - Related: R-DEBT-003, R-DEBT-005
   - Source: domain: Debt
-- **Q-008** Which payday does a planned transfer refer to ("payday + 2 days"): the actual pay date of the primary income (period start), or of a chosen income?
+- **Q-008** (resolved by D-120) Which payday does a planned transfer refer to ("payday + 2 days"): the actual pay date of the primary income (period start), or of a chosen income?
   - Context: Example from the source: "payday + 2 days: 1000 CHF from A to Savings". A budget can have several incomes with different pay days.
   - Related: R-ACCOUNT-002
   - Source: domain: Account and planned transfer (money flow)
-- **Q-009** What makes an imported row a duplicate (same date, amount and description; an import id; something else)?
+- **Q-009** (resolved by D-115) What makes an imported row a duplicate (same date, amount and description; an import id; something else)?
   - Context: The import function "skips duplicates"; nothing defines a duplicate.
   - Related: R-IMPORT-003
   - Source: domain: Import (including by a Claude session)
-- **Q-010** Is browsing past periods part of step 3 (period progress view) or step 5 (period comparison charts)?
+- **Q-010** (resolved by D-104) Is browsing past periods part of step 3 (period progress view) or step 5 (period comparison charts)?
   - Context: The source lists "Users can browse past periods and compare them (for example a yearly chart)" in one sentence; the build order names a "period progress view" in step 3 and "period comparison charts" in step 5. This spec puts both under step 5 for now.
   - Related: R-COMPARE-001
   - Source: domain: Period; domain: Build order
-- **Q-011** What exactly stays editable in a past period: its transactions only, or also its boundaries and other data?
+- **Q-011** (resolved by D-105) What exactly stays editable in a past period: its transactions only, or also its boundaries and other data?
   - Context: "Past periods stay editable" comes right after back-dated transactions, while versioning says edits to incomes, expectations, subscriptions and debts never rewrite the past. The step 2 code already lets members move the boundaries of past periods.
   - Related: R-TRANSACTION-008, R-PERIOD-012
   - Source: domain: Period; domain: Versioning: edits never rewrite the past
-- **Q-012** What is a period's surplus or deficit measured against: its income total, or the sum of its expectations?
+- **Q-012** (resolved by D-103) What is a period's surplus or deficit measured against: its income total, or the sum of its expectations?
   - Context: "At the end of a period, category balances reset. The period's surplus or deficit is shown as its result."
   - Related: R-PROGRESS-001, R-PROGRESS-002
   - Source: domain: Period
-- **Q-013** How does the import script a Claude session runs authenticate, given that Claude does not get raw database access to real data?
+- **Q-013** (resolved by D-116) How does the import script a Claude session runs authenticate, given that Claude does not get raw database access to real data?
   - Context: The import is reachable "from a script in this repo that a Claude Code session can run", and "Claude does not get raw database access to real data". The likely reading is that it calls the import function as a signed-in member, but the source does not say.
   - Related: R-IMPORT-006, R-SECURITY-005
   - Source: domain: Import (including by a Claude session)
-- **Q-014** How are merchant-to-category rules created: automatically when a user categorises an imported transaction, or explicitly by the user?
+- **Q-014** (resolved by D-117) How are merchant-to-category rules created: automatically when a user categorises an imported transaction, or explicitly by the user?
   - Context: "Merchant-to-category rules are saved so categorisation improves over time."
   - Related: R-IMPORT-007
   - Source: domain: Import (including by a Claude session)
-- **Q-015** Are planned transfers versioned like incomes (edits effective from the current period)?
+- **Q-015** (resolved by D-121) Are planned transfers versioned like incomes (edits effective from the current period)?
   - Context: The versioning rule lists incomes, category expectations, subscriptions and debts; it does not mention accounts or planned transfers, which also appear on a per-period checklist.
   - Related: R-ACCOUNT-002, R-ACCOUNT-005
   - Source: domain: Versioning: edits never rewrite the past; domain: Account and planned transfer (money flow)
@@ -2093,14 +2710,58 @@ Source: owner-request: coordinator decision on the second step 2 database review
   - Context: The first-run form asks for an optional end date; create_budget has no such argument, so the client calls set_budget_end_date afterwards. If that second call fails, the budget exists without its end date and the user is told so.
   - Related: R-BUDGET-010, R-BUDGET-005
   - Source: code: src/features/budgets/budget-mutations.ts; docs/database.md: RPCs
-- **Q-030** What should happen to a budget and its incomes when a member's or the owner's account is deleted?
+- **Q-030** (resolved by D-125) What should happen to a budget and its incomes when a member's or the owner's account is deleted?
   - Context: No client path deletes accounts yet. Today, deleting the owner's account deletes their budgets for every member (R-BUDGET-016), and deleting a member's account keeps their incomes with a null owner without the member rules: an income that is primary stays active and primary (review finding 8). Settle before any account-deletion feature.
   - Related: R-BUDGET-016, R-MEMBER-007, R-MEMBER-009
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15
-- **Q-018** When two members edit the same income at the same time, should the second save be refused (for example with a version check) instead of silently overwriting the first?
+- **Q-018** (resolved by D-124) When two members edit the same income at the same time, should the second save be refused (for example with a version check) instead of silently overwriting the first?
   - Context: Today the last write wins without a warning: update_income_terms and the rename both replace what is there. Every member can edit every income (D-045), so two members of a household can edit the same salary from two browsers.
   - Related: D-045, R-VERSION-006
   - Source: owner-request: step 2 frontend review, finding 11
+- **Q-050** How is a half rappen rounded when one twelfth (or another monthly share) falls exactly between two rappen, and do the totals (left to assign, results, committed amounts) add up the rounded monthly shares or round the exact sum?
+  - Context: D-100 says one twelfth rounded to the nearest rappen. A yearly amount that is 6 rappen more than a multiple of 12 gives exactly half a rappen (CHF 1.50 a year gives 12.5 rappen), and the tie rule is not given. D-110 also needs a monthly cost for quarterly, half-yearly and yearly subscriptions; the answers do not say it uses the same rounding.
+  - Related: D-100, D-110, R-CATEGORY-005, R-SUBSCRIPTION-079
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-051** What happens to the transactions already on a category when the user adds its first subcategory?
+  - Context: D-102: when a category has subcategories, a transaction goes on a subcategory, never on the parent. A category without subcategories holds transactions directly, so adding a subcategory later would leave them on the parent (they could be moved, refused, or kept for past periods only).
+  - Related: D-102, R-TRANSACTION-072, R-CATEGORY-002
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-052** How is money coming in that is neither a salary nor a refund (a gift, a resale, a reimbursement from a third party) recorded?
+  - Context: Q-004 asked about extra income; D-102 answers spending and refunds only. Incomes are monthly, and one-off incomes are deferred (D-038).
+  - Related: D-102, D-038, R-TRANSACTION-070
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-053** Can a transaction be added to, or moved into, a category that has ended, when its date falls in a period where the category was still in force?
+  - Context: D-105 lets transactions in past periods be added and edited freely; D-107 ends a deleted category from the current period while past periods keep it.
+  - Related: D-105, D-107, R-TRANSACTION-008, R-CATEGORY-072
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-054** When are automatic subscription charges created, given that there is no server: are charge dates missed while nobody opened the app created later, back-dated, and is a charge whose transaction was deleted or answered "did not go through" ever created again?
+  - Context: D-109: the transaction is created on the charge date, can be deleted, and is removed when the user says it did not go through. The app is a static SPA on Supabase (D-003), so creation can only happen when the database is next called. Also open: whether editing the subscription (a new version) changes charges already created.
+  - Related: D-109, D-003, R-SUBSCRIPTION-073, R-SUBSCRIPTION-077
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-055** When in a period is a debt's interest applied (at its start or end, before or after that period's payments), how is it rounded to the rappen, and does a payment exactly equal to the interest count as "never ends"?
+  - Context: D-113: once per period, one twelfth of the yearly rate is applied to the remaining balance and added to it; when the planned payment does not cover the interest the app says the debt never ends. Periods run salary to salary, not by calendar month (D-080), and the expected end date needs a date for each future interest step.
+  - Related: D-113, R-DEBT-073, R-DEBT-074
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-056** Are identical rows within the same file duplicates of each other, are refunds and manually entered transactions compared too, and is "import anyway" chosen per row or for all skipped rows?
+  - Context: D-115 compares an imported row with existing transactions. Two identical purchases on one day (two coffees) appear as two identical rows in one export; the answer does not say whether the second is skipped.
+  - Related: D-115, R-IMPORT-070, R-IMPORT-071, R-IMPORT-073
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-057** What identifies a merchant for a merchant-to-category rule: the whole description, a part of it, or a field of the bank export?
+  - Context: D-117 offers "always put this merchant in this category?". Bank descriptions often carry a date, a card number or a location around the merchant name, so an exact match on the description would rarely match again.
+  - Related: D-117, R-IMPORT-007, R-IMPORT-079
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-058** Which product is "One", what export formats do Migros Bank, Raiffeisen, One, Yuh and Twint actually offer, and can the product owner provide sample export files?
+  - Context: D-119 asks for presets for these five sources. "One" may be Viseca's "one" credit-card portal; that is unconfirmed. Twint may offer no export at all. Sample export files are needed before the presets can be built.
+  - Related: D-119, R-IMPORT-083
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-059** For a planned transfer on a fixed day of the month, is the day clamped to the month's length and does a weekend rule apply; may a pay-date offset be negative; and what happens to a transfer whose chosen income ends?
+  - Context: D-120 allows an offset in days from a chosen income's actual pay date, or a fixed day of the month. Subscriptions clamp and use no weekend rule (D-108), but nothing says the same for transfers. An income ends when it is removed or its member leaves (R-MEMBER-007).
+  - Related: D-120, R-ACCOUNT-070, R-ACCOUNT-071, R-MEMBER-007
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-060** On which date is the transaction of an automatic transfer linked to a category created, does it wait for confirmation like a subscription charge, and does unmarking a manual transfer as done remove its transaction?
+  - Context: D-122: when a transfer linked to a category is marked done, or when it is automatic, its transaction is created in that category. Automatic transfers are assumed done (R-ACCOUNT-004); subscription charges, also automatic, wait for confirmation (D-109).
+  - Related: D-122, D-109, R-ACCOUNT-073, R-ACCOUNT-074, R-ACCOUNT-004
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
 ## Glossary
 
@@ -2125,16 +2786,16 @@ Source: owner-request: coordinator decision on the second step 2 database review
 - **Category** (French UI: _Catégories_): The first level of the budget split, for example insurance. Holds the monthly expectation when it has no subcategories.
 - **Subcategory** (French UI: _sous-catégories_): The optional second (and last) level under a category, for example insurance/car.
 - **Monthly expectation** (French UI: _montants prévus_): The amount planned for a category or subcategory per month, entered per month or per year.
-- **Amount left to assign**: Budget total minus the sum of expectations.
+- **Amount left to assign**: Of a period: its income total minus the sum of the expectations in force in that period. Negative when more is assigned than the income. See D-101, D-106.
 - **Category balance**: What is left of a category within a period. Reset at the end of each period.
-- **Period result**: The surplus or deficit of a period.
+- **Period result**: The surplus or deficit of a period: its income total minus the total spent in it. Per category: the expectation minus what was spent. See D-103.
 - **Transaction** (French UI: _Transactions_): An amount on a date, in a category or subcategory, with an optional description and an optional link to a debt or a subscription.
-- **Subscription** (French UI: _Abonnements_): A recurring charge with a price, a pay date, a cadence and a category.
+- **Subscription** (French UI: _Abonnements_): A recurring charge with a price, a first charge date, a cadence (monthly, quarterly, half-yearly or yearly) and a category. See D-108.
 - **Next charge** (French UI: _prochain prélèvement_): When a subscription will next be charged.
 - **Debt** (French UI: _Dettes_): Money owed, with a principal, an optional interest rate and a planned monthly payment.
 - **Remaining amount**: What is still owed on a debt; transactions assigned to the debt reduce it.
 - **Account** (French UI: _comptes_): A place money is kept (salary account, savings, third pillar, tax reserve), possibly at different banks.
-- **Planned transfer**: A planned movement of money between two accounts relative to payday, such as "payday + 2 days: 1000 CHF from A to Savings". Flagged automatic or manual.
+- **Planned transfer**: A planned movement of money between two accounts, scheduled as an offset in days from an income's actual pay date (such as "payday + 2 days: 1000 CHF from A to Savings") or on a fixed day of the month. Flagged automatic or manual. See D-120.
 - **Automatic transfer**: A planned transfer done by a standing order; assumed done.
 - **Manual transfer**: A planned transfer the user makes by hand; shown as a per-period checklist.
 - **Money flow** (French UI: _Flux financiers_): The plan of transfers between accounts after payday, drawn as a diagram.
