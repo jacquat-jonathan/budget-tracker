@@ -338,6 +338,7 @@ describe('income page', () => {
         first_seq: 1,
         end_seq: null,
         ended_after_last: false,
+        revision: 1,
         created_at: '2026-10-01T10:00:00+00:00',
         updated_at: '2026-10-01T10:00:00+00:00',
       },

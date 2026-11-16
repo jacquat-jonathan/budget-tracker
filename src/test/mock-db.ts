@@ -62,6 +62,11 @@ function emptyTables(): MockTables {
     budget_invitations: [],
     budget_members: [],
     budgets: [],
+    categories: [],
+    category_expectations: [],
+    category_overview: [],
+    transactions: [],
+    transaction_list: [],
     income_versions: [],
     incomes: [],
     periods: [],
@@ -151,6 +156,33 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     }),
     set_primary_income: handler(() => null),
     update_income_terms: handler(() => null),
+    rename_budget: handler((args) => {
+      const budget = db.tables.my_budgets.find((row) => row.id === args.p_budget_id)
+      if (!budget) rpcError('budget_not_found')
+      if (args.p_expected_revision !== budget.revision) rpcError('record_changed')
+      budget.name = String(args.p_name)
+      budget.revision += 1
+      return budget.revision
+    }),
+    rename_income: handler((args) => {
+      const income = db.tables.income_overview.find((row) => row.id === args.p_income_id)
+      if (!income) rpcError('income_not_found')
+      if (args.p_expected_revision !== income.revision) rpcError('record_changed')
+      income.name = String(args.p_name)
+      income.revision += 1
+      return income.revision
+    }),
+    // Step 3: tests that use these give them their behaviour.
+    create_category: handler(() => []),
+    update_category: handler(() => []),
+    reorder_categories: handler(() => null),
+    end_category: handler(() => 'ended'),
+    list_categories_for_date: handler(() => []),
+    add_transaction: handler(() => []),
+    update_transaction: handler(() => []),
+    delete_transaction: handler(() => null),
+    list_transactions: handler(() => []),
+    get_period_progress: handler(() => []),
   }
 
   return db

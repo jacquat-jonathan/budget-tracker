@@ -222,7 +222,7 @@ export const en = {
       income_is_primary: 'This is the primary income. Make another income primary first.',
       income_ended: 'This income has ended and can no longer be changed.',
       income_not_in_force:
-        'This income only starts in a later period, so it cannot be the primary one yet.',
+        'This income is not in force in the current period (it starts later, or has ended), so it cannot be the primary one.',
       budget_ended: 'This budget has ended: there is no current period to apply this to.',
       budget_limit_reached: 'You already own 20 budgets, the most you can have.',
       member_limit_reached: 'This budget already has 20 members, the most it can have.',
@@ -343,6 +343,9 @@ export const en = {
       incomeTotal: 'Income this period',
       nextPayDay: 'Next pay day',
       nextPayDayOf: '{{name}}',
+      nextPayDayOfManual: '{{name}}, date set by hand',
+      budgetEnds: 'Budget ends',
+      lastPeriodHelp: 'This is the budget’s last period: no new period starts after it.',
     },
     ended: {
       title: 'This budget has ended',
@@ -391,12 +394,20 @@ export const en = {
       manual: 'The current period’s end was set by hand and stays as set: {{end}}.',
       arrivedDue:
         'With this pay day, this month’s salary was due on {{date}}. After saving, you will be asked whether it has already arrived.',
+      arrivedDueMoveStart:
+        'With this pay day, this period’s own salary was due on {{date}}, a few days after the period started. After saving, you will be asked whether to move the period’s start to that day.',
+      lastPeriod: 'The current period, the budget’s last, would end on {{end}}.',
     },
     arrivedPrompt: {
       title: 'Has this salary already arrived?',
       description:
         'With the new pay day, this month’s salary was due on {{date}}. If it has arrived, record it: otherwise the current period runs on until next month’s salary.',
       notYet: 'Not yet',
+      keepStart: 'No, keep it',
+      moveStartTitle: 'Did this period’s salary arrive on {{date}}?',
+      moveStartDescription:
+        'With the new pay day, the salary that started this period on {{start}} was due on {{date}}. If it really arrived on {{date}}, move the period’s start to that day: the previous period then ends the day before.',
+      moveStart: 'Move the start',
       record: 'Record the pay date',
     },
     savedNextExpected: 'Income “{{name}}” saved. The next salary is now expected on {{date}}.',

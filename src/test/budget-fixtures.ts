@@ -15,6 +15,7 @@ export function budgetRow(overrides: Partial<Tables<'my_budgets'>> = {}): Tables
     end_date: null,
     end_date_entered: null,
     is_owner: true,
+    revision: 1,
     created_at: '2026-10-01T10:00:00+00:00',
     updated_at: '2026-10-01T10:00:00+00:00',
     ...overrides,
@@ -34,6 +35,12 @@ export function periodRow(
     end_is_manual: false,
     is_current: true,
     income_total: 650_000,
+    salary_total: 650_000,
+    extra_income_total: 0,
+    expected_total: 0,
+    spent_total: 0,
+    left_to_assign: 650_000,
+    result: 650_000,
     ...overrides,
   }
 }
@@ -56,6 +63,7 @@ export function incomeRow(
     weekend_rule: 'nearest',
     terms_from_seq: 1,
     next_pay_date: '2026-11-25',
+    revision: 1,
     created_at: '2026-10-01T10:00:00+00:00',
     updated_at: '2026-10-01T10:00:00+00:00',
     ...overrides,

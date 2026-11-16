@@ -363,6 +363,9 @@ export const fr: Translation = {
       incomeTotal: 'Revenus de la période',
       nextPayDay: 'Prochain jour de paie',
       nextPayDayOf: '{{name}}',
+      nextPayDayOfManual: '{{name}}, date fixée à la main',
+      budgetEnds: 'Fin du budget',
+      lastPeriodHelp: 'C’est la dernière période du budget : aucune nouvelle période ne commence ensuite.',
     },
     ended: {
       title: 'Ce budget est terminé',
@@ -414,12 +417,20 @@ export const fr: Translation = {
         'La fin de la période en cours a été fixée à la main et reste telle quelle : {{end}}.',
       arrivedDue:
         'Avec ce jour de paie, le salaire de ce mois était dû le {{date}}. Après l’enregistrement, on vous demandera s’il est déjà arrivé.',
+      arrivedDueMoveStart:
+        'Avec ce jour de paie, le salaire de cette période était dû le {{date}}, quelques jours après son début. Après l’enregistrement, on vous demandera s’il faut déplacer le début de la période à ce jour.',
+      lastPeriod: 'La période en cours, la dernière du budget, se terminerait le {{end}}.',
     },
     arrivedPrompt: {
       title: 'Ce salaire est-il déjà arrivé ?',
       description:
         'Avec le nouveau jour de paie, le salaire de ce mois était dû le {{date}}. S’il est arrivé, enregistrez-le ; sinon, la période en cours continue jusqu’au salaire du mois prochain.',
       notYet: 'Pas encore',
+      keepStart: 'Non, le garder',
+      moveStartTitle: 'Le salaire de cette période est-il arrivé le {{date}} ?',
+      moveStartDescription:
+        'Avec le nouveau jour de paie, le salaire qui a ouvert cette période le {{start}} était dû le {{date}}. S’il est vraiment arrivé le {{date}}, déplacez le début de la période à ce jour : la période précédente se termine alors la veille.',
+      moveStart: 'Déplacer le début',
       record: 'Enregistrer la date de paie',
     },
     savedNextExpected:
