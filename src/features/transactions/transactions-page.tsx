@@ -445,10 +445,16 @@ function TransactionRow({
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate font-medium">{row.description || what}</span>
           {row.kind === 'refund' && (
-            <Badge variant="secondary">{t('transactions.kind.refund')}</Badge>
+            // On a phone the badge would crowd out the name: it joins the line below.
+            <Badge variant="secondary" className="hidden sm:inline-flex">
+              {t('transactions.kind.refund')}
+            </Badge>
           )}
         </div>
         <span className="truncate text-xs text-muted-foreground">
+          {row.kind === 'refund' && (
+            <span className="sm:hidden">{t('transactions.kind.refund')} · </span>
+          )}
           {row.description ? what : null}
           {row.description && row.recorded_by_name ? ' · ' : null}
           {row.recorded_by_name

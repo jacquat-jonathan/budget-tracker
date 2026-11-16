@@ -258,7 +258,7 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
     <div
       role="row"
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 py-3 @2xl/progress:grid-cols-[minmax(0,1fr)_7.5rem_7.5rem_7.5rem] @2xl/progress:gap-x-3',
+        'grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-x-4 gap-y-1.5 py-3 @2xl/progress:grid-cols-[minmax(0,1fr)_7.5rem_7.5rem_7.5rem] @2xl/progress:gap-x-3',
         sub && 'pl-4 @2xl/progress:pl-6',
       )}
       data-testid="progress-row"
