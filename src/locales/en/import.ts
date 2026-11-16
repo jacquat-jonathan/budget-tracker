@@ -137,6 +137,7 @@ export const importEn = {
   },
   recognised: {
     title: 'Statement read',
+    titleCsv: 'File read',
     period: '{{source}}, {{from}} – {{to}}',
     bill: '{{source}} of {{date}}',
     billDue: '{{source}} of {{date}}, due {{due}}',
@@ -459,7 +460,10 @@ export const importEn = {
   undo: {
     action: 'Undo this import',
     title: 'Undo this import?',
-    body: 'The transactions of this import that are still to review and linked to nothing are deleted ({{toReview}} are still to review).',
+    body_one:
+      'The transactions of this import that are still to review and linked to nothing are deleted ({{count}} is still to review).',
+    body_other:
+      'The transactions of this import that are still to review and linked to nothing are deleted ({{count}} are still to review).',
     keeps:
       'Kept: the ones already confirmed, the ones linked to a subscription or a debt, and the subscription charges the import confirmed (they stay confirmed). Choices remembered for flagged rows stay too.',
     once: 'An import can be undone once; it then takes no more rows.',
@@ -541,6 +545,17 @@ export const importEn = {
     noPlan: 'No plan: it only holds imports waiting for a category.',
     noPlanShort: 'No plan',
     cannotEnd: 'Not while it holds transactions: give them a category first.',
+    errors: {
+      expectation: '“To categorise” takes no plan: it only holds imports waiting for a category.',
+      subcategory: '“To categorise” takes no subcategory.',
+      ending:
+        '“To categorise” cannot be removed while it holds transactions: give them a category first.',
+      rule: 'A merchant rule cannot put transactions in “To categorise”: choose a real category.',
+      transaction: 'A transaction you enter cannot go in “To categorise”: choose a category.',
+      subscription: 'A subscription cannot use “To categorise”: choose a category.',
+      debt: 'A debt cannot use “To categorise”: choose a category.',
+      confirm: 'This transaction is still in “To categorise”: give it a category, then confirm it.',
+    },
   },
   tokens: {
     title: 'Import tokens',
@@ -553,8 +568,10 @@ export const importEn = {
     expiresHelp: '1 to {{max}} days; {{default}} by default.',
     createButton: 'Create',
     secretTitle: 'Your new token',
-    secretHelp:
-      'Copy it now: it is shown only this once and cannot be shown again. Put it in the environment of the session that runs the import script, as BUDGET_IMPORT_TOKEN (for a cloud session: the environment’s settings; on a computer: the shell that starts it). Never paste it into a conversation: what is typed there is kept.',
+    secretOnce: 'Copy it now: it is shown only this once and cannot be shown again.',
+    secretWhere:
+      'Put it in the environment of the session that runs the import script, as {{name}}: for a cloud session in the environment’s settings, on a computer in the shell that starts it.',
+    secretNever: 'Never paste it into a conversation: what is typed there is kept.',
     secretLabel: 'Token',
     copy: 'Copy the token',
     copied: 'Copied.',

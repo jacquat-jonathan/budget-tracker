@@ -331,6 +331,17 @@ function ImportFlow({
   const [leaving, setLeaving] = useState(false)
   const { draft, batchId, draftId } = stage
   const run = useImportRun(budgetId)
+  // Each phase of the run (sending, stopped, done) puts the focus on its heading.
+  const phase = run.state.phase
+  useEffect(() => {
+    if (phase === 'idle') return
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>('[data-step-heading]')
+      target?.setAttribute('tabindex', '-1')
+      target?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [phase])
   const sending = run.state.phase === 'sending' || run.state.phase === 'catching-up'
   const started = run.state.phase !== 'idle'
   const preview = useImportPreview(budgetId, batchId, draftId, draft, choices)
@@ -394,7 +405,11 @@ function ImportFlow({
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2 data-step-heading>{t('import.recognised.title')}</h2>
+            <h2 data-step-heading>
+              {draft.kind === 'csv'
+                ? t('import.recognised.titleCsv')
+                : t('import.recognised.title')}
+            </h2>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">

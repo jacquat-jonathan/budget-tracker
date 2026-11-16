@@ -53,6 +53,7 @@ export function ConfirmImportButton({
 }) {
   const { t } = useTranslation()
   const confirm = useAppMutation<null>({
+    errorMessages: { category_to_categorise: 'import.toCategorise.errors.confirm' },
     mutationFn: async () => {
       unwrap(
         await supabase.rpc('confirm_import', {
@@ -302,6 +303,7 @@ export function RuleOffer({
       row.merchant_key.includes(key),
   ).length
   const create = useAppMutation<{ moved: number } | null>({
+    errorMessages: { category_to_categorise: 'import.toCategorise.errors.rule' },
     mutationFn: async () =>
       unwrap(
         await supabase.rpc('create_merchant_rule', {

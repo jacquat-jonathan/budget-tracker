@@ -8,6 +8,15 @@ import { FullPageSpinner } from '@/components/full-page-spinner'
 import { AppLayout } from '@/components/layout/app-layout'
 import { RouteError } from '@/components/route-error'
 import { BudgetsRoute, RequireBudget, RequireNoBudget } from '@/features/budgets/budget-routes'
+import { loadStrings } from '@/locales/lazy-strings'
+
+/**
+ * A budget page with the string groups the app's pages use (import, compare, step 4): both
+ * loaded before it renders, so a key never shows while its chunk loads.
+ */
+function withStrings<T>(page: Promise<T>): Promise<T> {
+  return Promise.all([page, loadStrings()]).then(([module]) => module)
+}
 
 // Every page is its own chunk, loaded on first visit.
 const SignInPage = lazy(() =>
@@ -35,44 +44,50 @@ const NotFoundPage = lazy(() =>
   import('@/features/not-found/not-found-page').then((m) => ({ default: m.NotFoundPage })),
 )
 const DashboardPage = lazy(() =>
-  import('@/features/dashboard/dashboard-page').then((m) => ({ default: m.DashboardPage })),
+  withStrings(import('@/features/dashboard/dashboard-page')).then((m) => ({
+    default: m.DashboardPage,
+  })),
 )
 const BudgetPage = lazy(() =>
-  import('@/features/budget/budget-page').then((m) => ({ default: m.BudgetPage })),
+  withStrings(import('@/features/budget/budget-page')).then((m) => ({ default: m.BudgetPage })),
 )
 const TransactionsPage = lazy(() =>
-  import('@/features/transactions/transactions-page').then((m) => ({
+  withStrings(import('@/features/transactions/transactions-page')).then((m) => ({
     default: m.TransactionsPage,
   })),
 )
 const SubscriptionsPage = lazy(() =>
-  import('@/features/subscriptions/subscriptions-page').then((m) => ({
+  withStrings(import('@/features/subscriptions/subscriptions-page')).then((m) => ({
     default: m.SubscriptionsPage,
   })),
 )
 const DebtsPage = lazy(() =>
-  import('@/features/debts/debts-page').then((m) => ({ default: m.DebtsPage })),
+  withStrings(import('@/features/debts/debts-page')).then((m) => ({ default: m.DebtsPage })),
 )
 // The chart library (Recharts) is only in this page's chunk: the first load does not carry it.
 const DebtDetailPage = lazy(() =>
-  import('@/features/debts/debt-detail-page').then((m) => ({ default: m.DebtDetailPage })),
+  withStrings(import('@/features/debts/debt-detail-page')).then((m) => ({
+    default: m.DebtDetailPage,
+  })),
 )
 // Recharts stays in the Compare page's chunk, out of the first load.
 const ComparePage = lazy(() =>
-  import('@/features/compare/compare-page').then((m) => ({ default: m.ComparePage })),
+  withStrings(import('@/features/compare/compare-page')).then((m) => ({ default: m.ComparePage })),
 )
 const PeriodsPage = lazy(() =>
-  import('@/features/periods/periods-page').then((m) => ({ default: m.PeriodsPage })),
+  withStrings(import('@/features/periods/periods-page')).then((m) => ({ default: m.PeriodsPage })),
 )
 const MoneyFlowPage = lazy(() =>
-  import('@/features/money-flow/money-flow-page').then((m) => ({ default: m.MoneyFlowPage })),
+  withStrings(import('@/features/money-flow/money-flow-page')).then((m) => ({
+    default: m.MoneyFlowPage,
+  })),
 )
 const IncomePage = lazy(() =>
-  import('@/features/income/income-page').then((m) => ({ default: m.IncomePage })),
+  withStrings(import('@/features/income/income-page')).then((m) => ({ default: m.IncomePage })),
 )
 // The import page; pdf.js, the statement parsers and the CSV code load from it on demand.
 const ImportPage = lazy(() =>
-  import('@/features/import/import-page').then((m) => ({ default: m.ImportPage })),
+  withStrings(import('@/features/import/import-page')).then((m) => ({ default: m.ImportPage })),
 )
 const WelcomePage = lazy(() =>
   import('@/features/budgets/pages/welcome-page').then((m) => ({ default: m.WelcomePage })),
@@ -81,7 +96,9 @@ const NewBudgetPage = lazy(() =>
   import('@/features/budgets/pages/new-budget-page').then((m) => ({ default: m.NewBudgetPage })),
 )
 const SettingsPage = lazy(() =>
-  import('@/features/settings/settings-page').then((m) => ({ default: m.SettingsPage })),
+  withStrings(import('@/features/settings/settings-page')).then((m) => ({
+    default: m.SettingsPage,
+  })),
 )
 
 function SuspenseOutlet() {

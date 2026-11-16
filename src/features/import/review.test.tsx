@@ -11,7 +11,7 @@ import {
   DEFAULT_USER_ID,
   transactionRow,
 } from '@/test/budget-fixtures'
-import type { MockDb } from '@/test/mock-db'
+import { rpcError, type MockDb } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 
@@ -22,6 +22,15 @@ vi.mock('@/lib/supabase', () => ({
     return mock.current?.client
   },
 }))
+
+// The pages are lazy chunks: loaded once here, not inside the first tests' time.
+beforeAll(async () => {
+  await Promise.all([
+    import('@/features/dashboard/dashboard-page'),
+    import('@/features/transactions/transactions-page'),
+    import('@/features/budget/budget-page'),
+  ])
+})
 
 const BATCH = 'aaaaaaaa-0000-4000-8000-000000000001'
 const TO_CATEGORISE = 'cat-to-categorise'
@@ -297,6 +306,23 @@ describe('"to categorise" in the screens [R-CATEGORY-250] [R-CATEGORY-200] [R-CA
     )
     expect(
       screen.getByText('Not while it holds transactions: give them a category first.'),
+    ).toBeInTheDocument()
+  })
+
+  it('a refusal for it is worded for what was tried', async () => {
+    const db = reviewDb()
+    db.rpc.add_transaction.mockImplementation(() => rpcError('category_to_categorise'))
+    open(db, '/transactions')
+    await userEvent.click(await screen.findByRole('button', { name: 'Add transaction' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a transaction' })
+    await userEvent.type(within(dialog).getByLabelText('Amount'), '5.00')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Category' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Groceries' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText(
+        'A transaction you enter cannot go in “To categorise”: choose a category.',
+      ),
     ).toBeInTheDocument()
   })
 

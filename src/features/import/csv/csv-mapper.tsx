@@ -1,5 +1,5 @@
 import { ArrowLeftIcon, InfoIcon, TriangleAlertIcon } from 'lucide-react'
-import { useId, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ExternalText } from '@/components/external-text'
@@ -62,6 +62,11 @@ export function CsvMapper({
 }) {
   const { t } = useTranslation()
   const id = useId()
+  // This step loads on its own: it takes the focus itself once it is there.
+  const heading = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    heading.current?.focus()
+  }, [])
   const detected = useMemo(() => detectSeparator(text), [text])
   const [separator, setSeparator] = useState<CsvSeparator>(detected ?? ';')
   const parsed = useMemo(() => parseCsv(text, separator), [text, separator])
@@ -156,7 +161,9 @@ export function CsvMapper({
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{t('import.csv.title')}</h2>
+          <h2 ref={heading} tabIndex={-1} data-step-heading>
+            {t('import.csv.title')}
+          </h2>
         </CardTitle>
         <CardDescription>{t('import.csv.help')}</CardDescription>
       </CardHeader>

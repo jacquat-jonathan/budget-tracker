@@ -86,12 +86,24 @@ export function useImportPreview(
       }
     }),
   })
+  // The last answer of each part, kept while a new one is asked: a row keeps its controls (and
+  // the focus) through a change, marked as being checked.
+  // (React's pattern for information from earlier renders: kept in state, updated while rendering.)
+  const [kept, setKept] = useState<Readonly<Record<number, ImportRowResult[]>>>({})
+  const fresh: Record<number, ImportRowResult[]> = {}
+  queries.forEach((query, index) => {
+    if (query.data && !query.isPlaceholderData && kept[index] !== query.data)
+      fresh[index] = query.data
+  })
+  if (Object.keys(fresh).length > 0) setKept({ ...kept, ...fresh })
   const answers: EntryAnswer[] = []
   parts.forEach((entries, index) => {
     const query = queries[index]
-    const stale = settled.stale || query?.isPlaceholderData === true || query?.isFetching === true
+    const data = query?.data ?? kept[index]
+    const stale =
+      settled.stale || query?.data === undefined || query.isPlaceholderData || query.isFetching
     entries.forEach((entry, at) => {
-      answers.push({ entry, result: query?.data?.[at], stale })
+      answers.push({ entry, result: data?.[at], stale: stale && data !== undefined })
     })
   })
   const failed = queries.find((query) => query.isError)

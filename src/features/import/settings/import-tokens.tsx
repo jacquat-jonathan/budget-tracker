@@ -225,7 +225,7 @@ function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: (
   const [days, setDays] = useState(String(TOKEN_DAYS_DEFAULT))
   const [secret, setSecret] = useState<string | null>(null)
   const [copied, setCopied] = useState<'yes' | 'failed' | null>(null)
-  const secretRef = useRef<HTMLInputElement>(null)
+  const secretRef = useRef<HTMLTextAreaElement>(null)
   const dayCount = Number(days)
   const daysValid = Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= TOKEN_DAYS_MAX
   const create = useAppMutation<{ tokenId: string }, { name: string; days: number }>({
@@ -316,30 +316,31 @@ function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: (
           <div className="flex flex-col gap-4">
             <DialogHeader>
               <DialogTitle>{t('import.tokens.secretTitle')}</DialogTitle>
-              <DialogDescription className="flex items-start gap-2">
+              <DialogDescription className="flex items-start gap-2 font-medium text-foreground">
                 <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                <span>{t('import.tokens.secretHelp')}</span>
+                <span>{t('import.tokens.secretOnce')}</span>
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`${id}-secret`}>{t('import.tokens.secretLabel')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  ref={secretRef}
-                  id={`${id}-secret`}
-                  readOnly
-                  value={secret}
-                  className="font-mono text-xs"
-                  autoComplete="off"
-                  spellCheck={false}
-                  onFocus={(event) => event.currentTarget.select()}
-                  data-testid="token-secret"
-                />
+              {/* Shown whole (it wraps), so it can be checked by eye as well as copied. */}
+              <textarea
+                ref={secretRef}
+                id={`${id}-secret`}
+                readOnly
+                rows={2}
+                value={secret}
+                className="w-full resize-none rounded-lg border border-input bg-muted/40 px-2.5 py-2 font-mono text-xs break-all outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                autoComplete="off"
+                spellCheck={false}
+                onFocus={(event) => event.currentTarget.select()}
+                data-testid="token-secret"
+              />
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  aria-label={t('import.tokens.copy')}
+                  size="sm"
                   onClick={() => {
                     navigator.clipboard
                       .writeText(secret)
@@ -351,13 +352,18 @@ function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: (
                   }}
                 >
                   <CopyIcon aria-hidden />
+                  {t('import.tokens.copy')}
                 </Button>
+                {copied && (
+                  <p role="status" className="text-xs">
+                    {copied === 'yes' ? t('import.tokens.copied') : t('import.tokens.copyFailed')}
+                  </p>
+                )}
               </div>
-              {copied && (
-                <p role="status" className="text-xs">
-                  {copied === 'yes' ? t('import.tokens.copied') : t('import.tokens.copyFailed')}
-                </p>
-              )}
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+              <p>{t('import.tokens.secretWhere', { name: 'BUDGET_IMPORT_TOKEN' })}</p>
+              <p className="font-medium">{t('import.tokens.secretNever')}</p>
             </div>
             <DialogFooter>
               <Button type="button" onClick={close}>

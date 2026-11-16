@@ -98,7 +98,9 @@ function EndCategoryBody({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const errorMessage = useErrorMessage()
+  const errorMessage = useErrorMessage({
+    category_to_categorise: 'import.toCategorise.errors.ending',
+  })
   const views = useRecordViews()
   const id = useId()
   const live = useRecord('category_overview', budgetId, opened.id)

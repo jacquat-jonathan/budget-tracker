@@ -15,6 +15,11 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
+// The settings page is a lazy chunk: loaded once here, not inside the first test's time.
+beforeAll(async () => {
+  await import('@/features/settings/settings-page')
+})
+
 const SECRET = `bti_${'0123456789abcdef'.repeat(4)}`
 
 function settingsDb(): MockDb {
@@ -135,7 +140,8 @@ describe('import tokens [R-IMPORT-074] [R-IMPORT-326]', () => {
     expect(JSON.stringify(stored(localStorage))).not.toContain(SECRET)
     expect(JSON.stringify(stored(sessionStorage))).not.toContain(SECRET)
     expect(window.location.href).not.toContain(SECRET)
-  })
+    // Two dialogs, typing and the whole page: about 1 s alone, several times that under load.
+  }, 10_000)
 
   it('lists the tokens with their state, revokes behind a confirmation, deletes a revoked one', async () => {
     const db = settingsDb()

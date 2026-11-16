@@ -267,7 +267,7 @@ export function UndoImport({
         title={t('import.undo.title')}
         description={
           <>
-            <span>{t('import.undo.body', { toReview: formatCount(toReview ?? 0) })}</span>
+            <span>{t('import.undo.body', { count: toReview ?? 0 })}</span>
             <span>{t('import.undo.keeps')}</span>
             <span>{t('import.undo.once')}</span>
           </>

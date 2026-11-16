@@ -160,6 +160,7 @@ function TransactionForm({
   // R-DEBT-151: an ended debt's refusal said for what was tried.
   const errorMessage = useErrorMessage({
     debt_ended: opened ? 'debts.endedErrors.frozenPayment' : 'debts.endedErrors.payment',
+    category_to_categorise: 'import.toCategorise.errors.transaction',
   })
   const close = () => onOpenChange(false)
   const views = useRecordViews()

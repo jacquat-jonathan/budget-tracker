@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-516 rules (508 active, 0 planned), 24 conventions, 282 decisions, 47 open questions. 0 rules and conventions are marked **TEST PENDING**.
+516 rules (508 active, 0 planned), 24 conventions, 283 decisions, 47 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -6138,13 +6138,27 @@ Source: owner-request: coordinator brief for the step 6 screens (part B, import)
 
 ### D-447 "To categorise" in the screens (accepted)
 
-Pickers (transaction, subscription, debt, rule) drop the categories flagged is_to_categorise from list_categories_for_date / category_overview. An import waiting there opens in the transaction form with no category chosen, so saving it gives it a real one. The budget page lists it with a mark ("Import"), "No plan", what it is for, and an edit form that changes the name only; "add a subcategory" is not offered and "remove" is disabled with the reason while it holds transactions. Progress and compare mark its line. category_to_categorise is one text naming every case.
+Pickers (transaction, subscription, debt, rule) drop the categories flagged is_to_categorise from list_categories_for_date / category_overview. An import waiting there opens in the transaction form with no category chosen, so saving it gives it a real one. The budget page lists it with a mark ("Import"), "No plan", what it is for, and an edit form that changes the name only; "add a subcategory" is not offered and "remove" is disabled with the reason while it holds transactions. Progress and compare mark its line. category_to_categorise is worded for what was tried: a plan, a subcategory, ending it, a rule, a typed transaction, a subscription, a debt, or confirming a transaction still in it.
 
 **Why:** R-CATEGORY-200, R-CATEGORY-250; conservative where update_transaction's rule for keeping it is unclear (Q-273).
 
 **Rejected:** none recorded.
 
 Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-448 Page strings load with the pages (accepted)
+
+The strings of the import (step 6), the comparison (step 5) and the subscriptions, debts, charges and corrections (step 4) are three chunks (src/locales/groups), loaded with the budget pages by their lazy routes, which wait for them before rendering, so no key shows while they load. The first load keeps the shell, the sign-in pages, the errors and the catch-up screen. Their keys stay typed from the English files. The tests load every group up front.
+
+**Why:** The import strings had grown the first load from 186 to 244 kB (53 to 70 kB gzip); with the comparison and step 4 strings moved too, it is 135 kB (41 kB gzip).
+
+**Rejected:**
+
+- Loading only the current language (a language switch would then wait for a chunk).
+
+Related: R-I18N-001, D-442
+
+Source: owner-request: coordinator, follow-up to the step 6 screens at 40a20ed, 2026-11-16
 
 ## Open questions
 

@@ -1,8 +1,9 @@
-import { importEn } from '@/locales/en/import'
-import { compareEn } from '@/locales/en/compare'
-import { catchUpEn, chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
+import { catchUpEn } from '@/locales/en/catch-up'
+import type { compareEn } from '@/locales/en/compare'
+import type { importEn } from '@/locales/en/import'
+import type { chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
 
-export const en = {
+const core = {
   app: {
     name: 'Budget Tracker',
     tagline: 'Your household budget, period by period.',
@@ -1156,13 +1157,7 @@ export const en = {
       saved: 'Display name saved.',
     },
   },
-  corrections: correctionsEn,
-  subscriptions: subscriptionsEn,
-  charges: chargesEn,
-  debts: debtsEn,
-  compare: compareEn,
   catchUp: catchUpEn,
-  import: importEn,
   ui: {
     close: 'Close',
     more: 'More',
@@ -1174,6 +1169,22 @@ export const en = {
     },
   },
 }
+
+/**
+ * The strings loaded with the pages that use them (src/locales/lazy-strings.ts), not with the
+ * first load. Typed here so that every key is checked; present at run time once loaded.
+ */
+interface LazyStrings {
+  corrections: typeof correctionsEn
+  subscriptions: typeof subscriptionsEn
+  charges: typeof chargesEn
+  debts: typeof debtsEn
+  compare: typeof compareEn
+  import: typeof importEn
+}
+export type LazyKey = keyof LazyStrings
+
+export const en = core as typeof core & LazyStrings
 
 type DeepStringRecord<T> = { [K in keyof T]: T[K] extends string ? string : DeepStringRecord<T[K]> }
 

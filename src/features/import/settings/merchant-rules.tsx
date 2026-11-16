@@ -168,7 +168,9 @@ function EditRuleDialog({
 }) {
   const { t } = useTranslation()
   const id = useId()
-  const errorMessage = useErrorMessage()
+  const errorMessage = useErrorMessage({
+    category_to_categorise: 'import.toCategorise.errors.rule',
+  })
   const categories = useCategories(budgetId)
   const [fragment, setFragment] = useState(rule.fragment)
   const [categoryId, setCategoryId] = useState(rule.category_id)

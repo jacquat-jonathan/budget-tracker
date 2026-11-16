@@ -11355,13 +11355,27 @@
     {
       "id": "D-447",
       "title": "\"To categorise\" in the screens",
-      "decision": "Pickers (transaction, subscription, debt, rule) drop the categories flagged is_to_categorise from list_categories_for_date / category_overview. An import waiting there opens in the transaction form with no category chosen, so saving it gives it a real one. The budget page lists it with a mark (\"Import\"), \"No plan\", what it is for, and an edit form that changes the name only; \"add a subcategory\" is not offered and \"remove\" is disabled with the reason while it holds transactions. Progress and compare mark its line. category_to_categorise is one text naming every case.",
+      "decision": "Pickers (transaction, subscription, debt, rule) drop the categories flagged is_to_categorise from list_categories_for_date / category_overview. An import waiting there opens in the transaction form with no category chosen, so saving it gives it a real one. The budget page lists it with a mark (\"Import\"), \"No plan\", what it is for, and an edit form that changes the name only; \"add a subcategory\" is not offered and \"remove\" is disabled with the reason while it holds transactions. Progress and compare mark its line. category_to_categorise is worded for what was tried: a plan, a subcategory, ending it, a rule, a typed transaction, a subscription, a debt, or confirming a transaction still in it.",
       "why": "R-CATEGORY-200, R-CATEGORY-250; conservative where update_transaction's rule for keeping it is unclear (Q-273).",
       "rejected": [],
       "status": "accepted",
       "related": [],
       "source": [
         "owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16"
+      ]
+    },
+    {
+      "id": "D-448",
+      "title": "Page strings load with the pages",
+      "decision": "The strings of the import (step 6), the comparison (step 5) and the subscriptions, debts, charges and corrections (step 4) are three chunks (src/locales/groups), loaded with the budget pages by their lazy routes, which wait for them before rendering, so no key shows while they load. The first load keeps the shell, the sign-in pages, the errors and the catch-up screen. Their keys stay typed from the English files. The tests load every group up front.",
+      "why": "The import strings had grown the first load from 186 to 244 kB (53 to 70 kB gzip); with the comparison and step 4 strings moved too, it is 135 kB (41 kB gzip).",
+      "rejected": [
+        "Loading only the current language (a language switch would then wait for a chunk)."
+      ],
+      "status": "accepted",
+      "related": ["R-I18N-001", "D-442"],
+      "source": [
+        "owner-request: coordinator, follow-up to the step 6 screens at 40a20ed, 2026-11-16"
       ]
     }
   ],

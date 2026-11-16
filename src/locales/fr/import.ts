@@ -145,6 +145,7 @@ export const importFr: Translation['import'] = {
   },
   recognised: {
     title: 'Relevé lu',
+    titleCsv: 'Fichier lu',
     period: '{{source}}, {{from}} – {{to}}',
     bill: '{{source}} du {{date}}',
     billDue: '{{source}} du {{date}}, payable le {{due}}',
@@ -474,7 +475,10 @@ export const importFr: Translation['import'] = {
   undo: {
     action: 'Annuler cette importation',
     title: 'Annuler cette importation ?',
-    body: 'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées ({{toReview}} sont encore à passer en revue).',
+    body_one:
+      'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées ({{count}} est encore à passer en revue).',
+    body_other:
+      'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées ({{count}} sont encore à passer en revue).',
     keeps:
       'Conservées : celles déjà confirmées, celles liées à un abonnement ou à une dette, et les prélèvements d’abonnement que l’importation a confirmés (ils restent confirmés). Les choix mémorisés pour les lignes signalées restent aussi.',
     once: 'Une importation peut être annulée une fois ; elle ne prend ensuite plus de lignes.',
@@ -560,6 +564,21 @@ export const importFr: Translation['import'] = {
     noPlan: 'Pas de montant prévu : elle ne contient que des importations en attente de catégorie.',
     noPlanShort: 'Pas de prévu',
     cannotEnd: 'Pas tant qu’elle contient des transactions : donnez-leur d’abord une catégorie.',
+    errors: {
+      expectation:
+        '« À catégoriser » ne prend pas de montant prévu : elle ne contient que des importations en attente de catégorie.',
+      subcategory: '« À catégoriser » ne prend pas de sous-catégorie.',
+      ending:
+        '« À catégoriser » ne peut pas être supprimée tant qu’elle contient des transactions : donnez-leur d’abord une catégorie.',
+      rule: 'Une règle de commerçant ne peut pas mettre de transactions dans « À catégoriser » : choisissez une vraie catégorie.',
+      transaction:
+        'Une transaction saisie ne peut pas aller dans « À catégoriser » : choisissez une catégorie.',
+      subscription:
+        'Un abonnement ne peut pas utiliser « À catégoriser » : choisissez une catégorie.',
+      debt: 'Une dette ne peut pas utiliser « À catégoriser » : choisissez une catégorie.',
+      confirm:
+        'Cette transaction est encore dans « À catégoriser » : donnez-lui une catégorie, puis confirmez-la.',
+    },
   },
   tokens: {
     title: 'Jetons d’importation',
@@ -572,8 +591,10 @@ export const importFr: Translation['import'] = {
     expiresHelp: 'De 1 à {{max}} jours ; {{default}} par défaut.',
     createButton: 'Créer',
     secretTitle: 'Votre nouveau jeton',
-    secretHelp:
-      'Copiez-le maintenant : il n’est affiché que cette fois et ne pourra plus l’être. Placez-le dans l’environnement de la session qui exécute le script d’importation, sous BUDGET_IMPORT_TOKEN (pour une session dans le cloud : les réglages de l’environnement ; sur un ordinateur : le terminal qui la lance). Ne le collez jamais dans une conversation : ce qui y est tapé est conservé.',
+    secretOnce: 'Copiez-le maintenant : il n’est affiché que cette fois et ne pourra plus l’être.',
+    secretWhere:
+      'Placez-le dans l’environnement de la session qui exécute le script d’importation, sous {{name}} : pour une session dans le cloud, dans les réglages de l’environnement ; sur un ordinateur, dans le terminal qui la lance.',
+    secretNever: 'Ne le collez jamais dans une conversation : ce qui y est tapé est conservé.',
     secretLabel: 'Jeton',
     copy: 'Copier le jeton',
     copied: 'Copié.',

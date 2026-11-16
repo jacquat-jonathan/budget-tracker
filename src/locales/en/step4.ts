@@ -404,8 +404,3 @@ export const correctionsEn = {
   changedNotShown:
     'Another member changed something this window does not show meanwhile (which income is the primary one, a first subcategory…). Nothing was saved; what you entered is still here: save again.',
 }
-
-export const catchUpEn = {
-  title: 'Catching up on the time since your last visit…',
-  help: 'The budget is creating the periods, charges and interest since then. This can take a few seconds.',
-}

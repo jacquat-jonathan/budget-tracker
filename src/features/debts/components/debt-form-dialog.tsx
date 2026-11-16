@@ -107,6 +107,7 @@ function DebtForm({
   const errorMessage = useErrorMessage({
     record_changed: 'debts.changedNotShown',
     debt_ended: 'debts.endedErrors.edit',
+    category_to_categorise: 'import.toCategorise.errors.debt',
   })
   const close = () => onOpenChange(false)
   const views = useSubscriptionViews()

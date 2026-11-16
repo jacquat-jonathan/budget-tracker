@@ -31,6 +31,25 @@ vi.mock('@/features/import/statements', async (original) => ({
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
+// The page and the parsers are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(async () => {
+  await Promise.all([
+    import('@/features/import/import-page'),
+    import('@/features/import/csv/csv-mapper'),
+    import('@/features/import/statements'),
+  ])
+  // The first render of the app in a file costs about half a second: paid here, once.
+  const view = open(categoriesDb())
+  await screen.findByTestId('pdf-input')
+  view.unmount()
+})
+
+/**
+ * The end-to-end tests (a whole fixture, 1200 CSV rows, an import interrupted then resumed)
+ * render every row through the page: about 1 to 1.5 s alone, several times that under load.
+ */
+const WHOLE_STATEMENT_MS = 15_000
+
 beforeEach(() => {
   localStorage.clear()
 })
@@ -41,7 +60,8 @@ function open(db: MockDb) {
 }
 
 async function choosePdf() {
-  await screen.findByRole('heading', { name: 'What would you like to import?' })
+  // By its test id: a role query over the whole page is slow, and the heading is not the point.
+  await screen.findByTestId('pdf-input')
   await userEvent.upload(
     screen.getByTestId('pdf-input'),
     new File(['%PDF-1.7 invented'], 'statement.pdf', { type: 'application/pdf' }),
@@ -49,12 +69,12 @@ async function choosePdf() {
 }
 
 async function chooseCsv(text: string) {
-  await screen.findByRole('heading', { name: 'What would you like to import?' })
+  await screen.findByTestId('csv-input')
   await userEvent.upload(
     screen.getByTestId('csv-input'),
     new File([text], 'export.csv', { type: 'text/csv' }),
   )
-  await screen.findByRole('heading', { name: 'Map the columns' })
+  await screen.findByText('Map the columns', { selector: 'h2' })
 }
 
 async function importButtonReady() {
@@ -109,6 +129,7 @@ describe('importing a PDF statement, from its text to the rows sent [R-IMPORT-00
         expect(screen.queryByTestId('not-sent')).not.toBeInTheDocument()
       }
     },
+    WHOLE_STATEMENT_MS,
   )
 
   it('lists the entries that produce no row', async () => {
@@ -241,38 +262,51 @@ describe('choices change the preview, asked again and never shown stale [R-IMPOR
 })
 
 describe('a large import in parts [R-IMPORT-208] [R-IMPORT-322]', () => {
-  it('previews and sends 1200 rows in parts of 500, a lost answer sent again under the same part', async () => {
-    const db = categoriesDb()
-    let lost = false
-    db.rpc.import_transactions.mockImplementation((args) => {
-      if (args.p_chunk === 2 && !lost) {
-        lost = true
-        throw new TypeError('Failed to fetch')
+  it(
+    'previews and sends 1200 rows in parts of 500, a lost answer sent again under the same part',
+    async () => {
+      const db = categoriesDb()
+      let lost = false
+      db.rpc.import_transactions.mockImplementation((args) => {
+        if (args.p_chunk === 2 && !lost) {
+          lost = true
+          throw new TypeError('Failed to fetch')
+        }
+        return (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
+          ...plannedRow(row, index + 1),
+          chunk: Number(args.p_chunk),
+        }))
+      })
+      open(db)
+      await chooseCsv(csvOf(1200))
+      await userEvent.click(screen.getByRole('button', { name: "Check 1'200 rows" }))
+      await importButtonReady()
+      expect(
+        db.rpc.preview_import.mock.calls.map(([args]) => (args.p_rows as unknown[]).length),
+      ).toEqual([500, 500, 200])
+      // The resend after the lost answer waits half a second: skipped, not slept.
+      vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        await userEvent.click(screen.getByTestId('import-button'))
+        await vi.advanceTimersByTimeAsync(1_000)
+      } finally {
+        vi.useRealTimers()
       }
-      return (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
-        ...plannedRow(row, index + 1),
-        chunk: Number(args.p_chunk),
-      }))
-    })
-    open(db)
-    await chooseCsv(csvOf(1200))
-    await userEvent.click(screen.getByRole('button', { name: "Check 1'200 rows" }))
-    await importButtonReady()
-    expect(
-      db.rpc.preview_import.mock.calls.map(([args]) => (args.p_rows as unknown[]).length),
-    ).toEqual([500, 500, 200])
-    await userEvent.click(screen.getByTestId('import-button'))
-    expect(await screen.findByTestId('import-result', {}, { timeout: 6000 })).toHaveTextContent(
-      "1'200 transactions imported",
-    )
-    const chunks = db.rpc.import_transactions.mock.calls.map(([args]) => args.p_chunk)
-    expect(chunks).toEqual([1, 2, 2, 3])
-    const calls = db.rpc.import_transactions.mock.calls.map(([args]) => args)
-    expect(calls[2]).toEqual(calls[1])
-    expect(new Set(calls.map((args) => args.p_batch_id)).size).toBe(1)
-    expect(localStorage.getItem(`budget-tracker-import-pending:${BUDGET_ID}`)).toBeNull()
-  }, 20_000)
+      expect(await screen.findByTestId('import-result', {}, { timeout: 6000 })).toHaveTextContent(
+        "1'200 transactions imported",
+      )
+      const chunks = db.rpc.import_transactions.mock.calls.map(([args]) => args.p_chunk)
+      expect(chunks).toEqual([1, 2, 2, 3])
+      const calls = db.rpc.import_transactions.mock.calls.map(([args]) => args)
+      expect(calls[2]).toEqual(calls[1])
+      expect(new Set(calls.map((args) => args.p_batch_id)).size).toBe(1)
+      expect(localStorage.getItem(`budget-tracker-import-pending:${BUDGET_ID}`)).toBeNull()
+    },
+    WHOLE_STATEMENT_MS,
+  )
 
+  // Proven against the mock database only: the refusal was not reproduced in a browser (that
+  // needs a budget filled to 50 000 transactions); the database's own tests cover the refusal.
   it('stops on the transaction limit, says how many would fit, and that nothing of that part was written', async () => {
     const db = categoriesDb()
     db.rpc.import_transactions.mockImplementation(() =>
@@ -289,35 +323,47 @@ describe('a large import in parts [R-IMPORT-208] [R-IMPORT-322]', () => {
 })
 
 describe('an interrupted import [R-IMPORT-323]', () => {
-  it('is noted on this device without its rows, and the same file goes on under the same batch', async () => {
-    const db = categoriesDb()
-    db.rpc.import_transactions.mockImplementation(() => {
-      throw new TypeError('Failed to fetch')
-    })
-    const view = open(db)
-    const text = csvOf(3)
-    await chooseCsv(text)
-    await userEvent.click(screen.getByRole('button', { name: 'Check 3 rows' }))
-    await userEvent.click(await importButtonReady())
-    expect(await screen.findByTestId('run-stopped', {}, { timeout: 8000 })).toHaveTextContent(
-      'the connection keeps failing',
-    )
-    const stored = localStorage.getItem(`budget-tracker-import-pending:${BUDGET_ID}`) ?? ''
-    expect(stored).not.toContain('Shop')
-    const batchId = (JSON.parse(stored) as { batchId: string }).batchId
-    view.unmount()
+  it(
+    'is noted on this device without its rows, and the same file goes on under the same batch',
+    async () => {
+      const db = categoriesDb()
+      db.rpc.import_transactions.mockImplementation(() => {
+        throw new TypeError('Failed to fetch')
+      })
+      const view = open(db)
+      const text = csvOf(3)
+      await chooseCsv(text)
+      await userEvent.click(screen.getByRole('button', { name: 'Check 3 rows' }))
+      const button = await importButtonReady()
+      // The import waits 0.5, 1 and 1.5 s between resends: those waits are skipped, not slept.
+      vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        await userEvent.click(button)
+        await vi.advanceTimersByTimeAsync(3_000)
+        expect(await screen.findByTestId('run-stopped')).toHaveTextContent(
+          'the connection keeps failing',
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+      const stored = localStorage.getItem(`budget-tracker-import-pending:${BUDGET_ID}`) ?? ''
+      expect(stored).not.toContain('Shop')
+      const batchId = (JSON.parse(stored) as { batchId: string }).batchId
+      view.unmount()
 
-    open(db)
-    expect(await screen.findByTestId('pending-import')).toHaveTextContent(
-      'stopped after part 0 of 1',
-    )
-    await chooseCsv(text)
-    await userEvent.click(screen.getByRole('button', { name: 'Check 3 rows' }))
-    expect(await screen.findByTestId('resumed')).toBeInTheDocument()
-    await waitFor(() =>
-      expect(db.rpc.preview_import.mock.calls.at(-1)?.[0].p_batch_id).toBe(batchId),
-    )
-  }, 20_000)
+      open(db)
+      expect(await screen.findByTestId('pending-import')).toHaveTextContent(
+        'stopped after part 0 of 1',
+      )
+      await chooseCsv(text)
+      await userEvent.click(screen.getByRole('button', { name: 'Check 3 rows' }))
+      expect(await screen.findByTestId('resumed')).toBeInTheDocument()
+      await waitFor(() =>
+        expect(db.rpc.preview_import.mock.calls.at(-1)?.[0].p_batch_id).toBe(batchId),
+      )
+    },
+    WHOLE_STATEMENT_MS,
+  )
 })
 
 describe('after the import [R-IMPORT-072] [R-IMPORT-073] [R-IMPORT-206]', () => {

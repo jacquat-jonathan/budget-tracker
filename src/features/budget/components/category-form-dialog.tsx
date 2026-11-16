@@ -107,7 +107,12 @@ function CategoryForm({
   const olderPeriods = useOlderPeriodsOption(budgetId)
   // A refused save over a change this form does not show says so (the shown fields that
   // changed have their own notice), in the save's own words.
-  const errorMessage = useErrorMessage({ record_changed: 'corrections.changedNotShown' })
+  const errorMessage = useErrorMessage({
+    record_changed: 'corrections.changedNotShown',
+    category_to_categorise: opened
+      ? 'import.toCategorise.errors.expectation'
+      : 'import.toCategorise.errors.subcategory',
+  })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.

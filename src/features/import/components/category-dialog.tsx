@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { LoadingState, ErrorState } from '@/components/states'
@@ -44,6 +44,16 @@ export function CategoryDialog({
   const { t } = useTranslation()
   const id = useId()
   const choices = useCategoriesForDate(budgetId, open ? date : '')
+  // The focus goes to the choice in force (not the first button), once the list is there.
+  const content = useRef<HTMLDivElement>(null)
+  const listed = choices.data !== undefined
+  useEffect(() => {
+    if (!open || !listed) return
+    const frame = window.requestAnimationFrame(() => {
+      content.current?.querySelector<HTMLElement>('[role=radio][aria-checked=true]')?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [open, listed])
   const [value, setValue] = useState<string>(current ?? LEAVE)
   return (
     <Dialog
@@ -53,7 +63,7 @@ export function CategoryDialog({
         onOpenChange(next)
       }}
     >
-      <DialogContent className="max-h-[90svh] overflow-y-auto">
+      <DialogContent ref={content} className="max-h-[90svh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {count > 1

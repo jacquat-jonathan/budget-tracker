@@ -420,8 +420,3 @@ export const correctionsFr: Translation['corrections'] = {
   changedNotShown:
     'Un autre membre a modifié entre-temps quelque chose que cette fenêtre n’affiche pas (le revenu principal, une première sous-catégorie…). Rien n’a été enregistré ; vos saisies sont toujours là : enregistrez de nouveau.',
 }
-
-export const catchUpFr: Translation['catchUp'] = {
-  title: 'Rattrapage du temps écoulé depuis votre dernière visite…',
-  help: 'Le budget crée les périodes, prélèvements et intérêts depuis. Cela peut prendre quelques secondes.',
-}

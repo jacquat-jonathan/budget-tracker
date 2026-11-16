@@ -1,10 +1,8 @@
-import { importFr } from '@/locales/fr/import'
-import { compareFr } from '@/locales/fr/compare'
-import type { Translation } from '@/locales/en/translation'
-import { catchUpFr, chargesFr, correctionsFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
+import type { LazyKey, Translation } from '@/locales/en/translation'
+import { catchUpFr } from '@/locales/fr/catch-up'
 
 // French typography: a narrow no-break space (U+202F) precedes ? ! : and ;.
-export const fr: Translation = {
+const core: Omit<Translation, LazyKey> = {
   app: {
     name: 'Budget Tracker',
     tagline: 'Le budget de votre ménage, période après période.',
@@ -1209,13 +1207,7 @@ export const fr: Translation = {
       saved: 'Nom affiché enregistré.',
     },
   },
-  corrections: correctionsFr,
-  subscriptions: subscriptionsFr,
-  charges: chargesFr,
-  debts: debtsFr,
-  compare: compareFr,
   catchUp: catchUpFr,
-  import: importFr,
   ui: {
     close: 'Fermer',
     more: 'Plus',
@@ -1227,3 +1219,6 @@ export const fr: Translation = {
     },
   },
 }
+
+// The lazy groups (src/locales/lazy-strings.ts) are added once their pages load.
+export const fr = core as Translation
