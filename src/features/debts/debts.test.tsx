@@ -176,7 +176,7 @@ describe('debt detail [R-DEBT-122]', () => {
       expect.stringContaining('Payment'),
       expect.stringContaining('Opened'),
     ])
-    expect(rows[0]).toHaveTextContent(`10.11.2026 · ${money(-2_500)} · Statement`)
+    expect(rows[0]).toHaveTextContent(`10.11.2026 · ${money(-2_500)}Statement`)
     expect(rows[0]).toHaveTextContent(money(1_147_500))
     expect(screen.getByTestId('debt-chart')).toBeInTheDocument()
     expect(

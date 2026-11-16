@@ -411,11 +411,14 @@ function HistoryTable({
                   <KindLegendMark kind={entry.kind} />
                   <span className="font-medium">{t(`debts.history.kind.${entry.kind}`)}</span>
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
+                {/* On a phone the amount has its own line: never cut off. */}
+                <div className="text-xs text-muted-foreground tabular-nums">
                   <CalendarDate value={entry.date} />
-                  <span className="tabular-nums sm:hidden"> · {formatMoney(entry.amount)}</span>
-                  {entry.description ? ` · ${entry.description}` : ''}
+                  <span className="sm:hidden"> · {formatMoney(entry.amount)}</span>
                 </div>
+                {entry.description && (
+                  <div className="truncate text-xs text-muted-foreground">{entry.description}</div>
+                )}
               </TableCell>
               <TableCell
                 className={cn(
