@@ -329,7 +329,7 @@ describe('ids mentioned outside test titles', () => {
   const superseded = () => {
     const spec = baseSpec()
     spec.decisions.push({
-      id: 'D-002',
+      id: 'D-002', // spec-check: ignore-ids
       title: 'Floats',
       decision: 'Amounts were floats.',
       why: 'Simple.',
@@ -358,7 +358,7 @@ describe('ids mentioned outside test titles', () => {
   })
 
   it('reports a superseded decision, naming its replacement', async () => {
-    const tests = { 'README.md': 'We follow D-002.\n' }
+    const tests = { 'README.md': 'We follow D-002.\n' } // spec-check: ignore-ids
     const report = await runCheck(fixture({ spec: superseded(), tests }))
     expect(codes(report.errors)).toEqual(['superseded-mention README.md:1'])
     expect(report.errors[0].fix).toContain('D-001')

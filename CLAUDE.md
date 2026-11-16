@@ -21,6 +21,10 @@ without saying so.
   same change (a new rule, decision or open question gets the next free id), and tests for a
   new or changed rule name its id. Where the spec is ambiguous, add an open question rather
   than deciding silently.
+- **Ids in code:** where a client-side rule or convention is enforced (the guard, the
+  validation, the confirmation, the shared helper), one short comment names its id, and
+  nowhere else; `npm run spec:check` fails on any id in `src/`, `supabase/`, `scripts/`,
+  `docs/`, `README.md` or `CLAUDE.md` that is unknown, retired or superseded.
 - **Generated files are never edited by hand:** `docs/spec.md` and the block between the
   `BEGIN GENERATED` / `END GENERATED` comments below. Change the spec, run
   `npm run spec:render`, commit both.
