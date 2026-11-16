@@ -7,6 +7,7 @@ import {
   type PeriodSummary,
   type WeekendRule,
 } from '@/features/budgets/budget-queries'
+import { arrivedOffer, type ArrivedOffer } from '@/features/periods/boundary-ranges'
 import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
@@ -42,23 +43,44 @@ export function useExpectedPayDatePreview(budgetId: string, proposal: Proposal, 
 /**
  * R-PERIOD-037: under the proposed terms, this month's salary was due on a date that has
  * passed since the current period started. The projection then skips to the following month,
- * so the app asks whether that salary has already arrived. The pay date comes from the
- * database (pay_date) for the month of the database's today; only dates are compared here.
+ * so the app asks about that salary, offering the operation that fits (arrivedOffer): the
+ * early pay date, or moving the period's start. The pay date comes from the database
+ * (pay_date) for the month of the database's today; only dates are compared here.
  */
 export function useArrivedUnderNewTerms({
   currentPeriod,
+  previousPeriod,
+  endDateEntered,
+  endAfterSave,
   payDay,
   weekendRule,
   enabled,
 }: {
   currentPeriod: PeriodSummary | null | undefined
+  previousPeriod: PeriodSummary | undefined
+  endDateEntered: string | null
+  /** The current period's end once saved, from the preview, when known. */
+  endAfterSave: string | undefined
   payDay: number
   weekendRule: WeekendRule
   enabled: boolean
-}): string | null {
+}): ArrivedOffer | null {
   const today = currentPeriod?.today ?? null
   const payDate = usePayDate(today, payDay, weekendRule, enabled && today !== null)
   if (!enabled || !currentPeriod || !today || !payDate.data) return null
-  const due = payDate.data
-  return currentPeriod.start_date < due && due <= today ? due : null
+  return arrivedOffer({
+    due: payDate.data,
+    current: currentPeriod,
+    previous: previousPeriod,
+    endDateEntered,
+    endAfterSave,
+  })
+}
+
+/** The period before `current` in a list of periods, if it exists. */
+export function previousOf(
+  periods: readonly PeriodSummary[],
+  current: PeriodSummary | null | undefined,
+): PeriodSummary | undefined {
+  return current ? periods.find((period) => period.seq === current.seq - 1) : undefined
 }

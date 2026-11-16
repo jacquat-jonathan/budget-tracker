@@ -39,6 +39,9 @@ import { MakePrimaryDialog } from '@/features/income/components/make-primary-dia
 import { RemoveIncomeDialog } from '@/features/income/components/remove-income-dialog'
 import { SalaryArrivedPrompt } from '@/features/income/components/salary-arrived-prompt'
 import { useRemoveIncome, useSetPrimaryIncome } from '@/features/income/income-mutations'
+import { previousOf } from '@/features/income/pay-date-preview'
+import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
+import { nextSalary, type NextSalary } from '@/features/periods/next-salary'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 
@@ -51,7 +54,7 @@ type DialogState =
 
 export function IncomePage() {
   const { t } = useTranslation()
-  const { budgetId } = useCurrentBudget()
+  const { budgetId, budget } = useCurrentBudget()
   const incomes = useIncomes(budgetId)
   const members = useMembers(budgetId)
   const current = useCurrentPeriod(budgetId)
@@ -59,8 +62,8 @@ export function IncomePage() {
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const remove = useRemoveIncome(budgetId)
   const makePrimary = useSetPrimaryIncome(budgetId)
-  // R-PERIOD-037: the date this month's salary was due under new primary terms, to ask about.
-  const [arrivedDue, setArrivedDue] = useState<string | null>(null)
+  // R-PERIOD-037: what to ask about a salary already due under new primary terms.
+  const [arrived, setArrived] = useState<ArrivedOffer | null>(null)
 
   const queries = [incomes, members, current]
   const failed = queries.find((query) => query.isError)
@@ -111,6 +114,10 @@ export function IncomePage() {
   const currentPeriod = current.data
   const active = incomes.data.filter((income) => income.is_active)
   const endedIncomes = incomes.data.filter((income) => !income.is_active)
+  // The primary income's next salary is the current period's, as everywhere else.
+  const next = nextSalary(currentPeriod, budget.end_date_entered)
+  // Another income's next pay date is its own schedule, within the budget's life only.
+  const lastDay = currentPeriod ? budget.end_date : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -142,6 +149,7 @@ export function IncomePage() {
               income={income}
               members={memberList}
               ended={ended}
+              nextPayDate={nextPayDateOf(income, next, ended, lastDay)}
               onEdit={() => setDialog({ kind: 'edit', income })}
               onRemove={() => {
                 remove.reset()
@@ -170,17 +178,22 @@ export function IncomePage() {
         members={memberList}
         periods={periods.data ?? []}
         currentPeriod={currentPeriod}
-        onSalaryMayHaveArrived={setArrivedDue}
+        onSalaryMayHaveArrived={setArrived}
       />
       <MakePrimaryDialog
         budgetId={budgetId}
         income={dialog.kind === 'primary' ? dialog.income : null}
         currentPeriod={currentPeriod}
+        previousPeriod={previousOf(periods.data ?? [], currentPeriod)}
         mutation={makePrimary}
         onClose={() => setDialog({ kind: 'closed' })}
-        onSalaryMayHaveArrived={setArrivedDue}
+        onSalaryMayHaveArrived={setArrived}
       />
-      <SalaryArrivedPrompt dueDate={arrivedDue} onClose={() => setArrivedDue(null)} />
+      <SalaryArrivedPrompt
+        offer={arrived}
+        periodStart={currentPeriod?.start_date ?? null}
+        onClose={() => setArrived(null)}
+      />
       <RemoveIncomeDialog
         income={dialog.kind === 'remove' ? dialog.income : null}
         periods={periods.data ?? []}
@@ -209,10 +222,28 @@ function useOwnerLabel(): (income: IncomeOverview, members: BudgetMember[]) => s
   }
 }
 
+/**
+ * The next pay date shown on an income's card: for the primary income the next salary of
+ * the current period (none in the last period or once the budget has ended); for another
+ * income its own schedule, unless the budget has ended or ends before it.
+ */
+function nextPayDateOf(
+  income: IncomeOverview,
+  next: NextSalary,
+  ended: boolean,
+  lastDay: string | null,
+): string | null {
+  if (ended) return null
+  if (income.is_primary) return next.kind === 'expected' ? next.date : null
+  const date = income.next_pay_date
+  return date && (lastDay === null || date <= lastDay) ? date : null
+}
+
 function IncomeCard({
   income,
   members,
   ended,
+  nextPayDate,
   onEdit,
   onRemove,
   onMakePrimary,
@@ -221,6 +252,8 @@ function IncomeCard({
   income: IncomeOverview
   members: BudgetMember[]
   ended: boolean
+  /** From nextPayDateOf. */
+  nextPayDate: string | null
   onEdit: () => void
   onRemove: () => void
   onMakePrimary: () => void
@@ -262,7 +295,9 @@ function IncomeCard({
             </div>
             <div>
               <dt className="text-muted-foreground">{t('income.nextPayDate')}</dt>
-              <dd>{income.next_pay_date ? <CalendarDate value={income.next_pay_date} /> : '–'}</dd>
+              <dd data-testid="income-next-pay-date">
+                {nextPayDate ? <CalendarDate value={nextPayDate} /> : '–'}
+              </dd>
             </div>
           </dl>
           <DropdownMenu>

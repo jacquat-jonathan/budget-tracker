@@ -12,6 +12,8 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import type { IncomeOverview, PeriodSummary } from '@/features/budgets/budget-queries'
+import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { PayDatePreviewNotice } from '@/features/income/components/pay-date-preview-notice'
 import type { useSetPrimaryIncome } from '@/features/income/income-mutations'
 import {
@@ -25,6 +27,7 @@ export function MakePrimaryDialog({
   budgetId,
   income,
   currentPeriod,
+  previousPeriod,
   mutation,
   onClose,
   onSalaryMayHaveArrived,
@@ -32,9 +35,10 @@ export function MakePrimaryDialog({
   budgetId: string
   income: IncomeOverview | null
   currentPeriod: PeriodSummary | null
+  previousPeriod: PeriodSummary | undefined
   mutation: ReturnType<typeof useSetPrimaryIncome>
   onClose: () => void
-  onSalaryMayHaveArrived: (dueDate: string) => void
+  onSalaryMayHaveArrived: (offer: ArrivedOffer) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -55,6 +59,7 @@ export function MakePrimaryDialog({
               budgetId={budgetId}
               income={income}
               currentPeriod={currentPeriod}
+              previousPeriod={previousPeriod}
               mutation={mutation}
               onClose={onClose}
               onSalaryMayHaveArrived={onSalaryMayHaveArrived}
@@ -70,6 +75,7 @@ function PrimaryBody({
   budgetId,
   income,
   currentPeriod,
+  previousPeriod,
   mutation,
   onClose,
   onSalaryMayHaveArrived,
@@ -77,27 +83,38 @@ function PrimaryBody({
   budgetId: string
   income: IncomeOverview
   currentPeriod: PeriodSummary | null
+  previousPeriod: PeriodSummary | undefined
   mutation: ReturnType<typeof useSetPrimaryIncome>
   onClose: () => void
-  onSalaryMayHaveArrived: (dueDate: string) => void
+  onSalaryMayHaveArrived: (offer: ArrivedOffer) => void
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
+  const { budget } = useCurrentBudget()
   const enabled = currentPeriod !== null
   const preview = useExpectedPayDatePreview(
     budgetId,
     { kind: 'primary', incomeId: income.id },
     enabled,
   )
-  const arrivedDue = useArrivedUnderNewTerms({
+  const arrivedOffer = useArrivedUnderNewTerms({
     currentPeriod,
+    previousPeriod,
+    endDateEntered: budget.end_date_entered,
+    endAfterSave: preview.data?.end_date,
     payDay: income.pay_day,
     weekendRule: income.weekend_rule,
     enabled,
   })
   return (
     <>
-      {enabled && <PayDatePreviewNotice preview={preview} arrivedDue={arrivedDue} />}
+      {enabled && (
+        <PayDatePreviewNotice
+          preview={preview}
+          offer={arrivedOffer}
+          endDateEntered={budget.end_date_entered}
+        />
+      )}
       {mutation.isError && (
         <Alert variant="destructive">
           <AlertDescription>{errorMessage(mutation.error)}</AlertDescription>
@@ -112,7 +129,7 @@ function PrimaryBody({
               onSuccess: () => {
                 onClose()
                 // R-PERIOD-037: the new primary's salary this month may already have arrived.
-                if (arrivedDue) onSalaryMayHaveArrived(arrivedDue)
+                if (arrivedOffer) onSalaryMayHaveArrived(arrivedOffer)
               },
             })
           }

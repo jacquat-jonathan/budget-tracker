@@ -36,10 +36,13 @@ import {
 import { PayDayField, WeekendRuleField } from '@/features/income/components/income-term-fields'
 import { PayDatePreviewNotice } from '@/features/income/components/pay-date-preview-notice'
 import {
+  previousOf,
   useArrivedUnderNewTerms,
   useExpectedPayDatePreview,
 } from '@/features/income/pay-date-preview'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
+import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
@@ -68,7 +71,7 @@ interface IncomeFormDialogProps {
   periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
   /** After saving new primary terms under which this month's salary is already due. */
-  onSalaryMayHaveArrived?: (dueDate: string) => void
+  onSalaryMayHaveArrived?: (offer: ArrivedOffer) => void
 }
 
 /** Add or edit an income. Mount it only while open, so it starts from fresh values. */
@@ -102,6 +105,7 @@ function IncomeForm({
 }: IncomeFormDialogProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { budget } = useCurrentBudget()
   const errorMessage = useErrorMessage()
   const close = () => onOpenChange(false)
 
@@ -132,8 +136,11 @@ function IncomeForm({
     { kind: 'terms', payDay, weekendRule },
     primaryTermsChanged,
   )
-  const arrivedDue = useArrivedUnderNewTerms({
+  const arrivedOffer = useArrivedUnderNewTerms({
     currentPeriod,
+    previousPeriod: previousOf(periods, currentPeriod),
+    endDateEntered: budget.end_date_entered,
+    endAfterSave: preview.data?.end_date,
     payDay,
     weekendRule,
     enabled: primaryTermsChanged,
@@ -154,7 +161,7 @@ function IncomeForm({
     onDone: () => {
       close()
       // R-PERIOD-037: the salary under the corrected terms may already have arrived.
-      if (arrivedDue) onSalaryMayHaveArrived?.(arrivedDue)
+      if (arrivedOffer) onSalaryMayHaveArrived?.(arrivedOffer)
     },
   })
   const mutation = income ? edit : add
@@ -244,7 +251,13 @@ function IncomeForm({
             }}
           />
         )}
-        {primaryTermsChanged && <PayDatePreviewNotice preview={preview} arrivedDue={arrivedDue} />}
+        {primaryTermsChanged && (
+          <PayDatePreviewNotice
+            preview={preview}
+            offer={arrivedOffer}
+            endDateEntered={budget.end_date_entered}
+          />
+        )}
         <Alert>
           <InfoIcon aria-hidden />
           <AlertDescription>

@@ -3,19 +3,24 @@ import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { ExpectedPayDatePreview } from '@/features/income/pay-date-preview'
+import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
+import { nextSalary } from '@/features/periods/next-salary'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 
 /**
- * The expected next pay date that saving would give (R-INCOME-055), and, when this month's
- * salary under the new terms is already due, that the app will ask about it (R-PERIOD-037).
+ * The expected next pay date that saving would give (R-INCOME-055), worded as everywhere
+ * else (nextSalary: none in the budget's last period), and, when a salary under the new
+ * terms is already due, what the app will ask about it (R-PERIOD-037).
  */
 export function PayDatePreviewNotice({
   preview,
-  arrivedDue,
+  offer,
+  endDateEntered,
 }: {
   preview: { data: ExpectedPayDatePreview | null | undefined; isError: boolean; error: unknown }
-  arrivedDue: string | null
+  offer: ArrivedOffer | null
+  endDateEntered: string | null
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
@@ -38,21 +43,26 @@ export function PayDatePreviewNotice({
     )
   }
   if (preview.data === null) return null
-  const { end_date: end, expected_pay_date: expected, end_is_manual: manual } = preview.data
+  const { end_date: end, end_is_manual: manual } = preview.data
+  const next = nextSalary({ end_date: end, end_is_manual: manual }, endDateEntered)
+  const fmt = formatCalendarDate
   return (
     <Alert data-testid="pay-date-preview">
       <CalendarClockIcon aria-hidden />
       <AlertDescription>
         <p>
           {manual
-            ? t('income.preview.manual', { end: formatCalendarDate(end) })
-            : t('income.preview.expected', {
-                date: formatCalendarDate(expected),
-                end: formatCalendarDate(end),
-              })}
+            ? t('income.preview.manual', { end: fmt(end) })
+            : next.kind === 'expected'
+              ? t('income.preview.expected', { date: fmt(next.date), end: fmt(end) })
+              : t('income.preview.lastPeriod', { end: fmt(end) })}
         </p>
-        {arrivedDue && (
-          <p>{t('income.preview.arrivedDue', { date: formatCalendarDate(arrivedDue) })}</p>
+        {offer && (
+          <p>
+            {offer.kind === 'early'
+              ? t('income.preview.arrivedDue', { date: fmt(offer.date) })
+              : t('income.preview.arrivedDueMoveStart', { date: fmt(offer.date) })}
+          </p>
         )}
       </AlertDescription>
     </Alert>

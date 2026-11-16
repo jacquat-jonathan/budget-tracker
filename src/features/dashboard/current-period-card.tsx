@@ -19,6 +19,7 @@ import { Progress } from '@/components/ui/progress'
 import { useCurrentPeriod, useIncomes } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { periodProgress } from '@/features/dashboard/period-progress'
+import { nextSalary } from '@/features/periods/next-salary'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 
@@ -63,7 +64,7 @@ export function CurrentPeriodCard() {
 
   const { day, total, percent } = periodProgress(period, period.today ?? period.start_date)
   const primary = incomes.data?.find((income) => income.is_primary)
-  const nextPayDate = primary?.next_pay_date ?? null
+  const next = nextSalary(period, budget.end_date_entered)
 
   return (
     <Card className="md:col-span-2" data-testid="current-period-card">
@@ -103,17 +104,31 @@ export function CurrentPeriodCard() {
               {formatMoney(period.income_total ?? 0)}
             </dd>
           </div>
-          <div className="flex flex-col gap-1">
-            <dt className="text-sm text-muted-foreground">{t('dashboard.period.nextPayDay')}</dt>
-            <dd className="text-2xl font-semibold">
-              {nextPayDate ? <CalendarDate value={nextPayDate} /> : '–'}
-            </dd>
-            {primary && (
-              <dd className="text-sm text-muted-foreground">
-                {t('dashboard.period.nextPayDayOf', { name: primary.name })}
+          {next.kind === 'lastPeriod' ? (
+            <div className="flex flex-col gap-1" data-testid="next-pay-day">
+              <dt className="text-sm text-muted-foreground">{t('dashboard.period.budgetEnds')}</dt>
+              <dd className="text-2xl font-semibold">
+                <CalendarDate value={next.endDate} />
               </dd>
-            )}
-          </div>
+              <dd className="text-sm text-muted-foreground">
+                {t('dashboard.period.lastPeriodHelp')}
+              </dd>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1" data-testid="next-pay-day">
+              <dt className="text-sm text-muted-foreground">{t('dashboard.period.nextPayDay')}</dt>
+              <dd className="text-2xl font-semibold">
+                {next.kind === 'expected' ? <CalendarDate value={next.date} /> : '–'}
+              </dd>
+              {primary && (
+                <dd className="text-sm text-muted-foreground">
+                  {next.kind === 'expected' && next.manual
+                    ? t('dashboard.period.nextPayDayOfManual', { name: primary.name })
+                    : t('dashboard.period.nextPayDayOf', { name: primary.name })}
+                </dd>
+              )}
+            </div>
+          )}
         </dl>
       </CardContent>
     </Card>

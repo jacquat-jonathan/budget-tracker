@@ -1,9 +1,11 @@
 import {
   useMutation,
   useQueryClient,
+  type MutateOptions,
   type QueryKey,
   type UseMutationResult,
 } from '@tanstack/react-query'
+import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -30,6 +32,16 @@ export interface AppMutationOptions<TData, TVariables> {
   errorMessages?: DbErrorOverrides
 }
 
+/** Identifies a call by its variables, to recognise the same write sent twice. */
+function callKey(variables: unknown): string {
+  try {
+    return JSON.stringify(variables) ?? 'undefined'
+  } catch {
+    // Not serialisable: treat every such call as the same write.
+    return '<unserialisable>'
+  }
+}
+
 /**
  * The app's one pattern for writes: pending state (from the returned mutation), translated
  * success and error feedback, stable database error codes mapped to text with a safe
@@ -37,6 +49,10 @@ export interface AppMutationOptions<TData, TVariables> {
  * failure alike. A "not found" answer means the row (or the whole budget) is gone or no
  * longer ours, so the budget list is refetched too and the current budget falls back if it
  * disappeared.
+ *
+ * A write is sent once: calling `mutate` or `mutateAsync` again with the same variables
+ * while that write is in flight (a double click, two Enter presses before the button is
+ * disabled) does not send it again; `mutateAsync` returns the promise of the write in flight.
  */
 export function useAppMutation<TData, TVariables = void>({
   mutationFn,
@@ -49,7 +65,7 @@ export function useAppMutation<TData, TVariables = void>({
   const queryClient = useQueryClient()
   const errorMessage = useErrorMessage(errorMessages)
 
-  return useMutation<TData, unknown, TVariables>({
+  const mutation = useMutation<TData, unknown, TVariables>({
     mutationFn,
     onSuccess: async (data, variables) => {
       const message = success?.(data, variables)
@@ -68,6 +84,35 @@ export function useAppMutation<TData, TVariables = void>({
       for (const queryKey of keys) void queryClient.invalidateQueries({ queryKey })
     },
   })
+
+  // R-APP-007: the guard is synchronous, so it holds before React re-renders the disabled
+  // button; the same write sent again while in flight is not sent twice.
+  const inFlight = useRef(new Map<string, Promise<TData>>())
+  const { mutateAsync: send } = mutation
+  const mutateAsync = useCallback(
+    (variables: TVariables, options?: MutateOptions<TData, unknown, TVariables>) => {
+      const key = callKey(variables)
+      const pending = inFlight.current.get(key)
+      if (pending) return pending
+      const promise = send(variables, options)
+      inFlight.current.set(key, promise)
+      const settle = () => {
+        if (inFlight.current.get(key) === promise) inFlight.current.delete(key)
+      }
+      promise.then(settle, settle)
+      return promise
+    },
+    [send],
+  )
+  const mutate = useCallback(
+    (variables: TVariables, options?: MutateOptions<TData, unknown, TVariables>) => {
+      // Like TanStack's mutate: the outcome is reported through state and callbacks.
+      mutateAsync(variables, options).catch(() => undefined)
+    },
+    [mutateAsync],
+  )
+
+  return { ...mutation, mutate, mutateAsync }
 }
 
 /** Translate any database or network error; never shows the raw message. */
