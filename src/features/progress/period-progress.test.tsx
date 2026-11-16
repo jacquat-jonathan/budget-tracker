@@ -155,6 +155,25 @@ describe('period progress [R-PROGRESS-050]', () => {
     expect(db.rpc.get_period_progress).toHaveBeenCalledWith({ p_period_id: 'period-2' })
   })
 
+  it('every figure of a row has its column header for assistive technology', async () => {
+    mock.current = createSupabaseMock(fakeSession(), progressDb())
+    renderRoutes(routes, '/')
+    const card = await screen.findByTestId('period-progress')
+    const table = await within(card).findByRole('table', { name: 'Progress per category' })
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((h) => h.textContent),
+    ).toEqual(['Category', 'Planned', 'Spent', 'Left'])
+    const leisure = within(table).getAllByRole('row')[5]!
+    expect(within(leisure).getByRole('rowheader')).toHaveTextContent('Leisure')
+    expect(
+      within(leisure)
+        .getAllByRole('cell')
+        .map((c) => c.textContent),
+    ).toEqual(['CHF 300.00', 'CHF 412.00', 'LeftCHF -112.00'])
+  })
+
   it('browses to a past period and back [R-COMPARE-001]', async () => {
     const db = progressDb()
     mock.current = createSupabaseMock(fakeSession(), db)

@@ -15,9 +15,12 @@ import {
 } from '@/components/ui/select'
 import type { CategoryForDate } from '@/features/categories/category-queries'
 
+/** A choice of the picker; `kept`: the transaction's own category, not planned on its date. */
+export type CategoryChoice = CategoryForDate & { kept?: boolean }
+
 /** The leaves of list_categories_for_date, grouped under their category when they have one. */
-function groups(options: readonly CategoryForDate[]) {
-  const result: { parent: string | null; items: CategoryForDate[] }[] = []
+function groups(options: readonly CategoryChoice[]) {
+  const result: { parent: string | null; items: CategoryChoice[] }[] = []
   for (const option of options) {
     const parent = option.parent_id ? option.parent_name : null
     const last = result.at(-1)
@@ -45,7 +48,7 @@ export function CategorySelectField<
   control: Control<TValues, unknown, TOut>
   name: FieldPath<TValues>
   label: string
-  options: readonly CategoryForDate[]
+  options: readonly CategoryChoice[]
   loading: boolean
   description?: string
 }) {
@@ -90,14 +93,18 @@ export function CategorySelectField<
                 <SelectLabel>{group.parent}</SelectLabel>
                 {group.items.map((item) => (
                   <SelectItem key={item.category_id} value={item.category_id} className="pl-5">
-                    {item.name}
+                    {item.kept
+                      ? t('transactions.fields.keptCategory', { name: item.name })
+                      : item.name}
                   </SelectItem>
                 ))}
               </SelectGroup>
             ) : (
               group.items.map((item) => (
                 <SelectItem key={item.category_id} value={item.category_id}>
-                  {item.name}
+                  {item.kept
+                    ? t('transactions.fields.keptCategory', { name: item.name })
+                    : item.name}
                 </SelectItem>
               ))
             ),

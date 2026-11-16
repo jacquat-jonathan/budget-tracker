@@ -28,7 +28,7 @@ export function MoneyStat({
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          'font-semibold tracking-tight tabular-nums',
+          'font-semibold tracking-tight whitespace-nowrap tabular-nums',
           emphasis ? 'text-2xl' : 'text-xl',
           tone === 'negative' && 'text-destructive',
           tone === 'positive' && 'text-positive',

@@ -269,17 +269,20 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
 
     const notice = await within(dialog).findByTestId('changed-elsewhere')
     expect(notice).toHaveTextContent('Someone else changed this while you had it open')
+    // What they changed, field by field, with their values.
+    expect(notice).toHaveTextContent('NameFood')
+    expect(notice).toHaveTextContent('AmountCHF 800.00 per month')
     expect(within(dialog).getByLabelText('Amount per month')).toHaveValue('950.00')
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
 
-    // Keep mine: the next save knowingly replaces theirs, with the revision now read.
+    // Keep mine: only what I edited (the amount) is sent; their new name stays.
     await userEvent.click(within(notice).getByRole('button', { name: 'Keep mine' }))
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('Food')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.update_category).toHaveBeenLastCalledWith({
         p_category_id: 'cat-groceries',
         p_expected_revision: 2,
-        p_name: 'Groceries',
         p_amount: 95_000,
       })
     })
@@ -301,5 +304,36 @@ describe('a change by another member is never lost silently [R-CONCURRENCY-091] 
     await userEvent.click(within(notice).getByRole('button', { name: 'Load their version' }))
     expect(within(dialog).getByLabelText('Name')).toHaveValue('Food')
     expect(within(dialog).queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+  })
+
+  it('with nothing typed, the form takes their version and says what changed', async () => {
+    const { db, queryClient } = await openBudget()
+    await action('Groceries', 'Edit')
+    const dialog = await screen.findByRole('dialog')
+    db.tables.category_overview = db.tables.category_overview.map((category) =>
+      category.id === 'cat-groceries' ? { ...category, name: 'Food', revision: 2 } : category,
+    )
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budget'] }))
+    const updated = await within(dialog).findByTestId('updated-elsewhere')
+    expect(updated).toHaveTextContent('NameFood')
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('Food')
+    expect(within(dialog).queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
+  it('a category deleted by someone else while open cannot be saved, and says so', async () => {
+    const { db, queryClient } = await openBudget()
+    await action('Groceries', 'Edit')
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Name'), ' and drinks')
+    db.tables.category_overview = db.tables.category_overview.filter(
+      (category) => category.id !== 'cat-groceries',
+    )
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budget'] }))
+    expect(await within(dialog).findByTestId('gone-elsewhere')).toHaveTextContent(
+      'Someone else deleted this',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(dialog).getByLabelText('Name')).toHaveValue('Groceries and drinks')
   })
 })

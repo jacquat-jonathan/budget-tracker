@@ -1039,10 +1039,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: R-CATEGORY-092, R-CATEGORY-090, D-141
   - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/category-form-dialog.tsx
-- **R-CATEGORY-052** Before a category is removed, the app says which of the two will happen, from the database's own answer: deleted (it never counted and has no transactions), or no longer planned from the current period with past periods keeping it and its transactions kept; and that its subcategories go with it.
+- **R-CATEGORY-052** Before a category is removed, the app says which of the two will happen, from the database's own answer: deleted (it never counted and has no transactions), no longer planned from the current period with past periods keeping it and its transactions kept, or, when it was added this period and has transactions, kept without an amount; that its subcategories go with it; and it offers removal from an earlier period only as an explicit option with a warning.
   _active · enforced by test · F-CATEGORY_
   - Related: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095
-  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/end-category-dialog.tsx
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/end-category-dialog.tsx; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
 - **R-CATEGORY-053** A new amount is said to apply from the current period; correcting an earlier period is offered only as an explicit option, off by default, with a warning that past periods change; a group's amount is not editable (it is the total of its subcategories).
   _active · enforced by test · F-CATEGORY_
   - Related: R-VERSION-002, R-VERSION-070, R-INCOME-051
@@ -1120,14 +1120,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: D-149, D-088
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Transactions
-- **R-TRANSACTION-050** The transaction form records an expense, a refund or an extra income (no category); its date is limited to what the database accepts (the first period's start to today, not after an ended budget's last day) and today by default; its category choices are read from the database for the date and read again whenever the date changes; "save and add another" keeps the kind, date and category for the next receipt.
+- **R-TRANSACTION-050** The transaction form records an expense, a refund or an extra income (no category); its date is limited to what the database accepts (the first period's start to today, or an ended budget's last day) and today by default; its category choices are read from the database for the date and read again whenever the date changes, a failed read is shown with a retry, and a transaction being edited keeps the category it already has even when that category is no longer planned on its date (shown as such); "save and add another" keeps the kind, date and category for the next receipt.
   _active · enforced by test · F-TRANSACTION_
   - Related: R-TRANSACTION-090, R-TRANSACTION-091, R-TRANSACTION-092, R-TRANSACTION-004
-  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx
-- **R-TRANSACTION-051** The transactions page lists transactions newest first, grouped by day, a page at a time through the database's cursor, filtered by period (the current one by default), category (a group with its subcategories) and kind, the filters kept in the address.
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
+- **R-TRANSACTION-051** The transactions page lists transactions newest first, grouped by day, a page at a time through the database's cursor, once the filters are known; it is filtered by period (the current one by default), category (a group with its subcategories; one without a plan only when a link chose it) and kind, the filters kept in the address; a period or category the budget does not have falls back to all.
   _active · enforced by test · F-TRANSACTION_
   - Related: R-TRANSACTION-095, D-149
-  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/transactions-page.tsx
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/transactions-page.tsx; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
 
 ### Period progress and result
 
@@ -1159,10 +1159,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PROGRESS_
   - Related: C-LOGIC-001, R-CATEGORY-091
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
-- **R-PROGRESS-050** The dashboard shows the progress of one period, the current one by default (the last once the budget has ended): its income, planned, spent and result as a surplus or a deficit, and per category and subcategory what was planned, spent and is left, overspending marked by the database's flag; earlier and later periods are browsed in place, the Periods page links each period to its progress, and each category leads to its transactions in that period.
+- **R-PROGRESS-050** The dashboard shows the progress of one period, the current one by default (the last once the budget has ended): its income, planned, spent and result as a surplus or a deficit, and per category and subcategory what was planned, spent and is left, each figure under its column header, overspending marked by the database's flag and drawn in proportion (the share beyond the plan), not as a full bar; earlier and later periods are browsed in place, the Periods page links each period to its progress, and each category leads to its transactions in that period.
   _active · enforced by test · F-PROGRESS_
   - Related: R-PROGRESS-090, R-PROGRESS-071, R-PROGRESS-002, R-COMPARE-001, D-137
-  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/progress/period-progress-card.tsx
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/progress/period-progress-card.tsx; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
 
 ### Subscriptions
 
@@ -1508,10 +1508,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: D-142, R-CONCURRENCY-070, D-006
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Concurrent edits
-- **R-CONCURRENCY-091** When a save or removal is refused because the record changed, or the record changes while it is open, the app says another member changed it and reads it again, keeps what the user typed, and lets them load the other version or keep theirs, so the next save replaces the other version knowingly; a form never sends a revision read after it was opened.
+- **R-CONCURRENCY-091** An edit form or removal confirmation reads its record by id, never from a list, and saves over the version it opened. When another member changes a field it shows (the save is refused, or a later read shows it), it says so with their values field by field: with nothing typed it takes their version; with something typed it keeps what was typed and lets the user load their version or keep theirs, and keeping theirs saves only the fields they edited. A change to fields it does not show (the user's own save in another form, another member's change elsewhere) is taken silently. A record deleted meanwhile is said to be gone and cannot be saved.
   _active · enforced by test · F-CATEGORY_
   - Related: R-CONCURRENCY-070, D-142, D-136
-  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: src/hooks/use-edit-base.ts
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: src/hooks/use-edit-base.ts; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
 
 ## Conventions
 
@@ -3216,20 +3216,22 @@ Related: R-INCOME-056, R-PERIOD-010, D-081
 
 Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16
 
-### D-136 A concurrent change is shown in the form, not as a reload (accepted)
+### D-136 Edit forms read their record by id and compare what they show (accepted)
 
-Every edit form and removal confirmation keeps the record as it was when it opened (useEditBase) and sends that revision. When the database refuses with record_changed, or a later read shows another member's change while it is open, the form keeps what was typed, says someone else changed it, and offers "Load their version" (the form is refilled) or "Keep mine" (the next save sends the new revision and replaces theirs); Save waits for that choice. A removal asks to look again and confirm. Built once (src/hooks/use-edit-base.ts, src/components/changed-elsewhere.tsx) for incomes, the budget's name and end date, categories and transactions.
+Every edit form and removal confirmation reads its record by id (useRecord), independently of the list, filter or page it was opened from, and keeps the version it opened (useEditBase) whose revision it sends. The record's revision is its one revision source, but a form compares only the fields it shows: a newer revision that leaves them as they were becomes its base in silence (the user's own save in another form, another member changing another field). When a shown field changed: with nothing typed the form takes the other version and says what changed; with something typed it lists the other member's values field by field and offers "Load their version" or "Keep mine", which keeps only the fields the user edited (react-hook-form's dirty fields) so the save sends only those. A record deleted meanwhile is said to be gone. Built once (src/hooks/use-edit-base.ts, src/hooks/use-concurrent-form.ts, src/components/changed-elsewhere.tsx, src/features/budgets/record-queries.ts) and used by incomes, the budget's name and end date, categories and transactions; steps 4 to 7 reuse it.
 
-**Why:** D-124 asks to refuse the second save and reload; reloading the whole form would lose what the user typed, and silently retrying with the new revision would overwrite the other member's change.
+**Why:** The first version looked the record up in whatever list was loaded (a transaction moved to another period by another member read as a dead end), compared revisions only (saving one settings form flagged the other) and, after "Keep mine", sent every field, reverting the other member's untouched changes. D-124 asks to refuse the second save; reloading the form would lose what was typed, and silently retrying would overwrite the other member.
 
 **Rejected:**
 
+- Looking the record up in the loaded list.
+- Comparing revisions only.
+- "Keep mine" sending every field of the form.
 - Reloading the form with the other version, discarding what was typed.
-- Retrying automatically with the latest revision.
 
 Related: D-124, D-142, R-CONCURRENCY-091
 
-Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16
+Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
 
 ### D-137 Period progress lives on the dashboard (accepted)
 

@@ -278,10 +278,10 @@ export function PeriodsPage() {
                       aria-label={t('periods.progressFor', { range: range(period) })}
                     >
                       <PieChartIcon />
-                      <span className="hidden sm:inline">{t('periods.progress')}</span>
+                      {t('periods.progress')}
                     </Link>
                   </Button>
-                  {(isCurrent || previous) && (
+                  {isCurrent || previous ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -354,6 +354,9 @@ export function PeriodsPage() {
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  ) : (
+                    // Keeps the progress link at the same place in every row.
+                    <span className="size-7 shrink-0" aria-hidden />
                   )}
                 </div>
               </li>

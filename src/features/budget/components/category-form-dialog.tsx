@@ -5,7 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
-import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { MoneyField } from '@/components/form/money-field'
 import { SegmentedField } from '@/components/form/segmented-field'
 import { SelectField } from '@/components/form/select-field'
@@ -32,6 +32,9 @@ import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCreateCategory, useUpdateCategory } from '@/features/categories/category-mutations'
 import { CADENCES, type Category } from '@/features/categories/category-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useRecord } from '@/features/budgets/record-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
+import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { MIN_EXPECTATION_RAPPEN, nameSchema, rappenSchema } from '@/lib/form-schemas'
@@ -57,8 +60,6 @@ interface CategoryFormDialogProps {
   parent: Category | null
   /** The category to edit; a new one when absent. */
   category?: Category
-  /** The same category as read now (null once gone), to notice a change by someone else. */
-  liveCategory?: Category | null
   periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
 }
@@ -94,18 +95,17 @@ function CategoryForm({
   onOpenChange,
   parent,
   category: opened,
-  liveCategory,
   periods,
   currentPeriod,
 }: CategoryFormDialogProps) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
   const close = () => onOpenChange(false)
-  // R-CONCURRENCY-091: the version the form was opened on is the one saved over.
-  const editBase = useEditBase(
-    opened ? (liveCategory === undefined ? opened : liveCategory) : undefined,
-  )
-  const category = opened ? (editBase.base ?? opened) : undefined
+  const views = useRecordViews()
+  // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
+  const live = useRecord('category_overview', budgetId, opened?.id)
+  const edit = useEditBase(opened, live, views.category)
+  const category = edit.base
   const isGroup = category?.is_group === true
 
   const valuesOf = (from: Category | undefined): CategoryInput => ({
@@ -125,6 +125,7 @@ function CategoryForm({
   const create = useCreateCategory(budgetId, { onDone: close })
   const update = useUpdateCategory(budgetId, { onDone: close })
   const mutation = category ? update : create
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
 
   // Periods are identified by their dates; a subcategory never before its group.
   const periodLabel = (period: PeriodSummary) =>
@@ -162,21 +163,15 @@ function CategoryForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FieldGroup>
-        {editBase.changed && editBase.live && (
-          <ChangedElsewhere
-            onUseTheirs={() => {
-              const theirs = editBase.live ?? undefined
-              editBase.adopt()
-              update.reset()
-              form.reset(valuesOf(theirs))
-            }}
-            onKeepMine={() => {
-              editBase.adopt()
-              update.reset()
-            }}
-          />
-        )}
-        <SaveError error={mutation.error} changed={editBase.changed} message={errorMessage} />
+        <ConcurrentNotices
+          gone={edit.gone}
+          pending={sync.pending}
+          updated={sync.updated}
+          onUseTheirs={sync.useTheirs}
+          onKeepMine={sync.keepMine}
+          error={mutation.error}
+          message={errorMessage}
+        />
         {parent && !category && <FirstSubcategoryNotice parent={parent} />}
         <TextField
           control={form.control}
@@ -270,7 +265,7 @@ function CategoryForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending || editBase.changed}>
+          <Button type="submit" disabled={mutation.isPending || sync.pending !== null || edit.gone}>
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { routes } from '@/app/routes'
@@ -288,7 +288,14 @@ describe('recording transactions [R-TRANSACTION-050] [R-TRANSACTION-004]', () =>
       })
     })
 
-    db.rpc.delete_transaction.mockImplementationOnce(() => rpcError('record_changed'))
+    // Sam changed the amount meanwhile: my delete is refused, and the confirmation says what
+    // changed before I confirm again.
+    db.rpc.delete_transaction.mockImplementationOnce(() => {
+      db.tables.transaction_list = db.tables.transaction_list.map((row) =>
+        row.id === 'tx-1' ? { ...row, amount: 9_990, revision: 3 } : row,
+      )
+      rpcError('record_changed')
+    })
     await userEvent.click(
       within(screen.getAllByTestId('transaction-row')[2]!).getByRole('button', {
         name: /Actions for Migros/,
@@ -298,12 +305,165 @@ describe('recording transactions [R-TRANSACTION-050] [R-TRANSACTION-004]', () =>
     const confirm = await screen.findByRole('alertdialog')
     expect(confirm).toHaveTextContent('The transaction of CHF 87.90 on 08.11.2026')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
-    expect(
-      await within(confirm).findByText(/Someone else changed this in the meantime/),
-    ).toBeInTheDocument()
+    const notice = await within(confirm).findByTestId('changed-elsewhere')
+    expect(notice).toHaveTextContent('AmountCHF 99.90')
+    expect(within(confirm).getByRole('button', { name: 'Delete' })).toBeDisabled()
     expect(db.rpc.delete_transaction).toHaveBeenCalledWith({
       p_transaction_id: 'tx-1',
       p_expected_revision: 1,
     })
+    await userEvent.click(within(notice).getByRole('button', { name: 'I have looked, continue' }))
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => {
+      expect(db.rpc.delete_transaction).toHaveBeenLastCalledWith({
+        p_transaction_id: 'tx-1',
+        p_expected_revision: 3,
+      })
+    })
+  })
+})
+
+describe('a transaction moved or deleted by another member while open [R-CONCURRENCY-091]', () => {
+  it('moved out of the filtered list: still the same record, their change shown, mine kept', async () => {
+    const { db } = await openTransactions()
+    db.rpc.update_transaction.mockImplementationOnce(() => {
+      // Sam moved it to the previous period: out of the current period's list.
+      db.tables.transaction_list = db.tables.transaction_list.map((row) =>
+        row.id === 'tx-1'
+          ? { ...row, date: '2026-10-10', period_id: 'period-1', revision: 2 }
+          : row,
+      )
+      rpcError('record_changed')
+    })
+    const migros = screen.getAllByTestId('transaction-row')[2]!
+    await userEvent.click(within(migros).getByRole('button', { name: /Actions for Migros/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const amount = within(dialog).getByLabelText('Amount')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '91')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    const notice = await within(dialog).findByTestId('changed-elsewhere')
+    expect(notice).toHaveTextContent('Date10.10.2026')
+    expect(within(dialog).getByLabelText('Amount')).toHaveValue('91.00')
+    await userEvent.click(within(notice).getByRole('button', { name: 'Keep mine' }))
+    expect(within(dialog).getByLabelText('Date')).toHaveValue('10.10.2026')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_transaction).toHaveBeenLastCalledWith({
+        p_transaction_id: 'tx-1',
+        p_expected_revision: 2,
+        p_kind: 'expense',
+        p_amount: 9_100,
+        p_date: '2026-10-10',
+        p_category_id: 'cat-groceries',
+        p_description: 'Migros',
+      })
+    })
+  })
+
+  it('deleted while open: says so, keeps what was typed, and offers no save', async () => {
+    const { db, queryClient } = await openTransactions()
+    const migros = screen.getAllByTestId('transaction-row')[2]!
+    await userEvent.click(within(migros).getByRole('button', { name: /Actions for Migros/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Note (optional)'), ' and Coop')
+    db.tables.transaction_list = db.tables.transaction_list.filter((row) => row.id !== 'tx-1')
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budget'] }))
+    expect(await within(dialog).findByTestId('gone-elsewhere')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(dialog).getByLabelText('Note (optional)')).toHaveValue('Migros and Coop')
+  })
+})
+
+describe('the filters [R-TRANSACTION-051]', () => {
+  it('a category the budget does not have falls back to all categories', async () => {
+    const { router } = await openTransactions(transactionsDb(), '/transactions?category=elsewhere')
+    expect(descriptions()).toContain('Migros')
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('')
+    })
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveTextContent('All categories')
+  })
+
+  it('a choice is written to the address', async () => {
+    const { router } = await openTransactions()
+    await userEvent.click(screen.getByRole('combobox', { name: 'Kind' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Refunds' }))
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?kind=refund')
+    })
+  })
+
+  it('a removed category in the address is shown in the select', async () => {
+    mock.current = createSupabaseMock(fakeSession(), transactionsDb())
+    renderRoutes(routes, '/transactions?category=cat-hobby')
+    expect(await screen.findByText('No transactions match these filters')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Category' })).toHaveTextContent(
+      'Old hobby (removed)',
+    )
+  })
+})
+
+describe('the transaction form [R-TRANSACTION-050]', () => {
+  it('keeps a transaction’s category even when it is no longer planned on its date', async () => {
+    const db = transactionsDb()
+    // Groceries was removed: the date's choices no longer have it.
+    db.rpc.list_categories_for_date.mockImplementation(() => [
+      {
+        category_id: 'cat-rent',
+        parent_id: null,
+        name: 'Rent',
+        parent_name: null,
+        display_order: 0,
+      },
+    ])
+    const { db: same } = await openTransactions(db)
+    const migros = screen.getAllByTestId('transaction-row')[2]!
+    await userEvent.click(within(migros).getByRole('button', { name: /Actions for Migros/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => {
+      expect(within(dialog).getByRole('combobox', { name: 'Category' })).toHaveTextContent(
+        'Groceries (kept: not planned on this date)',
+      )
+    })
+    const amount = within(dialog).getByLabelText('Amount')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '88')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(same.rpc.update_transaction).toHaveBeenCalledWith(
+        expect.objectContaining({ p_category_id: 'cat-groceries', p_amount: 8_800 }),
+      )
+    })
+  })
+
+  it('a failed category read is shown with a retry, not as “no categories”', async () => {
+    const db = transactionsDb()
+    db.rpc.list_categories_for_date.mockImplementationOnce(() => rpcError('budget_not_found_x'))
+    await openTransactions(db)
+    await userEvent.click(screen.getByRole('button', { name: 'Add transaction' }))
+    const dialog = await screen.findByRole('dialog')
+    const failed = await within(dialog).findByTestId('categories-failed')
+    await userEvent.click(within(failed).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => {
+      expect(within(dialog).queryByTestId('categories-failed')).not.toBeInTheDocument()
+    })
+  })
+
+  it('in an ended budget, the latest date is its last day', async () => {
+    const db = transactionsDb()
+    db.rpc.get_current_period.mockImplementation(() => [])
+    db.tables.period_summaries = db.tables.period_summaries.map((period) => ({
+      ...period,
+      is_current: false,
+    }))
+    await openTransactions(db, '/transactions?period=all')
+    await userEvent.click(screen.getByRole('button', { name: 'Add transaction' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('From 25.09.2026 to 15.11.2026, the budget’s last day.')
   })
 })

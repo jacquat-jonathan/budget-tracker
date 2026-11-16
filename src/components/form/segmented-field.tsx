@@ -31,7 +31,8 @@ export function SegmentedField<TValues extends FieldValues, TOut extends FieldVa
   const { field } = useController({ control, name })
   const value: unknown = field.value
   return (
-    <FieldSet>
+    // Side by side when the form is wide enough, stacked on a phone (container query).
+    <FieldSet className="@container">
       <FieldLegend variant="label" id={`${id}-legend`}>
         {label}
       </FieldLegend>
@@ -40,14 +41,14 @@ export function SegmentedField<TValues extends FieldValues, TOut extends FieldVa
         value={typeof value === 'string' ? value : ''}
         onValueChange={(next) => field.onChange(next)}
         aria-labelledby={`${id}-legend`}
-        className="grid auto-cols-fr grid-flow-col gap-1 rounded-lg bg-muted p-1"
+        className="grid grid-cols-1 gap-1 rounded-lg bg-muted p-1 @sm:auto-cols-fr @sm:grid-flow-col @sm:grid-cols-none"
       >
         {options.map((option) => (
           <RadioGroupPrimitive.Item
             key={option.value}
             value={option.value}
             className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors outline-none',
+              'min-w-0 rounded-md px-2 py-1.5 text-center text-sm leading-tight font-medium text-balance break-words text-muted-foreground transition-colors outline-none',
               'hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
               'data-[state=checked]:bg-background data-[state=checked]:text-foreground data-[state=checked]:shadow-sm',
             )}

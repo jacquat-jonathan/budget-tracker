@@ -72,8 +72,9 @@ export function useAppMutation<TData, TVariables = void>({
       const message = success?.(data, variables)
       if (message) toast.success(message)
       await onSuccess?.(data, variables)
+      // Refreshed behind the closed form: a save does not wait for every read it affects.
       const keys = invalidate?.(data, variables) ?? []
-      await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })))
+      for (const queryKey of keys) void queryClient.invalidateQueries({ queryKey })
     },
     onError: (error, variables) => {
       const notFound = isNotFoundError(error)

@@ -102,8 +102,6 @@ export function BudgetPage() {
 
   const all = categories.data
   const tree = categoryTree(all)
-  const live = (category: Category | null | undefined) =>
-    category ? (all.find((item) => item.id === category.id) ?? null) : undefined
 
   /** Move a category one place among its siblings in force (R-CATEGORY-096). */
   const move = (siblings: Category[], index: number, by: -1 | 1) => {
@@ -201,19 +199,18 @@ export function BudgetPage() {
         }}
         parent={dialog.kind === 'add' ? dialog.parent : null}
         category={dialog.kind === 'edit' ? dialog.category : undefined}
-        liveCategory={live(dialog.kind === 'edit' ? dialog.category : undefined)}
         periods={periods.data}
         currentPeriod={current.data}
       />
       <EndCategoryDialog
         budgetId={budgetId}
         category={dialog.kind === 'end' ? dialog.category : null}
-        liveCategory={live(dialog.kind === 'end' ? dialog.category : undefined)}
         subcategories={
           dialog.kind === 'end'
             ? all.filter((item) => item.parent_id === dialog.category.id && item.is_active === true)
             : []
         }
+        periods={periods.data}
         currentPeriod={current.data}
         onClose={close}
       />

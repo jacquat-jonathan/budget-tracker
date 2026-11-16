@@ -32,9 +32,10 @@ interface Cursor {
  * R-TRANSACTION-095: the list, newest first, a page at a time through the database's
  * cursor (the last row's date, created_at and id), with the same filters on every page.
  */
-export function useTransactions(budgetId: string, filters: TransactionFilters) {
+export function useTransactions(budgetId: string, filters: TransactionFilters, enabled = true) {
   return useInfiniteQuery({
     queryKey: [...budgetKeys.transactions(budgetId), filters] as const,
+    enabled,
     initialPageParam: null as Cursor | null,
     queryFn: async ({ pageParam }): Promise<Transaction[]> =>
       unwrap(

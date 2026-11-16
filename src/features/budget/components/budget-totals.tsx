@@ -15,7 +15,7 @@ export function BudgetTotals({ period }: { period: PeriodSummary }) {
   const { t } = useTranslation()
   const left = period.left_to_assign ?? 0
   return (
-    <Card size="sm" data-testid="budget-totals">
+    <Card data-testid="budget-totals">
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
           {t('categories.totals.period', {

@@ -19,8 +19,11 @@ import {
   useSetBudgetEndDate,
 } from '@/features/budgets/budget-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
-import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import type { MyBudget } from '@/features/budgets/budget-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
+import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
@@ -82,11 +85,16 @@ function RenameForm() {
   const { budget, budgetId } = useCurrentBudget()
   const errorMessage = useErrorMessage()
   const rename = useRenameBudget(budgetId)
-  const base = useEditBase(budget)
+  const views = useRecordViews()
+  // R-CONCURRENCY-091: only the name matters to this form; another field of the budget
+  // changing (the end date, the primary income) is not a conflict for it.
+  const base = useEditBase(budget, budget, views.budgetName)
+  const valuesOf = (from: MyBudget) => ({ name: from.name })
   const form = useForm<z.input<typeof renameSchema>, unknown, z.output<typeof renameSchema>>({
     resolver: zodResolver(renameSchema),
-    defaultValues: { name: budget.name },
+    defaultValues: valuesOf(budget),
   })
+  const sync = useConcurrentForm(form, base, valuesOf, () => rename.reset())
 
   const onSubmit = form.handleSubmit(({ name }) =>
     rename.mutateAsync({ name, revision: (base.base ?? budget).revision }).then(
@@ -101,20 +109,15 @@ function RenameForm() {
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FieldGroup>
-        {base.changed && (
-          <ChangedElsewhere
-            onUseTheirs={() => {
-              base.adopt()
-              rename.reset()
-              form.reset({ name: budget.name })
-            }}
-            onKeepMine={() => {
-              base.adopt()
-              rename.reset()
-            }}
-          />
-        )}
-        <SaveError error={rename.error} changed={base.changed} message={errorMessage} />
+        <ConcurrentNotices
+          gone={false}
+          pending={sync.pending}
+          updated={sync.updated}
+          onUseTheirs={sync.useTheirs}
+          onKeepMine={sync.keepMine}
+          error={rename.error}
+          message={errorMessage}
+        />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           <div className="flex-1">
             <TextField
@@ -124,7 +127,11 @@ function RenameForm() {
               autoComplete="off"
             />
           </div>
-          <Button type="submit" className="sm:mt-6" disabled={rename.isPending || base.changed}>
+          <Button
+            type="submit"
+            className="sm:mt-6"
+            disabled={rename.isPending || sync.pending !== null}
+          >
             {rename.isPending ? t('common.saving') : t('settings.budget.rename')}
           </Button>
         </div>
@@ -140,11 +147,15 @@ function EndDateForm() {
   const { budget, budgetId } = useCurrentBudget()
   const errorMessage = useErrorMessage()
   const setEndDate = useSetBudgetEndDate(budgetId)
-  const base = useEditBase(budget)
+  const views = useRecordViews()
+  // Only the end date matters to this form (see RenameForm).
+  const base = useEditBase(budget, budget, views.budgetEnd)
+  const valuesOf = (from: MyBudget) => ({ endDate: from.end_date_entered ?? '' })
   const form = useForm<z.input<typeof endDateSchema>, unknown, z.output<typeof endDateSchema>>({
     resolver: zodResolver(endDateSchema),
-    defaultValues: { endDate: budget.end_date_entered ?? '' },
+    defaultValues: valuesOf(budget),
   })
+  const sync = useConcurrentForm(form, base, valuesOf, () => setEndDate.reset())
 
   const save = (endDate: string | null) =>
     setEndDate.mutateAsync({ endDate, revision: (base.base ?? budget).revision }).then(
@@ -171,20 +182,15 @@ function EndDateForm() {
               : t('settings.budget.noEndDate')}
           </p>
         </div>
-        {base.changed && (
-          <ChangedElsewhere
-            onUseTheirs={() => {
-              base.adopt()
-              setEndDate.reset()
-              form.reset({ endDate: budget.end_date_entered ?? '' })
-            }}
-            onKeepMine={() => {
-              base.adopt()
-              setEndDate.reset()
-            }}
-          />
-        )}
-        <SaveError error={setEndDate.error} changed={base.changed} message={errorMessage} />
+        <ConcurrentNotices
+          gone={false}
+          pending={sync.pending}
+          updated={sync.updated}
+          onUseTheirs={sync.useTheirs}
+          onKeepMine={sync.keepMine}
+          error={setEndDate.error}
+          message={errorMessage}
+        />
         <CalendarDateField
           control={form.control}
           name="endDate"
@@ -192,14 +198,14 @@ function EndDateForm() {
           description={t('settings.budget.endDateHelp')}
         />
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={setEndDate.isPending || base.changed}>
+          <Button type="submit" disabled={setEndDate.isPending || sync.pending !== null}>
             {setEndDate.isPending ? t('common.saving') : t('settings.budget.saveEndDate')}
           </Button>
           {budget.end_date_entered && (
             <Button
               type="button"
               variant="outline"
-              disabled={setEndDate.isPending || base.changed}
+              disabled={setEndDate.isPending || sync.pending !== null}
               onClick={() => void save(null)}
             >
               {t('settings.budget.clearEndDate')}

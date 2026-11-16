@@ -112,23 +112,32 @@ export function useReorderCategories(budgetId: string) {
 export interface EndCategoryInput {
   category: Category
   revision: number
+  /** An explicit correction from an earlier period; the current period when null. */
+  fromPeriodId: string | null
+  /** Added this period with transactions: it is kept without a plan, not kept for the past. */
+  keptVoid: boolean
 }
 
 export function useEndCategory(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<string, EndCategoryInput>({
     errorDisplay: 'inline',
-    mutationFn: async ({ category, revision }) =>
+    mutationFn: async ({ category, revision, fromPeriodId }) =>
       unwrap(
         await supabase.rpc('end_category', {
           p_category_id: category.id,
           p_expected_revision: revision,
+          ...(fromPeriodId ? { p_from_period_id: fromPeriodId } : {}),
         }),
       ),
-    success: (outcome, { category }) =>
+    success: (outcome, { category, fromPeriodId, keptVoid }) =>
       outcome === 'deleted'
         ? t('categories.deleted', { name: category.name })
-        : t('categories.ended', { name: category.name }),
+        : fromPeriodId
+          ? t('categories.endedFromEarlier', { name: category.name })
+          : keptVoid
+            ? t('categories.endedKeptVoid', { name: category.name })
+            : t('categories.ended', { name: category.name }),
     invalidate: () => affected(budgetId),
   })
 }

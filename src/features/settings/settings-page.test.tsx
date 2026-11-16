@@ -242,6 +242,35 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     })
   })
 
+  it('saving one settings form never flags the other as changed by someone else [R-CONCURRENCY-091]', async () => {
+    const { db } = await openSettings(true)
+    db.rpc.set_budget_end_date.mockImplementationOnce(() => {
+      db.tables.my_budgets = [
+        budgetRow({ end_date_entered: '2027-03-10', end_date: '2027-03-24', revision: 2 }),
+      ]
+      return db.tables.my_budgets
+    })
+    await userEvent.type(screen.getByLabelText('End date (optional)'), '10.03.2027')
+    await userEvent.click(screen.getByRole('button', { name: 'Save end date' }))
+    expect(await screen.findByText('The budget now ends on 24.03.2027.')).toBeInTheDocument()
+
+    // The rename form, untouched, shows no banner and renames with the new revision.
+    expect(screen.queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('updated-elsewhere')).not.toBeInTheDocument()
+    const name = screen.getByLabelText('Budget name')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Our flat')
+    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    await waitFor(() => {
+      expect(db.rpc.rename_budget).toHaveBeenCalledWith({
+        p_budget_id: BUDGET_ID,
+        p_name: 'Our flat',
+        p_expected_revision: 2,
+      })
+    })
+    expect(screen.queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+  })
+
   it('sets and clears the end date, showing the date entered and the last day [R-BUDGET-054]', async () => {
     const { db } = await openSettings(true)
     // 10.04.2027 lies in the period that ends on 24.04.2027: the budget's last day.

@@ -43,8 +43,11 @@ import {
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
-import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useRecord } from '@/features/budgets/record-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
+import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
@@ -69,8 +72,6 @@ interface IncomeFormDialogProps {
   onOpenChange: (open: boolean) => void
   /** The income to edit; a new income when absent. */
   income?: IncomeOverview
-  /** The same income as read now (null once gone), to notice a change by someone else. */
-  liveIncome?: IncomeOverview | null
   members: BudgetMember[]
   periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
@@ -104,7 +105,6 @@ function IncomeForm({
   budgetId,
   onOpenChange,
   income: opened,
-  liveIncome,
   members,
   periods,
   currentPeriod,
@@ -115,11 +115,11 @@ function IncomeForm({
   const { budget } = useCurrentBudget()
   const errorMessage = useErrorMessage()
   const close = () => onOpenChange(false)
-  // R-CONCURRENCY-091: the version the form was opened on is the one saved over.
-  const editBase = useEditBase(
-    opened ? (liveIncome === undefined ? opened : liveIncome) : undefined,
-  )
-  const income = opened ? (editBase.base ?? opened) : undefined
+  const views = useRecordViews()
+  // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
+  const live = useRecord('income_overview', budgetId, opened?.id)
+  const editBase = useEditBase(opened, live, views.income)
+  const income = editBase.base
 
   const valuesOf = (from: IncomeOverview | undefined): IncomeInput => ({
     name: from?.name ?? '',
@@ -178,6 +178,7 @@ function IncomeForm({
     },
   })
   const mutation = income ? edit : add
+  const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset())
 
   const onSubmit = form.handleSubmit((values) => {
     const terms = {
@@ -219,21 +220,15 @@ function IncomeForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FieldGroup>
-        {editBase.changed && editBase.live && (
-          <ChangedElsewhere
-            onUseTheirs={() => {
-              const theirs = editBase.live
-              editBase.adopt()
-              edit.reset()
-              if (theirs) form.reset(valuesOf(theirs))
-            }}
-            onKeepMine={() => {
-              editBase.adopt()
-              edit.reset()
-            }}
-          />
-        )}
-        <SaveError error={mutation.error} changed={editBase.changed} message={errorMessage} />
+        <ConcurrentNotices
+          gone={editBase.gone}
+          pending={sync.pending}
+          updated={sync.updated}
+          onUseTheirs={sync.useTheirs}
+          onKeepMine={sync.keepMine}
+          error={mutation.error}
+          message={errorMessage}
+        />
         <TextField
           control={form.control}
           name="name"
@@ -302,7 +297,10 @@ function IncomeForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending || editBase.changed}>
+          <Button
+            type="submit"
+            disabled={mutation.isPending || sync.pending !== null || editBase.gone}
+          >
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>

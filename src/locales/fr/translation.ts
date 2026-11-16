@@ -281,7 +281,27 @@ export const fr: Translation = {
   },
   concurrent: {
     title: 'Quelqu’un d’autre a modifié cet élément pendant que vous l’aviez ouvert',
-    edit: 'Ce que vous avez saisi est toujours là. Chargez sa version pour repartir de celle-ci, ou gardez la vôtre : l’enregistrer remplacera alors sa modification.',
+    theirVersion: 'Sa version :',
+    edit: 'Ce que vous avez saisi est toujours là. Chargez sa version pour repartir de celle-ci, ou gardez la vôtre : l’enregistrement ne modifiera alors que les champs que vous avez changés.',
+    updatedTitle: 'Quelqu’un d’autre a modifié cet élément ; le formulaire affiche maintenant sa version :',
+    goneTitle: 'Quelqu’un d’autre a supprimé cet élément',
+    gone: 'Il n’existe plus et ne peut donc pas être enregistré. Fermez cette fenêtre.',
+    none: 'aucune',
+    amountPer: {
+      monthly: '{{amount}} par mois',
+      yearly: '{{amount}} par an',
+    },
+    fields: {
+      name: 'Nom',
+      amount: 'Montant',
+      payDay: 'Jour de paie',
+      weekendRule: 'Règle du week-end',
+      kind: 'Type',
+      date: 'Date',
+      category: 'Catégorie',
+      note: 'Note',
+      endDate: 'Date de fin',
+    },
     remove:
       'Cet élément a changé depuis que vous avez ouvert cette fenêtre. Vérifiez-le, puis confirmez si vous le souhaitez toujours.',
     useTheirs: 'Charger sa version',
@@ -300,9 +320,9 @@ export const fr: Translation = {
   budgetLost: {
     title: 'Vous n’avez plus accès à « {{name}} »',
     description:
-      'Il a été supprimé, ou vous en avez été retiré. Vous êtes maintenant dans « {{name}} ». Ce que vous y aviez saisi sans l’enregistrer a été abandonné.',
+      'Il a été supprimé, ou vous n’en faites plus partie. Vous êtes maintenant dans « {{name}} ». Ce que vous y aviez saisi sans l’enregistrer a été abandonné.',
     descriptionNone:
-      'Il a été supprimé, ou vous en avez été retiré. Ce que vous y aviez saisi sans l’enregistrer a été abandonné.',
+      'Il a été supprimé, ou vous n’en faites plus partie. Ce que vous y aviez saisi sans l’enregistrer a été abandonné.',
     dismiss: 'Compris',
   },
   budgetEnded: {
@@ -574,6 +594,12 @@ export const fr: Translation = {
     deleted: '« {{name}} » supprimée.',
     ended:
       '« {{name}} » retirée à partir de la période en cours. Les périodes passées la conservent.',
+    endedKeptVoid: '« {{name}} » retirée. Ses transactions sont gardées et comptent toujours.',
+    endedFromEarlier: '« {{name}} » retirée à partir de la période choisie. Les périodes précédentes la gardent.',
+    removeEarlierLabel: 'La retirer à partir d’une période antérieure',
+    removeEarlier: 'Retirer à partir de cette période',
+    removeFromEarlier:
+      'Elle n’est plus prévue à partir de la période choisie, ce qui modifie des périodes passées. Si elle n’a jamais compté avant cette période et n’a aucune transaction, elle est supprimée.',
     edit: 'Modifier',
     addSub: 'Ajouter une sous-catégorie',
     moveUp: 'Monter',
@@ -676,7 +702,7 @@ export const fr: Translation = {
       'Enregistrée ({{amount}}). Saisissez la suivante, ou fermez quand vous avez terminé.',
     savedInARow_other:
       '{{count}} enregistrées, la dernière de {{amount}}. Saisissez la suivante, ou fermez quand vous avez terminé.',
-    saveAndAdd: 'Enregistrer et en ajouter une autre',
+    saveAndAdd: 'Enregistrer et continuer',
     done: 'Terminé',
     edit: 'Modifier',
     delete: 'Supprimer',
@@ -700,6 +726,11 @@ export const fr: Translation = {
       refund: 'Remboursement',
       extra_income: 'Revenu supplémentaire',
     },
+    kindShort: {
+      expense: 'Dépense',
+      refund: 'Remboursement',
+      extra_income: 'Autre revenu',
+    },
     kindPlural: {
       expense: 'Dépenses',
       refund: 'Remboursements',
@@ -716,6 +747,9 @@ export const fr: Translation = {
       amount: 'Montant',
       date: 'Date',
       dateRange: 'Du {{min}} au {{max}} (aujourd’hui au plus tard).',
+      dateRangeEnded: 'Du {{min}} au {{max}}, dernier jour du budget.',
+      keptCategory: '{{name}} (conservée : non prévue à cette date)',
+      categoriesFailed: 'Les catégories de cette date n’ont pas pu être chargées : {{reason}}',
       category: 'Catégorie',
       chooseCategory: 'Choisissez une catégorie',
       noCategories: 'Aucune catégorie à cette date',
@@ -762,7 +796,6 @@ export const fr: Translation = {
     notInForceHint:
       'Non prévue dans cette période (retirée, ou pas encore créée), mais des transactions y sont datées : elles comptent.',
     spentOf: '{{spent}} dépensés sur {{expected}}',
-    spentOfOver: '{{spent}} dépensés sur {{expected}} : dépassé',
     seeTransactions: 'Voir les transactions de {{name}} dans cette période',
     empty: 'Rien de prévu ni de dépensé dans cette période',
     emptyHelp:

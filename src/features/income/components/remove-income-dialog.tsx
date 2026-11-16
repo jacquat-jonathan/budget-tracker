@@ -24,8 +24,10 @@ import {
 } from '@/components/ui/select'
 import type { IncomeOverview, PeriodSummary } from '@/features/budgets/budget-queries'
 import type { useRemoveIncome } from '@/features/income/income-mutations'
-import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useRecord } from '@/features/budgets/record-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 
@@ -35,14 +37,11 @@ import { formatCalendarDate } from '@/lib/date'
  */
 export function RemoveIncomeDialog({
   income,
-  liveIncome,
   periods,
   mutation,
   onClose,
 }: {
   income: IncomeOverview | null
-  /** The same income as read now (null once gone). */
-  liveIncome: IncomeOverview | null | undefined
   periods: PeriodSummary[]
   mutation: ReturnType<typeof useRemoveIncome>
   onClose: () => void
@@ -59,7 +58,6 @@ export function RemoveIncomeDialog({
         {income && (
           <RemoveIncomeForm
             income={income}
-            liveIncome={liveIncome}
             periods={periods}
             mutation={mutation}
             onClose={onClose}
@@ -73,14 +71,12 @@ export function RemoveIncomeDialog({
 
 function RemoveIncomeForm({
   income,
-  liveIncome,
   periods,
   mutation,
   onClose,
   title,
 }: {
   income: IncomeOverview
-  liveIncome: IncomeOverview | null | undefined
   periods: PeriodSummary[]
   mutation: ReturnType<typeof useRemoveIncome>
   onClose: () => void
@@ -89,7 +85,10 @@ function RemoveIncomeForm({
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
   const id = useId()
-  const removal = useEditBase(liveIncome === undefined ? income : liveIncome)
+  const views = useRecordViews()
+  const live = useRecord('income_overview', income.budget_id, income.id)
+  const removal = useEditBase(income, live, views.income)
+  const blocked = removal.changed || removal.gone
   const correctable = periods.filter(
     (period) => !period.is_current && period.seq >= income.first_seq,
   )
@@ -151,21 +150,23 @@ function RemoveIncomeForm({
           )}
         </div>
       )}
+      {removal.gone && <GoneElsewhere />}
       {removal.changed && (
         <ChangedElsewhere
           kind="remove"
+          changes={removal.theirs}
           onKeepMine={() => {
             removal.adopt()
             mutation.reset()
           }}
         />
       )}
-      <SaveError error={mutation.error} changed={removal.changed} message={errorMessage} />
+      <SaveError error={mutation.error} hidden={blocked} message={errorMessage} />
       <AlertDialogFooter>
         <AlertDialogCancel disabled={mutation.isPending}>{t('common.cancel')}</AlertDialogCancel>
         <Button
           variant="destructive"
-          disabled={mutation.isPending || removal.changed}
+          disabled={mutation.isPending || blocked}
           onClick={() =>
             mutation.mutate(
               {

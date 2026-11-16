@@ -5,7 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
-import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { CalendarDateField } from '@/components/form/calendar-date-field'
 import { MoneyField } from '@/components/form/money-field'
 import { SegmentedField } from '@/components/form/segmented-field'
@@ -22,7 +22,10 @@ import {
 import { FieldGroup } from '@/components/ui/field'
 import { TextField } from '@/features/auth/components/text-field'
 import { useCategoriesForDate } from '@/features/categories/category-queries'
-import { CategorySelectField } from '@/features/transactions/components/category-select-field'
+import {
+  CategorySelectField,
+  type CategoryChoice,
+} from '@/features/transactions/components/category-select-field'
 import {
   useAddTransaction,
   useUpdateTransaction,
@@ -33,6 +36,9 @@ import {
   type TransactionKind,
 } from '@/features/transactions/transaction-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useRecord } from '@/features/budgets/record-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
+import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema, DESCRIPTION_MAX_LENGTH, rappenSchema } from '@/lib/form-schemas'
@@ -78,11 +84,11 @@ interface TransactionFormDialogProps {
   onOpenChange: (open: boolean) => void
   /** The transaction to edit; a new one when absent. */
   transaction?: Transaction
-  /** The same transaction as read now (null once gone). */
-  liveTransaction?: Transaction | null
   range: DateRange
   /** The database's today: the default date of a new transaction. */
   today: string
+  /** The budget has ended: the latest date is its last day, not today. */
+  ended: boolean
 }
 
 /** Add or edit a transaction. The form mounts only while open. */
@@ -111,17 +117,19 @@ function TransactionForm({
   budgetId,
   onOpenChange,
   transaction: opened,
-  liveTransaction,
   range,
   today,
+  ended,
 }: TransactionFormDialogProps) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
   const close = () => onOpenChange(false)
-  const editBase = useEditBase(
-    opened ? (liveTransaction === undefined ? opened : liveTransaction) : undefined,
-  )
-  const transaction = opened ? (editBase.base ?? opened) : undefined
+  const views = useRecordViews()
+  // R-CONCURRENCY-091: saved over the version opened; the record is read by its id, so a
+  // date moved out of the filtered list is still the same transaction.
+  const live = useRecord('transaction_list', budgetId, opened?.id)
+  const edit = useEditBase(opened, live, views.transaction)
+  const transaction = edit.base
   const schema = useMemo(() => transactionSchema(range), [range])
 
   const valuesOf = (from: Transaction | undefined): TransactionInput => ({
@@ -143,17 +151,41 @@ function TransactionForm({
   // R-TRANSACTION-091: the categories this date may use, read again whenever it changes.
   const dateInRange = isCalendarDate(date) && range.min <= date && date <= range.max
   const choices = useCategoriesForDate(budgetId, dateInRange ? date : '')
-  const options = choices.data ?? []
+  // A transaction keeps the category it already has, even one no longer planned on its
+  // date (removed or ended since): offered as such, never silently blanked.
+  const kept = transaction?.category_id ?? null
+  const options = useMemo((): CategoryChoice[] => {
+    const list: CategoryChoice[] = choices.data ?? []
+    if (!kept || !transaction || list.some((c) => c.category_id === kept)) return list
+    return [
+      ...list,
+      {
+        category_id: kept,
+        parent_id: transaction.parent_category_id,
+        name: transaction.category_name ?? '',
+        parent_name: transaction.parent_category_name,
+        display_order: list.length,
+        kept: true,
+        // The generated type misses that a top-level category has no parent.
+      } as CategoryChoice,
+    ]
+  }, [choices.data, kept, transaction])
   useEffect(() => {
-    // A category not usable on the new date is cleared rather than sent and refused.
-    if (choices.data && categoryId && !choices.data.some((c) => c.category_id === categoryId)) {
+    // Another category not usable on the new date is cleared rather than sent and refused.
+    if (
+      choices.data &&
+      categoryId &&
+      categoryId !== kept &&
+      !choices.data.some((c) => c.category_id === categoryId)
+    ) {
       form.setValue('categoryId', '')
     }
-  }, [choices.data, categoryId, form])
+  }, [choices.data, categoryId, kept, form])
 
   const add = useAddTransaction(budgetId)
   const update = useUpdateTransaction(budgetId, { onDone: close })
   const mutation = transaction ? update : add
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
   /** The fast path: what was just saved, while the next one is typed. */
   const [lastSaved, setLastSaved] = useState<{ amount: number; count: number } | null>(null)
   // Ready for the next receipt: back to the amount once the form shows the cleared values.
@@ -193,21 +225,15 @@ function TransactionForm({
   return (
     <form onSubmit={(event) => void submit(false)(event)} noValidate data-testid="transaction-form">
       <FieldGroup>
-        {editBase.changed && editBase.live && (
-          <ChangedElsewhere
-            onUseTheirs={() => {
-              const theirs = editBase.live ?? undefined
-              editBase.adopt()
-              update.reset()
-              form.reset(valuesOf(theirs))
-            }}
-            onKeepMine={() => {
-              editBase.adopt()
-              update.reset()
-            }}
-          />
-        )}
-        <SaveError error={mutation.error} changed={editBase.changed} message={errorMessage} />
+        <ConcurrentNotices
+          gone={edit.gone}
+          pending={sync.pending}
+          updated={sync.updated}
+          onUseTheirs={sync.useTheirs}
+          onKeepMine={sync.keepMine}
+          error={mutation.error}
+          message={errorMessage}
+        />
         {lastSaved && (
           <Alert data-testid="saved-in-a-row" role="status">
             <CheckCircle2Icon aria-hidden className="text-positive" />
@@ -225,7 +251,7 @@ function TransactionForm({
           label={t('transactions.fields.kind')}
           options={TRANSACTION_KINDS.map((value: TransactionKind) => ({
             value,
-            label: t(`transactions.kind.${value}`),
+            label: t(`transactions.kindShort.${value}`),
           }))}
           description={t(`transactions.kindHelp.${kind}`)}
         />
@@ -239,10 +265,13 @@ function TransactionForm({
           control={form.control}
           name="date"
           label={t('transactions.fields.date')}
-          description={t('transactions.fields.dateRange', {
-            min: formatCalendarDate(range.min),
-            max: formatCalendarDate(range.max),
-          })}
+          description={t(
+            ended ? 'transactions.fields.dateRangeEnded' : 'transactions.fields.dateRange',
+            {
+              min: formatCalendarDate(range.min),
+              max: formatCalendarDate(range.max),
+            },
+          )}
         />
         {!isExtra && (
           <CategorySelectField
@@ -252,11 +281,31 @@ function TransactionForm({
             options={options}
             loading={dateInRange && choices.isPending}
             description={
-              dateInRange && choices.data?.length === 0
+              dateInRange && choices.data?.length === 0 && options.length === 0
                 ? t('transactions.fields.noCategoriesHelp')
                 : undefined
             }
           />
+        )}
+        {!isExtra && choices.isError && (
+          <Alert variant="destructive" data-testid="categories-failed">
+            <AlertDescription>
+              <p>
+                {t('transactions.fields.categoriesFailed', {
+                  reason: errorMessage(choices.error),
+                })}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                onClick={() => void choices.refetch()}
+              >
+                {t('states.retry')}
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
         <TextField
           control={form.control}
@@ -266,7 +315,7 @@ function TransactionForm({
           autoComplete="off"
           maxLength={DESCRIPTION_MAX_LENGTH}
         />
-        <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
+        <DialogFooter className="sticky -bottom-4 z-10 bg-popover sm:flex-wrap">
           <Button type="button" variant="outline" onClick={close}>
             {lastSaved ? t('transactions.done') : t('common.cancel')}
           </Button>
@@ -280,7 +329,7 @@ function TransactionForm({
               {t('transactions.saveAndAdd')}
             </Button>
           )}
-          <Button type="submit" disabled={mutation.isPending || editBase.changed}>
+          <Button type="submit" disabled={mutation.isPending || sync.pending !== null || edit.gone}>
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>

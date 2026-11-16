@@ -16,9 +16,10 @@ export function DashboardPage() {
     <div className="flex flex-1 flex-col gap-6">
       <PageHeader title={t('nav.dashboard')} description={t('pages.dashboard.description')} />
       <MyInvitations />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {/* One column of full-width cards: no hole beside a narrower one at any width. */}
+      <div className="flex flex-col gap-4">
         <CurrentPeriodCard />
-        <PeriodProgressCard className="md:col-span-2 xl:col-span-3" />
+        <PeriodProgressCard />
       </div>
     </div>
   )

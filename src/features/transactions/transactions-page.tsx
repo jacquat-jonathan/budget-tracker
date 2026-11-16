@@ -6,11 +6,11 @@ import {
   PlusIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
-import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -56,6 +56,8 @@ import {
   type TransactionKind,
 } from '@/features/transactions/transaction-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useRecord } from '@/features/budgets/record-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { calendarMonth, formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -94,7 +96,12 @@ export function TransactionsPage() {
     periodParam === ALL
       ? null
       : (periodList?.find((item) => item.id === periodParam) ?? defaultPeriod)
-  const categoryId = params.get('category')
+  // A category the budget does not have (another budget's, deleted, a stale link) falls back
+  // to all categories, like an unknown period.
+  const categoryParam = params.get('category')
+  const categoryList = categories.data
+  const categoryId =
+    categoryParam && categoryList?.some((item) => item.id === categoryParam) ? categoryParam : null
   const kindParam = params.get('kind')
   const kind = (TRANSACTION_KINDS as readonly string[]).includes(kindParam ?? '')
     ? (kindParam as TransactionKind)
@@ -105,8 +112,16 @@ export function TransactionsPage() {
     categoryId,
     kind,
   }
-  const ready = periodList !== undefined && current.data !== undefined
-  const list = useTransactions(budgetId, filters)
+  const ready = periodList !== undefined && current.data !== undefined && categoryList !== undefined
+  // Read once the filters are known, never first for all periods.
+  const list = useTransactions(budgetId, filters, ready)
+  useEffect(() => {
+    if (categoryList && categoryParam && categoryId === null) {
+      const next = new URLSearchParams(params)
+      next.delete('category')
+      setParams(next, { replace: true })
+    }
+  }, [categoryList, categoryParam, categoryId, params, setParams])
   const setFilter = (key: string, value: string | null) => {
     const next = new URLSearchParams(params)
     if (value === null) next.delete(key)
@@ -156,8 +171,6 @@ export function TransactionsPage() {
 
   const rows = list.data?.pages.flat() ?? []
   const filtered = periodParam !== null || categoryId !== null || kind !== null
-  const live = (transaction: Transaction | undefined) =>
-    transaction ? (rows.find((row) => row.id === transaction.id) ?? null) : undefined
 
   return (
     <div className="flex flex-col gap-6">
@@ -224,15 +237,14 @@ export function TransactionsPage() {
             if (!open) close()
           }}
           transaction={dialog.kind === 'edit' ? dialog.transaction : undefined}
-          liveTransaction={live(dialog.kind === 'edit' ? dialog.transaction : undefined)}
           range={range}
           today={today}
+          ended={current.data === null}
         />
       )}
       <DeleteTransactionDialog
         budgetId={budgetId}
         transaction={dialog.kind === 'delete' ? dialog.transaction : null}
-        liveTransaction={live(dialog.kind === 'delete' ? dialog.transaction : undefined)}
         onClose={close}
       />
     </div>
@@ -261,7 +273,9 @@ function Filters({
   onKind: (value: string | null) => void
 }) {
   const { t } = useTranslation()
-  const tops = categories.filter((category) => category.parent_id === null && !isVoid(category))
+  // A category without a plan (void) is offered only when a link selected it.
+  const shown = (category: Category) => !isVoid(category) || category.id === categoryId
+  const tops = categories.filter((category) => category.parent_id === null && shown(category))
   const label = (item: PeriodSummary) =>
     t('income.fields.fromPeriod', {
       start: formatCalendarDate(item.start_date),
@@ -269,12 +283,14 @@ function Filters({
     })
   return (
     <div
-      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3"
       role="group"
       aria-label={t('transactions.filters.label')}
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="filter-period">{t('transactions.filters.period')}</Label>
+      <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
+        <Label htmlFor="filter-period" className="max-sm:sr-only">
+          {t('transactions.filters.period')}
+        </Label>
         <Select
           value={allPeriods ? ALL : (period?.id ?? ALL)}
           onValueChange={(value) => onPeriod(value)}
@@ -296,7 +312,9 @@ function Filters({
         </Select>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="filter-category">{t('transactions.filters.category')}</Label>
+        <Label htmlFor="filter-category" className="max-sm:sr-only">
+          {t('transactions.filters.category')}
+        </Label>
         <Select
           value={categoryId ?? ALL}
           onValueChange={(value) => onCategory(value === ALL ? null : value)}
@@ -308,7 +326,7 @@ function Filters({
             <SelectItem value={ALL}>{t('transactions.filters.allCategories')}</SelectItem>
             <SelectSeparator />
             {tops.map((top) => {
-              const subs = categories.filter((item) => item.parent_id === top.id && !isVoid(item))
+              const subs = categories.filter((item) => item.parent_id === top.id && shown(item))
               const endedNote = (item: Category) =>
                 item.is_active === true
                   ? item.name
@@ -335,7 +353,9 @@ function Filters({
         </Select>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="filter-kind">{t('transactions.filters.kind')}</Label>
+        <Label htmlFor="filter-kind" className="max-sm:sr-only">
+          {t('transactions.filters.kind')}
+        </Label>
         <Select value={kind ?? ALL} onValueChange={(value) => onKind(value === ALL ? null : value)}>
           <SelectTrigger id="filter-kind" className="w-full">
             <SelectValue />
@@ -474,12 +494,10 @@ function TransactionRow({
 function DeleteTransactionDialog({
   budgetId,
   transaction,
-  liveTransaction,
   onClose,
 }: {
   budgetId: string
   transaction: Transaction | null
-  liveTransaction: Transaction | null | undefined
   onClose: () => void
 }) {
   return (
@@ -491,12 +509,7 @@ function DeleteTransactionDialog({
     >
       <AlertDialogContent>
         {transaction && (
-          <DeleteTransactionBody
-            budgetId={budgetId}
-            transaction={transaction}
-            liveTransaction={liveTransaction}
-            onClose={onClose}
-          />
+          <DeleteTransactionBody budgetId={budgetId} transaction={transaction} onClose={onClose} />
         )}
       </AlertDialogContent>
     </AlertDialog>
@@ -506,18 +519,19 @@ function DeleteTransactionDialog({
 function DeleteTransactionBody({
   budgetId,
   transaction: opened,
-  liveTransaction,
   onClose,
 }: {
   budgetId: string
   transaction: Transaction
-  liveTransaction: Transaction | null | undefined
   onClose: () => void
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
-  const removal = useEditBase(liveTransaction === undefined ? opened : liveTransaction)
-  const transaction = removal.live ?? removal.base ?? opened
+  const views = useRecordViews()
+  const live = useRecord('transaction_list', budgetId, opened.id)
+  const removal = useEditBase(opened, live, views.transaction)
+  const transaction = live ?? removal.base ?? opened
+  const blocked = removal.changed || removal.gone
   const remove = useDeleteTransaction(budgetId)
   return (
     <>
@@ -530,21 +544,23 @@ function DeleteTransactionBody({
           })}
         </AlertDialogDescription>
       </AlertDialogHeader>
+      {removal.gone && <GoneElsewhere />}
       {removal.changed && (
         <ChangedElsewhere
           kind="remove"
+          changes={removal.theirs}
           onKeepMine={() => {
             removal.adopt()
             remove.reset()
           }}
         />
       )}
-      <SaveError error={remove.error} changed={removal.changed} message={errorMessage} />
+      <SaveError error={remove.error} hidden={blocked} message={errorMessage} />
       <AlertDialogFooter>
         <AlertDialogCancel disabled={remove.isPending}>{t('common.cancel')}</AlertDialogCancel>
         <Button
           variant="destructive"
-          disabled={remove.isPending || removal.changed}
+          disabled={remove.isPending || blocked}
           onClick={() =>
             remove.mutate(
               { transaction, revision: (removal.base ?? transaction).revision },

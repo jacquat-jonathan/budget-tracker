@@ -1,6 +1,21 @@
 import { useTranslation } from 'react-i18next'
 
-import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { TriangleAlertIcon } from 'lucide-react'
+import { useId, useState } from 'react'
+
+import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useRecord } from '@/features/budgets/record-queries'
+import { useRecordViews } from '@/features/budgets/record-views'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -28,15 +43,15 @@ import { formatCalendarDate } from '@/lib/date'
 export function EndCategoryDialog({
   budgetId,
   category,
-  liveCategory,
   subcategories,
+  periods,
   currentPeriod,
   onClose,
 }: {
   budgetId: string
   category: Category | null
-  liveCategory: Category | null | undefined
   subcategories: Category[]
+  periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
   onClose: () => void
 }) {
@@ -52,8 +67,8 @@ export function EndCategoryDialog({
           <EndCategoryBody
             budgetId={budgetId}
             category={category}
-            liveCategory={liveCategory}
             subcategories={subcategories}
+            periods={periods}
             currentPeriod={currentPeriod}
             onClose={onClose}
           />
@@ -66,28 +81,39 @@ export function EndCategoryDialog({
 function EndCategoryBody({
   budgetId,
   category: opened,
-  liveCategory,
   subcategories,
+  periods,
   currentPeriod,
   onClose,
 }: {
   budgetId: string
   category: Category
-  liveCategory: Category | null | undefined
   subcategories: Category[]
+  periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
   onClose: () => void
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
-  const removal = useEditBase(liveCategory === undefined ? opened : liveCategory)
+  const views = useRecordViews()
+  const id = useId()
+  const live = useRecord('category_overview', budgetId, opened.id)
+  const removal = useEditBase(opened, live, views.category)
   // What happens is the database's answer for the version on screen.
-  const category = removal.live ?? removal.base ?? opened
+  const category = live ?? removal.base ?? opened
   const end = useEndCategory(budgetId)
-  const deletes = category.removal_deletes === true
+  // R-CATEGORY-052: from an earlier period too, as an explicit correction (like incomes).
+  const correctable = periods.filter(
+    (period) => !period.is_current && period.seq >= category.first_seq,
+  )
+  const [correct, setCorrect] = useState(false)
+  const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
+  const deletes = !correct && category.removal_deletes === true
   // Added in this period but with transactions: kept without a plan, never in force (void).
-  const keptVoid = !deletes && currentPeriod !== null && category.first_seq >= currentPeriod.seq
+  const keptVoid =
+    !correct && !deletes && currentPeriod !== null && category.first_seq >= currentPeriod.seq
   const from = currentPeriod ? formatCalendarDate(currentPeriod.start_date) : null
+  const blocked = removal.changed || removal.gone
 
   return (
     <>
@@ -100,13 +126,15 @@ function EndCategoryBody({
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="end-category-outcome">
             <p>
-              {deletes
-                ? t('categories.removeDeletes')
-                : keptVoid
-                  ? t('categories.removeKeptVoid')
-                  : from
-                    ? t('categories.removeEnds', { date: from })
-                    : t('categories.removeEndsNoPeriod')}
+              {correct
+                ? t('categories.removeFromEarlier')
+                : deletes
+                  ? t('categories.removeDeletes')
+                  : keptVoid
+                    ? t('categories.removeKeptVoid')
+                    : from
+                      ? t('categories.removeEnds', { date: from })
+                      : t('categories.removeEndsNoPeriod')}
             </p>
             {!deletes && !keptVoid && category.has_transactions === true && (
               <p>{t('categories.removeKeepsTransactions')}</p>
@@ -122,24 +150,74 @@ function EndCategoryBody({
           </div>
         </AlertDialogDescription>
       </AlertDialogHeader>
+      {correctable.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border p-3">
+          <Field orientation="horizontal">
+            <Checkbox
+              id={id}
+              checked={correct}
+              onCheckedChange={(checked) => setCorrect(checked === true)}
+            />
+            <FieldContent>
+              <FieldLabel htmlFor={id}>{t('categories.removeEarlierLabel')}</FieldLabel>
+              <FieldDescription>{t('income.correction.help')}</FieldDescription>
+            </FieldContent>
+          </Field>
+          {correct && (
+            <>
+              <Field>
+                <FieldLabel htmlFor={`${id}-period`}>
+                  {t('income.correction.removeFrom')}
+                </FieldLabel>
+                <Select value={fromPeriodId} onValueChange={setFromPeriodId}>
+                  <SelectTrigger id={`${id}-period`} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    {correctable.map((period) => (
+                      <SelectItem key={period.id} value={period.id}>
+                        {t('income.fields.fromPeriod', {
+                          start: formatCalendarDate(period.start_date),
+                          end: formatCalendarDate(period.end_date),
+                        })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Alert variant="destructive">
+                <TriangleAlertIcon aria-hidden />
+                <AlertDescription>{t('categories.correctionWarning')}</AlertDescription>
+              </Alert>
+            </>
+          )}
+        </div>
+      )}
+      {removal.gone && <GoneElsewhere />}
       {removal.changed && (
         <ChangedElsewhere
           kind="remove"
+          changes={removal.theirs}
           onKeepMine={() => {
             removal.adopt()
             end.reset()
           }}
         />
       )}
-      <SaveError error={end.error} changed={removal.changed} message={errorMessage} />
+      <SaveError error={end.error} hidden={blocked} message={errorMessage} />
       <AlertDialogFooter>
         <AlertDialogCancel disabled={end.isPending}>{t('common.cancel')}</AlertDialogCancel>
         <Button
           variant="destructive"
-          disabled={end.isPending || removal.changed}
+          disabled={end.isPending || blocked}
           onClick={() =>
             end.mutate(
-              { category, revision: (removal.base ?? category).revision },
+              {
+                category,
+                revision: (removal.base ?? category).revision,
+                fromPeriodId: correct ? fromPeriodId || null : null,
+                keptVoid,
+              },
               { onSuccess: onClose },
             )
           }
@@ -148,7 +226,9 @@ function EndCategoryBody({
             ? t('common.saving')
             : deletes
               ? t('categories.delete')
-              : t('categories.end')}
+              : correct
+                ? t('categories.removeEarlier')
+                : t('categories.end')}
         </Button>
       </AlertDialogFooter>
     </>

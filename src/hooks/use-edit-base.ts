@@ -2,37 +2,61 @@ import { useState } from 'react'
 
 import { dbErrorCode } from '@/lib/db-errors'
 
+/** One field of a record as the user sees it, to compare two versions and to show theirs. */
+export interface FieldView {
+  key: string
+  label: string
+  value: string
+}
+
 /**
- * Concurrent edits (D-124, D-142): the revision a form or a confirmation sends is the one
- * the user saw when they opened it (`base`), never one read later behind their back. When
- * the record changes meanwhile (another member saved; the database refused our save with
- * record_changed and the record was read again), `changed` is true: the form keeps what was
- * typed and asks the user to take the other version or keep theirs (ChangedElsewhere);
- * `adopt` makes the latest version the new base, so the next save knowingly replaces it.
+ * Concurrent edits (D-124, D-136, D-142). A form or confirmation saves over the version the
+ * user opened (`base`), never one read later behind their back. `live` is the same record
+ * read by id, independently of any list, filter or page (undefined while unknown, null once
+ * it is gone).
  *
- * `live` is the record as read now: undefined while unknown, null once it is gone.
+ * The record's revision is the only revision source, but only the fields this form shows
+ * matter to it (`describe`): a newer revision that leaves them as they were (the user's own
+ * save in another form, another member changing a field this form does not show) silently
+ * becomes the base. When a shown field differs, `theirs` lists those fields with the other
+ * member's values, and the form asks the user to load their version or keep theirs
+ * (useConcurrentForm, ChangedElsewhere).
  */
 // R-CONCURRENCY-091: what was opened is what is sent; a change meanwhile is shown, not lost.
-export function useEditBase<T extends { revision: number }>(live: T | null | undefined) {
-  const [base, setBase] = useState<T | null>(live ?? null)
+export function useEditBase<T extends { revision: number }>(
+  /** The record as the user opened it; undefined for a form that creates one. */
+  opened: T | undefined,
+  live: T | null | undefined,
+  describe: (record: T) => FieldView[],
+) {
+  const [base, setBase] = useState<T | undefined>(opened)
   // A revision this form saved itself: not someone else's change once it is read back.
   const [own, setOwn] = useState<number | null>(null)
-  if (base === null && live) setBase(live)
-  if (own !== null && live && live.revision === own) {
-    setBase(live)
-    setOwn(null)
-  }
-  const changed =
-    live !== undefined &&
-    live !== null &&
-    base !== null &&
+  const theirs =
+    base && live && live.revision !== base.revision
+      ? describe(live).filter((field) => {
+          const before = describe(base).find((item) => item.key === field.key)
+          return before?.value !== field.value
+        })
+      : []
+  if (
+    base &&
+    live &&
     live.revision !== base.revision &&
-    live.revision !== own
+    (theirs.length === 0 || live.revision === own)
+  ) {
+    setBase(live)
+    if (live.revision === own) setOwn(null)
+  }
+  const changed = live !== undefined && live !== null && theirs.length > 0 && live.revision !== own
   return {
     base,
     live,
+    /** Fields the other member changed, with their values. */
+    theirs: changed ? theirs : [],
     changed,
-    gone: live === null && base !== null,
+    /** Removed by someone else meanwhile. */
+    gone: base !== undefined && live === null,
     /** Take the latest version as the base (after the user chose). */
     adopt: () => {
       if (live) setBase(live)
@@ -41,6 +65,8 @@ export function useEditBase<T extends { revision: number }>(live: T | null | und
     savedAs: (revision: number) => setOwn(revision),
   }
 }
+
+export type EditBase<T extends { revision: number }> = ReturnType<typeof useEditBase<T>>
 
 /** The database refused a write because the record changed since it was read. */
 export function isRecordChanged(error: unknown): boolean {

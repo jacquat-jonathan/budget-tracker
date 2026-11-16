@@ -30,15 +30,15 @@ export function CurrentPeriodCard() {
   const current = useCurrentPeriod(budgetId)
   const incomes = useIncomes(budgetId)
 
-  if (current.isPending) return <LoadingState rows={1} className="md:col-span-2" />
+  if (current.isPending) return <LoadingState rows={1} className="" />
   if (current.isError) {
-    return <ErrorState className="md:col-span-2" error={current.error} onRetry={current.refetch} />
+    return <ErrorState className="" error={current.error} onRetry={current.refetch} />
   }
 
   const period = current.data
   if (!period) {
     return (
-      <Card className="md:col-span-2" data-testid="budget-ended-card">
+      <Card className="" data-testid="budget-ended-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CalendarCheckIcon className="size-4 text-muted-foreground" aria-hidden />
@@ -67,7 +67,7 @@ export function CurrentPeriodCard() {
   const next = nextSalary(period, budget.end_date_entered)
 
   return (
-    <Card className="md:col-span-2" data-testid="current-period-card">
+    <Card data-testid="current-period-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarRangeIcon className="size-4 text-muted-foreground" aria-hidden />
@@ -87,49 +87,56 @@ export function CurrentPeriodCard() {
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between gap-2 text-sm">
-            <span className="font-medium">{t('dashboard.period.dayOf', { day, total })}</span>
-            <span className="text-muted-foreground">
-              {t('dashboard.period.daysLeft', { count: total - day })}
-            </span>
+      {/* Wide: the day of the period beside the two figures; narrow: stacked. */}
+      <CardContent className="@container/period">
+        <div className="grid grid-cols-1 gap-5 @3xl/period:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)] @3xl/period:items-end @3xl/period:gap-10">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-2 text-sm">
+              <span className="font-medium">{t('dashboard.period.dayOf', { day, total })}</span>
+              <span className="text-muted-foreground">
+                {t('dashboard.period.daysLeft', { count: total - day })}
+              </span>
+            </div>
+            <Progress value={percent} aria-label={t('dashboard.period.dayOf', { day, total })} />
           </div>
-          <Progress value={percent} aria-label={t('dashboard.period.dayOf', { day, total })} />
-        </div>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <dt className="text-sm text-muted-foreground">{t('dashboard.period.incomeTotal')}</dt>
-            <dd className="text-2xl font-semibold tabular-nums">
-              {formatMoney(period.income_total ?? 0)}
-            </dd>
-          </div>
-          {next.kind === 'lastPeriod' ? (
-            <div className="flex flex-col gap-1" data-testid="next-pay-day">
-              <dt className="text-sm text-muted-foreground">{t('dashboard.period.budgetEnds')}</dt>
-              <dd className="text-2xl font-semibold">
-                <CalendarDate value={next.endDate} />
-              </dd>
-              <dd className="text-sm text-muted-foreground">
-                {t('dashboard.period.lastPeriodHelp')}
+          <dl className="grid grid-cols-1 gap-4 @md/period:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <dt className="text-sm text-muted-foreground">{t('dashboard.period.incomeTotal')}</dt>
+              <dd className="text-2xl font-semibold tabular-nums">
+                {formatMoney(period.income_total ?? 0)}
               </dd>
             </div>
-          ) : (
-            <div className="flex flex-col gap-1" data-testid="next-pay-day">
-              <dt className="text-sm text-muted-foreground">{t('dashboard.period.nextPayDay')}</dt>
-              <dd className="text-2xl font-semibold">
-                {next.kind === 'expected' ? <CalendarDate value={next.date} /> : '–'}
-              </dd>
-              {primary && (
-                <dd className="text-sm text-muted-foreground">
-                  {next.kind === 'expected' && next.manual
-                    ? t('dashboard.period.nextPayDayOfManual', { name: primary.name })
-                    : t('dashboard.period.nextPayDayOf', { name: primary.name })}
+            {next.kind === 'lastPeriod' ? (
+              <div className="flex flex-col gap-1" data-testid="next-pay-day">
+                <dt className="text-sm text-muted-foreground">
+                  {t('dashboard.period.budgetEnds')}
+                </dt>
+                <dd className="text-2xl font-semibold">
+                  <CalendarDate value={next.endDate} />
                 </dd>
-              )}
-            </div>
-          )}
-        </dl>
+                <dd className="text-sm text-muted-foreground">
+                  {t('dashboard.period.lastPeriodHelp')}
+                </dd>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1" data-testid="next-pay-day">
+                <dt className="text-sm text-muted-foreground">
+                  {t('dashboard.period.nextPayDay')}
+                </dt>
+                <dd className="text-2xl font-semibold">
+                  {next.kind === 'expected' ? <CalendarDate value={next.date} /> : '–'}
+                </dd>
+                {primary && (
+                  <dd className="text-sm text-muted-foreground">
+                    {next.kind === 'expected' && next.manual
+                      ? t('dashboard.period.nextPayDayOfManual', { name: primary.name })
+                      : t('dashboard.period.nextPayDayOf', { name: primary.name })}
+                  </dd>
+                )}
+              </div>
+            )}
+          </dl>
+        </div>
       </CardContent>
     </Card>
   )

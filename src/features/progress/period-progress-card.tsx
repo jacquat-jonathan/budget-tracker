@@ -64,14 +64,14 @@ export function PeriodProgressCard({ className }: { className?: string }) {
 
   return (
     <Card className={className} data-testid="period-progress">
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="flex flex-col gap-3 @lg/card-header:flex-row @lg/card-header:items-center @lg/card-header:justify-between">
         <CardTitle className="flex items-center gap-2">
           <PieChartIcon className="size-4 text-muted-foreground" aria-hidden />
           <h2>{t('progress.title')}</h2>
         </CardTitle>
         {period && (
           <nav
-            className="flex items-center gap-1 self-start sm:self-auto"
+            className="flex items-center gap-1 self-start @lg/card-header:self-auto"
             aria-label={t('progress.browse')}
           >
             <Button
@@ -105,7 +105,7 @@ export function PeriodProgressCard({ className }: { className?: string }) {
           </nav>
         )}
       </CardHeader>
-      <CardContent className="flex flex-col gap-6">
+      <CardContent className="@container/progress flex flex-col gap-6">
         {periods.isError ? (
           <ErrorState error={periods.error} onRetry={periods.refetch} />
         ) : !period ? (
@@ -148,7 +148,10 @@ function Totals({ period }: { period: PeriodSummary }) {
   const result = period.result ?? 0
   const left = period.left_to_assign ?? 0
   return (
-    <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4" data-testid="progress-totals">
+    <dl
+      className="grid grid-cols-2 gap-x-4 gap-y-5 @xl/progress:grid-cols-4"
+      data-testid="progress-totals"
+    >
       <MoneyStat label={t('progress.income')} amount={period.income_total ?? 0} />
       <MoneyStat
         label={t('progress.expected')}
@@ -164,29 +167,80 @@ function Totals({ period }: { period: PeriodSummary }) {
         label={result < 0 ? t('progress.deficit') : t('progress.surplus')}
         amount={result}
         tone={signTone(result)}
-        emphasis
         testId="progress-result"
       />
     </dl>
   )
 }
 
-/** Each category and subcategory: expected, spent, result; overspending stands out. */
+/**
+ * Each category and subcategory: planned, spent, left. A table for assistive technology
+ * (every figure has its column header); on a narrow card the planned and spent figures go
+ * into one line under the bar, and "Left" is labelled beside its figure.
+ */
 function ProgressTable({ rows, period }: { rows: ProgressRow[]; period: PeriodSummary }) {
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col">
-      <div className="hidden grid-cols-[minmax(0,1fr)_7rem_7rem_7rem] gap-3 border-b pb-2 text-xs font-medium text-muted-foreground sm:grid">
-        <span>{t('progress.columns.category')}</span>
-        <span className="text-right">{t('progress.columns.expected')}</span>
-        <span className="text-right">{t('progress.columns.spent')}</span>
-        <span className="text-right">{t('progress.columns.result')}</span>
+    <div role="table" aria-label={t('progress.listLabel')} className="flex flex-col">
+      <div role="rowgroup">
+        <div
+          role="row"
+          className="sr-only grid-cols-[minmax(0,1fr)_7.5rem_7.5rem_7.5rem] gap-3 border-b pb-2 text-xs font-medium text-muted-foreground @2xl/progress:not-sr-only @2xl/progress:grid"
+        >
+          <span role="columnheader">{t('progress.columns.category')}</span>
+          <span role="columnheader" className="text-right">
+            {t('progress.columns.expected')}
+          </span>
+          <span role="columnheader" className="text-right">
+            {t('progress.columns.spent')}
+          </span>
+          <span role="columnheader" className="text-right">
+            {t('progress.columns.result')}
+          </span>
+        </div>
       </div>
-      <ul className="divide-y" aria-label={t('progress.listLabel')}>
+      <div role="rowgroup" className="divide-y">
         {rows.map((row) => (
           <ProgressLine key={row.category_id} row={row} period={period} />
         ))}
-      </ul>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * How much of the plan is spent, in proportion: the bar's whole length is the larger of
+ * planned and spent, so an overshoot shows as the share beyond the plan's mark, not as a
+ * full red bar. Display only: the figures are the database's.
+ */
+function SpendingBar({
+  expected,
+  spent,
+  over,
+}: {
+  expected: number
+  spent: number
+  over: boolean
+}) {
+  const scale = Math.max(expected, spent, 1)
+  const within = (Math.min(Math.max(spent, 0), expected) / scale) * 100
+  const beyond = over ? ((spent - expected) / scale) * 100 : 0
+  const mark = (expected / scale) * 100
+  return (
+    <div className="relative h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+      <div
+        className="absolute inset-y-0 left-0 rounded-l-full bg-primary/60"
+        style={{ width: `${within}%` }}
+      />
+      {over && (
+        <>
+          <div
+            className="absolute inset-y-0 rounded-r-full bg-destructive/70"
+            style={{ left: `${within}%`, width: `${beyond}%` }}
+          />
+          <div className="absolute inset-y-0 w-0.5 bg-background" style={{ left: `${mark}%` }} />
+        </>
+      )}
     </div>
   )
 }
@@ -196,79 +250,91 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
   // The generated type misses that a top-level row has no parent.
   const sub = (row.parent_id as string | null) !== null
   const over = row.is_overspent
-  // Only the bar's length: how much of what was expected is spent (display, not a figure).
-  const share =
-    row.expected > 0
-      ? Math.min(100, Math.max(0, (row.spent / row.expected) * 100))
-      : row.spent > 0
-        ? 100
-        : 0
+  const weight = row.is_group ? 'font-semibold' : sub ? '' : 'font-medium'
   const transactionsLink = `${paths.transactions}?period=${period.id}&category=${row.category_id}`
   return (
-    <li
+    <div
+      role="row"
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-x-3 gap-y-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_7rem]',
-        sub && 'pl-4 sm:pl-6',
+        'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 py-3 @2xl/progress:grid-cols-[minmax(0,1fr)_7.5rem_7.5rem_7.5rem] @2xl/progress:gap-x-3',
+        sub && 'pl-4 @2xl/progress:pl-6',
       )}
       data-testid="progress-row"
       data-overspent={over || undefined}
     >
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <div role="rowheader" className="flex min-w-0 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <Link
             to={transactionsLink}
             className={cn(
-              'truncate underline-offset-4 hover:underline',
-              row.is_group ? 'font-semibold' : sub ? 'text-sm' : 'font-medium',
+              'truncate text-sm underline-offset-4 hover:underline',
+              weight,
               !row.in_force && 'text-muted-foreground',
             )}
             title={t('progress.seeTransactions', { name: row.name })}
           >
             {row.name}
           </Link>
-          {over && <Badge variant="destructive">{t('progress.overspent')}</Badge>}
+          {over && (
+            <Badge
+              variant="outline"
+              className="border-transparent bg-red-500/10 text-red-700 dark:bg-red-400/15 dark:text-red-300"
+            >
+              {t('progress.overspent')}
+            </Badge>
+          )}
           {!row.in_force && (
             <Badge variant="outline" title={t('progress.notInForceHint')}>
               {t('progress.notInForce')}
             </Badge>
           )}
         </div>
-        {!row.is_group && (
-          <div className="h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-            <div
-              className={cn('h-full rounded-full', over ? 'bg-destructive' : 'bg-primary/70')}
-              style={{ width: `${share}%` }}
-            />
-          </div>
+        {!row.is_group && row.in_force && (
+          <SpendingBar expected={row.expected} spent={row.spent} over={over} />
         )}
+        <span
+          className="text-xs text-muted-foreground tabular-nums @2xl/progress:hidden"
+          aria-hidden
+        >
+          {t('progress.spentOf', {
+            spent: formatMoney(row.spent),
+            expected: formatMoney(row.expected),
+          })}
+        </span>
       </div>
-      <span className="hidden text-right text-sm tabular-nums sm:block">
+      <span
+        role="cell"
+        className={cn('sr-only text-right text-sm tabular-nums @2xl/progress:not-sr-only', weight)}
+      >
         {formatMoney(row.expected)}
       </span>
-      <span className="hidden text-right text-sm tabular-nums sm:block">
+      <span
+        role="cell"
+        className={cn('sr-only text-right text-sm tabular-nums @2xl/progress:not-sr-only', weight)}
+      >
         {formatMoney(row.spent)}
       </span>
       <span
-        className={cn(
-          'text-right text-sm font-medium tabular-nums',
-          over && 'text-destructive',
-          row.is_group && 'font-semibold',
-        )}
+        role="cell"
+        className="flex flex-col items-end self-start @2xl/progress:self-center"
         data-testid="progress-row-result"
       >
-        {formatMoney(row.result)}
+        <span
+          className="text-[11px] leading-none text-muted-foreground @2xl/progress:hidden"
+          aria-hidden
+        >
+          {t('progress.columns.result')}
+        </span>
+        <span
+          className={cn(
+            'text-sm whitespace-nowrap tabular-nums',
+            weight || 'font-medium',
+            over && 'text-red-700 dark:text-red-300',
+          )}
+        >
+          {formatMoney(row.result)}
+        </span>
       </span>
-      <span className="col-span-2 text-xs text-muted-foreground tabular-nums sm:hidden">
-        {over
-          ? t('progress.spentOfOver', {
-              spent: formatMoney(row.spent),
-              expected: formatMoney(row.expected),
-            })
-          : t('progress.spentOf', {
-              spent: formatMoney(row.spent),
-              expected: formatMoney(row.expected),
-            })}
-      </span>
-    </li>
+    </div>
   )
 }
