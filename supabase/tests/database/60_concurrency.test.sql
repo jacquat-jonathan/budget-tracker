@@ -214,7 +214,7 @@ select is(pg_temp.result('two'), (select id::text from ids where name = 'budget'
 -- ===========================================================================
 -- Two invitees accepting the last free place
 -- ===========================================================================
-select pg_temp.mkuser('filler' || g) from generate_series(1, 18) as g;
+select pg_temp.mkuser('filler' || g) from generate_series(1, 17) as g;
 select extensions.dblink_exec('setup', format($$
   insert into public.budget_members (budget_id, user_id)
   select %L, id from auth.users where email like 'race+filler%%@test.local'$$, (select id from ids where name = 'budget')));
