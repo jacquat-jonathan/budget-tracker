@@ -20,6 +20,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/s
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AccountSwitchedAlert } from '@/features/auth/components/account-switched-alert'
 import { LinkErrorAlert } from '@/features/auth/components/link-error-alert'
+import { BudgetLostAlert } from '@/features/budgets/components/budget-lost-alert'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 
 /** Same cookie the shadcn sidebar writes when it is toggled. */
@@ -86,6 +87,7 @@ export function AppLayout() {
             {/* An email link that landed while signed in and did not sign anyone in. */}
             <LinkErrorAlert />
             <AccountSwitchedAlert />
+            <BudgetLostAlert />
             <Suspense fallback={<FullPageSpinner inline />}>
               {/* R-BUDGET-053: a page belongs to one budget. When the current budget changes
                   (switched, deleted, or I was removed) the page is rebuilt, so no dialog or

@@ -284,6 +284,14 @@ export const fr: Translation = {
     current: 'Budget actuel',
     create: 'Créer un budget',
   },
+  budgetLost: {
+    title: 'Vous n’avez plus accès à « {{name}} »',
+    description:
+      'Il a été supprimé, ou vous en avez été retiré. Vous êtes maintenant dans « {{name}} ». Ce que vous y aviez saisi sans l’enregistrer a été abandonné.',
+    descriptionNone:
+      'Il a été supprimé, ou vous en avez été retiré. Ce que vous y aviez saisi sans l’enregistrer a été abandonné.',
+    dismiss: 'Compris',
+  },
   budgetEnded: {
     title: 'Ce budget est terminé',
   },

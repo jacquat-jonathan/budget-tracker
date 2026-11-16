@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, type MyBudget, type WeekendRule } from '@/features/budgets/budget-queries'
+import { useBudgets } from '@/features/budgets/current-budget-context'
 import { useAppMutation } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { DbError } from '@/lib/db-errors'
@@ -87,6 +88,7 @@ export function useSetBudgetEndDate(budgetId: string) {
 /** Delete a budget and everything in it; owner only. */
 export function useDeleteBudget(budgetId: string, options: { onDeleted: () => void }) {
   const { t } = useTranslation()
+  const { expectBudgetGone } = useBudgets()
   return useAppMutation<null, string>({
     errorDisplay: 'inline',
     errorMessages: { budget_not_found: 'settings.budget.alreadyDeleted' },
@@ -95,7 +97,10 @@ export function useDeleteBudget(budgetId: string, options: { onDeleted: () => vo
       return null
     },
     success: (_data, name) => t('settings.budget.deleted', { name }),
-    onSuccess: () => options.onDeleted(),
+    onSuccess: () => {
+      expectBudgetGone(budgetId)
+      options.onDeleted()
+    },
     invalidate: () => [budgetKeys.list],
   })
 }

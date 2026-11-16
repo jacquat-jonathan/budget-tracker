@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { LinkErrorAlert } from '@/features/auth/components/link-error-alert'
 import { AccountSwitchedAlert } from '@/features/auth/components/account-switched-alert'
 import { useBudgets } from '@/features/budgets/current-budget-context'
+import { BudgetLostAlert } from '@/features/budgets/components/budget-lost-alert'
 import { CreateBudgetForm } from '@/features/budgets/components/create-budget-form'
 import { MyInvitations } from '@/features/invitations/my-invitations'
 import { useDisplayName } from '@/features/profile/use-profile'
@@ -59,6 +60,7 @@ export function WelcomePage() {
           )}
         </div>
         <AccountSwitchedAlert />
+        <BudgetLostAlert />
         <LinkErrorAlert />
         <MyInvitations />
         <Card>

@@ -2,6 +2,13 @@ import { createContext, useContext } from 'react'
 
 import type { MyBudget } from '@/features/budgets/budget-queries'
 
+/** The budget I was working in when it stopped being mine (R-BUDGET-055). */
+export interface LostBudget {
+  name: string
+  /** The budget shown instead; null when none is left. */
+  nowIn: string | null
+}
+
 export interface BudgetsContextValue {
   /** My budgets; empty when I have none. */
   budgets: MyBudget[]
@@ -9,6 +16,11 @@ export interface BudgetsContextValue {
   current: MyBudget | null
   /** Switch to another of my budgets; remembered for this user across reloads. */
   selectBudget: (budgetId: string) => void
+  /** The budget I lost access to while working in it, until dismissed. */
+  lostBudget: LostBudget | null
+  dismissLostBudget: () => void
+  /** I am deleting or leaving this budget myself: its disappearance needs no notice. */
+  expectBudgetGone: (budgetId: string) => void
 }
 
 export const BudgetsContext = createContext<BudgetsContextValue | null>(null)

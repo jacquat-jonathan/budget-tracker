@@ -254,7 +254,7 @@ describe('periods page [R-PERIOD-051]', () => {
     db.rpc.record_early_pay_date.mockImplementation(() => rpcError('invalid_boundary'))
 
     const dialog = await choose(rows[0]!, CURRENT, 'The salary arrived early')
-    await typeDate(dialog, /Day the salary arrived/, '25.10.2026')
+    await typeDate(dialog, /Day the salary arrived/, '14.11.2026')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     expect(

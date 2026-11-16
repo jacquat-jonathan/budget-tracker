@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useAuth } from '@/features/auth/auth-context'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { useEnsurePeriods, type MyBudget } from '@/features/budgets/budget-queries'
-import { BudgetsContext, type BudgetsContextValue } from '@/features/budgets/current-budget-context'
+import {
+  BudgetsContext,
+  type BudgetsContextValue,
+  type LostBudget,
+} from '@/features/budgets/current-budget-context'
 import {
   pickCurrentBudget,
   readStoredBudget,
@@ -59,6 +63,34 @@ export function CurrentBudgetProvider({
     if (currentId) storeBudget(userId, currentId)
   }, [userId, currentId])
 
+  // R-BUDGET-055: the budget I was in disappeared (deleted by the owner, or I was removed):
+  // say so, since the page and anything typed on it are discarded (R-BUDGET-053). Not when
+  // I deleted or left it myself, nor when another user took over the tab.
+  const [shown, setShown] = useState<{ userId: string; budget: MyBudget | null }>({
+    userId,
+    budget: current,
+  })
+  const [lostBudget, setLostBudget] = useState<LostBudget | null>(null)
+  const [expectedGone, setExpectedGone] = useState<ReadonlySet<string>>(() => new Set())
+  if (shown.userId !== userId || shown.budget !== current) {
+    const previous = shown.budget
+    setShown({ userId, budget: current })
+    if (
+      shown.userId === userId &&
+      previous &&
+      previous.id !== current?.id &&
+      !budgets.some((budget) => budget.id === previous.id) &&
+      !expectedGone.has(previous.id)
+    ) {
+      setLostBudget({ name: previous.name, nowIn: current?.name ?? null })
+    }
+    if (shown.userId !== userId) setLostBudget(null)
+  }
+  const dismissLostBudget = useCallback(() => setLostBudget(null), [])
+  const expectBudgetGone = useCallback((budgetId: string) => {
+    setExpectedGone((gone) => new Set([...gone, budgetId]))
+  }, [])
+
   useEnsurePeriodsFor(current?.id)
 
   // A budget that was removed elsewhere makes every query about it fail with "not found".
@@ -72,8 +104,8 @@ export function CurrentBudgetProvider({
   }, [queryClient])
 
   const value = useMemo<BudgetsContextValue>(
-    () => ({ budgets, current, selectBudget }),
-    [budgets, current, selectBudget],
+    () => ({ budgets, current, selectBudget, lostBudget, dismissLostBudget, expectBudgetGone }),
+    [budgets, current, selectBudget, lostBudget, dismissLostBudget, expectBudgetGone],
   )
 
   return <BudgetsContext.Provider value={value}>{children}</BudgetsContext.Provider>

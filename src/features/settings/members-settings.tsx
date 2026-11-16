@@ -26,7 +26,7 @@ import {
   type BudgetInvitation,
   type BudgetMember,
 } from '@/features/budgets/budget-queries'
-import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { useBudgets, useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { OwnerOnlyNote } from '@/features/settings/budget-settings'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatTimestamp } from '@/lib/date'
@@ -39,6 +39,7 @@ export function MembersSettings() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { budgetId, budget, isOwner } = useCurrentBudget()
+  const { expectBudgetGone } = useBudgets()
   const members = useMembers(budgetId)
   const incomes = useIncomes(budgetId)
   const [pending, setPending] = useState<Pending>({ kind: 'none' })
@@ -65,6 +66,7 @@ export function MembersSettings() {
     },
     success: () => t('members.left', { name: budget.name }),
     onSuccess: () => {
+      expectBudgetGone(budgetId)
       close()
       void navigate(paths.dashboard, { replace: true })
     },

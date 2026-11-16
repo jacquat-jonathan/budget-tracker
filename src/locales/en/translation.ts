@@ -266,6 +266,14 @@ export const en = {
     current: 'Current budget',
     create: 'Create a budget',
   },
+  budgetLost: {
+    title: 'You no longer have access to “{{name}}”',
+    description:
+      'It was deleted, or you were removed from it. You are now in “{{name}}”. Anything you had typed there and not saved was discarded.',
+    descriptionNone:
+      'It was deleted, or you were removed from it. Anything you had typed there and not saved was discarded.',
+    dismiss: 'Got it',
+  },
   budgetEnded: {
     title: 'This budget has ended',
   },
