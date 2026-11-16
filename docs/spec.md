@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-472 rules (463 active, 0 planned), 24 conventions, 256 decisions, 17 open questions. 12 rules and conventions are marked **TEST PENDING**.
+472 rules (463 active, 0 planned), 24 conventions, 258 decisions, 18 open questions. 12 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -986,9 +986,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-270, D-387, R-PERIOD-130
   - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
-- **R-PERIOD-250** A budget whose last period ended more than 62 days before today (or its end date) is caught up only by ensure_periods and get_current_period: every other call answers catching_up at once, before taking the budget lock and without doing any work; ensure_periods and get_current_period wait at most two seconds for a lock another session holds, then answer catching_up, never the statement timeout.
+- **R-PERIOD-250** A budget whose last period ended more than 62 days before today (or its end date), or that has room for transactions and a subscription charge or a transfer's transaction due that long ago not made yet, is caught up only by ensure_periods and get_current_period: every other call answers catching_up at once, before taking the budget lock and without doing any work; ensure_periods and get_current_period wait at most two seconds for a lock another session holds, then answer catching_up, never the statement timeout.
   _active · enforced by test · F-PERIOD_
-  - Related: D-387, R-PERIOD-180
+  - Related: D-387, R-PERIOD-180, D-433
   - Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
 - **R-PERIOD-300** One catch-up step creates at most a bounded number of transactions per budget (4000, and about two seconds of work), leaving the rest due, none skipped; a step that stops before creating every one due never answers 0 from ensure_periods.
   _active · enforced by test · F-PERIOD_
@@ -2071,9 +2071,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-420, D-421, D-423, D-424, D-430
   - Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
-- **R-ACCOUNT-303** Every preview of a change the catch-up follows (creating, editing, correcting or ending a transfer, a reopen) says, with counts, which transactions of the catch-up it removes and creates and which members' marks lose or regain their occurrence, computed by the write itself.
+- **R-ACCOUNT-303** Every preview of a change the catch-up follows (creating, editing, correcting or ending a transfer, a reopen) says, with counts, which transactions of the catch-up it removes and creates and which members' marks lose or regain their occurrence, computed by the write itself (for an amount alone, which changes none of them, without running it).
   _active · enforced by test · F-MONEYFLOW_
-  - Related: D-428, R-ACCOUNT-233
+  - Related: D-428, R-ACCOUNT-233, D-432
   - Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-304** The committed figures and the money flow count a transfer's monthly share (a quarterly or yearly amount divided by its months, half up), and the reads carry the real amount and cadence beside it.
   _active · enforced by test · F-MONEYFLOW_
@@ -5607,6 +5607,35 @@ Related: D-390, R-ACCOUNT-300
 
 Source: owner-request: database developer decision for the step 7 occurrence model, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261122100000_transfer_schedule.sql
 
+### D-432 How a preview runs the write (accepted)
+
+A preview that runs the write (D-428: preview_create_transfer, preview_update_transfer, preview_reopen, preview_update_income, preview_set_primary_income, preview_move_period_start) takes the budget lock before it reads the revisions and marks it compares, so behind a member's write in flight it waits and then previews what that write left instead of answering record_changed; inside its subtransaction the catch-up step starts afresh (its bound of transactions and its time, D-427), as the write's own statement would. preview_update_transfer with an amount alone (no other term, no p_from_period_id) runs no write and takes no lock: it applies the write's checks of the new terms and answers the plan as it is at the new amount, every count 0.
+
+**Why:** A preview re-asked at keystroke pace must not fail because another member saved meanwhile, must hit a limit exactly where the write would, and should not queue behind writers for the most common edit (the amount), which moves no occurrence and touches no transaction already made.
+
+**Rejected:**
+
+- Reading before taking the lock: behind a writer the write then refuses with record_changed after waiting.
+- Running the write for an amount alone too: it waits for every writer of the budget for an answer known without it.
+
+Related: D-428, D-427, R-ACCOUNT-303
+
+Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-433 A budget behind with its charges or transfers is catching up (accepted)
+
+catch_up_gate also answers catching_up (before the lock, doing nothing) when a subscription charge or an automatic transfer's transaction due more than 62 days before today (or the budget's end) is not made yet and the budget has room for transactions; a full budget is not behind (its charges and transactions wait for room, as before). Only ensure_periods and get_current_period then catch up, one bounded step at a time.
+
+**Why:** With all its periods there but tens of thousands of transfer transactions still to make (a budget opened after decades), every read and write passed the gate and queued on the budget lock behind the others' steps (each up to two seconds), so a screen of eight calls at once ran into the statement timeout (18 timeouts in 40 rounds at 40 years).
+
+**Rejected:**
+
+- Making the step smaller: the queue grows with the number of calls a screen makes, not with the step.
+
+Related: D-387, D-427, R-PERIOD-250, R-PERIOD-300
+
+Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -5897,6 +5926,10 @@ Source: owner-request: database developer decision for the step 7 occurrence mod
   - Context: D-352 caps the due date at the period's last day, so one calendar day can lead to two occurrences close together (the short period's last day, then the day in the next period).
   - Related: D-352, R-ACCOUNT-239
   - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
+- **Q-260** A period created on a scheduled pay date the budget already used (a salary recorded more than 15 days early, then the next one on its scheduled day) has no primary pay-date occurrence. When both salaries are real, should that period's pay-date transfers get an occurrence (for example keyed by its actual start), so a real payday's standing order is not missing from its checklist?
+  - Context: D-420 gives a key to one period only, so a reopen and the salary recorded again find the same mark. Example: pay day 25, a salary recorded on 9 November for 25 November: that period's "Savings 500" (pay date, automatic) is keyed 25 November and its transaction dated 9 November; the period the schedule then starts on 25 November gets no key, so its checklist has no "Savings" row and the catch-up makes no transaction for it. The next period (25 December) is keyed as usual. If the 25 November salary is real, one standing order is missing from the budget until a member records it as a plain transaction.
+  - Related: D-420, R-ACCOUNT-301, R-ACCOUNT-302
+  - Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ## Glossary
 

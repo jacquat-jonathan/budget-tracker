@@ -5,7 +5,7 @@
 -- one undo out of every state; the monthly share; the bounded catch-up step. The reviewer's
 -- reproductions (M2, M3, R6, R7, the Q-224 cases) are here with what the bank did as expected.
 begin;
-select plan(143);
+select plan(151);
 
 select tests.create_user('gina', 'Gina');
 select tests.create_user('hugo', 'Hugo');
@@ -367,6 +367,32 @@ select results_eq(
            p_category_id => %L, p_from_period_id => %L, p_count => 60) group by 1$$, tests.id('c_t'), tests.id('c_cat'), tests.id('c_p1')),
   $$values (1, 1)$$,
   'R-ACCOUNT-303: a correction from the first period governs it until the next change: one row, one transaction at once');
+-- the write a preview runs is a step of its own: a statement that already used its step's bound
+-- of transactions still previews what the write alone does (D-432)
+create function pg_temp.preview_after_full_step(p_transfer uuid, p_budget uuid, p_cat uuid, p_from uuid) returns integer
+language plpgsql as $f$
+declare v integer;
+begin
+  -- this statement's step has made more transactions than any bound (the key: private.step_key)
+  perform set_config('budget_tracker.catch_up_made', statement_timestamp()::text || '/' || p_budget::text || '|1000000', true);
+  select max(created_at_once_count) into v from public.preview_update_transfer(p_transfer, p_is_automatic => true,
+    p_category_id => p_cat, p_from_period_id => p_from, p_count => 60);
+  return v;
+end;
+$f$;
+select is(pg_temp.preview_after_full_step(tests.id('c_t'), tests.id('c'), tests.id('c_cat'), tests.id('c_p1')), 1,
+  'R-ACCOUNT-303: the write a preview runs starts its own catch-up step (its bound of transactions afresh)');
+-- an amount alone runs no write: the plan as it is at the new amount, as the write would say it
+select results_eq(
+  format($$select occurrence_date, due_date, amount, is_automatic, created_at_once_count, transactions_removed_count, marks_unplanned_count
+           from public.preview_update_transfer(%L, p_amount => 4321, p_count => 12) order by 1$$, tests.id('c_t')),
+  format($$select occurrence_date, due_date, amount, is_automatic, created_at_once_count, transactions_removed_count, marks_unplanned_count
+           from public.preview_update_transfer(%L, p_amount => 4321, p_is_automatic => false, p_count => 12) order by 1$$, tests.id('c_t')),
+  'R-ACCOUNT-303: a preview of an amount alone answers what the write answers');
+select is((select bool_and(amount = 4321) and count(*) = 12 from public.preview_update_transfer(tests.id('c_t'), p_amount => 4321, p_count => 12)), true,
+  'R-ACCOUNT-303: every occurrence at the new amount');
+select throws_ok(format($$select * from public.preview_update_transfer(%L, p_amount => 0)$$, tests.id('c_t')),
+  'P0001', 'invalid_amount', 'R-ACCOUNT-303: with the write''s checks of the new terms');
 select lives_ok(format($$select * from public.update_transfer(%L, 2, p_is_automatic => true, p_category_id => %L, p_from_period_id => %L)$$,
                        tests.id('c_t'), tests.id('c_cat'), tests.id('c_p1')),
   'Q-221: the correction');
@@ -699,6 +725,27 @@ select is((select count(*)::integer from public.transfer_occurrences where budge
 select tests.authenticate_as_anon();
 select throws_ok(format($$select * from public.undo_transfer_mark(%L, %L, 1, '2026-11-10')$$, tests.id('d_m'), tests.id('d_p2')),
   '42501', null, 'R-SECURITY-003: an anonymous visitor calls none of them');
+select tests.clear_authentication();
+
+-- ===========================================================================
+-- Behind with the transfers' transactions, its periods all there: catching_up (R-PERIOD-250, D-433)
+-- ===========================================================================
+select pg_temp.budget('g');
+select tests.remember('g_t', (select id from public.create_transfer(tests.id('g'), 'Rent share', tests.id('g_main'), tests.id('g_sav'),
+  100, 'day_of_month', p_day_of_month => 2, p_is_automatic => true, p_category_id => tests.id('g_cat'))));
+select tests.clear_authentication();
+-- (as postgres: its next transaction due in August and not made, as after a long absence)
+update public.transfers set next_due = '2026-08-01' where id = tests.id('g_t');
+select tests.authenticate_as('gina');
+select throws_ok(format($$select * from public.update_transfer(%L, %s, p_amount => 200)$$, tests.id('g_t'),
+                        (select revision from public.transfers where id = tests.id('g_t'))),
+  'P0001', 'catching_up', 'R-PERIOD-250: a transaction due more than 62 days ago not made yet: a write answers catching_up');
+select throws_ok(format($$select * from public.get_transfer_checklist(%L)$$, pg_temp.period_at(tests.id('g'), '2026-11-16')),
+  'P0001', 'catching_up', 'R-PERIOD-250: and so does a read');
+select lives_ok(format($$select public.ensure_periods(%L)$$, tests.id('g')), 'R-PERIOD-250: ensure_periods catches it up');
+select lives_ok(format($$select * from public.update_transfer(%L, %s, p_amount => 200)$$, tests.id('g_t'),
+                       (select revision from public.transfers where id = tests.id('g_t'))),
+  'R-PERIOD-250: then the write goes through');
 select tests.clear_authentication();
 
 select * from finish();

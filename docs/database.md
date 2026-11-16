@@ -161,7 +161,10 @@ budget is opened. The same catch-up creates the subscription charges due up to t
 - **No call does more than one step** (R-PERIOD-180, R-PERIOD-250, D-387), however often it
   calls the catch-up internally. `ensure_periods` and `get_current_period` keep their step.
 - **Far behind** (the budget's last period ended more than **62 days** before today, or
-  before its end date): only `ensure_periods` and `get_current_period` (and `create_budget`,
+  before its end date; or, D-433, its periods are all there but a subscription charge or a
+  transfer's transaction due more than 62 days ago is not made yet and the budget has room for
+  it, as when a budget is opened after years and the periods' steps finished before the
+  transactions' ones): only `ensure_periods` and `get_current_period` (and `create_budget`,
   for its first periods) catch up. Every other call that catches up answers **`catching_up`
   at once**, before taking the budget lock and without doing any work. Within 62 days, such a
   call does its own roll-over (the step) and goes on; when the budget is still behind after
@@ -1488,6 +1491,18 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
     (on any day) give back the same key. The one exception: a period created on a scheduled pay
     date the budget already used (a salary recorded more than 15 days early, then the next one
     on its scheduled day) has no primary pay-date occurrence.
+
+    **Example of the exception** (pay day 25, no weekend rule; a standing order "Savings, 500,
+    pay date, automatic"). Before: the period 25 Oct to 24 Nov is keyed 25 Oct; its checklist
+    has one "Savings" row, done by the catch-up, transaction 500 on 25 Oct. The salary is
+    recorded on 9 Nov (for 25 Nov, 16 days early). After: 25 Oct to 8 Nov keeps key 25 Oct and
+    its transaction; 9 Nov to 24 Nov is keyed **25 Nov**, due 9 Nov: one "Savings" row, a
+    transaction of 500 on 9 Nov; the period the schedule starts on **25 Nov** gets **no key**
+    (25 Nov is used): its checklist has **no "Savings" row** and the catch-up makes no
+    transaction for it; 25 Dec is keyed as usual. If the household really is paid again on 25
+    Nov, that payday's standing order is **missing** from the checklist and the money flow until
+    a member records it as a plain transaction (open question Q-260). A transfer that follows
+    another income chosen, or a fixed day, is not affected.
   - **Another income chosen** and in force in the period: each of its actual pay dates in the
     period (its terms then, its weekend rule) is a key; a period with none of them has no
     occurrence, a long one can have several.
@@ -1551,6 +1566,36 @@ transaction per mark at most.
 Each first does one catch-up step (`catching_up` when still behind) and changes nothing. The
 create and edit previews **run the write itself and roll it back**, so they answer what the
 write does, errors included (`transfer_limit_reached` too), and take the budget lock like it.
+
+**Which previews run the write** (D-428). These run it inside a subtransaction and roll it back:
+`preview_create_transfer`, `preview_update_transfer` (unless only `p_amount` is given, below),
+`preview_reopen` (its transfer rows), `preview_update_income`, `preview_set_primary_income` and
+`preview_move_period_start` (when the move is accepted). These do not, and never wait for a
+writer: `preview_end_transfer`, `preview_close_account`, and `preview_update_transfer` with
+`p_amount` alone (no `p_from_period_id`): an amount changes no occurrence, no due date and no
+transaction already made, so it answers the plan as it is at the new amount, after the write's
+own checks of the new terms (`invalid_amount` and the rest), with every count 0. What this means
+for a screen:
+
+- A preview that runs the write **takes the budget lock first**, before it reads the revisions
+  and marks it compares: behind a member's write in flight it waits for it (as long as that
+  write holds the budget), then previews what that write left; it never answers
+  `record_changed` for a write that happened while it waited. Reads (`get_transfer_checklist`,
+  the views, `my_budgets`) and the previews above that do not run the write do not wait.
+- The write runs **as its own statement would**: its catch-up step starts afresh (the bound of
+  transactions a step creates and the step's time, D-427), so a preview hits a limit exactly
+  where the write would.
+- **Nothing is left behind**: every row, watermark (`settled_through`, `next_due`,
+  `needs_check`), mark and transaction the write touched is rolled back with the
+  subtransaction; no client request is recorded (a preview takes no `p_client_id`); the schema
+  has no sequences and sends no notifications. Checked by fingerprinting every table of
+  `public` and `private` before and after a battery of every preview.
+- **Cost**, at the documented limits (64 periods, 200 transfers, 50 in force, 45 000
+  transactions; HTTP, median): an amount alone 22 ms, a day of month 48 ms, a correction over
+  60 periods 81 ms, a create 38 ms (60 rows: 82 ms), `preview_reopen` about 370 ms (about half
+  is the reopen itself recomputing every transfer's two merged periods; bounded by the 200
+  transfers and the two periods, not by the budget's age). Two members re-asking a preview at
+  keystroke pace (every 150 ms) at once: median 72 ms, worst 133 ms.
 
 - **`preview_create_transfer(p_budget_id, p_from_account_id, p_to_account_id, p_amount, p_schedule, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = false, p_category_id = null, p_from_period_id = null, p_count = 6, p_cadence = null, p_first_date = null)`**
   and **`preview_update_transfer(p_transfer_id, <the update's term arguments and p_from_period_id>, p_count = 6, p_cadence = null, p_first_date = null)`**

@@ -1548,6 +1548,13 @@ select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from 
   'R-PERIOD-009: every step ran');
 
 select diag('automatic charges created: ' || (select count(*) from made where kind = 'charge'));
+select diag('step 7 counts (threshold): transfer transactions seen by the oracle ' || (select count(*) from catch_up_seen) || ' (30), transfer writes '
+  || (select count(*) from runs where outcome = 'ok' and op in ('create_transfer', 'create_transfer_backdated', 'update_transfer', 'correct_transfer', 'end_transfer'))
+  || ' (45), marks ' || (select count(*) from runs where outcome = 'ok' and op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark'))
+  || ' (20), stale marks refused ' || (select count(*) from runs where outcome = 'refused: record_changed' and op = 'stale_mark')
+  || ' (3), not-done undone after the catch-up ' || (select count(*) from runs where outcome = 'ok' and op = 'unmark_after_settle')
+  || ' (10), transactions ' || (select count(*) from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction'))
+  || ' (150)');
 select diag('fingerprint of the walks: ' || md5(string_agg(format('%s/%s/%s/%s/%s', seed, step, budget, op, outcome), ',' order by seed, step)))
 from runs;
 select diag(op || ' / ' || split_part(outcome, ':', 1) || coalesce(':' || nullif(split_part(outcome, ':', 2), ''), '') || ' x' || count(*))

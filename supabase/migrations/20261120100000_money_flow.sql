@@ -1392,7 +1392,8 @@ end;
 $$;
 
 -- R-PERIOD-250, D-387: a budget more than limit_roll_over_days() behind (its last period ended
--- longer ago than that, before today or its end date) is caught up only by ensure_periods and
+-- longer ago than that, before today or its end date, or a charge or a transfer's transaction
+-- due that long ago is not made yet) is caught up only by ensure_periods and
 -- get_current_period (and create_budget): any other call answers catching_up here, before the
 -- lock, doing nothing.
 create or replace function private.catch_up_gate(p_budget_id uuid)
@@ -1412,6 +1413,18 @@ begin
   select b.end_date into v_end from public.budgets as b where b.id = p_budget_id;
   if v_last < least(private.today(), coalesce(v_end, private.today())) - private.limit_roll_over_days() then
     raise exception 'catching_up' using errcode = 'P0001';
+  end if;
+  -- D-433: as far behind with the charges or the transfers' transactions (their periods all
+  -- there, the transactions not yet made): the same, so calls do not queue behind its steps
+  if exists (select 1 from public.subscriptions as s
+             where s.budget_id = p_budget_id
+               and s.next_due < least(private.today(), coalesce(v_end, private.today())) - private.limit_roll_over_days())
+     or exists (select 1 from public.transfers as x
+                where x.budget_id = p_budget_id
+                  and x.next_due < least(private.today(), coalesce(v_end, private.today())) - private.limit_roll_over_days()) then
+    if private.transaction_room(p_budget_id) > 0 then  -- a full budget is not behind: they wait for room
+      raise exception 'catching_up' using errcode = 'P0001';
+    end if;
   end if;
 end;
 $$;

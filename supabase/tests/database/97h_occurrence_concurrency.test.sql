@@ -165,7 +165,8 @@ select is(pg_temp.q('three', format($$select count(*)::text from public.transfer
 select is(pg_temp.q('three', format($$select count(*)::text from public.preview_update_transfer(%L, p_amount => 900)$$, pg_temp.id('m'))) > '0', true,
   'R-ACCOUNT-303: nor does a preview of an amount alone (it runs no write)');
 select extensions.dblink_exec('one', 'commit');
-select isnt(pg_temp.result('two'), 'timeout', 'R-ACCOUNT-303: the preview answers once the writer commits');
+select is(pg_temp.result('two') ~ '^[0-9]+$', true,
+  'R-ACCOUNT-303: the preview answers once the writer commits, on what the writer left (not record_changed)');
 select is(pg_temp.q('setup', format($$select amount::text from public.transfer_versions where transfer_id = %L order by effective_from_seq desc limit 1$$,
                                     pg_temp.id('m'))), '1500',
   'R-ACCOUNT-303: and left nothing of its own run behind');
