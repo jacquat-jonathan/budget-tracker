@@ -110,7 +110,7 @@ describe('correcting a subscription from an earlier period [R-SUBSCRIPTION-140]'
     })
   })
 
-  it('sends no correction at all when nothing of that period changed', async () => {
+  it('sends no correction at all when nothing of that period changed, and says so [R-APP-280]', async () => {
     const db = correctionDb()
     const { dialog } = await openEdit(db)
     await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
@@ -118,9 +118,11 @@ describe('correcting a subscription from an earlier period [R-SUBSCRIPTION-140]'
       expect(within(dialog).getByLabelText('Price per charge')).toHaveValue('19.90')
     })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    })
+    // Nothing to send: the window stays open and says so, never "saved".
+    expect(await within(dialog).findByTestId('nothing-to-save')).toHaveTextContent(
+      'Nothing to save: every field is as recorded.',
+    )
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(db.rpc.update_subscription).not.toHaveBeenCalled()
   })
 })

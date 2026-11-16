@@ -1,8 +1,8 @@
-import type { Translation } from '@/locales/en/translation'
-import { catchUpFr, chargesFr, correctionsFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
+import type { LazyKey, Translation } from '@/locales/en/translation'
+import { catchUpFr } from '@/locales/fr/catch-up'
 
 // French typography: a narrow no-break space (U+202F) precedes ? ! : and ;.
-export const fr: Translation = {
+const core: Omit<Translation, LazyKey> = {
   app: {
     name: 'Budget Tracker',
     tagline: 'Le budget de votre ménage, période après période.',
@@ -26,8 +26,10 @@ export const fr: Translation = {
     subscriptions: 'Abonnements',
     debts: 'Dettes',
     periods: 'Périodes',
+    compare: 'Comparer',
     moneyFlow: 'Flux financiers',
     income: 'Revenus',
+    import: 'Importer',
     settings: 'Paramètres',
     newBudget: 'Nouveau budget',
   },
@@ -44,10 +46,18 @@ export const fr: Translation = {
     periods: {
       description: 'D’un jour de paie au suivant, de la plus récente à la plus ancienne.',
     },
+    compare: {
+      description:
+        'Comment vos périodes se comparent : la tendance, chaque catégorie au fil du temps, et deux périodes côte à côte.',
+    },
     moneyFlow: {
       description: 'La répartition de votre argent entre vos comptes après le jour de paie.',
     },
     income: { description: 'Les revenus qui composent votre budget mensuel.' },
+    import: {
+      description:
+        'Importez un relevé bancaire ou un fichier CSV plutôt que de saisir chaque transaction.',
+    },
     settings: { description: 'Le budget, les personnes qui le partagent et votre compte.' },
   },
   userMenu: {
@@ -215,6 +225,10 @@ export const fr: Translation = {
     forbidden: 'Vous n’avez pas le droit de faire cela.',
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+    networkAdd:
+      'La connexion a été coupée avant la réponse. Ce que vous avez saisi est toujours là : enregistrez à nouveau une fois connecté. Sans risque : ce sera enregistré une seule fois, même si le premier enregistrement a abouti.',
+    networkSave:
+      'La connexion a échoué : rien n’a été enregistré. Vos saisies sont toujours là : vérifiez votre connexion et enregistrez de nouveau.',
     generic: 'Une erreur s’est produite. Veuillez réessayer.',
     db: {
       not_authenticated: 'Votre session a expiré. Reconnectez-vous.',
@@ -280,7 +294,7 @@ export const fr: Translation = {
       category_limit_reached:
         'Ce budget contient déjà le maximum de catégories (200 en usage, ou 500 au total).',
       transaction_limit_reached:
-        'Ce budget contient déjà 50 000 transactions, le maximum possible.',
+        "Ce budget contient déjà 50'000 transactions, le maximum possible.",
       category_not_ended: 'Cette catégorie n’a pas pris fin : il n’y a rien à restaurer.',
       category_in_use:
         'Un abonnement ou une dette utilise encore cette catégorie. Terminez-le ou déplacez-le d’abord dans une autre catégorie.',
@@ -292,7 +306,9 @@ export const fr: Translation = {
       before_debt_opened:
         'Cette date précède l’ouverture de la dette : remboursements et ajustements commencent à sa date d’ouverture.',
       catching_up:
-        'Le budget rattrape encore le temps écoulé depuis votre dernière visite. Réessayez dans un instant.',
+        'Rien n’a été enregistré : le budget rattrapait encore le temps écoulé depuis votre dernière visite. C’est fait : vos saisies sont toujours là, enregistrez de nouveau.',
+      charge_held_back:
+        "Un prélèvement de cet abonnement attend : le budget contient 50'000 transactions, le maximum. Son calendrier ne peut pas changer et il ne peut pas être terminé avant que ce prélèvement soit créé ; supprimez d’abord des transactions pour faire de la place.",
       preview_required:
         'Cette modification déplace la fin de la période en cours : regardez la nouvelle fin ci-dessous, puis enregistrez de nouveau.',
       invalid_charge_date:
@@ -315,9 +331,69 @@ export const fr: Translation = {
       adjustment_limit_reached: 'Ce budget contient déjà 5000 ajustements de solde, le maximum.',
       income_limit_reached:
         'Ce budget compte déjà le maximum de revenus autorisé (50 en vigueur, ou 500 au total).',
+      membership_limit_reached:
+        'Vous faites déjà partie de 50 budgets (les vôtres compris), le maximum. Quittez-en un d’abord.',
+      request_reused:
+        'Ce formulaire avait déjà été enregistré avec d’autres valeurs (peut-être juste avant la coupure de connexion). Vérifiez la liste : enregistrer à nouveau maintenant crée une nouvelle entrée.',
+      invalid_rows: 'Ces lignes n’ont pas pu être envoyées : 500 lignes et 2 Mo au plus à la fois.',
+      invalid_batch: 'Cette importation n’a pas pu être identifiée. Recommencez-la.',
+      invalid_chunk: 'Une partie de cette importation était mal numérotée. Recommencez-la.',
+      invalid_source: 'Ce genre de fichier ne peut pas être importé.',
+      invalid_expiry: 'Un jeton dure de 1 à 365 jours.',
+      invalid_fragment:
+        'Saisissez un texte de commerçant de 1 à 100 caractères, avec au moins une lettre ou un chiffre.',
+      import_batch_conflict:
+        'Cette importation appartient à un autre budget. Recommencez-la dans celui-ci.',
+      import_batch_not_found: 'Cette importation n’existe plus, ou appartient à un autre budget.',
+      merchant_rule_not_found: 'Cette règle de commerçant n’existe plus.',
+      token_not_found: 'Ce jeton d’importation n’existe plus.',
+      batch_undone: 'Cette importation a été annulée : plus rien ne peut en être importé.',
+      not_to_review: 'Cette transaction a déjà été confirmée.',
+      category_to_categorise:
+        '« À catégoriser » ne le permet pas : ce n’est que l’endroit où les transactions importées attendent une catégorie. Elle ne prend ni montant prévu ni sous-catégorie, ne peut pas être la catégorie d’une transaction saisie, d’un abonnement, d’une dette ou d’une règle, ne peut pas prendre fin tant qu’elle contient des transactions, et une transaction qui s’y trouve doit recevoir une catégorie avant d’être confirmée.',
+      merchant_rule_exists:
+        'Une règle existe déjà pour ce texte de commerçant. Modifiez plutôt celle-ci.',
+      merchant_rule_limit_reached: 'Ce budget a déjà 500 règles de commerçant, le maximum.',
+      token_limit_reached:
+        'Ce budget a déjà 10 jetons d’importation utilisables, le maximum. Révoquez-en un d’abord.',
+      token_active: 'Révoquez ce jeton avant de le supprimer.',
+      read_only_call: 'Le script d’importation doit envoyer ses lignes par POST.',
+      invalid_token:
+        'Ce jeton d’importation est inconnu, a expiré ou a été révoqué, ou la personne qui l’a créé n’est plus membre.',
+      token_rate_limited: 'Ce jeton a trop envoyé pour le moment. Attendez un peu, puis réessayez.',
+      transfer_held_back:
+        'Un virement de ce budget attend de la place (la limite de transactions) : il ne peut pas prendre fin avant que sa transaction soit créée.',
+      account_not_found: 'Ce compte n’existe plus.',
+      transfer_not_found: 'Ce virement n’existe plus.',
+      account_ended: 'Ce compte a été clôturé (pour cette période).',
+      transfer_ended: 'Ce virement a pris fin (pour cette période).',
+      account_in_use:
+        'Un virement ou un revenu utilise encore ce compte. Modifiez-le ou mettez-y fin d’abord.',
+      account_not_in_force: 'Ce compte n’est pas ouvert dans chaque période concernée.',
+      account_required: 'Un virement a besoin d’un compte de départ et d’un compte d’arrivée.',
+      same_account: 'Un virement a besoin de deux comptes différents.',
+      invalid_account_kind: 'Choisissez le genre de compte.',
+      invalid_bank_label: 'Le libellé bancaire peut compter 100 caractères au plus.',
+      invalid_schedule: 'Choisissez un seul rythme pour ce virement.',
+      invalid_offset: 'Le nombre de jours doit être de 0 à 31.',
+      invalid_day: 'Le jour doit être de 1 à 31.',
+      invalid_automatic: 'Indiquez si ce virement est automatique.',
+      invalid_arguments: 'Ces valeurs ne vont pas ensemble. Vérifiez le formulaire et réessayez.',
+      transfer_not_in_force: 'Ce virement n’a rien de prévu dans cette période.',
+      transfer_already_marked:
+        'Ce virement est déjà marqué pour cette période. Annulez d’abord la marque.',
+      transfer_is_automatic: 'Un virement automatique ne se marque pas à la main.',
+      transfer_is_manual: 'Seul un virement automatique peut être marqué non effectué.',
+      nothing_to_undo: 'Il n’y a pas de marque à annuler pour ce virement dans cette période.',
+      account_limit_reached:
+        'Ce budget a déjà le maximum de comptes (50 ouverts, ou 200 au total).',
+      transfer_limit_reached:
+        'Ce budget a déjà le maximum de virements (50 en vigueur, ou 200 au total).',
     },
   },
   concurrent: {
+    savedAfterLoss:
+      'Enregistré. La réponse s’est perdue en route, mais votre modification est enregistrée : le formulaire l’affiche.',
     title: 'Quelqu’un d’autre a modifié cet élément pendant que vous l’aviez ouvert',
     theirVersion: 'Sa version :',
     edit: 'Ce que vous avez saisi est toujours là. Chargez sa version pour repartir de celle-ci, ou gardez la vôtre : l’enregistrement ne modifiera alors que les champs que vous avez changés.',
@@ -325,7 +401,8 @@ export const fr: Translation = {
       'Quelqu’un d’autre a modifié cet élément ; le formulaire affiche maintenant sa version :',
     goneTitle: 'Quelqu’un d’autre a supprimé cet élément',
     endedTitle: 'Quelqu’un d’autre a retiré cet élément',
-    ended: 'Il n’est plus utilisé à partir de la période en cours : ces modifications ne peuvent donc pas être enregistrées. Fermez cette fenêtre ; il figure parmi les éléments retirés et peut être restauré.',
+    ended:
+      'Il n’est plus utilisé à partir de la période en cours : ces modifications ne peuvent donc pas être enregistrées. Fermez cette fenêtre ; il figure parmi les éléments retirés et peut être restauré.',
     gone: 'Il n’existe plus et ne peut donc pas être enregistré. Fermez cette fenêtre.',
     none: 'aucune',
     amountPer: {
@@ -434,6 +511,7 @@ export const fr: Translation = {
       decline: 'Refuser',
       accepted: 'Vous avez rejoint « {{name}} ».',
       declined: 'Invitation à « {{name}} » refusée.',
+      more: 'Afficher plus d’invitations',
     },
   },
   members: {
@@ -489,6 +567,8 @@ export const fr: Translation = {
     },
   },
   income: {
+    endMovedMeanwhile:
+      'Rien n’a été enregistré : la fin de la période en cours a changé entre-temps (par exemple, une date de paie attendue a été fixée à la main). L’aperçu ci-dessous montre la nouvelle fin : vérifiez-la, puis enregistrez de nouveau.',
     add: 'Ajouter un revenu',
     addTitle: 'Ajouter un revenu',
     addDescription: 'Un revenu mensuel qui compte dans le total du budget.',
@@ -673,7 +753,8 @@ export const fr: Translation = {
       'Ses sous-catégories restent telles quelles : restaurez aussi celles que vous voulez.',
     restoreGroupFirst: 'Son groupe « {{group}} » a pris fin : restaurez d’abord le groupe.',
     restored: '« {{name}} » est de nouveau prévue.',
-    restoredElsewhere: 'Quelqu’un d’autre a déjà restauré « {{name}} » : il n’y a plus rien à restaurer.',
+    restoredElsewhere:
+      'Quelqu’un d’autre a déjà restauré « {{name}} » : il n’y a plus rien à restaurer.',
     becameGroup:
       'Quelqu’un d’autre a ajouté une sous-catégorie : « {{name}} » est donc un groupe, sans montant propre. Le montant saisi ({{amount}}) ne peut pas être enregistré ici : indiquez-le sur l’une de ses sous-catégories. Vous pouvez encore la renommer.',
     removeFromEarlier:
@@ -707,7 +788,8 @@ export const fr: Translation = {
     endedHelp:
       'Elles ne sont plus prévues, mais les périodes passées les conservent avec leurs transactions.',
     endedLabel: 'Retirée',
-    neverPlanned: 'Retirée dans la période où elle a été ajoutée ; ses transactions comptent toujours',
+    neverPlanned:
+      'Retirée dans la période où elle a été ajoutée ; ses transactions comptent toujours',
     lastCounted: 'Prévue pour la dernière fois dans la période se terminant le {{date}}',
     groupHasNoAmount:
       'Cette catégorie a des sous-catégories : son montant est le total des leurs. Modifiez les montants des sous-catégories.',
@@ -744,6 +826,7 @@ export const fr: Translation = {
       'Cela modifie des périodes passées : ce qu’elles prévoyaient, et donc leurs résultats, est recalculé à partir de la période choisie jusqu’au prochain changement déjà enregistré.',
     removeDeleteTitle: 'Supprimer « {{name}} » ?',
     removeEndTitle: 'Retirer « {{name}} » à partir de maintenant ?',
+    removeEarlierTitle: 'Retirer « {{name}} » dès une période antérieure ?',
     removeDeletes:
       'Elle n’a jamais été prévue dans une période passée et n’a aucune transaction : elle est donc supprimée entièrement.',
     removeEnds:
@@ -774,6 +857,9 @@ export const fr: Translation = {
     },
   },
   transactions: {
+    frozenTitle: 'Paiement d’une dette terminée',
+    frozenDescription:
+      'Sa dette est terminée : ce paiement reste tel qu’il était et ne peut plus être modifié.',
     add: 'Ajouter une transaction',
     addTitle: 'Ajouter une transaction',
     addDescription: 'Une dépense, un remboursement, ou de l’argent qui entre en plus des salaires.',
@@ -907,11 +993,15 @@ export const fr: Translation = {
     emptyHelp:
       'Prévoyez vos dépenses par catégorie sur la page Budget, puis enregistrez vos transactions.',
     toBudget: 'Aller au budget',
+    committedExceeds:
+      'Les abonnements à eux seuls font {{committed}}, plus que les {{planned}} prévus.',
     plannedIncludes: 'Dont {{amount}} pour des abonnements',
     rowPlannedIncludes: 'Les {{expected}} prévus comprennent {{amount}} d’abonnements',
     includes: 'dont {{amount}} d’abonnements',
   },
   periods: {
+    older: 'Périodes plus anciennes…',
+    showOlder: 'Afficher les périodes plus anciennes (les {{count}} plus récentes sont listées)',
     description:
       'Chaque période va d’un salaire à la veille du suivant. Les périodes passées restent telles quelles.',
     empty: 'Aucune période pour l’instant',
@@ -998,6 +1088,8 @@ export const fr: Translation = {
     thisPeriod: 'Cette période : du {{start}} au {{end}}.',
     reopen: {
       title: 'Ce qui a été enregistré dans cette période s’appliquera à la période rouverte :',
+      more_one: 'Et 1 autre changement, non listé.',
+      more_other: 'Et {{count}} autres changements, non listés.',
       nothing: 'Rien n’a été enregistré dans cette période : seules les dates changent.',
       failed: 'Impossible de lister le contenu de cette période : {{reason}}',
       required: 'L’enregistrement attend cette liste : c’est elle que vous confirmez.',
@@ -1051,6 +1143,10 @@ export const fr: Translation = {
         'La limite revient au jour que donne le calendrier de paie, et sa marque « fixée à la main » disparaît.',
       moveScheduleTo:
         'Cette période commencera le {{start}}, jour que donne le calendrier de paie, et la précédente se terminera le {{end}} ; la marque « fixée à la main » disparaît.',
+      interestRemoved_one:
+        'Les intérêts ajoutés à 1 dette au début de cette période disparaissent : le nouveau début tombe le jour de l’ouverture de cette dette ou avant.',
+      interestRemoved_other:
+        'Les intérêts ajoutés à {{count}} dettes au début de cette période disparaissent : le nouveau début tombe le jour de leur ouverture ou avant.',
     },
     undo: {
       expected: 'Pour annuler : indiquez une autre date, ou revenez à la date prévue.',
@@ -1111,10 +1207,6 @@ export const fr: Translation = {
       saved: 'Nom affiché enregistré.',
     },
   },
-  corrections: correctionsFr,
-  subscriptions: subscriptionsFr,
-  charges: chargesFr,
-  debts: debtsFr,
   catchUp: catchUpFr,
   ui: {
     close: 'Fermer',
@@ -1127,3 +1219,6 @@ export const fr: Translation = {
     },
   },
 }
+
+// The lazy groups (src/locales/lazy-strings.ts) are added once their pages load.
+export const fr = core as Translation

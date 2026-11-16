@@ -14,6 +14,7 @@ import {
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { CategoryFormDialog } from '@/features/budget/components/category-form-dialog'
 import { CategoryHistoryDialog } from '@/features/budget/components/category-history-dialog'
+import { ToCategoriseBadge } from '@/components/to-categorise-badge'
 import { EndCategoryDialog } from '@/features/budget/components/end-category-dialog'
 import { BudgetTotals } from '@/features/budget/components/budget-totals'
 import { useCurrentPeriod, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
@@ -68,7 +70,7 @@ export function BudgetPage() {
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
 
-  const ended = current.isSuccess && current.data === null
+  const ended = useBudgetEnded(budgetId)
   const header = (
     <PageHeader
       title={t('nav.budget')}
@@ -165,7 +167,11 @@ export function BudgetPage() {
                     first={index === 0}
                     last={index === topLevel.length - 1}
                     onEdit={() => setDialog({ kind: 'edit', category })}
-                    onAddSub={() => setDialog({ kind: 'add', parent: category })}
+                    onAddSub={
+                      category.is_to_categorise
+                        ? undefined
+                        : () => setDialog({ kind: 'add', parent: category })
+                    }
                     onEnd={() => setDialog({ kind: 'end', category })}
                     onExtend={() => setDialog({ kind: 'extend', category })}
                     onMove={(by) => move(topLevel, index, by)}
@@ -283,7 +289,13 @@ function CategoryRow({
             {category.name}
           </span>
           {category.is_group && <Badge variant="secondary">{t('categories.group')}</Badge>}
+          {category.is_to_categorise && <ToCategoriseBadge />}
         </div>
+        {category.is_to_categorise && (
+          <span className="text-xs text-muted-foreground" data-testid="to-categorise-note">
+            {t('import.toCategorise.restrictions')}
+          </span>
+        )}
         {category.cadence === 'yearly' && category.amount !== null && (
           <span className="text-xs text-muted-foreground">
             {t('categories.yearlyNote', { amount: formatMoney(category.amount) })}
@@ -301,7 +313,13 @@ function CategoryRow({
           )}
           data-testid="category-amount"
         >
-          {formatMoney(category.monthly_amount ?? 0)}
+          {category.is_to_categorise ? (
+            <span className="text-xs font-normal text-muted-foreground">
+              {t('import.toCategorise.noPlanShort')}
+            </span>
+          ) : (
+            formatMoney(category.monthly_amount ?? 0)
+          )}
         </span>
         {(category.committed_amount ?? 0) > 0 && (
           // R-PROGRESS-120: under the amount it is part of, never next to the name.
@@ -347,9 +365,19 @@ function CategoryRow({
             {t('categories.extendAction')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={onEnd} disabled={readOnly}>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={onEnd}
+            disabled={readOnly || (category.is_to_categorise && category.has_transactions === true)}
+            className="flex-wrap"
+          >
             <Trash2Icon />
             {t('categories.remove')}
+            {category.is_to_categorise && category.has_transactions === true && (
+              <span className="basis-full pl-6 text-xs text-muted-foreground">
+                {t('import.toCategorise.cannotEnd')}
+              </span>
+            )}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -1,8 +1,10 @@
 import {
   ArrowLeftRightIcon,
   CalendarRangeIcon,
+  ChartColumnIcon,
   CreditCardIcon,
   HandCoinsIcon,
+  ImportIcon,
   LayoutDashboardIcon,
   PiggyBankIcon,
   RepeatIcon,
@@ -21,8 +23,10 @@ export type NavKey =
   | 'subscriptions'
   | 'debts'
   | 'periods'
+  | 'compare'
   | 'moneyFlow'
   | 'income'
+  | 'import'
   | 'settings'
   | 'newBudget'
 
@@ -35,8 +39,11 @@ export interface NavItem {
 /** Main sidebar entries, in display order. */
 export const mainNavItems: NavItem[] = [
   { key: 'dashboard', path: paths.dashboard, icon: LayoutDashboardIcon },
+  // Right after the dashboard, where the progress view is (R-COMPARE-190).
+  { key: 'compare', path: paths.compare, icon: ChartColumnIcon },
   { key: 'budget', path: paths.budget, icon: PiggyBankIcon },
   { key: 'transactions', path: paths.transactions, icon: ArrowLeftRightIcon },
+  { key: 'import', path: paths.import, icon: ImportIcon },
   { key: 'subscriptions', path: paths.subscriptions, icon: RepeatIcon },
   { key: 'debts', path: paths.debts, icon: CreditCardIcon },
   { key: 'periods', path: paths.periods, icon: CalendarRangeIcon },

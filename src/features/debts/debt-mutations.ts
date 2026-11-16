@@ -19,6 +19,8 @@ export interface CreateDebtInput {
   /** The canonical decimal string (parseInterestRate); "0" for none. */
   rate: string
   fromPeriodId: string | null
+  /** The form's request id (useClientId). */
+  clientId: string
 }
 
 export function useCreateDebt(budgetId: string, options: { onDone: (id: string) => void }) {
@@ -33,6 +35,7 @@ export function useCreateDebt(budgetId: string, options: { onDone: (id: string) 
           p_principal: input.principal,
           p_category_id: input.categoryId,
           p_monthly_payment: input.monthlyPayment,
+          p_client_id: input.clientId,
           ...(input.rate !== '0' ? { p_interest_rate: interestRateValue(input.rate) } : {}),
           ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
         }),
@@ -101,7 +104,9 @@ export function useUpdateDebt(budgetId: string, options: { onDone: () => void })
       return true
     },
     success: (saved, input) => (saved ? t('debts.saved', { name: input.name }) : ''),
-    onSuccess: () => options.onDone(),
+    onSuccess: (saved) => {
+      if (saved) options.onDone()
+    },
     invalidate: () => affected(budgetId),
   })
 }

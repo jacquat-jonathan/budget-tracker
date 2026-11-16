@@ -2,6 +2,7 @@ import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
+import { formatCount } from '@/lib/money'
 import { en } from '@/locales/en/translation'
 import { fr } from '@/locales/fr/translation'
 
@@ -25,7 +26,31 @@ export function currentLanguage(): Language {
   return isLanguage(language) ? language : 'en'
 }
 
+/**
+ * Every {{count}} is shown as counts are everywhere (12'345), by the one helper; the plural is
+ * still chosen from the number itself. Other values are left as they are.
+ */
+// R-APP-282: counts grouped like amounts (12'345), by one helper.
+const countFormatter = {
+  type: 'formatter' as const,
+  init() {},
+  add() {},
+  addCached() {},
+  format(
+    value: unknown,
+    format: string | undefined,
+    _lng: string | undefined,
+    options?: { interpolationkey?: string },
+  ) {
+    if (!format && options?.interpolationkey === 'count' && typeof value === 'number') {
+      return Number.isInteger(value) ? formatCount(value) : value
+    }
+    return value
+  },
+}
+
 void i18n
+  .use(countFormatter)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
@@ -34,7 +59,7 @@ void i18n
     supportedLngs: SUPPORTED_LANGUAGES,
     nonExplicitSupportedLngs: true,
     load: 'languageOnly',
-    interpolation: { escapeValue: false },
+    interpolation: { escapeValue: false, alwaysFormat: true },
     // R-I18N-002: the chosen language is remembered in the browser.
     detection: {
       order: ['localStorage', 'navigator'],

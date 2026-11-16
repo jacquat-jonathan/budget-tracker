@@ -25,7 +25,7 @@ function UserIdentity({ name, email }: { name: string; email: string | undefined
   return (
     <>
       <Avatar className="size-8 rounded-lg">
-        <AvatarFallback className="rounded-lg">{initials(name)}</AvatarFallback>
+        <AvatarFallback className="rounded-lg text-foreground">{initials(name)}</AvatarFallback>
       </Avatar>
       <div className="grid flex-1 text-left text-sm leading-tight">
         <span className="truncate font-medium">{name}</span>

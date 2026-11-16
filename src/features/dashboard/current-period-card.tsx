@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { useCurrentPeriod, useIncomes } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { periodProgress } from '@/features/dashboard/period-progress'
@@ -29,6 +30,7 @@ export function CurrentPeriodCard() {
   const { budgetId, budget } = useCurrentBudget()
   const current = useCurrentPeriod(budgetId)
   const incomes = useIncomes(budgetId)
+  const ended = useBudgetEnded(budgetId)
 
   if (current.isPending) return <LoadingState rows={1} className="" />
   if (current.isError) {
@@ -36,6 +38,8 @@ export function CurrentPeriodCard() {
   }
 
   const period = current.data
+  // No current period while catching up is not an end: wait for it.
+  if (!period && !ended) return <LoadingState rows={1} className="" />
   if (!period) {
     return (
       <Card className="" data-testid="budget-ended-card">
@@ -99,7 +103,7 @@ export function CurrentPeriodCard() {
             </div>
             <Progress value={percent} aria-label={t('dashboard.period.dayOf', { day, total })} />
           </div>
-          <dl className="grid grid-cols-1 gap-4 @md/period:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 @lg/period:grid-cols-2">
             <div className="flex flex-col gap-1">
               <dt className="text-sm text-muted-foreground">{t('dashboard.period.incomeTotal')}</dt>
               <dd className="text-2xl font-semibold tabular-nums">

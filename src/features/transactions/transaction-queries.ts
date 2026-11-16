@@ -1,8 +1,14 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { budgetKeys } from '@/features/budgets/budget-keys'
-import { unwrap, useCurrentPeriod, usePeriods } from '@/features/budgets/budget-queries'
+import {
+  unwrap,
+  useCurrentPeriod,
+  useFirstPeriodStart,
+  usePeriods,
+} from '@/features/budgets/budget-queries'
 import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
@@ -21,11 +27,11 @@ export function useTransactionDateRange(budgetId: string) {
   const current = useCurrentPeriod(budgetId)
   const list = periods.data
   const today = current.data?.today ?? list?.[0]?.today ?? null
-  const min = list?.at(-1)?.start_date
+  const min = useFirstPeriodStart(budgetId)
   const lastEnd = list?.[0]?.end_date
   const max = lastEnd && today ? (today < lastEnd ? today : lastEnd) : undefined
   const range = useMemo(() => (min && max ? { min, max } : null), [min, max])
-  return { range, today, ended: current.data === null }
+  return { range, today, ended: useBudgetEnded(budgetId) }
 }
 
 /** Page size of the transaction list (the contract allows 1 to 200). */
@@ -44,6 +50,10 @@ export interface TransactionFilters {
   debtId?: string | null
   /** Only the charges awaiting confirmation. */
   awaitingOnly?: boolean
+  /** Only the imported transactions to review. */
+  toReviewOnly?: boolean
+  /** One import batch's transactions. */
+  importBatchId?: string | null
 }
 
 interface Cursor {
@@ -73,6 +83,8 @@ export function useTransactions(budgetId: string, filters: TransactionFilters, e
           ...(filters.subscriptionId ? { p_subscription_id: filters.subscriptionId } : {}),
           ...(filters.debtId ? { p_debt_id: filters.debtId } : {}),
           ...(filters.awaitingOnly ? { p_awaiting_only: true } : {}),
+          ...(filters.toReviewOnly ? { p_to_review_only: true } : {}),
+          ...(filters.importBatchId ? { p_import_batch_id: filters.importBatchId } : {}),
           ...(pageParam
             ? {
                 p_before_date: pageParam.date,

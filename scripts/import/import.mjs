@@ -13,17 +13,21 @@
 // "1'234.50"), and optionally direction (debit / credit), description, merchant,
 // bank_transaction_id, hint. Without a direction, the amount must carry its sign ("-12.50" a
 // debit, "+12.50" a credit); an unsigned amount is refused, unless --all-debits says every row
-// without a direction is a debit (a card statement). A quote left open refuses the file.
+// without a direction is a debit (a card statement). A quote opens a quoted field only at the
+// start of a field (elsewhere it is an ordinary character, as in 5" pizza); a quoted field left
+// open refuses the file.
 //
 // --dry-run checks the file locally and sends nothing. Otherwise the rows are sent in chunks
-// of 500 under one batch id; a chunk that fails on the network, or on a statement timeout, is
-// sent again (the database records it once). Prints the counts; exits non-zero when something
-// was refused.
+// of 250 (a token call's limit) under one batch id. A chunk answered token_busy or
+// imports_busy (another call is working: nothing was done or counted) is sent again after a
+// pause; one that fails on the network, on budget_busy, call_cancelled or a statement timeout
+// is sent again a few times (the database records it once). Prints the counts; exits non-zero
+// when something was refused.
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { extname } from 'node:path'
 
-const CHUNK = 500
+const CHUNK = 250
 const MAX_CHUNKS = 100
 const HINTS = [
   'card_bill_payment',
@@ -71,8 +75,10 @@ function parseArgs(argv) {
   return { file: files[0], options }
 }
 
-// CSV: comma or semicolon separated, double quotes for fields that contain them. A quote left
-// open would swallow the rest of the file into one field: the file is refused.
+// CSV: comma or semicolon separated, double quotes for fields that contain them. A quote opens
+// a quoted field only at the start of a field (after blanks at most); inside an unquoted field
+// it is an ordinary character. A quoted field left open would swallow the rest of the file into
+// one field: the file is refused.
 export function parseCsv(text) {
   const lines = []
   let row = []
@@ -87,8 +93,10 @@ export function parseCsv(text) {
         i += 1
       } else if (c === '"') quoted = false
       else field += c
-    } else if (c === '"') quoted = true
-    else if (c === separator) {
+    } else if (c === '"' && field.trim() === '') {
+      quoted = true
+      field = ''
+    } else if (c === separator) {
       row.push(field)
       field = ''
     } else if (c === '\n' || c === '\r') {
@@ -214,11 +222,18 @@ function readRows(file, options) {
 }
 
 // One call. The function answers a refusal in its error column (the call still counts toward
-// the token's limits); only invalid_token and read_only_call come back as HTTP errors. A chunk
-// that failed on the network (up to three tries) or on a statement timeout (57014, once more)
-// is sent again under the same batch id and chunk number: the database records it once.
+// the token's limits); only invalid_token and read_only_call come back as HTTP errors. The busy
+// answers (token_busy: another call of this token is working; imports_busy: every slot for token
+// work is taken) did nothing and were not counted: sent again after a growing pause, for about
+// three minutes at most. A chunk that failed on the network (up to three tries), on budget_busy
+// or call_cancelled (counted; up to three tries) or on a statement timeout (57014, once more) is
+// sent again under the same batch id and chunk number: the database records it once.
+const BUSY = ['token_busy', 'imports_busy']
+const RETRIED = ['budget_busy', 'call_cancelled']
 export async function send(url, key, body, { fetchImpl = fetch, pause = 1000 } = {}) {
   let timeouts = 0
+  let busy = 0
+  let retried = 0
   for (let attempt = 1; ; attempt += 1) {
     let response
     let text
@@ -249,6 +264,16 @@ export async function send(url, key, body, { fetchImpl = fetch, pause = 1000 } =
       return { error: json?.message ?? `HTTP ${response.status}`, detail: json?.details }
     }
     const result = Array.isArray(json) ? json[0] : json
+    if (BUSY.includes(result?.error) && busy < 40) {
+      busy += 1
+      await new Promise((resolve) => setTimeout(resolve, pause * Math.min(busy, 5)))
+      continue
+    }
+    if (RETRIED.includes(result?.error) && retried < 2) {
+      retried += 1
+      await new Promise((resolve) => setTimeout(resolve, pause * retried))
+      continue
+    }
     if (result?.error) return { error: result.error }
     return { result }
   }

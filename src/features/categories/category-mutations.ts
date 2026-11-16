@@ -18,6 +18,8 @@ export interface CreateCategoryInput {
   cadence: Cadence
   /** An earlier period it counts from (an explicit choice); the current one when null. */
   fromPeriodId: string | null
+  /** The form's request id (useClientId). */
+  clientId: string
 }
 
 export function useCreateCategory(budgetId: string, options: { onDone: () => void }) {
@@ -31,6 +33,7 @@ export function useCreateCategory(budgetId: string, options: { onDone: () => voi
           p_name: input.name,
           p_amount: input.amount,
           p_cadence: input.cadence,
+          p_client_id: input.clientId,
           ...(input.parentId
             ? // R-CATEGORY-092: the translated "Other", always sent with a subcategory; the
               // database uses it only when the parent's amount or transactions must move.
@@ -97,7 +100,9 @@ export function useUpdateCategory(budgetId: string, options: { onDone: () => voi
       return true
     },
     success: (saved, input) => (saved ? t('categories.saved', { name: input.name }) : ''),
-    onSuccess: () => options.onDone(),
+    onSuccess: (saved) => {
+      if (saved) options.onDone()
+    },
     invalidate: () => affected(budgetId),
   })
 }
@@ -114,7 +119,8 @@ export function useReorderCategories(budgetId: string) {
       )
       return null
     },
-    invalidate: () => [budgetKeys.categories(budgetId)],
+    // The comparison lists categories in the budget's order too.
+    invalidate: () => [budgetKeys.categories(budgetId), budgetKeys.compare(budgetId)],
   })
 }
 

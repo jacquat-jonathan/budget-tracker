@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 
 import { PageHeader } from '@/components/states'
+import { ImportTokensSettings } from '@/features/import/settings/import-tokens'
+import {
+  MerchantRulesSettings,
+  RememberedChoicesSettings,
+} from '@/features/import/settings/merchant-rules'
 import { AccountSettings } from '@/features/settings/account-settings'
 import { BudgetSettings } from '@/features/settings/budget-settings'
 import { MembersSettings } from '@/features/settings/members-settings'
@@ -13,6 +18,9 @@ export function SettingsPage() {
       <PageHeader title={t('nav.settings')} description={t('pages.settings.description')} />
       <BudgetSettings />
       <MembersSettings />
+      <ImportTokensSettings />
+      <MerchantRulesSettings />
+      <RememberedChoicesSettings />
       <AccountSettings />
     </div>
   )

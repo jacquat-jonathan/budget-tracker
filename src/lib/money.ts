@@ -24,6 +24,11 @@ function groupThousands(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, "'")
 }
 
+/** A count grouped like amounts, e.g. 10000 -> "10'000" (both languages). */
+export function formatCount(count: number): string {
+  return `${count < 0 ? '-' : ''}${groupThousands(String(Math.abs(Math.trunc(count))))}`
+}
+
 /** Format integer rappen as Swiss francs, e.g. 123450 -> "CHF 1'234.50" (a no-break space). */
 export function formatMoney(rappen: number, options: FormatMoneyOptions = {}): string {
   assertRappen(rappen)

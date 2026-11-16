@@ -5,7 +5,10 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
+import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
+import { NothingToSave } from '@/components/nothing-to-save'
 import { CalendarDateField } from '@/components/form/calendar-date-field'
 import { CorrectionToggle } from '@/components/form/correction-toggle'
 import { MoneyField } from '@/components/form/money-field'
@@ -47,6 +50,8 @@ import {
   type CategoryChoice,
 } from '@/features/transactions/components/category-select-field'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
+import { dbErrorCode } from '@/lib/db-errors'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useDebounced } from '@/hooks/use-debounced'
 import { useEditBase } from '@/hooks/use-edit-base'
@@ -130,9 +135,13 @@ function SubscriptionForm({
   currentPeriod,
 }: Props) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   // A refused save over a change this form does not show says so (the shown fields that
   // changed have their own notice), in the save's own words.
-  const errorMessage = useErrorMessage({ record_changed: 'subscriptions.changedNotShown' })
+  const errorMessage = useErrorMessage({
+    record_changed: 'subscriptions.changedNotShown',
+    category_to_categorise: 'import.toCategorise.errors.subscription',
+  })
   const close = () => onOpenChange(false)
   const views = useSubscriptionViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
@@ -166,9 +175,15 @@ function SubscriptionForm({
   })
 
   const create = useCreateSubscription(budgetId, { onDone: close })
+  const request = useClientId()
   const update = useUpdateSubscription(budgetId, { onDone: close })
   const mutation = editing ? update : create
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    error: update.error,
+    controls: ['correct', 'fromPeriodId'],
+    // A correction's "now" is the chosen period's terms, never today's (R-CONCURRENCY-190).
+    current: () => (correcting ? startValues : null),
+  })
 
   const periodLabel = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
@@ -186,7 +201,7 @@ function SubscriptionForm({
     : []
 
   // R-BUDGET-150: once the budget has ended, a change is only a correction of its periods.
-  const mustCorrect = currentPeriod === null
+  const mustCorrect = useBudgetEnded(budgetId)
   const firstCorrectable = correctable[0]?.id
   const firstEarlier = earlier[0]?.id
   useEffect(() => {
@@ -224,17 +239,20 @@ function SubscriptionForm({
         }
       : subscription
     : null
-  useStartFrom(
-    form,
-    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
+  // The terms the form starts from: now, or the chosen period's (read from the database).
+  const startValues =
     base && subscription
       ? { price: base.price, cadence: base.cadence, categoryId: base.category_id }
-      : null,
+      : null
+  const start = useStartFrom(
+    form,
+    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
+    startValues,
   )
 
   // The preview: the database's answer for exactly the arguments the save will send.
   const typedPrice = typeof price === 'number' && Number.isSafeInteger(price) ? price : null
-  const updateArgs = useDebounced(
+  const updateInput = useDebounced(
     base && typedPrice !== null
       ? termsArgs({
           base,
@@ -246,12 +264,13 @@ function SubscriptionForm({
         })
       : null,
   )
-  const createArgs = useDebounced({
+  const createInput = useDebounced({
     cadence,
     firstChargeDate: isCalendarDate(chargeDate) ? chargeDate : '',
     fromPeriodId: fromPeriodId || null,
   })
-  const createPreview = usePreviewCreate(budgetId, createArgs)
+  const updateArgs = updateInput.value
+  const createPreview = usePreviewCreate(budgetId, createInput.value)
   const updatePreview = usePreviewUpdate(
     budgetId,
     subscription?.id,
@@ -262,6 +281,10 @@ function SubscriptionForm({
       (chargeDate === '' || isCalendarDate(chargeDate)),
   )
   const preview = editing ? updatePreview : createPreview
+  // R-SUBSCRIPTION-320: a held charge is refused by the preview as by the save (D-388).
+  const heldBack = dbErrorCode(preview.error) === 'charge_held_back'
+  // R-SUBSCRIPTION-121: a preview that does not belong to what is typed now shows as loading.
+  const previewBehind = (editing ? updateInput.stale : createInput.stale) || preview.isFetching
   const dayText = useChargeDayText()
   const typedDay = isCalendarDate(chargeDate) ? Number(chargeDate.slice(8, 10)) : null
   const scheduleNote = editing
@@ -305,14 +328,26 @@ function SubscriptionForm({
           nextChargeDate: values.chargeDate === '' ? null : values.chargeDate,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
-      : create.mutateAsync({
-          name: values.name,
-          price: values.price,
-          cadence: values.cadence,
-          categoryId: values.categoryId,
-          firstChargeDate: values.chargeDate,
-          fromPeriodId: values.fromPeriodId || null,
-        })
+      : create
+          .mutateAsync({
+            name: values.name,
+            price: values.price,
+            cadence: values.cadence,
+            categoryId: values.categoryId,
+            firstChargeDate: values.chargeDate,
+            fromPeriodId: values.fromPeriodId || null,
+            clientId: request.id,
+          })
+          .then(
+            (id) => {
+              request.renew()
+              return id
+            },
+            (error: unknown) => {
+              request.afterFailure(error)
+              throw error
+            },
+          )
     return done.catch(() => undefined)
   })
 
@@ -320,9 +355,11 @@ function SubscriptionForm({
     <form onSubmit={(event) => void onSubmit(event)} noValidate data-testid="subscription-form">
       <FieldGroup>
         <ConcurrentNotices
+          adding={!editing}
           gone={edit.gone}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           error={mutation.error}
@@ -353,6 +390,7 @@ function SubscriptionForm({
             <SelectField
               control={form.control}
               name="fromPeriodId"
+              more={olderPeriods}
               label={t('corrections.period')}
               options={correctable.map((period) => ({
                 value: period.id,
@@ -365,6 +403,8 @@ function SubscriptionForm({
               terms={termsAt.data}
               pending={termsAt.isPending}
               error={termsAt.isError ? errorMessage(termsAt.error) : null}
+              kept={start.kept}
+              views={edit.describe(subscription)}
             />
           </CorrectionToggle>
         )}
@@ -396,7 +436,9 @@ function SubscriptionForm({
           }
           description={
             editing
-              ? t('subscriptions.fields.nextChargeHelp')
+              ? correct
+                ? t('subscriptions.fields.nextChargeHelpCorrection')
+                : t('subscriptions.fields.nextChargeHelp')
               : t('subscriptions.fields.firstChargeHelp')
           }
         />
@@ -404,6 +446,7 @@ function SubscriptionForm({
           <SelectField
             control={form.control}
             name="fromPeriodId"
+            more={olderPeriods}
             label={t('subscriptions.fields.from')}
             description={t('subscriptions.fields.fromHelp')}
             options={[
@@ -415,7 +458,7 @@ function SubscriptionForm({
         {!notInForce && (
           <ChargeDatesPreview
             charges={preview.data}
-            pending={preview.isPending || (editing && updateArgs === null)}
+            pending={preview.isPending || previewBehind || (editing && updateArgs === null)}
             error={preview.error}
             needsDate={!editing && !isCalendarDate(chargeDate)}
             note={scheduleNote}
@@ -432,9 +475,12 @@ function SubscriptionForm({
                       date: formatCalendarDate(currentPeriod.start_date),
                     })
                   : t('income.editAppliesFromNoPeriod')
-              : t('subscriptions.addAppliesFrom')}
+              : currentPeriod
+                ? t('subscriptions.addAppliesFrom')
+                : t('subscriptions.addAppliesFromEnded')}
           </AlertDescription>
         </Alert>
+        <NothingToSave show={update.data === false && !update.isPending} />
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
@@ -447,6 +493,7 @@ function SubscriptionForm({
               edit.gone ||
               !settled ||
               notInForce ||
+              heldBack ||
               (editing && !base)
             }
           >

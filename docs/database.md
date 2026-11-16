@@ -66,6 +66,8 @@ below lists the rule ids it implements.
   | `debt_totals`, `get_*_terms`, the one-row previews and RPCs | 1 | |
   | `preview_create_subscription`, `preview_update_subscription`, `subscription_charge_dates` | 60 | `p_count` |
   | `preview_import`, `import_transactions`, `import_skipped_anyway` | 500 | rows per call |
+  | `preview_import_part` | 500 | rows in `rows` (one JSON object) |
+  | `import_with_token` | 250 | rows per call (a token call) |
   | `list_import_batches`, `list_import_skipped_rows`, `list_import_choices` | 200 | `p_limit` (the tables themselves are not selectable) |
   | `merchant_rule_list` (one budget) | 500 | 500 rules a budget |
   | `account_overview`, `transfer_overview` (one budget) | 900 | 900 accounts / transfers per budget, void ones included |
@@ -86,7 +88,11 @@ below lists the rule ids it implements.
   creates nothing and answers the rows the first call created, as they are now (none if
   deleted since). Any other use of a known id (another member, another budget, another call,
   other arguments) is refused with `request_reused` before anything is written, and says
-  nothing about the first request. Ids are kept 7 days. Without `p_client_id` the calls behave
+  nothing about the first request. **Membership comes first** (R-APP-340, D-461): a signed-in
+  outsider or a removed member gets `budget_not_found` for every budget and every client id,
+  known or not, far behind or not; a replay answers a current member only rows of the budget it
+  names, and nothing for a record removed since (`add_income` then answers null). Ids are kept
+  7 days. Without `p_client_id` the calls behave
   as before. The other writes need nothing: edits, ends, marks (`mark_transfer_done`) and
   `adjust_debt_balance` name the revision they read (a retry answers `record_changed`: read
   again and show what is there), and an import chunk is idempotent by batch and chunk. Argument names start with `p_`; arguments with a
@@ -1140,7 +1146,11 @@ R-IMPORT-252).
 
 **The row** (the parser's output, R-IMPORT-002, R-IMPORT-102). A JSON object; any other key is
 refused (`invalid_row`). Text fields go through the shared cleaner first (D-376): control,
-bidirectional and zero-width characters removed, other white space one space, trimmed.
+bidirectional and zero-width characters removed, other white space one space, trimmed (D-454,
+R-SECURITY-341: a zero-width joiner or non-joiner between two characters that are not white
+space stays, for emoji sequences and Persian or Indic text; a text with nothing visible left,
+only fillers, blank patterns, joiners, selectors or tags, is empty, so such a name answers
+`invalid_name`).
 
 | Key | Required | Meaning |
 | --- | --- | --- |
@@ -1156,9 +1166,12 @@ bidirectional and zero-width characters removed, other white space one space, tr
 | `kind` | no, member only | a debit is always `'expense'`; a credit `'refund'` (default) or `'extra_income'` |
 | `category_id` | no, member only | a leaf in force in the period of the date (not for extra income, not "to categorise") |
 
-The whole `p_rows` argument of one call: an array of 1 to 500 rows and at most **2 MB**
-(`invalid_rows`), checked before any row is read; the API gateway's body limit is the outer
-bound (R-IMPORT-250).
+The whole `p_rows` argument of one call: an array of 1 to 500 rows (250 for a token) and at
+most **2 MB** (`invalid_rows`), checked when the function starts, before any row is read
+(R-IMPORT-250). The request body itself is read and parsed by the API before the function
+runs: what bounds it there is the gateway, not yet verified for the hosted project (Q-280). A
+body that is not JSON is answered by PostgREST (`PGRST102`); one nested too deep to parse by
+the database parser (`54001`): neither reaches the function.
 
 **What a row does** (`import_row_result`, one per row, in order):
 
@@ -1169,7 +1182,7 @@ bound (R-IMPORT-250).
 | `action` | `import`; `skip_duplicate`; `skip_flagged` (a flagged entry or a salary skipped by default); `skip_matched` (a possible match, kept apart); `confirm_match` (the match is a charge awaiting confirmation: the row is not imported and the charge is confirmed); `skip_chosen` (the member said skip); `invalid` |
 | `kind`, `category_id`, `category_source` | what it is imported as; `category_source` `choice`, `rule` (`rule_id`) or `to_categorise` (`category_id` null in the preview until the first write creates the category); null for extra income |
 | `date`, `amount`, `direction`, `description`, `merchant_key` | the row as read (cleaned); the key a merchant rule matches on |
-| `flag`, `remembered_choice` | `card_bill_payment`, `own_transfer`, `transfer_to_person` or `salary`; the budget's last choice for that kind of flag and that merchant key (`import` / `skip`) |
+| `flag`, `remembered_choice`, `choice_key` | `card_bill_payment`, `own_transfer`, `transfer_to_person` or `salary`; the choice the budget remembers for that kind of flag and that key (`import` / `skip`); the key a choice for the row is remembered under (its merchant key, or `own_transfer` for an own transfer without description and merchant; null when the row has no flag that remembers) |
 | `duplicate_of` | the existing transaction the row duplicates |
 | `match_of`, `match_is_charge` | the existing transaction it possibly matches, and whether that is a charge awaiting confirmation |
 | `salary_income_id`, `salary_income_amount` | for a salary: the income and its planned amount, to show beside the row's amount |
@@ -1187,11 +1200,16 @@ bound (R-IMPORT-250).
   often one is sent again: 2 identical rows against 1 existing transaction, one skipped, one
   imported, also when the two rows travel in different chunks; importing the same statement
   twice imports nothing the second time. Rows of one batch are never compared with each other.
+  Both lookups read by index (R-IMPORT-343): about 0.1 s for a 500-row preview on a budget of
+  45 000 transactions.
 - **Flags** (R-IMPORT-091, R-IMPORT-092, D-314): a card-bill payment and an own transfer are
-  skipped by default; a transfer to another person is imported by default. A member's choice
-  for a flagged row (import or skip) is remembered per budget, kind of flag and merchant key,
-  and proposed next time (`remembered_choice`); at most 1000 a budget, the least recently used
-  going first (R-IMPORT-257). A token's import remembers nothing.
+  skipped by default; a transfer to another person is imported by default. **Only a choice the
+  member sent** with a flagged row (`action` `import` or `skip`, or "import anyway") is
+  remembered, never a default the import applied (R-IMPORT-345, D-456): per budget, kind of
+  flag and `choice_key` (the merchant key; `own_transfer` for an own transfer without
+  description and merchant), and proposed next time (`remembered_choice`); at most 1000 a
+  budget, the least recently used going first (R-IMPORT-257). A token's import remembers
+  nothing. `forget_import_choice` forgets one (below).
 - **Salary** (R-IMPORT-093, R-IMPORT-259, D-130, D-377): a credit the source calls a salary,
   or of exactly an income's amount dated within **five days either side of a period start**
   (on or after the start of its own period, or before the start of the next period, projected
@@ -1217,7 +1235,9 @@ bound (R-IMPORT-250).
   changes, the statement's leading words (`achat`, `credit`, `debit`, `credit twint`, `debit
   twint`, `twint`, `paiement de salaire`, `paiement`, `ordre permanent`) dropped and a `*`
   resolved: a processor before the merchant (`payup *shop` → `shop`), a merchant before a
-  reference (`amazon.de*ab12cd` → `amazon.de`). The key of a key is itself.
+  reference (`amazon.de*ab12cd` → `amazon.de`). The key of a key is itself. Bounded work
+  (R-IMPORT-342): the normalised text is cut to 200 characters first, and a text that still
+  changes after 10 steps keeps that cut text as its key.
 
 **The "to categorise" category** (R-IMPORT-200, R-CATEGORY-200, R-CATEGORY-250, D-375): one
 top-level leaf per budget, flagged `is_to_categorise` (`category_overview.is_to_categorise`,
@@ -1229,6 +1249,9 @@ else), under the fixed name "To categorise" for a token. It is the import's wait
 - only imported transactions still to review can be in it: `add_transaction` and
   `update_transaction` refuse it (`category_to_categorise`), and a transaction in it cannot be
   confirmed (give it a category first with `update_transaction`, which keeps it to review);
+- a transaction waiting in it **can be edited while it stays there** (amount, date,
+  description, links: `update_transaction` with its category unchanged, R-CATEGORY-340,
+  D-460); only moving a transaction into it is refused;
 - no subscription, debt, planned transfer or merchant rule can use it
   (`category_to_categorise`);
 - it does not count toward the 200 categories in force (answers Q-190);
@@ -1240,6 +1263,28 @@ else), under the fixed name "To categorise" for a token. It is the import's wait
 earlier chunks absorbed is taken into account). With `p_batch_id` null: what the first chunk
 of a new batch does (R-IMPORT-252). Changes nothing but one catch-up step. Errors:
 `budget_not_found`, `invalid_rows`, `catching_up`.
+
+**`preview_import_part(p_budget_id, p_batch_id, p_part, p_rows) -> jsonb`** Member (R-IMPORT-340,
+D-455, answers Q-270 and Q-274). For a statement above 500 rows, previewed **before any part is
+written**: part `p_part` (1 to 100) of the batch `p_batch_id` (the id the write will use)
+answers what `import_transactions` will do with the same rows as chunk `p_part`, once chunks 1
+to `p_part - 1` are written with the rows previewed as parts 1 to `p_part - 1`: what those
+parts absorb (duplicates, matches) and the choices they send are taken into account, as are the
+batch's chunks already written. So, absent changes by others, the counts and per-row answers
+the member sees before importing equal what the write then does (one exception: a row going to
+a "to categorise" category that does not exist yet has `category_id` null here and the new id
+in the write). Send the parts in order; previewing a part again forgets the staged parts from
+it on. Staged parts are kept a day, at most 100 a budget. The answer is one object:
+- `rows`: the rows, as `preview_import` answers them;
+- `part`, `statement`: the totals of this part and of the staged parts 1 to `p_part`:
+  `rows`, one count per action (`import`, `skip_duplicate`, `skip_flagged`, `skip_matched`,
+  `confirm_match`, `skip_chosen`, `invalid`), and of the rows to import, by kind, the count and
+  the sum in rappen (`expense_count`, `expense_amount`, `refund_count`, `refund_amount`,
+  `extra_income_count`, `extra_income_amount`);
+- `parts`: the part numbers `statement` covers; `room`: how many transactions the budget can
+  still take; `fits`: whether the statement's rows to import fit.
+Errors: `budget_not_found`, `invalid_batch`, `invalid_chunk` (the part), `invalid_rows`,
+`import_batch_conflict`, `batch_undone`, `catching_up`.
 
 **`import_transactions(p_budget_id, p_batch_id, p_chunk, p_rows, p_source, p_statement_from = null, p_statement_to = null, p_to_categorise_name = null) -> import_row_result[]`**
 Member. Imports one chunk of a batch, exactly as the preview says, all or nothing.
@@ -1257,11 +1302,21 @@ Member. Imports one chunk of a batch, exactly as the preview says, all or nothin
 - **The transaction limit**: when the budget has no room for the rows to import, the chunk is
   refused before anything is written: `transaction_limit_reached` with detail
   `{"fits": n}` (how many rows would fit; a member only, never a token).
+- **Import storage is bounded per budget** (R-IMPORT-341, D-452), members and tokens
+  together: within any 24 hours at most **20 000 rows** submitted to a write and **50 new
+  batches** (`import_limit_reached`); kept at most **2 000 batches** (at the limit, the
+  oldest batches that hold no transaction and no skipped row any more go first;
+  `import_limit_reached` when none can), the newest **20 000 skipped rows** (older ones go:
+  `list_import_skipped_rows` no longer lists them and they cannot be imported anyway; the
+  batch's counts stay) and the newest **50 chunk answers**, none older than 7 days (a chunk
+  sent again after its answer was forgotten answers `chunk_expired` and is never imported
+  twice). Worst case, measured with incompressible text at every limit: about 85 MB a day and
+  110 MB kept beyond the transactions.
 - Every argument is checked before anything of the budget. Errors: `invalid_name` (first),
   `budget_not_found`, `invalid_batch`, `invalid_chunk`, `invalid_source`, `invalid_date` (the
   range), `invalid_rows`, `import_batch_conflict` (the id is another budget's batch, also when
-  two budgets race for a new id), `batch_undone`, `transaction_limit_reached`,
-  `category_limit_reached`, `catching_up`.
+  two budgets race for a new id), `batch_undone`, `chunk_expired`, `transaction_limit_reached`,
+  `category_limit_reached`, `import_limit_reached`, `catching_up`.
 
 **`import_skipped_anyway(p_batch_id, p_skipped_row_ids = null) -> import_row_result[]`**
 Member. Imports skipped rows of a batch anyway (R-IMPORT-073, R-IMPORT-204, R-IMPORT-258): the
@@ -1269,7 +1324,10 @@ given ones, or all that are not invalid and not already imported (at most 500 a 
 again for more). Each is planned again now with action `import`, its original kind and
 category dropped (the review decides), and answers with its original `chunk` and `row_no`. The
 batch's counts move from the skip reason to `imported_count`, so they still add up to
-`row_count`. A row whose transaction was deleted since can be imported anyway again. Errors:
+`row_count`. A row whose transaction was deleted since can be imported anyway again. A valid
+row is kept as the preview showed it, its free text cleaned, so importing it anyway imports that
+row (R-IMPORT-344, D-466): the same description, and a bank transaction id a later import of the
+same statement still finds. Errors:
 `import_batch_not_found`, `batch_undone`, `transaction_limit_reached`, `catching_up`.
 
 **Review** (R-IMPORT-081, R-IMPORT-209, R-IMPORT-253):
@@ -1303,6 +1361,8 @@ batch's counts move from the skip reason to `imported_count`, so they still add 
   `chosen_skip_count`, `invalid_count` (these add up to `row_count`), `charges_confirmed_count`,
   `to_review_count`, `undone_at`, `undone_by`. Errors: `budget_not_found`, `invalid_limit`,
   `invalid_cursor`.
+- **`get_import_batch(p_batch_id) -> import_batch_list[]`** (R-IMPORT-348, D-459, answers
+  Q-275) one batch by its id, as the list gives it. Error: `import_batch_not_found`.
 - **`list_import_skipped_rows(p_batch_id, p_limit = 100, p_after_chunk = null, p_after_row_no = null) -> import_skipped_rows[]`**
   (R-IMPORT-072) the rows not imported, in order, 1 to 200 a page (cursor: the last row's
   `chunk` and `row_no`): `id`, `chunk`, `row_no`, `reason` (`duplicate`, `flagged`, `matched`,
@@ -1315,6 +1375,9 @@ batch's counts move from the skip reason to `imported_count`, so they still add 
   the remembered choices, by flag then key, 1 to 200 a page (cursor: the last row's `flag`
   and `counterparty_key`): `budget_id`, `flag`, `counterparty_key`, `choice`, `updated_at`,
   `updated_by`. Errors: `budget_not_found`, `invalid_limit`, `invalid_cursor`.
+- **`forget_import_choice(p_budget_id, p_flag, p_counterparty_key) -> boolean`** (R-IMPORT-346,
+  D-458, answers Q-272) forgets a remembered choice (true; false when there was none); the next
+  import of that entry applies the default again. Error: `budget_not_found`.
 
 **Merchant rules** (R-IMPORT-078, R-IMPORT-079, R-IMPORT-007, D-311): `merchant_rule_list`
 (view): `id`, `budget_id`, `fragment`, `category_id`, `category_name`, `parent_category_id`,
@@ -1327,6 +1390,14 @@ batch's counts move from the skip reason to `imported_count`, so they still add 
   transactions to review waiting in "to categorise" whose key contains it, and that are linked
   to nothing, move to the category where it is in force on their date; `moved` says how many
   (R-IMPORT-260).
+- **`preview_merchant_rule(p_budget_id, p_fragment, p_category_id = null) -> {fragment, covered_by_rule_id, covered_by_fragment, rule_exists, would_move}`**
+  (R-IMPORT-347, D-457, answers Q-271) without writing: the fragment as it would be stored; the
+  existing rule that already covers it (the one the import would pick for that key: the
+  longest fragment it contains; null when none); whether a rule with this very fragment
+  exists; and how many transactions waiting in "to categorise" the rule would move to
+  `p_category_id` (exactly what `p_apply` then moves, absent other changes; with no category:
+  those whose key contains the fragment). Errors: `budget_not_found`, `invalid_fragment`,
+  `category_not_found`, `category_is_group`, `category_to_categorise`, `category_ended`.
 - **`update_merchant_rule(p_rule_id, p_expected_revision, p_fragment = null, p_category_id = null, p_apply = false)`**,
   **`delete_merchant_rule(p_rule_id, p_expected_revision)`**.
 - The category: a leaf of the budget, not "to categorise", not ended. Errors:
@@ -1343,9 +1414,10 @@ R-SECURITY-251 to R-SECURITY-254, D-116, D-370, D-371):
 - **`create_import_token(p_budget_id, p_name, p_expires_in_days = 30) -> {token_id, token, expires_at}`**
   Member. Expiry 1 to 365 days. The secret (`bti_` and 64 hex characters) is answered **once**;
   only its SHA-256 is stored. At most **10 tokens that can still be used** a budget
-  (`token_limit_reached`); revoked and expired ones are kept for the batch list, the newest 20
-  for at most 365 days, older ones pruned when a token is created. Errors also
-  `invalid_name`, `invalid_expiry`.
+  (`token_limit_reached`), and at most **20 created within any 24 hours**, deleted ones
+  included (`token_limit_reached`, D-452); revoked and expired ones are kept for the batch
+  list, the newest 20 for at most 365 days, older ones pruned when a token is created. Errors
+  also `invalid_name`, `invalid_expiry`.
 - `import_token_list` (view): `id`, `budget_id`, `name`, `created_by`, `created_by_name`,
   `created_at`, `expires_at`, `last_used_at`, `revoked_at`, `is_active` (can still be used:
   not revoked, not expired, its creator still a member). Never the secret.
@@ -1359,29 +1431,48 @@ R-SECURITY-251 to R-SECURITY-254, D-116, D-370, D-371):
 - **`import_with_token(p_token, p_batch_id, p_chunk, p_rows, p_source = 'script', p_statement_from = null, p_statement_to = null) -> {received, refused, refused_rows, error}`**
   callable **without a session** (the publishable key only), **by POST only** (a GET runs
   read-only and is refused with `read_only_call` before the token is looked at: the token
-  would sit in the gateway's logs). Order of work:
+  would sit in the gateway's logs). `p_batch_id`, `p_chunk` and the statement dates are
+  **text** (a JSON string or number), checked by the function (R-SECURITY-344, D-465): a
+  malformed one answers `invalid_batch`, `invalid_chunk` or `invalid_date`, never a raw cast
+  error. Order of work:
   1. `read_only_call`; then the token: unknown, expired, revoked, or its creator no longer a
      member: `invalid_token`, one answer, before any lock or catch-up. Only these two are
      **raised** (HTTP error).
-  2. **The call is counted**, whatever comes next (R-SECURITY-252): under the token's own
-     lock, the calls and rows of the last 60 minutes and the last 24 hours (rolling) are
-     checked and this call added in one step. Limits: 60 calls and 5000 rows within any 60
-     minutes, 300 calls and 20 000 rows within any 24 hours; over: `error =
-     'token_rate_limited'` (the refused call counts as a call).
-  3. Every argument is checked before anything of the budget, then the rows are imported into
-     the token's budget through the same code, with the **default choices** only (a row with
-     `action`, `kind` or `category_id` is refused: `choice_not_allowed`), everything to
-     review, recorded by nobody (the batch names the token), possible matches skipped and
-     never confirmed, "to categorise" created under its fixed name.
+  2. **Never waiting for another token call** (R-SECURITY-340, D-453): while another call of
+     the same token is working, `error = 'token_busy'` at once; while both slots for token work
+     (all budgets together) are taken, `error = 'imports_busy'` at once. These two do no work
+     and **do not count**: wait a moment and send the same chunk again.
+  3. **The call is counted**, whatever comes next (R-SECURITY-252): under the token's own
+     lock, the calls and rows of the last hour and the last 24 hours are checked and this call
+     added in one step. Limits: 60 calls and 5000 rows within any 60 minutes, 300 calls and
+     20 000 rows within any 24 hours, kept by whole minutes (a call counts toward the hour for
+     60 to 61 minutes and toward the day for 24 hours to 24 hours and 1 minute,
+     R-SECURITY-342); over: `error = 'token_rate_limited'` (the refused call counts as a
+     call).
+  4. Every argument is checked before anything of the budget (at most **250 rows**), then the
+     rows are imported into the token's budget through the same code, with the **default
+     choices** only (a row with `action`, `kind` or `category_id` is refused:
+     `choice_not_allowed`), everything to review, recorded by nobody (the batch names the
+     token), possible matches skipped and never confirmed, "to categorise" created under its
+     fixed name. A token adds only to a batch it created: any other existing batch id
+     (a member's, another token's, another budget's) answers `import_batch_conflict`, a chunk
+     already recorded included (R-SECURITY-343). The call waits at most a second for its
+     budget (`budget_busy`) and its work is bounded, so it ends far within the anon statement
+     timeout (3 s); were it cancelled all the same, it answers `call_cancelled` and still
+     counts.
   It reads nothing back (R-SECURITY-251, D-371): `received` (rows taken into the batch,
   whatever they became), `refused` and `refused_rows` (`[{row, reason}]`) for rows refused
   for their own content only; the member sees the rest in the batch. The answer does not
-  depend on the budget's content beyond two coarse states: the budget is full
-  (`transaction_limit_reached`, refused when the rows sent do not all fit whatever they would
-  become, no `fits`) and far behind (`catching_up`). A refusal after the count comes back in
-  **`error`** (with `received` 0), not raised: `token_rate_limited`, `invalid_batch`,
-  `invalid_chunk`, `invalid_source`, `invalid_date`, `invalid_rows`, `import_batch_conflict`,
-  `batch_undone`, `transaction_limit_reached`, `category_limit_reached`, `catching_up`.
+  depend on the budget's content beyond coarse states: the budget has room for fewer than 250
+  transactions (`transaction_limit_reached`, whatever the rows sent, no `fits`: one bit,
+  R-SECURITY-345, D-451), it is far behind (`catching_up`), its import storage of the day is
+  used up (`import_limit_reached`), its lock was held for more than a second (`budget_busy`).
+  A refusal after the count comes back in **`error`** (with `received` 0), not raised:
+  `token_rate_limited`, `invalid_batch`, `invalid_chunk`, `invalid_source`, `invalid_date`,
+  `invalid_rows`, `import_batch_conflict`, `batch_undone`, `chunk_expired`,
+  `transaction_limit_reached`, `category_limit_reached`, `import_limit_reached`,
+  `catching_up`, `budget_busy`, `call_cancelled`; `token_busy` and `imports_busy` before the
+  count.
 
 **Free text on screens and in exports** (D-376): names, descriptions, merchants and details
 are stored cleaned but otherwise as typed or imported: they may contain markup (`<b>`) or a
@@ -1858,18 +1949,18 @@ Step 4 messages:
 | `membership_limit_reached` | you already belong to 50 budgets (owned ones included): leave one first |
 | `transfer_held_back` | an automatic linked occurrence of the transfer is due and waits for room (transaction limit): it cannot end until the transaction is created |
 | `request_reused` | this `p_client_id` was already used for another request: generate a new one per user action |
-| `invalid_rows` | the import rows are not a JSON array of 1 to 500 rows, or exceed 2 MB in all |
+| `invalid_rows` | the import rows are not a JSON array of 1 to 500 rows (250 for a token), or exceed 2 MB in all |
 | `invalid_batch`, `invalid_chunk`, `invalid_source`, `invalid_expiry`, `invalid_fragment` | invalid argument (a batch id, a chunk number 1 to 100, an import source, a token expiry 1 to 365 days, a rule fragment) |
 | `import_batch_conflict` | that batch id belongs to another budget (also when two budgets race for a new id) |
 | `import_batch_not_found`, `merchant_rule_not_found`, `token_not_found` | does not exist (any more) or not visible to you |
 | `batch_undone` | the batch was undone: it takes no more chunks and nothing more is imported from it |
 | `not_to_review` | only a transaction to review can be confirmed as reviewed |
 | `category_to_categorise` | "to categorise" cannot do this (a subcategory, an expectation, an end while it holds transactions, the category of a rule, a subscription, a debt, a planned transfer, a typed transaction or a transaction moved into it), or a transaction in it cannot be confirmed |
-| `merchant_rule_exists`, `merchant_rule_limit_reached`, `token_limit_reached` | one rule per fragment; 500 rules; 10 tokens that can still be used a budget |
+| `merchant_rule_exists`, `merchant_rule_limit_reached`, `token_limit_reached` | one rule per fragment; 500 rules; 10 tokens that can still be used a budget, or 20 created within 24 hours |
 | `token_active` | revoke the token before deleting it |
 | `read_only_call` | the token import was called by GET: call it by POST |
 | `invalid_token` | the import token is unknown, expired or revoked, or its creator is no longer a member |
-| `token_rate_limited` | the token sent too much (60 calls / 5000 rows within any 60 minutes, 300 calls / 20 000 rows within any 24 hours; every call counts); in the token import's `error` column |
+| `token_rate_limited` | the token sent too much (60 calls / 5000 rows within any 60 minutes, 300 calls / 20 000 rows within any 24 hours; every call that does work counts); in the token import's `error` column |
 | `preview_required` | an income edit that moves the current period's end needs the end its preview showed (`p_previewed_end_date`) |
 | `invalid_charge_date` | not a valid date, more than ten years ahead, or (a new schedule from now) not after today |
 | `invalid_interest_rate` | not 0 to 100, or more than three decimals |
@@ -1915,6 +2006,22 @@ Step 2 messages:
 | `income_not_in_force` | the income is not in force in the current period |
 | `budget_ended` | no current period: the budget is past its end date |
 | `budget_limit_reached`, `member_limit_reached`, `invitation_limit_reached`, `income_limit_reached` | a limit (20 owned budgets, 20 members, 20 pending invitations, 50 incomes in force or 500 in all) |
+
+## Error messages added by the step 6 fix round 2
+
+Stable messages added by the second fix round of step 6 (D-451 to D-466). They are listed here,
+apart from the table above, until the screens know them (`src/lib/db-errors.ts` and both
+locales): until then a member who meets `import_limit_reached` or `chunk_expired` sees the
+generic message. The other four reach only the import script (`import_with_token`'s `error`
+column). Move them into the table above when the screens add them.
+
+| Message | Meaning |
+| --- | --- |
+| `token_busy`, `imports_busy` | another call of this token is working, or every slot for token work is taken: nothing was done or counted; send the same chunk again after a pause (token import's `error` column) |
+| `budget_busy` | the token import waited a second for its budget, held by another call: nothing written (counted); send again |
+| `call_cancelled` | the token import was cancelled (statement timeout): nothing written, counted; send again |
+| `import_limit_reached` | the budget's import storage is used up: 20 000 rows or 50 new batches within 24 hours, or 2 000 batches kept that all still hold something |
+| `chunk_expired` | that chunk was recorded but its answer is no longer kept: it is not imported again (list the batch's rows instead) |
 
 ## For later tables
 

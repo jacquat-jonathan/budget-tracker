@@ -10,6 +10,7 @@ import {
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -67,7 +68,7 @@ export function IncomePage() {
 
   const queries = [incomes, members, current]
   const failed = queries.find((query) => query.isError)
-  const ended = current.isSuccess && current.data === null
+  const ended = useBudgetEnded(budgetId)
 
   const header = (
     <PageHeader

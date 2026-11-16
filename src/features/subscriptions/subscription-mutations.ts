@@ -23,6 +23,8 @@ export interface CreateSubscriptionInput {
   firstChargeDate: string
   /** An earlier period it counts from (an explicit correction); the current one when null. */
   fromPeriodId: string | null
+  /** The form's request id (useClientId). */
+  clientId: string
 }
 
 export function useCreateSubscription(budgetId: string, options: { onDone: () => void }) {
@@ -38,6 +40,7 @@ export function useCreateSubscription(budgetId: string, options: { onDone: () =>
           p_cadence: input.cadence,
           p_category_id: input.categoryId,
           p_first_charge_date: input.firstChargeDate,
+          p_client_id: input.clientId,
           ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
         }),
       )
@@ -130,7 +133,9 @@ export function useUpdateSubscription(budgetId: string, options: { onDone: () =>
       return true
     },
     success: (saved, input) => (saved ? t('subscriptions.saved', { name: input.name }) : ''),
-    onSuccess: () => options.onDone(),
+    onSuccess: (saved) => {
+      if (saved) options.onDone()
+    },
     invalidate: () => affected(budgetId),
   })
 }

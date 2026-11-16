@@ -23,6 +23,8 @@ export const PATHS = {
 export const TEST_ROOTS = [
   { dir: 'src', match: /\.(test|spec)\.[cm]?[jt]sx?$/, lang: 'js' },
   { dir: 'supabase/tests', match: /\.sql$/, lang: 'sql' },
+  // the import script's own tests (its CSV reading and sending)
+  { dir: 'scripts/import', match: /\.(test|spec)\.[cm]?[jt]sx?$/, lang: 'js' },
 ]
 
 export const CLAUDE_BEGIN =

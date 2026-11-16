@@ -256,6 +256,7 @@ describe('focus returns to the row’s menu button after a dialog opened from it
     await screen.findByRole('menuitem', { name: 'Edit' })
     await userEvent.keyboard('{Enter}')
     const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Name'), ' 2')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

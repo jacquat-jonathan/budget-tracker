@@ -236,6 +236,10 @@ describe('debt payments in the transaction form [R-DEBT-123]', () => {
         end_seq: 2,
       }),
     ]
+    // The list's own flag says the payment is frozen (transaction_list.debt_ended).
+    db.tables.transaction_list = db.tables.transaction_list.map((row) =>
+      row.debt_id === 'debt-car' ? { ...row, debt_ended: true } : row,
+    )
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/transactions?period=all')
     await screen.findAllByTestId('transaction-row')
@@ -251,7 +255,11 @@ describe('debt payments in the transaction form [R-DEBT-123]', () => {
       'This is a payment on “Car loan”, which has ended: it can no longer be changed or deleted.',
     )
     expect(within(form).queryByLabelText('Debt payment')).not.toBeInTheDocument()
-    expect(within(form).getByRole('button', { name: 'Save' })).toBeDisabled()
+    // A read-only view: titled so, every field disabled, no Save, Close usable.
+    expect(screen.getByRole('dialog', { name: 'Payment of an ended debt' })).toBeInTheDocument()
+    expect(within(form).queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+    expect(within(form).getByLabelText('Amount')).toBeDisabled()
+    expect(within(form).getByRole('button', { name: 'Close' })).toBeEnabled()
   })
 
   it('keeps a payment an expense: a refund needs the link removed first', async () => {
@@ -337,5 +345,36 @@ describe('a payment whose debt ended meanwhile [R-DEBT-151]', () => {
         'This payment’s debt has ended: the payment can no longer be changed or deleted.',
       ),
     ).toBeInTheDocument()
+  })
+})
+
+describe('answering the charges awaiting from the filtered list [R-SUBSCRIPTION-191]', () => {
+  it('offers both answers on each row and keeps the focus on the next one', async () => {
+    const charge = (id: string, date: string) =>
+      transactionRow({
+        id,
+        date,
+        charge_date: date,
+        review_state: 'awaiting_confirmation',
+        subscription_id: 'sub-netflix',
+        subscription_name: 'Netflix',
+        description: null,
+        created_at: `${date}T10:00:00+00:00`,
+      })
+    const db = categoriesDb({
+      transaction_list: [charge('c-1', '2026-11-05'), charge('c-2', '2026-10-05')],
+    })
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transactions?period=all&awaiting=1')
+    const rows = await screen.findAllByTestId('transaction-row')
+    expect(rows).toHaveLength(2)
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: /^It went through:/ }))
+    await waitFor(() => {
+      expect(screen.getAllByTestId('transaction-row')).toHaveLength(1)
+    })
+    const left = screen.getByTestId('transaction-row')
+    await waitFor(() => {
+      expect(left).toContainElement(document.activeElement as HTMLElement)
+    })
   })
 })

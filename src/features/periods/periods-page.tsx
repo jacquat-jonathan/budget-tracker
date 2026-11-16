@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { z } from 'zod'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { CalendarDate, CalendarDateField } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -139,8 +140,9 @@ export function PeriodsPage() {
   const { t } = useTranslation()
   const { budgetId, budget } = useCurrentBudget()
   const periods = usePeriods(budgetId)
-  // Whether the budget has ended is the database's answer, not the absence of a row.
+  // Ended from the budget's own end, never from a missing current period.
   const current = useCurrentPeriod(budgetId)
+  const ended = useBudgetEnded(budgetId)
   const [action, setAction] = useState<Action | null>(null)
   const write = useBoundaryAction(budgetId)
   // Arriving from "has this salary already arrived?" (R-PERIOD-037): open the operation it
@@ -201,7 +203,6 @@ export function PeriodsPage() {
   }
 
   const list = periods.data
-  const ended = current.data === null
   const range = (period: PeriodSummary) =>
     `${formatCalendarDate(period.start_date)} – ${formatCalendarDate(period.end_date)}`
 
@@ -295,10 +296,10 @@ export function PeriodsPage() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-4 sm:justify-end">
-                  <div className="sm:text-right">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:justify-end">
+                  <div className="min-w-0 sm:text-right">
                     <p className="text-xs text-muted-foreground">{t('periods.incomeTotal')}</p>
-                    <p className="font-medium tabular-nums">
+                    <p className="font-medium whitespace-nowrap tabular-nums">
                       {formatMoney(period.income_total ?? 0)}
                     </p>
                   </div>
@@ -401,6 +402,20 @@ export function PeriodsPage() {
             )
           })}
         </ol>
+      )}
+      {/* R-PERIOD-191: the newest periods first; older ones a page at a time, on request. */}
+      {periods.hasOlder && (
+        <Button
+          variant="outline"
+          className="self-center"
+          disabled={periods.loadingOlder}
+          onClick={() => void periods.loadOlder()}
+          data-testid="periods-older"
+        >
+          {periods.loadingOlder
+            ? t('common.loading')
+            : t('periods.showOlder', { count: list.length })}
+        </Button>
       )}
 
       <BoundaryDialog
@@ -511,6 +526,26 @@ function BoundaryForm({
   const valid = typed && !outside
   const budgetId = budget.id
   const reopenPreview = useReopenPreview(budgetId, action.kind === 'reopen')
+  // R-PERIOD-320: a start on or before a debt's opening removes its interest here (D-386).
+  const moveTo =
+    action.kind === 'moveSchedule'
+      ? action.start
+      : action.kind === 'moveStart' && valid
+        ? date
+        : null
+  const movePreview = useQuery({
+    queryKey: [...budgetKeys.budget(budgetId), 'move-preview', period.id, moveTo ?? ''] as const,
+    enabled: moveTo !== null,
+    staleTime: 0,
+    queryFn: async () =>
+      unwrap(
+        await supabase.rpc('preview_move_period_start', {
+          p_period_id: period.id,
+          ...(action.kind === 'moveStart' && moveTo ? { p_start_date: moveTo } : {}),
+        }),
+      )[0] ?? null,
+  })
+  const interestRemoved = moveTo !== null ? (movePreview.data?.interest_removed ?? 0) : 0
 
   /** The resulting dates, worded from the user's point of view, and how to undo. */
   const preview: { result: string | null; undo: string } = (() => {
@@ -612,6 +647,11 @@ function BoundaryForm({
             <CalendarRangeIcon aria-hidden />
             <AlertDescription>
               <p>{preview.result}</p>
+              {interestRemoved > 0 && (
+                <p data-testid="interest-removed">
+                  {t('periods.preview.interestRemoved', { count: interestRemoved })}
+                </p>
+              )}
               <p className="text-muted-foreground">{preview.undo}</p>
             </AlertDescription>
           </Alert>
@@ -782,6 +822,14 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
       <p className="font-medium">{t('periods.reopen.title')}</p>
       <ul className="flex list-disc flex-col gap-1 pl-5">
         {preview.data.map((item) => {
+          // R-PERIOD-193: at most 1000 rows; the last says how many more are not listed.
+          if (item.record_kind === 'more') {
+            return (
+              <li key="more" data-testid="reopen-more">
+                {t('periods.reopen.more', { count: Number(item.record_name) || 0 })}
+              </li>
+            )
+          }
           // Later steps add kinds and changes: unknown ones get a generic sentence.
           const kind = (KNOWN_KINDS as readonly string[]).includes(item.record_kind)
             ? t(`periods.reopen.kinds.${item.record_kind as (typeof KNOWN_KINDS)[number]}`, {

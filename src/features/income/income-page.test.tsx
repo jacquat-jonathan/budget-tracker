@@ -127,6 +127,7 @@ describe('income page', () => {
 
     await waitFor(() => {
       expect(db.rpc.add_income).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: BUDGET_ID,
         p_name: 'Bonus',
         p_amount: 100_050,
@@ -515,6 +516,11 @@ describe('income page', () => {
     db.tables.period_summaries = db.tables.period_summaries.map((period) => ({
       ...period,
       is_current: false,
+    }))
+    db.tables.my_budgets = db.tables.my_budgets.map((row) => ({
+      ...row,
+      end_date: '2026-10-22',
+      end_date_entered: '2026-10-20',
     }))
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/income')

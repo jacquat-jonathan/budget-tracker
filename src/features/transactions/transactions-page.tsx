@@ -4,18 +4,23 @@ import {
   CalendarOffIcon,
   CheckIcon,
   EllipsisVerticalIcon,
+  ListChecksIcon,
   PencilIcon,
   PlusIcon,
   RepeatIcon,
   Trash2Icon,
   XIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
+import { useBudgetEnded } from '@/features/budgets/budget-ended'
+import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
+import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { ChargeAnswers } from '@/features/subscriptions/components/charge-answers'
 import { useAnswerCharge } from '@/features/subscriptions/subscription-mutations'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -51,6 +56,8 @@ import {
 import {
   useBudgetStatus,
   useCurrentPeriod,
+  useFirstPeriodStart,
+  usePeriodById,
   usePeriods,
   type PeriodSummary,
 } from '@/features/budgets/budget-queries'
@@ -59,7 +66,13 @@ import { useAwaitingCharges } from '@/features/subscriptions/subscription-querie
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { isVoid, useCategories, type Category } from '@/features/categories/category-queries'
 import { isUuid } from '@/lib/uuid'
-import { useDebts } from '@/features/debts/debt-queries'
+import {
+  ConfirmImportButton,
+  ConfirmImportsButton,
+  ImportedDetails,
+  ReviewBadge,
+  RuleOffer,
+} from '@/features/import/components/review'
 import {
   TransactionFormDialog,
   type DateRange,
@@ -100,26 +113,25 @@ export function TransactionsPage() {
   const { budgetId } = useCurrentBudget()
   const periods = usePeriods(budgetId)
   const current = useCurrentPeriod(budgetId)
+  const ended = useBudgetEnded(budgetId)
+  const firstStart = useFirstPeriodStart(budgetId)
   const categories = useCategories(budgetId)
   const [params, setParams] = useSearchParams()
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
   const charges = useAnswerCharge(budgetId)
-  // Payments of an ended debt are frozen (D-209): the list says so instead of offering a delete.
-  const debtList = useDebts(budgetId)
-  const endedDebtIds = useMemo(
-    () => new Set((debtList.data ?? []).filter((d) => d.end_seq !== null).map((d) => d.id)),
-    [debtList.data],
-  )
 
   const periodList = periods.data
   // The current period by default; once the budget has ended, its last period.
   const periodParam = params.get('period')
   const defaultPeriod = current.data ?? periodList?.[0] ?? null
-  const period =
-    periodParam === ALL
-      ? null
-      : (periodList?.find((item) => item.id === periodParam) ?? defaultPeriod)
+  // A period older than the pages loaded (an old link) is read by its id, never replaced.
+  const named = usePeriodById(budgetId, periodParam === ALL ? null : periodParam, periodList)
+  const period = periodParam === ALL ? null : (named ?? defaultPeriod)
+  const filterPeriods =
+    named && periodList && !periodList.some((item) => item.id === named.id)
+      ? [...periodList, named]
+      : (periodList ?? [])
   // A category the budget does not have (another budget's, deleted, a stale link) falls back
   // to all categories, like an unknown period.
   const categoryParam = params.get('category')
@@ -135,6 +147,10 @@ export function TransactionsPage() {
   const subscriptionParam = params.get('subscription')
   const debtParam = params.get('debt')
   const awaitingOnly = params.get('awaiting') === '1'
+  // Step 6: the imported transactions to review, and one import's (a link from the import).
+  const toReviewOnly = params.get('review') === '1'
+  const batchParam = params.get('batch')
+  const importBatchId = isUuid(batchParam) ? batchParam : null
   // Read by id (undefined while unknown, null when the budget has no such record).
   const subscriptionRow = useRecord(
     'subscription_overview',
@@ -152,9 +168,12 @@ export function TransactionsPage() {
     subscriptionId: subscription?.id ?? null,
     debtId: debt?.id ?? null,
     awaitingOnly,
+    toReviewOnly,
+    importBatchId,
   }
   const ready =
     periodList !== undefined &&
+    named !== undefined &&
     current.data !== undefined &&
     categoryList !== undefined &&
     subscription !== undefined &&
@@ -171,13 +190,36 @@ export function TransactionsPage() {
   // Like a category: a subscription or debt the budget does not have drops its filter.
   const unknownSubscription = subscriptionParam !== null && subscription === null
   const unknownDebt = debtParam !== null && debt === null
+  // A batch that is not an id is never sent: its filter goes.
+  const badBatch = batchParam !== null && importBatchId === null
   useEffect(() => {
-    if (!unknownSubscription && !unknownDebt) return
+    if (!unknownSubscription && !unknownDebt && !badBatch) return
     const next = new URLSearchParams(params)
     if (unknownSubscription) next.delete('subscription')
     if (unknownDebt) next.delete('debt')
+    if (badBatch) next.delete('batch')
     setParams(next, { replace: true })
-  }, [unknownSubscription, unknownDebt, params, setParams])
+  }, [unknownSubscription, unknownDebt, badBatch, params, setParams])
+  const status = useBudgetStatus(budgetId)
+  const toReviewCount = status.data?.to_review ?? 0
+  const [ruleOffer, setRuleOffer] = useState<{ before: Transaction; after: Transaction } | null>(
+    null,
+  )
+  // R-SUBSCRIPTION-191: after a chip is removed, focus goes to the chip now at its place, else
+  // to the period filter, once the page shows the filters that remain (never the page's body).
+  const chipRemoved = useRef<number | null>(null)
+  const chipKeys = linkFilterKeys(params)
+  useEffect(() => {
+    const index = chipRemoved.current
+    if (index === null) return
+    chipRemoved.current = null
+    const frame = window.requestAnimationFrame(() => {
+      const buttons = document.querySelectorAll<HTMLElement>('[data-testid="link-filters"] button')
+      const next = buttons[Math.min(index, buttons.length - 1)]
+      ;(next ?? document.getElementById('filter-period'))?.focus()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [chipKeys])
   const setFilter = (key: string, value: string | null) => {
     const next = new URLSearchParams(params)
     if (value === null) next.delete(key)
@@ -187,13 +229,13 @@ export function TransactionsPage() {
 
   // R-TRANSACTION-090: from the first period's start to today, not after an ended budget's end.
   const today = current.data?.today ?? periodList?.[0]?.today ?? null
+  // From the budget's first period (my_budgets): not the oldest of the pages loaded.
   const range = useMemo<DateRange | null>(() => {
-    if (!periodList || periodList.length === 0 || !today) return null
-    const first = periodList.at(-1)
+    if (!periodList || periodList.length === 0 || !today || !firstStart) return null
     const last = periodList[0]
-    if (!first || !last) return null
-    return { min: first.start_date, max: today < last.end_date ? today : last.end_date }
-  }, [periodList, today])
+    if (!last) return null
+    return { min: firstStart, max: today < last.end_date ? today : last.end_date }
+  }, [periodList, today, firstStart])
 
   const header = (
     <PageHeader
@@ -232,8 +274,12 @@ export function TransactionsPage() {
     kind !== null ||
     !!subscription ||
     !!debt ||
-    awaitingOnly
+    awaitingOnly ||
+    toReviewOnly ||
+    importBatchId !== null
   const linkFilters = [
+    toReviewOnly && { key: 'review', label: t('import.review.filterChip') },
+    importBatchId && { key: 'batch', label: t('import.review.batchChip') },
     subscription && {
       key: 'subscription',
       label: t('subscriptions.filterChip', { name: subscription.name }),
@@ -245,7 +291,7 @@ export function TransactionsPage() {
   return (
     <div className="flex flex-col gap-6">
       {header}
-      {ready && current.data === null && (
+      {ready && ended && (
         <Alert>
           <CalendarOffIcon aria-hidden />
           <AlertTitle>{t('budgetEnded.title')}</AlertTitle>
@@ -254,7 +300,8 @@ export function TransactionsPage() {
       )}
       <div className="@container/filters">
         <Filters
-          periods={periodList ?? []}
+          budgetId={budgetId}
+          periods={filterPeriods}
           period={period}
           allPeriods={periodParam === ALL}
           categories={categories.data ?? []}
@@ -267,9 +314,40 @@ export function TransactionsPage() {
       </div>
       {linkFilters.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <LinkFilters filters={linkFilters} onRemove={(key) => setFilter(key, null)} />
+          <LinkFilters
+            filters={linkFilters}
+            onRemove={(key, index) => {
+              chipRemoved.current = index
+              setFilter(key, null)
+            }}
+          />
           {awaitingOnly && <ConfirmAllAwaiting budgetId={budgetId} today={today} />}
+          {(toReviewOnly || importBatchId) && toReviewCount > 0 && (
+            <ConfirmImportsButton budgetId={budgetId} batchId={importBatchId} />
+          )}
         </div>
+      )}
+      {!toReviewOnly && toReviewCount > 0 && (
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-auto min-h-8 max-w-full py-1 text-left whitespace-normal"
+            onClick={() => setFilter('review', '1')}
+          >
+            <ListChecksIcon aria-hidden />
+            {t('import.review.showOnly', { count: toReviewCount })}
+          </Button>
+        </div>
+      )}
+      {ruleOffer && (
+        <RuleOffer
+          budgetId={budgetId}
+          before={ruleOffer.before}
+          after={ruleOffer.after}
+          onClose={() => setRuleOffer(null)}
+        />
       )}
       {!ready || list.isPending ? (
         <LoadingState rows={5} />
@@ -292,7 +370,8 @@ export function TransactionsPage() {
       ) : (
         <TransactionList
           rows={rows}
-          endedDebtIds={endedDebtIds}
+          budgetId={budgetId}
+          inlineAnswers={awaitingOnly}
           onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
           onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
           onAnswer={(transaction, answer) => {
@@ -322,12 +401,13 @@ export function TransactionsPage() {
           transaction={dialog.kind === 'edit' ? dialog.transaction : undefined}
           range={range}
           today={today}
-          ended={current.data === null}
+          ended={ended}
           ownPeriod={
             dialog.kind === 'edit'
               ? (periodList?.find((item) => item.id === dialog.transaction.period_id) ?? null)
               : undefined
           }
+          onSaved={(before, after) => setRuleOffer({ before, after })}
         />
       )}
       <DeleteTransactionDialog
@@ -403,24 +483,29 @@ function LinkFilters({
   onRemove,
 }: {
   filters: { key: string; label: string }[]
-  onRemove: (key: string) => void
+  onRemove: (key: string, index: number) => void
 }) {
   const { t } = useTranslation()
   return (
     <ul
-      className="flex flex-wrap gap-2"
+      className="flex max-w-full min-w-0 flex-wrap gap-2"
       aria-label={t('charges.linkFilters')}
       data-testid="link-filters"
     >
-      {filters.map((filter) => (
-        <li key={filter.key}>
-          <Badge variant="secondary" className="h-8 max-w-full gap-1 pr-1 pl-3 text-sm">
-            <span className="truncate">{filter.label}</span>
+      {filters.map((filter, index) => (
+        <li key={filter.key} className="max-w-full min-w-0">
+          {/* A long name is cut, never wider than the page (it is in the label in full). */}
+          <Badge
+            variant="secondary"
+            className="h-8 max-w-full min-w-0 justify-start gap-1 overflow-hidden pr-1 pl-3 text-sm"
+            title={filter.label}
+          >
+            <span className="min-w-0 truncate">{filter.label}</span>
             <Button
               variant="ghost"
               size="icon-xs"
               className="rounded-full"
-              onClick={() => onRemove(filter.key)}
+              onClick={() => onRemove(filter.key, index)}
               aria-label={t('charges.removeFilter', { what: filter.label })}
             >
               <XIcon />
@@ -433,6 +518,7 @@ function LinkFilters({
 }
 
 function Filters({
+  budgetId,
   periods,
   period,
   allPeriods,
@@ -443,6 +529,7 @@ function Filters({
   onCategory,
   onKind,
 }: {
+  budgetId: string
   periods: PeriodSummary[]
   period: PeriodSummary | null
   allPeriods: boolean
@@ -454,6 +541,7 @@ function Filters({
   onKind: (value: string | null) => void
 }) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   // A category without a plan (void) is offered only when a link selected it.
   const shown = (category: Category) => !isVoid(category) || category.id === categoryId
   const tops = categories.filter((category) => category.parent_id === null && shown(category))
@@ -476,7 +564,7 @@ function Filters({
         </Label>
         <Select
           value={allPeriods ? ALL : (period?.id ?? ALL)}
-          onValueChange={(value) => onPeriod(value)}
+          onValueChange={pickPeriod(olderPeriods, onPeriod)}
         >
           <SelectTrigger id="filter-period" className="w-full">
             <SelectValue />
@@ -491,6 +579,7 @@ function Filters({
                   : label(item)}
               </SelectItem>
             ))}
+            <OlderPeriodsItem option={olderPeriods} />
           </SelectContent>
         </Select>
       </div>
@@ -569,18 +658,46 @@ function weekday(date: string, language: string): string {
 /** Transactions grouped by day, newest first. */
 function TransactionList({
   rows,
-  endedDebtIds,
+  budgetId,
+  inlineAnswers,
   onEdit,
   onDelete,
   onAnswer,
 }: {
   rows: Transaction[]
-  endedDebtIds: ReadonlySet<string>
+  budgetId: string
+  /** The charges awaiting confirmation: the two answers on each row. */
+  inlineAnswers: boolean
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
 }) {
   const { t, i18n } = useTranslation()
+  // R-SUBSCRIPTION-191: after an answer the focus goes to the row now at that place, else to
+  // the filters, never to the page's body.
+  const listRef = useRef<HTMLDivElement>(null)
+  const answered = useRef<number | null>(null)
+  const ids = rows.map((row) => row.id).join(',')
+  useEffect(() => {
+    const index = answered.current
+    if (index === null) return
+    answered.current = null
+    const timer = window.setTimeout(() => {
+      const items = listRef.current?.querySelectorAll<HTMLElement>(
+        '[data-testid="transaction-row"]',
+      )
+      const next = items?.[Math.min(index, items.length - 1)]
+      const target =
+        next?.querySelector<HTMLElement>('[data-answer] button, button') ??
+        document.getElementById('filter-period')
+      target?.focus()
+    }, 60)
+    return () => window.clearTimeout(timer)
+  }, [ids])
+  const answer = (transaction: Transaction, kind: 'confirm' | 'dismiss') => {
+    answered.current = rows.indexOf(transaction)
+    onAnswer(transaction, kind)
+  }
   const days: { date: string; items: Transaction[] }[] = []
   for (const row of rows) {
     const last = days.at(-1)
@@ -588,7 +705,7 @@ function TransactionList({
     else days.push({ date: row.date, items: [row] })
   }
   return (
-    <div className="flex flex-col gap-4" data-testid="transaction-list">
+    <div ref={listRef} className="flex flex-col gap-4" data-testid="transaction-list">
       {days.map((day) => (
         <section key={day.date} aria-label={formatCalendarDate(day.date)}>
           <h2 className="mb-1.5 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -602,10 +719,16 @@ function TransactionList({
               <TransactionRow
                 key={row.id}
                 row={row}
-                frozen={row.debt_id !== null && endedDebtIds.has(row.debt_id)}
+                // A payment of an ended debt is frozen (transaction_list.debt_ended).
+                frozen={row.debt_ended === true}
                 onEdit={onEdit}
                 onDelete={onDelete}
-                onAnswer={onAnswer}
+                onAnswer={answer}
+                budgetId={budgetId}
+                inlineAnswers={inlineAnswers}
+                onAnswered={() => {
+                  answered.current = rows.indexOf(row)
+                }}
               />
             ))}
           </ul>
@@ -665,6 +788,9 @@ function TransactionRow({
   onEdit,
   onDelete,
   onAnswer,
+  budgetId,
+  inlineAnswers = false,
+  onAnswered,
 }: {
   row: Transaction
   /** A payment of an ended debt: it can be looked at, not changed or deleted. */
@@ -672,6 +798,10 @@ function TransactionRow({
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer?: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
+  budgetId?: string
+  /** The charges awaiting confirmation: both answers on the row itself. */
+  inlineAnswers?: boolean
+  onAnswered?: () => void
 }) {
   const { t } = useTranslation()
   const linkNote = useLinkNote()
@@ -685,8 +815,10 @@ function TransactionRow({
   return (
     <li className="flex items-center gap-3 px-3 py-2.5 sm:px-4" data-testid="transaction-row">
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-medium">{row.description || what}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="truncate font-medium" dir="auto">
+            {row.description || what}
+          </span>
           {row.kind === 'refund' && (
             // On a phone the badge would crowd out the name: it joins the line below.
             <Badge variant="secondary" className="hidden sm:inline-flex">
@@ -694,6 +826,7 @@ function TransactionRow({
             </Badge>
           )}
           <LinkBadges row={row} />
+          <ReviewBadge row={row} />
         </div>
         <span className="truncate text-xs text-muted-foreground">
           {/* The parts that apply, joined: never a separator with nothing after it. */}
@@ -712,6 +845,21 @@ function TransactionRow({
             .filter((part) => part !== null)
             .flatMap((part, index) => (index === 0 ? [part] : [' · ', part]))}
         </span>
+        {budgetId && row.review_state === 'to_review' && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2" data-answer>
+            <ConfirmImportButton
+              budgetId={budgetId}
+              row={row}
+              label={`${row.description || what}, ${formatMoney(row.amount)}, ${formatCalendarDate(row.date)}`}
+            />
+          </div>
+        )}
+        <ImportedDetails row={row} />
+        {inlineAnswers && budgetId && row.review_state === 'awaiting_confirmation' && (
+          <div className="mt-1.5" data-answer>
+            <ChargeAnswers budgetId={budgetId} charge={row} size="xs" onAnswer={onAnswered} />
+          </div>
+        )}
       </div>
       <span
         className={cn('shrink-0 text-right font-medium tabular-nums', incoming && 'text-positive')}
@@ -854,4 +1002,11 @@ function DeleteTransactionBody({
       </AlertDialogFooter>
     </>
   )
+}
+
+/** The address's link filters (the chips), as one key: a change re-runs the chip focus. */
+function linkFilterKeys(params: URLSearchParams): string {
+  return ['subscription', 'debt', 'awaiting', 'review', 'batch']
+    .map((key) => `${key}=${params.get(key) ?? ''}`)
+    .join('&')
 }

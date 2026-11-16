@@ -88,6 +88,7 @@ describe('budget page [R-CATEGORY-050]', () => {
 
     await waitFor(() => {
       expect(db.rpc.create_category).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: BUDGET_ID,
         p_name: 'Car tax',
         p_amount: 48_000,

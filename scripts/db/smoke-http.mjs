@@ -661,6 +661,28 @@ check(
   'a token call refused after it was counted answers the refusal in error',
   tokenBadArgs,
 )
+const tokenMalformed = await rpc(null, 'import_with_token', {
+  p_token: tokenMade.body[0].token,
+  p_batch_id: 'not-a-uuid',
+  p_chunk: 'one',
+  p_rows: importRows,
+})
+check(
+  ok(tokenMalformed) && tokenMalformed.body[0]?.error === 'invalid_batch',
+  'a malformed batch id answers invalid_batch, not a raw cast error (R-SECURITY-344)',
+  tokenMalformed,
+)
+const tokenTooMany = await rpc(null, 'import_with_token', {
+  p_token: tokenMade.body[0].token,
+  p_batch_id: crypto.randomUUID(),
+  p_chunk: 1,
+  p_rows: Array.from({ length: 251 }, (_, i) => ({ date: today, amount: 1 + i, direction: 'debit' })),
+})
+check(
+  ok(tokenTooMany) && tokenTooMany.body[0]?.error === 'invalid_rows',
+  'a token call takes at most 250 rows (R-SECURITY-340)',
+  tokenTooMany,
+)
 const tokenByGet = await get(
   null,
   `rpc/import_with_token?p_token=${tokenMade.body[0].token}&p_batch_id=${crypto.randomUUID()}&p_chunk=1&p_rows=${encodeURIComponent(JSON.stringify(importRows))}`,
@@ -987,6 +1009,43 @@ check(
     'budget_not_found',
   ),
   'a non-member cannot record a transaction',
+)
+
+// --- client request ids answer current members only (R-APP-340) ----------------------
+const carol = await signUp('Carol')
+const carolInvite = await rpc(alice, 'invite_member', { p_budget_id: budget, p_email: carol.email })
+check(
+  ok(await rpc(carol, 'accept_invitation', { p_invitation_id: carolInvite.body })),
+  'a third member joins',
+)
+const clickArgs = {
+  p_budget_id: budget,
+  p_kind: 'extra_income',
+  p_amount: 4321,
+  p_date: today,
+  p_description: 'with a client id',
+  p_client_id: crypto.randomUUID(),
+}
+const firstClick = await rpc(carol, 'add_transaction', clickArgs)
+const replay = await rpc(carol, 'add_transaction', clickArgs)
+check(
+  ok(firstClick) && ok(replay) && replay.body[0]?.id === firstClick.body[0]?.id,
+  'a member replaying a client id gets the row recorded the first time',
+  replay,
+)
+check(
+  refused(await rpc(mallory, 'add_transaction', clickArgs), 'budget_not_found'),
+  'a signed-in outsider replaying a known client id gets budget_not_found (not request_reused)',
+)
+check(
+  ok(await rpc(alice, 'remove_member', { p_budget_id: budget, p_user_id: carol.id })),
+  'the owner removes the third member',
+)
+const removedReplay = await rpc(carol, 'add_transaction', clickArgs)
+check(
+  refused(removedReplay, 'budget_not_found'),
+  'a removed member replaying a client id gets budget_not_found, not the current row',
+  removedReplay,
 )
 
 // --- two members reopen the same period at once ---------------------------------------

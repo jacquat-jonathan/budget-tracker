@@ -1,9 +1,13 @@
 import '@testing-library/jest-dom/vitest'
 
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, beforeAll, vi } from 'vitest'
 
 import i18n from '@/lib/i18n'
+import { loadStrings } from '@/locales/lazy-strings'
+
+// The whole suite runs in parallel: a first render can take more than a second there.
+configure({ asyncUtilTimeout: 3000 })
 
 // jsdom lacks matchMedia, used by the theme provider and the sidebar.
 Object.defineProperty(window, 'matchMedia', {
@@ -33,6 +37,8 @@ Element.prototype.releasePointerCapture = vi.fn()
 
 beforeAll(async () => {
   await i18n.changeLanguage('en')
+  // Every string group at once: tests call t() and render pieces of pages outside their routes.
+  await loadStrings()
 })
 
 afterEach(() => {

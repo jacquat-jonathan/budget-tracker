@@ -18,6 +18,11 @@ vi.mock('@/lib/supabase', () => ({
 /** Amounts as the page shows them, spaces normalised as toHaveTextContent does. */
 const money = (rappen: number) => formatMoney(rappen).replace(/\s/g, ' ')
 
+/** The history as the database pages it: newest first when asked (p_newest_first). */
+function withOrder<T>(args: Record<string, unknown>, rows: T[]): T[] {
+  return args.p_newest_first ? [...rows].reverse() : rows
+}
+
 function debtsDb() {
   const db = categoriesDb({
     debt_overview: [
@@ -48,38 +53,40 @@ function debtsDb() {
     // What is still owed in all is the database's figure, never added up on the page.
     debt_totals: [{ budget_id: BUDGET_ID, remaining_total: 1_234_500, owing_count: 2 }],
   })
-  db.rpc.get_debt_history.mockImplementation(() => [
-    {
-      entry_id: DEBT_ID,
-      kind: 'opened',
-      date: '2026-10-23',
-      amount: 1_200_000,
-      balance: 1_200_000,
-      period_id: 'period-2',
-      description: null,
-      created_at: '2026-10-23T10:00:00+00:00',
-    },
-    {
-      entry_id: 'tx-pay',
-      kind: 'payment',
-      date: '2026-11-02',
-      amount: -50_000,
-      balance: 1_150_000,
-      period_id: 'period-2',
-      description: null,
-      created_at: '2026-11-02T10:00:00+00:00',
-    },
-    {
-      entry_id: 'adj-1',
-      kind: 'adjustment',
-      date: '2026-11-10',
-      amount: -2_500,
-      balance: 1_147_500,
-      period_id: 'period-2',
-      description: 'Statement',
-      created_at: '2026-11-10T10:00:00+00:00',
-    },
-  ])
+  db.rpc.get_debt_history.mockImplementation((args) =>
+    withOrder(args, [
+      {
+        entry_id: DEBT_ID,
+        kind: 'opened',
+        date: '2026-10-23',
+        amount: 1_200_000,
+        balance: 1_200_000,
+        period_id: 'period-2',
+        description: null,
+        created_at: '2026-10-23T10:00:00+00:00',
+      },
+      {
+        entry_id: 'tx-pay',
+        kind: 'payment',
+        date: '2026-11-02',
+        amount: -50_000,
+        balance: 1_150_000,
+        period_id: 'period-2',
+        description: null,
+        created_at: '2026-11-02T10:00:00+00:00',
+      },
+      {
+        entry_id: 'adj-1',
+        kind: 'adjustment',
+        date: '2026-11-10',
+        amount: -2_500,
+        balance: 1_147_500,
+        period_id: 'period-2',
+        description: 'Statement',
+        created_at: '2026-11-10T10:00:00+00:00',
+      },
+    ]),
+  )
   return db
 }
 
@@ -193,6 +200,7 @@ describe('debts page [R-DEBT-121]', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.create_debt).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: expect.any(String) as string,
         p_name: 'Leasing',
         p_principal: 2_000_000,
@@ -208,20 +216,26 @@ describe('debts page [R-DEBT-121]', () => {
 })
 
 describe('debt detail [R-DEBT-122]', () => {
-  it('shows the history as a table next to the chart, oldest first as the database pages it', async () => {
+  it('shows the history as a table next to the chart, newest first a page at a time [R-DEBT-191]', async () => {
     const db = debtsDb()
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, `/debts/${DEBT_ID}`)
     const table = await screen.findByTestId('debt-history')
     const rows = within(table).getAllByTestId('history-row')
     expect(rows.map((row) => row.textContent)).toEqual([
-      expect.stringContaining('Opened'),
-      expect.stringContaining('Payment'),
       expect.stringContaining('Adjustment'),
+      expect.stringContaining('Payment'),
+      expect.stringContaining('Opened'),
     ])
-    expect(rows[2]).toHaveTextContent(`10.11.2026 · ${money(-2_500)}Statement`)
-    expect(rows[2]).toHaveTextContent(money(1_147_500))
-    expect(screen.getByTestId('history-shown')).toHaveTextContent('All 3 events, oldest first.')
+    expect(rows[0]).toHaveTextContent(`10.11.2026 · ${money(-2_500)}Statement`)
+    expect(rows[0]).toHaveTextContent(money(1_147_500))
+    expect(screen.getByTestId('history-shown')).toHaveTextContent('All 3 events, newest first.')
+    // The table reads newest first, 50 at a time; the chart oldest first, 1000 at a time.
+    expect(db.rpc.get_debt_history).toHaveBeenCalledWith({
+      p_debt_id: DEBT_ID,
+      p_limit: 50,
+      p_newest_first: true,
+    })
     expect(screen.getByTestId('debt-chart')).toBeInTheDocument()
     expect(
       screen.getByRole('img', { name: /Remaining amount over time, 3 events/ }),

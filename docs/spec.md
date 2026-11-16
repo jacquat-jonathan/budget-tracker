@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-472 rules (463 active, 0 planned), 24 conventions, 258 decisions, 18 open questions. 12 rules and conventions are marked **TEST PENDING**.
+542 rules (532 active, 0 planned), 24 conventions, 314 decisions, 42 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -192,11 +192,11 @@ Debts with planned payments, their evolution and expected end date.
 Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).
 
 - **US-COMPARE-001** As a budget member, I want to compare the income, spending and result of the last 12 periods in a chart, so that I see how our spending evolves.
-  Rules: R-COMPARE-002, R-COMPARE-171, R-COMPARE-172, R-COMPARE-173
+  Rules: R-COMPARE-002, R-COMPARE-171, R-COMPARE-172, R-COMPARE-173, R-COMPARE-190, R-COMPARE-191, R-COMPARE-195
 - **US-COMPARE-002** As a budget member, I want to see the spending per category across periods, so that I see which categories grow or shrink.
-  Rules: R-COMPARE-070, R-COMPARE-170, R-COMPARE-174
+  Rules: R-COMPARE-070, R-COMPARE-170, R-COMPARE-174, R-COMPARE-192, R-COMPARE-193
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
-  Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174
+  Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174, R-COMPARE-194
 
 ### Step 6: Import (statements, CSV and Claude) (in-progress)
 
@@ -270,6 +270,22 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PLATFORM_
   - Related: D-390, Q-090
   - Source: owner-request: coordinator, screen review of steps 4 and 5, 2026-11-16; code: supabase/migrations
+- **R-APP-280** A save that has nothing to send (every field as recorded) keeps the window open and says so; it never closes with a success message.
+  _active · enforced by test · F-PLATFORM_
+  - Related: R-VERSION-140
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/components/nothing-to-save.tsx
+- **R-APP-281** No call waits without end: a call unanswered after 30 seconds fails like a lost connection (a read shows an error with a retry, a write says what a lost answer means for it).
+  _active · enforced by review · F-PLATFORM_
+  - Related: D-401
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/lib/supabase.ts
+- **R-APP-282** Every count in a message is grouped like amounts (12'345), in both languages, by the one helper that formats counts; the plural is chosen from the number.
+  _active · enforced by test · F-PLATFORM_
+  - Related: C-MONEY-003, D-402
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/lib/i18n.ts
+- **R-APP-340** A call with a client request id checks membership before the id, the catch-up gate and the budget lock: a signed-in outsider or a removed member gets budget_not_found for every budget and client id; a replay answers a current member only rows of the budget it names, and nothing for a record removed since.
+  _active · enforced by test · F-PLATFORM_
+  - Related: D-461, R-APP-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261121100000_client_requests.sql
 
 ### Accounts and sign-in
 
@@ -414,15 +430,15 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-316, R-SECURITY-003
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-SECURITY-250** Every name and description goes through one cleaner: control, bidirectional and zero-width characters are removed, other white space becomes one space, and the result is trimmed; markup and formulas stay text (the screens escape, an export neutralises).
+- **R-SECURITY-250** Every name and description goes through one cleaner: control, bidirectional and zero-width characters are removed (a joiner between two visible characters stays, R-SECURITY-341), other white space becomes one space, and the result is trimmed; markup and formulas stay text (the screens escape, an export neutralises).
   _active · enforced by test · F-IMPORT_
   - Related: D-376
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-SECURITY-251** A token's answer never depends on the budget's content beyond two coarse states (the budget is full; it is far behind): every argument is checked before anything of the budget, and a token cannot name the "to categorise" category.
+- **R-SECURITY-251** A token's answer never depends on the budget's content beyond coarse states (room for fewer than 250 transactions, D-451; far behind; the import storage of the day used up, D-452; its budget's lock held for more than a second, D-453): every argument is checked before anything of the budget, and a token cannot name the "to categorise" category.
   _active · enforced by test · F-IMPORT_
   - Related: D-371, R-IMPORT-076
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-SECURITY-252** Every call with a valid token counts toward its limits whatever its outcome; the check and the count are one step under the token's own lock, over windows rolling over the last 60 minutes and the last 24 hours.
+- **R-SECURITY-252** Every call with a valid token that does work counts toward its limits, whatever its outcome (cancelled included); a busy answer (token_busy, imports_busy) does no work and does not count; the check and the count are one step under the token's own lock, over windows of whole minutes (R-SECURITY-342).
   _active · enforced by test · F-IMPORT_
   - Related: D-370
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
@@ -434,6 +450,30 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-370
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-340** A token call never waits for another token call: the same token busy answers token_busy, every slot for token work taken answers imports_busy, both at once, doing no work and counting nothing; a working call takes at most 250 rows, waits at most a second for its budget (budget_busy), and counts even when cancelled (call_cancelled).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-453, R-SECURITY-252
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-341** The cleaner keeps a zero-width joiner or non-joiner between two characters that are not white space and removes it elsewhere; it removes interlinear annotation marks and the language tag; a text with nothing visible left is empty.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-454, R-SECURITY-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-342** A token call counts toward the hour for at least 60 and at most 61 minutes and toward the day for at least 24 hours and at most 24 hours and 1 minute.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-463, R-SECURITY-252
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-343** A token adds chunks only to a batch it created; any other existing batch id answers import_batch_conflict, a chunk already recorded included.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-464
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-344** The token call checks its batch id, chunk and statement dates itself: a malformed one answers invalid_batch, invalid_chunk or invalid_date, never a raw cast error.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-465
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-345** A token call is refused with transaction_limit_reached whenever the budget has room for fewer than 250 transactions, whatever rows it sends; a member is told how many rows would fit.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-451, R-SECURITY-251
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Money
 
@@ -561,6 +601,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-BUDGET-130, D-206
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/components/form/correction-toggle.tsx; code: src/features/subscriptions/components/subscription-form-dialog.tsx; code: src/features/debts/components/debt-form-dialog.tsx
+- **R-BUDGET-280** The app takes a budget for ended only from the budget's own end: it has an end date, it is caught up, and the database then gives no current period. A missing current period alone (a catch-up under way) never makes a page say the budget has ended, and never turns an edit into a correction: an open form keeps its state.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-BUDGET-150, R-PERIOD-190, D-400, Q-251
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-ended.ts
 
 ### Members and roles
 
@@ -990,6 +1034,34 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-387, R-PERIOD-180, D-433
   - Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
+- **R-PERIOD-190** Whatever read or write answers catching_up (a tab left open across a long absence), the app catches the budget up (ensure_periods until it answers 0) behind the catching-up screen, then reads every query of the budget again; the page stays mounted underneath, so a refused save keeps what was typed and says that nothing was saved and that it can be saved again now. A catch-up that ends within a moment shows nothing different.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-PERIOD-180, R-PERIOD-150, D-270, D-291
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/budgets/budget-routes.tsx
+- **R-PERIOD-191** Periods are read a page at a time with list_periods (120, newest first); the periods page shows the newest and offers the older ones on request, saying how many are listed.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-APP-170, D-292
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/budgets/budget-queries.ts; code: src/features/periods/periods-page.tsx
+- **R-PERIOD-192** Every period picker (the transactions filter, a correction's or a removal's period, a new record's first period, the progress view's step back) reaches the oldest period: while older periods exist than those read, its last entry "Older periods…" reads the next page.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-191, D-292
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/budgets/older-periods.ts
+- **R-PERIOD-193** A reopen preview that lists at most 1000 changes says how many more there are, in words, from its 'more' row.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-053, R-APP-170
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/periods/periods-page.tsx
+- **R-PERIOD-280** A read answered catching_up is not a failure: it is not retried meanwhile and never shows an error card; the page waits (a placeholder) while the budget is caught up, then reads again.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-190, R-COMPARE-175
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/components/states.tsx
+- **R-PERIOD-281** A period named in the address (a filter, a comparison side) keeps its meaning beyond the pages of periods loaded: it is read by its id and shown in its picker; an id that is not a uuid is never sent.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-191
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-queries.ts
+- **R-PERIOD-320** The confirmations that move a period's start ("this period's salary actually arrived on …" and "back to the schedule") say, as preview_move_period_start answers for that start, how many debts lose the interest added at the period's start (D-386).
+  _active · enforced by test · F-PERIOD_
+  - Related: D-386, R-PERIOD-151
+  - Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16; code: src/features/periods/periods-page.tsx
 - **R-PERIOD-300** One catch-up step creates at most a bounded number of transactions per budget (4000, and about two seconds of work), leaving the rest due, none skipped; a step that stops before creating every one due never answers 0 from ensure_periods.
   _active · enforced by test · F-PERIOD_
   - Related: D-427, R-PERIOD-180
@@ -1084,10 +1156,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-VERSION-132
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-VERSION-150** A correction form says how far the correction reaches, from the database's until_period_id: "from <start> up to the period ending <end>; from <next>, the terms recorded later stay", or "from <start> on"; when the record was not in force in the period chosen (in_force false), it says in words that there is nothing to correct there and offers no save.
+- **R-VERSION-150** A correction form says how far the correction reaches, from the database's until_period_id: "from <start> up to the period ending <end>; from <next>, the terms recorded later stay", or "from <start> on"; when the record did not exist in the period chosen (in_force false: not yet, or no longer, its end period included), it says so in words and offers no save.
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-VERSION-133, R-VERSION-140, D-230
-  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budgets/correction-reach.tsx; code: src/features/budgets/terms-at.ts
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budgets/correction-reach.tsx; code: src/features/budgets/terms-at.ts; owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
 ### Categories and subcategories
 
@@ -1226,6 +1298,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-375, R-CATEGORY-200
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-CATEGORY-320** "To categorise" is marked in words wherever categories are listed (the budget page, progress, compare); it is offered as a target in no transaction, subscription, debt or rule form (an import waiting in it is edited to a real category); its form changes only the name, and its removal is not offered while it holds transactions, saying why.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-CATEGORY-200, R-CATEGORY-250, D-447
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/categories/category-queries.ts
+- **R-CATEGORY-340** An imported transaction waiting in "to categorise" can be edited while it keeps that category.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-460, R-CATEGORY-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Transactions
 
@@ -1331,6 +1411,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-134, D-274
   - Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-TRANSACTION-280** The dates a transaction may take start at the budget's first period, read by itself, whatever pages of periods are loaded.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: R-TRANSACTION-090, R-PERIOD-191
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-queries.ts
 
 ### Period progress and result
 
@@ -1515,6 +1599,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-271, D-388, R-SUBSCRIPTION-112
   - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-190** A subscription whose next charge date has come is shown as waiting since that date, with the reason in words (the budget holds the most transactions it can); charge_held_back, from a schedule change, an end or the end dialog's preview, is said in words with what to do first.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-180, D-271
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/subscriptions/subscriptions-page.tsx
+- **R-SUBSCRIPTION-191** After a charge is answered (it went through, or it did not after its confirmation), from the dashboard card or the transactions filtered to those awaiting, the focus goes to the charge now in its place, else to a named place (the page's heading, the period filter), never to the page's body; the filtered list offers both answers on each row; removing a link filter moves the focus to the next filter or the period filter.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-142, R-TRANSACTION-150
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/features/subscriptions/components/charges-to-confirm-card.tsx; code: src/features/transactions/transactions-page.tsx
+- **R-SUBSCRIPTION-320** When the schedule preview of a subscription edit is refused because a charge is held back (charge_held_back, D-388), the form says so before saving and does not offer the save.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-388, R-SUBSCRIPTION-121
+  - Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16; code: src/features/subscriptions/components/subscription-form-dialog.tsx
 
 ### Debts
 
@@ -1589,10 +1685,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-005, R-DEBT-074, R-DEBT-112, D-191, R-DEBT-132, R-DEBT-133, R-DEBT-136, R-DEBT-137, D-216
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debts-page.tsx; code: src/features/debts/components/payoff.tsx; owner-request: coordinator, step 4 screens review round 1, 2026-11-16; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/debts/debt-queries.ts
-- **R-DEBT-122** A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative), both read page by page with get_debt_history's cursor: the chart reads the pages by itself up to 10 000 events and, when the history is longer, says where it stops; the table shows 50 rows at a time, oldest first, reading the next page when it needs it. Payments lead to their transactions. It records a payment (the transaction form with the debt chosen), adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history), removes it, saying beforehand whether it is deleted or ended, and links to its payments among the transactions.
+- **R-DEBT-122** A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative): the chart reads the history oldest first, a page at a time, up to 10 000 events and says where it stops when the history is longer; the table lists the latest events first (R-DEBT-191). Payments lead to their transactions. It records a payment, adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history), removes it, saying beforehand whether it is deleted or ended, and links to its payments among the transactions.
   _active · enforced by test · F-DEBT_
-  - Related: R-DEBT-004, R-DEBT-075, R-DEBT-114, D-190, D-192, R-DEBT-135, D-232
-  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debt-detail-page.tsx; code: src/features/debts/components/debt-chart.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+  - Related: R-DEBT-004, R-DEBT-075, R-DEBT-114, D-190, D-192, R-DEBT-135, D-232, R-DEBT-191, D-290
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debt-detail-page.tsx; code: src/features/debts/components/debt-chart.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 - **R-DEBT-123** The transaction form offers "This is a payment on …" for an expense, among the debts not ended (and the one a payment already pays); a payment stays an expense; on an existing transaction the fields and the link change in one update_transaction call (p_relink), so a refused save leaves the transaction and both debts as they were, and the message names the database's reason.
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-071, R-TRANSACTION-110, D-177, D-194, R-TRANSACTION-131, D-218
@@ -1653,6 +1749,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-135, D-275
   - Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-190** An ended debt cannot be edited: its menu says why, its form (if open) offers no save with the reason, and update_debt's debt_ended reads the same.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-134, R-DEBT-151
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/debts/components/debt-form-dialog.tsx
+- **R-DEBT-191** A debt's history table shows the latest events first, 50 at a time, older ones read with get_debt_history's newest-first cursor; the chart reads oldest first.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-122, R-DEBT-135, D-290
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/debts/debt-detail-page.tsx
 
 ### Browsing and comparing periods
 
@@ -1701,6 +1805,50 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: R-SECURITY-002, C-DBTEST-002, C-DBTEST-003
   - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-190** The comparison is its own page, "Compare", in the sidebar right after the dashboard, with three views: the trend, the categories over time and two periods side by side. The view and its choices (6, 12 or 24 periods, the selected period, the lines drawn, the planned amounts shown, periods A and B, the order) are in the address, so a link opens the same view; the page loads with its charts only when opened.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-002, R-COMPARE-070, R-COMPARE-071, R-COMPARE-171, D-295
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-page.tsx
+- **R-COMPARE-191** The trend shows, for each period of the range, its dates, its number of days, its income, spending, planned total and result as get_period_trend gives them, in two charts (income and spending as columns with the planned total as a line; the result as columns from zero) and in a table listing every figure. The running period is marked in words and said never to be averaged; the averages say over how many completed periods they are taken, or "no completed period yet" instead of an amount; when period lengths differ by more than a tenth the page says amounts are not adjusted for length. Selecting a period offers to open it and to compare it with another.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-002, R-COMPARE-172, R-COMPARE-173, D-296, D-297
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/trend-view.tsx
+- **R-COMPARE-192** The categories view lists every category line by period as get_category_trend gives it: groups at the top level, opened on their subcategories (the open ones kept in the address); each period column with its dates, its number of days and the year where it changes; each line's average after the periods; in each period the spending (a link to that category's transactions in that period, also when they net to zero), the planned amount on request, spending above the plan marked with a sign and words, and "—", said as not planned, where the category was not in force and nothing was recorded (never 0). When period lengths differ by more than a tenth it says amounts are not adjusted. A chart draws up to five lines the user picks (every tick counts, however quick), by default the three top-level lines with the highest average; each line has the hue, the mark and the dash of its slot, kept while others are added or removed, and the running period is shaded and named. On a phone the name column is narrow and wraps, so at 320 px at least one whole period column is readable beside it, and a focused cell is never hidden under the sticky column or header.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-070, R-COMPARE-174, D-297, D-405, D-407
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/categories-view.tsx; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **R-COMPARE-193** The categories view shows its lines only against the periods they belong to: get_category_trend's period_ids must equal get_period_trend's periods for the same count; when they differ (a period was created or merged between the two reads) both are read again, three times in all, and then the view reports an error with a retry rather than misaligned figures.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-070, R-COMPARE-170
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-queries.ts; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **R-COMPARE-194** Side by side, the database chooses the default periods (no id sent); the user picks A and B among every period (older ones on request, a chosen old one still shown in its picker) and can swap them. The totals (income, spent, result, planned, subscriptions) then each category, in the budget's order or biggest changes first, show A, B and the difference B minus A with its sign, an arrow and its direction in words (never colour alone); on request each category's planned amount in A and B and its difference; a side with nothing is "—", said in words; each period's length is shown. On a phone each row stacks so the difference is read without scrolling sideways, nine-figure amounts included.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-071, R-COMPARE-173, D-298
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/side-by-side-view.tsx; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **R-COMPARE-195** The compare page says so when a comparison needs a second period, when the budget has no categories yet, and when the budget has ended (the range ends at its last period); a read that fails says so with a retry; a read answered catching_up is handled like any other (R-PERIOD-190).
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-171, R-COMPARE-175, R-PERIOD-190
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-page.tsx
+- **R-COMPARE-280** Wherever periods are labelled by day and month (chart axes, column headers), the year is written on the first one and wherever it changes, visibly, so no label stands for two years.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-173
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/compare-format.ts
+- **R-COMPARE-281** A difference is written with its sign before the currency in both directions ("+CHF 192.92", "−CHF 192.92"), everywhere a difference is shown; other negative amounts keep the money formatter's form.
+  _active · enforced by test · F-COMPARE_
+  - Related: C-MONEY-003
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/compare-format.ts
+- **R-COMPARE-282** A comparison chart takes the width while its periods fit (24 periods from 1024 px); when they do not, it scrolls inside its own frame: the value axis (with its unit, CHF) stays in view outside the frame, the frame shows whole periods only and opens on the newest, says that earlier periods are to the left, and can be focused (named) and scrolled with the keyboard.
+  _active · enforced by test · F-COMPARE_
+  - Related: D-297, D-406
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/components/chart-frame.tsx
+- **R-COMPARE-283** A period in the address that is not one of the current budget's (another budget's, deleted, or not an id at all) is never sent as such: the comparison falls back to the default periods, says so in words and offers the pickers; choosing another budget drops the choices that named the previous budget's periods and lines.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-PERIOD-281, D-404, Q-252
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/components/side-by-side-view.tsx
+- **R-COMPARE-284** "Compare with…" on a period of the trend puts that period as B and the one before it as A (the first period has none: A is left to pick), so a period is never compared with itself.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-071
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/components/trend-view.tsx
 
 ### Import
 
@@ -1718,7 +1866,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-005** The import is reachable from a paste/CSV screen in the app.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-006** The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.
   _active · enforced by test · F-IMPORT_
@@ -1778,7 +1926,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-118, R-IMPORT-004
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-082** The generic CSV import lets the user map the file's columns to the transaction fields.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: D-119, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-083** The import offers presets for the exports of Migros Bank, Raiffeisen, One, Yuh and Twint.
@@ -1787,11 +1935,11 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-119, Q-058, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-084** The import reads three kinds of PDF statement: the Migros Bank private-account statement, the Migros Bank credit-card bill (Viseca) and the Yuh account statement.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: D-126
   - Source: owner-request: product owner decision on the import sources, with sample statements, 2026-11-16; docs/import-sources.md: Import sources: statement layouts
 - **R-IMPORT-085** The import recognises the kind of a statement from its content, and refuses, with an explanation, a PDF it does not recognise or one without a text layer.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: D-126, R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising the document
 - **R-IMPORT-086** A statement is parsed in the browser; the PDF file is never uploaded or stored, and only the extracted transactions reach the import function.
@@ -1800,20 +1948,20 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-127
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-087** Every entry of a statement's transaction table becomes exactly one candidate transaction; opening and closing balances, carried-forward lines, subtotals and totals, the previous bill total, the payment received on a card bill and card headings never do.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What is not a transaction
 - **R-IMPORT-088** A parsed statement must add up to what it prints (column totals, running balances, card and bill totals); otherwise the import is refused with an explanation, and nothing is imported.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Why: A parser that misses or misreads a line on a layout it does not know would otherwise import wrong amounts silently.
   - Related: R-IMPORT-084, R-IMPORT-087
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What a parser must guarantee
 - **R-IMPORT-089** Statement amounts (thousands separator ', two decimals, a trailing minus for a credit on the card bill) are read exactly into integer rappen, and statement dates (DD.MM.YY or DD.MM.YYYY) into calendar dates without a time zone.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: R-MONEY-002
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Numbers and dates
 - **R-IMPORT-090** The date of an imported transaction is the purchase date when the statement gives one, otherwise the booking date.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: D-128
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-091** A card-bill payment and a transfer between the owner's own accounts are flagged on import and skipped by default; the user can import them anyway.
@@ -1841,11 +1989,11 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-132
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-097** A foreign-currency purchase is imported with the CHF amount billed, fees included, and a description that keeps the original currency and amount.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: D-133
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-098** The statement parsers read the French versions of the three statements.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: D-134, Q-061
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-099** The statement fixtures in the repository contain no real data: they are anonymised outside the repository and pass a leak check against the real statement before they enter the working tree.
@@ -1854,11 +2002,11 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: R-IMPORT-100
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-100** Each statement parser produces exactly the expected result of every anonymised fixture of its source (test-fixtures/statements).
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-084, R-IMPORT-099
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-101** A TWINT transaction id or a Yuh reference is kept as the bank transaction id of the imported transaction; a QR payment reference is not, because it repeats from one payment to the next.
-  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
+  _active · enforced by test · F-IMPORT_
   - Why: The QR reference of a card-bill payment is built from the card account number, so every monthly payment of that card has the same reference.
   - Related: R-IMPORT-071, D-115
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries
@@ -1866,6 +2014,50 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-004
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-210** A statement file that is not a PDF, is password-protected or corrupt, is larger than 10 MB or has more than 50 pages is refused with its reason; reading a PDF fetches nothing over the network; a reader that cannot be loaded and any fault while reading give a refusal, never an error.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-332, R-IMPORT-085, R-IMPORT-086
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-211** Inside a recognised statement, an entry of a type the parser does not know is kept, described by its first text line only, with its direction's default (imported if a debit, reviewed if a credit); an entry labelled as a known type that does not match that type's layout or column, an item outside the table's columns and a rotated or right-to-left item inside the table refuse the statement.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-337, R-IMPORT-087
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-212** The statement parsers flag a card-bill payment (a payment or standing order whose payee names Viseca, in any case) and a transfer between the owner's own accounts (the holder's name, in either order, at the holder's address), and propose to skip them by default.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-091, D-129, D-334
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-213** The statement parsers propose for review every credit that is not a salary, a card-bill payment or an own transfer.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-094, D-130
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-214** The statement parsers return, for each entry, the extra data the statement prints: purchase date and time, booking and value dates, card, original currency and amount, exchange rate, fee, merchant category, location and security.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-102
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-215** On a card bill, a dated row with a trailing minus before the first card section is the payment received, whatever its label, and never an entry; a row there that is neither the previous bill total, a payment nor a known charge (late-payment interest, a fee) refuses the bill.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-087, D-335
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-216** A text layer with a page far from A4 (outside 500 to 700 by 700 to 1000 pt), more than 5000 text items on a page or more than 20 000 in the document is refused, and a file still being read after 20 seconds is refused and its reader stopped.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-338, R-IMPORT-210
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-217** A purchase date after its booking date, or more than 366 days before it, refuses the statement.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-339, R-IMPORT-090
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-218** A bank transaction id printed on more than one entry of a statement is kept for none of them; the entries stay.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-336, R-IMPORT-101
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-219** The rows sent to the import function hold only the keys of its contract, within its bounds (descriptions shortened at a character boundary, details keys dropped in a stated order, too long ids dropped, each said in the result), and never the counterparty's phone number, address or IBAN, the statement's text lines, QR references, balances or the holder's name and address.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-340, R-IMPORT-086
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **R-IMPORT-220** An entry of 0.00 stays in the statement for the user to see, with nothing to import, and produces no row for the import function.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-341
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
 - **R-IMPORT-200** An imported expense or refund without a category from the member or a rule goes to the budget's "to categorise" category, created at the first import that needs it; every transaction keeps a category, so every total and comparison still adds up.
   _active · enforced by test · F-IMPORT_
   - Related: D-312, R-COMPARE-170
@@ -1898,7 +2090,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-311, R-CATEGORY-110
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-IMPORT-208** An import is sent as a batch of up to 100 chunks of up to 500 rows under an id the caller generates; a chunk sent again records nothing and answers as the first time; a chunk the transaction limit cannot hold is refused whole, saying how many rows would fit.
+- **R-IMPORT-208** An import is sent as a batch of up to 100 chunks of up to 500 rows (250 by a token) under an id the caller generates; a chunk sent again records nothing and answers as the first time; a chunk the transaction limit cannot hold is refused whole, saying how many rows would fit.
   _active · enforced by test · F-IMPORT_
   - Related: D-310, R-APP-170
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
@@ -1906,7 +2098,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-118, D-312
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-IMPORT-250** What is stored of a row that was not imported is bounded: its known keys within their limits, and only the names of unknown keys; a call whose rows exceed 2 MB is refused whole (the API gateway's body limit is the outer bound).
+- **R-IMPORT-250** What is stored of a row that was not imported is bounded: its known keys within their limits, and only the names of unknown keys; a call whose rows exceed 2 MB is refused whole when the function starts; the request body itself is read and parsed before the function runs, bounded only by the gateway (Q-280).
   _active · enforced by test · F-IMPORT_
   - Related: D-378
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
@@ -1958,6 +2150,74 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-310
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-320** A statement the reader refuses is explained in words for every reason it gives (with the control, both figures, the language or the limit where it has one); the line in question is shown on the device only, apart from the explanation, and is never logged, stored or sent; nothing is sent to the budget.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-085, D-342
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/statement-words.ts
+- **R-IMPORT-321** The preview is asked under the batch id the import will use, with exactly the rows it will send; a changed choice is asked again (debounced), the rows whose answer is on its way are marked as being checked and never shown as current, and the import is offered only once every part has a current answer; the summary counts the rows the database answered, and no amount is added up in the client.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-252, D-442
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/use-import.ts
+- **R-IMPORT-322** The import sends its parts in order under one batch id; a part whose answer is lost is sent again with the same number and the same rows; a budget that must catch up first is caught up and the part sent again; the transaction limit stops the import and says how many rows would fit and that nothing of that part was written.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-208, D-442
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/use-import.ts
+- **R-IMPORT-323** While an import is sent, leaving the page asks first; an interrupted import is noted on the device (its batch id and a fingerprint of its rows, never the rows) and the page says so; the same statement opened again goes on under the same batch, so what was recorded is not recorded twice.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-208, D-443
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/pending-import.ts
+- **R-IMPORT-324** The CSV import reads quoted cells (separators, doubled quotes and line breaks inside), a byte-order mark and CRLF, detects the separator among comma, semicolon and tab and lets the user change it; asks for the date format whenever the dates can be read more than one way; reads amounts into integer rappen without floating-point arithmetic, in either decimal style, with a stated sign or two columns; lists every line it cannot read with its line number and why, and sends none of them; remembers the mapping per budget on the device only.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-082, D-444
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/csv/csv-map.ts
+- **R-IMPORT-325** Text from a bank file or a token (descriptions, merchants, details, token and category names) is rendered as text only, never as markup or a link, isolated so that right-to-left characters cannot reorder the words around it, and wraps rather than widening the page.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-SECURITY-250, D-376
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/components/external-text.tsx
+- **R-IMPORT-326** A new import token's secret is shown once, with a copy button and where to put it (the environment of the session that runs the script, never a conversation); it is held only in that dialog while it is open: never in the address, browser storage, the query or mutation cache, or a log.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-074, D-446
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/settings/import-tokens.tsx
+- **R-IMPORT-340** A statement previewed part by part with preview_import_part answers, for each part, the rows and counts the write of the same parts in the same order then gives (absent changes by others), with the totals of each part and of the statement so far: rows by action, and the rows to import by kind, count and amount.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-455, R-IMPORT-252
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-341** A budget's import storage is bounded: in a rolling 24 hours at most 20 000 rows submitted, 50 new batches (import_limit_reached) and 20 tokens created, deleted ones included (token_limit_reached); kept at most 2 000 batches (empty ones go first), the newest 20 000 skipped rows and the newest 50 chunk answers of at most 7 days (an older chunk sent again answers chunk_expired).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-452, R-IMPORT-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-342** The merchant key does bounded work: the text is cut to 200 characters first and a text still changing after 10 steps keeps that cut text as its key, which stays idempotent.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-453, R-IMPORT-255
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-343** The duplicate lookup by content reads by index, as the transaction is now and as first imported; values as first imported exist on imported transactions only.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-462, R-IMPORT-254
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-344** A valid skipped row is kept as the preview showed it (free text cleaned), so importing it anyway imports that row and the same statement line imported again is its duplicate by bank id.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-466, R-IMPORT-073
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-345** Only a choice the member sent for a flagged row is remembered, never a default; an own transfer without description or merchant is remembered under the key own_transfer.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-456, R-IMPORT-092
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-346** A member can forget a remembered choice; the default applies again.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-458
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-347** A rule's preview answers the fragment as stored, the rule already covering it and how many waiting transactions the rule would move, as the rule then does.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-457, R-IMPORT-201
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-348** One batch can be read by its id, as the list gives it, by members of its budget only.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-459
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-349** The import script reads a quote inside an unquoted CSV field as an ordinary character; only a quote at the start of a field opens a quoted field.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-006
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: scripts/import/import.mjs
 
 ### Accounts and planned transfers (money flow)
 
@@ -2123,6 +2383,27 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-360, R-CONCURRENCY-070
   - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-CONCURRENCY-190** "Keep mine" keeps exactly the fields (or D-160 groups) the user changed in this form, measured against what the form showed when they changed them, and takes every other field from what the database says now for what is being edited: the record's current values for an edit from now; for a correction, the chosen period's terms read again (a change another member made from now never enters the correction). "Load their version" uses the same "now". Every form field belongs to a view or is a declared control (the correction switch, its period, whose income it is): a field in neither fails the form's tests. Changing a correction's period keeps the values the user typed in fields they changed.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-091, D-160, R-VERSION-140, D-294
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/hooks/use-concurrent-form.ts; code: src/features/budgets/terms-at.ts
+- **R-CONCURRENCY-191** A save whose answer is lost (network) is never reported as someone else's change: when the record read again holds what the form sent, the form says it was saved; when it does not, it says the connection failed and nothing was saved, and what was typed stays.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-091, R-CONCURRENCY-190
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/hooks/use-concurrent-form.ts; code: src/components/changed-elsewhere.tsx
+- **R-CONCURRENCY-280** An edit form says its change was saved only after a save whose answer was lost on the way (a failed connection), and only when the record now holds every value the form sent; a save the database refused (record_changed) is never reported as saved, even when another member saved the same value in one of its fields: the form keeps what was typed and offers the choice between their version and keeping one's own.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-190, R-CONCURRENCY-191, R-CONCURRENCY-091
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/hooks/use-concurrent-form.ts
+- **R-CONCURRENCY-281** When the answer to an add (a new transaction, category, income, subscription or debt) is lost on the way, the form says it may have been saved and to check the list before saving again, never that nothing was saved.
+  _retired · enforced by test · F-SUBSCRIPTION_
+  - Retired: D-440: every add form sends one request id (p_client_id, D-390), so saving again after a lost answer records once; R-CONCURRENCY-320 says what the form says now.
+  - Related: R-CONCURRENCY-191, Q-250
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/components/changed-elsewhere.tsx
+- **R-CONCURRENCY-320** When the answer to an add (a new transaction, category, income, subscription or debt) is lost on the way, the form keeps what was entered and says that saving again is safe; the retry carries the same request id and is recorded once. A request id the database calls reused gets a new one, and the form says plainly that the values had already been saved with other content and to check the list.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-APP-250, D-390, D-440, R-CONCURRENCY-281
+  - Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16; code: src/hooks/use-client-id.ts
 
 ## Conventions
 
@@ -4165,7 +4446,7 @@ Source: owner-request: database developer decision for step 4, within the coordi
 
 ### D-190 Charts: shadcn chart (Recharts), theme colours, lazy route (accepted)
 
-Charts use shadcn's chart component on Recharts. Series colours are the theme tokens --chart-1 to --chart-5, set for light and dark to a categorical palette validated for colour-vision deficiencies (the first three also all together); identity is never colour alone (marks have shapes, a legend and a table). The page that draws a chart is its own lazily loaded route, so Recharts never reaches the first load. A debt's chart is a step line of the balance on a time axis (dates spaced by days, no time zone), its value axis scaled to the balances so a few payments show (zero drawn when in range).
+Charts use shadcn's chart component on Recharts. Series colours are the theme tokens --chart-1 to --chart-5, set for light and dark to the palette of D-405 (every pair validated for colour-vision deficiencies, each at least 3:1 on the card); identity is never colour alone (lines have their own mark and dash, there is a legend and a table). The page that draws a chart is its own lazily loaded route, so Recharts never reaches the first load. A debt's chart is a step line of the balance on a time axis (dates spaced by days, no time zone), its value axis scaled to the balances so a few payments show (zero drawn when in range).
 
 **Why:** Step 5 needs more charts; shadcn's component fits the existing UI kit; the production Content-Security-Policy allows the inline style element it writes (style-src 'unsafe-inline') and no script.
 
@@ -4173,9 +4454,9 @@ Charts use shadcn's chart component on Recharts. Series colours are the theme to
 
 - A hand-drawn SVG chart (no library): step 5 would redo it.
 
-Related: R-DEBT-122, C-CSP-001
+Related: R-DEBT-122, C-CSP-001, D-405
 
-Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
 
 ### D-191 The client adds up no debt amounts (superseded by D-216)
 
@@ -4545,17 +4826,17 @@ Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 
 While a very long absence is caught up, the app shows only "Catching up on the time since your last visit…" and a short explanation, no progress bar and no figure, then loads the pages.
 
-**Why:** Answer to Q-121 by default: ensure_periods says how many periods it made, not how many remain, so a bar would invent its end; each call takes under 2 s and ten years take one call.
+**Why:** Answer to Q-121 by default: ensure_periods says how many periods it made, not how many remain, so a bar would invent its end; a step takes up to about 3 s plus its commit (D-276), and a long absence a few steps.
 
 **Rejected:**
 
 - A progress bar from the periods made so far: the total is unknown.
 
-Related: Q-121, R-PERIOD-150, D-270
+Related: Q-121, R-PERIOD-150, D-270, D-276
 
-Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
-### D-232 The debt chart reads up to 10 000 events (accepted)
+### D-232 The debt chart reads up to 10 000 events (superseded by D-290)
 
 The debt page reads get_debt_history 1000 rows a page; the chart reads pages by itself until the history ends or 10 000 events, and then says where it stops; the table shows 50 rows at a time, oldest first (the order the database pages in), reading the next page when its rows are shown.
 
@@ -4566,7 +4847,7 @@ The debt page reads get_debt_history 1000 rows a page; the chart reads pages by 
 - Reading the whole history whatever its size: a very long one would be read and drawn at once.
 - The table newest first: the database pages oldest first only (Q-141).
 
-Related: R-DEBT-122, R-DEBT-135, D-213
+Related: R-DEBT-122, R-DEBT-135, D-213, D-290
 
 Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 
@@ -5073,7 +5354,7 @@ Source: owner-request: database developer decision for step 7, within the coordi
 
 ### D-370 Import tokens (revised) (accepted)
 
-A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 tokens that can still be used a budget; a revoked or expired one can be deleted, and those kept are pruned to the newest 20 and 365 days. import_with_token is the only function callable without a session, by POST only (a GET is refused with read_only_call before the token is looked at). An unknown, expired or revoked token, or one whose creator left, was removed or deleted their account, gets invalid_token after one index lookup, before any lock or catch-up. Every call with a valid token counts, whatever its outcome: 60 calls and 5000 rows within any 60 minutes, 300 calls and 20 000 rows within any 24 hours, checked and counted in one step under the token's lock; a refusal after the count is answered in the error column, not raised. The batch records the token, never the caller. Batches, skipped rows and remembered choices are read through paged functions only.
+A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 tokens that can still be used a budget; a revoked or expired one can be deleted, and those kept are pruned to the newest 20 and 365 days. import_with_token is the only function callable without a session, by POST only (a GET is refused with read_only_call before the token is looked at). An unknown, expired or revoked token, or one whose creator left, was removed or deleted their account, gets invalid_token after one index lookup, before any lock or catch-up. A call never waits for another token call: the same token busy, or every slot for token work taken, answers token_busy or imports_busy at once, doing nothing and counting nothing (D-453). Every call that does work counts, whatever its outcome, cancelled included: 60 calls and 5000 rows within any 60 minutes, 300 calls and 20 000 rows within any 24 hours (by whole minutes: a call counts 60 to 61 minutes and 24 hours to 24 hours and 1 minute, D-463), checked and counted in one step under the token's lock; a refusal after the count is answered in the error column, not raised. A token call takes at most 250 rows. The batch records the token, never the caller. Batches, skipped rows and remembered choices are read through paged functions only.
 
 **Why:** The step 6 review: a refused call must cost the attacker too, parallel calls must not pass the limit together, fixed hourly windows let twice the limit through at the boundary, tokens must not pile up, and a token in a URL ends up in logs.
 
@@ -5088,7 +5369,7 @@ Source: owner-request: coordinator review of the step 6 database (import), 2026-
 
 ### D-371 What a token is told (accepted)
 
-A token's answer does not depend on the budget's content: every argument is checked before anything of the budget, "to categorise" is created under its fixed name (the token cannot name it), and a token is never told how many rows would fit. Two coarse states still reach it, because a script must be able to say why nothing was imported: the budget is full (transaction_limit_reached, refused when the rows it sent do not all fit whatever they would become) and the budget is far behind (catching_up).
+A token's answer does not depend on the budget's content: every argument is checked before anything of the budget, "to categorise" is created under its fixed name (the token cannot name it), and a token is never told how many rows would fit. Coarse states still reach it, because a script must be able to say why nothing was imported: the budget is nearly full (transaction_limit_reached, refused whenever it has room for fewer than 250 transactions, D-451), the budget is far behind (catching_up), its import storage of the day is used up (import_limit_reached, D-452), and its lock was held for more than a second (budget_busy, D-453).
 
 **Why:** Answer to Q-191 and the step 6 review (F1): any budget-dependent difference is an oracle on the budget's transactions.
 
@@ -5176,7 +5457,7 @@ Source: owner-request: coordinator review of the step 6 database (import), 2026-
 
 ### D-378 Refused rows are stored bounded (accepted)
 
-Of a row that was not imported, only its known keys are kept, each within its limit, and only the names of unknown keys; a call whose rows argument exceeds 2 MB is refused whole (invalid_rows) before any row is read; the API gateway's body limit is the outer bound.
+Of a row that was not imported, only its known keys are kept, each within its limit, and only the names of unknown keys; a call whose rows argument exceeds 2 MB is refused whole (invalid_rows) before any row is read; the request body itself is read and parsed before the function runs, so what bounds it there is the gateway (not verified for the hosted project: Q-280).
 
 **Why:** The step 6 review (F3): a stolen token could otherwise store megabytes of arbitrary JSON per call.
 
@@ -5437,6 +5718,776 @@ get_period_trend has transfer_committed_total, get_category_trend transfer_commi
 Related: R-ACCOUNT-238, R-COMPARE-071
 
 Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-290 The history table newest first, the chart oldest first (accepted)
+
+The debt page reads get_debt_history twice: the table newest first (p_newest_first) 50 rows a page, older ones on request; the chart oldest first, 1000 rows a page, up to 10 000 events, saying where it stops.
+
+**Why:** The database now pages newest first (answer to Q-141): the latest events, the ones a member looks for, come first; D-232's reason for oldest first no longer holds.
+
+**Rejected:** none recorded.
+
+Related: D-232, Q-141, R-DEBT-191
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-291 catching_up is handled in one place (accepted)
+
+One component watches every query and mutation of the budget for catching_up: it runs ensure_periods until 0 behind the catching-up screen (shown only after 700 ms), then reads the budget's queries again. Pages stay mounted, so forms keep what was typed; a refused save says to save again.
+
+**Why:** Since D-270 every call but ensure_periods and get_current_period answers catching_up when the budget is behind; handling it per screen would miss some, and remounting pages would lose what was typed. A catch-up of one step (a new day) ends in about 100 ms: a flash of the full screen helps nobody.
+
+**Rejected:**
+
+- Remounting the page after the catch-up: loses form content.
+
+Related: D-270, R-PERIOD-190, D-231
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-292 Older periods are read on request, from every picker (accepted)
+
+usePeriods reads list_periods 120 at a time; the periods page has a button for older periods, and every period picker ends with "Older periods…", which reads the next page (the list stays open for the next choice).
+
+**Why:** R-APP-170: a budget's periods grow without bound and the API cuts an answer at 1000 rows. Ten years fit in one page, so the entry is rarely seen.
+
+**Rejected:**
+
+- Loading every page at once: what the paging is for.
+
+Related: R-APP-170, R-PERIOD-191, R-PERIOD-192
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-293 Frozen payments from the list itself (accepted)
+
+The transactions list and form read transaction_list.debt_ended to know that a payment's debt has ended; they no longer read debt_overview for it.
+
+**Why:** Answer to Q-140: the database gives the flag on the row.
+
+**Rejected:** none recorded.
+
+Related: Q-140, R-DEBT-151
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-294 Typed values survive a change of correction period (accepted)
+
+When the user picks another correction period, the fields they changed keep what they typed; the others take the new period's terms (the rule of "Keep mine").
+
+**Why:** Replacing typed values without notice loses work; saying what was replaced is noisier than keeping it.
+
+**Rejected:**
+
+- Saying what was replaced and replacing it anyway.
+
+Related: R-CONCURRENCY-190
+
+Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
+
+### D-295 Compare is a page of its own after the dashboard (accepted)
+
+The comparison is a sidebar page placed right after the dashboard, with three views reached by links whose choices live in the address; Recharts is loaded only with this page. No dashboard card for step 5.
+
+**Why:** The comparison is read often and for a while; a page of its own keeps the dashboard light and its first load small, and the address makes a view shareable between members.
+
+**Rejected:**
+
+- Tabs inside the periods or progress page.
+- A dashboard card with a small trend (optional in the brief; left out for now).
+
+Related: R-COMPARE-190
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-296 Say lengths differ beyond a tenth (accepted)
+
+The trend says that period lengths differ and amounts are not adjusted only when the longest period of the range is more than 1.1 times the shortest (from the days the database gives); periods of 28 to 31 days do not trigger it.
+
+**Why:** The note matters after an early pay date or a reopened period; under every ordinary range it would be noise.
+
+**Rejected:**
+
+- Always showing the note.
+- Amounts per day (R-COMPARE-173 forbids scaling).
+
+Related: R-COMPARE-173, R-COMPARE-191
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-297 Chart forms of the comparison (accepted)
+
+Income and spending as columns side by side with the planned total as a line on one money axis; the result in a chart of its own, columns from zero (position tells a surplus from a deficit); category lines as a line chart of at most five user-picked lines, each in the hue of its slot. Every chart is one named image whose text alternative is the table under it; on a phone a wide range scrolls inside the chart's own frame, opening on the newest periods.
+
+**Why:** One scale per chart; a slot keeps its colour so identity never moves with rank; five hues is what stays distinguishable.
+
+**Rejected:**
+
+- Two y-axes on one chart.
+- Stacked areas of every category.
+- A chart of every line.
+
+Related: R-COMPARE-191, R-COMPARE-192
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-298 Side by side on a phone (accepted)
+
+Below the small breakpoint each row of the side-by-side tables shows its name, then A and B next to each other, then the difference on a line of its own, each figure labelled; wider screens keep the table.
+
+**Why:** The difference is what the view is for: it must be seen without scrolling sideways, also with eight-figure amounts at 320 px.
+
+**Rejected:**
+
+- A table scrolling sideways on phones.
+
+Related: R-COMPARE-194
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-330 Rounded figures are checked within 0.05 (accepted)
+
+Where a statement prints a product it rounds (an amount times an exchange rate, a processing fee as a percentage, a CHF amount charged abroad plus its fee), the parser accepts the printed figure when it differs from the exact product by less than CHF 0.05; a securities quantity times its price must give the amount within one unit of the quantity's last decimal times the price, plus one rappen. Every sum, subtotal, carried-forward line, total and running balance must match exactly.
+
+**Why:** R-IMPORT-088 asks for the arithmetic the statement prints to be checked, but the banks' rounding rules are not known (Q-205): every CHF figure of the card-bill sample is a multiple of 0.05, and one row differs from its printed parts by 0.02. A bound below 0.05 accepts any rounding to 0.05 (nearest, up or down) and still refuses a misread digit.
+
+**Rejected:**
+
+- Requiring exact products, which refuses real statements.
+- Not checking rates and fees, which lets a misread rate through.
+
+Related: R-IMPORT-088, R-IMPORT-097, Q-205
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-331 Unknown entry types are kept, malformed known ones refused (superseded by D-337)
+
+Inside a statement the parser recognises, an entry of a type it does not know (a cash withdrawal, an interest or fee line, a Yuh sale ...) is kept with its printed text as description and the default of its direction; a hint is added only from a leading label (Retrait, Intérêt, Frais ...). An entry that starts like a known type (Achat, Débit TWINT, Paiement, a Yuh Achat with security lines) but does not match its pattern refuses the statement, as does any item outside the table's columns or any amount the parser cannot explain.
+
+**Why:** The samples show few entry types; refusing every statement with a new type would make the import useless, while the column totals and balances still prove that every unknown entry has the right amount (R-IMPORT-088). A known type that does not match is a sign the layout changed.
+
+**Rejected:**
+
+- Refusing a statement with any unknown entry type.
+- Skipping lines the parser does not understand.
+
+Related: R-IMPORT-087, R-IMPORT-211, Q-201, Q-202, Q-203
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-332 pdf.js loaded on demand, fetching nothing (accepted)
+
+Statements are read with pdfjs-dist 6.4.299, the version the fixtures were captured with, imported dynamically on the first read so that the main bundle does not grow. Its worker is a same-origin file emitted by the build (production CSP: script-src 'self', worker-src 'self' blob:). No CMap, standard font, ICC profile or wasm decoder is configured or fetched (fetching in the worker and wasm are off), fonts are not installed into the page, and the bytes are passed in memory. Files above 10 MB or 50 pages are refused before or right after opening.
+
+**Why:** D-127 keeps the file in the browser; fetching resources from a CDN would leak that a statement is being read and break the CSP. Bank statements embed their fonts and need none of these resources for their text. Monthly statements are a few pages and well under 1 MB, so the bounds leave a wide margin while stopping a hostile file early.
+
+**Rejected:**
+
+- Bundling pdf.js in the main chunk.
+- Loading the worker or resources from a CDN.
+- A newer pdf.js than the fixtures were captured with.
+
+Related: D-127, R-IMPORT-086, R-IMPORT-210
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-333 Parsers return codes and data; the screens own the words (superseded by D-342)
+
+A parse returns the recognised source, what identifies the statement (its period or bill date), one entry per transaction with codes (direction, hint, proposed handling) and the extra data, the controls it checked, and the full source-specific document in the shape of the fixtures' expected.json. A refusal is a typed reason with its figures (the control, the printed and computed amounts) or the line it could not read. The English notes of expected.json (handling.why, skipped.reason) are kept for the fixture comparison as developer notes; the screens translate the codes, never these notes.
+
+**Why:** The screens are bilingual (R-I18N) and R-IMPORT-100 compares the parse with expected.json exactly.
+
+**Rejected:**
+
+- Returning user-facing messages from the parsers.
+
+Related: R-IMPORT-085, R-IMPORT-088, R-IMPORT-100
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-334 An own transfer needs the holder's name and address (accepted)
+
+A payment or standing order on the Migros Bank account, and a transfer received on Yuh, is flagged as a transfer between the owner's own accounts when the counterparty's name has the same words as the holder's name (in either order) and its street and town lines equal the holder's address, compared without case, punctuation or spacing (Yuh prints "Chemin du Test, 12"). The country line and the IBAN are not compared.
+
+**Why:** docs/import-sources.md names the name and the address as the only clues on the Migros Bank statement, and says a payment to another person at the same address is not an own transfer (Q-063). Applying the same test to Yuh keeps one rule for both and flags the sample's transfer.
+
+**Rejected:**
+
+- The name alone, which would flag a namesake.
+
+Related: D-129, R-IMPORT-091, Q-063, Q-208
+
+Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+
+### D-335 Any credit before the first card is the payment received (accepted)
+
+On a card bill, a dated row with a trailing minus before the first card section is the payment received, whatever its label ("Votre paiement - Merci", with LSV, partial, upper case or another wording), and is skipped like it. A debit row there must be the late-payment interest or a fee, or the bill is refused.
+
+**Why:** Review: under any other label the payment came out as a credit to review while the bill still added up, so no control fired and the card-bill payment would have been counted twice. Matching the position and the sign, not the words, holds for every wording.
+
+**Rejected:**
+
+- Matching the label "Votre paiement - Merci" only.
+
+Related: R-IMPORT-215, D-129, Q-215
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-336 A repeated bank id identifies no transaction (accepted)
+
+A bank transaction id (TWINT id, Yuh reference) printed on more than one entry of the same statement is not a transaction id: every entry carrying it gets none, and all the entries stay. This also answers whether a TWINT id can repeat: the parser does not assume it cannot.
+
+**Why:** With "same bank id means duplicate", a repeated id (a reversal, a split booking, a misprint) would lose a transaction; an entry without an id is still imported. Identical genuine entries with different ids keep their ids.
+
+**Rejected:**
+
+- Keeping the id on the first entry only.
+- Refusing the statement.
+
+Related: R-IMPORT-218, R-IMPORT-101, D-115
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-337 Unknown entries described by their first line; text outside tables ignored (accepted)
+
+Inside a statement the parser recognises, an entry of a type it does not know is kept, described by its first text line only (the other lines, which can name people, addresses or IBANs, stay in textLines on the device), with the default of its direction; a hint comes only from a leading label (Retrait, Intérêt, Frais ...) or from the statement's own category line, never from a word inside a merchant name. An entry that starts like a known type but does not match its pattern or its column, any item outside the table's columns, and a rotated or right-to-left item inside a table refuse the statement. Text outside the tables is ignored: page headers and footers, the lines after "Montant dû" on the card bill, and Yuh lines outside a currency table.
+
+**Why:** Supersedes D-331, whose wording ("any item outside the table's columns refuses") did not say that rotated items were dropped and text outside the tables ignored, and whose descriptions of unknown entries could carry a third party's address and IBAN.
+
+**Rejected:**
+
+- Refusing a statement with any unknown entry type.
+- Skipping lines the parser does not understand.
+- The whole entry text as description.
+
+Related: R-IMPORT-087, R-IMPORT-211, D-331, Q-201, Q-202, Q-203
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-338 Bounds on items, page size and time (accepted)
+
+Each read has its own pdf.js worker, stopped when the read ends. A page outside 500 to 700 by 700 to 1000 pt is refused before its text is read; the text is streamed and the read stops beyond 5000 items on a page or 20 000 in the document; after 20 seconds the worker is terminated and the file refused. Lines are grouped in one pass over the items sorted by baseline. The same item and page bounds apply to a text layer given directly to the parser. A reader that cannot be loaded (offline, a release replaced its chunk) is a refusal of its own, and any other fault while reading a refusal too: the entry point never throws.
+
+**Why:** Review: a 425 kB PDF with one very tall page and 120 000 lines stalled the main thread for 53 s, and a 916 kB PDF inflating to 300 MB of text operators took 33 s and 1.7 GB. The real statements have at most 219 items per page and read in well under a second, so the bounds leave a wide margin.
+
+**Rejected:**
+
+- No bounds beyond file size and page count.
+- Parsing in a worker of our own (the bounds make the main-thread work small).
+
+Related: R-IMPORT-216, R-IMPORT-210, D-332
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-339 Purchase dates must be plausible (accepted)
+
+A purchase date after its booking date, or more than 366 days before it, refuses the statement with the control named and both dates. Value dates are not compared with purchase dates (Q-209).
+
+**Why:** The purchase date decides the budget period of the transaction (D-128); a misread or misprinted year would put it in a period years away while every amount still adds up.
+
+**Rejected:**
+
+- Accepting any date.
+- Clamping a wrong date to the booking date.
+
+Related: R-IMPORT-217, D-128, Q-209
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-340 How entries become import rows (accepted)
+
+toImportBatch(statement) returns the source (migros_account, migros_card, yuh), the statement's dates (its period; for a card bill the day after the previous bill to the bill date), the rows in statement order each with its entry number beside it, the entries not sent with a code, and the adjustments made. A row has date, amount, direction, description (cut to 500 characters at a code-point boundary), merchant (200), bank_transaction_id (dropped, not cut, above 100), hint and details. Details: purchase_time, booking_date, value_date, card, original_currency with original_amount in that currency's minor unit, exchange_rate as the printed decimal string, fee in rappen, merchant_category, security (the ISIN), location (place and country code); above 2000 bytes they are dropped in this order: location, security, merchant_category, exchange_rate, original amount and currency together, fee, card, value_date, purchase_time, booking_date. An own transfer goes without description and merchant (its payee is the holder). transfer_to_person is given to a TWINT payment to a phone number only: the statements do not show whether the payee of a payment or standing order is a person.
+
+**Why:** The import function refuses a row with any other key or out of its bounds; shortening in a stated way and saying so keeps the import going and visible. Integers and decimal strings keep money exact.
+
+**Rejected:**
+
+- Refusing a statement with a field too long.
+- Truncating ids.
+- Guessing persons from payee names.
+
+Related: R-IMPORT-219, R-IMPORT-220, Q-213, Q-214
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-341 Entries of 0.00 are shown, not imported (accepted)
+
+An entry of 0.00 (a currency conversion rounded to nothing) stays in the entry list with the handling nothing-to-import, and the mapping lists it among the entries not sent, with the code zero-amount.
+
+**Why:** The import function refuses an amount of 0, and leaving the line out of the list would make the statement look incomplete next to the PDF.
+
+**Rejected:**
+
+- Dropping the entry.
+- Sending it and letting the database refuse it.
+
+Related: R-IMPORT-220, Q-212
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-342 The screens get codes and entries, never the source document (accepted)
+
+parseStatementText and readStatementFile return the source, the identity (period or bill date), the statement dates, the entries and the controls, never the source-specific document with the holder, IBAN, balances and the English notes of expected.json. parseStatementDocument returns that document too, for the fixture comparison only. Refusal texts may hold a statement line or reference: they may be shown on the device and are never logged or sent.
+
+**Why:** Supersedes D-333: a screen cannot show what it does not receive; R-IMPORT-100 still compares the full document.
+
+**Rejected:**
+
+- Exposing the document and relying on review.
+
+Related: R-IMPORT-100, D-333, R-IMPORT-086
+
+Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+
+### D-400 An ended budget is one with an end and no current period, caught up (accepted)
+
+The client says a budget has ended only when my_budgets has an end date, the budget is caught up (my_budgets.caught_up, no catch-up running) and get_current_period gives no row. Pages wait and forms hold their state otherwise.
+
+**Why:** Mid catch-up get_current_period gives no row although nothing has ended; taking that for the end turned edits into corrections and dropped typed values.
+
+**Rejected:**
+
+- "No current period" alone (the earlier rule).
+
+Related: R-BUDGET-280, Q-251
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-401 Calls give up after 30 seconds (accepted)
+
+Every call to the database through supabase-js is given up after 30 seconds without an answer, as a lost connection.
+
+**Why:** A read that never answers showed skeletons for ever; 30 s is far above every measured call (a catch-up step included) and short enough for a person waiting.
+
+**Rejected:**
+
+- No limit.
+- A limit per query.
+
+Related: R-APP-281
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-402 Counts are grouped by the translation layer (accepted)
+
+Every {{count}} in a translated message goes through the same count formatter (formatCount): the translations need no change and no caller can forget it; other interpolated values are untouched.
+
+**Why:** Counts were raw in some messages and grouped in others ("And 12345 more changes", "50 000").
+
+**Rejected:**
+
+- Formatting at each call site.
+
+Related: R-APP-282
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-403 A frozen payment opens as a read-only view (accepted)
+
+A payment of an ended debt opens titled "Payment of an ended debt", every field shown and disabled, with Close and no Save.
+
+**Why:** An "Edit transaction" window whose fields look editable and whose Save is disabled invites edits that can never be saved.
+
+**Rejected:**
+
+- The edit form with Save disabled.
+
+Related: R-DEBT-151
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-404 A shared comparison link opens in the viewer's current budget (accepted)
+
+The address holds the view and its choices but not the budget: a link opens in the current budget of whoever opens it. Period ids that are not that budget's fall back to the defaults, said in words; switching budget in the sidebar drops period and line choices.
+
+**Why:** The budget is chosen in the sidebar for every page; putting it in one page's address would make that page behave unlike the others. Whether every address should name its budget is left open (Q-252).
+
+**Rejected:**
+
+- Keeping a stale period id and showing an error that a retry cannot fix.
+- The budget id in this page's address only.
+
+Related: R-COMPARE-283, Q-252
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-405 Chart palette re-derived: all pairs apart under every colour-vision deficiency (accepted)
+
+The five chart tokens are, light: #3c5296, #d06002, #0da3a8, #a668f9, #812f52 (each at least 3:1 on the white card); dark: #2265db, #df692a, #14a185, #a77fd4, #a9348d (at least 3:1 on the dark card). Chosen by a search in OKLCH and checked over all pairs (not only neighbours) by two measures: the dataviz validator (OKLab: light worst 12.0 protan/deutan, 14.4 tritan, normal vision 16.4; dark 11.0 and 9.9, normal vision 17.4; target 8, normal-vision floor 15) and the reviewer's (Machado 2009 simulation, CIE76: every pair at least 29.5 light and 22.8 dark under protan, deutan and tritan; floor 20). Lines also carry their slot's mark and dash. D-190's claim that "marks have shapes" was not true of the category chart before this change, and the earlier light tokens were 2.2 to 4.4:1 on the card; D-190 is corrected to point here.
+
+**Why:** Five lines can all cross, so every pair must stay apart, under deuteranopia, protanopia and tritanopia, in both themes; the debt chart uses the same tokens and keeps passing.
+
+**Rejected:**
+
+- Keeping the reference palette's lighter steps with a contrast relief.
+- Colour only, without marks and dashes.
+
+Related: D-190, R-COMPARE-192
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-406 How a comparison chart scrolls (accepted)
+
+Columns need at least 24 px per period, lines 20 px; the frame is divided into as many whole periods as fit and the content is that width times the number of periods, so scrolling to the newest end leaves no period cut at either edge. The value axis is drawn outside the frame on the chart's own ticks, with CHF at its top.
+
+**Why:** At 1280 px with the sidebar, 24 periods at 44 px each overflowed and the scrolled-in axis was out of view; a frame that holds whole periods never shows half of one.
+
+**Rejected:**
+
+- Squeezing every period into the width on a phone (unreadable columns).
+- An axis inside the scrolling content.
+
+Related: R-COMPARE-282
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-407 The categories table on a phone (accepted)
+
+Below the small breakpoint the sticky name column is 7 rem (112 px) wide and its name wraps to two lines; the average comes after the periods, so the first column beside the name is a whole period. Wider screens keep a 14 rem name column.
+
+**Why:** The 248 px name column left 6 px for figures at 320 px; the table is the chart's text alternative and must be readable there.
+
+**Rejected:**
+
+- Dropping the sticky column on phones (the name scrolls away from its figures).
+- One category at a time on phones (no overview).
+
+Related: R-COMPARE-192
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-440 One request id per add, from the form (accepted)
+
+Every add form (transaction, category, income, subscription, debt) generates one request id when it opens and sends it as p_client_id with every save; it gets a new one after a save went through (the transaction form's "save and add another" included) and after request_reused, and keeps it after a lost answer or any other refusal, so the same save sent again records once. A refusal changes nothing in the database, so keeping the id after one is safe: a corrected save with the same id is a first use. The lost-answer message now says that saving again is safe; request_reused says the values were already saved with other content and to check the list before saving again.
+
+**Why:** Answers Q-250 with the database's D-390. An id per request (not per form) would make a retry a new add; an id per action across edits of the values would be refused as reused, which the form then says in words.
+
+**Rejected:**
+
+- A new id per click (a retry after a lost answer would record twice).
+- Keeping the id after request_reused (every later save would be refused).
+
+Related: D-390, R-APP-250, R-CONCURRENCY-320, Q-250
+
+Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16
+
+### D-441 The comparison screens take what the database now gives (accepted)
+
+Side by side opens on the database's default (the last two completed periods) and says in words, under the picker, in the column heading and in the period list, which chosen side is still running (a_is_current, b_is_current). The categories view shows active_average_spent ("over the N periods it was in use") under the average where active_count differs from completed_count, and both views take "over the plan" from the database's flags. Transfers' committed figures (step 7) are read but not shown yet. The transaction form's earliest date is my_budgets.first_period_start (D-392), read with the budget's counts.
+
+**Why:** D-383, D-384, D-391 and D-392 give these figures; the client no longer decides them.
+
+**Rejected:**
+
+- Hiding a running side (the user may want it, it is only marked).
+
+Related: D-383, D-384, D-391, D-392, Q-181, R-COMPARE-071, R-COMPARE-192
+
+Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16
+
+### D-442 The import page: read here, previewed under the import's own batch, sent in parts (accepted)
+
+A PDF is read with readStatementFile (pdf.js and the parsers load on the first file, in chunks of their own) and mapped with toImportBatch; a CSV is mapped on the page. The client generates the batch id when the rows are ready and names it in every preview and every part. A member's choice is sent only where it differs from what the database proposes (a row's action, a credit's kind, a category in force on its date), so choices are remembered only where the member made one. The preview is asked per part of 500 rows, again 400 ms after the last change; the import is offered only once every part's answer is current, then sends the same rows. The rows are drawn 100 at a time with a filter (all, to import, skipped, invalid); the statement's extra data is in a disclosure per row. After the import: the counts from the answers, the rows not imported (list_import_skipped_rows) with "import anyway", the link to the review and undo.
+
+**Why:** R-IMPORT-252 and R-IMPORT-208 ask the preview to equal the write; the page must stay usable with 1200 rows on a phone.
+
+**Rejected:**
+
+- Sending every choice explicitly (it would remember choices the member never made).
+- One preview call for all rows (the function takes 500).
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-443 An interrupted import is resumed by opening the same file (accepted)
+
+While parts are sent the page asks before leaving. The batch id, the parts confirmed, the source and a SHA-256 fingerprint of the rows are kept in localStorage (never the rows: they hold bank data); after a reload the page says an import stopped after part n of m. Opening the same statement again (same fingerprint) reuses the batch id: every part is sent again and those already recorded answer as before. A finished import removes the note; "forget it" removes it by hand.
+
+**Why:** The rows must not be stored on the device; the import is idempotent by batch and part, so sending all parts again is safe.
+
+**Rejected:**
+
+- Keeping the rows to resume without the file (bank data in browser storage).
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-444 The CSV mapping (accepted)
+
+The separator is detected among semicolon, comma and tab (the one that splits the first lines into equal numbers of cells, the most cells winning) and can be changed; a file that is not UTF-8 is read as Windows-1252. The header's names pre-fill the mapping for the user to check. A date format fills itself only when it alone reads every date; otherwise the user chooses among DD.MM.YYYY, DD.MM.YY, MM.DD.YYYY, DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD and DD-MM-YYYY. Amounts: one signed column (the user says what a negative is) or money out and money in; a decimal point or comma; apostrophes, spaces or the other mark as thousands separators; a trailing minus or brackets; more than two non-zero decimals is refused, never rounded. The statement dates sent are the earliest and latest row dates. The mapping is remembered per budget and header in localStorage.
+
+**Why:** R-IMPORT-082; Swiss exports use semicolons, decimal commas and DD.MM.YYYY, and 03.04 is ambiguous.
+
+**Rejected:**
+
+- Guessing day-first for ambiguous dates.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-445 The review in the transactions list (accepted)
+
+A "to review" filter (review=1) and an import's filter (batch=<id>) are chips kept in the address; each imported row shows "to review" or "needs a category", a confirm button (none, with why, while in "to categorise") and the statement's data in a disclosure. Confirm all applies to the batch when one is filtered. After an edit gives an imported transaction to review a real category, the page offers "always put this merchant in this category?" with the merchant key the database computed and the number of others waiting in "to categorise" whose key contains it (read from list_transactions, up to 200); not offered when a rule's fragment is already contained in the key. One click calls create_merchant_rule with p_apply and says how many moved.
+
+**Why:** R-IMPORT-007, R-IMPORT-209; the database has no preview of a rule (Q-271).
+
+**Rejected:** none recorded.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-446 An import token's secret stays in its dialog (accepted)
+
+create_import_token is called from the mutation, which hands the secret to the dialog's state and returns only the token id, so the mutation cache never holds it; closing the dialog drops it. The dialog says it is shown once, offers a copy button, and says to put it in the environment of the session that runs the script as BUDGET_IMPORT_TOKEN, never in a conversation (docs/import-script.md).
+
+**Why:** R-IMPORT-074, R-SECURITY-005.
+
+**Rejected:** none recorded.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-447 "To categorise" in the screens (accepted)
+
+Pickers (transaction, subscription, debt, rule) drop the categories flagged is_to_categorise from list_categories_for_date / category_overview. An import waiting there opens in the transaction form with no category chosen, so saving it gives it a real one. The budget page lists it with a mark ("Import"), "No plan", what it is for, and an edit form that changes the name only; "add a subcategory" is not offered and "remove" is disabled with the reason while it holds transactions. Progress and compare mark its line. category_to_categorise is worded for what was tried: a plan, a subcategory, ending it, a rule, a typed transaction, a subscription, a debt, or confirming a transaction still in it.
+
+**Why:** R-CATEGORY-200, R-CATEGORY-250; conservative where update_transaction's rule for keeping it is unclear (Q-273).
+
+**Rejected:** none recorded.
+
+Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+
+### D-448 Page strings load with the pages (accepted)
+
+The strings of the import (step 6), the comparison (step 5) and the subscriptions, debts, charges and corrections (step 4) are three chunks (src/locales/groups), loaded with the budget pages by their lazy routes, which wait for them before rendering, so no key shows while they load. The first load keeps the shell, the sign-in pages, the errors and the catch-up screen. Their keys stay typed from the English files. The tests load every group up front.
+
+**Why:** The import strings had grown the first load from 186 to 244 kB (53 to 70 kB gzip); with the comparison and step 4 strings moved too, it is 135 kB (41 kB gzip).
+
+**Rejected:**
+
+- Loading only the current language (a language switch would then wait for a chunk).
+
+Related: R-I18N-001, D-442
+
+Source: owner-request: coordinator, follow-up to the step 6 screens at 40a20ed, 2026-11-16
+
+### D-450 Migrations before the first deployment (accepted)
+
+No database has been deployed yet. Until the first deployment, a step's migration file may be corrected in place while that step is still under review; the first deployment freezes every migration file then present, and from then on every change is a new migration.
+
+**Why:** Fix rounds of a step under review would otherwise stack migrations that only repair code nobody has run, and the reviewed file would no longer be the one that runs.
+
+**Rejected:**
+
+- A new migration for every fix from the start: the reviewed code and the code that runs drift apart before anything is deployed.
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
+
+### D-451 What a token learns of the room (accepted)
+
+A token call is refused with transaction_limit_reached whenever the budget has room for fewer transactions than a token call's maximum rows (250), whatever rows it sends and before any planning: a token learns one bit ("nearly full"), never the count. A signed-in member keeps the exact answer (detail {"fits": n}).
+
+**Why:** Counting only the rows sent let a token learn the exact room below 500 by sending 1, 2, 3 rows that can never be imported (the re-review's should-fix 1).
+
+**Rejected:**
+
+- Refusing only when the rows sent do not fit: an exact oracle of the room.
+
+Related: D-371, R-SECURITY-251, R-SECURITY-345
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-452 Import storage per budget is bounded (accepted)
+
+Whatever members and tokens do, a budget's import storage is bounded. Within a rolling 24 hours (members and tokens together): 20 000 rows submitted to a write and 50 new batches (import_limit_reached), 20 tokens created, deleted ones included (token_limit_reached). Kept: 2 000 batches (at the limit, the oldest batches that hold no transaction and no skipped row any more go first; import_limit_reached when none can), the newest 20 000 skipped rows (older ones go; the batch's counts stay), the newest 50 chunk answers and none older than 7 days (a chunk whose answer is forgotten stays recorded, so sending it again answers chunk_expired and never imports it twice), and staged preview parts for a day, at most 100. Measured with incompressible text at every limit: a skipped row takes about 3 kB and a 500-row chunk answer about 380 kB, so a day adds at most about 85 MB and all that is kept beyond the transactions is at most about 110 MB (skipped rows 66 MB, chunk answers 19 MB, staged parts 11 MB, recorded chunks and batches about 15 MB).
+
+**Why:** The re-review stored 39 MB in 7 s through chunks and recycled 30 tokens in 4.4 s: each call was bounded, nothing bounded the total.
+
+**Rejected:**
+
+- Refusing at the kept limits only: a stolen token could block imports for good.
+- Only a time-based pruning: no total bound.
+
+Related: D-378, R-IMPORT-250, R-IMPORT-341
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-453 Token calls never queue (accepted)
+
+A token call never waits for another token call: another call of the same token doing work answers token_busy at once, and when the two slots for token work (all budgets together) are taken the call answers imports_busy at once; neither does any work or counts, and the script waits and sends again. A working call waits at most a second for its budget's lock (budget_busy, counted) and takes at most 250 rows (a member's call 500); with the merchant key's bounded steps and the duplicate lookup by index its database time stays far within the anon statement timeout (measured worst case about 0.3 s on a 45 000-transaction budget). Were it cancelled all the same, it answers call_cancelled and still counts. A visitor with only the publishable key can still make PostgREST read and parse a request body of any size the gateway lets through (Q-280) and receive invalid_token; every other function is refused.
+
+**Why:** A cancelled transaction cannot be counted, and calls of one token waiting on its lock piled up until the API stalled for every budget (re-review M-2).
+
+**Rejected:**
+
+- Counting in a separate committed transaction (dblink): an extension and a connection per call for what bounded work and try-locks already give.
+- Keeping 500 rows a token call: under a 40-loop hammer on a loaded machine one call in 170 hit the statement timeout.
+
+Related: D-370, R-SECURITY-252, R-SECURITY-340
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-454 The cleaner keeps joiners where text needs them (revises D-376) (accepted)
+
+A zero-width joiner or non-joiner stays between two characters that are not white space (an emoji sequence, Persian or Indic text) and goes elsewhere; interlinear annotation marks (U+FFF9 to U+FFFB) and the language tag (U+E0001) go; a text left with nothing visible (only Hangul fillers, blank braille patterns, joiners, variation selectors or tag characters) is empty, so a name made only of them is refused (invalid_name). Tag characters after a flag stay.
+
+**Why:** Removing every joiner broke emoji families and Persian words, while names made of invisible fillers passed as non-empty (re-review, cleaner).
+
+**Rejected:**
+
+- Removing the fillers everywhere: some are real characters of Hangul or braille text.
+
+Related: D-376, R-SECURITY-250, R-SECURITY-341
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-455 A statement previewed in parts (answers Q-270 and Q-274) (accepted)
+
+preview_import_part(p_budget_id, p_batch_id, p_part, p_rows) previews part p_part of a statement before any part is written: it takes into account what the batch's parts before it absorb (duplicates, matches) and the choices they send, as well as the chunks already written, so for a statement up to 100 parts of 500 rows its counts and per-row answers equal what import_transactions then does with the same parts in the same order, absent changes by others. It answers one object: rows (as preview_import), part and statement totals (rows and each action; the rows to import by kind, count and amount), the parts covered, the room and whether the statement fits. Previewing a part again forgets the staged parts from it on. preview_import keeps its shape.
+
+**Why:** The screens compared the write with a per-part preview that could not know what earlier parts absorb; the summary had no amounts because the client never adds them (C-LOGIC-003).
+
+**Rejected:**
+
+- Previewing the whole statement in one call: answers beyond 1000 rows.
+- Changing preview_import's answer: the screens read its rows.
+
+Related: R-IMPORT-252, R-IMPORT-340, Q-270, Q-274
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-456 Remembered choices are the member's own (answers Q-276; revises D-314) (accepted)
+
+Only a choice the member sent with a row (action import or skip, or "import anyway") is remembered; a default the import applied is not. A row's choice_key is the key its choice is remembered under: its merchant key, or own_transfer for an own transfer without description and merchant (no merchant key can contain "_"), so an own transfer's choice is remembered too.
+
+**Why:** The contract called them a member's choices while the import stored every default, and an own transfer without a description had no key at all.
+
+**Rejected:**
+
+- A key per account for own transfers: the row carries no account.
+
+Related: D-314, R-IMPORT-092, R-IMPORT-345, Q-276
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-457 A rule's preview (answers Q-271) (accepted)
+
+preview_merchant_rule(p_budget_id, p_fragment, p_category_id) answers, without writing, the fragment as it would be stored, the existing rule that already covers it (the one the import picks: the longest fragment it contains), whether a rule with that fragment exists, and how many transactions waiting in "to categorise" the rule would move to that category (one implementation with the rule's apply).
+
+**Why:** The screens repeated the "contains" test in the client over at most 200 transactions (C-LOGIC-003).
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-201, R-IMPORT-347, Q-271
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-458 Forget a remembered choice (answers Q-272) (accepted)
+
+forget_import_choice(p_budget_id, p_flag, p_counterparty_key) deletes a remembered choice; the next import of that entry applies the default again. It answers whether one was forgotten.
+
+**Why:** A member could only override a choice at the next import.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-092, R-IMPORT-346, Q-272
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-459 One batch by its id (answers Q-275) (accepted)
+
+get_import_batch(p_batch_id) answers the batch as list_import_batches gives it, to members of its budget (import_batch_not_found otherwise).
+
+**Why:** A summary or a link to one batch had to scan pages.
+
+**Rejected:**
+
+- A p_batch_id argument on list_import_batches: another overload of a paged call.
+
+Related: R-IMPORT-257, R-IMPORT-348, Q-275
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-460 Editing in "to categorise" (answers Q-273) (accepted)
+
+An imported transaction waiting in "to categorise" can be edited (amount, date, description, links) while it keeps that category; update_transaction refuses only moving a transaction into it, and confirming it there.
+
+**Why:** The guard already allowed it; the contract did not say so.
+
+**Rejected:** none recorded.
+
+Related: R-CATEGORY-250, R-CATEGORY-340, Q-273
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-461 Client request ids answer members only (revises D-390) (accepted)
+
+A call with p_client_id checks membership first: before the id is looked at, before the catch-up gate and before the budget lock (and again under the lock). A signed-in outsider or a removed member gets budget_not_found for every budget and every client id; a replay answers a current member only rows of the budget it names; add_income replayed after the income was removed answers no income, like the other calls.
+
+**Why:** A removed member replaying a client id read the budget's current rows for 7 days, and an outsider learned request_reused and catching_up (re-review M-1).
+
+**Rejected:** none recorded.
+
+Related: D-390, R-APP-250, R-APP-340
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261121100000_client_requests.sql
+
+### D-462 The duplicate lookup reads by index (accepted)
+
+A row's duplicate by content is looked up twice, each by index: as the transaction is now (budget, kind, amount, date) and as first imported (budget, original amount and date, imported transactions only); the earlier match wins. The values as first imported belong to imported transactions only (a check constraint).
+
+**Why:** The one-query form could not use an index and scanned the budget for every row: 6 to 7.5 s for a 500-row preview at 45 000 transactions (re-review M-3).
+
+**Rejected:** none recorded.
+
+Related: D-372, R-IMPORT-254, R-IMPORT-343
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-463 Token windows by whole minutes (accepted)
+
+A token's calls and rows are kept by minute; the whole minute a call was made in counts, so a call counts toward the hour for at least 60 and at most 61 minutes, and toward the day for at least 24 hours and at most 24 hours and 1 minute. The limits hold over any 60 minutes and any 24 hours.
+
+**Why:** Counting minutes strictly after now minus an hour let a call drop out after 59 minutes (re-review should-fix 8); one row per minute keeps the bookkeeping bounded.
+
+**Rejected:**
+
+- One row per call: unbounded rows for refused calls.
+
+Related: D-370, R-SECURITY-252, R-SECURITY-342
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-464 A token adds only to its own batches (accepted)
+
+A token adds chunks only to a batch it created; any other existing batch id (a member's, another token's, another budget's) answers import_batch_conflict, also for a chunk already recorded, so a token cannot read another batch's answers.
+
+**Why:** A token knowing a member's batch id could add to it and replay its chunks (re-review should-fix 7).
+
+**Rejected:** none recorded.
+
+Related: D-371, R-SECURITY-343
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-465 The token call takes its arguments as text (accepted)
+
+import_with_token takes the batch id, the chunk and the statement dates as text and checks them itself (invalid_batch, invalid_chunk, invalid_date), so a malformed argument answers its code instead of a raw cast error. What happens before the function runs cannot be caught by it: a body that is not JSON (PGRST102), or nested so deep that parsing exceeds the stack (54001), is answered by PostgREST or the database parser.
+
+**Why:** Raw 22P02 and 22008 errors with a datestyle hint reached anonymous callers (re-review should-fix 6).
+
+**Rejected:** none recorded.
+
+Related: R-SECURITY-344, D-453
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-466 "Import anyway" imports the row previewed (accepted)
+
+A valid row that was skipped is kept as the preview showed it, its free text cleaned (description, merchant, bank transaction id, details), so importing it anyway imports that row and a later import of the same statement line finds it by its bank id. An invalid row is kept as before (bounded, D-378).
+
+**Why:** The kept row was the raw text cut to the limit before cleaning: a padded description or bank id was imported shorter than previewed and no longer matched (re-review should-fix 4).
+
+**Rejected:** none recorded.
+
+Related: D-378, R-IMPORT-073, R-IMPORT-344
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### D-420 Occurrences are keyed by date, not by period (accepted)
 
@@ -5874,13 +6925,13 @@ Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2
   - Context: D-201: after more than ten years away, reading a budget takes several ensure_periods calls (120 periods each); my_budgets.caught_up is false meanwhile and get_current_period answers no row.
   - Related: D-270, R-PERIOD-130, D-231
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16
-- **Q-140** (resolved by D-274) Should transaction_list say that a payment's debt has ended?
+- **Q-140** (resolved by D-293) Should transaction_list say that a payment's debt has ended?
   - Context: D-209: a payment of an ended debt cannot be changed or deleted. transaction_list gives debt_id and debt_name only, so the transactions list reads debt_overview to know which payments are frozen and disable their actions. A column debt_ended (or a frozen flag) would let the list say so from its own row.
   - Related: D-209, R-DEBT-151
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
-- **Q-141** (resolved by D-275) Should get_debt_history also page newest first?
+- **Q-141** (resolved by D-290) Should get_debt_history also page newest first?
   - Context: D-232: the history table shows the oldest events first because get_debt_history pages only in that order; for a long history the latest events, the ones a member usually looks for, are many pages away. A p_newest_first flag with the mirrored cursor would let the table start with them.
-  - Related: D-232, R-DEBT-135
+  - Related: D-232, R-DEBT-135, D-290
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 - **Q-160** (resolved by D-383) Should a category's average spent count only the periods where it was in force?
   - Context: D-261: it divides by every completed period of the range, so a category added three periods ago averages over all twelve and looks smaller than its usual spending. Counting only periods in force would make the per-category averages not add up to the trend's average spent.
@@ -5926,6 +6977,134 @@ Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2
   - Context: D-352 caps the due date at the period's last day, so one calendar day can lead to two occurrences close together (the short period's last day, then the day in the next period).
   - Related: D-352, R-ACCOUNT-239
   - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
+- **Q-180** Should list_transactions list the charges awaiting confirmation oldest first?
+  - Context: The dashboard shows the oldest awaiting charges first (list_charges_awaiting_confirmation, at most 200, no paging); the transactions list filtered to them (p_awaiting_only) pages newest first only, so the two orders differ and the oldest of hundreds are pages away. An oldest-first order for that filter, with its cursor, would let the list match the card.
+  - Related: R-TRANSACTION-132, R-SUBSCRIPTION-191
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
+- **Q-181** Should the database give what the screens still derive from its lists?
+  - Context: Four derivations without money remain in the client (C-LOGIC-003, borderline): the period containing a typed date (picked from list_periods' rows, to read a debt's terms for a payment); the nominal day of a typed first charge date (its day number, for the words under the preview); the last period a correction reaches (the period before until_period_id, taken as seq - 1 from the list); and the subscriptions and debts that use a category now (filtered from their lists, for the warning before a removal). The database could give period_id for a date, the preview's nominal day, until_period's predecessor, and category_overview's users. A fifth, from the review of the step 5 screens: "over the plan" in the categories view is decided in the client (spent > planned), which differs from the database only for a category not in force with spending; the database is to give the flag per period. Update (step 6 screens, D-441): the fifth is closed; the categories view and side by side take "over the plan" from get_category_trend.is_overspent and get_period_comparison's a_is_overspent / b_is_overspent (D-391). The first four remain.
+  - Related: C-LOGIC-003, R-DEBT-152, R-VERSION-150, R-CATEGORY-120, R-COMPARE-192, D-391
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
+- **Q-200** How does the Migros Bank account statement print a negative balance (an overdraft)?
+  - Context: The sample has no negative balance and docs/import-sources.md says the account statements print no negative numbers. A balance with a sign is refused for now as an unreadable amount, so an overdrawn statement cannot be imported until a sample shows the format.
+  - Related: R-IMPORT-089
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-201** How are the Migros Bank account entries that were not in the sample labelled: cash withdrawals, interest and fees at period end, incoming transfers, eBill and direct debits, TWINT refunds, and TWINT payments to foreign phone numbers?
+  - Context: D-331 keeps them as printed. The parser assumes, without a sample, that a line starting with "Retrait" is a cash withdrawal, "Intérêt" an interest line and "Frais", "Commission", "Taxe" or "Tenue de compte" a fee, and that a TWINT phone number is "+" and 6 to 15 digits. A label that differs only loses the hint.
+  - Related: D-331, Q-069
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-202** What do card-bill rows not in the sample look like: an annual fee or other charge, a cash advance, a refund, a first bill without a previous total, a partial payment and a bill with a credit balance?
+  - Context: The parser assumes an annual fee is a header row (two dates, no card) whose text starts with "Cotisation", "Frais", "Taxe" or "Commission"; that a cash advance has "retrait" in its details or category; that a refund is a card row with a trailing " -"; and that a missing previous total counts as zero. A bill total labelled otherwise than "Montant total de la facture en notre faveur" (for a credit balance) is refused as an unexpected line.
+  - Related: D-331, R-IMPORT-096
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-203** How does the Yuh statement show sales, dividends, fees, currency exchange, Yuh card purchases, TWINT, outgoing transfers and savings-account movements?
+  - Context: Only securities purchases ("Achat" with security lines) and incoming transfers ("Virement de") were in the sample. Any other row is kept as printed (D-331): a sale or dividend becomes a credit to review, which may be wrong for an investment account (Q-067).
+  - Related: D-331, Q-067
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-204** With several currency sections on a Yuh statement, what do the page 1 opening and closing balances hold, and should movements in another currency be imported (converted, or as their CHF counterpart) rather than refused?
+  - Context: The parser checks every section on its own and the per-currency closing balances of page 1, but compares the page 1 opening and closing balances only when the statement has one section. Movements in a section other than CHF refuse the statement (the budget is CHF only, R-MONEY-001).
+  - Related: D-126, R-IMPORT-084
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-205** Does Viseca round every CHF figure of the card bill (converted amounts, fees, a CHF amount charged abroad plus its fee) to 0.05, and how?
+  - Context: Every CHF figure of the sample is a multiple of 0.05. docs/import-sources.md says a CHF amount charged abroad "may differ by 0.01 from the sum of the printed figures", but the sample's row of 11.62 plus a fee of 0.20 is billed 11.80, a difference of 0.02. D-330 accepts differences below 0.05.
+  - Related: D-330, R-IMPORT-088
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-206** On a card bill of more than two pages, is "Total intermédiaire de la carte" the card's total so far or only the rows of that page, and can one row's lines be split across a page break?
+  - Context: The sample has one page break, where both readings give the same figure. The parser takes the total so far (it is carried forward as "Report de la carte") and lets a row's continuation lines follow on the next page, after the carried-forward lines.
+  - Related: R-IMPORT-088
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-207** How does Yuh print amounts of 1000 or more?
+  - Context: No amount of 1000 or more was in the sample. The parser accepts the Migros Bank form (1'234.50, with ' or ’) and plain digits (1234.50), and refuses anything else as unreadable.
+  - Related: R-IMPORT-089
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-208** How are the holder's name and address printed for a joint account, a couple or a holder with a title, on each statement?
+  - Context: The parser reads the holder from page 1: on the Migros Bank account, the lines after a numeric code and one salutation line (the last two lines being street and town); on Yuh, the line before street and town, without a leading "Monsieur", "Madame" or similar; on the card bill, "Titulaire du compte". When the block cannot be read, no own transfer is flagged (D-334).
+  - Related: D-334, Q-063, Q-070
+  - Source: owner-request: coordinator brief for the step 6 statement parsers, 2026-11-16
+- **Q-209** On the Migros Bank account statement, is the value date of a card purchase always its purchase date?
+  - Context: It is for every card purchase of the sample and, per the reviewer, for all 51 of the real statement. The parser does not enforce it from one statement (D-339).
+  - Related: D-339
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-210** When a Yuh currency table runs over a page break, is its heading repeated on the next page?
+  - Context: The parser continues a table only under a repeated heading; a continuation without one is refused. No sample had a Yuh table over two pages.
+  - Related: R-IMPORT-087
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-211** How are Yuh amounts aligned under their headings?
+  - Context: In the sample the debits end about 5.6 pt left of the DÉBIT heading's right edge; the parser places an amount by its right edge within the heading span plus 4 pt, so a credit left-aligned with its heading would be refused.
+  - Related: R-IMPORT-087
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-212** Should entries of 0.00 be shown in the review at all?
+  - Context: The card fixture has an invented 0.00 row (a conversion rounded to nothing); the real bill has none. D-341 shows it with nothing to import.
+  - Related: D-341
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-213** May the import guess that the payee of a payment or standing order is a private person (no legal-form word such as AG, SA, GmbH, Sàrl), to give it the transfer_to_person hint?
+  - Context: The statements do not say; only a TWINT payment to a phone number shows a person. D-340 gives no hint otherwise.
+  - Related: D-340, Q-063
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-214** Does the import function require row dates inside p_statement_from to p_statement_to?
+  - Context: Rows are dated by purchase date (D-128), which can precede the statement period: a purchase of 31 March in the April account statement, a card purchase before the previous bill date.
+  - Related: D-340, D-128
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-215** Can a card bill carry a credit before the first card that is not a payment (a refunded fee or interest), and how is it labelled?
+  - Context: D-335 takes every such credit for the payment received, so a refunded fee there would not be imported.
+  - Related: D-335
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-216** Should an own transfer still be recognised when the payee lines carry a message, a "c/o" line or abbreviations ("Ch." for "Chemin")?
+  - Context: D-334 compares the street and town lines exactly (without case and punctuation); such a payment is imported as an ordinary expense, which the user can skip.
+  - Related: D-334, Q-208
+  - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
+- **Q-250** (resolved by D-440) Should an add carry a client-generated id so a retry after a lost answer records it once?
+  - Context: R-CONCURRENCY-281: today a lost answer on an add can only be described ("it may have been saved"); the coordinator has asked the database for an idempotency id on adds, to be wired in the next round.
+  - Related: R-CONCURRENCY-281
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **Q-251** Should my_budgets say directly whether the budget has ended?
+  - Context: D-400: the client combines three answers (end date, caught_up, no current period). A has_ended column would make the rule one read and remove the wait during a catch-up.
+  - Related: R-BUDGET-280, D-400
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **Q-252** Should addresses name their budget, so a shared link opens the budget it was made in?
+  - Context: D-404: the current budget is chosen in the sidebar and not in any address; a comparison link opened by a member whose current budget differs falls back to the defaults (R-COMPARE-283). Naming the budget in every address would make shared links exact.
+  - Related: D-404, R-COMPARE-283
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **Q-270** (resolved by D-455) Should preview_import take the rows of the batch's earlier parts that are not written yet, so that a later part's preview accounts for them?
+  - Context: A part is previewed on its own; a row of part 2 that duplicates or matches the same existing transaction as a row of part 1 is previewed as absorbing it, but at the write part 1 absorbs it first. The screens compare the answers with the preview and say how many rows turned out differently (D-442). Only imports above 500 rows are affected.
+  - Related: R-IMPORT-252, R-IMPORT-251
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-271** (resolved by D-457) Should the database preview a merchant rule: whether an existing rule already covers a key, and how many transactions waiting in "to categorise" it would move?
+  - Context: The one-click offer decides "already covered" and counts the others by testing whether the database's keys contain a fragment in the client (D-445), which repeats R-IMPORT-201's "contains" and reads at most 200 waiting transactions; the count after the click is the database's (moved).
+  - Related: R-IMPORT-007, R-IMPORT-201, C-LOGIC-003
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-272** (resolved by D-458) Should a member be able to forget a remembered choice for a flagged entry?
+  - Context: list_import_choices shows them; no call deletes one. The settings card says to choose otherwise at the next import instead.
+  - Related: R-IMPORT-092
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-273** (resolved by D-460) Can an imported transaction waiting in "to categorise" be edited (amount, note) while it stays there, or must every update give it a real category?
+  - Context: docs/database.md says update_transaction refuses "to categorise" for a transaction moved into it; it does not say whether one already there may keep it. The form asks for a real category (the conservative reading, D-447). Observed on the local stack: update_transaction with the "to categorise" category unchanged and a new note is accepted, so the database allows it; the contract should say so before the form relaxes.
+  - Related: R-CATEGORY-250
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-274** (resolved by D-455) Should the preview give the total amount to import (money out and money in), for the summary above the table?
+  - Context: The summary counts rows from the answers; it shows no amount, since the client never adds amounts (C-LOGIC-003). preview_import would have to return per-call totals by action.
+  - Related: R-IMPORT-252, C-LOGIC-003
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-275** (resolved by D-459) Should one batch be readable by its id (list_import_batches with p_batch_id)?
+  - Context: After an import the summary counts the answers rather than reading the batch's own counts, which the paged list gives only by scanning pages; a link to one batch cannot be opened either.
+  - Related: R-IMPORT-257
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-276** (resolved by D-456) How should a choice for an own transfer be remembered, and should the import remember the default of a flagged row the member did not change?
+  - Context: toImportBatch sends an own transfer without description and merchant (R-IMPORT-219: the payee is the holder), so its merchant key is empty and a choice for it cannot be remembered (R-IMPORT-092); on the local stack, importing it by choice stored no import_choices row. Conversely, after a first import of the Migros Bank fixture with no action sent, import_choices held a row for every transfer to a person (import) and for the card-bill payment (skip): the database remembers defaults too, which the contract describes as "a member's choice".
+  - Related: R-IMPORT-092, R-IMPORT-219, D-314
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-280** What bounds a request body before import_with_token runs on the hosted project, and is anything needed in front of it?
+  - Context: PostgREST reads and parses the whole body before the function runs; locally a 50 MB body with an unknown token was parsed in 1.0 s and 200 MB in 4.1 s, the database growing from 0.33 to 1.77 GiB. The function checks 2 MB only once it runs. To verify at the deployment step: the hosted gateway's body limit; if it is large, a limit in front of the API (docs/deployment.md).
+  - Related: R-IMPORT-250, D-378, D-453
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
+- **Q-281** Should anonymous calls be rate-limited before the database (per address, at the gateway)?
+  - Context: Busy answers cost about 1.5 ms each and count nothing; 40 parallel loops on one token still take connections from the API's pool, and a member of another budget then saw a median of 115 to 206 ms (worst 635 ms) instead of 7 to 9 ms. Only a limit in front of PostgREST can bound that; to check at the deployment step with Q-280.
+  - Related: D-453, R-SECURITY-340
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
+- **Q-282** When a period start moves onto or before a debt's opening and back again, how should the debt's interest come back, and should the later entries follow the history?
+  - Context: D-386 removes the period's interest entry when its start moves to on or before the opening (a trigger in the step 4 migration, private.drop_interest_before_opening) and adds nothing when it moves later again, because interest is computed once, when the period is created. So after a start moves onto the opening day and back, the debt is lower for good by the removed entry (120.00 in the re-review), and the next period's entry keeps the balance it was computed on (debt_interest.balance 1 212 000 while the history's balance before it is now 1 200 000). Options: (a) refuse the move while the period holds an interest entry of a debt opened on or after the new start (a refusal code, shown by preview_move_period_start as it already counts interest_removed): the history stays exact and nothing is lost, at the cost of a restriction; (b) keep the entry but mark it suspended while the start is on or before the opening, and restore it when the start moves after the opening again: the round trip is exact, but while suspended the later entries' balance disagrees by the suspended amount; (c) on any removal, recompute every later entry of that debt from the history: balance always agrees, but amounts the member has seen change, and a move back still loses the entry unless combined with (b). Recommended: (a). Any option changes the step 4 migration's trigger and its preview, which under D-450 is a new migration (or the money-flow rewrite), so it was not fixed in this round.
+  - Related: D-386, D-272, R-DEBT-131
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **Q-260** A period created on a scheduled pay date the budget already used (a salary recorded more than 15 days early, then the next one on its scheduled day) has no primary pay-date occurrence. When both salaries are real, should that period's pay-date transfers get an occurrence (for example keyed by its actual start), so a real payday's standing order is not missing from its checklist?
   - Context: D-420 gives a key to one period only, so a reopen and the salary recorded again find the same mark. Example: pay day 25, a salary recorded on 9 November for 25 November: that period's "Savings 500" (pay date, automatic) is keyed 25 November and its transaction dated 9 November; the period the schedule then starts on 25 November gets no key, so its checklist has no "Savings" row and the catch-up makes no transaction for it. The next period (25 December) is keyed as usual. If the 25 November salary is real, one standing order is missing from the budget until a member records it as a plain transaction.
   - Related: D-420, R-ACCOUNT-301, R-ACCOUNT-302

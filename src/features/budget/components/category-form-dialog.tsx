@@ -5,7 +5,9 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
+import { NothingToSave } from '@/components/nothing-to-save'
 import { MoneyField } from '@/components/form/money-field'
 import { SegmentedField } from '@/components/form/segmented-field'
 import { SelectField } from '@/components/form/select-field'
@@ -34,6 +36,7 @@ import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useCreateCategory, useUpdateCategory } from '@/features/categories/category-mutations'
 import { CADENCES, type Category } from '@/features/categories/category-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
@@ -101,9 +104,15 @@ function CategoryForm({
   currentPeriod,
 }: CategoryFormDialogProps) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   // A refused save over a change this form does not show says so (the shown fields that
   // changed have their own notice), in the save's own words.
-  const errorMessage = useErrorMessage({ record_changed: 'corrections.changedNotShown' })
+  const errorMessage = useErrorMessage({
+    record_changed: 'corrections.changedNotShown',
+    category_to_categorise: opened
+      ? 'import.toCategorise.errors.expectation'
+      : 'import.toCategorise.errors.subcategory',
+  })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
@@ -113,7 +122,8 @@ function CategoryForm({
     opened?.is_active === true && record.is_active !== true
   const edit = useEditBase(opened, live, views.category, endedElsewhere)
   const category = edit.base
-  const isGroup = category?.is_group === true
+  // "To categorise" takes no expectation either: only its name changes (R-CATEGORY-200).
+  const isGroup = category?.is_group === true || category?.is_to_categorise === true
   // Someone else added its first subcategory: it is now a group, with no amount of its own.
   const becameGroup = opened?.is_group === false && live?.is_group === true
 
@@ -132,9 +142,17 @@ function CategoryForm({
   const [correct, cadence] = useWatch({ control: form.control, name: ['correct', 'cadence'] })
 
   const create = useCreateCategory(budgetId, { onDone: close })
+  const request = useClientId()
   const update = useUpdateCategory(budgetId, { onDone: close })
   const mutation = category ? update : create
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    error: update.error,
+    // A group has no amount of its own: the fields are not its terms.
+    controls: isGroup
+      ? ['correct', 'fromPeriodId', 'amount', 'cadence']
+      : ['correct', 'fromPeriodId'],
+    current: () => (correcting ? startValues : null),
+  })
 
   // Periods are identified by their dates; a subcategory never before its group.
   const periodLabel = (period: PeriodSummary) =>
@@ -157,12 +175,15 @@ function CategoryForm({
   // Not in force in that period: nothing to correct there, nothing to save.
   const notInForce = correcting && termsAt.data?.inForce === false
   const base = category ? (correcting ? periodTerms : category) : null
-  useStartFrom(
-    form,
-    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
+  // The terms the form starts from: now, or the chosen period's (read from the database).
+  const startValues =
     base && category && !isGroup
       ? { amount: base.amount ?? 0, cadence: base.cadence ?? 'monthly' }
-      : null,
+      : null
+  const start = useStartFrom(
+    form,
+    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
+    startValues,
   )
 
   const onSubmit = form.handleSubmit((values) => {
@@ -177,13 +198,19 @@ function CategoryForm({
           cadence: isGroup ? null : values.cadence,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
-      : create.mutateAsync({
-          name: values.name,
-          parentId: parent?.id ?? null,
-          amount: values.amount,
-          cadence: values.cadence,
-          fromPeriodId: values.fromPeriodId || null,
-        })
+      : create
+          .mutateAsync({
+            name: values.name,
+            parentId: parent?.id ?? null,
+            amount: values.amount,
+            cadence: values.cadence,
+            fromPeriodId: values.fromPeriodId || null,
+            clientId: request.id,
+          })
+          .then(request.renew, (error: unknown) => {
+            request.afterFailure(error)
+            throw error
+          })
     return done.catch(() => undefined)
   })
 
@@ -206,10 +233,12 @@ function CategoryForm({
           </Alert>
         )}
         <ConcurrentNotices
+          adding={!category}
           gone={edit.gone}
           ended={live !== null && live !== undefined}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           // The first subcategory has its own notice above: the refused save needs no other.
@@ -239,6 +268,8 @@ function CategoryForm({
                 terms={termsAt.data}
                 pending={termsAt.isPending}
                 error={termsAt.isError ? errorMessage(termsAt.error) : null}
+                kept={start.kept}
+                views={edit.describe(category)}
               />
             }
             onToggle={(next) => {
@@ -249,6 +280,7 @@ function CategoryForm({
               <SelectField
                 control={form.control}
                 name="fromPeriodId"
+                more={olderPeriods}
                 label={t('corrections.period')}
                 options={correctable.map((period) => ({
                   value: period.id,
@@ -290,6 +322,7 @@ function CategoryForm({
           <SelectField
             control={form.control}
             name="fromPeriodId"
+            more={olderPeriods}
             label={t('categories.fields.from')}
             description={t('categories.fields.fromHelp')}
             options={[
@@ -314,6 +347,7 @@ function CategoryForm({
             </AlertDescription>
           </Alert>
         )}
+        <NothingToSave show={update.data === false && !update.isPending} />
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}

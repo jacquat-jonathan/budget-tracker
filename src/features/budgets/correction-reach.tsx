@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next'
 
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
+import { KeptTypedNote } from '@/features/budgets/kept-typed-note'
 import type { TermsAt } from '@/features/budgets/terms-at'
+import type { FieldView } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 
 /**
@@ -18,12 +20,17 @@ export function CorrectionReach({
   terms,
   pending,
   error,
+  kept = null,
+  views = [],
 }: {
   periods: readonly PeriodSummary[]
   periodId: string
   terms: TermsAt<unknown> | undefined
   pending: boolean
   error: string | null
+  /** The fields whose typed value was kept when the period changed (D-294). */
+  kept?: readonly string[] | null
+  views?: readonly FieldView[]
 }) {
   const { t } = useTranslation()
   const chosen = periods.find((period) => period.id === periodId)
@@ -41,15 +48,18 @@ export function CorrectionReach({
   const until = periods.find((period) => period.id === terms.untilPeriodId)
   const last = until ? periods.find((period) => period.seq === until.seq - 1) : undefined
   return (
-    <p className="text-sm text-muted-foreground" data-testid="correction-start">
-      {t('corrections.showsPeriodTerms')}{' '}
-      {until && last
-        ? t('corrections.reachUntil', {
-            start: formatCalendarDate(chosen.start_date),
-            end: formatCalendarDate(last.end_date),
-            next: formatCalendarDate(until.start_date),
-          })
-        : t('corrections.reachOn', { start: formatCalendarDate(chosen.start_date) })}
-    </p>
+    <>
+      <p className="text-sm text-muted-foreground" data-testid="correction-start">
+        {t('corrections.showsPeriodTerms')}{' '}
+        {until && last
+          ? t('corrections.reachUntil', {
+              start: formatCalendarDate(chosen.start_date),
+              end: formatCalendarDate(last.end_date),
+              next: formatCalendarDate(until.start_date),
+            })
+          : t('corrections.reachOn', { start: formatCalendarDate(chosen.start_date) })}
+      </p>
+      <KeptTypedNote kept={kept} views={views} />
+    </>
   )
 }

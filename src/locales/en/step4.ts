@@ -24,6 +24,8 @@ export const subscriptionsEn = {
     firstChargeHelp:
       'The schedule repeats on this day of the month (the month’s last day when it is shorter). Only dates from the period it counts from are charged.',
     nextCharge: 'New next charge date (optional)',
+    nextChargeHelpCorrection:
+      'Leave empty to keep the schedule of the period you correct. A date you enter becomes its next charge; the later ones follow from it.',
     nextChargeHelp:
       'Leave empty to keep the schedule. A date after today becomes the next charge; the later ones follow from it.',
     from: 'First period it counts in',
@@ -50,6 +52,8 @@ export const subscriptionsEn = {
     'The new terms apply from the period you chose until the next change already recorded.',
   editAppliesFrom:
     'New terms apply from the current period (from {{date}}); past periods keep theirs. Charges already recorded do not change.',
+  addAppliesFromEnded:
+    'It counts from the period you choose: its charges since then are created at once, to confirm.',
   addAppliesFrom:
     'It counts from the start of the current period: a charge date already passed in this period is recorded at once, for you to confirm.',
   preview: {
@@ -83,6 +87,10 @@ export const subscriptionsEn = {
     late_ordinal_other: 'on the {{count}}th, or on the last day of a shorter month',
   },
   noFurtherCharge: 'No further charge before the budget ends',
+  held: {
+    title: 'Waiting since {{date}}',
+    why: "The budget holds 50'000 transactions, the most it can hold: this charge is created once there is room.",
+  },
   remove: {
     deleteTitle: 'Delete “{{name}}”?',
     endTitle: 'End “{{name}}”?',
@@ -168,10 +176,10 @@ export const chargesEn = {
     'The {{count}} charges awaiting, dated from {{from}} to {{to}}, are confirmed: they all went through. Any that did not, answer one by one instead.',
   confirmAllAction_one: 'Confirm it',
   confirmAllAction_other: 'Confirm all {{count}}',
-  confirmedAll_one: '1 charge confirmed.',
+  confirmedAll_one: '{{count}} charge confirmed.',
   confirmedAll_other: '{{count}} charges confirmed.',
   confirmedAllOther_one:
-    '1 charge confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
+    '{{count}} charge confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
   confirmedAllOther_other:
     '{{count}} charges confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
 }
@@ -276,6 +284,7 @@ export const debtsEn = {
   endedBudget:
     'The budget has ended: a debt can still be added, changed or ended as a correction from one of its periods, and payments recorded within its periods.',
   filterChip: 'Debt: {{name}}',
+  endedNoEdit: 'This debt has ended: it can no longer be changed.',
   seeTransactions: 'See its payments',
   frozenPayment:
     'This is a payment on “{{name}}”, which has ended: it can no longer be changed or deleted.',
@@ -287,6 +296,7 @@ export const debtsEn = {
       'This payment’s debt has ended: the payment can no longer be changed or deleted.',
     adjust: 'This debt has ended: its balance can no longer be adjusted.',
     deleteAdjustment: 'This debt has ended: its adjustments can no longer be deleted.',
+    edit: 'This debt has ended: it can no longer be changed.',
   },
   payment: {
     dateRange: 'From {{min}}, when “{{name}}” was opened, to {{max}}.',
@@ -326,6 +336,10 @@ export const debtsEn = {
     label_one: 'Remaining amount over time, 1 event; now {{amount}}. The table below lists it.',
     label_other:
       'Remaining amount over time, {{count}} events; now {{amount}}. The table below lists them.',
+    labelOverpaid_one:
+      'Remaining amount over time, 1 event; now overpaid by {{amount}}. The table below lists it.',
+    labelOverpaid_other:
+      'Remaining amount over time, {{count}} events; now overpaid by {{amount}}. The table below lists them.',
     onlyOpened:
       'Only the opening so far: {{amount}} owed since {{date}}. The chart appears with the first payment or interest.',
     nothing: 'Nothing recorded yet.',
@@ -333,9 +347,9 @@ export const debtsEn = {
     marksNote:
       'With this many events, only balance adjustments are marked; point at the line for every event of a date, or read the history below.',
     labelCapped:
-      'Remaining amount over time, the first {{count, number}} events, up to {{date}}. The table below lists them.',
+      'Remaining amount over time, the first {{shown}} events, up to {{date}}. The table below lists them.',
     capped:
-      'The chart shows the first {{count, number}} events, up to {{date}}: the history is longer. The table below goes on to the latest.',
+      'The chart shows the first {{shown}} events, up to {{date}}: the history is longer. The table below goes on to the latest.',
   },
   history: {
     title: 'History',
@@ -352,10 +366,10 @@ export const debtsEn = {
     see: 'See',
     seePayment: 'See the payment of {{amount}} on {{date}} among the transactions',
     showMore: 'Show {{count}} more',
-    shownSoFar_one: '1 event shown, oldest first; there are more.',
-    shownSoFar_other: '{{count}} events shown, oldest first; there are more.',
+    shownSoFar_one: 'The latest event shown; there are older ones.',
+    shownSoFar_other: 'The latest {{count}} events shown; there are older ones.',
     shownAll_one: '1 event.',
-    shownAll_other: 'All {{count}} events, oldest first.',
+    shownAll_other: 'All {{count}} events, newest first.',
     loadFailed: 'The next events could not be read. Try again.',
   },
   overpaid: 'Overpaid',
@@ -371,6 +385,12 @@ export const debtsEn = {
 }
 
 export const correctionsEn = {
+  keptTyped_one:
+    'You had typed {{fields}}: it is kept. The other fields now show the terms of the period you chose.',
+  keptTyped_other:
+    'You had typed {{fields}}: they are kept. The other fields now show the terms of the period you chose.',
+  nothingToSave:
+    'Nothing to save: every field is as recorded. Change a field, or close this window.',
   period: 'Correct from the period',
   showsPeriodTerms:
     'The fields below now show what was in force in that period. Change only what was wrong: what you leave as it is stays as it was.',
@@ -378,14 +398,9 @@ export const correctionsEn = {
     'The correction applies from {{start}} up to the period ending {{end}}; from {{next}}, the terms recorded later stay.',
   reachOn: 'The correction applies from {{start}} on.',
   notInForce:
-    'It was not in force in that period, so there is nothing to correct there. Choose another period.',
+    'It did not exist in that period (not yet, or no longer), so there is nothing to correct there. Choose another period.',
   budgetEnded:
     'The budget has ended: a change applies only as a correction from one of its periods.',
   changedNotShown:
     'Another member changed something this window does not show meanwhile (which income is the primary one, a first subcategory…). Nothing was saved; what you entered is still here: save again.',
-}
-
-export const catchUpEn = {
-  title: 'Catching up on the time since your last visit…',
-  help: 'The budget is creating the periods, charges and interest since then. This can take a few seconds.',
 }

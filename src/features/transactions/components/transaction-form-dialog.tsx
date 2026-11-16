@@ -41,6 +41,7 @@ import {
   type TransactionKind,
 } from '@/features/transactions/transaction-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
@@ -104,29 +105,37 @@ interface TransactionFormDialogProps {
   prefill?: { categoryId: string; debtId: string }
   /** Editing: the bounds of the period the transaction is in (the database's period_id). */
   ownPeriod?: { start_date: string; end_date: string } | null
+  /** After an edit was saved: the transaction before and as the database now has it. */
+  onSaved?: (before: Transaction, after: Transaction) => void
 }
 
 /** Add or edit a transaction. The form mounts only while open. */
 export function TransactionFormDialog(props: TransactionFormDialogProps) {
   const { t } = useTranslation()
   const { open, onOpenChange, transaction } = props
+  // A payment of an ended debt opens as what it is: a read-only view (R-DEBT-151).
+  const frozen = transaction?.debt_ended === true
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="pr-8">
-            {transaction
-              ? t('transactions.editTitle')
-              : props.prefill
-                ? t('transactions.paymentTitle')
-                : t('transactions.addTitle')}
+            {frozen
+              ? t('transactions.frozenTitle')
+              : transaction
+                ? t('transactions.editTitle')
+                : props.prefill
+                  ? t('transactions.paymentTitle')
+                  : t('transactions.addTitle')}
           </DialogTitle>
           <DialogDescription>
-            {transaction
-              ? t('transactions.editDescription')
-              : props.prefill
-                ? t('transactions.paymentDescription')
-                : t('transactions.addDescription')}
+            {frozen
+              ? t('transactions.frozenDescription')
+              : transaction
+                ? t('transactions.editDescription')
+                : props.prefill
+                  ? t('transactions.paymentDescription')
+                  : t('transactions.addDescription')}
           </DialogDescription>
         </DialogHeader>
         {open && <TransactionForm {...props} />}
@@ -145,11 +154,13 @@ function TransactionForm({
   ended,
   prefill,
   ownPeriod,
+  onSaved,
 }: TransactionFormDialogProps) {
   const { t } = useTranslation()
   // R-DEBT-151: an ended debt's refusal said for what was tried.
   const errorMessage = useErrorMessage({
     debt_ended: opened ? 'debts.endedErrors.frozenPayment' : 'debts.endedErrors.payment',
+    category_to_categorise: 'import.toCategorise.errors.transaction',
   })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
@@ -158,7 +169,9 @@ function TransactionForm({
   const describe = (record: Transaction) => [
     ...views.transaction(record),
     {
+      // The debt a payment is for: the form's debtId (M1: never kept as "mine" by default).
       key: 'debt',
+      fields: ['debtId'],
       label: t('transactions.fields.debt'),
       value: record.debt_name ?? t('concurrent.none'),
     },
@@ -181,7 +194,8 @@ function TransactionForm({
     kind: from?.kind ?? 'expense',
     amount: from?.amount ?? null,
     date: from?.date ?? (today > range.max ? range.max : today),
-    categoryId: from?.category_id ?? prefill?.categoryId ?? '',
+    // An import waiting in "to categorise" is given a real category here, never kept there.
+    categoryId: from?.in_to_categorise ? '' : (from?.category_id ?? prefill?.categoryId ?? ''),
     description: from?.description ?? '',
     debtId: from ? (from.debt_id ?? '') : (prefill?.debtId ?? ''),
   })
@@ -203,9 +217,9 @@ function TransactionForm({
   )
   const chosenDebt = payable.find((debt) => debt.id === debtId) ?? null
   // R-DEBT-151: a payment of an ended debt is frozen: nothing can be saved.
-  const frozenDebt =
-    keptDebt !== null ? (debts.data?.find((debt) => debt.id === keptDebt) ?? null) : null
-  const frozen = frozenDebt !== null && frozenDebt.end_seq !== null
+  // The list says so on the row itself (transaction_list.debt_ended).
+  const frozen = transaction?.debt_ended === true
+  const frozenDebt = frozen ? { name: transaction.debt_name ?? '' } : null
   const datePeriod =
     isCalendarDate(date) && kind === 'expense'
       ? (periods.data?.find((period) => period.start_date <= date && date <= period.end_date) ??
@@ -229,6 +243,15 @@ function TransactionForm({
       form.setValue('categoryId', termsCategory, { shouldDirty: true })
     }
   }, [chosenDebt, datePeriod, termsCategory, form])
+  // A payment waits for its debt's terms on the date (its category follows them): no save
+  // before they are known, and none when the debt was not in force then; both buttons alike.
+  const termsPending =
+    chosenDebt !== null &&
+    !frozen &&
+    datePeriod !== null &&
+    (debtTerms.isFetching || termsCategory === null || categoryId !== termsCategory)
+  const blocked =
+    frozen || termsPending || (chosenDebt !== null && debtTerms.data?.inForce === false)
   // R-DEBT-150: no payment before the day the debt was opened.
   const debtFloor = chosenDebt && !frozen ? chosenDebt.opened_on : null
   const isExtra = kind === 'extra_income'
@@ -245,8 +268,10 @@ function TransactionForm({
     isCalendarDate(date) &&
     ownPeriod.start_date <= date &&
     date <= ownPeriod.end_date
-  const kept = inOwnPeriod ? (transaction?.category_id ?? null) : null
+  const waiting = transaction?.in_to_categorise === true
+  const kept = inOwnPeriod && !waiting ? (transaction?.category_id ?? null) : null
   const keptLost =
+    !waiting &&
     !inOwnPeriod &&
     transaction?.category_id !== undefined &&
     transaction.category_id !== null &&
@@ -280,9 +305,12 @@ function TransactionForm({
   }, [choices.data, categoryId, kept, form])
 
   const add = useAddTransaction(budgetId)
-  const update = useUpdateTransaction(budgetId, { onDone: close })
+  const request = useClientId()
+  const update = useUpdateTransaction(budgetId, { onDone: close, onSaved })
   const mutation = transaction ? update : add
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    error: update.error,
+  })
   /** The fast path: what was just saved, while the next one is typed. */
   const [lastSaved, setLastSaved] = useState<{ amount: number; count: number } | null>(null)
   // Ready for the next receipt: back to the amount once the form shows the cleared values.
@@ -311,231 +339,239 @@ function TransactionForm({
           .mutateAsync({ ...fields, transaction, revision: transaction.revision })
           .catch(() => undefined)
       }
-      return add.mutateAsync(fields).then(
-        () => {
-          if (!another) {
-            close()
-            return
-          }
-          // Keep the kind, date and category; clear what differs from one receipt to the next.
-          setLastSaved((saved) => ({ amount: values.amount, count: (saved?.count ?? 0) + 1 }))
-          form.reset({ ...values, amount: null, description: '' })
-          add.reset()
-        },
-        () => undefined,
-      )
+      return add.mutateAsync({ ...fields, clientId: request.id }).then(() => {
+        request.renew()
+        if (!another) {
+          close()
+          return
+        }
+        // Keep the kind, date and category; clear what differs from one receipt to the next.
+        setLastSaved((saved) => ({ amount: values.amount, count: (saved?.count ?? 0) + 1 }))
+        form.reset({ ...values, amount: null, description: '' })
+        add.reset()
+      }, request.afterFailure)
     })
 
   return (
     <form onSubmit={(event) => void submit(false)(event)} noValidate data-testid="transaction-form">
       <FieldGroup>
-        <ConcurrentNotices
-          gone={edit.gone}
-          pending={sync.pending}
-          updated={sync.updated}
-          onUseTheirs={sync.useTheirs}
-          onKeepMine={sync.keepMine}
-          error={mutation.error}
-          message={errorMessage}
-        />
-        {lastSaved && (
-          <Alert data-testid="saved-in-a-row" role="status">
-            <CheckCircle2Icon aria-hidden className="text-positive" />
-            <AlertDescription>
-              {t('transactions.savedInARow', {
-                count: lastSaved.count,
-                amount: formatMoney(lastSaved.amount),
-              })}
-            </AlertDescription>
-          </Alert>
-        )}
-        <SegmentedField
-          control={form.control}
-          name="kind"
-          label={t('transactions.fields.kind')}
-          options={TRANSACTION_KINDS.map((value: TransactionKind) => ({
-            value,
-            label: t(`transactions.kindShort.${value}`),
-          }))}
-          description={t(`transactions.kindHelp.${kind}`)}
-        />
-        {form.formState.errors.kind && (
-          <p role="alert" className="-mt-3 text-sm text-destructive" data-testid="kind-error">
-            {t('validation.linkedIsExpense')}
-          </p>
-        )}
-        <MoneyField
-          control={form.control}
-          name="amount"
-          label={t('transactions.fields.amount')}
-          autoFocus
-        />
-        <CalendarDateField
-          control={form.control}
-          name="date"
-          label={t('transactions.fields.date')}
-          description={
-            debtFloor && debtFloor > range.min
-              ? t('debts.payment.dateRange', {
-                  name: chosenDebt?.name ?? '',
-                  min: formatCalendarDate(debtFloor),
-                  max: formatCalendarDate(range.max),
-                })
-              : t(ended ? 'transactions.fields.dateRangeEnded' : 'transactions.fields.dateRange', {
-                  min: formatCalendarDate(range.min),
-                  max: formatCalendarDate(range.max),
-                })
-          }
-        />
-        {frozen && (
-          <Alert data-testid="frozen-payment">
-            <LockIcon aria-hidden />
-            <AlertDescription>
-              {t('debts.frozenPayment', { name: frozenDebt.name })}
-            </AlertDescription>
-          </Alert>
-        )}
-        {!frozen &&
-          !subscriptionLinked &&
-          (kind === 'expense' || debtId !== '') &&
-          payable.length > 0 && (
-            <SelectField
-              control={form.control}
-              name="debtId"
-              label={t('transactions.fields.debt')}
-              description={
-                chosenDebt
-                  ? t('debts.payment.opened', {
-                      name: chosenDebt.name,
-                      date: formatCalendarDate(chosenDebt.opened_on),
-                    })
-                  : t('transactions.fields.debtHelp')
-              }
-              options={[
-                { value: '', label: t('transactions.fields.noDebt') },
-                ...payable.map((debt) => ({
-                  value: debt.id,
-                  label: t('transactions.fields.paymentOn', { name: debt.name }),
-                })),
-              ]}
-            />
-          )}
-        {chosenDebt && !frozen && datePeriod && debtTerms.data?.inForce === false && (
-          <p
-            role="alert"
-            className="-mt-3 text-sm text-destructive"
-            data-testid="debt-not-in-force"
-          >
-            {t('debts.payment.notInForce', { name: chosenDebt.name })}
-          </p>
-        )}
-        {!isExtra && (chosenDebt || frozen) ? (
-          <p className="text-sm" data-testid="debt-category">
-            <span className="text-muted-foreground">{t('transactions.fields.category')}: </span>
-            <span className="font-medium">
-              {(() => {
-                const choice = options.find((option) => option.category_id === categoryId)
-                return choice
-                  ? path(choice.name, choice.parent_id ? choice.parent_name : null)
-                  : (transaction?.category_name ?? t('common.loading'))
-              })()}
-            </span>
-            <span className="block text-xs text-muted-foreground">
-              {t('debts.payment.categoryFollows', {
-                name: (chosenDebt ?? frozenDebt)?.name ?? '',
-              })}
-            </span>
-          </p>
-        ) : (
-          !isExtra && (
-            <CategorySelectField
-              control={form.control}
-              name="categoryId"
-              label={t('transactions.fields.category')}
-              options={options}
-              loading={dateInRange && choices.isPending}
-              description={
-                keptLost
-                  ? t('transactions.fields.keptElsewhere', {
-                      name: transaction.category_name ?? '',
-                    })
-                  : dateInRange && choices.data?.length === 0 && options.length === 0
-                    ? t('transactions.fields.noCategoriesHelp')
-                    : undefined
-              }
-            />
-          )
-        )}
-        {!isExtra && choices.isError && (
-          <Alert variant="destructive" data-testid="categories-failed">
-            <AlertDescription>
-              <p>
-                {t('transactions.fields.categoriesFailed', {
-                  reason: errorMessage(choices.error),
+        {/* Frozen: every field is shown, none can be changed (the footer stays usable). */}
+        <fieldset disabled={frozen} className="contents">
+          <ConcurrentNotices
+            adding={!transaction}
+            gone={edit.gone}
+            pending={sync.pending}
+            updated={sync.updated}
+            recovered={sync.recovered}
+            onUseTheirs={sync.useTheirs}
+            onKeepMine={sync.keepMine}
+            error={mutation.error}
+            message={errorMessage}
+          />
+          {lastSaved && (
+            <Alert data-testid="saved-in-a-row" role="status">
+              <CheckCircle2Icon aria-hidden className="text-positive" />
+              <AlertDescription>
+                {t('transactions.savedInARow', {
+                  count: lastSaved.count,
+                  amount: formatMoney(lastSaved.amount),
                 })}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="mt-2"
-                onClick={() => void choices.refetch()}
-              >
-                {t('states.retry')}
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-        {transaction?.subscription_id && (
-          <Alert data-testid="charge-note">
-            <RepeatIcon aria-hidden />
-            <AlertDescription>
-              {transaction.charge_date
-                ? transaction.review_state === 'awaiting_confirmation'
-                  ? t('transactions.chargeAwaitingNote', {
-                      name: transaction.subscription_name ?? '',
-                    })
-                  : t('transactions.chargeNote', { name: transaction.subscription_name ?? '' })
-                : t('transactions.subscriptionNote', {
-                    name: transaction.subscription_name ?? '',
+              </AlertDescription>
+            </Alert>
+          )}
+          <SegmentedField
+            control={form.control}
+            name="kind"
+            label={t('transactions.fields.kind')}
+            options={TRANSACTION_KINDS.map((value: TransactionKind) => ({
+              value,
+              label: t(`transactions.kindShort.${value}`),
+            }))}
+            description={t(`transactions.kindHelp.${kind}`)}
+          />
+          {form.formState.errors.kind && (
+            <p role="alert" className="-mt-3 text-sm text-destructive" data-testid="kind-error">
+              {t('validation.linkedIsExpense')}
+            </p>
+          )}
+          <MoneyField
+            control={form.control}
+            name="amount"
+            label={t('transactions.fields.amount')}
+            autoFocus
+          />
+          <CalendarDateField
+            control={form.control}
+            name="date"
+            label={t('transactions.fields.date')}
+            description={
+              debtFloor && debtFloor > range.min
+                ? t('debts.payment.dateRange', {
+                    name: chosenDebt?.name ?? '',
+                    min: formatCalendarDate(debtFloor),
+                    max: formatCalendarDate(range.max),
+                  })
+                : t(
+                    ended ? 'transactions.fields.dateRangeEnded' : 'transactions.fields.dateRange',
+                    {
+                      min: formatCalendarDate(range.min),
+                      max: formatCalendarDate(range.max),
+                    },
+                  )
+            }
+          />
+          {frozen && (
+            <Alert data-testid="frozen-payment">
+              <LockIcon aria-hidden />
+              <AlertDescription>
+                {t('debts.frozenPayment', { name: frozenDebt?.name ?? '' })}
+              </AlertDescription>
+            </Alert>
+          )}
+          {!frozen &&
+            !subscriptionLinked &&
+            (kind === 'expense' || debtId !== '') &&
+            payable.length > 0 && (
+              <SelectField
+                control={form.control}
+                name="debtId"
+                label={t('transactions.fields.debt')}
+                description={
+                  chosenDebt
+                    ? t('debts.payment.opened', {
+                        name: chosenDebt.name,
+                        date: formatCalendarDate(chosenDebt.opened_on),
+                      })
+                    : t('transactions.fields.debtHelp')
+                }
+                options={[
+                  { value: '', label: t('transactions.fields.noDebt') },
+                  ...payable.map((debt) => ({
+                    value: debt.id,
+                    label: t('transactions.fields.paymentOn', { name: debt.name }),
+                  })),
+                ]}
+              />
+            )}
+          {chosenDebt && !frozen && datePeriod && debtTerms.data?.inForce === false && (
+            <p
+              role="alert"
+              className="-mt-3 text-sm text-destructive"
+              data-testid="debt-not-in-force"
+            >
+              {t('debts.payment.notInForce', { name: chosenDebt.name })}
+            </p>
+          )}
+          {!isExtra && (chosenDebt || frozen) ? (
+            <p className="text-sm" data-testid="debt-category">
+              <span className="text-muted-foreground">{t('transactions.fields.category')}: </span>
+              <span className="font-medium">
+                {(() => {
+                  const choice = options.find((option) => option.category_id === categoryId)
+                  return choice
+                    ? path(choice.name, choice.parent_id ? choice.parent_name : null)
+                    : (transaction?.category_name ?? t('common.loading'))
+                })()}
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                {t('debts.payment.categoryFollows', {
+                  name: (chosenDebt ?? frozenDebt)?.name ?? '',
+                })}
+              </span>
+            </p>
+          ) : (
+            !isExtra && (
+              <CategorySelectField
+                control={form.control}
+                name="categoryId"
+                label={t('transactions.fields.category')}
+                options={options}
+                loading={dateInRange && choices.isPending}
+                description={
+                  keptLost
+                    ? t('transactions.fields.keptElsewhere', {
+                        name: transaction.category_name ?? '',
+                      })
+                    : dateInRange && choices.data?.length === 0 && options.length === 0
+                      ? t('transactions.fields.noCategoriesHelp')
+                      : undefined
+                }
+              />
+            )
+          )}
+          {!isExtra && choices.isError && (
+            <Alert variant="destructive" data-testid="categories-failed">
+              <AlertDescription>
+                <p>
+                  {t('transactions.fields.categoriesFailed', {
+                    reason: errorMessage(choices.error),
                   })}
-            </AlertDescription>
-          </Alert>
-        )}
-        <TextField
-          control={form.control}
-          name="description"
-          label={t('transactions.fields.description')}
-          placeholder={t('transactions.fields.descriptionPlaceholder')}
-          autoComplete="off"
-          maxLength={DESCRIPTION_MAX_LENGTH}
-        />
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={() => void choices.refetch()}
+                >
+                  {t('states.retry')}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {transaction?.subscription_id && (
+            <Alert data-testid="charge-note">
+              <RepeatIcon aria-hidden />
+              <AlertDescription>
+                {transaction.charge_date
+                  ? transaction.review_state === 'awaiting_confirmation'
+                    ? t('transactions.chargeAwaitingNote', {
+                        name: transaction.subscription_name ?? '',
+                      })
+                    : t('transactions.chargeNote', { name: transaction.subscription_name ?? '' })
+                  : t('transactions.subscriptionNote', {
+                      name: transaction.subscription_name ?? '',
+                    })}
+              </AlertDescription>
+            </Alert>
+          )}
+          <TextField
+            control={form.control}
+            name="description"
+            label={t('transactions.fields.description')}
+            placeholder={t('transactions.fields.descriptionPlaceholder')}
+            autoComplete="off"
+            maxLength={DESCRIPTION_MAX_LENGTH}
+          />
+        </fieldset>
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover sm:flex-wrap">
-          <Button type="button" variant="outline" onClick={close}>
-            {lastSaved ? t('transactions.done') : t('common.cancel')}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={close}
+            // The only way out of a frozen payment's view stays usable.
+            disabled={false}
+          >
+            {frozen ? t('ui.close') : lastSaved ? t('transactions.done') : t('common.cancel')}
           </Button>
           {!transaction && (
             <Button
               type="button"
               variant="secondary"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || blocked}
               onClick={() => void submit(true)()}
             >
               {t('transactions.saveAndAdd')}
             </Button>
           )}
-          <Button
-            type="submit"
-            disabled={
-              mutation.isPending ||
-              sync.pending !== null ||
-              edit.gone ||
-              frozen ||
-              (chosenDebt !== null && debtTerms.data?.inForce === false)
-            }
-          >
-            {mutation.isPending ? t('common.saving') : t('common.save')}
-          </Button>
+          {!frozen && (
+            <Button
+              type="submit"
+              disabled={mutation.isPending || sync.pending !== null || edit.gone || blocked}
+            >
+              {mutation.isPending ? t('common.saving') : t('common.save')}
+            </Button>
+          )}
         </DialogFooter>
       </FieldGroup>
     </form>

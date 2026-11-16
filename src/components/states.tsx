@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { dbErrorCode } from '@/lib/db-errors'
 import { cn } from '@/lib/utils'
 
 /** Placeholder rows while data loads; announced to screen readers once. */
@@ -32,6 +33,8 @@ export function ErrorState({
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
+  // R-PERIOD-280: a read answered catching_up is waiting for the catch-up, never an error.
+  if (dbErrorCode(error) === 'catching_up') return <LoadingState rows={2} className={className} />
   return (
     <div
       role="alert"

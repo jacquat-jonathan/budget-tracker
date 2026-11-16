@@ -6,8 +6,10 @@ export const paths = {
   subscriptions: '/subscriptions',
   debts: '/debts',
   periods: '/periods',
+  compare: '/compare',
   moneyFlow: '/money-flow',
   income: '/income',
+  import: '/import',
   settings: '/settings',
   newBudget: '/budgets/new',
   /** First-run setup for a signed-in user without a budget. */
@@ -34,11 +36,17 @@ export function transactionsOf(filter: {
   debt?: string
   awaiting?: boolean
   period?: string
+  /** Only the imported transactions to review (step 6). */
+  review?: boolean
+  /** The transactions of one import batch. */
+  batch?: string
 }): string {
   const params = new URLSearchParams({ period: filter.period ?? 'all' })
   if (filter.subscription) params.set('subscription', filter.subscription)
   if (filter.debt) params.set('debt', filter.debt)
   if (filter.awaiting) params.set('awaiting', '1')
+  if (filter.review) params.set('review', '1')
+  if (filter.batch) params.set('batch', filter.batch)
   return `${paths.transactions}?${params.toString()}`
 }
 

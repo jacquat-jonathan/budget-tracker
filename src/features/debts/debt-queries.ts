@@ -6,6 +6,7 @@ import { unwrap, usePeriodDependentQuery, type PeriodRead } from '@/features/bud
 import { useRecord } from '@/features/budgets/record-queries'
 import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
+import { isUuid } from '@/lib/uuid'
 
 type DebtRead = Tables<'debt_overview'>
 export type Payoff = Database['public']['Enums']['debt_payoff']
@@ -108,15 +109,13 @@ export function useDebtRecord(budgetId: string, id: string | undefined): Debt | 
   return useMemo(() => (row ? readDebt(row) : row), [row])
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 /**
  * One debt for its page, with the read's error and a retry (the same cached read as
  * useDebtRecord). An id that is not a uuid is no debt of this budget: null, not a request
  * the API would refuse.
  */
 export function useDebt(budgetId: string, id: string) {
-  const valid = UUID.test(id)
+  const valid = isUuid(id)
   const query = useQuery({
     queryKey: [...budgetKeys.budget(budgetId), 'record', 'debt_overview', id] as const,
     enabled: valid,
@@ -194,15 +193,31 @@ interface HistoryCursor {
  * shorter than the limit is the last.
  */
 // R-DEBT-122: the history read page by page with the database's cursor, never all at once.
-export function useDebtHistory(budgetId: string, debtId: string) {
+export function useDebtHistory(
+  budgetId: string,
+  debtId: string,
+  /** Newest first (the table), each next page older (p_newest_first); oldest first otherwise. */
+  order: { newestFirst: boolean; pageSize: number } = {
+    newestFirst: false,
+    pageSize: HISTORY_PAGE,
+  },
+) {
+  const { newestFirst, pageSize } = order
   return useInfiniteQuery({
-    queryKey: budgetKeys.debtHistory(budgetId, debtId),
+    // An id that is not a uuid is no debt: nothing is asked (the page says so).
+    enabled: isUuid(debtId),
+    queryKey: [
+      ...budgetKeys.debtHistory(budgetId, debtId),
+      newestFirst ? 'newest' : 'oldest',
+      pageSize,
+    ] as const,
     initialPageParam: null as HistoryCursor | null,
     queryFn: async ({ pageParam }): Promise<HistoryEntry[]> =>
       unwrap(
         await supabase.rpc('get_debt_history', {
           p_debt_id: debtId,
-          p_limit: HISTORY_PAGE,
+          p_limit: pageSize,
+          ...(newestFirst ? { p_newest_first: true } : {}),
           ...(pageParam ?? {}),
         }),
       )
@@ -210,7 +225,7 @@ export function useDebtHistory(budgetId: string, debtId: string) {
         .filter((entry): entry is HistoryEntry => entry !== null),
     getNextPageParam: (page): HistoryCursor | null => {
       const last = page.at(-1)
-      if (page.length < HISTORY_PAGE || !last) return null
+      if (page.length < pageSize || !last) return null
       return {
         p_after_date: last.date,
         p_after_kind: last.kind,

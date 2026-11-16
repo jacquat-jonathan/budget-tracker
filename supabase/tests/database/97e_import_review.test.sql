@@ -44,7 +44,7 @@ create temp table tok on commit drop as select * from public.create_import_token
 grant select on tok to anon, authenticated;
 create function pg_temp.tok_call(p_rows jsonb, p_source text default 'script') returns text language sql as $$
   select format('%s/%s/%s/%s', x.received, x.refused, x.refused_rows, coalesce(x.error, '-'))
-  from public.import_with_token((select token from tok), gen_random_uuid(), 1, p_rows, p_source) as x
+  from public.import_with_token((select token from tok), gen_random_uuid()::text, '1', p_rows, p_source) as x
 $$;
 select tests.clear_authentication();
 create temp table answers (state text, answer text) on commit drop;
@@ -139,7 +139,7 @@ delete from private.import_token_usage where token_id = (select token_id from to
 -- a token import records the token, never the caller; no GET (R-SECURITY-254)
 select tests.authenticate_as('kim');
 select tests.remember('kbatch', gen_random_uuid());
-select count(*) from public.import_with_token((select token from tok), tests.id('kbatch'), 1,
+select count(*) from public.import_with_token((select token from tok), tests.id('kbatch')::text, '1',
   '[{"date": "2026-11-14", "amount": 15, "direction": "debit", "description": "via kim"}]');
 select tests.clear_authentication();
 select results_eq(format($$select b.created_by, t.recorded_by from public.import_batches as b join public.transactions as t on t.import_batch_id = b.id
@@ -170,11 +170,11 @@ select public.remove_member(tests.id('b'), tests.get_user_id('lou'));
 select tests.clear_authentication();
 delete from auth.users where id = tests.get_user_id('max');
 select tests.authenticate_as_anon();
-select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid(), 1, '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
+select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid()::text, '1', '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
                         (select token from tok_jon)), 'P0001', 'invalid_token', 'R-SECURITY-253: a member who leaves ends their tokens');
-select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid(), 1, '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
+select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid()::text, '1', '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
                         (select token from tok_lou)), 'P0001', 'invalid_token', 'R-SECURITY-253: so does a member removed');
-select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid(), 1, '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
+select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid()::text, '1', '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
                         (select token from tok_max)), 'P0001', 'invalid_token', 'R-SECURITY-253: and a member whose account is deleted');
 select is(pg_temp.tok_call('[{"date": "2026-11-14", "amount": 16, "direction": "debit"}]'), '1/0/[]/-',
   'R-SECURITY-253: the other members'' tokens still work');
@@ -185,19 +185,26 @@ select is((select count(*)::integer from public.import_tokens where id in ((sele
 -- ===========================================================================
 -- F11: tokens that can be used are limited; the others are deleted or pruned (R-IMPORT-256)
 -- ===========================================================================
+delete from private.import_budget_usage where budget_id = tests.id('b');
 select tests.authenticate_as('ivy');
 do $$ begin
   for i in 1..9 loop perform public.create_import_token(tests.id('b'), 'Extra ' || i); end loop;
 end $$;
 select throws_ok(format($$select * from public.create_import_token(%L, 'One too many')$$, tests.id('b')), 'P0001', 'token_limit_reached',
   'R-IMPORT-256: at most 10 tokens that can be used');
-do $$ begin
-  for i in 1..30 loop
+-- (30 cycles in two days: at most 20 tokens are created a day, D-452)
+create function pg_temp.cycle(p_from integer, p_to integer) returns void language plpgsql as $$ begin
+  for i in p_from..p_to loop
     perform public.revoke_import_token((select id from public.import_tokens where budget_id = tests.id('b') and name <> 'Script' and revoked_at is null
                                         order by created_at, id limit 1));
     perform public.create_import_token(tests.id('b'), 'Cycle ' || i);
   end loop;
 end $$;
+select pg_temp.cycle(1, 10);
+select tests.clear_authentication();
+delete from private.import_budget_usage where budget_id = tests.id('b');
+select tests.authenticate_as('ivy');
+select pg_temp.cycle(11, 30);
 select is((select count(*)::integer from public.import_token_list where budget_id = tests.id('b') and is_active), 10,
   'R-IMPORT-256: create and revoke as often as needed (30 cycles)');
 select cmp_ok((select count(*)::integer from public.import_token_list where budget_id = tests.id('b') and not is_active), '<=', 21,
@@ -490,20 +497,21 @@ select tests.clear_authentication();
 create or replace function private.limit_import_choices() returns integer language sql immutable set search_path = '' as $f$ select 2 $f$;
 select tests.authenticate_as('ivy');
 select count(*) from public.import_transactions(tests.id('b'), gen_random_uuid(), 1, '[
-  {"date": "2026-11-14", "amount": 61, "direction": "debit", "description": "Ann", "hint": "own_transfer"},
-  {"date": "2026-11-14", "amount": 62, "direction": "debit", "description": "Ben", "hint": "own_transfer"},
-  {"date": "2026-11-14", "amount": 63, "direction": "debit", "description": "Cal", "hint": "own_transfer"}]', 'csv');
+  {"date": "2026-11-14", "amount": 61, "direction": "debit", "description": "Ann", "hint": "own_transfer", "action": "skip"},
+  {"date": "2026-11-14", "amount": 62, "direction": "debit", "description": "Ben", "hint": "own_transfer", "action": "skip"},
+  {"date": "2026-11-14", "amount": 63, "direction": "debit", "description": "Cal", "hint": "own_transfer", "action": "skip"}]', 'csv');
 select is((select count(*)::integer from public.list_import_choices(tests.id('b'))), 2,
   'R-IMPORT-257: at most the stated number of remembered choices are kept');
 select is((select count(*)::integer from public.list_import_choices(tests.id('b'), 1)), 1, 'R-IMPORT-257: read a page at a time');
 select tests.clear_authentication();
 create or replace function private.limit_import_choices() returns integer language sql immutable set search_path = '' as $f$ select 1000 $f$;
 -- a token's flagged rows remember nothing
+delete from private.import_budget_usage where budget_id = tests.id('b');
 select tests.authenticate_as('ivy');
 create temp table tok5 on commit drop as select * from public.create_import_token(tests.id('b'), 'Five');
 grant select on tok5 to anon;
 select tests.authenticate_as_anon();
-select count(*) from public.import_with_token((select token from tok5), gen_random_uuid(), 1,
+select count(*) from public.import_with_token((select token from tok5), gen_random_uuid()::text, '1',
   '[{"date": "2026-11-14", "amount": 64, "direction": "debit", "description": "Dee", "hint": "own_transfer"}]');
 select tests.clear_authentication();
 select is((select count(*)::integer from public.import_choices where budget_id = tests.id('b') and counterparty_key = 'dee'), 0,
@@ -568,10 +576,10 @@ select public.revoke_import_token((select token_id from tok6));
 select tests.clear_authentication();
 select tests.set_today('2066-11-16');
 select tests.authenticate_as_anon();
-select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid(), 1, '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
+select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid()::text, '1', '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
                         (select token from tok6)), 'P0001', 'invalid_token',
   'R-IMPORT-205: a revoked token is refused before any lock or catch-up');
-select is((select error from public.import_with_token((select token from tok5), gen_random_uuid(), 1, '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')),
+select is((select error from public.import_with_token((select token from tok5), gen_random_uuid()::text, '1', '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')),
   'catching_up', 'R-SECURITY-251 D-371: a valid token on a budget far behind is told catching_up (the other coarse state)');
 select tests.clear_authentication();
 select tests.set_today('2026-11-16');
@@ -590,9 +598,9 @@ select tests.clear_authentication();
 insert into private.import_token_usage (token_id, minute, calls, rows)
 values ((select token_id from tok7), date_trunc('minute', now()) - interval '25 hours', 7, 70);
 select tests.authenticate_as_anon();
-select count(*) from public.import_with_token((select token from tok7), gen_random_uuid(), 1,
+select count(*) from public.import_with_token((select token from tok7), gen_random_uuid()::text, '1',
   '[{"date": "2026-11-14", "amount": 11, "direction": "debit"}, {"date": "2026-11-14", "amount": 12, "direction": "debit"}]');
-select count(*) from public.import_with_token((select token from tok7), gen_random_uuid(), 1,
+select count(*) from public.import_with_token((select token from tok7), gen_random_uuid()::text, '1',
   '[{"date": "2026-11-14", "amount": 13, "direction": "debit"}, {"date": "2026-11-14", "amount": 14, "direction": "debit"}, {"date": "2026-11-14", "amount": 15, "direction": "debit"}]');
 select tests.clear_authentication();
 select results_eq(format($$select sum(calls)::integer, sum(rows)::integer from private.import_token_usage where token_id = %L$$, (select token_id from tok7)),
@@ -625,7 +633,7 @@ select tests.set_today('2026-11-16');
 -- since the rest of the transaction stays read-only (the test's own temporary tables excepted)
 select tests.authenticate_as_anon();
 set local transaction_read_only = on;
-select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid(), 1, '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
+select throws_ok(format($$select * from public.import_with_token(%L, gen_random_uuid()::text, '1', '[{"date": "2026-11-14", "amount": 1, "direction": "debit"}]')$$,
                         (select token from tok6)),
   'P0001', 'read_only_call', 'R-SECURITY-254: a read-only call (a GET) is refused before the token is looked at');
 
