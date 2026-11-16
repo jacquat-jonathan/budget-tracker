@@ -219,14 +219,14 @@ isOneToOne: false
                   ]
                 },"periods": {
                   Row: {
-                    "budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"seq": number,"start_date": string,"updated_at": string
+                    "budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"revision": number,"seq": number,"start_date": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"seq": number,"start_date": string,"updated_at"?: string
+                    "budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"revision"?: number,"seq": number,"start_date": string,"updated_at"?: string
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"seq"?: number,"start_date"?: string,"updated_at"?: string
+                    "budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"revision"?: number,"seq"?: number,"start_date"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -392,7 +392,7 @@ isOneToOne: false
                   ]
                 },"period_summaries": {
                   Row: {
-                    "budget_id": string,"end_date": string,"end_is_manual": boolean,"expected_total": number | null,"extra_income_total": number | null,"id": string,"income_total": number | null,"is_current": boolean | null,"left_to_assign": number | null,"result": number | null,"salary_total": number | null,"seq": number,"spent_total": number | null,"start_date": string,"today": string | null
+                    "budget_id": string,"end_date": string,"end_is_manual": boolean,"expected_total": number | null,"extra_income_total": number | null,"id": string,"income_total": number | null,"is_current": boolean | null,"left_to_assign": number | null,"result": number | null,"revision": number,"salary_total": number | null,"seq": number,"spent_total": number | null,"start_date": string,"today": string | null
                   }
                   ComputedFields: never
                   Relationships: [
@@ -524,6 +524,33 @@ isOneToOne: false
 "ensure_periods":
 { Args: { "p_budget_id": string }; Returns: number
                            },
+"extend_category":
+{ Args: { "p_amount"?: number,"p_cadence"?: Database["public"]['Enums']["expectation_cadence"],"p_category_id": string,"p_expected_revision": number,"p_from_period_id": string }; Returns: {
+              "amount": number | null,
+"budget_id": string,
+"cadence": Database["public"]['Enums']["expectation_cadence"] | null,
+"created_at": string,
+"end_seq": number | null,
+"first_seq": number,
+"has_transactions": boolean | null,
+"id": string,
+"is_active": boolean | null,
+"is_group": boolean,
+"monthly_amount": number | null,
+"name": string,
+"parent_id": string | null,
+"removal_deletes": boolean | null,
+"revision": number,
+"sort_order": number,
+"terms_from_seq": number | null,
+"updated_at": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "category_overview"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "get_current_period":
 { Args: { "p_budget_id": string }; Returns: {
               "budget_id": string,
@@ -536,6 +563,7 @@ isOneToOne: false
 "is_current": boolean | null,
 "left_to_assign": number | null,
 "result": number | null,
+"revision": number,
 "salary_total": number | null,
 "seq": number,
 "spent_total": number | null,
@@ -549,10 +577,13 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "get_period_progress":
-{ Args: { "p_period_id": string }; Returns: {
-              "amount": number,"cadence": Database["public"]['Enums']["expectation_cadence"],"category_id": string,"display_order": number,"expected": number,"in_force": boolean,"is_group": boolean,"is_overspent": boolean,"name": string,"parent_id": string,"result": number,"spent": number,"transaction_count": number
-            }[]
-                           },
+{ Args: { "p_period_id": string }; Returns: Database["public"]['CompositeTypes']["category_progress_row"][]
+                          SetofOptions: {
+        from: "*"
+        to: "category_progress_row"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "get_start_months":
 { Args: { "p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
               "is_default": boolean,"month": string,"start_date": string,"today": string
@@ -568,10 +599,13 @@ isOneToOne: false
 { Args: { "p_budget_id": string }; Returns: undefined
                            },
 "list_categories_for_date":
-{ Args: { "p_budget_id": string,"p_date": string }; Returns: {
-              "category_id": string,"display_order": number,"name": string,"parent_id": string,"parent_name": string
-            }[]
-                           },
+{ Args: { "p_budget_id": string,"p_date": string }; Returns: Database["public"]['CompositeTypes']["category_choice"][]
+                          SetofOptions: {
+        from: "*"
+        to: "category_choice"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "list_my_invitations":
 { Args: Record<PropertyKey, never>; Returns: {
               "budget_id": string,"budget_name": string,"created_at": string,"expires_at": string,"id": string,"invited_by_email": string,"invited_by_name": string
@@ -603,23 +637,28 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "move_period_start":
-{ Args: { "p_period_id": string,"p_start_date": string }; Returns: undefined
+{ Args: { "p_expected_revision": number,"p_period_id": string,"p_start_date"?: string }; Returns: undefined
                            },
 "pay_date":
 { Args: { "p_month": number,"p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"],"p_year": number }; Returns: string
-                           },
-"preview_expected_pay_date":
-{ Args: { "p_budget_id": string,"p_income_id"?: string,"p_pay_day"?: number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
-              "end_date": string,"end_is_manual": boolean,"expected_pay_date": string,"period_id": string
-            }[]
                            },
 "preview_reopen":
 { Args: { "p_budget_id": string }; Returns: {
               "change": string,"record_id": string,"record_kind": string,"record_name": string,"replaces_previous": boolean
             }[]
                            },
+"preview_set_primary_income":
+{ Args: { "p_income_id": string }; Returns: {
+              "end_date": string,"end_is_manual": boolean,"expected_pay_date": string,"period_id": string
+            }[]
+                           },
+"preview_update_income":
+{ Args: { "p_amount"?: number,"p_from_period_id"?: string,"p_income_id": string,"p_pay_day"?: number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
+              "end_date": string,"end_is_manual": boolean,"expected_pay_date": string,"period_id": string
+            }[]
+                           },
 "record_early_pay_date":
-{ Args: { "p_budget_id": string,"p_pay_date": string }; Returns: {
+{ Args: { "p_budget_id": string,"p_expected_revision": number,"p_pay_date": string,"p_period_id": string }; Returns: {
               "budget_id": string,
 "end_date": string,
 "end_is_manual": boolean,
@@ -630,6 +669,7 @@ isOneToOne: false
 "is_current": boolean | null,
 "left_to_assign": number | null,
 "result": number | null,
+"revision": number,
 "salary_total": number | null,
 "seq": number,
 "spent_total": number | null,
@@ -643,7 +683,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "remove_income":
-{ Args: { "p_expected_revision"?: number,"p_from_period_id"?: string,"p_income_id": string }; Returns: string
+{ Args: { "p_expected_revision": number,"p_from_period_id"?: string,"p_income_id": string }; Returns: string
                            },
 "remove_member":
 { Args: { "p_budget_id": string,"p_user_id": string }; Returns: undefined
@@ -651,11 +691,8 @@ isOneToOne: false
 "rename_budget":
 { Args: { "p_budget_id": string,"p_expected_revision": number,"p_name": string }; Returns: number
                            },
-"rename_income":
-{ Args: { "p_expected_revision": number,"p_income_id": string,"p_name": string }; Returns: number
-                           },
 "reopen_previous_period":
-{ Args: { "p_budget_id": string,"p_pay_date"?: string }; Returns: {
+{ Args: { "p_budget_id": string,"p_expected_revision": number,"p_pay_date"?: string,"p_period_id": string }; Returns: {
               "budget_id": string,
 "end_date": string,
 "end_is_manual": boolean,
@@ -666,6 +703,7 @@ isOneToOne: false
 "is_current": boolean | null,
 "left_to_assign": number | null,
 "result": number | null,
+"revision": number,
 "salary_total": number | null,
 "seq": number,
 "spent_total": number | null,
@@ -679,10 +717,37 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "reorder_categories":
-{ Args: { "p_budget_id": string,"p_category_ids": (string)[],"p_parent_id": string }; Returns: undefined
+{ Args: { "p_budget_id": string,"p_category_ids": (string)[],"p_parent_id"?: string }; Returns: undefined
                            },
+"restore_category":
+{ Args: { "p_amount"?: number,"p_cadence"?: Database["public"]['Enums']["expectation_cadence"],"p_category_id": string,"p_expected_revision": number,"p_from_period_id"?: string }; Returns: {
+              "amount": number | null,
+"budget_id": string,
+"cadence": Database["public"]['Enums']["expectation_cadence"] | null,
+"created_at": string,
+"end_seq": number | null,
+"first_seq": number,
+"has_transactions": boolean | null,
+"id": string,
+"is_active": boolean | null,
+"is_group": boolean,
+"monthly_amount": number | null,
+"name": string,
+"parent_id": string | null,
+"removal_deletes": boolean | null,
+"revision": number,
+"sort_order": number,
+"terms_from_seq": number | null,
+"updated_at": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "category_overview"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "set_budget_end_date":
-{ Args: { "p_budget_id": string,"p_end_date"?: string,"p_expected_revision"?: number }; Returns: {
+{ Args: { "p_budget_id": string,"p_end_date"?: string,"p_expected_revision": number }; Returns: {
               "created_at": string,
 "end_date": string | null,
 "end_date_entered": string | null,
@@ -701,7 +766,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "set_expected_pay_date":
-{ Args: { "p_budget_id": string,"p_pay_date"?: string }; Returns: {
+{ Args: { "p_budget_id": string,"p_expected_revision": number,"p_pay_date"?: string,"p_period_id": string }; Returns: {
               "budget_id": string,
 "end_date": string,
 "end_is_manual": boolean,
@@ -712,6 +777,7 @@ isOneToOne: false
 "is_current": boolean | null,
 "left_to_assign": number | null,
 "result": number | null,
+"revision": number,
 "salary_total": number | null,
 "seq": number,
 "spent_total": number | null,
@@ -725,7 +791,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "set_primary_income":
-{ Args: { "p_income_id": string }; Returns: undefined
+{ Args: { "p_expected_revision": number,"p_income_id": string,"p_previewed_end_date"?: string }; Returns: undefined
                            },
 "update_category":
 { Args: { "p_amount"?: number,"p_cadence"?: Database["public"]['Enums']["expectation_cadence"],"p_category_id": string,"p_expected_revision": number,"p_from_period_id"?: string,"p_name"?: string }; Returns: {
@@ -754,8 +820,8 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
-"update_income_terms":
-{ Args: { "p_amount": number,"p_expected_revision"?: number,"p_from_period_id"?: string,"p_income_id": string,"p_pay_day": number,"p_weekend_rule": Database["public"]['Enums']["weekend_rule"] }; Returns: undefined
+"update_income":
+{ Args: { "p_amount"?: number,"p_expected_revision": number,"p_from_period_id"?: string,"p_income_id": string,"p_name"?: string,"p_pay_day"?: number,"p_previewed_end_date"?: string,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: number
                            },
 "update_transaction":
 { Args: { "p_amount": number,"p_category_id"?: string,"p_date": string,"p_description"?: string,"p_expected_revision": number,"p_kind": Database["public"]['Enums']["transaction_kind"],"p_transaction_id": string }; Returns: {
@@ -787,7 +853,11 @@ isOneToOne: false
             "expectation_cadence": "monthly"|"yearly","transaction_kind": "expense"|"refund"|"extra_income","weekend_rule": "nearest"|"previous"|"next"|"none"
           }
           CompositeTypes: {
-            [_ in never]: never
+            "category_choice": {
+                        "category_id": string | null,"parent_id": string | null,"name": string | null,"parent_name": string | null,"display_order": number | null
+                      },"category_progress_row": {
+                        "category_id": string | null,"parent_id": string | null,"name": string | null,"is_group": boolean | null,"in_force": boolean | null,"amount": number | null,"cadence": Database["public"]['Enums']["expectation_cadence"] | null,"expected": number | null,"spent": number | null,"result": number | null,"is_overspent": boolean | null,"transaction_count": number | null,"display_order": number | null
+                      }
           }
         }
 }

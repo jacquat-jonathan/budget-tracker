@@ -128,7 +128,7 @@ select is_empty('select * from pg_temp.disagreements()', 'R-PROGRESS-092: totals
 select tests.clear_authentication();
 select tests.set_today('2026-11-26');
 select tests.authenticate_as('alice');
-select lives_ok(format('select public.reopen_previous_period(%L)', tests.id('m')),
+select lives_ok(format('select tests.reopen_previous_period(%L)', tests.id('m')),
   'R-VERSION-014 R-PERIOD-023: a reopen with category changes succeeds');
 select results_eq(
   format('select seq, start_date, end_date from public.periods where budget_id = %L order by seq', tests.id('m')),
@@ -173,7 +173,7 @@ select results_eq(
 select tests.clear_authentication();
 select tests.set_today('2026-12-26');
 select tests.authenticate_as('alice');
-select lives_ok(format('select public.reopen_previous_period(%L)', tests.id('m')), 'R-VERSION-014: the reopen still succeeds');
+select lives_ok(format('select tests.reopen_previous_period(%L)', tests.id('m')), 'R-VERSION-014: the reopen still succeeds');
 select results_eq(
   format('select name, first_seq, end_seq from public.categories where id = %1$L or parent_id = %1$L order by name', pg_temp.cat('Trip')),
   $$values ('Train', 2, 2), ('Trip', 2, 2)$$,

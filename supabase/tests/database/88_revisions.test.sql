@@ -1,8 +1,8 @@
--- Revisions: every editable record carries one; an edit with a stale revision is refused with
--- record_changed. Step 2's RPCs take it as an optional argument (D-142); step 3's require it.
--- The real races (two sessions) are in 62_concurrent_edits.test.sql.
+-- Revisions: every editable record carries one; every edit and removal requires the revision
+-- the client read and is refused with record_changed when it is stale (D-150). The real races
+-- (two sessions) are in 62_concurrent_edits.test.sql.
 begin;
-select plan(29);
+select plan(36);
 
 select tests.create_user('alice', 'Alice');
 select tests.set_today('2026-11-15');
@@ -16,51 +16,76 @@ create or replace function pg_temp.remember_rev(n text, v integer) returns void 
   insert into seen values (n, v) on conflict (name) do update set v = excluded.v
 $$;
 create or replace function pg_temp.r(n text) returns integer language sql as $$ select v from seen where name = n $$;
+create or replace function pg_temp.brev() returns integer language sql as $$
+  select revision from public.my_budgets where id = tests.id('b')
+$$;
+create or replace function pg_temp.irev(i uuid) returns integer language sql as $$
+  select revision from public.income_overview where id = i
+$$;
 
 -- ===========================================================================
 -- The budget
 -- ===========================================================================
-select pg_temp.remember_rev('budget', (select revision from public.my_budgets where id = tests.id('b')));
+select pg_temp.remember_rev('budget', pg_temp.brev());
 select is(public.rename_budget(tests.id('b'), 'Home', pg_temp.r('budget')), pg_temp.r('budget') + 1,
   'R-CONCURRENCY-090: a rename with the revision read succeeds and returns the next revision');
 select throws_ok(format('select public.rename_budget(%L, %L, %s)', tests.id('b'), 'Other', pg_temp.r('budget')),
   'P0001', 'record_changed', 'R-CONCURRENCY-070: a rename with the revision read before that change is refused');
 select is((select name from public.budgets where id = tests.id('b')), 'Home', 'R-CONCURRENCY-070: and changes nothing');
-select throws_ok(format('select public.set_budget_end_date(%L, %L, %s)', tests.id('b'), '2027-06-01', pg_temp.r('budget')),
+select throws_ok(format('select public.set_budget_end_date(%L, %s, %L)', tests.id('b'), pg_temp.r('budget'), '2027-06-01'),
   'P0001', 'record_changed', 'R-CONCURRENCY-070: so is setting the end date with a stale revision');
-select lives_ok(format('select public.set_budget_end_date(%L, %L, %s)', tests.id('b'), '2027-06-01', pg_temp.r('budget') + 1),
+select lives_ok(format('select public.set_budget_end_date(%L, %s, %L)', tests.id('b'), pg_temp.r('budget') + 1, '2027-06-01'),
   'R-CONCURRENCY-090: and it succeeds with the current one');
-select lives_ok(format('select public.set_budget_end_date(%L, null)', tests.id('b')),
-  'R-CONCURRENCY-090: step 2 callers that send no revision still work');
-select pg_temp.remember_rev('budget', (select revision from public.my_budgets where id = tests.id('b')));
-update public.budgets set name = 'Direct' where id = tests.id('b');
-select is((select revision from public.my_budgets where id = tests.id('b')), pg_temp.r('budget') + 1,
-  'R-CONCURRENCY-090: a direct rename (kept for the previous release) also raises the revision');
-select public.set_primary_income(tests.id('side'));
-select is((select revision from public.my_budgets where id = tests.id('b')), pg_temp.r('budget') + 2,
-  'R-CONCURRENCY-090: so does switching the primary income');
-select public.set_primary_income(tests.id('inc'));
+select throws_ok(format('select public.set_budget_end_date(%L, null)', tests.id('b')),
+  'P0001', 'invalid_revision', 'R-CONCURRENCY-090: the revision is required');
+select lives_ok(format('select public.set_budget_end_date(%L, %s)', tests.id('b'), pg_temp.brev()),
+  'setup: clear the end date');
+select pg_temp.remember_rev('budget', pg_temp.brev());
+select throws_ok(format('select public.set_primary_income(%L, %s)', tests.id('side'), pg_temp.r('budget') - 1),
+  'P0001', 'record_changed', 'R-CONCURRENCY-070: switching the primary income with a stale budget revision is refused');
+select throws_ok(format('select public.set_primary_income(%L, null)', tests.id('side')),
+  'P0001', 'invalid_revision', 'R-CONCURRENCY-090: switching the primary income requires the budget''s revision');
+select lives_ok(format('select public.set_primary_income(%L, %s)', tests.id('side'), pg_temp.r('budget')),
+  'R-CONCURRENCY-090: and succeeds with the current one');
+select is(pg_temp.brev(), pg_temp.r('budget') + 1, 'R-CONCURRENCY-090: switching the primary income raises the budget''s revision');
+select public.set_primary_income(tests.id('inc'), pg_temp.brev());
 
 -- ===========================================================================
--- Incomes
+-- Incomes: one edit for name and terms
 -- ===========================================================================
-select pg_temp.remember_rev('inc', (select revision from public.income_overview where id = tests.id('inc')));
-select lives_ok(format('select public.update_income_terms(%L, 510000, 25, %L, null, %s)', tests.id('inc'), 'nearest', pg_temp.r('inc')),
-  'R-CONCURRENCY-090: new terms with the revision read');
-select is((select revision from public.income_overview where id = tests.id('inc')), pg_temp.r('inc') + 1,
-  'R-CONCURRENCY-090: a change of terms raises the income''s revision');
-select throws_ok(format('select public.update_income_terms(%L, 520000, 25, %L, null, %s)', tests.id('inc'), 'nearest', pg_temp.r('inc')),
+select pg_temp.remember_rev('inc', pg_temp.irev(tests.id('inc')));
+select is(public.update_income(tests.id('inc'), pg_temp.r('inc'), 'Pay', 510000), pg_temp.r('inc') + 1,
+  'R-CONCURRENCY-090 R-INCOME-100: one edit renames and changes the terms, and returns the next revision');
+select results_eq(
+  format('select name, amount, pay_day, weekend_rule::text from public.income_overview where id = %L', tests.id('inc')),
+  $$values ('Pay', 510000::bigint, 25, 'nearest')$$,
+  'R-INCOME-100: the terms not given keep their value');
+select throws_ok(format('select public.update_income(%L, %s, p_amount => 520000)', tests.id('inc'), pg_temp.r('inc')),
   'P0001', 'record_changed', 'R-CONCURRENCY-070: new terms based on what was read before are refused');
 select is((select amount from public.income_overview where id = tests.id('inc')), 510000::bigint, 'R-CONCURRENCY-070: the first change stays');
-select throws_ok(format('select public.rename_income(%L, %L, %s)', tests.id('inc'), 'Pay', pg_temp.r('inc')),
+select throws_ok(format('select public.update_income(%L, %s, %L)', tests.id('inc'), pg_temp.r('inc'), 'Wage'),
   'P0001', 'record_changed', 'R-CONCURRENCY-070: a stale rename of an income is refused');
-select is(public.rename_income(tests.id('inc'), 'Pay', pg_temp.r('inc') + 1), pg_temp.r('inc') + 2,
-  'R-CONCURRENCY-090: a current one returns the next revision');
-select throws_ok(format('select public.remove_income(%L, null, %s)', tests.id('side'),
-                        (select revision - 1 from public.income_overview where id = tests.id('side'))),
+select is(public.update_income(tests.id('inc'), pg_temp.r('inc') + 1, 'Wage'), pg_temp.r('inc') + 2,
+  'R-CONCURRENCY-090: a rename alone raises the revision too');
+select throws_ok(format('select public.update_income(%L, null, p_amount => 1000)', tests.id('inc')),
+  'P0001', 'invalid_revision', 'R-CONCURRENCY-090: an income edit requires the revision');
+select throws_ok(format('select public.remove_income(%L, %s)', tests.id('side'), pg_temp.irev(tests.id('side')) - 1),
   'P0001', 'record_changed', 'R-CONCURRENCY-070: removing an income that changed since read is refused');
-select lives_ok(format('select public.update_income_terms(%L, 530000, 25, %L)', tests.id('inc'), 'nearest'),
-  'R-CONCURRENCY-090: step 2 callers that send no revision still work');
+select throws_ok(format('select public.remove_income(%L, null)', tests.id('side')),
+  'P0001', 'invalid_revision', 'R-CONCURRENCY-090: removing an income requires the revision');
+select throws_ok(format('select public.update_income(%L, %s, p_from_period_id => (select id from public.periods where budget_id = %L and seq = 1))',
+                        tests.id('inc'), pg_temp.irev(tests.id('inc')), tests.id('b')),
+  'P0001', 'invalid_period', 'R-INCOME-100: a correction period without new terms is refused');
+
+-- A write paired with a preview is refused when the preview no longer holds.
+select tests.remember('prev_period', (select period_id from public.preview_update_income(tests.id('inc'), p_pay_day => 5)));
+select throws_ok(format('select public.update_income(%L, %s, p_pay_day => 5, p_previewed_end_date => %L)',
+                        tests.id('inc'), pg_temp.irev(tests.id('inc')), '2026-12-31'),
+  'P0001', 'record_changed', 'R-PERIOD-036 R-CONCURRENCY-100: a write whose result differs from the preview the user saw is refused');
+select lives_ok(format('select public.update_income(%L, %s, p_pay_day => 5, p_previewed_end_date => %L)',
+                       tests.id('inc'), pg_temp.irev(tests.id('inc')),
+                       (select end_date from public.preview_update_income(tests.id('inc'), p_pay_day => 5))),
+  'R-PERIOD-036: and accepted when it is what the preview showed');
 
 -- ===========================================================================
 -- Categories
@@ -79,7 +104,7 @@ select throws_ok(format('select public.end_category(%L, %s)', tests.id('food'), 
 select is((select amount from public.category_overview where id = tests.id('food')), 2000::bigint, 'R-CONCURRENCY-070: the first change stays');
 select public.create_category(tests.id('b'), 'Rent');
 select pg_temp.remember_rev('food', (select revision from public.category_overview where id = tests.id('food')));
-select public.reorder_categories(tests.id('b'), null, array[
+select public.reorder_categories(tests.id('b'), array[
   (select id from public.categories where budget_id = tests.id('b') and name = 'Rent'), tests.id('food')]);
 select is((select revision from public.category_overview where id = tests.id('food')), pg_temp.r('food'),
   'R-CONCURRENCY-090 R-CATEGORY-096: reordering does not count as a change of the category');
@@ -110,7 +135,7 @@ select pg_temp.remember_rev('fresh', (select revision from public.category_overv
 select tests.clear_authentication();
 select tests.set_today('2026-11-26');
 select tests.authenticate_as('alice');
-select public.reopen_previous_period(tests.id('b'));
+select tests.reopen_previous_period(tests.id('b'));
 select throws_ok(format('select public.update_category(%L, %s, %L)', tests.id('fresh'), pg_temp.r('fresh'), 'Renamed'),
   'P0001', 'record_changed', 'R-CONCURRENCY-070 R-VERSION-011: a category re-keyed by a reopen has changed: an edit read before is refused');
 select lives_ok(format('select public.update_category(%L, %s, %L)', tests.id('fresh'),

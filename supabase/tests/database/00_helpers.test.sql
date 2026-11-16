@@ -343,6 +343,108 @@ as $$
   from p
 $$;
 
+-- Callers with step 2's argument lists, for the tests that prove behaviour rather than the
+-- concurrency guard: each reads, as the caller, the revision (or the current period, after
+-- catching up) a client would have read, then calls the RPC. The concurrency guard itself is
+-- tested by calling the RPCs directly (60, 62, 86, 88).
+create or replace function tests.current_period_of(p_budget_id uuid)
+returns public.periods
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v public.periods;
+begin
+  begin
+    perform public.ensure_periods(p_budget_id);
+  exception when sqlstate 'P0001' then
+    null;  -- not a member: the RPC answers for itself
+  end;
+  select p.* into v from public.periods as p
+  where p.budget_id = p_budget_id and private.today() between p.start_date and p.end_date;
+  return v;
+end;
+$$;
+
+create or replace function tests.set_expected_pay_date(p_budget_id uuid, p_pay_date date default null)
+returns setof public.period_summaries language plpgsql security invoker set search_path = '' as $$
+declare v public.periods := tests.current_period_of(p_budget_id);
+begin
+  return query select * from public.set_expected_pay_date(p_budget_id, v.id, v.revision, p_pay_date);
+end; $$;
+
+create or replace function tests.record_early_pay_date(p_budget_id uuid, p_pay_date date)
+returns setof public.period_summaries language plpgsql security invoker set search_path = '' as $$
+declare v public.periods := tests.current_period_of(p_budget_id);
+begin
+  return query select * from public.record_early_pay_date(p_budget_id, v.id, v.revision, p_pay_date);
+end; $$;
+
+create or replace function tests.reopen_previous_period(p_budget_id uuid, p_pay_date date default null)
+returns setof public.period_summaries language plpgsql security invoker set search_path = '' as $$
+declare v public.periods := tests.current_period_of(p_budget_id);
+begin
+  return query select * from public.reopen_previous_period(p_budget_id, v.id, v.revision, p_pay_date);
+end; $$;
+
+create or replace function tests.move_period_start(p_period_id uuid, p_start_date date default null)
+returns void language plpgsql security invoker set search_path = '' as $$
+declare v_budget uuid := (select p.budget_id from public.periods as p where p.id = p_period_id);
+begin
+  if v_budget is not null then
+    perform tests.current_period_of(v_budget);
+  end if;
+  perform public.move_period_start(p_period_id,
+    (select p.revision from public.periods as p where p.id = p_period_id), p_start_date);
+end; $$;
+
+create or replace function tests.update_income_terms(
+  p_income_id uuid, p_amount bigint, p_pay_day integer, p_weekend_rule public.weekend_rule,
+  p_from_period_id uuid default null)
+returns void language plpgsql security invoker set search_path = '' as $$
+begin
+  perform public.update_income(p_income_id, (select i.revision from public.incomes as i where i.id = p_income_id),
+    null, p_amount, p_pay_day, p_weekend_rule, p_from_period_id);
+end; $$;
+
+create or replace function tests.remove_income(p_income_id uuid, p_from_period_id uuid default null)
+returns text language plpgsql security invoker set search_path = '' as $$
+begin
+  return public.remove_income(p_income_id, (select i.revision from public.incomes as i where i.id = p_income_id),
+    p_from_period_id);
+end; $$;
+
+create or replace function tests.set_primary_income(p_income_id uuid)
+returns void language plpgsql security invoker set search_path = '' as $$
+begin
+  perform public.set_primary_income(p_income_id,
+    (select b.revision from public.incomes as i join public.budgets as b on b.id = i.budget_id where i.id = p_income_id));
+end; $$;
+
+create or replace function tests.set_budget_end_date(p_budget_id uuid, p_end_date date default null)
+returns setof public.my_budgets language plpgsql security invoker set search_path = '' as $$
+begin
+  return query select * from public.set_budget_end_date(p_budget_id,
+    (select b.revision from public.budgets as b where b.id = p_budget_id), p_end_date);
+end; $$;
+
+-- Step 2's preview: the primary's terms changed (pay day, weekend rule), or another income
+-- made primary.
+create or replace function tests.preview_expected_pay_date(
+  p_budget_id uuid, p_pay_day integer default null, p_weekend_rule public.weekend_rule default null,
+  p_income_id uuid default null)
+returns table (period_id uuid, end_date date, expected_pay_date date, end_is_manual boolean)
+language plpgsql security invoker set search_path = '' as $$
+begin
+  if p_income_id is not null then
+    return query select * from public.preview_set_primary_income(p_income_id);
+  else
+    return query select * from public.preview_update_income(
+      (select b.primary_income_id from public.budgets as b where b.id = p_budget_id), null, p_pay_day, p_weekend_rule);
+  end if;
+end; $$;
+
 grant execute on all functions in schema tests to anon, authenticated;
 
 select has_function('tests', 'authenticate_as', array['text'], 'test helpers are installed');

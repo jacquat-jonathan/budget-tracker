@@ -159,14 +159,14 @@ select throws_ok(format($$select public.list_categories_for_date(%L, '2026-11-20
 -- ===========================================================================
 select tests.remember('oct27', pg_temp.add(500, '2026-10-27', 'Food'));
 select tests.remember('nov14', pg_temp.add(600, '2026-11-14', 'Food'));
-select public.move_period_start(pg_temp.p(2), '2026-10-28');
+select tests.move_period_start(pg_temp.p(2), '2026-10-28');
 select is(pg_temp.period_of(tests.id('oct27')), 1, 'R-TRANSACTION-093: moving a boundary moves a transaction into the period now containing its date');
 select is(pg_temp.spent('Food', 1), 800::bigint, 'R-TRANSACTION-093: and it counts there, with the one of 26 Oct');
-select public.move_period_start(pg_temp.p(2), '2026-10-26');
+select tests.move_period_start(pg_temp.p(2), '2026-10-26');
 select is(pg_temp.period_of(tests.id('oct27')), 2, 'R-TRANSACTION-093: moving it back moves it back');
-select public.record_early_pay_date(tests.id('b'), '2026-11-14');
+select tests.record_early_pay_date(tests.id('b'), '2026-11-14');
 select is(pg_temp.period_of(tests.id('nov14')), 3, 'R-TRANSACTION-093: an early salary starts a period that takes the transactions from that day on');
-select public.reopen_previous_period(tests.id('b'));
+select tests.reopen_previous_period(tests.id('b'));
 select is(pg_temp.period_of(tests.id('nov14')), 2, 'R-TRANSACTION-093: reopening the previous period takes them back');
 select is_empty(format('select * from tests.period_violations(%L)', tests.id('b')),
   'R-TRANSACTION-093: no transaction is outside every period');

@@ -276,15 +276,15 @@ insert into ids values
 select pg_temp.act_as(c, (select id from ids where name = 'owner')) from unnest(array['one', 'two']) as c;
 
 select extensions.dblink_exec('one', 'begin');
-select pg_temp.q('one', format('select public.remove_income(%L)', (select id from ids where name = 'extra')));
-select pg_temp.send_and_wait('two', format('select public.set_primary_income(%L)::text', (select id from ids where name = 'extra')));
+select pg_temp.q('one', format('select tests.remove_income(%L)', (select id from ids where name = 'extra')));
+select pg_temp.send_and_wait('two', format('select tests.set_primary_income(%L)::text', (select id from ids where name = 'extra')));
 select extensions.dblink_exec('one', 'commit');
 select is(pg_temp.result('two'), 'error: income_ended',
   'R-SECURITY-007: making an income primary while another member ends it gives the contract error income_ended');
 
 select extensions.dblink_exec('one', 'begin');
-select pg_temp.q('one', format('select public.remove_income(%L)', (select id from ids where name = 'side')));
-select pg_temp.send_and_wait('two', format($$select public.update_income_terms(%L, 2000, 1, 'nearest')::text$$, (select id from ids where name = 'side')));
+select pg_temp.q('one', format('select tests.remove_income(%L)', (select id from ids where name = 'side')));
+select pg_temp.send_and_wait('two', format($$select tests.update_income_terms(%L, 2000, 1, 'nearest')::text$$, (select id from ids where name = 'side')));
 select extensions.dblink_exec('one', 'commit');
 select is(pg_temp.result('two'), 'error: income_not_found',
   'R-SECURITY-007: editing an income while another member deletes it gives the contract error income_not_found');
