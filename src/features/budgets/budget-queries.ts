@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, type QueryKey } from '@tanstack/react-query'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { calendarMonth } from '@/lib/date'
@@ -45,23 +45,60 @@ export function useEnsurePeriods(budgetId: string | undefined) {
     queryKey: budgetKeys.ensurePeriods(budgetId ?? ''),
     enabled: Boolean(budgetId),
     staleTime: 5 * 60_000,
+    // A tab left open across a pay day or midnight catches up: new period, new "today".
+    refetchInterval: 15 * 60_000,
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<number> =>
       unwrap(await supabase.rpc('ensure_periods', { p_budget_id: budgetId ?? '' })),
   })
 }
 
+/** The shape pages use from a read: data, its loading and error states, and a retry. */
+export interface PeriodRead<T> {
+  data: T | undefined
+  isPending: boolean
+  isSuccess: boolean
+  isError: boolean
+  error: unknown
+  refetch: () => void
+}
+
 /**
- * The database's "today" (get_today), for any "is this in the past" question that has no
- * period row at hand. Never the browser's clock (R-PERIOD-028).
+ * R-PERIOD-052: a read that depends on which periods exist (periods, the current one, and
+ * what "today" makes of incomes) waits for ensure_periods to have run, is read again after
+ * each run, and fails visibly when ensure_periods fails, never as "no current period".
  */
-export function useToday() {
-  return useQuery({
-    queryKey: ['today'] as const,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: true,
-    queryFn: async (): Promise<string> => unwrap(await supabase.rpc('get_today')),
+function usePeriodDependentQuery<T>(
+  budgetId: string,
+  queryKey: QueryKey,
+  queryFn: () => Promise<T>,
+): PeriodRead<T> {
+  const ensured = useEnsurePeriods(budgetId)
+  const query = useQuery({
+    queryKey: [...queryKey, ensured.dataUpdatedAt],
+    enabled: ensured.isSuccess,
+    // Keep showing the last answer while it is read again after an ensure_periods run.
+    placeholderData: keepPreviousData,
+    queryFn,
   })
+  if (ensured.isError && query.data === undefined) {
+    return {
+      data: undefined,
+      isPending: false,
+      isSuccess: false,
+      isError: true,
+      error: ensured.error,
+      refetch: () => void ensured.refetch(),
+    }
+  }
+  return {
+    data: query.data,
+    isPending: query.data === undefined && !query.isError,
+    isSuccess: query.data !== undefined,
+    isError: query.isError,
+    error: query.error,
+    refetch: () => void query.refetch(),
+  }
 }
 
 /** The actual pay date of a pay day in a month (pay_date), for previews in forms. */
@@ -89,46 +126,42 @@ export function usePayDate(
   })
 }
 
-/** The current period, or null when the budget has ended (get_current_period, no row). */
-export function useCurrentPeriod(budgetId: string) {
-  return useQuery({
-    queryKey: budgetKeys.currentPeriod(budgetId),
-    queryFn: async (): Promise<PeriodSummary | null> => {
-      const rows = unwrap(await supabase.rpc('get_current_period', { p_budget_id: budgetId }))
-      return rows[0] ?? null
-    },
+/**
+ * The current period, or null when the budget has ended: the database's own answer
+ * (get_current_period returns no row), never inferred from a list of periods.
+ */
+export function useCurrentPeriod(budgetId: string): PeriodRead<PeriodSummary | null> {
+  return usePeriodDependentQuery(budgetId, budgetKeys.currentPeriod(budgetId), async () => {
+    const rows = unwrap(await supabase.rpc('get_current_period', { p_budget_id: budgetId }))
+    return rows[0] ?? null
   })
 }
 
 /** All existing periods, newest first. */
-export function usePeriods(budgetId: string) {
-  return useQuery({
-    queryKey: budgetKeys.periods(budgetId),
-    queryFn: async (): Promise<PeriodSummary[]> =>
-      unwrap(
-        await supabase
-          .from('period_summaries')
-          .select('*')
-          .eq('budget_id', budgetId)
-          .order('seq', { ascending: false }),
-      ),
-  })
+export function usePeriods(budgetId: string): PeriodRead<PeriodSummary[]> {
+  return usePeriodDependentQuery(budgetId, budgetKeys.periods(budgetId), async () =>
+    unwrap(
+      await supabase
+        .from('period_summaries')
+        .select('*')
+        .eq('budget_id', budgetId)
+        .order('seq', { ascending: false }),
+    ),
+  )
 }
 
-/** Incomes, ended ones included, oldest first. */
-export function useIncomes(budgetId: string) {
-  return useQuery({
-    queryKey: budgetKeys.incomes(budgetId),
-    queryFn: async (): Promise<IncomeOverview[]> =>
-      unwrap(
-        await supabase
-          .from('income_overview')
-          .select('*')
-          .eq('budget_id', budgetId)
-          .order('created_at')
-          .order('id'),
-      ),
-  })
+/** Incomes, ended ones included, oldest first (next_pay_date depends on today). */
+export function useIncomes(budgetId: string): PeriodRead<IncomeOverview[]> {
+  return usePeriodDependentQuery(budgetId, budgetKeys.incomes(budgetId), async () =>
+    unwrap(
+      await supabase
+        .from('income_overview')
+        .select('*')
+        .eq('budget_id', budgetId)
+        .order('created_at')
+        .order('id'),
+    ),
+  )
 }
 
 export function useMembers(budgetId: string) {

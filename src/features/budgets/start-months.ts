@@ -46,6 +46,11 @@ export function monthLabel(value: string, language: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
+/** The month inside a sentence: "October 2026" in English, "octobre 2026" in French. */
+export function monthInSentence(value: string, language: string): string {
+  return language === 'fr' ? formatMonth(value, 'fr') : monthLabel(value, language)
+}
+
 /**
  * The month as it follows "of" in a sentence: "November 2026" in English; in French with
  * its preposition and elision, "de novembre 2026" but "d’octobre 2026", "d’août 2026".

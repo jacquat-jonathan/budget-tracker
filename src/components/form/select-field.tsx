@@ -30,6 +30,14 @@ interface SelectFieldProps<TValues extends FieldValues, TOut extends FieldValues
   className?: string
 }
 
+/**
+ * Radix Select treats "" as "nothing selected" and shows an empty box, but forms use "" for
+ * a real choice ("the current period"). It travels through the select as this stand-in.
+ */
+const EMPTY_VALUE = '\u0000empty'
+const toSelect = (value: string) => (value === '' ? EMPTY_VALUE : value)
+const fromSelect = (value: string) => (value === EMPTY_VALUE ? '' : value)
+
 /** A labelled select bound to react-hook-form. */
 export function SelectField<TValues extends FieldValues, TOut extends FieldValues = TValues>({
   control,
@@ -55,9 +63,14 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select
         name={fieldName}
-        value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
+        value={
+          typeof value === 'string' || typeof value === 'number' ? toSelect(String(value)) : ''
+        }
         disabled={disabled}
-        onValueChange={(next) => onChange(numeric ? Number(next) : next)}
+        onValueChange={(next) => {
+          const chosen = fromSelect(next)
+          onChange(numeric ? Number(chosen) : chosen)
+        }}
       >
         <SelectTrigger
           id={id}
@@ -71,7 +84,7 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
         </SelectTrigger>
         <SelectContent position="popper" className="max-h-72">
           {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem key={option.value} value={toSelect(option.value)}>
               {option.label}
             </SelectItem>
           ))}

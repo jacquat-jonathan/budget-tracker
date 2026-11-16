@@ -8,7 +8,7 @@ import {
   RotateCcwIcon,
   SkipForwardIcon,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -36,9 +36,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { FieldGroup } from '@/components/ui/field'
 import { budgetKeys } from '@/features/budgets/budget-keys'
-import { unwrap, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
+import {
+  unwrap,
+  useCurrentPeriod,
+  usePeriods,
+  type PeriodSummary,
+} from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
-import { monthLabel, monthOf } from '@/features/budgets/start-months'
+import { monthInSentence, monthLabel, monthOf } from '@/features/budgets/start-months'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { addDays, addMonths, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema } from '@/lib/form-schemas'
@@ -66,6 +71,8 @@ import { supabase } from '@/lib/supabase'
 type Action =
   | { kind: 'arrived'; period: PeriodSummary; previous: PeriodSummary; late: boolean }
   | { kind: 'next'; period: PeriodSummary }
+  /** The final month of a budget with an end date: its end is the budget's last day. */
+  | { kind: 'final'; period: PeriodSummary }
   | { kind: 'reset'; boundaryOf: PeriodSummary; next: PeriodSummary | undefined }
 
 interface Move {
@@ -99,6 +106,8 @@ export function PeriodsPage() {
   const language = currentLanguage()
   const { budgetId, budget } = useCurrentBudget()
   const periods = usePeriods(budgetId)
+  // Whether the budget has ended is the database's answer, not the absence of a row.
+  const current = useCurrentPeriod(budgetId)
   const [action, setAction] = useState<Action | null>(null)
   const move = useMoveBoundary(budgetId)
   const close = () => setAction(null)
@@ -110,15 +119,22 @@ export function PeriodsPage() {
 
   const header = <PageHeader title={t('nav.periods')} description={t('periods.description')} />
 
-  if (periods.isError) {
+  const failed = [periods, current].find((query) => query.isError)
+  if (failed) {
     return (
       <div className="flex flex-col gap-6">
         {header}
-        <ErrorState error={periods.error} onRetry={() => void periods.refetch()} />
+        <ErrorState
+          error={failed.error}
+          onRetry={() => {
+            periods.refetch()
+            current.refetch()
+          }}
+        />
       </div>
     )
   }
-  if (periods.isPending) {
+  if (periods.data === undefined || current.data === undefined) {
     return (
       <div className="flex flex-col gap-6">
         {header}
@@ -128,12 +144,13 @@ export function PeriodsPage() {
   }
 
   const list = periods.data
-  const hasCurrent = list.some((period) => period.is_current)
+  const ended = current.data === null
 
   return (
     <div className="flex flex-col gap-6">
       {header}
-      {!hasCurrent && list.length > 0 && (
+      <ListConsistency list={list} current={current.data} refetch={periods.refetch} />
+      {ended && (
         <Alert>
           <CalendarOffIcon aria-hidden />
           <AlertTitle>{t('budgetEnded.title')}</AlertTitle>
@@ -192,7 +209,9 @@ export function PeriodsPage() {
                       <Button
                         variant="outline"
                         size="icon-sm"
-                        aria-label={t('periods.actionsFor', { month: month(period) })}
+                        aria-label={t('periods.actionsFor', {
+                          month: monthInSentence(period.month, language),
+                        })}
                       >
                         <EllipsisVerticalIcon />
                       </Button>
@@ -214,7 +233,13 @@ export function PeriodsPage() {
                           {t('periods.actions.notYet', { month: monthOf(period.month, language) })}
                         </DropdownMenuItem>
                       )}
-                      {latest && (
+                      {latest && isFinal && (
+                        <DropdownMenuItem onSelect={() => open({ kind: 'final', period })}>
+                          <CalendarClockIcon />
+                          {t('periods.actions.finalEnd')}
+                        </DropdownMenuItem>
+                      )}
+                      {latest && !isFinal && (
                         <DropdownMenuItem onSelect={() => open({ kind: 'next', period })}>
                           <SkipForwardIcon />
                           {t('periods.actions.nextEarly', {
@@ -255,7 +280,7 @@ export function PeriodsPage() {
       )}
 
       <SalaryDateDialog
-        action={action?.kind === 'arrived' || action?.kind === 'next' ? action : null}
+        action={action && action.kind !== 'reset' ? action : null}
         mutation={move}
         onClose={close}
       />
@@ -276,7 +301,20 @@ export function PeriodsPage() {
                     })
                   : t('periods.resetDescriptionLatest')}
               </p>
-              <p>{t('periods.resetComesBack')}</p>
+              {/* Resetting an early start of the latest period whose scheduled salary is
+                  still to come removes that period until then. */}
+              {action.next?.is_current &&
+              action.next.today !== null &&
+              action.next.anchor_date > action.next.today ? (
+                <p>
+                  {t('periods.resetRemovesLatest', {
+                    month: monthOf(action.next.month, language),
+                    date: formatCalendarDate(action.next.anchor_date),
+                  })}
+                </p>
+              ) : (
+                <p>{t('periods.resetComesBack')}</p>
+              )}
             </>
           ) : null
         }
@@ -294,7 +332,7 @@ export function PeriodsPage() {
 
 const salaryDateSchema = z.object({ date: calendarDateSchema })
 type SalaryDateValues = z.infer<typeof salaryDateSchema>
-type SalaryAction = Extract<Action, { kind: 'arrived' | 'next' }>
+type SalaryAction = Extract<Action, { kind: 'arrived' | 'next' | 'final' }>
 
 function SalaryDateDialog({
   action,
@@ -312,6 +350,8 @@ function SalaryDateDialog({
     title = action.late
       ? t('periods.actions.notYet', { month: monthOf(action.period.month, language) })
       : t('periods.actions.arrived', { month: monthOf(action.period.month, language) })
+  } else if (action?.kind === 'final') {
+    title = t('periods.actions.finalEnd')
   } else if (action) {
     title = t('periods.actions.nextEarly', {
       month: monthOf(addMonths(action.period.month, 1), language),
@@ -353,7 +393,9 @@ function SalaryDateForm({
   const of = (value: string) => monthOf(value, language)
 
   const defaultDate =
-    action.kind === 'next'
+    action.kind === 'final'
+      ? period.end_date
+      : action.kind === 'next'
       ? addDays(period.end_date, 1)
       : action.late
         ? addDays(today, 1)
@@ -367,6 +409,12 @@ function SalaryDateForm({
   /** What the periods will look like once saved, worded from the user's point of view. */
   const preview = (() => {
     if (!isCalendarDate(date)) return null
+    if (action.kind === 'final') {
+      // The final month has no next period: its end is the budget's last day (R-BUDGET-015).
+      return date < today
+        ? t('periods.preview.finalPast', { end: formatCalendarDate(date) })
+        : t('periods.preview.final', { end: formatCalendarDate(date) })
+    }
     const end = formatCalendarDate(addDays(date, -1))
     const start = formatCalendarDate(date)
     if (action.kind === 'next') {
@@ -386,8 +434,9 @@ function SalaryDateForm({
     mutation
       .mutateAsync(
         {
-          periodId: action.kind === 'next' ? period.id : action.previous.id,
-          newEnd: addDays(values.date, -1),
+          periodId: action.kind === 'arrived' ? action.previous.id : period.id,
+          // The field holds the day the salary arrived, except for the final month's last day.
+          newEnd: action.kind === 'final' ? values.date : addDays(values.date, -1),
         },
         { onSuccess: onClose },
       )
@@ -395,7 +444,9 @@ function SalaryDateForm({
   )
 
   const fieldLabel =
-    action.kind === 'next'
+    action.kind === 'final'
+      ? t('periods.fields.lastDay')
+      : action.kind === 'next'
       ? t('periods.fields.arrivedOn', { month: of(addMonths(period.month, 1)) })
       : action.late
         ? t('periods.fields.expectedOn', { month: of(period.month) })
@@ -422,7 +473,7 @@ function SalaryDateForm({
           name="date"
           label={fieldLabel}
           autoFocus
-          description={t('periods.fourteenDays')}
+          description={action.kind === 'final' ? undefined : t('periods.fourteenDays')}
         />
         {preview && (
           <Alert data-testid="boundary-preview">
@@ -441,4 +492,24 @@ function SalaryDateForm({
       </FieldGroup>
     </form>
   )
+}
+
+/**
+ * The current period the database gave must be in the list; if a read raced the period's
+ * creation (another tab, or get_current_period creating it), read the list again once.
+ */
+function ListConsistency({
+  list,
+  current,
+  refetch,
+}: {
+  list: PeriodSummary[]
+  current: PeriodSummary | null
+  refetch: () => void
+}) {
+  const missing = current !== null && !list.some((period) => period.id === current.id)
+  useEffect(() => {
+    if (missing) refetch()
+  }, [missing, refetch])
+  return null
 }

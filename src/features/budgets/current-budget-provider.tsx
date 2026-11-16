@@ -55,16 +55,9 @@ export function CurrentBudgetProvider({ budgets, children }: CurrentBudgetProvid
   return <BudgetsContext.Provider value={value}>{children}</BudgetsContext.Provider>
 }
 
-/** Make sure periods exist up to today when a budget is opened; refetch what they feed. */
+/** R-PERIOD-050: make sure periods exist up to today when a budget is opened. */
 function useEnsurePeriodsFor(budgetId: string | undefined) {
-  const queryClient = useQueryClient()
-  const ensured = useEnsurePeriods(budgetId)
-  const created = ensured.data ?? 0
-
-  useEffect(() => {
-    if (!budgetId || created === 0) return
-    void queryClient.invalidateQueries({ queryKey: budgetKeys.periods(budgetId) })
-    void queryClient.invalidateQueries({ queryKey: budgetKeys.currentPeriod(budgetId) })
-    void queryClient.invalidateQueries({ queryKey: budgetKeys.incomes(budgetId) })
-  }, [budgetId, created, ensured.dataUpdatedAt, queryClient])
+  // Period-dependent reads key themselves on this query's runs (usePeriodDependentQuery),
+  // so they are read again whenever it has run.
+  useEnsurePeriods(budgetId)
 }

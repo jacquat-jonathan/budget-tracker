@@ -55,8 +55,6 @@ function InvitationRow({
   const gone = { invitation_not_found: 'invitations.mine.gone' } as const
   const accept = useAppMutation<string>({
     errorMessages: gone,
-    // A refusal means the list changed meanwhile (expired, cancelled): show the fresh one.
-    invalidateOnError: [budgetKeys.myInvitations],
     mutationFn: async () =>
       unwrap(await supabase.rpc('accept_invitation', { p_invitation_id: invitation.id })),
     success: () => t('invitations.mine.accepted', { name: invitation.budget_name }),
@@ -68,8 +66,6 @@ function InvitationRow({
   })
   const decline = useAppMutation<null>({
     errorMessages: gone,
-    // A refusal means the list changed meanwhile (expired, cancelled): show the fresh one.
-    invalidateOnError: [budgetKeys.myInvitations],
     mutationFn: async () => {
       unwrap(await supabase.rpc('decline_invitation', { p_invitation_id: invitation.id }))
       return null

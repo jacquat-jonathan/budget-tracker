@@ -6,6 +6,7 @@ import type { PageHandle } from '@/app/navigation'
 import { paths } from '@/app/paths'
 import { FullPageSpinner } from '@/components/full-page-spinner'
 import { AppSidebar } from '@/components/layout/app-sidebar'
+import { useBudgets } from '@/features/budgets/current-budget-context'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -67,6 +68,7 @@ function AppBreadcrumb() {
 
 /** Signed-in shell: collapsible sidebar, header with breadcrumb, and the routed page. */
 export function AppLayout() {
+  const { current } = useBudgets()
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={readSidebarOpen()}>
@@ -85,7 +87,10 @@ export function AppLayout() {
             <LinkErrorAlert />
             <AccountSwitchedAlert />
             <Suspense fallback={<FullPageSpinner inline />}>
-              <Outlet />
+              {/* R-BUDGET-053: a page belongs to one budget. When the current budget changes
+                  (switched, deleted, or I was removed) the page is rebuilt, so no dialog or
+                  form opened for one budget can save into another. */}
+              <Outlet key={current?.id ?? 'none'} />
             </Suspense>
           </div>
         </SidebarInset>

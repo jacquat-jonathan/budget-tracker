@@ -235,7 +235,8 @@ function Invitations() {
       return null
     },
     success: (_data, invitation) => t('invitations.cancelled', { email: invitation.email }),
-    invalidate: () => [budgetKeys.invitations(budgetId)],
+    // Accepted meanwhile: the invitation is gone and the person is now a member.
+    invalidate: () => [budgetKeys.invitations(budgetId), budgetKeys.members(budgetId)],
   })
   // Inviting the same address again renews the invitation for 30 days (R-INVITE-009).
   const renew = useAppMutation<string, BudgetInvitation>({

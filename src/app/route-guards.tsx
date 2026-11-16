@@ -16,7 +16,9 @@ export function ProtectedRoute() {
   }
   // Signed in by a password-recovery link: choose a new password first, wherever it landed.
   if (recovery) return <Navigate to={paths.resetPassword} replace />
-  return <Outlet />
+  // R-AUTH-025: everything below is one user's. Keyed by user, it is rebuilt from scratch
+  // (queries, observers, forms, dialogs) when another user's session takes over the tab.
+  return <Outlet key={session.user.id} />
 }
 
 /** Sign-in and sign-up pages: a signed-in user is sent on to where they were going. */
