@@ -5996,6 +5996,21 @@
         "code: src/features/subscriptions/components/subscription-form-dialog.tsx",
         "code: src/features/debts/components/debt-form-dialog.tsx"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CONCURRENCY-150",
+      "area": "concurrency",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "When a save is refused because another member changed the record in a way the form does not show (the primary switch moves both incomes' revisions; a first subcategory makes its category a group), the form says that something it does not show changed and that what was typed is kept, naming no field the other member did not change; where the change has its own notice (a category now a group), that notice alone is shown. A correction being typed keeps what was typed when its period's terms are read again.",
+      "related": ["R-CONCURRENCY-091", "D-160", "R-VERSION-140"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/income/components/income-form-dialog.tsx",
+        "code: src/features/budget/components/category-form-dialog.tsx",
+        "code: src/features/budgets/terms-at.ts"
+      ]
     }
   ],
   "decisions": [

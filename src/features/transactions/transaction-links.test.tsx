@@ -315,3 +315,27 @@ describe('transactions of one debt, one subscription, or awaiting [R-TRANSACTION
     })
   })
 })
+
+describe('a payment whose debt ended meanwhile [R-DEBT-151]', () => {
+  it('says the payment can no longer be changed, in the words of what was tried', async () => {
+    const db = linksDb()
+    db.rpc.update_transaction.mockImplementation(() => rpcError('debt_ended'))
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transactions?period=all')
+    await screen.findAllByTestId('transaction-row')
+    await userEvent.click(
+      within(row('Payment on Car loan')).getByRole('button', { name: /^Actions for/ }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const form = await screen.findByTestId('transaction-form')
+    const amount = within(form).getByLabelText('Amount')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '450')
+    await userEvent.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(form).findByText(
+        'This payment’s debt has ended: the payment can no longer be changed or deleted.',
+      ),
+    ).toBeInTheDocument()
+  })
+})

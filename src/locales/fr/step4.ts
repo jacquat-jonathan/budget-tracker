@@ -349,9 +349,9 @@ export const debtsFr: Translation['debts'] = {
     marksNote:
       'Avec autant d’événements, seuls les ajustements de solde sont marqués ; pointez la courbe pour voir chaque événement d’une date, ou lisez l’historique ci-dessous.',
     labelCapped:
-      'Montant restant au fil du temps, les {{count}} premiers événements, jusqu’au {{date}}. Le tableau ci-dessous les détaille.',
+      'Montant restant au fil du temps, les {{count, number}} premiers événements, jusqu’au {{date}}. Le tableau ci-dessous les détaille.',
     capped:
-      'Le graphique montre les {{count}} premiers événements, jusqu’au {{date}} : l’historique est plus long. Le tableau ci-dessous continue jusqu’aux plus récents.',
+      'Le graphique montre les {{count, number}} premiers événements, jusqu’au {{date}} : l’historique est plus long. Le tableau ci-dessous continue jusqu’aux plus récents.',
   },
   history: {
     title: 'Historique',
@@ -397,6 +397,8 @@ export const correctionsFr: Translation['corrections'] = {
     'Il n’était pas en vigueur dans cette période : il n’y a rien à y corriger. Choisissez une autre période.',
   budgetEnded:
     'Le budget est terminé : une modification ne s’applique que comme correction dès l’une de ses périodes.',
+  changedNotShown:
+    'Un autre membre a modifié entre-temps quelque chose que cette fenêtre n’affiche pas (le revenu principal, une première sous-catégorie…). Rien n’a été enregistré ; vos saisies sont toujours là : enregistrez de nouveau.',
 }
 
 export const catchUpFr: Translation['catchUp'] = {

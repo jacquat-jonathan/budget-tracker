@@ -807,7 +807,7 @@ function DeleteTransactionBody({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const errorMessage = useErrorMessage()
+  const errorMessage = useErrorMessage({ debt_ended: 'debts.endedErrors.frozenPayment' })
   const views = useRecordViews()
   const live = useRecord('transaction_list', budgetId, opened.id)
   const removal = useEditBase(opened, live, views.transaction)

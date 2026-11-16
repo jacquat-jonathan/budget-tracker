@@ -37,7 +37,7 @@ import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
-import { useEditBase } from '@/hooks/use-edit-base'
+import { isRecordChanged, useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { MIN_EXPECTATION_RAPPEN, nameSchema, rappenSchema } from '@/lib/form-schemas'
 import { formatMoney } from '@/lib/money'
@@ -101,7 +101,9 @@ function CategoryForm({
   currentPeriod,
 }: CategoryFormDialogProps) {
   const { t } = useTranslation()
-  const errorMessage = useErrorMessage()
+  // A refused save over a change this form does not show says so (the shown fields that
+  // changed have their own notice), in the save's own words.
+  const errorMessage = useErrorMessage({ record_changed: 'corrections.changedNotShown' })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
@@ -157,7 +159,7 @@ function CategoryForm({
   const base = category ? (correcting ? periodTerms : category) : null
   useStartFrom(
     form,
-    correcting ? `period-${fromPeriod.id}-${termsAt.dataUpdatedAt}` : 'now',
+    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     base && category && !isGroup
       ? { amount: base.amount ?? 0, cadence: base.cadence ?? 'monthly' }
       : null,
@@ -210,7 +212,8 @@ function CategoryForm({
           updated={sync.updated}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
-          error={mutation.error}
+          // The first subcategory has its own notice above: the refused save needs no other.
+          error={becameGroup && isRecordChanged(mutation.error) ? null : mutation.error}
           message={errorMessage}
         />
         {parent && !category && <FirstSubcategoryNotice parent={parent} />}

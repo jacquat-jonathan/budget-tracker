@@ -116,7 +116,9 @@ function IncomeForm({
   const { t } = useTranslation()
   const { user } = useAuth()
   const { budget } = useCurrentBudget()
-  const errorMessage = useErrorMessage()
+  // R-CONCURRENCY-150: a refused save over a change this form does not show says so (the shown fields that
+  // changed have their own notice), in the save's own words.
+  const errorMessage = useErrorMessage({ record_changed: 'corrections.changedNotShown' })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id.
@@ -191,7 +193,7 @@ function IncomeForm({
   const base = income ? (correcting ? periodTerms : income) : null
   useStartFrom(
     form,
-    correcting ? `period-${fromPeriod.id}-${termsAt.dataUpdatedAt}` : 'now',
+    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
     base && income
       ? { amount: base.amount, payDay: base.pay_day, weekendRule: base.weekend_rule }
       : null,

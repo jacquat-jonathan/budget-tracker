@@ -333,9 +333,9 @@ export const debtsEn = {
     marksNote:
       'With this many events, only balance adjustments are marked; point at the line for every event of a date, or read the history below.',
     labelCapped:
-      'Remaining amount over time, the first {{count}} events, up to {{date}}. The table below lists them.',
+      'Remaining amount over time, the first {{count, number}} events, up to {{date}}. The table below lists them.',
     capped:
-      'The chart shows the first {{count}} events, up to {{date}}: the history is longer. The table below goes on to the latest.',
+      'The chart shows the first {{count, number}} events, up to {{date}}: the history is longer. The table below goes on to the latest.',
   },
   history: {
     title: 'History',
@@ -381,6 +381,8 @@ export const correctionsEn = {
     'It was not in force in that period, so there is nothing to correct there. Choose another period.',
   budgetEnded:
     'The budget has ended: a change applies only as a correction from one of its periods.',
+  changedNotShown:
+    'Another member changed something this window does not show meanwhile (which income is the primary one, a first subcategory…). Nothing was saved; what you entered is still here: save again.',
 }
 
 export const catchUpEn = {

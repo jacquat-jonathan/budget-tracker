@@ -385,6 +385,7 @@ export function DebtDetailPage() {
         destructive
         pending={deleteAdjustment.isPending}
         error={deleteAdjustment.error}
+        errorMessages={{ debt_ended: 'debts.endedErrors.deleteAdjustment' }}
         onConfirm={() => {
           if (dialog.kind !== 'deleteAdjustment') return
           // The debt's revision, as the contract asks: another change to the debt refuses it.

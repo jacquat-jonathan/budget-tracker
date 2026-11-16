@@ -125,6 +125,27 @@ describe('correcting a subscription from an earlier period [R-SUBSCRIPTION-140]'
   })
 })
 
+describe('a correction being typed [R-VERSION-140]', () => {
+  it('keeps what was typed when the period’s terms are read again', async () => {
+    const db = correctionDb()
+    const { dialog, queryClient } = await openEdit(db)
+    await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
+    const price = within(dialog).getByLabelText('Price per charge')
+    await waitFor(() => {
+      expect(price).toHaveValue('19.90')
+    })
+    await userEvent.clear(price)
+    await userEvent.type(price, '30')
+    await act(async () => {
+      await queryClient.invalidateQueries()
+    })
+    await waitFor(() => {
+      expect(db.rpc.get_subscription_terms.mock.calls.length).toBeGreaterThan(1)
+    })
+    expect(price).toHaveValue('30')
+  })
+})
+
 describe('ending a subscription from an earlier period [R-SUBSCRIPTION-141]', () => {
   it('says the one outcome the database gives for the period chosen', async () => {
     const db = correctionDb()

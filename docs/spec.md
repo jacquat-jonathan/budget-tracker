@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-402 rules (338 active, 57 planned), 24 conventions, 179 decisions, 27 open questions. 0 rules and conventions are marked **TEST PENDING**.
+403 rules (339 active, 57 planned), 24 conventions, 179 decisions, 27 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1841,6 +1841,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-INCOME-055
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-CONCURRENCY-150** When a save is refused because another member changed the record in a way the form does not show (the primary switch moves both incomes' revisions; a first subcategory makes its category a group), the form says that something it does not show changed and that what was typed is kept, naming no field the other member did not change; where the change has its own notice (a category now a group), that notice alone is shown. A correction being typed keeps what was typed when its period's terms are read again.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-091, D-160, R-VERSION-140
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/income/components/income-form-dialog.tsx; code: src/features/budget/components/category-form-dialog.tsx; code: src/features/budgets/terms-at.ts
 
 ## Conventions
 

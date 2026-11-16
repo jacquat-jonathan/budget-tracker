@@ -147,7 +147,10 @@ function TransactionForm({
   ownPeriod,
 }: TransactionFormDialogProps) {
   const { t } = useTranslation()
-  const errorMessage = useErrorMessage()
+  // R-DEBT-151: an ended debt's refusal said for what was tried.
+  const errorMessage = useErrorMessage({
+    debt_ended: opened ? 'debts.endedErrors.frozenPayment' : 'debts.endedErrors.payment',
+  })
   const close = () => onOpenChange(false)
   const views = useRecordViews()
   // The payment link is part of what this form shows and saves: another member's change of

@@ -610,3 +610,27 @@ describe('an edit that moves the current period’s end [R-INCOME-150]', () => {
     })
   })
 })
+
+describe('a change this form does not show [R-CONCURRENCY-150]', () => {
+  it('says that another member changed something not shown, without blaming a field', async () => {
+    const db = await openIncomePage()
+    // The primary switch moved this income's revision; nothing this form shows changed.
+    db.rpc.update_income.mockImplementationOnce(() => rpcError('record_changed'))
+    await userEvent.click(
+      within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const amount = within(dialog).getByLabelText('Amount per month')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '2200')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText(
+        /Another member changed something this window does not show meanwhile/,
+      ),
+    ).toBeInTheDocument()
+    expect(within(dialog).queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+    expect(amount).toHaveValue("2'200.00")
+  })
+})

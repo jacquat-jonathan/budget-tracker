@@ -123,7 +123,12 @@ function AdjustForm({
   const { t } = useTranslation()
   // The version the dialog was opened on, kept: the page may pass newer ones while it is open.
   const [opened] = useState(openedNow)
-  const errorMessage = useErrorMessage()
+  // A refused save over a change this form does not show says so (the shown fields that
+  // changed have their own notice), in the save's own words.
+  const errorMessage = useErrorMessage({
+    record_changed: 'debts.changedNotShown',
+    debt_ended: 'debts.endedErrors.adjust',
+  })
   const views = useSubscriptionViews()
   const live = useDebtRecord(budgetId, opened.id)
   const edit = useEditBase(opened, live, views.debtBalance)

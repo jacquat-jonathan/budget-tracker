@@ -99,6 +99,8 @@ export function useEditIncome(
   const { budget } = useCurrentBudget()
   return useAppMutation<string | null, EditIncomeInput>({
     errorDisplay: 'inline',
+    // A change this form does not show (the primary switch moves both incomes' revisions).
+    errorMessages: { record_changed: 'corrections.changedNotShown' },
     mutationFn: async (input) => {
       if (!income) throw new DbError('income_not_found')
       const from = input.base ?? income
