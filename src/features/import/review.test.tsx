@@ -128,7 +128,7 @@ describe('imported transactions to review [R-IMPORT-081] [R-IMPORT-209]', () => 
     await waitFor(() => expect(router.state.location.search).not.toContain('review=1'))
   })
 
-  it('"show only the N to review" shows those N, in every period, whatever else was filtered', async () => {
+  it('[R-IMPORT-365] "show only the N to review" shows those N, in every period, whatever else was filtered', async () => {
     const db = reviewDb()
     const { router } = open(db, '/transactions?category=cat-groceries')
     const button = await screen.findByRole('button', { name: 'Show only the 3 to review' })
@@ -183,7 +183,7 @@ describe('imported transactions to review [R-IMPORT-081] [R-IMPORT-209]', () => 
   })
 })
 
-describe('one click to always put a merchant in a category [R-IMPORT-007]', () => {
+describe('one click to always put a merchant in a category [R-IMPORT-007] [R-IMPORT-365]', () => {
   it('is offered after categorising, with the database’s key and the others waiting, and moves them', async () => {
     const db = reviewDb()
     db.rpc.update_transaction.mockImplementation(() => [

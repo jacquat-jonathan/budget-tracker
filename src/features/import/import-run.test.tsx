@@ -162,7 +162,7 @@ describe('a CSV file is read on the device whatever its encoding, or refused wit
   )
 })
 
-describe('the preview, the run and a busy budget [R-IMPORT-321] [R-IMPORT-322]', () => {
+describe('the preview, the run and a busy budget [R-IMPORT-321] [R-IMPORT-322] [R-IMPORT-361]', () => {
   it(
     'asks at most two parts at once, and nothing again once the import starts or after it',
     async () => {
@@ -242,7 +242,7 @@ describe('the preview, the run and a busy budget [R-IMPORT-321] [R-IMPORT-322]',
     expect(screen.queryByText(/was refused/)).not.toBeInTheDocument()
   })
 
-  it('says a row turned out differently with every possible cause, and points to the list only for rows in it', async () => {
+  it('[R-IMPORT-362] says a row turned out differently with every possible cause, and points to the list only for rows in it', async () => {
     const db = categoriesDb()
     db.rpc.preview_import.mockImplementation((args) =>
       (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
@@ -321,7 +321,7 @@ describe('leaving while an import is sent [R-IMPORT-323]', () => {
   })
 })
 
-describe('an interrupted import resumed [R-IMPORT-323]', () => {
+describe('an interrupted import resumed [R-IMPORT-323] [R-IMPORT-362]', () => {
   it(
     'locks the rows of the parts already recorded and sends them unchanged',
     async () => {
@@ -377,7 +377,7 @@ describe('an interrupted import resumed [R-IMPORT-323]', () => {
   )
 })
 
-describe('a long preview [R-IMPORT-321]', () => {
+describe('a long preview [R-IMPORT-321] [R-IMPORT-364]', () => {
   it(
     'selects every row the filter shows, drawn or not, and reaches Import from the top',
     async () => {

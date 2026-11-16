@@ -188,7 +188,7 @@ export type DecimalSays = DecimalMark | 'either' | 'ambiguous' | 'unreadable'
 /** The cell without spaces, apostrophes, "CHF", a sign or brackets: digits and marks only. */
 function amountBody(text: string): string {
   let value = text
-    .replace(/[\s  '’ʼ]/g, '')
+    .replace(/[\s\u00a0\u202f'’ʼ]/g, '')
     .replace(/^chf/i, '')
     .replace(/chf$/i, '')
   if (/^\(.*\)$/.test(value)) value = value.slice(1, -1)

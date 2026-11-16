@@ -367,7 +367,7 @@ describe('an interrupted import [R-IMPORT-323]', () => {
   )
 })
 
-describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206]', () => {
+describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPORT-360]', () => {
   function skippedRow(
     id: string,
     rowNo: number,
@@ -509,7 +509,7 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206]', () => 
     expect(await screen.findByTestId('anyway-done')).toHaveTextContent('3 rows imported anyway.')
   })
 
-  it('follows what happens after it: counts after "import anyway", the undo’s numbers, the undo itself', async () => {
+  it('[R-IMPORT-363] follows what happens after it: counts after "import anyway", the undo’s numbers, the undo itself', async () => {
     const db = afterDb()
     open(db)
     await chooseCsv(csvOf(4))

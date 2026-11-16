@@ -197,7 +197,7 @@ export function PreviewRows({
           </Button>
         ))}
       </div>
-      {/* Below the app's header (h-14) while the rows scroll; on a phone one line that scrolls
+      {/* R-IMPORT-364: below the app's header (h-14) while the rows scroll; on a phone one line that scrolls
           sideways inside itself rather than three lines over the rows. */}
       <div
         className="sticky top-14 z-10 flex flex-nowrap items-center gap-2 overflow-x-auto rounded-lg border bg-background/95 p-2 backdrop-blur sm:flex-wrap sm:overflow-x-visible"

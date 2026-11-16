@@ -3,6 +3,8 @@
  * the start screen can read a file without loading the mapping step.
  */
 /** Control characters other than tab and line ends (C0, DEL, C1): never part of bank text. */
+// The control characters are the point of this pattern.
+// eslint-disable-next-line no-control-regex
 export const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g
 
 export type CsvDecoded =
@@ -31,7 +33,7 @@ function utf16Without(bytes: Uint8Array): 'utf-16le' | 'utf-16be' | null {
  * (many control characters) or whose UTF-16 is broken is refused with the reason.
  */
 export function decodeCsvBytes(bytes: Uint8Array): CsvDecoded {
-  let encoding: 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252' | null = null
+  let encoding: 'utf-8' | 'utf-16le' | 'utf-16be' | 'windows-1252' | null
   if (bytes[0] === 0xff && bytes[1] === 0xfe) encoding = 'utf-16le'
   else if (bytes[0] === 0xfe && bytes[1] === 0xff) encoding = 'utf-16be'
   else encoding = utf16Without(bytes)

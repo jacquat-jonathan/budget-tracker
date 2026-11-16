@@ -57,7 +57,7 @@ export function readRememberedMapping(
     const separator = CSV_SEPARATORS.find((one) => one === value.separator)
     const mapping = sanitize(value.mapping, value.version)
     if (!separator || !mapping) return null
-    return { header: value.header as string[], separator, mapping }
+    return { header: value.header, separator, mapping }
   } catch {
     return null
   }

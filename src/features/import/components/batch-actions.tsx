@@ -48,7 +48,7 @@ function rowData(row: SkippedRow): {
 const FLAGS = ['card_bill_payment', 'own_transfer', 'transfer_to_person', 'salary'] as const
 
 /** What a skipped row is, for the words and for the question before importing it anyway. */
-export type SkippedKind =
+type SkippedKind =
   | 'salary'
   | 'card_bill_payment'
   | 'own_transfer'
@@ -61,7 +61,7 @@ export type SkippedKind =
   | 'chosen'
   | 'invalid'
 
-export const SKIPPED_KINDS: readonly Exclude<SkippedKind, 'invalid'>[] = [
+const SKIPPED_KINDS: readonly Exclude<SkippedKind, 'invalid'>[] = [
   'salary',
   'card_bill_payment',
   'own_transfer',
@@ -78,7 +78,7 @@ export const SKIPPED_KINDS: readonly Exclude<SkippedKind, 'invalid'>[] = [
  * A skipped row's kind: its flag, or for a match whether the existing transaction is a
  * subscription charge (the import confirmed it) or one entered by hand.
  */
-export function skippedKind(
+function skippedKind(
   row: Pick<SkippedRow, 'reason' | 'detail' | 'match_of'>,
   existing: ReadonlyMap<string, ExistingTransaction> | undefined,
 ): SkippedKind {
@@ -111,7 +111,7 @@ const ANYWAY_CALL = 500
  * all are imported anyway, or one that matched a charge or a typed transaction, the page asks:
  * how many, of which kinds, and that they count twice if they are what the import thought.
  */
-// R-IMPORT-204: skipped rows can be imported anyway, one by one or all at once, asked first.
+// R-IMPORT-360: importing skipped rows anyway asks first when they may count twice.
 export function SkippedRows({
   budgetId,
   batchId,

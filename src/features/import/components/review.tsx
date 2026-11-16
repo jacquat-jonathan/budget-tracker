@@ -325,7 +325,7 @@ export function RuleOffer({
     ? `${after.parent_category_name} › ${after.category_name ?? ''}`
     : (after.category_name ?? '')
   return (
-    // Fixed in the window (under the header on a phone, bottom left beside the sidebar, away
+    // R-IMPORT-365: fixed in the window (under the header on a phone, bottom left beside the sidebar, away
     // from the toasts): in view wherever the saved row is, never scrolling the
     // page, and it takes no focus by itself (a stray Enter would create a rule).
     <Alert

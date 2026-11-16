@@ -580,11 +580,12 @@ function ImportFlow({
 }
 
 /** The choices without those for rows already recorded (their part is sent unchanged). */
+// R-IMPORT-362: the parts an interrupted import recorded are locked and sent unchanged.
 function lockedOut(choices: Choices, locked: ReadonlyMap<number, number>): Choices {
   if (locked.size === 0) return choices
   return Object.fromEntries(
     Object.entries(choices).filter(([key]) => !locked.has(Number(key))),
-  ) as Choices
+  )
 }
 
 /** A preview error is shown unless the shared catch-up handles it. */
@@ -614,7 +615,7 @@ function RunView({
   const errorMessage = useErrorMessage()
   const [showResult, setShowResult] = useState(false)
   const [undone, setUndone] = useState<{ answer: UndoAnswer | null } | null>(null)
-  // Rows imported anyway since: the headline follows them (R-IMPORT-204).
+  // R-IMPORT-363: rows imported anyway since are in the headline.
   const [anyway, setAnyway] = useState(0)
   const results = state.answers.flat()
   const counts = countActions(results)
