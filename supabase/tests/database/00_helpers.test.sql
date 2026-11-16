@@ -446,10 +446,10 @@ returns table (period_id uuid, end_date date, expected_pay_date date, end_is_man
 language plpgsql security invoker set search_path = '' as $$
 begin
   if p_income_id is not null then
-    return query select * from public.preview_set_primary_income(p_income_id);
+    return query select x.period_id, x.end_date, x.expected_pay_date, x.end_is_manual from public.preview_set_primary_income(p_income_id) as x;
   else
-    return query select * from public.preview_update_income(
-      (select b.primary_income_id from public.budgets as b where b.id = p_budget_id), null, p_pay_day, p_weekend_rule);
+    return query select x.period_id, x.end_date, x.expected_pay_date, x.end_is_manual from public.preview_update_income(
+      (select b.primary_income_id from public.budgets as b where b.id = p_budget_id), null, p_pay_day, p_weekend_rule) as x;
   end if;
 end; $$;
 

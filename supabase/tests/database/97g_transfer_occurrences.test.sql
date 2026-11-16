@@ -5,7 +5,7 @@
 -- one undo out of every state; the monthly share; the bounded catch-up step. The reviewer's
 -- reproductions (M2, M3, R6, R7, the Q-224 cases) are here with what the bank did as expected.
 begin;
-select plan(98);
+select plan(109);
 
 select tests.create_user('gina', 'Gina');
 select tests.create_user('hugo', 'Hugo');
@@ -43,7 +43,7 @@ $$;
 
 -- ===========================================================================
 -- M2: a reopen and the salary recorded again leave one transaction for that payday
--- (R-ACCOUNT-302, R-ACCOUNT-237, D-421, D-430)
+-- (R-ACCOUNT-302, R-ACCOUNT-306, D-421, D-430)
 -- ===========================================================================
 select pg_temp.budget('m2');
 select pg_temp.day('2026-11-26');
@@ -62,7 +62,7 @@ select results_eq(
   'R-ACCOUNT-303: the reopen preview says the catch-up''s transaction of that payday goes');
 select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('m2'), tests.id('m2_p3'),
                        (select revision from public.periods where id = tests.id('m2_p3'))),
-  'R-ACCOUNT-237: the salary of the 25th has not arrived: reopen');
+  'R-ACCOUNT-306: the salary of the 25th has not arrived: reopen');
 select is((select count(*)::integer from pg_temp.txs(tests.id('m2_t'))), 0,
   'R-ACCOUNT-302: no transaction while that salary has not come');
 select is((select count(*)::integer from public.get_transfer_checklist(tests.id('m2_p2')) where transfer_id = tests.id('m2_t')), 0,
@@ -84,7 +84,7 @@ select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.i
 select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('m2'),
                        pg_temp.period_at(tests.id('m2'), '2026-11-28'),
                        (select revision from public.periods where id = pg_temp.period_at(tests.id('m2'), '2026-11-28'))),
-  'R-ACCOUNT-237: (reopened again)');
+  'R-ACCOUNT-306: (reopened again)');
 select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, '2026-11-24')$$, tests.id('m2'), tests.id('m2_p2'),
                        (select revision from public.periods where id = tests.id('m2_p2'))),
   'R-ACCOUNT-302: (the salary recorded on the 24th instead)');
@@ -99,7 +99,7 @@ select tests.remember('m2_p3c', pg_temp.period_at(tests.id('m2'), '2026-11-28'))
 select tests.remember('m2_mtx', (select transaction_id from public.mark_transfer_done(tests.id('m2_manual'), tests.id('m2_p3c'), 0)));
 select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('m2'), tests.id('m2_p3c'),
                        (select revision from public.periods where id = tests.id('m2_p3c'))),
-  'R-ACCOUNT-237: (reopened with a member''s mark on the payday)');
+  'R-ACCOUNT-306: (reopened with a member''s mark on the payday)');
 select results_eq(
   format($$select occurrence_date, status, planned, transaction_id from public.get_transfer_checklist(%L) where transfer_id = %L$$,
          tests.id('m2_p2'), tests.id('m2_manual')),
@@ -447,6 +447,64 @@ select is((select count(distinct occurrence_date)::integer from pg_temp.txs(test
 select tests.clear_authentication();
 create or replace function private.limit_catch_up_transactions() returns integer language sql immutable set search_path = '' as $f$ select 4000 $f$;
 select tests.set_today('2026-11-16');
+select tests.authenticate_as('gina');
+
+-- ===========================================================================
+-- The previews of income edits, a primary switch and boundary moves count what they do to the
+-- transfers (R-ACCOUNT-303, D-428)
+-- ===========================================================================
+select pg_temp.budget('v');
+select tests.remember('v_inc', public.add_income(tests.id('v'), 'Partner', 300000, 10, 'none', null, tests.id('v_p1')));
+select tests.remember('v_t', (select id from public.create_transfer(tests.id('v'), 'After the partner', tests.id('v_main'),
+  tests.id('v_sav'), 1000, 'pay_date', 0, null, tests.id('v_inc'), true, tests.id('v_cat'), tests.id('v_p1'))));
+select results_eq(format($$select occurrence_date from pg_temp.txs(%L)$$, tests.id('v_t')),
+  $$values ('2026-10-10'::date), ('2026-11-10'::date)$$, 'R-ACCOUNT-301: (setup: the partner''s pay dates)');
+select results_eq(
+  format($$select transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned
+           from public.preview_update_income(%L, p_pay_day => 5)$$, tests.id('v_inc')),
+  $$values (1, 1, 0)$$,
+  'R-ACCOUNT-303: an income edit''s preview counts the transfers'' transactions its new pay dates remove and create');
+select lives_ok(format($$select public.update_income(%L, 1, p_pay_day => 5)$$, tests.id('v_inc')), 'R-ACCOUNT-303: (the edit)');
+select results_eq(format($$select occurrence_date from pg_temp.txs(%L)$$, tests.id('v_t')),
+  $$values ('2026-10-10'::date), ('2026-11-05'::date)$$,
+  'R-ACCOUNT-302: as its preview said (the past period keeps its terms)');
+select results_eq(
+  format($$select transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned
+           from public.preview_set_primary_income(%L)$$, tests.id('v_inc')),
+  $$values (0, 0, 0)$$,
+  'R-ACCOUNT-303: a primary switch that moves no occurrence counts none');
+select tests.remember('v_d', (select id from public.create_transfer(tests.id('v'), 'On the 26th', tests.id('v_main'),
+  tests.id('v_sav'), 2000, 'day_of_month', p_day_of_month => 26, p_is_automatic => true, p_category_id => tests.id('v_cat'))));
+select results_eq(
+  format($$select accepted, transfer_transactions_removed, transfer_transactions_created from public.preview_move_period_start(%L, '2026-10-27')$$,
+         tests.id('v_p2')),
+  $$values (true, 1, 0)$$,
+  'R-ACCOUNT-303: a boundary move''s preview counts the transaction it removes (26 October falls before the transfer counts)');
+select lives_ok(format($$select public.move_period_start(%L, %s, '2026-10-27')$$, tests.id('v_p2'),
+                       (select revision from public.periods where id = tests.id('v_p2'))), 'R-ACCOUNT-303: (the move)');
+select is((select count(*)::integer from pg_temp.txs(tests.id('v_d'))), 0, 'R-ACCOUNT-302: as its preview said');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('v')), 'R-ACCOUNT-302: the invariants hold');
+
+-- ===========================================================================
+-- At most 1000 rows in a checklist (R-APP-170)
+-- ===========================================================================
+select pg_temp.budget('k');
+select count(*) from (select public.create_transfer(tests.id('k'), 'K' || g, tests.id('k_main'), tests.id('k_sav'), 100 * g,
+  'day_of_month', p_day_of_month => g) from generate_series(1, 3) as g) as x;
+select tests.clear_authentication();
+create or replace function private.limit_checklist_rows() returns integer language sql immutable set search_path = '' as $f$ select 2 $f$;
+select tests.authenticate_as('gina');
+select results_eq(
+  format($$select status, name, period_id = %L from public.get_transfer_checklist(%L)$$, tests.id('k_p2'), tests.id('k_p2')),
+  $$values ('to_do', 'K1', true), ('more', '2', true)$$,
+  'R-APP-170: beyond the bound, the checklist lists the first rows and a last one saying how many more there are');
+select tests.clear_authentication();
+create or replace function private.limit_checklist_rows() returns integer language sql immutable set search_path = '' as $f$ select 3 $f$;
+select tests.authenticate_as('gina');
+select is((select count(*)::integer from public.get_transfer_checklist(tests.id('k_p2')) where status <> 'more'), 3,
+  'R-APP-170: exactly the bound is all listed');
+select tests.clear_authentication();
+create or replace function private.limit_checklist_rows() returns integer language sql immutable set search_path = '' as $f$ select 1000 $f$;
 select tests.authenticate_as('gina');
 
 -- ===========================================================================

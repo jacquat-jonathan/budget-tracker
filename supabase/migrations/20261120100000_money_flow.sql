@@ -39,6 +39,9 @@ create function private.limit_bank_label_length() returns integer
 language sql immutable set search_path = '' as $$ select 100 $$;
 create function private.limit_transfer_preview() returns integer
 language sql immutable set search_path = '' as $$ select 60 $$;
+-- R-APP-170: the most rows a checklist answers (the last one says how many more there are)
+create function private.limit_checklist_rows() returns integer
+language sql immutable set search_path = '' as $$ select 1000 $$;
 
 -- ===========================================================================
 -- Tables
@@ -279,7 +282,7 @@ begin
 end;
 $$;
 
--- R-ACCOUNT-240, D-353, D-393: deleting the transaction of a done occurrence (by
+-- R-ACCOUNT-240, D-353, D-423: deleting the transaction of a done occurrence (by
 -- delete_transaction or any other way) says it did not happen, by the terms in force for it
 -- now: a planned automatic occurrence is not done (its transaction is never created again),
 -- whoever marked it; a manual one is to do again; a mark whose occurrence is no longer planned
@@ -940,8 +943,11 @@ as $$
 begin
   if tg_table_name = 'periods' then
     if tg_op = 'INSERT' then
-      update public.transfers set needs_check = true
-      where budget_id = new.budget_id and not needs_check and (end_seq is null or end_seq > new.seq);
+      -- a new period changes no occurrence already planned: the catch-up looks at it from the
+      -- watermark when there is room (next_due), and its marks need no check
+      update public.transfers set next_due = new.start_date
+      where budget_id = new.budget_id and (next_due is null or next_due > new.start_date)
+        and (end_seq is null or end_seq > new.seq);
     elsif tg_op = 'UPDATE' then
       perform private.transfers_recheck(new.budget_id, null, null, least(old.start_date, new.start_date));
     else
@@ -969,7 +975,7 @@ begin
       private.seq_start(new.budget_id, least(old.first_seq, new.first_seq,
         coalesce(old.end_seq, new.end_seq, old.first_seq), coalesce(new.end_seq, old.end_seq, old.first_seq)))));
   elsif tg_table_name = 'transfer_occurrences' then
-    -- D-393: every removal of a mark (the occurrence's due date lies at most in the period
+    -- D-423: every removal of a mark (the occurrence's due date lies at most in the period
     -- before the one listing its key)
     perform private.transfers_recheck(old.budget_id, old.transfer_id, null,
       least(private.seq_start(old.budget_id, private.listing_seq(old.budget_id, old.occurrence_date) - 1),
@@ -1056,6 +1062,24 @@ begin
 end;
 $$;
 
+-- When this statement's catch-up step started for the budget (set by ensure_periods), so the
+-- charges and the transfers share the step's time bound with its periods.
+create function private.step_started(p_budget_id uuid)
+returns timestamptz
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v text := coalesce(pg_catalog.current_setting('budget_tracker.catch_up_started', true), '');
+begin
+  if pg_catalog.split_part(v, '|', 1) = private.step_key(p_budget_id) then
+    return pg_catalog.split_part(v, '|', 2)::timestamptz;
+  end if;
+  return null;
+end;
+$$;
+
 -- The step stopped before creating everything due (its bound): ensure_periods then does not
 -- answer 0, and the budget is not caught up.
 create function private.step_cut(p_budget_id uuid)
@@ -1094,7 +1118,7 @@ declare
   v_dates date[];
   v_prices bigint[];
   v_categories uuid[];
-  v_started timestamptz := pg_catalog.clock_timestamp();
+  v_started timestamptz := coalesce(private.step_started(p_budget_id), pg_catalog.clock_timestamp());
   s public.subscriptions;
 begin
   if v_upto is null or not exists (select 1 from public.subscriptions as x
@@ -1200,12 +1224,16 @@ declare
   v_step integer;
   v_made integer := 0;
   v_inserted integer;
-  v_started timestamptz := pg_catalog.clock_timestamp();
+  v_started timestamptz := coalesce(private.step_started(p_budget_id), pg_catalog.clock_timestamp());
+  v_cut boolean := false;
   t public.transfers;
   v_w date;
-  v_from date;
-  v_from_seq integer;
+  v_lo date;
+  v_hi date;
+  v_seq integer;
+  v_to integer;
   v_next date;
+  v_stop boolean;
   v_bad uuid[];
   v_keys date[];
   v_dues date[];
@@ -1229,49 +1257,62 @@ begin
       exit;
     end if;
     v_w := t.settled_through;
-    select least(v_w + 1, pg_catalog.min(least(o.occurrence_date, o.done_on))) into v_from
-    from public.transfer_occurrences as o
-    where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w);
-    v_from := coalesce(v_from, v_w + 1);
-    select pg_catalog.min(p.seq) into v_from_seq from public.periods as p
-    where p.budget_id = p_budget_id and p.end_date >= v_from;
-    v_from_seq := greatest(coalesce(v_from_seq, v_latest) - 1, 1);
-    -- 1. its own marks that no longer hold
+    -- 1. its own marks from the watermark on that no longer hold (the plan changed): only the
+    --    periods those marks lie in are computed
     if t.needs_check then
-      select pg_catalog.array_agg(o.id) into v_bad
+      select pg_catalog.min(least(o.occurrence_date, o.done_on)), pg_catalog.max(greatest(o.occurrence_date, o.done_on))
+      into v_lo, v_hi
       from public.transfer_occurrences as o
-      where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w)
-        and not exists (select 1 from private.transfer_plan_range(p_budget_id, t.id, v_from_seq, v_latest) as pl
-                        where pl.occurrence_date = o.occurrence_date and pl.due_date <= v_upto);
-      perform private.drop_transfer_marks(v_bad);
+      where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w);
+      if v_lo is not null then
+        select pg_catalog.array_agg(o.id) into v_bad
+        from public.transfer_occurrences as o
+        where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w)
+          and not exists (select 1 from private.transfer_plan_range(p_budget_id, t.id,
+                                                                   private.listing_seq(p_budget_id, v_lo) - 1,
+                                                                   private.listing_seq(p_budget_id, v_hi) + 1) as pl
+                          where pl.occurrence_date = o.occurrence_date and pl.due_date <= v_upto);
+        perform private.drop_transfer_marks(v_bad);
+      end if;
     end if;
-    -- 2. the transactions due
+    -- 2. the transactions due, in due-date order, the periods after the watermark a chunk at a
+    --    time, so a step costs what it creates, not the transfer's whole history
     v_next := null;
+    v_stop := false;
     v_keys := '{}'; v_dues := '{}'; v_amounts := '{}'; v_categories := '{}';
-    for r in
-      select pl.occurrence_date, pl.due_date, pl.amount, pl.category_id, pl.is_automatic
-      from private.transfer_plan_range(p_budget_id, t.id, v_from_seq, v_latest) as pl
-      where pl.due_date > v_w
-      order by pl.due_date, pl.occurrence_date
-    loop
-      continue when not r.is_automatic or r.category_id is null;
-      continue when exists (select 1 from public.transfer_occurrences as o
-                            where o.transfer_id = t.id and o.occurrence_date = r.occurrence_date);
-      if r.due_date > v_upto then
-        v_next := r.due_date;  -- due later
-        exit;
-      end if;
-      if pg_catalog.cardinality(v_keys) >= least(v_room, v_step) then
-        v_next := r.due_date;  -- the budget is full (held back), or the step's bound
-        if v_step < v_room then
-          perform private.step_cut(p_budget_id);
+    select pg_catalog.min(p.seq) into v_seq from public.periods as p
+    where p.budget_id = p_budget_id and p.end_date > v_w;
+    v_seq := greatest(coalesce(v_seq, v_latest + 1) - 1, 1);
+    while not v_stop and v_seq <= v_latest loop
+      v_to := least(v_seq + 59, v_latest);
+      for r in
+        select pl.occurrence_date, pl.due_date, pl.amount, pl.category_id, pl.is_automatic
+        from private.transfer_plan_range(p_budget_id, t.id, v_seq, v_to) as pl
+        where pl.due_date > v_w
+        order by pl.due_date, pl.occurrence_date
+      loop
+        continue when not r.is_automatic or r.category_id is null;
+        continue when exists (select 1 from public.transfer_occurrences as o
+                              where o.transfer_id = t.id and o.occurrence_date = r.occurrence_date);
+        if r.due_date > v_upto then
+          v_next := r.due_date;  -- due later
+          v_stop := true;
+          exit;
         end if;
-        exit;
-      end if;
-      v_keys := v_keys || r.occurrence_date;
-      v_dues := v_dues || r.due_date;
-      v_amounts := v_amounts || r.amount;
-      v_categories := v_categories || r.category_id;
+        if pg_catalog.cardinality(v_keys) >= least(v_room, v_step)
+           or (v_made + pg_catalog.cardinality(v_keys) > 0
+               and pg_catalog.clock_timestamp() - v_started > private.limit_catch_up_work()) then
+          v_next := r.due_date;  -- the budget is full (held back), or the step's bound
+          v_cut := v_cut or v_step < v_room or pg_catalog.cardinality(v_keys) < least(v_room, v_step);
+          v_stop := true;
+          exit;
+        end if;
+        v_keys := v_keys || r.occurrence_date;
+        v_dues := v_dues || r.due_date;
+        v_amounts := v_amounts || r.amount;
+        v_categories := v_categories || r.category_id;
+      end loop;
+      v_seq := v_to + 1;
     end loop;
     if pg_catalog.cardinality(v_keys) > 0 then
       with made as (
@@ -1293,6 +1334,10 @@ begin
     set settled_through = case when v_next is null then v_upto else v_next - 1 end,
         next_due = v_next, needs_check = false
     where id = t.id;
+    if v_cut then
+      perform private.step_cut(p_budget_id);
+      exit;
+    end if;
   end loop;
   perform private.step_transactions_made(p_budget_id, v_made);
   return v_made;
@@ -1379,6 +1424,7 @@ begin
     v_done := pg_catalog.split_part(v_step, '|', 2)::integer;
   end if;
   v_started := pg_catalog.clock_timestamp();
+  perform pg_catalog.set_config('budget_tracker.catch_up_started', private.step_key(p_budget_id) || '|' || v_started::text, true);
   loop
     exit when v_done + v_created >= least(coalesce(p_max, private.limit_catch_up_periods()), private.limit_catch_up_periods());
     -- D-276: and at most about two seconds of work (with the charges and the commit, a step
@@ -2622,7 +2668,7 @@ as $$
     and exists (select 1 from public.transfer_occurrences as o where o.recorded_by = p_user_id and o.budget_id = p_budget_id)
 $$;
 
--- R-ACCOUNT-005, R-ACCOUNT-239, R-ACCOUNT-301: one row per occurrence planned in the period, with
+-- R-ACCOUNT-005, R-ACCOUNT-301: one row per occurrence planned in the period, with
 -- what was done, and one per mark listed there (its date lies in the period) whose occurrence
 -- is no longer planned (planned false; is_ended when the transfer is not in force there). A
 -- manual occurrence is to do (overdue once its due date has passed), done or skipped; an
@@ -2695,7 +2741,9 @@ as $$
   order by coalesce(k.due_date, k.occurrence_date), k.name, k.transfer_id, k.occurrence_date
 $$;
 
--- R-ACCOUNT-005: the checklist of any period, current or past. Catches up first.
+-- R-ACCOUNT-005: the checklist of any period, current or past. Catches up first. R-APP-170: at
+-- most 1000 rows; when the period lists more (only with many marks no longer planned), the
+-- first 999 and a last row with status 'more', name the number not listed.
 create function public.get_transfer_checklist(p_period_id uuid)
 returns setof public.transfer_checklist_row
 language plpgsql
@@ -2704,6 +2752,9 @@ set search_path = ''
 as $$
 declare
   v_period public.periods;
+  v_n integer := 0;
+  r public.transfer_checklist_row;
+  v_last public.transfer_checklist_row;
 begin
   select p.* into v_period from public.periods as p where p.id = p_period_id;
   if v_period.id is null or not private.is_budget_member(v_period.budget_id) then
@@ -2714,7 +2765,23 @@ begin
   if v_period.id is null then
     raise exception 'period_not_found' using errcode = 'P0001';
   end if;
-  return query select * from private.transfer_checklist(v_period.budget_id, v_period.seq);
+  for r in select * from private.transfer_checklist(v_period.budget_id, v_period.seq) loop
+    v_n := v_n + 1;
+    if v_n < private.limit_checklist_rows() then
+      return next r;
+    elsif v_n = private.limit_checklist_rows() then
+      v_last := r;  -- listed only if it is the last one
+    end if;
+  end loop;
+  if v_n = private.limit_checklist_rows() then
+    return next v_last;
+  elsif v_n > private.limit_checklist_rows() then
+    v_last := null;
+    v_last.period_id := v_period.id;
+    v_last.status := 'more';
+    v_last.name := (v_n - private.limit_checklist_rows() + 1)::text;
+    return next v_last;
+  end if;
 end;
 $$;
 
@@ -2918,7 +2985,7 @@ begin
      or (o.planned and o.mark = 'done' and o.by_catch_up and o.is_automatic and o.category_id is not null) then
     raise exception 'nothing_to_undo' using errcode = 'P0001';
   end if;
-  perform private.drop_transfer_marks(array[o.mark_id]);  -- the watermark moves back (D-393)
+  perform private.drop_transfer_marks(array[o.mark_id]);  -- the watermark moves back (D-423)
   perform private.materialise_transfers(o.budget_id);
   return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date);
 end;
@@ -3240,7 +3307,7 @@ join lateral (
 left join public.accounts as a on a.id = t.account_id;
 
 -- ===========================================================================
--- Reopen                                                   (R-ACCOUNT-237, D-430)
+-- Reopen                                                   (R-ACCOUNT-306, D-430)
 -- ===========================================================================
 -- The registry's re-keying of steps 3 and 4, unchanged. Marks are keyed by date, not by
 -- period (D-420), so a reopen moves none: after it the catch-up removes its own marks (and
@@ -4183,4 +4250,227 @@ grant execute on function
   public.get_income_terms(uuid, uuid),
   public.create_category(uuid, text, uuid, bigint, public.expectation_cadence, uuid, text),
   public.end_category(uuid, integer, uuid)
+to authenticated;
+
+-- ===========================================================================
+-- The previews of boundary moves and income changes say what they do to the transfers
+-- (R-ACCOUNT-303, D-428)
+-- ===========================================================================
+-- The counts of transfer_effect_rows: the catch-up's transactions removed and created, and the
+-- members' marks whose occurrence is no longer planned.
+create function private.transfer_effect_counts(p_before jsonb, p_after jsonb)
+returns table (transactions_removed integer, transactions_created integer, marks_unplanned integer)
+language sql
+immutable
+set search_path = ''
+as $$
+  select (pg_catalog.count(*) filter (where e.change = 'transaction_removed'))::integer,
+         (pg_catalog.count(*) filter (where e.change = 'transaction_created'))::integer,
+         (pg_catalog.count(*) filter (where e.change = 'mark_unplanned'))::integer
+  from private.transfer_effect_rows(p_before, p_after) as e
+$$;
+
+-- Steps 3 and 4's previews, unchanged, with three counts at the end, found by running the write
+-- (with the end the preview computed) and rolling it back: transfer_transactions_removed,
+-- transfer_transactions_created, transfer_marks_unplanned (0 when the write would be refused or
+-- changes nothing).
+drop function public.preview_update_income(uuid, bigint, integer, public.weekend_rule, uuid);
+create function public.preview_update_income(
+  p_income_id uuid, p_amount bigint default null, p_pay_day integer default null,
+  p_weekend_rule public.weekend_rule default null, p_from_period_id uuid default null
+)
+returns table (period_id uuid, end_date date, expected_pay_date date, end_is_manual boolean,
+               transfer_transactions_removed integer, transfer_transactions_created integer, transfer_marks_unplanned integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_income public.incomes;
+  v_current public.periods;
+  v_seq integer;
+  v_terms record;
+  v_pay_day integer;
+  v_rule public.weekend_rule;
+  v_end date;
+  v_before jsonb;
+  v_removed integer := 0;
+  v_created integer := 0;
+  v_unplanned integer := 0;
+begin
+  select i.* into v_income from public.incomes as i where i.id = p_income_id;
+  if v_income.id is null or not private.is_budget_member(v_income.budget_id) then
+    raise exception 'income_not_found' using errcode = 'P0001';
+  end if;
+  v_current := private.current_period(v_income.budget_id);
+  if v_current.id is null then
+    raise exception 'budget_ended' using errcode = 'P0001';
+  end if;
+  v_seq := private.income_edit_seq(v_income, p_from_period_id);
+  select * into v_terms from private.income_new_terms(v_income.id, v_seq, p_amount, p_pay_day, p_weekend_rule);
+  if not exists (select 1 from public.budgets as b where b.id = v_income.budget_id and b.primary_income_id = v_income.id) then
+    v_end := v_current.end_date;  -- not the primary: periods do not move
+  else
+    if exists (select 1 from public.income_versions as iv where iv.income_id = v_income.id
+               and iv.effective_from_seq > v_seq and iv.effective_from_seq <= v_current.seq + 1) then
+      -- a later version shadows the one the write would insert
+      select t.pay_day, t.weekend_rule into v_pay_day, v_rule from private.terms_at(v_income.id, v_current.seq + 1) as t;
+    else
+      v_pay_day := v_terms.pay_day;
+      v_rule := v_terms.weekend_rule;
+    end if;
+    v_end := private.reprojected_end(v_current, v_pay_day, v_rule);
+  end if;
+  v_before := private.transfer_marks_snapshot(v_income.budget_id, null, private.seq_start(v_income.budget_id, v_seq) - 93);
+  begin
+    if num_nonnulls(p_amount, p_pay_day, p_weekend_rule) > 0 then
+      perform public.update_income(v_income.id, v_income.revision, null, p_amount, p_pay_day, p_weekend_rule,
+                                   p_from_period_id, v_end);
+    end if;
+    select * into v_removed, v_created, v_unplanned from private.transfer_effect_counts(v_before,
+      private.transfer_marks_snapshot(v_income.budget_id, null, private.seq_start(v_income.budget_id, v_seq) - 93));
+    raise exception 'preview' using errcode = 'P0050';
+  exception
+    when sqlstate 'P0050' then null;  -- rolled back
+    when sqlstate 'P0001' then null;  -- the write would be refused: nothing happens
+  end;
+  return query select v_current.id, v_end, v_end + 1, v_current.end_is_manual,
+    v_removed, v_created, v_unplanned;
+end;
+$$;
+
+drop function public.preview_set_primary_income(uuid);
+create function public.preview_set_primary_income(p_income_id uuid)
+returns table (period_id uuid, end_date date, expected_pay_date date, end_is_manual boolean,
+               transfer_transactions_removed integer, transfer_transactions_created integer, transfer_marks_unplanned integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_income public.incomes;
+  v_current public.periods;
+  v_pay_day integer;
+  v_rule public.weekend_rule;
+  v_end date;
+  v_before jsonb;
+  v_removed integer := 0;
+  v_created integer := 0;
+  v_unplanned integer := 0;
+begin
+  select i.* into v_income from public.incomes as i where i.id = p_income_id;
+  if v_income.id is null or not private.is_budget_member(v_income.budget_id) then
+    raise exception 'income_not_found' using errcode = 'P0001';
+  end if;
+  v_current := private.current_period(v_income.budget_id);
+  if v_current.id is null then
+    raise exception 'budget_ended' using errcode = 'P0001';
+  end if;
+  if v_income.end_seq is not null then
+    raise exception 'income_ended' using errcode = 'P0001';
+  end if;
+  if v_income.first_seq > v_current.seq then
+    raise exception 'income_not_in_force' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.budgets as b where b.id = v_income.budget_id and b.primary_income_id = v_income.id) then
+    v_end := v_current.end_date;  -- already primary: nothing changes
+  else
+    select t.pay_day, t.weekend_rule into v_pay_day, v_rule from private.terms_at(v_income.id, v_current.seq + 1) as t;
+    v_end := private.reprojected_end(v_current, v_pay_day, v_rule);
+  end if;
+  v_before := private.transfer_marks_snapshot(v_income.budget_id, null, v_current.start_date - 93);
+  begin
+    perform public.set_primary_income(v_income.id, (select b.revision from public.budgets as b where b.id = v_income.budget_id), v_end);
+    select * into v_removed, v_created, v_unplanned from private.transfer_effect_counts(v_before,
+      private.transfer_marks_snapshot(v_income.budget_id, null, v_current.start_date - 93));
+    raise exception 'preview' using errcode = 'P0050';
+  exception
+    when sqlstate 'P0050' then null;  -- rolled back
+    when sqlstate 'P0001' then null;  -- the write would be refused: nothing happens
+  end;
+  return query select v_current.id, v_end, v_end + 1, v_current.end_is_manual,
+    v_removed, v_created, v_unplanned;
+end;
+$$;
+
+drop function public.preview_move_period_start(uuid, date);
+create function public.preview_move_period_start(p_period_id uuid, p_start_date date default null)
+returns table (period_id uuid, scheduled_start date, accepted boolean, refusal text, interest_removed integer,
+               transfer_transactions_removed integer, transfer_transactions_created integer, transfer_marks_unplanned integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_budget_id uuid;
+  v_period public.periods;
+  v_previous public.periods;
+  v_start date;
+  v_scheduled date;
+  v_refusal text;
+  v_before jsonb;
+  v_removed integer := 0;
+  v_created integer := 0;
+  v_unplanned integer := 0;
+begin
+  select p.budget_id into v_budget_id from public.periods as p where p.id = p_period_id;
+  if v_budget_id is null or not private.is_budget_member(v_budget_id) then
+    raise exception 'period_not_found' using errcode = 'P0001';
+  end if;
+  if p_start_date is not null and not private.is_sane_date(p_start_date) then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  perform private.read_catch_up(v_budget_id);
+  select p.* into v_period from public.periods as p where p.id = p_period_id;
+  if v_period.id is null then
+    raise exception 'period_not_found' using errcode = 'P0001';
+  end if;
+  select p.* into v_previous from public.periods as p
+  where p.budget_id = v_budget_id and p.seq = v_period.seq - 1;
+  if v_previous.id is null then
+    return query select v_period.id, null::date, false, 'invalid_boundary'::text, 0, 0, 0, 0;
+    return;
+  end if;
+  v_scheduled := private.projected_end(v_budget_id, v_previous.start_date, v_previous.seq) + 1;
+  v_start := coalesce(p_start_date, v_scheduled);
+  begin
+    if v_start > private.today()
+       or v_start > coalesce((select b.end_date from public.budgets as b where b.id = v_budget_id), v_start) then
+      raise exception 'invalid_boundary' using errcode = 'P0001';
+    end if;
+    perform private.assert_length(v_previous.start_date, v_start - 1);
+    perform private.assert_length(v_start, v_period.end_date);
+  exception when sqlstate 'P0001' then
+    v_refusal := sqlerrm;
+  end;
+  if v_refusal is null and v_start <> v_period.start_date then
+    v_before := private.transfer_marks_snapshot(v_budget_id, null, v_previous.start_date - 93);
+    begin
+      perform public.move_period_start(v_period.id, v_period.revision, v_start);
+      select * into v_removed, v_created, v_unplanned from private.transfer_effect_counts(v_before,
+        private.transfer_marks_snapshot(v_budget_id, null, v_previous.start_date - 93));
+      raise exception 'preview' using errcode = 'P0050';
+    exception
+      when sqlstate 'P0050' then null;  -- rolled back
+      when sqlstate 'P0001' then null;  -- the write would be refused: nothing happens
+    end;
+  end if;
+  return query select v_period.id, v_scheduled, v_refusal is null and v_start <> v_period.start_date, coalesce(v_refusal,
+    case when v_start = v_period.start_date then 'already_on_schedule' end),
+    (select pg_catalog.count(*)::integer from public.debt_interest as i join public.debts as d on d.id = i.debt_id
+     where i.period_id = v_period.id and d.opened_on >= v_start and v_refusal is null and v_start < v_period.start_date),
+    v_removed, v_created, v_unplanned;
+end;
+$$;
+
+revoke all on function
+  private.transfer_effect_counts(jsonb, jsonb),
+  public.preview_update_income(uuid, bigint, integer, public.weekend_rule, uuid),
+  public.preview_set_primary_income(uuid),
+  public.preview_move_period_start(uuid, date)
+from public, anon, authenticated;
+grant execute on function
+  public.preview_update_income(uuid, bigint, integer, public.weekend_rule, uuid),
+  public.preview_set_primary_income(uuid),
+  public.preview_move_period_start(uuid, date)
 to authenticated;

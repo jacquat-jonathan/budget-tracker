@@ -1301,7 +1301,7 @@ begin
               end if;
             end if;
           elsif v_op = 'unmark_after_settle' then
-            -- M1 (D-393): an automatic linked occurrence marked not done, the catch-up run by
+            -- M1 (D-423): an automatic linked occurrence marked not done, the catch-up run by
             -- another call while it is marked, then the mark undone: the occurrence must get its
             -- transaction once due (the invariants check it every step)
             select p.* into v_period from public.periods as p where p.budget_id = v_budget and v_today between p.start_date and p.end_date;
@@ -1537,7 +1537,7 @@ select cmp_ok((select count(*)::integer from public.debt_interest as i join made
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_transfer', 'create_transfer_backdated', 'update_transfer', 'correct_transfer', 'end_transfer')),
   '>=', 45, 'R-ACCOUNT-002 R-VERSION-071 R-ACCOUNT-233 R-ACCOUNT-234: the runs created, edited, corrected and ended many transfers, each as its preview said');
 select cmp_ok((select count(*)::integer from catch_up_seen), '>=', 30,
-  'R-ACCOUNT-074 R-ACCOUNT-239: the catch-up created many transfer transactions, each once, each equal to the naive model');
+  'R-ACCOUNT-074 R-ACCOUNT-302: the catch-up created many transfer transactions, each once, each equal to the naive model');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark')),
   '>=', 20, 'R-ACCOUNT-005 R-ACCOUNT-073 R-ACCOUNT-240: and marked transfers done, skipped, not done, and undid marks');
 select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_mark'),

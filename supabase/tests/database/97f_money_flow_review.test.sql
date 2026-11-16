@@ -36,7 +36,7 @@ select tests.set_today('2026-11-21');
 select tests.authenticate_as('ann');
 select public.ensure_periods(tests.id('b'));
 select is(pg_temp.row_of(tests.id('t1'), tests.id('cur')), row('done', false, true)::text,
-  'R-ACCOUNT-074 D-393: once due it is done with its transaction (the watermark went back with the mark)');
+  'R-ACCOUNT-074 D-423: once due it is done with its transaction (the watermark went back with the mark)');
 select is((select caught_up from public.my_budgets where id = tests.id('b')), true, 'R-PERIOD-130: and the budget is caught up');
 -- 2. manual, marked done, made automatic, its transaction deleted: not done
 select tests.remember('t2', (select id from public.create_transfer(tests.id('b'), 'Manual then automatic', tests.id('main'), tests.id('sav'), 2000,
@@ -45,14 +45,14 @@ select count(*) from public.mark_transfer_done(tests.id('t2'), tests.id('cur'), 
 select count(*) from public.update_transfer(tests.id('t2'), 1, p_is_automatic => true);
 select public.delete_transaction(t.id, t.revision) from public.transaction_list as t where t.transfer_id = tests.id('t2');
 select is(pg_temp.row_of(tests.id('t2'), tests.id('cur')), row('not_done', false, false)::text,
-  'R-ACCOUNT-240 D-393: deleting the transaction of an automatic transfer says it did not happen, whoever marked it');
+  'R-ACCOUNT-240 D-423: deleting the transaction of an automatic transfer says it did not happen, whoever marked it');
 -- 3. manual, skipped, made automatic, the mark undone: done with its transaction
 select tests.remember('t3', (select id from public.create_transfer(tests.id('b'), 'Skipped then automatic', tests.id('main'), tests.id('sav'), 3000,
   'day_of_month', p_day_of_month => 17, p_category_id => tests.id('cat'))));
 select count(*) from public.skip_transfer(tests.id('t3'), tests.id('cur'), 0);
 select count(*) from public.update_transfer(tests.id('t3'), 1, p_is_automatic => true);
 select is((select row(status, transaction_id is not null)::text from public.undo_transfer_mark(tests.id('t3'), tests.id('cur'), 1) where transfer_id = tests.id('t3')),
-  row('done', true)::text, 'R-ACCOUNT-240 D-393: undone, the automatic occurrence gets its transaction at once');
+  row('done', true)::text, 'R-ACCOUNT-240 D-423: undone, the automatic occurrence gets its transaction at once');
 -- 4. the same with a mark that is not the catch-up's, its transaction deleted after the terms went manual again
 select is((select count(*)::integer from public.transaction_list where transfer_id in (tests.id('t1'), tests.id('t3'))), 2,
   'R-ACCOUNT-074: one transaction each');

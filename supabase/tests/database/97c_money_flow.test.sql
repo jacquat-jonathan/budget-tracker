@@ -83,7 +83,7 @@ select is((select user_id from public.update_account(tests.id('main'), 2, p_user
 
 -- ===========================================================================
 -- Planned transfers, schedules and due dates (R-ACCOUNT-002, R-ACCOUNT-003, R-ACCOUNT-070,
--- R-ACCOUNT-071, R-ACCOUNT-239)
+-- R-ACCOUNT-071, R-ACCOUNT-300, R-ACCOUNT-301)
 -- ===========================================================================
 -- automatic, linked to Savings, from the first period: its two transactions due by today are
 -- created with it
@@ -114,7 +114,7 @@ select results_eq(
   format($$select transfer_id, due_date from public.get_transfer_checklist(%L) order by due_date$$, tests.id('p2')),
   format($$values (%L::uuid, '2026-10-28'::date), (%L::uuid, '2026-11-01'::date), (%L::uuid, '2026-11-20'::date)$$,
          tests.id('t_sav'), tests.id('t_tax'), tests.id('t_3a')),
-  'R-ACCOUNT-239: one occurrence per transfer in force in the period, with its due date');
+  'R-ACCOUNT-301: one occurrence per transfer in force in the period, with its due date');
 select results_eq(
   format($$select due_date from public.preview_create_transfer(%L, %L, %L, 1000, 'day_of_month', p_day_of_month => 31, p_count => 6)$$,
          tests.id('b'), tests.id('main'), tests.id('sav')),
@@ -292,7 +292,7 @@ select throws_ok(format($$select * from public.mark_transfer_done(%L, %L, 1)$$, 
 select throws_ok(format($$select * from public.mark_transfer_not_done(%L, %L, 0)$$, tests.id('t_tax'), tests.id('p2')),
   'P0001', 'transfer_is_manual', 'R-ACCOUNT-004: only an automatic transfer is marked not done');
 select throws_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('t_tax'), tests.id('p1')),
-  'P0001', 'transfer_not_in_force', 'R-ACCOUNT-239: no occurrence where the transfer is not in force');
+  'P0001', 'transfer_not_in_force', 'R-ACCOUNT-301: no occurrence where the transfer is not in force');
 
 -- linked to a category: done creates its transaction, dated the done date, with the amount moved
 select tests.remember('tx_3a', (select transaction_id from public.mark_transfer_done(tests.id('t_3a'), tests.id('p2'), 0, '2026-11-12', 45000)));
@@ -597,7 +597,7 @@ select results_eq(
   'R-ACCOUNT-234: the preview answers the refusal');
 
 -- ===========================================================================
--- Reopen (R-ACCOUNT-237, R-ACCOUNT-301, D-430)
+-- Reopen (R-ACCOUNT-306, R-ACCOUNT-301, D-430)
 -- ===========================================================================
 select tests.clear_authentication();
 select tests.set_today('2026-11-22');
@@ -609,15 +609,15 @@ select tests.remember('p3', (select id from public.record_early_pay_date(tests.i
 -- made); Tax (the 5th) has 5 December in p3, Bob to main (Bob's 10th) 10 December
 select is((select pay_key from public.periods where id = tests.id('p3')), '2026-11-25'::date,
   'R-ACCOUNT-302: a period carries the scheduled pay date of the salary that started it, early or not');
-select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('t_tax'), tests.id('p3')), 'R-ACCOUNT-237: (setup)');
-select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('t_tax'), tests.id('p2')), 'R-ACCOUNT-237: (setup)');
-select lives_ok(format($$select * from public.skip_transfer(%L, %L, 0)$$, tests.id('t_bob'), tests.id('p3')), 'R-ACCOUNT-237: (setup)');
+select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('t_tax'), tests.id('p3')), 'R-ACCOUNT-306: (setup)');
+select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('t_tax'), tests.id('p2')), 'R-ACCOUNT-306: (setup)');
+select lives_ok(format($$select * from public.skip_transfer(%L, %L, 0)$$, tests.id('t_bob'), tests.id('p3')), 'R-ACCOUNT-306: (setup)');
 -- Ends: marked in p2, ended from p3: after the merge it ends from p2, and its mark there is no
 -- longer planned (kept, listed as ended)
 select tests.remember('t_end', (select id from public.create_transfer(tests.id('b'), 'Ends', tests.id('main'), tests.id('sav'), 900,
   'pay_date', p_from_period_id => tests.id('p1'))));
-select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0, '2026-11-20')$$, tests.id('t_end'), tests.id('p2')), 'R-ACCOUNT-237: (setup)');
-select is(public.end_transfer(tests.id('t_end'), 1), 'ended', 'R-ACCOUNT-237: (setup: ended from the current period)');
+select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0, '2026-11-20')$$, tests.id('t_end'), tests.id('p2')), 'R-ACCOUNT-306: (setup)');
+select is(public.end_transfer(tests.id('t_end'), 1), 'ended', 'R-ACCOUNT-306: (setup: ended from the current period)');
 select results_eq(
   format($$select x.date from public.transaction_list as x where x.transfer_id = %L and x.transfer_occurrence_date = '2026-11-25'$$,
          tests.id('t_edit')),
@@ -636,7 +636,7 @@ create temp table merged_tx on commit drop as
   where o.transfer_id = tests.id('t_edit') and o.occurrence_date = '2026-11-25';
 grant select on merged_tx to authenticated;
 select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, 1)$$, tests.id('b'), tests.id('p3')),
-  'R-ACCOUNT-237: reopen');
+  'R-ACCOUNT-306: reopen');
 select is((select count(*)::integer from public.transactions where id in (select id from merged_tx)), 0,
   'R-ACCOUNT-302: the catch-up''s transaction of the merged period''s pay date goes: that salary has not come');
 select results_eq(
@@ -652,7 +652,7 @@ select results_eq(
            from public.transfers as t cross join lateral public.get_transfer_checklist(%L) as c
            where t.id = %L and c.transfer_id = t.id$$, tests.id('p2'), tests.id('t_end')),
   $$values (2, 'done', false, true)$$,
-  'R-ACCOUNT-237: a transfer ended in the merged period ends in the reopened one; its mark there stays, listed as ended (D-380)');
+  'R-ACCOUNT-306: a transfer ended in the merged period ends in the reopened one; its mark there stays, listed as ended (D-380)');
 -- the salary comes early again on the same day: the merged period is created again with its
 -- scheduled pay date, and with it the catch-up's transaction and the members' marks
 select tests.remember('p3b', (select id from public.record_early_pay_date(tests.id('b'), tests.id('p2'),
@@ -667,7 +667,7 @@ select results_eq(
          tests.id('t_bob'), tests.id('t_tax')),
   'R-ACCOUNT-301: and a member''s marks are the same occurrences again');
 select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, 1)$$, tests.id('b'), tests.id('p3b')),
-  'R-ACCOUNT-237: (reopened again)');
+  'R-ACCOUNT-306: (reopened again)');
 select tests.clear_authentication();
 select tests.set_today('2026-11-16');
 select tests.authenticate_as('ann');
@@ -721,7 +721,7 @@ select tests.authenticate_as('ann');
 select public.ensure_periods(tests.id('b'));
 select tests.clear_authentication();
 select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('b')),
-  'R-ACCOUNT-239: every invariant of the money flow holds after all this');
+  'R-ACCOUNT-302: every invariant of the money flow holds after all this');
 
 -- ===========================================================================
 -- Another user, a member of another budget, an anonymous visitor (R-SECURITY-002 to -004)
