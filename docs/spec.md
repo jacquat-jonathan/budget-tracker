@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-263 rules (164 active, 93 planned), 24 conventions, 98 decisions, 11 open questions. 0 rules and conventions are marked **TEST PENDING**.
+269 rules (170 active, 93 planned), 24 conventions, 102 decisions, 12 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -547,6 +547,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MEMBERS_
   - Related: R-MEMBER-002, R-MEMBER-003, R-MEMBER-004
   - Source: code: src/features/settings/budget-settings.tsx; code: src/features/settings/members-settings.tsx
+- **R-MEMBER-011** A member removed (or leaving) after the budget ended has their incomes end from the first period created if the budget resumes.
+  _active · enforced by test · F-MEMBERS_
+  - Related: D-090
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
 
 ### Invitations
 
@@ -788,7 +792,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PERIOD-023** When the salary that started the latest period has not arrived yet, the latest period is merged into the previous one, which is current again and ends before the expected date (after today) or at its projection.
   _active · enforced by test · F-PERIOD_
-  - Related: D-062, D-082
+  - Related: D-062, D-082, D-089
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PERIOD-024** A boundary that is not the one before the latest period cannot move to today or later.
   _retired · enforced by review · F-PERIOD_
@@ -796,9 +800,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Retired: The boundary operations of D-082 replace the position-dependent move; no operation can move an earlier boundary to after today (R-PERIOD-012, R-PERIOD-022).
   - Related: D-062, D-082
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
-- **R-PERIOD-025** Every boundary operation has an inverse: an expected pay date is reset to the projection, an early close is undone by reopening the previous period (and the reverse), and a moved boundary is moved back.
+- **R-PERIOD-025** Every boundary operation has an inverse for the boundary: an expected pay date is reset to the projection, an early close is undone by reopening the previous period (and the reverse), and a moved boundary is moved back. Undoing a reopen restores the boundary only; what was recorded in the merged period stays with the reopened one.
   _active · enforced by test · F-PERIOD_
-  - Related: D-063, D-082
+  - Related: D-063, D-082, D-089
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PERIOD-026** When the primary income's terms change or another income becomes primary, a manual end of the current period is kept while it lies within 14 days of the new schedule, and is reset to the schedule otherwise.
   _retired · enforced by test · F-PERIOD_
@@ -845,6 +849,19 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-082
   - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-035** Before reopening, a member can list everything the reopen would move into the previous period, for every kind of record, and what it would replace.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-092
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-036** Before saving, a member can see what the current period's end and expected next pay date would become under proposed terms or a proposed primary income, computed exactly as the write does.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-092
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-037** When the primary income's pay day or weekend rule is corrected after that month's salary has already arrived, the current period extends to the following month until the user also records the early pay date; the app prompts for it.
+  _active · enforced by review · F-PERIOD_
+  - Why: Frontend behaviour; the database part is R-PERIOD-029 and R-PERIOD-034.
+  - Related: D-081, R-PERIOD-034
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
 
 ### Versioning: edits never rewrite the past
 
@@ -900,6 +917,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-084
   - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-VERSION-013** When the latest period is merged into the previous one, what was keyed to the merged period always wins over what the previous period had for the same record, so the terms in force before the reopen are still in force after it.
+  _active · enforced by test · F-INCOME_
+  - Related: D-089
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-VERSION-014** A table keyed to periods is checked when it registers for merges, and a merge never fails because a row that would never be in force is referenced by other rows (it is kept as a void row).
+  _active · enforced by test · F-INCOME_
+  - Related: D-091
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
 
 ### Categories and subcategories
 
@@ -2168,7 +2193,7 @@ Source: owner-request: coordinator decisions on the step 2 database review, 2026
 
 ### D-080 Periods are salary to salary; stored periods are facts (accepted)
 
-A period runs from one salary to the day before the next. Stored periods are facts: only the boundary operations move a stored boundary. The schedule (the primary income's pay day and weekend rule) only predicts the next pay date. Structural invariants only, none depending on terms: contiguous, non-overlapping, none starting after today or after the budget's end date, each 7 to 92 days long.
+A period runs from one salary to the day before the next. Stored periods are facts: only the boundary operations move a stored boundary. The schedule (the primary income's pay day and weekend rule) only predicts the next pay date. Structural invariants only, none depending on terms: contiguous, non-overlapping, none starting after today or after the budget's end date, each 7 to 92 days long. Known limits of the model: a first salary arriving 8 to 14 days after a period started is skipped by the projection until recorded by hand (record_early_pay_date); two salaries closer than 7 days cannot be separate periods.
 
 **Why:** The month anchor and the 14-day rule (D-060, D-061) tied stored periods to the terms currently in force: budgets got stuck (every period call failing) and real pay-day changes, such as from the 5th to the 25th within one month, could not be represented.
 
@@ -2206,7 +2231,7 @@ Related: R-PERIOD-012, R-PERIOD-013, R-PERIOD-023, R-PERIOD-025, R-PERIOD-032, R
 
 Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-083 Merging the latest period re-keys what was keyed to it (accepted)
+### D-083 Merging the latest period re-keys what was keyed to it (superseded by D-089)
 
 When the latest period is merged into the previous one, everything keyed to it (income versions, incomes starting or ending there, and so the primary switch) is re-keyed to the previous period, the later write winning. Nothing is ever keyed beyond the latest period (constraint trigger). One shared mechanism: private.rekey_period over the registry private.period_keyed_tables, which later versioned tables (categories, subscriptions, debts) join.
 
@@ -2640,6 +2665,56 @@ Related: Q-030, R-BUDGET-016, R-MEMBER-007, R-MEMBER-009
 
 Source: owner-request: product owner decisions on the open questions, 2026-11-16
 
+### D-089 In a merge, the merged period always wins (accepted)
+
+When the latest period is merged into the previous one, everything keyed to the merged (later) period is re-keyed to the previous one and replaces what the previous period had for the same record, whatever the write times. So the terms in force before a reopen are still in force after it. Nothing is ever keyed beyond the latest period. One shared mechanism (private.rekey_period over private.period_keyed_tables). What the reopened period loses can be listed beforehand (preview_reopen). The inverse of a reopen (record_early_pay_date with the original date) restores the boundary only: what was recorded in the merged period then belongs to the reopened period, and moving it back needs explicit corrections.
+
+**Why:** "The later write wins" let a correction of the previous period, written after a raise in the new period, undo the raise; re-keyed versions got fresh write times and beat later corrections (review finding 1).
+
+**Rejected:**
+
+- The later write wins (D-083).
+
+Related: R-VERSION-011, R-VERSION-013, R-PERIOD-023, R-PERIOD-035
+
+Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-090 Removing a member from an ended budget takes effect if it resumes (accepted)
+
+Removing a member (or a member leaving) after the budget has ended leaves its history as it is and marks their incomes in force (incomes.ended_after_last); if the budget ever resumes, they end from the first period created after the end.
+
+**Why:** Nothing may be keyed beyond the latest period, yet the removal must hold when an owner clears the end date (review finding 2).
+
+**Rejected:** none recorded.
+
+Related: R-MEMBER-011, R-MEMBER-008
+
+Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-091 What a period-keyed table must provide (accepted)
+
+A table registers in private.period_keyed_tables, checked at registration: all need id uuid and budget_id uuid; validity tables first_seq integer, end_seq integer, a text name column and a check allowing end_seq = first_seq; version tables an entity column (uuid) referencing a registered validity table, effective_from_seq integer and a unique constraint on (entity, effective_from_seq). In a merge, a validity row that would never be in force is deleted, or kept as a void row (end_seq = first_seq, never in force) when other rows reference it, so a reopen never fails on a foreign key.
+
+**Why:** Step 3 registers categories, which transactions reference; the merge must neither fail at reopen time nor silently need columns nobody documented (review finding 4).
+
+**Rejected:** none recorded.
+
+Related: R-VERSION-014
+
+Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-092 Previews before writes (accepted)
+
+preview_reopen lists, from the registry, every change a reopen would move (record kind, id, name, added / ended / removed / terms_changed / made_primary, and whether it replaces the previous period's own entry). preview_expected_pay_date gives the current period's end and expected pay date for proposed terms or a proposed primary, through the same function the write uses (private.reprojected_end).
+
+**Why:** The UI must be able to warn before a lossy reopen and show the effect of a pay-day change before it is saved.
+
+**Rejected:** none recorded.
+
+Related: R-PERIOD-035, R-PERIOD-036
+
+Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -2762,6 +2837,10 @@ Source: owner-request: product owner decisions on the open questions, 2026-11-16
   - Context: D-122: when a transfer linked to a category is marked done, or when it is automatic, its transaction is created in that category. Automatic transfers are assumed done (R-ACCOUNT-004); subscription charges, also automatic, wait for confirmation (D-109).
   - Related: D-122, D-109, R-ACCOUNT-073, R-ACCOUNT-074, R-ACCOUNT-004
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **Q-040** Should an edit be able to apply from the next period ("from the next salary") instead of the current one?
+  - Context: An edit always applies to the current period (R-VERSION-001), so a raise entered before its salary arrives changes the current period's total. A later option could key the edit to the next period, which needs a way to hold a change for a period that does not exist yet without breaking "nothing keyed beyond the latest period" (R-VERSION-011).
+  - Related: R-VERSION-001, R-VERSION-011
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16
 
 ## Glossary
 

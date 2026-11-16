@@ -34,7 +34,11 @@ insert into documented_codes values
   ('income_ended'), ('income_not_in_force'), ('budget_ended'), ('budget_limit_reached'),
   ('member_limit_reached'), ('invitation_limit_reached'), ('income_limit_reached');
 
-select plan(6);
+create or replace function pg_temp.primary_of(b uuid) returns uuid language sql as $$
+  select primary_income_id from public.budgets where id = b
+$$;
+
+select plan(7);
 
 do $prop$
 declare
@@ -59,6 +63,11 @@ declare
   v_problem text;
   v_rows integer;
   v_ended boolean;
+  v_terms_before jsonb;
+  v_terms_after jsonb;
+  v_preview_end date;
+  v_pay_day integer;
+  v_rule public.weekend_rule;
 begin
   for v_seed in select seed from seeds order by seed loop
     perform setseed(v_seed);
@@ -78,7 +87,8 @@ begin
       v_r := random();
       v_op := case
         when v_r < 0.14 then 'advance_day'
-        when v_r < 0.24 then 'update_terms'
+        when v_r < 0.21 then 'update_terms'
+        when v_r < 0.24 then 'preview_then_update_primary'
         when v_r < 0.30 then 'correct_terms'
         when v_r < 0.35 then 'add_income'
         when v_r < 0.38 then 'add_income_backdated'
@@ -117,6 +127,15 @@ begin
             v_amount := 100000 + floor(random() * 800000)::bigint;
             perform public.update_income_terms(v_income, v_amount, 1 + floor(random() * 31)::integer,
               (array['nearest', 'previous', 'next', 'none'])[1 + floor(random() * 4)::integer]::public.weekend_rule);
+          elsif v_op = 'preview_then_update_primary' then
+            v_pay_day := 1 + floor(random() * 31)::integer;
+            v_rule := (array['nearest', 'previous', 'next', 'none'])[1 + floor(random() * 4)::integer]::public.weekend_rule;
+            select end_date into v_preview_end from public.preview_expected_pay_date(v_budget, v_pay_day, v_rule);
+            perform public.update_income_terms(pg_temp.primary_of(v_budget), 500000, v_pay_day, v_rule);
+            if v_preview_end is distinct from (select end_date from public.periods
+                                                where budget_id = v_budget and private.today() between start_date and end_date) then
+              insert into failures values (v_seed, v_step, v_name, v_op, 'preview and write disagree');
+            end if;
           elsif v_op = 'correct_terms' then
             select id into v_income from public.incomes where budget_id = v_budget order by random() limit 1;
             v_from := v_period.seq;
@@ -155,8 +174,18 @@ begin
             perform public.record_early_pay_date(v_budget, v_today - floor(random() * 10)::integer + 1);
           elsif v_op = 'reopen_previous_period' then
             select array[max(seq) - 1] into v_touched from public.periods where budget_id = v_budget;
+            perform count(*) from public.preview_reopen(v_budget);
+            -- the terms in force now, for each income in force now
+            select coalesce(jsonb_object_agg(id, amount), '{}') into v_terms_before
+            from public.income_overview where budget_id = v_budget and is_active;
             perform public.reopen_previous_period(v_budget,
               case when random() < 0.5 then null else v_today + floor(random() * 15)::integer end);
+            select coalesce(jsonb_object_agg(id, amount), '{}') into v_terms_after
+            from public.income_overview where budget_id = v_budget and is_active;
+            if v_terms_after <> v_terms_before then
+              insert into failures values (v_seed, v_step, v_name, v_op,
+                'terms in force changed by the reopen: ' || v_terms_before::text || ' -> ' || v_terms_after::text);
+            end if;
           elsif v_op = 'move_period_start' then
             v_touched := array[v_period.seq - 1, v_period.seq];
             perform public.move_period_start(v_period.id, v_period.start_date + floor(random() * 21)::integer - 10);
@@ -235,7 +264,7 @@ $prop$;
 
 select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
-  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-SECURITY-007: across all seeds, every step kept the invariants, nothing got stuck, only documented errors reached the client, closed totals changed only where named, and edits were in force at once'
+  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007: across all seeds, every step kept the invariants, nothing got stuck, only documented errors reached the client, closed totals changed only where named, edits were in force at once, and a reopen kept the terms in force'
 );
 select cmp_ok(
   (select count(*)::integer from runs where outcome = 'ok'
@@ -249,6 +278,8 @@ select cmp_ok((select count(*)::integer from runs where outcome like 'refused: i
   '>=', 30, 'R-PERIOD-020: and many refused ones');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('correct_terms', 'add_income_backdated', 'remove_income_from')),
   '>=', 40, 'R-VERSION-012: and many explicit corrections');
+select cmp_ok((select count(*)::integer from runs where op = 'preview_then_update_primary' and outcome = 'ok'),
+  '>=', 15, 'R-PERIOD-036: the previews of the expected pay date always matched the write');
 select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 

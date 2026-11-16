@@ -143,7 +143,7 @@ select plan(
   + (select count(*)::integer from carol_calls)
   + (select count(*)::integer from carol_denied)
   + (select count(*)::integer from anon_calls)
-  + 9
+  + 11
 );
 
 -- ---------------------------------------------------------------------------
@@ -202,6 +202,14 @@ select throws_ok(
 
 select throws_ok(sql, '42501', null, 'R-SECURITY-003: anon cannot call: ' || sql) from anon_calls;
 
+select tests.clear_authentication();
+
+select tests.authenticate_as('carol');
+select is(private.display_name_of(tests.get_user_id('bob')), null::text,
+  'R-PROFILE-004: the income-owner name helper answers nothing about someone with no income in my budgets');
+select tests.authenticate_as('alice');
+select is(private.display_name_of(tests.get_user_id('bob')), 'Bob',
+  'R-PROFILE-004: and gives the name to a member of a budget where they have an income');
 select tests.clear_authentication();
 
 -- ---------------------------------------------------------------------------

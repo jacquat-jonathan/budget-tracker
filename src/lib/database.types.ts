@@ -77,14 +77,14 @@ isOneToOne: false
                   ]
                 },"budgets": {
                   Row: {
-                    "created_at": string,"end_date": string | null,"id": string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
+                    "created_at": string,"end_date": string | null,"id": string,"name": string,"owner_id": string,"primary_income_id": string,"primary_since_seq": number,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at"?: string
+                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name": string,"owner_id": string,"primary_income_id": string,"primary_since_seq"?: number,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name"?: string,"owner_id"?: string,"primary_income_id"?: string,"updated_at"?: string
+                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name"?: string,"owner_id"?: string,"primary_income_id"?: string,"primary_since_seq"?: number,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -129,14 +129,14 @@ isOneToOne: false
                   ]
                 },"incomes": {
                   Row: {
-                    "budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"name": string,"updated_at": string,"user_id": string | null
+                    "budget_id": string,"created_at": string,"end_seq": number | null,"ended_after_last": boolean,"first_seq": number,"id": string,"name": string,"updated_at": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"name": string,"updated_at"?: string,"user_id"?: string | null
+                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"ended_after_last"?: boolean,"first_seq": number,"id"?: string,"name": string,"updated_at"?: string,"user_id"?: string | null
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"name"?: string,"updated_at"?: string,"user_id"?: string | null
+                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"ended_after_last"?: boolean,"first_seq"?: number,"id"?: string,"name"?: string,"updated_at"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -348,6 +348,16 @@ isOneToOne: false
                            },
 "pay_date":
 { Args: { "p_month": number,"p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"],"p_year": number }; Returns: string
+                           },
+"preview_expected_pay_date":
+{ Args: { "p_budget_id": string,"p_income_id"?: string,"p_pay_day"?: number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
+              "end_date": string,"end_is_manual": boolean,"expected_pay_date": string,"period_id": string
+            }[]
+                           },
+"preview_reopen":
+{ Args: { "p_budget_id": string }; Returns: {
+              "change": string,"record_id": string,"record_kind": string,"record_name": string,"replaces_previous": boolean
+            }[]
                            },
 "record_early_pay_date":
 { Args: { "p_budget_id": string,"p_pay_date": string }; Returns: {

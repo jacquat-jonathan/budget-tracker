@@ -1,6 +1,6 @@
 -- Members, roles and invitations.
 begin;
-select plan(69);
+select plan(73);
 
 select tests.create_user('alice', 'Alice');
 select tests.create_user('bob', 'Bob');
@@ -292,6 +292,22 @@ select results_eq(
   format('select seq, income_total from public.period_summaries where budget_id = %L order by seq', tests.id('over')),
   $$values (1, 700000::bigint), (2, 700000::bigint)$$,
   'R-MEMBER-008: every period of the ended budget keeps its income'
+);
+select is((select is_active from public.income_overview where id = tests.id('bob_over')), false,
+  'R-MEMBER-011: the removed member''s income is no longer active');
+select is(
+  (select count(*)::integer from public.set_budget_end_date(tests.id('over'), null)), 1,
+  'R-MEMBER-011: the owner clears the end date and the budget resumes'
+);
+select results_eq(
+  format('select seq, income_total from public.period_summaries where budget_id = %L and seq >= 3 order by seq', tests.id('over')),
+  format('select seq, 500000::bigint from public.periods where budget_id = %L and seq >= 3 order by seq', tests.id('over')),
+  'R-MEMBER-011: the resumed periods no longer count the removed member''s income'
+);
+select results_eq(
+  format('select end_seq from public.incomes where id = %L', tests.id('bob_over')),
+  $$values (3)$$,
+  'R-MEMBER-011 R-VERSION-011: it ends from the first resumed period'
 );
 
 -- ---------------------------------------------------------------------------

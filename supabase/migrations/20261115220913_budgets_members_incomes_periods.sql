@@ -242,6 +242,9 @@ create table public.budgets (
   owner_id uuid not null references auth.users (id) on delete cascade,
   -- R-INCOME-006: exactly one primary income (not null, foreign key below)
   primary_income_id uuid not null,
+  -- The period from which the current primary income is primary (re-keyed by a merge, so a
+  -- reopen can report "made primary"; R-PERIOD-035).
+  primary_since_seq integer not null default 1,
   -- R-BUDGET-005, R-BUDGET-008: the end date the owner entered; no period starts after it.
   end_date date,
   created_at timestamptz not null default now(),
@@ -282,11 +285,15 @@ create table public.incomes (
   user_id uuid references auth.users (id) on delete set null,
   name text not null,
   first_seq integer not null,
+  -- end_seq = first_seq is a void row, never in force (R-VERSION-014).
   end_seq integer,
+  -- R-MEMBER-011: removed from a budget that had ended; ends from the first period created
+  -- after the end if the budget ever resumes.
+  ended_after_last boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint incomes_name_valid check (name = btrim(name) and char_length(name) between 1 and 100),
-  constraint incomes_seq_valid check (first_seq >= 1 and (end_seq is null or end_seq > first_seq)),
+  constraint incomes_seq_valid check (first_seq >= 1 and (end_seq is null or end_seq >= first_seq)),
   constraint incomes_id_budget_unique unique (id, budget_id)
 );
 create index incomes_budget_id_idx on public.incomes (budget_id);
@@ -400,7 +407,12 @@ stable
 security definer
 set search_path = ''
 as $$
-  select p.display_name from public.profiles as p where p.id = p_user_id
+  select p.display_name from public.profiles as p
+  where p.id = p_user_id
+    and exists (
+      select 1 from public.incomes as i
+      where i.user_id = p_user_id and i.budget_id in (select private.member_budget_ids())
+    )
 $$;
 
 create or replace function private.is_budget_member(p_budget_id uuid)
@@ -682,25 +694,101 @@ create constraint trigger periods_nothing_beyond_latest
 -- Re-keying when the latest period is merged into the previous one (R-VERSION-011)
 -- ===========================================================================
 
--- Every table keyed to periods registers here, so a merge re-keys it:
---   kind 'version':  rows (entity_column, effective_from_seq), one per entity and period;
---   kind 'validity': rows with first_seq / end_seq.
--- Later versioned tables (categories, subscriptions, debts) add a row in their migration.
+-- Every table keyed to periods registers here, so a merge re-keys it and a reopen preview
+-- reports it (R-VERSION-014). What a registered table must provide (checked when it registers):
+--   all:       id uuid, budget_id uuid not null;
+--   'validity' (rows in force from first_seq to before end_seq): first_seq integer,
+--              end_seq integer, a text name_column, and a check that allows
+--              end_seq = first_seq (a void row, never in force);
+--   'version'  (one row per entity and period): entity_column uuid referencing the id of a
+--              registered 'validity' table (entity_table), effective_from_seq integer, and
+--              a unique constraint on (entity_column, effective_from_seq).
+-- record_kind names the kind of record for the client (for example 'income').
+-- Later versioned tables (categories, subscriptions, debts) add rows in their migration.
 create table private.period_keyed_tables (
   table_name regclass primary key,
   kind text not null check (kind in ('version', 'validity')),
-  entity_column text
+  record_kind text not null,
+  name_column text,
+  entity_column text,
+  entity_table regclass,
+  constraint period_keyed_tables_shape check (
+    (kind = 'validity' and name_column is not null and entity_column is null and entity_table is null)
+    or (kind = 'version' and entity_column is not null and entity_table is not null and name_column is null)
+  )
 );
 revoke all on private.period_keyed_tables from public;
 
-insert into private.period_keyed_tables values
-  ('public.incomes', 'validity', null),
-  ('public.income_versions', 'version', 'income_id');
+-- R-VERSION-014: refuse to register a table that does not provide what the merge needs.
+create or replace function private.check_period_keyed_table()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_missing text;
+begin
+  select pg_catalog.string_agg(c.col || ' ' || c.typ, ', ') into v_missing
+  from (values ('id', 'uuid'), ('budget_id', 'uuid')) as c (col, typ)
+  where not exists (
+    select 1 from pg_catalog.pg_attribute as a
+    where a.attrelid = new.table_name and a.attname = c.col and not a.attisdropped
+      and pg_catalog.format_type(a.atttypid, a.atttypmod) = c.typ
+  );
+  if new.kind = 'validity' then
+    select concat_ws(', ', v_missing, pg_catalog.string_agg(c.col || ' ' || c.typ, ', ')) into v_missing
+    from (values ('first_seq', 'integer'), ('end_seq', 'integer'), (new.name_column, 'text')) as c (col, typ)
+    where not exists (
+      select 1 from pg_catalog.pg_attribute as a
+      where a.attrelid = new.table_name and a.attname = c.col and not a.attisdropped
+        and pg_catalog.format_type(a.atttypid, a.atttypmod) = c.typ
+    );
+  else
+    select concat_ws(', ', v_missing, pg_catalog.string_agg(c.col || ' ' || c.typ, ', ')) into v_missing
+    from (values (new.entity_column, 'uuid'), ('effective_from_seq', 'integer')) as c (col, typ)
+    where not exists (
+      select 1 from pg_catalog.pg_attribute as a
+      where a.attrelid = new.table_name and a.attname = c.col and not a.attisdropped
+        and pg_catalog.format_type(a.atttypid, a.atttypmod) = c.typ
+    );
+    if not exists (select 1 from private.period_keyed_tables as t
+                   where t.table_name = new.entity_table and t.kind = 'validity') then
+      v_missing := concat_ws(', ', v_missing, 'entity_table registered as validity');
+    end if;
+    if not exists (
+      select 1 from pg_catalog.pg_constraint as k
+      where k.conrelid = new.table_name and k.contype = 'u'
+        and (select pg_catalog.array_agg(a.attname::text order by a.attname::text)
+             from pg_catalog.pg_attribute as a
+             where a.attrelid = k.conrelid and a.attnum = any (k.conkey))
+            = (select pg_catalog.array_agg(x order by x) from unnest(array[new.entity_column, 'effective_from_seq']) as x)
+    ) then
+      v_missing := concat_ws(', ', v_missing, 'unique (' || new.entity_column || ', effective_from_seq)');
+    end if;
+  end if;
+  if v_missing is not null and v_missing <> '' then
+    raise exception 'period_keyed_table_invalid: % lacks %', new.table_name, v_missing using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
 
--- Re-key everything a budget keys to period p_from onto period p_to (p_to = p_from - 1).
--- Versions: when both periods have one, the later write wins (ties go to p_from, the newer
--- period). Validity: starting in p_from becomes starting in p_to; ending at p_from becomes
--- ending at p_to, and a row that would then never count is deleted.
+create trigger period_keyed_tables_check
+  before insert or update on private.period_keyed_tables
+  for each row execute function private.check_period_keyed_table();
+
+insert into private.period_keyed_tables (table_name, kind, record_kind, name_column) values
+  ('public.incomes', 'validity', 'income', 'name');
+insert into private.period_keyed_tables (table_name, kind, record_kind, entity_column, entity_table) values
+  ('public.income_versions', 'version', 'income', 'income_id', 'public.incomes');
+
+-- R-VERSION-011, R-VERSION-013, R-VERSION-014: re-key everything a budget keys to period
+-- p_from (the latest) onto period p_to (the one before), when p_from is merged into p_to.
+-- What was keyed to the merged (later) period always wins, so the terms in force before the
+-- reopen are still in force after it. Versions: a version at p_from replaces the one at
+-- p_to. Validity: starting in p_from becomes starting in p_to; ending at p_from becomes
+-- ending at p_to; a row that would then never be in force is deleted, or kept as a void row
+-- (end_seq = first_seq) when other rows reference it, so the reopen never fails on it.
 create or replace function private.rekey_period(p_budget_id uuid, p_from integer, p_to integer)
 returns void
 language plpgsql
@@ -710,30 +798,28 @@ as $$
 declare
   t record;
 begin
-  for t in select * from private.period_keyed_tables order by kind loop
+  for t in select * from private.period_keyed_tables order by (kind = 'validity') desc loop
     if t.kind = 'version' then
       execute pg_catalog.format($q$
         delete from %1$s as older
-        using %1$s as newer
-        where older.budget_id = $1 and newer.budget_id = $1
-          and older.%2$I = newer.%2$I
-          and older.effective_from_seq = $3 and newer.effective_from_seq = $2
-          and newer.updated_at >= older.updated_at$q$, t.table_name, t.entity_column)
-        using p_budget_id, p_from, p_to;
-      execute pg_catalog.format($q$
-        delete from %1$s as stale
-        where stale.budget_id = $1 and stale.effective_from_seq = $2
-          and exists (select 1 from %1$s as kept
-                      where kept.budget_id = $1 and kept.%2$I = stale.%2$I
-                        and kept.effective_from_seq = $3)$q$, t.table_name, t.entity_column)
+        where older.budget_id = $1 and older.effective_from_seq = $3
+          and exists (select 1 from %1$s as newer
+                      where newer.budget_id = $1 and newer.%2$I = older.%2$I
+                        and newer.effective_from_seq = $2)$q$, t.table_name, t.entity_column)
         using p_budget_id, p_from, p_to;
       execute pg_catalog.format(
         'update %1$s set effective_from_seq = $3 where budget_id = $1 and effective_from_seq = $2',
         t.table_name) using p_budget_id, p_from, p_to;
     else
-      execute pg_catalog.format(
-        'delete from %1$s where budget_id = $1 and end_seq = $2 and first_seq >= $3',
-        t.table_name) using p_budget_id, p_from, p_to;
+      begin
+        execute pg_catalog.format(
+          'delete from %1$s where budget_id = $1 and end_seq = $2 and first_seq >= $3',
+          t.table_name) using p_budget_id, p_from, p_to;
+      exception when foreign_key_violation then
+        execute pg_catalog.format(
+          'update %1$s set first_seq = $3, end_seq = $3 where budget_id = $1 and end_seq = $2 and first_seq >= $3',
+          t.table_name) using p_budget_id, p_from, p_to;
+      end;
       execute pg_catalog.format(
         'update %1$s set first_seq = $3 where budget_id = $1 and first_seq = $2',
         t.table_name) using p_budget_id, p_from, p_to;
@@ -742,6 +828,55 @@ begin
         t.table_name) using p_budget_id, p_from, p_to;
     end if;
   end loop;
+  update public.budgets set primary_since_seq = p_to
+  where id = p_budget_id and primary_since_seq = p_from;
+end;
+$$;
+
+-- R-PERIOD-035: what merging period p_from into p_to would move, from the registry: one row
+-- per recorded change in p_from. change: 'added', 'ended', 'removed' (it would then never be
+-- in force), 'terms_changed', 'made_primary'. replaces_previous: p_to has its own entry
+-- for the same record that the merge replaces.
+create or replace function private.merge_impact(p_budget_id uuid, p_from integer, p_to integer)
+returns table (record_kind text, record_id uuid, record_name text, change text, replaces_previous boolean)
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  t record;
+begin
+  for t in select r.*, e.name_column as entity_name_column
+           from private.period_keyed_tables as r
+           left join private.period_keyed_tables as e on e.table_name = r.entity_table
+           order by r.kind, r.table_name::text loop
+    if t.kind = 'validity' then
+      return query execute pg_catalog.format($q$
+        select %3$L::text, v.id, v.%2$I::text,
+               case when v.end_seq = $2 and v.first_seq >= $3 then 'removed'
+                    when v.end_seq = $2 then 'ended'
+                    else 'added' end,
+               false
+        from %1$s as v
+        where v.budget_id = $1 and (v.first_seq = $2 or v.end_seq = $2)
+        order by 3$q$, t.table_name, t.name_column, t.record_kind)
+        using p_budget_id, p_from, p_to;
+    else
+      return query execute pg_catalog.format($q$
+        select %4$L::text, e.id, e.%3$I::text, 'terms_changed',
+               exists (select 1 from %1$s as o where o.budget_id = $1 and o.%2$I = v.%2$I
+                         and o.effective_from_seq = $3)
+        from %1$s as v
+        join %5$s as e on e.id = v.%2$I
+        where v.budget_id = $1 and v.effective_from_seq = $2 and e.first_seq < $2
+        order by 3$q$, t.table_name, t.entity_column, t.entity_name_column, t.record_kind, t.entity_table)
+        using p_budget_id, p_from, p_to;
+    end if;
+  end loop;
+  return query
+    select 'income'::text, i.id, i.name, 'made_primary'::text, false
+    from public.budgets as b join public.incomes as i on i.id = b.primary_income_id
+    where b.id = p_budget_id and b.primary_since_seq = p_from;
 end;
 $$;
 
@@ -834,6 +969,9 @@ begin
     insert into public.periods (budget_id, seq, start_date, end_date)
     values (p_budget_id, v_last.seq + 1, v_start,
             private.projected_end(p_budget_id, v_start, v_last.seq + 1));
+    -- R-MEMBER-011: incomes of people removed while the budget had ended stop here.
+    update public.incomes set end_seq = v_last.seq + 1, ended_after_last = false
+    where budget_id = p_budget_id and ended_after_last;
     v_created := v_created + 1;
     -- Bounded by the start-month limit; this guard only stops a logic error from looping.
     if v_created > 2 * private.limit_start_months_back() + 24 then
@@ -913,9 +1051,36 @@ begin
 end;
 $$;
 
--- R-PERIOD-011, R-PERIOD-014, R-PERIOD-029: after the primary's terms change or another
--- income becomes primary, re-project the current period's end unless it was set by hand,
--- never to before today; nothing else moves. Caller holds the lock and has caught up.
+-- R-PERIOD-011, R-PERIOD-014, R-PERIOD-029, R-PERIOD-036: the end the current period would
+-- get if the primary income's terms became (p_pay_day, p_weekend_rule): unchanged when set by
+-- hand; otherwise the day before the next salary date after today, at most 92 days from the
+-- period's start (reachable when a long merged period is re-projected), never before today.
+-- Pure apart from reading the period. Shared by the write and its preview.
+create or replace function private.reprojected_end(
+  p_current public.periods,
+  p_pay_day integer,
+  p_weekend_rule public.weekend_rule
+)
+returns date
+language sql
+stable
+set search_path = ''
+as $$
+  select case
+    when p_current.end_is_manual then p_current.end_date
+    else greatest(
+      private.today(),
+      least(
+        private.next_salary_date(p_current.start_date, p_pay_day, p_weekend_rule, private.today()) - 1,
+        p_current.start_date + private.limit_period_max_days() - 1
+      )
+    )
+  end
+$$;
+
+-- After the primary's terms change or another income becomes primary, re-project the
+-- current period's end (private.reprojected_end); nothing else moves. Caller holds the lock
+-- and has caught up.
 create or replace function private.reproject_current_end(p_budget_id uuid)
 returns void
 language plpgsql
@@ -923,19 +1088,19 @@ volatile
 set search_path = ''
 as $$
 declare
-  v_today date := private.today();
   v_current public.periods;
   v_end date;
 begin
   select p.* into v_current from public.periods as p
-  where p.budget_id = p_budget_id and v_today between p.start_date and p.end_date;
-  if v_current.id is null or v_current.end_is_manual then
+  where p.budget_id = p_budget_id and private.today() between p.start_date and p.end_date;
+  if v_current.id is null then
     return;
   end if;
-  v_end := private.projected_end(p_budget_id, v_current.start_date, v_current.seq, v_today);
-  -- Keep the length bound (cannot be reached with the 15-day rule; a defence).
-  v_end := least(v_end, v_current.start_date + private.limit_period_max_days() - 1);
-  if v_end <> v_current.end_date and v_end >= v_today then
+  select private.reprojected_end(v_current, t.pay_day, t.weekend_rule) into v_end
+  from public.budgets as b
+  cross join lateral private.terms_at(b.primary_income_id, v_current.seq + 1) as t
+  where b.id = p_budget_id;
+  if v_end <> v_current.end_date then
     update public.periods set end_date = v_end where id = v_current.id;
   end if;
 end;
@@ -963,7 +1128,11 @@ begin
   v_seq := private.removal_seq(p_budget_id);
   select pg_catalog.max(p.seq) into v_latest from public.periods as p where p.budget_id = p_budget_id;
   if v_seq > v_latest then
-    return;  -- the budget has ended: its incomes stay as they are (R-MEMBER-008)
+    -- The budget has ended: its history stays as it is (R-MEMBER-008), and the incomes end
+    -- from the first period created if it ever resumes (R-MEMBER-011).
+    update public.incomes as i set ended_after_last = true
+    where i.budget_id = p_budget_id and i.user_id = p_user_id and i.end_seq is null;
+    return;
   end if;
   delete from public.incomes as i
   where i.budget_id = p_budget_id and i.user_id = p_user_id and i.end_seq is null
@@ -1076,6 +1245,10 @@ $$;
 
 -- R-BUDGET-008, R-BUDGET-014: the budget's last day tracked: the end of the period that
 -- contains its end date (projected while that period does not exist). Null: no end.
+-- Closed form, no walk: after the latest period, the next projected period starts the day
+-- after it ends; every later one starts on an actual pay date (consecutive actual pay dates
+-- are more than 15 days apart), so the period containing a later date starts on the last
+-- actual pay date on or before it. (Proved against a period-by-period walk in the tests.)
 create or replace function private.budget_end_date(p_budget_id uuid)
 returns date
 language plpgsql
@@ -1084,27 +1257,31 @@ set search_path = ''
 as $$
 declare
   v_end date;
-  v_probe public.periods;
-  v_steps integer := 0;
+  v_latest public.periods;
+  v_pay_day integer;
+  v_rule public.weekend_rule;
+  v_first_end date;
+  v_start date;
 begin
   select b.end_date into v_end from public.budgets as b where b.id = p_budget_id;
   if v_end is null then
     return null;
   end if;
-  select p.* into v_probe from public.periods as p
+  select p.* into v_latest from public.periods as p
   where p.budget_id = p_budget_id order by p.seq desc limit 1;
-  while v_probe.end_date < v_end and v_steps < 200 loop
-    v_probe.start_date := v_probe.end_date + 1;
-    v_probe.seq := v_probe.seq + 1;
-    v_probe.end_date := private.projected_end(p_budget_id, v_probe.start_date, v_probe.seq);
-    v_steps := v_steps + 1;
-  end loop;
-  -- The last period is the one containing the end date (or the latest, if it ends later).
-  return coalesce(
-    (select p.end_date from public.periods as p
-     where p.budget_id = p_budget_id and v_end between p.start_date and p.end_date),
-    v_probe.end_date
-  );
+  if v_end <= v_latest.end_date then
+    return (select p.end_date from public.periods as p
+            where p.budget_id = p_budget_id and v_end between p.start_date and p.end_date);
+  end if;
+  select t.pay_day, t.weekend_rule into v_pay_day, v_rule
+  from public.budgets as b cross join lateral private.terms_at(b.primary_income_id, v_latest.seq + 1) as t
+  where b.id = p_budget_id;
+  v_first_end := private.next_salary_date(v_latest.end_date + 1, v_pay_day, v_rule) - 1;
+  if v_end <= v_first_end then
+    return v_first_end;
+  end if;
+  v_start := private.month_pay_date(private.month_paid_by(v_end, v_pay_day, v_rule), v_pay_day, v_rule);
+  return private.next_salary_date(v_start, v_pay_day, v_rule) - 1;
 end;
 $$;
 
@@ -1204,7 +1381,7 @@ create view public.income_overview with (security_invoker = true) as
     private.display_name_of(i.user_id) as user_display_name,
     i.name,
     (b.primary_income_id = i.id) as is_primary,
-    (i.end_seq is null and i.first_seq <= private.reading_seq(i.budget_id)) as is_active,
+    (i.end_seq is null and not i.ended_after_last and i.first_seq <= private.reading_seq(i.budget_id)) as is_active,
     i.first_seq,
     i.end_seq,
     t.amount,
@@ -1755,7 +1932,7 @@ begin
   if v_income.first_seq > v_seq then
     raise exception 'income_not_in_force' using errcode = 'P0001';
   end if;
-  update public.budgets set primary_income_id = v_income.id
+  update public.budgets set primary_income_id = v_income.id, primary_since_seq = v_seq
   where id = v_income.budget_id and primary_income_id <> v_income.id;
   if found then
     perform private.reproject_current_end(v_income.budget_id);
@@ -1978,6 +2155,82 @@ begin
 end;
 $$;
 
+-- R-PERIOD-035: what reopen_previous_period would move into the previous period: one row per
+-- change recorded in the current (latest) period. Members. Like get_current_period, it first
+-- creates missing periods.
+create or replace function public.preview_reopen(p_budget_id uuid)
+returns table (record_kind text, record_id uuid, record_name text, change text, replaces_previous boolean)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_current public.periods;
+begin
+  perform private.assert_member(p_budget_id);
+  v_current := private.current_period(p_budget_id);
+  if v_current.id is null then
+    raise exception 'budget_ended' using errcode = 'P0001';
+  end if;
+  if v_current.seq = 1 then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  return query select * from private.merge_impact(p_budget_id, v_current.seq, v_current.seq - 1);
+end;
+$$;
+
+-- R-PERIOD-036: what the current period's end and expected next pay date would become if the
+-- primary income's terms became (p_pay_day, p_weekend_rule), each defaulting to the current
+-- terms, or if p_income_id became primary with its terms in force. The same logic as the
+-- write (private.reprojected_end). Members. Like get_current_period, it first creates
+-- missing periods; it changes nothing else.
+create or replace function public.preview_expected_pay_date(
+  p_budget_id uuid,
+  p_pay_day integer default null,
+  p_weekend_rule public.weekend_rule default null,
+  p_income_id uuid default null
+)
+returns table (period_id uuid, end_date date, expected_pay_date date, end_is_manual boolean)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_current public.periods;
+  v_pay_day integer;
+  v_rule public.weekend_rule;
+  v_end date;
+begin
+  perform private.assert_member(p_budget_id);
+  v_current := private.current_period(p_budget_id);
+  if v_current.id is null then
+    raise exception 'budget_ended' using errcode = 'P0001';
+  end if;
+  if p_income_id is not null then
+    if not exists (select 1 from public.incomes as i where i.id = p_income_id and i.budget_id = p_budget_id) then
+      raise exception 'income_not_found' using errcode = 'P0001';
+    end if;
+    if exists (select 1 from public.incomes as i where i.id = p_income_id
+               and (i.end_seq is not null or i.first_seq > v_current.seq)) then
+      raise exception 'income_not_in_force' using errcode = 'P0001';
+    end if;
+    select t.pay_day, t.weekend_rule into v_pay_day, v_rule
+    from private.terms_at(p_income_id, v_current.seq + 1) as t;
+  else
+    select t.pay_day, t.weekend_rule into v_pay_day, v_rule
+    from public.budgets as b cross join lateral private.terms_at(b.primary_income_id, v_current.seq + 1) as t
+    where b.id = p_budget_id;
+  end if;
+  v_pay_day := coalesce(p_pay_day, v_pay_day);
+  v_rule := coalesce(p_weekend_rule, v_rule);
+  perform private.assert_income_terms(1, v_pay_day, v_rule);
+  v_end := private.reprojected_end(v_current, v_pay_day, v_rule);
+  return query select v_current.id, v_end, v_end + 1, v_current.end_is_manual;
+end;
+$$;
+
 -- Move the boundary between a period and the one before it: p_period_id starts on
 -- p_start_date (today or earlier), the previous one ends the day before. Inverse: move it
 -- back. R-PERIOD-012, R-PERIOD-025
@@ -2007,7 +2260,8 @@ begin
   end if;
   select p.* into v_previous from public.periods as p
   where p.budget_id = v_budget_id and p.seq = v_period.seq - 1;
-  if v_previous.id is null or p_start_date > private.today() then
+  if v_previous.id is null or p_start_date > private.today()
+     or p_start_date > coalesce((select b.end_date from public.budgets as b where b.id = v_budget_id), p_start_date) then
     raise exception 'invalid_boundary' using errcode = 'P0001';
   end if;
   perform private.assert_length(v_previous.start_date, p_start_date - 1);
@@ -2068,7 +2322,8 @@ grant execute on function
   private.next_salary_date(date, integer, public.weekend_rule, date),
   private.limit_projection_min_days(),
   private.terms_at(uuid, integer), private.reading_seq(uuid),
-  private.projected_end(uuid, date, integer, date), private.budget_end_date(uuid)
+  private.projected_end(uuid, date, integer, date), private.budget_end_date(uuid),
+  private.month_paid_by(date, integer, public.weekend_rule)
 to authenticated;
 
 grant execute on function
@@ -2094,7 +2349,9 @@ grant execute on function
   public.set_expected_pay_date(uuid, date),
   public.record_early_pay_date(uuid, date),
   public.reopen_previous_period(uuid, date),
-  public.move_period_start(uuid, date)
+  public.move_period_start(uuid, date),
+  public.preview_reopen(uuid),
+  public.preview_expected_pay_date(uuid, integer, public.weekend_rule, uuid)
 to authenticated;
 
 -- ===========================================================================

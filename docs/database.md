@@ -144,10 +144,11 @@ an expired or a cancelled invitation), `member_limit_reached` (20 members).
 
 **`remove_member(p_budget_id, p_user_id) -> void`** Owner. **`leave_budget(p_budget_id) -> void`**
 Member other than the owner. The person's incomes end from the current period (or are
-deleted if they never counted in a past period); in a budget that has ended they stay as
-they are. Errors: `not_owner`, `member_not_found`, `owner_cannot_leave`,
+deleted if they never counted in a past period). In a budget that has ended its history
+stays as it is, and the incomes end from the first period created if the budget resumes
+(`income_overview.is_active` is false for them meanwhile). Errors: `not_owner`, `member_not_found`, `owner_cannot_leave`,
 `member_has_primary_income` (make another income primary first). (R-MEMBER-004 to
-R-MEMBER-009)
+R-MEMBER-009, R-MEMBER-011)
 
 ### Incomes
 
@@ -163,13 +164,15 @@ Member. New terms from the current period; past periods keep theirs; a second ed
 same period replaces the first. With `p_from_period_id`, an explicit correction: the terms
 apply from that period until the next existing change. For the primary income no stored
 boundary moves; the current period's end, unless set by hand, is re-projected to the day
-before the next pay date after today. Errors: `income_not_found`, `invalid_*`,
+before the next pay date after today (at most 92 days from the period's start). Use
+`preview_expected_pay_date` to show the effect before saving. Errors: `income_not_found`, `invalid_*`,
 `income_ended`, `invalid_period` (before the income starts), `period_not_found`,
 `budget_ended`. (R-VERSION-001, R-VERSION-005 to R-VERSION-008, R-VERSION-010,
 R-VERSION-012, R-PERIOD-011, R-PERIOD-029, R-INCOME-050)
 
 **`set_primary_income(p_income_id) -> void`** Member. Only an income in force in the current
-period. Re-projects the current period's end as above. Errors: `income_not_found`,
+period. Re-projects the current period's end as above (use `preview_expected_pay_date` to
+show the effect first). Errors: `income_not_found`,
 `income_ended`, `income_not_in_force`, `budget_ended`. (R-INCOME-007, R-INCOME-008,
 R-INCOME-017, R-PERIOD-029)
 
@@ -204,19 +207,42 @@ current period ends the day before, and that end is kept through changes of term
 **`record_early_pay_date(p_budget_id, p_pay_date) -> period_summaries[]`** (the new current
 period) Member. The salary arrived early, on `p_pay_date` (today or earlier, not after the
 budget's end date): the current period ends the day before and the next one starts on that
-day. Inverse: `reopen_previous_period`.
+day. Inverse: `reopen_previous_period`. (R-BUDGET-007)
 
 **`reopen_previous_period(p_budget_id, p_pay_date = null) -> period_summaries[]`** (the
 reopened period) Member. The salary that started the current period has not arrived yet:
 the current period is merged into the previous one, which is current again and ends the day
-before `p_pay_date` (after today), or at its projection when omitted. Everything recorded in
-the merged period (income versions, incomes added or ended, a primary switch) now belongs
-to the reopened one. Inverse: `record_early_pay_date` with the original date.
-(R-VERSION-011)
+before `p_pay_date` (after today, the end then counts as set by hand), or at its projection
+when omitted. Everything recorded in the merged period (income versions, incomes added or
+ended, a primary switch) now belongs to the reopened one, and **replaces** what the
+reopened period had for the same record, whatever was written later, so the terms in force
+before the reopen are still in force after it. An income that would then never be in force
+(added in the previous period and ended in the merged one) is removed. Call
+`preview_reopen` first to warn the user. Inverse of the **boundary**:
+`record_early_pay_date` with the original date; this does not move back what was recorded
+in the merged period, which stays with the reopened period (moving it back needs explicit
+corrections). (R-VERSION-011, R-VERSION-013)
+
+**`preview_reopen(p_budget_id) -> {record_kind, record_id, record_name, change, replaces_previous}[]`**
+Member. What `reopen_previous_period` would move, one row per change recorded in the current
+period, for every kind of record (today `record_kind = 'income'`; later steps add kinds
+without client changes). `change`: `'added'`, `'ended'`, `'removed'` (it would never be in
+force after the reopen), `'terms_changed'`, `'made_primary'`. `replaces_previous`: the
+previous period has its own entry for that record that the reopen would replace. Errors:
+`budget_ended`, `invalid_boundary` (the first period has nothing to reopen). (R-PERIOD-035)
+
+**`preview_expected_pay_date(p_budget_id, p_pay_day = null, p_weekend_rule = null, p_income_id = null) -> {period_id, end_date, expected_pay_date, end_is_manual}[]`**
+(one row) Member. What the current period's end and expected next pay date would become if
+the primary income's pay day and weekend rule became the given ones (each defaulting to the
+current terms), or, with `p_income_id`, if that income became primary. Computed by the same
+function as the write; an end set by hand stays as it is (`end_is_manual`). Changes nothing
+(like `get_current_period`, it first creates missing periods). Errors: `budget_ended`,
+`income_not_found`, `income_not_in_force`, `invalid_pay_day`, `invalid_weekend_rule`.
+(R-PERIOD-036)
 
 **`move_period_start(p_period_id, p_start_date) -> void`** Member. Moves the boundary between
-a period and the one before it: the period starts on `p_start_date` (today or earlier), the
-previous one ends the day before. Errors also: `period_not_found`. Inverse: move it back.
+a period and the one before it: the period starts on `p_start_date` (today or earlier, and
+not after the budget's end date), the previous one ends the day before. Errors also: `period_not_found`. Inverse: move it back.
 
 ### Pure helper
 
@@ -250,7 +276,21 @@ in its migration, and policies of the form
 `budget_id in (select private.owned_budget_ids())` (owner) (C-RLS-001 to C-RLS-003).
 Write RPCs check membership (`private.assert_member`), take `private.lock_budget` before
 any row lock, catch the periods up (`private.lock_and_catch_up`), and only then read the
-rows they check. A versioned table has an entity column, an `effective_from_seq` column
-and a unique key on both, and registers in `private.period_keyed_tables` (kind
-`'version'`) so that merging a period re-keys it; a table with `first_seq` / `end_seq`
-registers with kind `'validity'` (R-VERSION-011).
+rows they check.
+
+A table keyed to periods registers in `private.period_keyed_tables` in its migration, so
+that merging a period re-keys it and `preview_reopen` reports it. The registration is
+checked when it is inserted and refused (`period_keyed_table_invalid`) unless the table
+provides (R-VERSION-014):
+
+- all: `id uuid` and `budget_id uuid`;
+- kind `'validity'` (rows in force from `first_seq` to before `end_seq`): `first_seq
+  integer`, `end_seq integer`, a text name column (`name_column`), and a check that allows
+  `end_seq = first_seq` (a void row, never in force);
+- kind `'version'` (one row per entity and period): an entity column (`entity_column`,
+  `uuid`) holding the id of a row of a registered validity table (`entity_table`),
+  `effective_from_seq integer`, and a unique constraint on (entity, `effective_from_seq`).
+
+In a merge, versions keyed to the merged period replace those of the previous period; for
+validity rows the start and end move with the merge, and a row that would never be in force
+is deleted, or kept as a void row when other rows reference it, so the reopen never fails.
