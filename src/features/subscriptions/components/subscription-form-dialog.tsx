@@ -50,6 +50,8 @@ import {
   type CategoryChoice,
 } from '@/features/transactions/components/category-select-field'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
+import { dbErrorCode } from '@/lib/db-errors'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useDebounced } from '@/hooks/use-debounced'
 import { useEditBase } from '@/hooks/use-edit-base'
@@ -170,6 +172,7 @@ function SubscriptionForm({
   })
 
   const create = useCreateSubscription(budgetId, { onDone: close })
+  const request = useClientId()
   const update = useUpdateSubscription(budgetId, { onDone: close })
   const mutation = editing ? update : create
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
@@ -275,6 +278,8 @@ function SubscriptionForm({
       (chargeDate === '' || isCalendarDate(chargeDate)),
   )
   const preview = editing ? updatePreview : createPreview
+  // R-SUBSCRIPTION-320: a held charge is refused by the preview as by the save (D-388).
+  const heldBack = dbErrorCode(preview.error) === 'charge_held_back'
   // R-SUBSCRIPTION-121: a preview that does not belong to what is typed now shows as loading.
   const previewBehind = (editing ? updateInput.stale : createInput.stale) || preview.isFetching
   const dayText = useChargeDayText()
@@ -320,14 +325,26 @@ function SubscriptionForm({
           nextChargeDate: values.chargeDate === '' ? null : values.chargeDate,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
-      : create.mutateAsync({
-          name: values.name,
-          price: values.price,
-          cadence: values.cadence,
-          categoryId: values.categoryId,
-          firstChargeDate: values.chargeDate,
-          fromPeriodId: values.fromPeriodId || null,
-        })
+      : create
+          .mutateAsync({
+            name: values.name,
+            price: values.price,
+            cadence: values.cadence,
+            categoryId: values.categoryId,
+            firstChargeDate: values.chargeDate,
+            fromPeriodId: values.fromPeriodId || null,
+            clientId: request.id,
+          })
+          .then(
+            (id) => {
+              request.renew()
+              return id
+            },
+            (error: unknown) => {
+              request.afterFailure(error)
+              throw error
+            },
+          )
     return done.catch(() => undefined)
   })
 
@@ -473,6 +490,7 @@ function SubscriptionForm({
               edit.gone ||
               !settled ||
               notInForce ||
+              heldBack ||
               (editing && !base)
             }
           >

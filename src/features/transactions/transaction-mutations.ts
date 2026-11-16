@@ -41,23 +41,26 @@ export interface PaymentLink {
 
 export function useAddTransaction(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<Transaction | null, TransactionFields & PaymentLink>({
-    errorDisplay: 'inline',
-    errorMessages: { debt_ended: 'debts.endedErrors.payment' },
-    mutationFn: async (input) => {
-      const rows = unwrap(
-        await supabase.rpc('add_transaction', {
-          p_budget_id: budgetId,
-          ...fieldArgs(input),
-          ...(input.debtId && input.kind === 'expense' ? { p_debt_id: input.debtId } : {}),
-        }),
-      )
-      return rows[0] ?? null
+  return useAppMutation<Transaction | null, TransactionFields & PaymentLink & { clientId: string }>(
+    {
+      errorDisplay: 'inline',
+      errorMessages: { debt_ended: 'debts.endedErrors.payment' },
+      mutationFn: async (input) => {
+        const rows = unwrap(
+          await supabase.rpc('add_transaction', {
+            p_budget_id: budgetId,
+            ...fieldArgs(input),
+            p_client_id: input.clientId,
+            ...(input.debtId && input.kind === 'expense' ? { p_debt_id: input.debtId } : {}),
+          }),
+        )
+        return rows[0] ?? null
+      },
+      success: (_row, input) =>
+        t(`transactions.added.${input.kind}`, { amount: formatMoney(input.amount) }),
+      invalidate: () => affected(budgetId),
     },
-    success: (_row, input) =>
-      t(`transactions.added.${input.kind}`, { amount: formatMoney(input.amount) }),
-    invalidate: () => affected(budgetId),
-  })
+  )
 }
 
 export interface UpdateTransactionInput extends TransactionFields, PaymentLink {

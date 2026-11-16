@@ -150,6 +150,7 @@ describe('subscription form [R-SUBSCRIPTION-121]', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.create_subscription).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: expect.any(String) as string,
         p_name: 'Spotify',
         p_price: 1_290,
@@ -199,6 +200,28 @@ describe('subscription form [R-SUBSCRIPTION-121]', () => {
         p_next_charge_date: '2026-12-20',
       })
     })
+  })
+
+  it('says a held charge before saving, from the preview, and offers no save [R-SUBSCRIPTION-320]', async () => {
+    const db = subscriptionsDb()
+    db.rpc.preview_update_subscription.mockImplementation((args) =>
+      args.p_cadence === 'yearly' ? rpcError('charge_held_back') : ['2026-11-05', '2026-12-05'],
+    )
+    await openPage(db)
+    await userEvent.click(
+      within(card('Netflix')).getByRole('button', { name: 'Actions for Netflix' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    // The held date comes first, as the database lists it.
+    await within(dialog).findByText('05.11.2026')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Charged' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Every year' }))
+    expect(await within(dialog).findByTestId('preview-refused')).toHaveTextContent(
+      'A charge of this subscription is waiting',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(db.rpc.update_subscription).not.toHaveBeenCalled()
   })
 
   it('refuses a new next charge date that is not after today', async () => {

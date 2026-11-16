@@ -29,8 +29,13 @@ export interface MockError {
 }
 
 /** A database error the way PostgREST reports a raised exception (P0001 + stable code). */
-export function dbError(message: string, code = 'P0001'): MockError {
-  return { code, message, details: null, hint: null }
+export function dbError(message: string, code = 'P0001', detail?: unknown): MockError {
+  return {
+    code,
+    message,
+    details: detail === undefined ? null : JSON.stringify(detail),
+    hint: null,
+  }
 }
 
 type RpcResult = { data: unknown; error: MockError | null }
@@ -45,8 +50,8 @@ export class RpcFailure extends Error {
   }
 }
 
-export function rpcError(message: string, code = 'P0001'): never {
-  throw new RpcFailure(dbError(message, code))
+export function rpcError(message: string, code = 'P0001', detail?: unknown): never {
+  throw new RpcFailure(dbError(message, code, detail))
 }
 
 export interface MockDb {
@@ -84,7 +89,72 @@ function emptyTables(): MockTables {
     debt_interest: [],
     debt_overview: [],
     debt_totals: [],
+    // Step 6: import (the tables are not selectable; the screens read the views and calls).
+    import_batches: [],
+    import_batch_list: [],
+    import_choices: [],
+    import_skipped_rows: [],
+    import_tokens: [],
+    import_token_list: [],
+    merchant_rules: [],
+    merchant_rule_list: [],
+    // Step 7: no screens yet.
+    accounts: [],
+    account_overview: [],
+    transfers: [],
+    transfer_versions: [],
+    transfer_occurrences: [],
+    transfer_overview: [],
   }
+}
+
+type ImportRowResult = PublicSchema['CompositeTypes']['import_row_result']
+
+/**
+ * What the import plans for a row by default, in the mock: imported, an expense for a debit
+ * and a refund for a credit, into "to categorise" unless the row names a category. Tests of
+ * duplicates, flags and matches give preview_import / import_transactions their own answer.
+ */
+export function plannedRow(row: Record<string, unknown>, rowNo: number): ImportRowResult {
+  const direction = row.direction === 'credit' ? 'credit' : 'debit'
+  const chosenKind = row.kind === 'extra_income' ? 'extra_income' : null
+  const kind = direction === 'debit' ? 'expense' : (chosenKind ?? 'refund')
+  const skip = row.action === 'skip'
+  const category = typeof row.category_id === 'string' ? row.category_id : null
+  const text =
+    typeof row.merchant === 'string'
+      ? row.merchant
+      : typeof row.description === 'string'
+        ? row.description
+        : ''
+  return {
+    row_no: rowNo,
+    chunk: null,
+    valid: true,
+    reason: null,
+    action: skip ? 'skip_chosen' : 'import',
+    kind,
+    category_id: kind === 'extra_income' ? null : category,
+    category_source: kind === 'extra_income' ? null : category ? 'choice' : 'to_categorise',
+    rule_id: null,
+    date: String(row.date),
+    amount: Number(row.amount),
+    direction,
+    description: typeof row.description === 'string' ? row.description : null,
+    merchant_key: text.toLowerCase().trim() || null,
+    flag: null,
+    remembered_choice: null,
+    duplicate_of: null,
+    match_of: null,
+    match_is_charge: false,
+    salary_income_id: null,
+    salary_income_amount: null,
+    transaction_id: null,
+  }
+}
+
+function rowsOf(args: Record<string, unknown>): Record<string, unknown>[] {
+  return Array.isArray(args.p_rows) ? (args.p_rows as Record<string, unknown>[]) : []
 }
 
 export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
@@ -224,6 +294,8 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         .filter((row) => typeof args.p_to_date !== 'string' || row.date <= args.p_to_date)
         .filter((row) => !args.p_kind || row.kind === args.p_kind)
         .filter((row) => !args.p_awaiting_only || row.review_state === 'awaiting_confirmation')
+        .filter((row) => !args.p_to_review_only || row.review_state === 'to_review')
+        .filter((row) => !args.p_import_batch_id || row.import_batch_id === args.p_import_batch_id)
         .filter((row) => !args.p_debt_id || row.debt_id === args.p_debt_id)
         .filter((row) => !args.p_subscription_id || row.subscription_id === args.p_subscription_id)
         .filter(
@@ -344,6 +416,104 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     get_period_trend: handler(() => []),
     get_category_trend: handler(() => []),
     get_period_comparison: handler(() => []),
+    // Step 6: import. The plan is the mock's simple default (plannedRow); tests of the
+    // database's decisions give these their own answers.
+    preview_import: handler((args) => rowsOf(args).map((row, index) => plannedRow(row, index + 1))),
+    import_transactions: handler((args) =>
+      rowsOf(args).map((row, index) => ({
+        ...plannedRow(row, index + 1),
+        chunk: Number(args.p_chunk),
+        transaction_id: `imported-${String(args.p_chunk)}-${index + 1}`,
+      })),
+    ),
+    import_skipped_anyway: handler(() => []),
+    import_with_token: handler(() => rpcError('not_mocked')),
+    confirm_import: handler((args) => {
+      const row = db.tables.transaction_list.find((item) => item.id === args.p_transaction_id)
+      if (!row) rpcError('transaction_not_found')
+      if (row.revision !== args.p_expected_revision) rpcError('record_changed')
+      if (row.review_state !== 'to_review') rpcError('not_to_review')
+      if (row.in_to_categorise) rpcError('category_to_categorise')
+      Object.assign(row, { review_state: 'confirmed', revision: row.revision + 1 })
+      return [{ ...row }]
+    }),
+    confirm_imports: handler((args) => {
+      let confirmed = 0
+      let left = 0
+      for (const row of db.tables.transaction_list) {
+        if (row.budget_id !== args.p_budget_id || row.review_state !== 'to_review') continue
+        if (args.p_batch_id && row.import_batch_id !== args.p_batch_id) continue
+        if (row.in_to_categorise) left += 1
+        else {
+          Object.assign(row, { review_state: 'confirmed', revision: row.revision + 1 })
+          confirmed += 1
+        }
+      }
+      return [{ confirmed, left_to_categorise: left }]
+    }),
+    undo_import_batch: handler(() => [
+      { deleted: 0, kept_confirmed: 0, kept_linked: 0, charges_confirmed: 0 },
+    ]),
+    list_import_batches: handler((args) =>
+      db.tables.import_batch_list
+        .filter((row) => row.budget_id === args.p_budget_id)
+        .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+        .slice(0, typeof args.p_limit === 'number' ? args.p_limit : 50),
+    ),
+    list_import_skipped_rows: handler((args) =>
+      db.tables.import_skipped_rows
+        .filter((row) => row.batch_id === args.p_batch_id)
+        .filter(
+          (row) =>
+            typeof args.p_after_chunk !== 'number' ||
+            row.chunk > args.p_after_chunk ||
+            (row.chunk === args.p_after_chunk && row.row_no > Number(args.p_after_row_no)),
+        )
+        .sort((a, b) => a.chunk - b.chunk || a.row_no - b.row_no)
+        .slice(0, typeof args.p_limit === 'number' ? args.p_limit : 100),
+    ),
+    list_import_choices: handler((args) =>
+      db.tables.import_choices
+        .filter((row) => row.budget_id === args.p_budget_id)
+        .slice(0, typeof args.p_limit === 'number' ? args.p_limit : 100),
+    ),
+    create_import_token: handler(() => [
+      {
+        token_id: 'new-token-id',
+        token: `bti_${'0123456789abcdef'.repeat(4)}`,
+        expires_at: '2026-12-16T10:00:00+00:00',
+      },
+    ]),
+    revoke_import_token: handler(() => null),
+    delete_import_token: handler(() => null),
+    create_merchant_rule: handler((args) => [
+      { rule_id: 'new-rule-id', fragment: String(args.p_fragment), revision: 1, moved: 0 },
+    ]),
+    update_merchant_rule: handler((args) => {
+      const rule = db.tables.merchant_rule_list.find((row) => row.id === args.p_rule_id)
+      if (!rule) rpcError('merchant_rule_not_found')
+      if (rule.revision !== args.p_expected_revision) rpcError('record_changed')
+      return [{ rule_id: rule.id, fragment: rule.fragment, revision: rule.revision + 1, moved: 0 }]
+    }),
+    delete_merchant_rule: handler(() => null),
+    // Step 7: no screens yet.
+    close_account: handler(() => rpcError('not_mocked')),
+    create_account: handler(() => rpcError('not_mocked')),
+    update_account: handler(() => rpcError('not_mocked')),
+    preview_close_account: handler(() => rpcError('not_mocked')),
+    create_transfer: handler(() => rpcError('not_mocked')),
+    update_transfer: handler(() => rpcError('not_mocked')),
+    end_transfer: handler(() => rpcError('not_mocked')),
+    preview_create_transfer: handler(() => rpcError('not_mocked')),
+    preview_update_transfer: handler(() => rpcError('not_mocked')),
+    preview_end_transfer: handler(() => rpcError('not_mocked')),
+    get_transfer_terms: handler(() => rpcError('not_mocked')),
+    get_transfer_checklist: handler(() => rpcError('not_mocked')),
+    get_money_flow: handler(() => rpcError('not_mocked')),
+    mark_transfer_done: handler(() => rpcError('not_mocked')),
+    mark_transfer_not_done: handler(() => rpcError('not_mocked')),
+    skip_transfer: handler(() => rpcError('not_mocked')),
+    undo_transfer_mark: handler(() => rpcError('not_mocked')),
   }
 
   return db

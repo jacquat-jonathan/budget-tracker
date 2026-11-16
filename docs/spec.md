@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-505 rules (498 active, 0 planned), 24 conventions, 274 decisions, 41 open questions. 2 rules and conventions are marked **TEST PENDING**.
+508 rules (500 active, 0 planned), 24 conventions, 276 decisions, 40 open questions. 2 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1030,6 +1030,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-191
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-queries.ts
+- **R-PERIOD-320** The confirmations that move a period's start ("this period's salary actually arrived on …" and "back to the schedule") say, as preview_move_period_start answers for that start, how many debts lose the interest added at the period's start (D-386).
+  _active · enforced by test · F-PERIOD_
+  - Related: D-386, R-PERIOD-151
+  - Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16; code: src/features/periods/periods-page.tsx
 
 ### Versioning: edits never rewrite the past
 
@@ -1563,6 +1567,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-142, R-TRANSACTION-150
   - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/features/subscriptions/components/charges-to-confirm-card.tsx; code: src/features/transactions/transactions-page.tsx
+- **R-SUBSCRIPTION-320** When the schedule preview of a subscription edit is refused because a charge is held back (charge_held_back, D-388), the form says so before saving and does not offer the save.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-388, R-SUBSCRIPTION-121
+  - Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16; code: src/features/subscriptions/components/subscription-form-dialog.tsx
 
 ### Debts
 
@@ -2250,9 +2258,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: R-CONCURRENCY-190, R-CONCURRENCY-191, R-CONCURRENCY-091
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/hooks/use-concurrent-form.ts
 - **R-CONCURRENCY-281** When the answer to an add (a new transaction, category, income, subscription or debt) is lost on the way, the form says it may have been saved and to check the list before saving again, never that nothing was saved.
-  _active · enforced by test · F-SUBSCRIPTION_
+  _retired · enforced by test · F-SUBSCRIPTION_
+  - Retired: D-440: every add form sends one request id (p_client_id, D-390), so saving again after a lost answer records once; R-CONCURRENCY-320 says what the form says now.
   - Related: R-CONCURRENCY-191, Q-250
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/components/changed-elsewhere.tsx
+- **R-CONCURRENCY-320** When the answer to an add (a new transaction, category, income, subscription or debt) is lost on the way, the form keeps what was entered and says that saving again is safe; the retry carries the same request id and is recorded once. A request id the database calls reused gets a new one, and the form says plainly that the values had already been saved with other content and to check the list.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-APP-250, D-390, D-440, R-CONCURRENCY-281
+  - Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16; code: src/hooks/use-client-id.ts
 
 ## Conventions
 
@@ -6005,6 +6018,35 @@ Related: R-COMPARE-192
 
 Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
 
+### D-440 One request id per add, from the form (accepted)
+
+Every add form (transaction, category, income, subscription, debt) generates one request id when it opens and sends it as p_client_id with every save; it gets a new one after a save went through (the transaction form's "save and add another" included) and after request_reused, and keeps it after a lost answer or any other refusal, so the same save sent again records once. A refusal changes nothing in the database, so keeping the id after one is safe: a corrected save with the same id is a first use. The lost-answer message now says that saving again is safe; request_reused says the values were already saved with other content and to check the list before saving again.
+
+**Why:** Answers Q-250 with the database's D-390. An id per request (not per form) would make a retry a new add; an id per action across edits of the values would be refused as reused, which the form then says in words.
+
+**Rejected:**
+
+- A new id per click (a retry after a lost answer would record twice).
+- Keeping the id after request_reused (every later save would be refused).
+
+Related: D-390, R-APP-250, R-CONCURRENCY-320, Q-250
+
+Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16
+
+### D-441 The comparison screens take what the database now gives (accepted)
+
+Side by side opens on the database's default (the last two completed periods) and says in words, under the picker, in the column heading and in the period list, which chosen side is still running (a_is_current, b_is_current). The categories view shows active_average_spent ("over the N periods it was in use") under the average where active_count differs from completed_count, and both views take "over the plan" from the database's flags. Transfers' committed figures (step 7) are read but not shown yet. The transaction form's earliest date is my_budgets.first_period_start (D-392), read with the budget's counts.
+
+**Why:** D-383, D-384, D-391 and D-392 give these figures; the client no longer decides them.
+
+**Rejected:**
+
+- Hiding a running side (the user may want it, it is only marked).
+
+Related: D-383, D-384, D-391, D-392, Q-181, R-COMPARE-071, R-COMPARE-192
+
+Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -6300,8 +6342,8 @@ Source: owner-request: coordinator, independent review of the step 4 and step 5 
   - Related: R-TRANSACTION-132, R-SUBSCRIPTION-191
   - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
 - **Q-181** Should the database give what the screens still derive from its lists?
-  - Context: Four derivations without money remain in the client (C-LOGIC-003, borderline): the period containing a typed date (picked from list_periods' rows, to read a debt's terms for a payment); the nominal day of a typed first charge date (its day number, for the words under the preview); the last period a correction reaches (the period before until_period_id, taken as seq - 1 from the list); and the subscriptions and debts that use a category now (filtered from their lists, for the warning before a removal). The database could give period_id for a date, the preview's nominal day, until_period's predecessor, and category_overview's users. A fifth, from the review of the step 5 screens: "over the plan" in the categories view is decided in the client (spent > planned), which differs from the database only for a category not in force with spending; the database is to give the flag per period.
-  - Related: C-LOGIC-003, R-DEBT-152, R-VERSION-150, R-CATEGORY-120, R-COMPARE-192
+  - Context: Four derivations without money remain in the client (C-LOGIC-003, borderline): the period containing a typed date (picked from list_periods' rows, to read a debt's terms for a payment); the nominal day of a typed first charge date (its day number, for the words under the preview); the last period a correction reaches (the period before until_period_id, taken as seq - 1 from the list); and the subscriptions and debts that use a category now (filtered from their lists, for the warning before a removal). The database could give period_id for a date, the preview's nominal day, until_period's predecessor, and category_overview's users. A fifth, from the review of the step 5 screens: "over the plan" in the categories view is decided in the client (spent > planned), which differs from the database only for a category not in force with spending; the database is to give the flag per period. Update (step 6 screens, D-441): the fifth is closed; the categories view and side by side take "over the plan" from get_category_trend.is_overspent and get_period_comparison's a_is_overspent / b_is_overspent (D-391). The first four remain.
+  - Related: C-LOGIC-003, R-DEBT-152, R-VERSION-150, R-CATEGORY-120, R-COMPARE-192, D-391
   - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
 - **Q-200** How does the Migros Bank account statement print a negative balance (an overdraft)?
   - Context: The sample has no negative balance and docs/import-sources.md says the account statements print no negative numbers. A balance with a sign is refused for now as an unreadable amount, so an overdrawn statement cannot be imported until a sample shows the format.
@@ -6371,7 +6413,7 @@ Source: owner-request: coordinator, independent review of the step 4 and step 5 
   - Context: D-334 compares the street and town lines exactly (without case and punctuation); such a payment is imported as an ordinary expense, which the user can skip.
   - Related: D-334, Q-208
   - Source: owner-request: coordinator, review round of the step 6 statement parsers, 2026-11-16
-- **Q-250** Should an add carry a client-generated id so a retry after a lost answer records it once?
+- **Q-250** (resolved by D-440) Should an add carry a client-generated id so a retry after a lost answer records it once?
   - Context: R-CONCURRENCY-281: today a lost answer on an add can only be described ("it may have been saved"); the coordinator has asked the database for an idempotency id on adds, to be wired in the next round.
   - Related: R-CONCURRENCY-281
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16

@@ -212,7 +212,7 @@ export const en = {
     invalidValue: 'One of the values is not accepted. Check the form and try again.',
     network: 'Cannot reach the server. Check your connection and try again.',
     networkAdd:
-      'The connection failed before the answer came back: it may have been saved. Check the list before saving again, so it is not recorded twice.',
+      'The connection failed before the answer came back. What you entered is still here: save again once you are connected. It is safe: it will be recorded only once, even if the first save went through.',
     networkSave:
       'The connection failed: nothing was saved. What you entered is still here: check your connection and save again.',
     generic: 'Something went wrong. Please try again.',
@@ -313,6 +313,62 @@ export const en = {
         'This budget already has the most debts it can hold (50 in force, or 200 in all).',
       adjustment_limit_reached:
         'This budget already holds 5000 balance adjustments, the most it can hold.',
+      membership_limit_reached:
+        'You already belong to 50 budgets (your own included), the most anyone can. Leave one first.',
+      request_reused:
+        'This form had already been saved with other values (perhaps just before the connection failed). Check the list: saving again now records a new entry.',
+      invalid_rows: 'These rows could not be sent: at most 500 rows and 2 MB at a time.',
+      invalid_batch: 'This import could not be identified. Start it again.',
+      invalid_chunk: 'A part of this import was numbered wrongly. Start it again.',
+      invalid_source: 'This kind of file cannot be imported.',
+      invalid_expiry: 'A token lasts 1 to 365 days.',
+      invalid_fragment:
+        'Enter a merchant text of 1 to 100 characters, with at least one letter or digit.',
+      import_batch_conflict: 'This import belongs to another budget. Start it again in this one.',
+      import_batch_not_found: 'This import no longer exists, or belongs to another budget.',
+      merchant_rule_not_found: 'This merchant rule no longer exists.',
+      token_not_found: 'This import token no longer exists.',
+      batch_undone: 'This import was undone: nothing more can be imported from it.',
+      not_to_review: 'This transaction has already been confirmed.',
+      category_to_categorise:
+        '“To categorise” cannot do this: it is only the place where imported transactions wait for a category. It takes no plan, no subcategory and cannot be the category of a transaction you type, a subscription, a debt or a rule; it cannot end while it holds transactions; and a transaction in it must get a category before it can be confirmed.',
+      merchant_rule_exists: 'A rule for this merchant text already exists. Edit that one instead.',
+      merchant_rule_limit_reached:
+        'This budget already has 500 merchant rules, the most it can hold.',
+      token_limit_reached:
+        'This budget already has 10 import tokens that can be used, the most it can have. Revoke one first.',
+      token_active: 'Revoke this token before deleting it.',
+      read_only_call: 'The import script must send its rows by POST.',
+      invalid_token:
+        'This import token is unknown, has expired or was revoked, or its creator is no longer a member.',
+      token_rate_limited: 'This token has sent too much for now. Wait a while and try again.',
+      transfer_held_back:
+        'A transfer of this budget is waiting for room (the transaction limit): it cannot end until its transaction is created.',
+      account_not_found: 'This account no longer exists.',
+      transfer_not_found: 'This transfer no longer exists.',
+      account_ended: 'This account has been closed (for that period).',
+      transfer_ended: 'This transfer has ended (for that period).',
+      account_in_use: 'A transfer or an income still uses this account. Change or end it first.',
+      account_not_in_force: 'This account is not open in every period this applies to.',
+      account_required: 'A transfer needs an account to take from and one to pay into.',
+      same_account: 'A transfer needs two different accounts.',
+      invalid_account_kind: 'Choose what kind of account this is.',
+      invalid_bank_label: 'The bank label can be at most 100 characters long.',
+      invalid_schedule: 'Choose one schedule for this transfer.',
+      invalid_offset: 'The number of days must be 0 to 31.',
+      invalid_day: 'The day must be 1 to 31.',
+      invalid_automatic: 'Say whether this transfer is automatic.',
+      invalid_arguments: 'These values do not go together. Check the form and try again.',
+      transfer_not_in_force: 'This transfer has nothing due in that period.',
+      transfer_already_marked:
+        'This transfer is already marked for that period. Undo the mark first.',
+      transfer_is_automatic: 'An automatic transfer is not marked by hand.',
+      transfer_is_manual: 'Only an automatic transfer can be marked not done.',
+      nothing_to_undo: 'There is no mark to undo for this transfer in that period.',
+      account_limit_reached:
+        'This budget already has the most accounts it can hold (50 open, or 200 in all).',
+      transfer_limit_reached:
+        'This budget already has the most transfers it can hold (50 in force, or 200 in all).',
     },
   },
   concurrent: {
@@ -433,6 +489,7 @@ export const en = {
       decline: 'Decline',
       accepted: 'You joined “{{name}}”.',
       declined: 'Invitation to “{{name}}” declined.',
+      more: 'Show more invitations',
     },
   },
   members: {
@@ -1034,6 +1091,10 @@ export const en = {
         'The boundary goes back to the day the schedule gives, and its “set by hand” mark is cleared.',
       moveScheduleTo:
         'This period will start on {{start}}, the day the schedule gives, and the previous one end on {{end}}; the “set by hand” mark is cleared.',
+      interestRemoved_one:
+        'The interest added to 1 debt at this period’s start goes: the new start is on or before the day that debt was opened.',
+      interestRemoved_other:
+        'The interest added to {{count}} debts at this period’s start goes: the new start is on or before the day those debts were opened.',
     },
     undo: {
       expected: 'To undo: set another date, or reset it to the projection.',

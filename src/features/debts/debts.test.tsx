@@ -200,6 +200,7 @@ describe('debts page [R-DEBT-121]', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.create_debt).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: expect.any(String) as string,
         p_name: 'Leasing',
         p_principal: 2_000_000,

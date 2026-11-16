@@ -36,6 +36,17 @@ export function MyInvitations({ onAccepted }: { onAccepted?: (budgetId: string) 
             <InvitationRow key={invitation.id} invitation={invitation} onAccepted={onAccepted} />
           ))}
         </ul>
+        {invitations.hasMore && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            disabled={invitations.loadingMore}
+            onClick={invitations.loadMore}
+          >
+            {invitations.loadingMore ? t('common.loading') : t('invitations.mine.more')}
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

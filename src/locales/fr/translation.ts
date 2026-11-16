@@ -222,7 +222,7 @@ export const fr: Translation = {
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
     networkAdd:
-      'La connexion a été coupée avant la réponse : c’est peut-être enregistré. Vérifiez la liste avant d’enregistrer de nouveau, pour ne pas l’enregistrer deux fois.',
+      'La connexion a été coupée avant la réponse. Ce que vous avez saisi est toujours là : enregistrez à nouveau une fois connecté. Sans risque : ce sera enregistré une seule fois, même si le premier enregistrement a abouti.',
     networkSave:
       'La connexion a échoué : rien n’a été enregistré. Vos saisies sont toujours là : vérifiez votre connexion et enregistrez de nouveau.',
     generic: 'Une erreur s’est produite. Veuillez réessayer.',
@@ -327,6 +327,64 @@ export const fr: Translation = {
       adjustment_limit_reached: 'Ce budget contient déjà 5000 ajustements de solde, le maximum.',
       income_limit_reached:
         'Ce budget compte déjà le maximum de revenus autorisé (50 en vigueur, ou 500 au total).',
+      membership_limit_reached:
+        'Vous faites déjà partie de 50 budgets (les vôtres compris), le maximum. Quittez-en un d’abord.',
+      request_reused:
+        'Ce formulaire avait déjà été enregistré avec d’autres valeurs (peut-être juste avant la coupure de connexion). Vérifiez la liste : enregistrer à nouveau maintenant crée une nouvelle entrée.',
+      invalid_rows: 'Ces lignes n’ont pas pu être envoyées : 500 lignes et 2 Mo au plus à la fois.',
+      invalid_batch: 'Cette importation n’a pas pu être identifiée. Recommencez-la.',
+      invalid_chunk: 'Une partie de cette importation était mal numérotée. Recommencez-la.',
+      invalid_source: 'Ce genre de fichier ne peut pas être importé.',
+      invalid_expiry: 'Un jeton dure de 1 à 365 jours.',
+      invalid_fragment:
+        'Saisissez un texte de commerçant de 1 à 100 caractères, avec au moins une lettre ou un chiffre.',
+      import_batch_conflict:
+        'Cette importation appartient à un autre budget. Recommencez-la dans celui-ci.',
+      import_batch_not_found: 'Cette importation n’existe plus, ou appartient à un autre budget.',
+      merchant_rule_not_found: 'Cette règle de commerçant n’existe plus.',
+      token_not_found: 'Ce jeton d’importation n’existe plus.',
+      batch_undone: 'Cette importation a été annulée : plus rien ne peut en être importé.',
+      not_to_review: 'Cette transaction a déjà été confirmée.',
+      category_to_categorise:
+        '« À catégoriser » ne le permet pas : ce n’est que l’endroit où les transactions importées attendent une catégorie. Elle ne prend ni montant prévu ni sous-catégorie, ne peut pas être la catégorie d’une transaction saisie, d’un abonnement, d’une dette ou d’une règle, ne peut pas prendre fin tant qu’elle contient des transactions, et une transaction qui s’y trouve doit recevoir une catégorie avant d’être confirmée.',
+      merchant_rule_exists:
+        'Une règle existe déjà pour ce texte de commerçant. Modifiez plutôt celle-ci.',
+      merchant_rule_limit_reached: 'Ce budget a déjà 500 règles de commerçant, le maximum.',
+      token_limit_reached:
+        'Ce budget a déjà 10 jetons d’importation utilisables, le maximum. Révoquez-en un d’abord.',
+      token_active: 'Révoquez ce jeton avant de le supprimer.',
+      read_only_call: 'Le script d’importation doit envoyer ses lignes par POST.',
+      invalid_token:
+        'Ce jeton d’importation est inconnu, a expiré ou a été révoqué, ou la personne qui l’a créé n’est plus membre.',
+      token_rate_limited: 'Ce jeton a trop envoyé pour le moment. Attendez un peu, puis réessayez.',
+      transfer_held_back:
+        'Un virement de ce budget attend de la place (la limite de transactions) : il ne peut pas prendre fin avant que sa transaction soit créée.',
+      account_not_found: 'Ce compte n’existe plus.',
+      transfer_not_found: 'Ce virement n’existe plus.',
+      account_ended: 'Ce compte a été clôturé (pour cette période).',
+      transfer_ended: 'Ce virement a pris fin (pour cette période).',
+      account_in_use:
+        'Un virement ou un revenu utilise encore ce compte. Modifiez-le ou mettez-y fin d’abord.',
+      account_not_in_force: 'Ce compte n’est pas ouvert dans chaque période concernée.',
+      account_required: 'Un virement a besoin d’un compte de départ et d’un compte d’arrivée.',
+      same_account: 'Un virement a besoin de deux comptes différents.',
+      invalid_account_kind: 'Choisissez le genre de compte.',
+      invalid_bank_label: 'Le libellé bancaire peut compter 100 caractères au plus.',
+      invalid_schedule: 'Choisissez un seul rythme pour ce virement.',
+      invalid_offset: 'Le nombre de jours doit être de 0 à 31.',
+      invalid_day: 'Le jour doit être de 1 à 31.',
+      invalid_automatic: 'Indiquez si ce virement est automatique.',
+      invalid_arguments: 'Ces valeurs ne vont pas ensemble. Vérifiez le formulaire et réessayez.',
+      transfer_not_in_force: 'Ce virement n’a rien de prévu dans cette période.',
+      transfer_already_marked:
+        'Ce virement est déjà marqué pour cette période. Annulez d’abord la marque.',
+      transfer_is_automatic: 'Un virement automatique ne se marque pas à la main.',
+      transfer_is_manual: 'Seul un virement automatique peut être marqué non effectué.',
+      nothing_to_undo: 'Il n’y a pas de marque à annuler pour ce virement dans cette période.',
+      account_limit_reached:
+        'Ce budget a déjà le maximum de comptes (50 ouverts, ou 200 au total).',
+      transfer_limit_reached:
+        'Ce budget a déjà le maximum de virements (50 en vigueur, ou 200 au total).',
     },
   },
   concurrent: {
@@ -449,6 +507,7 @@ export const fr: Translation = {
       decline: 'Refuser',
       accepted: 'Vous avez rejoint « {{name}} ».',
       declined: 'Invitation à « {{name}} » refusée.',
+      more: 'Afficher plus d’invitations',
     },
   },
   members: {
@@ -1080,6 +1139,10 @@ export const fr: Translation = {
         'La limite revient au jour que donne le calendrier de paie, et sa marque « fixée à la main » disparaît.',
       moveScheduleTo:
         'Cette période commencera le {{start}}, jour que donne le calendrier de paie, et la précédente se terminera le {{end}} ; la marque « fixée à la main » disparaît.',
+      interestRemoved_one:
+        'Les intérêts ajoutés à 1 dette au début de cette période disparaissent : le nouveau début tombe le jour de l’ouverture de cette dette ou avant.',
+      interestRemoved_other:
+        'Les intérêts ajoutés à {{count}} dettes au début de cette période disparaissent : le nouveau début tombe le jour de leur ouverture ou avant.',
     },
     undo: {
       expected: 'Pour annuler : indiquez une autre date, ou revenez à la date prévue.',

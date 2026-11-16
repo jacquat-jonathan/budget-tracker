@@ -21,6 +21,8 @@ export interface AddIncomeInput extends IncomeTerms {
   userId: string | null
   /** Period it counts from; the current one when null. */
   fromPeriodId: string | null
+  /** The form's request id (useClientId). */
+  clientId: string
 }
 
 // An income change can move the current period's end and changes period totals: refetch
@@ -39,6 +41,7 @@ export function useAddIncome(budgetId: string, options: { onDone: () => void }) 
           p_amount: input.amount,
           p_pay_day: input.payDay,
           p_weekend_rule: input.weekendRule,
+          p_client_id: input.clientId,
           ...(input.userId ? { p_user_id: input.userId } : {}),
           ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
         }),

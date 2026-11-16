@@ -76,6 +76,8 @@ export const compareEn = {
     category: 'Category',
     average: 'Average',
     averageNone: 'no completed period',
+    activeAverage_one: '{{amount}} over the {{count}} period it was in use',
+    activeAverage_other: '{{amount}} over the {{count}} periods it was in use',
     open: 'Show the subcategories of {{name}}',
     close: 'Hide the subcategories of {{name}}',
     notInForce: 'Not planned in this period',
@@ -119,5 +121,8 @@ export const compareEn = {
     categoriesTitle: 'Categories',
     categoriesHelp: 'Spending in each period and the difference, B minus A.',
     noCategories: 'No category has anything in these two periods.',
+    running: 'Still running: its figures are so far, not final.',
+    columnRunning: '{{side}} (running)',
+    optionRunning: '{{period}} (running)',
   },
 }

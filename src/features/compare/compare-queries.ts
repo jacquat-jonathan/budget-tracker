@@ -36,6 +36,8 @@ export interface TrendPeriod {
   average_income: number | null
   average_spent: number | null
   average_result: number | null
+  /** Planned transfers' committed total (step 7): not shown yet. */
+  transfer_committed_total: number
 }
 
 /** One category line across the range (get_category_trend), arrays aligned with periodIds. */
@@ -54,6 +56,13 @@ export interface CategoryLine {
   transaction_count: number[]
   completed_count: number
   average_spent: number | null
+  /** The completed periods where it was in force or had spending, and its average over them. */
+  active_count: number
+  active_average_spent: number | null
+  /** "Over the plan" in each period, as the progress view says it (D-391). */
+  is_overspent: boolean[]
+  /** Planned transfers' committed amounts (step 7): not shown yet. */
+  transfer_committed: number[]
 }
 
 /** One row of get_period_comparison: the totals first, then the categories. */
@@ -91,6 +100,18 @@ export interface ComparisonRow {
   a_result: number | null
   b_result: number | null
   result_difference: number | null
+  /** Each side running (the period containing today) or completed; null for an empty side A. */
+  a_is_current: boolean | null
+  a_is_completed: boolean | null
+  b_is_current: boolean
+  b_is_completed: boolean
+  /** That side's "over the plan" from the progress view; null on the total row. */
+  a_is_overspent: boolean | null
+  b_is_overspent: boolean | null
+  /** Planned transfers' committed amounts (step 7): not shown yet. */
+  a_transfer_committed: number | null
+  b_transfer_committed: number | null
+  transfer_committed_difference: number | null
 }
 
 async function readTrend(budgetId: string, count: Count): Promise<TrendPeriod[]> {

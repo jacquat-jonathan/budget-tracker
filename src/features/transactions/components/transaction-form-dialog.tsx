@@ -41,6 +41,7 @@ import {
   type TransactionKind,
 } from '@/features/transactions/transaction-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
@@ -297,6 +298,7 @@ function TransactionForm({
   }, [choices.data, categoryId, kept, form])
 
   const add = useAddTransaction(budgetId)
+  const request = useClientId()
   const update = useUpdateTransaction(budgetId, { onDone: close })
   const mutation = transaction ? update : add
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
@@ -330,19 +332,17 @@ function TransactionForm({
           .mutateAsync({ ...fields, transaction, revision: transaction.revision })
           .catch(() => undefined)
       }
-      return add.mutateAsync(fields).then(
-        () => {
-          if (!another) {
-            close()
-            return
-          }
-          // Keep the kind, date and category; clear what differs from one receipt to the next.
-          setLastSaved((saved) => ({ amount: values.amount, count: (saved?.count ?? 0) + 1 }))
-          form.reset({ ...values, amount: null, description: '' })
-          add.reset()
-        },
-        () => undefined,
-      )
+      return add.mutateAsync({ ...fields, clientId: request.id }).then(() => {
+        request.renew()
+        if (!another) {
+          close()
+          return
+        }
+        // Keep the kind, date and category; clear what differs from one receipt to the next.
+        setLastSaved((saved) => ({ amount: values.amount, count: (saved?.count ?? 0) + 1 }))
+        form.reset({ ...values, amount: null, description: '' })
+        add.reset()
+      }, request.afterFailure)
     })
 
   return (

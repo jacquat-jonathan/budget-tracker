@@ -173,6 +173,7 @@ describe('recording transactions [R-TRANSACTION-050] [R-TRANSACTION-004]', () =>
 
     await waitFor(() => {
       expect(db.rpc.add_transaction).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: BUDGET_ID,
         p_kind: 'expense',
         p_amount: 4_520,
@@ -224,6 +225,7 @@ describe('recording transactions [R-TRANSACTION-050] [R-TRANSACTION-004]', () =>
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.add_transaction).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: BUDGET_ID,
         p_kind: 'extra_income',
         p_amount: 25_000,
@@ -256,12 +258,16 @@ describe('recording transactions [R-TRANSACTION-050] [R-TRANSACTION-004]', () =>
       expect(db.rpc.add_transaction).toHaveBeenCalledTimes(2)
     })
     expect(db.rpc.add_transaction).toHaveBeenLastCalledWith({
+      p_client_id: expect.any(String) as unknown,
       p_budget_id: BUDGET_ID,
       p_kind: 'refund',
       p_amount: 350,
       p_date: '2026-11-15',
       p_category_id: 'cat-groceries',
     })
+    // A new entry after a saved one is a new request with its own id.
+    const [one, two] = db.rpc.add_transaction.mock.calls.map(([args]) => args)
+    expect(two?.p_client_id).not.toBe(one?.p_client_id)
   })
 
   it('edits and deletes with the revision they were opened on [R-CONCURRENCY-090]', async () => {

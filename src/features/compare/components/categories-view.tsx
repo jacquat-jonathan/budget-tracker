@@ -319,6 +319,18 @@ function LineRow({
         ) : (
           <span className="whitespace-nowrap">{formatMoney(line.average_spent)}</span>
         )}
+        {/* D-383: beside it, the average over the periods it existed, where that differs. */}
+        {line.active_average_spent !== null && line.active_count !== line.completed_count && (
+          <span
+            className="ml-auto block max-w-30 text-xs text-muted-foreground"
+            data-testid="active-average"
+          >
+            {t('compare.categories.activeAverage', {
+              count: line.active_count,
+              amount: formatMoney(line.active_average_spent),
+            })}
+          </span>
+        )}
       </td>
     </tr>
   )
@@ -356,8 +368,8 @@ function Cell({
       </td>
     )
   }
-  // Spending above what was planned then: a sign and words, never colour alone (Q-181).
-  const over = planned !== null && spent > planned
+  // D-391: "over the plan" as the progress view says it; a sign and words, never colour alone.
+  const over = line.is_overspent[index] === true
   return (
     <td
       className="px-2 py-2 text-right align-top tabular-nums sm:px-3"

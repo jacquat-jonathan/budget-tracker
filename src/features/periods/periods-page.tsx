@@ -526,6 +526,26 @@ function BoundaryForm({
   const valid = typed && !outside
   const budgetId = budget.id
   const reopenPreview = useReopenPreview(budgetId, action.kind === 'reopen')
+  // R-PERIOD-320: a start on or before a debt's opening removes its interest here (D-386).
+  const moveTo =
+    action.kind === 'moveSchedule'
+      ? action.start
+      : action.kind === 'moveStart' && valid
+        ? date
+        : null
+  const movePreview = useQuery({
+    queryKey: [...budgetKeys.budget(budgetId), 'move-preview', period.id, moveTo ?? ''] as const,
+    enabled: moveTo !== null,
+    staleTime: 0,
+    queryFn: async () =>
+      unwrap(
+        await supabase.rpc('preview_move_period_start', {
+          p_period_id: period.id,
+          ...(action.kind === 'moveStart' && moveTo ? { p_start_date: moveTo } : {}),
+        }),
+      )[0] ?? null,
+  })
+  const interestRemoved = moveTo !== null ? (movePreview.data?.interest_removed ?? 0) : 0
 
   /** The resulting dates, worded from the user's point of view, and how to undo. */
   const preview: { result: string | null; undo: string } = (() => {
@@ -627,6 +647,11 @@ function BoundaryForm({
             <CalendarRangeIcon aria-hidden />
             <AlertDescription>
               <p>{preview.result}</p>
+              {interestRemoved > 0 && (
+                <p data-testid="interest-removed">
+                  {t('periods.preview.interestRemoved', { count: interestRemoved })}
+                </p>
+              )}
               <p className="text-muted-foreground">{preview.undo}</p>
             </AlertDescription>
           </Alert>

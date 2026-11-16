@@ -154,7 +154,7 @@ export function ConcurrentNotices({
 }) {
   const { t } = useTranslation()
   // A lost answer is never "someone else": saved (recovered), or not saved (the connection).
-  // R-CONCURRENCY-281: an add whose answer was lost may have been recorded: said so.
+  // R-CONCURRENCY-320: after a lost answer on an add, saving again is safe (one request id).
   const say = (failure: unknown) =>
     dbErrorKey(failure) === 'errors.network'
       ? t(adding ? 'errors.networkAdd' : 'errors.networkSave')

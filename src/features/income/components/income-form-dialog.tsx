@@ -49,6 +49,7 @@ import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { NothingToSave } from '@/components/nothing-to-save'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
@@ -206,6 +207,7 @@ function IncomeForm({
   )
 
   const add = useAddIncome(budgetId, { onDone: close })
+  const request = useClientId()
   const edit = useEditIncome(budgetId, income, {
     onDone: () => {
       close()
@@ -238,11 +240,23 @@ function IncomeForm({
           previewedEndDate: primaryTermsChanged ? (preview.data?.end_date ?? null) : null,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
-      : add.mutateAsync({
-          ...terms,
-          userId: values.userId === user?.id ? null : values.userId,
-          fromPeriodId: values.fromPeriodId || null,
-        })
+      : add
+          .mutateAsync({
+            ...terms,
+            userId: values.userId === user?.id ? null : values.userId,
+            fromPeriodId: values.fromPeriodId || null,
+            clientId: request.id,
+          })
+          .then(
+            (id) => {
+              request.renew()
+              return id
+            },
+            (error: unknown) => {
+              request.afterFailure(error)
+              throw error
+            },
+          )
     return done.catch((error: unknown) => {
       // The edit moves the period's end after all: preview it, show it, and ask again.
       if (dbErrorCode(error) === 'preview_required') setPreviewAsked(true)

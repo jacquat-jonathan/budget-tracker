@@ -75,6 +75,12 @@ export interface BudgetStatus {
   /** How many automatic charges await confirmation (R-SUBSCRIPTION-135). */
   charges_awaiting: number
   caught_up: boolean
+  /** How many imported transactions are to review (R-IMPORT-081). */
+  to_review: number
+  /** The budget's "to categorise" category while it is in force; null otherwise. */
+  to_categorise_category_id: string | null
+  /** The first period's start: the earliest date a transaction can have (D-392). */
+  first_period_start: string | null
 }
 
 /** This budget's counts from my_budgets, read again after each catch-up and each write. */
@@ -83,11 +89,19 @@ export function useBudgetStatus(budgetId: string): PeriodRead<BudgetStatus> {
     const row = unwrap(
       await supabase
         .from('my_budgets')
-        .select('charges_awaiting, caught_up')
+        .select(
+          'charges_awaiting, caught_up, to_review, to_categorise_category_id, first_period_start',
+        )
         .eq('id', budgetId)
         .maybeSingle(),
     )
-    return { charges_awaiting: row?.charges_awaiting ?? 0, caught_up: row?.caught_up !== false }
+    return {
+      charges_awaiting: row?.charges_awaiting ?? 0,
+      caught_up: row?.caught_up !== false,
+      to_review: row?.to_review ?? 0,
+      to_categorise_category_id: row?.to_categorise_category_id ?? null,
+      first_period_start: row?.first_period_start ?? null,
+    }
   })
 }
 
@@ -178,22 +192,12 @@ export function useCurrentPeriod(budgetId: string): PeriodRead<PeriodSummary | n
 }
 
 /**
- * The budget's first period, read by itself (one row of period_summaries, the lowest seq):
- * where transaction dates start, whatever page of periods is loaded.
+ * Where transaction dates start: the first period's start as my_budgets gives it, whatever
+ * page of periods is loaded; undefined while unknown.
  */
 // R-TRANSACTION-280: dates reach back to the budget's first period, not the first page's.
-export function useFirstPeriod(budgetId: string): PeriodRead<PeriodSummary | null> {
-  return usePeriodDependentQuery(budgetId, [...budgetKeys.periods(budgetId), 'first'], async () => {
-    const rows = unwrap(
-      await supabase
-        .from('period_summaries')
-        .select('*')
-        .eq('budget_id', budgetId)
-        .order('seq', { ascending: true })
-        .limit(1),
-    )
-    return rows[0] ?? null
-  })
+export function useFirstPeriodStart(budgetId: string): string | undefined {
+  return useBudgetStatus(budgetId).data?.first_period_start ?? undefined
 }
 
 /**
@@ -343,13 +347,42 @@ export function useBudgetInvitations(budgetId: string, enabled: boolean) {
   })
 }
 
-/** Invitations addressed to my verified email. */
+/** Invitations per page of list_my_invitations (1 to 200). */
+export const INVITATION_PAGE = 50
+
+/**
+ * Invitations addressed to my verified email, oldest first, a page at a time (D-385): the
+ * first page at once, the next ones on request.
+ */
 export function useMyInvitations() {
-  return useQuery({
+  const query = useInfiniteQuery({
     queryKey: budgetKeys.myInvitations,
     refetchOnWindowFocus: true,
-    queryFn: async (): Promise<MyInvitation[]> => unwrap(await supabase.rpc('list_my_invitations')),
+    initialPageParam: null as { createdAt: string; id: string } | null,
+    queryFn: async ({ pageParam }): Promise<MyInvitation[]> =>
+      unwrap(
+        await supabase.rpc('list_my_invitations', {
+          p_limit: INVITATION_PAGE,
+          ...(pageParam
+            ? { p_after_created_at: pageParam.createdAt, p_after_id: pageParam.id }
+            : {}),
+        }),
+      ),
+    getNextPageParam: (page) => {
+      const last = page.at(-1)
+      return page.length < INVITATION_PAGE || !last
+        ? null
+        : { createdAt: last.created_at, id: last.id }
+    },
   })
+  const pages = query.data?.pages
+  const data = useMemo(() => pages?.flat(), [pages])
+  return {
+    data,
+    hasMore: query.hasNextPage,
+    loadingMore: query.isFetchingNextPage,
+    loadMore: () => void query.fetchNextPage(),
+  }
 }
 
 /** A member's name for display: display name, then email. */

@@ -55,7 +55,7 @@ import {
 import {
   useBudgetStatus,
   useCurrentPeriod,
-  useFirstPeriod,
+  useFirstPeriodStart,
   usePeriodById,
   usePeriods,
   type PeriodSummary,
@@ -106,7 +106,7 @@ export function TransactionsPage() {
   const periods = usePeriods(budgetId)
   const current = useCurrentPeriod(budgetId)
   const ended = useBudgetEnded(budgetId)
-  const firstPeriod = useFirstPeriod(budgetId)
+  const firstStart = useFirstPeriodStart(budgetId)
   const categories = useCategories(budgetId)
   const [params, setParams] = useSearchParams()
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
@@ -207,8 +207,7 @@ export function TransactionsPage() {
 
   // R-TRANSACTION-090: from the first period's start to today, not after an ended budget's end.
   const today = current.data?.today ?? periodList?.[0]?.today ?? null
-  // From the budget's first period, read by itself: not the oldest of the pages loaded.
-  const firstStart = firstPeriod.data?.start_date
+  // From the budget's first period (my_budgets): not the oldest of the pages loaded.
   const range = useMemo<DateRange | null>(() => {
     if (!periodList || periodList.length === 0 || !today || !firstStart) return null
     const last = periodList[0]

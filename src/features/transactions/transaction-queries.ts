@@ -6,7 +6,7 @@ import { budgetKeys } from '@/features/budgets/budget-keys'
 import {
   unwrap,
   useCurrentPeriod,
-  useFirstPeriod,
+  useFirstPeriodStart,
   usePeriods,
 } from '@/features/budgets/budget-queries'
 import type { Database, Tables } from '@/lib/database.types'
@@ -27,7 +27,7 @@ export function useTransactionDateRange(budgetId: string) {
   const current = useCurrentPeriod(budgetId)
   const list = periods.data
   const today = current.data?.today ?? list?.[0]?.today ?? null
-  const min = useFirstPeriod(budgetId).data?.start_date
+  const min = useFirstPeriodStart(budgetId)
   const lastEnd = list?.[0]?.end_date
   const max = lastEnd && today ? (today < lastEnd ? today : lastEnd) : undefined
   const range = useMemo(() => (min && max ? { min, max } : null), [min, max])

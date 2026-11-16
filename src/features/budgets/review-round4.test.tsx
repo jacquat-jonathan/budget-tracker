@@ -5,8 +5,15 @@ import { routes } from '@/app/routes'
 import { ErrorState } from '@/components/states'
 import i18n from '@/lib/i18n'
 import { createQueryClient } from '@/lib/query-client'
-import { categoriesDb, DEBT_ID, debtRow, periodRow, transactionRow } from '@/test/budget-fixtures'
-import { dbError, type MockDb } from '@/test/mock-db'
+import {
+  budgetRow,
+  categoriesDb,
+  DEBT_ID,
+  debtRow,
+  periodRow,
+  transactionRow,
+} from '@/test/budget-fixtures'
+import { dbError, RpcFailure, type MockDb } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 
@@ -63,14 +70,19 @@ describe('a read answered catching_up [R-PERIOD-280]', () => {
 })
 
 describe('transaction dates beyond the first page of periods [R-TRANSACTION-280]', () => {
-  it('reach back to the budget’s first period', async () => {
-    const db = categoriesDb({ period_summaries: manyPeriods(130) })
+  it('reach back to the budget’s first period, as my_budgets gives its start', async () => {
+    const db = categoriesDb({
+      period_summaries: manyPeriods(130),
+      my_budgets: [budgetRow({ first_period_start: '2016-01-01' })],
+    })
     open(db, '/transactions')
     await screen.findByRole('button', { name: 'Add transaction' })
     await userEvent.click(screen.getByRole('button', { name: 'Add transaction' }))
     const dialog = await screen.findByRole('dialog', { name: 'Add a transaction' })
     // Period 1 starts on 01.01.2016; the first page of 120 starts at period 11.
     expect(dialog).toHaveTextContent('From 01.01.2016 to')
+    // One read gives it (D-392): period_summaries is not read for the first period.
+    expect(mock.current?.client.from).not.toHaveBeenCalledWith('period_summaries')
   })
 })
 
@@ -105,27 +117,57 @@ describe('a period named in the address [R-PERIOD-281]', () => {
   })
 })
 
-describe('an add whose answer was lost [R-CONCURRENCY-281]', () => {
-  it('says it may have been saved and to check the list, never "nothing was saved"', async () => {
+describe('an add whose answer was lost [R-CONCURRENCY-320] [R-APP-250]', () => {
+  async function typeExpense(amount: string) {
+    await screen.findByRole('button', { name: 'Add transaction' })
+    await userEvent.click(screen.getByRole('button', { name: 'Add transaction' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add a transaction' })
+    await userEvent.type(within(dialog).getByLabelText('Amount'), amount)
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Category' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Groceries' }))
+    return dialog
+  }
+
+  it('says saving again is safe, and the retry carries the same request id', async () => {
     const db = categoriesDb()
     db.rpc.add_transaction.mockImplementationOnce(() => {
       // Recorded; the answer never arrived.
       throw new TypeError('Failed to fetch')
     })
     open(db, '/transactions')
-    await screen.findByRole('button', { name: 'Add transaction' })
-    await userEvent.click(screen.getByRole('button', { name: 'Add transaction' }))
-    const dialog = await screen.findByRole('dialog', { name: 'Add a transaction' })
-    await userEvent.type(within(dialog).getByLabelText('Amount'), '45.20')
-    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Category' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'Groceries' }))
+    const dialog = await typeExpense('45.20')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     expect(
       await within(dialog).findByText(
-        'The connection failed before the answer came back: it may have been saved. Check the list before saving again, so it is not recorded twice.',
+        'The connection failed before the answer came back. What you entered is still here: save again once you are connected. It is safe: it will be recorded only once, even if the first save went through.',
       ),
     ).toBeInTheDocument()
     expect(dialog).not.toHaveTextContent('nothing was saved')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Add a transaction' })).not.toBeInTheDocument()
+    })
+    const [first, second] = db.rpc.add_transaction.mock.calls.map(([args]) => args)
+    expect(first?.p_client_id).toMatch(/^[0-9a-f-]{36}$/)
+    // The same user action, sent again: the same id and the same arguments.
+    expect(second).toEqual(first)
+  })
+
+  it('an id the database calls reused is said plainly and replaced', async () => {
+    const db = categoriesDb()
+    db.rpc.add_transaction.mockImplementationOnce(() => {
+      throw new RpcFailure(dbError('request_reused'))
+    })
+    open(db, '/transactions')
+    const dialog = await typeExpense('12.00')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText(/This form had already been saved with other values/),
+    ).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.rpc.add_transaction).toHaveBeenCalledTimes(2))
+    const [first, second] = db.rpc.add_transaction.mock.calls.map(([args]) => args)
+    expect(second?.p_client_id).not.toBe(first?.p_client_id)
   })
 })
 

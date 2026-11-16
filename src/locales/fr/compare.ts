@@ -5,8 +5,8 @@ export const compareFr: Translation['compare'] = {
   description:
     'Comment vos périodes se comparent : la tendance, chaque catégorie au fil du temps, et deux périodes côte à côte.',
   ended:
-    'Sa dernière période s’est terminée le {{date}} : la comparaison porte sur les périodes jusqu’à cette date.',
-  endedNoDate: 'Il n’a plus de période en cours : la comparaison porte sur ses dernières périodes.',
+    'Sa dernière période s’est terminée le {{date}} : la comparaison porte sur les périodes jusqu’à cette date.',
+  endedNoDate: 'Il n’a plus de période en cours : la comparaison porte sur ses dernières périodes.',
   views: {
     label: 'Vues',
     trend: 'Tendance',
@@ -79,6 +79,8 @@ export const compareFr: Translation['compare'] = {
     category: 'Catégorie',
     average: 'Moyenne',
     averageNone: 'aucune période terminée',
+    activeAverage_one: '{{amount}} sur {{count}} période où elle était utilisée',
+    activeAverage_other: '{{amount}} sur les {{count}} périodes où elle était utilisée',
     open: 'Afficher les sous-catégories de {{name}}',
     close: 'Masquer les sous-catégories de {{name}}',
     notInForce: 'Non prévue dans cette période',
@@ -122,5 +124,8 @@ export const compareFr: Translation['compare'] = {
     categoriesTitle: 'Catégories',
     categoriesHelp: 'Les dépenses de chaque période et la différence, B moins A.',
     noCategories: 'Aucune catégorie n’a de montant dans ces deux périodes.',
+    running: 'En cours : ses montants sont provisoires.',
+    columnRunning: '{{side}} (en cours)',
+    optionRunning: '{{period}} (en cours)',
   },
 }

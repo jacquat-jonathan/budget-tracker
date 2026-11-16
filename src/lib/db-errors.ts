@@ -79,6 +79,53 @@ export const DB_ERROR_CODES = [
   'catching_up',
   'preview_required',
   'charge_held_back',
+  'membership_limit_reached',
+  'request_reused',
+  // Step 6: import
+  'invalid_rows',
+  'invalid_batch',
+  'invalid_chunk',
+  'invalid_source',
+  'invalid_expiry',
+  'invalid_fragment',
+  'import_batch_conflict',
+  'import_batch_not_found',
+  'merchant_rule_not_found',
+  'token_not_found',
+  'batch_undone',
+  'not_to_review',
+  'category_to_categorise',
+  'merchant_rule_exists',
+  'merchant_rule_limit_reached',
+  'token_limit_reached',
+  'token_active',
+  'read_only_call',
+  'invalid_token',
+  'token_rate_limited',
+  // Step 7: accounts and transfers (no screens yet; worded so no code falls back)
+  'transfer_held_back',
+  'account_not_found',
+  'transfer_not_found',
+  'account_ended',
+  'transfer_ended',
+  'account_in_use',
+  'account_not_in_force',
+  'account_required',
+  'same_account',
+  'invalid_account_kind',
+  'invalid_bank_label',
+  'invalid_schedule',
+  'invalid_offset',
+  'invalid_day',
+  'invalid_automatic',
+  'invalid_arguments',
+  'transfer_not_in_force',
+  'transfer_already_marked',
+  'transfer_is_automatic',
+  'transfer_is_manual',
+  'nothing_to_undo',
+  'account_limit_reached',
+  'transfer_limit_reached',
 ] as const
 
 export type DbErrorCode = (typeof DB_ERROR_CODES)[number]
@@ -102,6 +149,11 @@ export const NOT_FOUND_CODES: readonly DbErrorCode[] = [
   'subscription_not_found',
   'debt_not_found',
   'adjustment_not_found',
+  'import_batch_not_found',
+  'merchant_rule_not_found',
+  'token_not_found',
+  'account_not_found',
+  'transfer_not_found',
 ]
 
 /** An error the client raises itself in the database's terms, e.g. a write that hit 0 rows. */
@@ -162,6 +214,20 @@ export function dbErrorKey(
   if (like?.code === '23514') return 'errors.invalidValue'
   if (isNetworkError(error)) return 'errors.network'
   return 'errors.generic'
+}
+
+/**
+ * The JSON detail a refusal carries (category_in_use's list, transaction_limit_reached's
+ * `{"fits": n}`), or null when there is none or it is not JSON.
+ */
+export function dbErrorDetail(error: unknown): unknown {
+  const details = (asErrorLike(error) as { details?: unknown } | null)?.details
+  if (typeof details !== 'string' || details === '') return null
+  try {
+    return JSON.parse(details) as unknown
+  } catch {
+    return null
+  }
 }
 
 export function isNotFoundError(error: unknown): boolean {

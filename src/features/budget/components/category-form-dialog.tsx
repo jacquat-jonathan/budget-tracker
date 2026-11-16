@@ -36,6 +36,7 @@ import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useCreateCategory, useUpdateCategory } from '@/features/categories/category-mutations'
 import { CADENCES, type Category } from '@/features/categories/category-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
@@ -135,6 +136,7 @@ function CategoryForm({
   const [correct, cadence] = useWatch({ control: form.control, name: ['correct', 'cadence'] })
 
   const create = useCreateCategory(budgetId, { onDone: close })
+  const request = useClientId()
   const update = useUpdateCategory(budgetId, { onDone: close })
   const mutation = category ? update : create
   const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
@@ -190,13 +192,19 @@ function CategoryForm({
           cadence: isGroup ? null : values.cadence,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
-      : create.mutateAsync({
-          name: values.name,
-          parentId: parent?.id ?? null,
-          amount: values.amount,
-          cadence: values.cadence,
-          fromPeriodId: values.fromPeriodId || null,
-        })
+      : create
+          .mutateAsync({
+            name: values.name,
+            parentId: parent?.id ?? null,
+            amount: values.amount,
+            cadence: values.cadence,
+            fromPeriodId: values.fromPeriodId || null,
+            clientId: request.id,
+          })
+          .then(request.renew, (error: unknown) => {
+            request.afterFailure(error)
+            throw error
+          })
     return done.catch(() => undefined)
   })
 

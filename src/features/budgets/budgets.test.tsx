@@ -220,6 +220,49 @@ describe('first-run setup [R-BUDGET-050]', () => {
     })
   })
 
+  it('lists invitations a page at a time, and says the membership limit on accepting [R-MEMBER-250]', async () => {
+    const db = createMockDb()
+    mock.current = createSupabaseMock(fakeSession(), db)
+    const invitation = (n: number) => ({
+      id: `inv-${n}`,
+      budget_id: `budget-${n}`,
+      budget_name: `Budget ${n}`,
+      invited_by_name: 'Sam',
+      invited_by_email: 'sam@example.com',
+      created_at: `2026-11-10T09:${String(n % 60).padStart(2, '0')}:00+00:00`,
+      expires_at: '2026-12-10T09:00:00+00:00',
+    })
+    db.rpc.list_my_invitations.mockImplementation((args) =>
+      args.p_after_id === undefined
+        ? Array.from({ length: 50 }, (_, index) => invitation(index + 1))
+        : [invitation(51)],
+    )
+    db.rpc.accept_invitation.mockImplementation(() => rpcError('membership_limit_reached'))
+    renderRoutes(routes, '/')
+
+    const invitations = await screen.findByTestId('my-invitations')
+    expect(db.rpc.list_my_invitations).toHaveBeenCalledWith({ p_limit: 50 })
+    expect(within(invitations).queryByText('Budget 51')).not.toBeInTheDocument()
+    await userEvent.click(
+      within(invitations).getByRole('button', { name: 'Show more invitations' }),
+    )
+    expect(await within(invitations).findByText('Budget 51')).toBeInTheDocument()
+    expect(db.rpc.list_my_invitations).toHaveBeenLastCalledWith({
+      p_limit: 50,
+      p_after_created_at: invitation(50).created_at,
+      p_after_id: 'inv-50',
+    })
+    expect(
+      within(invitations).queryByRole('button', { name: 'Show more invitations' }),
+    ).not.toBeInTheDocument()
+    await userEvent.click(within(invitations).getAllByRole('button', { name: 'Accept' })[0]!)
+    expect(
+      await screen.findByText(
+        'You already belong to 50 budgets (your own included), the most anyone can. Leave one first.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('declining an invitation removes it from the list', async () => {
     const db = createMockDb()
     mock.current = createSupabaseMock(fakeSession(), db)

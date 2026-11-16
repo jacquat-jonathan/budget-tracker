@@ -2,9 +2,11 @@ import {
   ArrowDownIcon,
   ArrowLeftRightIcon,
   ArrowUpIcon,
+  ClockIcon,
   ChevronRightIcon,
   EqualIcon,
   InfoIcon,
+  TriangleAlertIcon,
 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -38,7 +40,8 @@ type Sort = 'budget' | 'change'
 
 /**
  * Any two periods side by side (get_period_comparison): the pickers (the database's defaults
- * when none is chosen: B the current period, A the one before), a swap, the totals with their
+ * when none is chosen: the last two completed periods), a running side said in words, a swap,
+ * the totals with their
  * differences, then each category's spending in A and B and the difference, planned amounts on
  * request, groups opened on their subcategories, in the budget's order or biggest changes
  * first. A side with nothing is "—", said in words; a difference has its sign, an arrow and its
@@ -97,11 +100,13 @@ export function SideBySideView({
   const chosenA = total.a_period_id
   const chosenB = total.b_period_id
   const open = readOpen(opened)
-  const label = (period: PeriodSummary) =>
-    t('compare.period', {
+  const label = (period: PeriodSummary) => {
+    const dates = t('compare.period', {
       start: formatCalendarDate(period.start_date),
       end: formatCalendarDate(period.end_date),
     })
+    return period.is_current === true ? t('compare.side.optionRunning', { period: dates }) : dates
+  }
   // A chosen period older than the pages loaded is still in its picker (R-PERIOD-281).
   const choices = [...periods.data]
   for (const extra of [periodA, periodB]) {
@@ -133,8 +138,22 @@ export function SideBySideView({
           ? total.a_days !== null && t('compare.days', { count: total.a_days })
           : t('compare.days', { count: total.b_days })}
       </span>
+      {(side === 'a' ? total.a_is_current : total.b_is_current) === true && (
+        <span
+          className="flex items-start gap-1 text-xs font-medium"
+          data-testid={`side-${side}-running`}
+        >
+          <ClockIcon className="mt-px size-3.5 shrink-0" aria-hidden />
+          {t('compare.side.running')}
+        </span>
+      )}
     </div>
   )
+  // D-384: a running side is said in words, so its smaller spending is not read as a saving.
+  const column = (side: 'a' | 'b') =>
+    (side === 'a' ? total.a_is_current : total.b_is_current) === true
+      ? t('compare.side.columnRunning', { side: side.toUpperCase() })
+      : side.toUpperCase()
   const top = categories.filter((row) => row.parent_id === null)
   // Sorting the rows the database returned (presentation): by the size of the change.
   const bySize = (list: ComparisonRow[]) =>
@@ -199,10 +218,10 @@ export function SideBySideView({
                     {t('compare.side.row')}
                   </th>
                   <th scope="col" className="px-3 py-2 text-right font-medium max-sm:sr-only">
-                    A
+                    {column('a')}
                   </th>
                   <th scope="col" className="px-3 py-2 text-right font-medium max-sm:sr-only">
-                    B
+                    {column('b')}
                   </th>
                   <th scope="col" className="py-2 pl-3 text-right font-medium max-sm:sr-only">
                     {t('compare.side.difference')}
@@ -225,13 +244,13 @@ export function SideBySideView({
                     </th>
                     <td
                       className={cn(PHONE_CELL, 'px-3 py-2 text-right tabular-nums')}
-                      data-label="A"
+                      data-label={column('a')}
                     >
                       <Amount value={before} />
                     </td>
                     <td
                       className={cn(PHONE_CELL, 'px-3 py-2 text-right tabular-nums')}
-                      data-label="B"
+                      data-label={column('b')}
                     >
                       <Amount value={after} />
                     </td>
@@ -296,10 +315,10 @@ export function SideBySideView({
                       {t('compare.categories.category')}
                     </th>
                     <th scope="col" className="px-3 py-2 text-right font-medium max-sm:sr-only">
-                      A
+                      {column('a')}
                     </th>
                     <th scope="col" className="px-3 py-2 text-right font-medium max-sm:sr-only">
-                      B
+                      {column('b')}
                     </th>
                     <th scope="col" className="py-2 pl-3 text-right font-medium max-sm:sr-only">
                       {t('compare.side.difference')}
@@ -352,16 +371,18 @@ export function SideBySideView({
                         </th>
                         <td
                           className={cn(PHONE_CELL, 'px-3 py-2 text-right align-top tabular-nums')}
-                          data-label="A"
+                          data-label={column('a')}
                         >
                           <Amount value={row.a_spent} />
+                          {row.a_is_overspent === true && <Over />}
                           {showPlanned && <Planned value={row.a_planned} />}
                         </td>
                         <td
                           className={cn(PHONE_CELL, 'px-3 py-2 text-right align-top tabular-nums')}
-                          data-label="B"
+                          data-label={column('b')}
                         >
                           <Amount value={row.b_spent} />
+                          {row.b_is_overspent === true && <Over />}
                           {showPlanned && <Planned value={row.b_planned} />}
                         </td>
                         <td
@@ -421,6 +442,20 @@ function Amount({ value }: { value: number | null }) {
   }
   // On a phone a long amount wraps after "CHF" rather than touching its neighbour.
   return <span className="sm:whitespace-nowrap">{formatMoney(value)}</span>
+}
+
+/** "Over the plan" on that side, as the progress view says it: a sign and words. */
+function Over() {
+  const { t } = useTranslation()
+  return (
+    <span
+      className="flex items-center justify-end gap-1 text-xs max-sm:justify-start"
+      data-testid="side-over"
+    >
+      <TriangleAlertIcon className="size-3.5 shrink-0 text-destructive" aria-hidden />
+      {t('compare.categories.overspent')}
+    </span>
+  )
 }
 
 /** The amount planned on that side, under its spending. */

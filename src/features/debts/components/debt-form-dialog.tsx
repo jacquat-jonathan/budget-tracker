@@ -37,6 +37,7 @@ import {
   type CategoryChoice,
 } from '@/features/transactions/components/category-select-field'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useClientId } from '@/hooks/use-client-id'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
@@ -136,6 +137,7 @@ function DebtForm({
     control: form.control,
     name: ['fromPeriodId', 'correct'],
   })
+  const request = useClientId()
   const create = useCreateDebt(budgetId, {
     onDone: (id) => {
       close()
@@ -235,14 +237,26 @@ function DebtForm({
           monthlyPayment: values.monthlyPayment,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
-      : create.mutateAsync({
-          name: values.name,
-          principal: values.principal,
-          categoryId: values.categoryId,
-          monthlyPayment: values.monthlyPayment,
-          rate: values.rate,
-          fromPeriodId: values.fromPeriodId || null,
-        })
+      : create
+          .mutateAsync({
+            name: values.name,
+            principal: values.principal,
+            categoryId: values.categoryId,
+            monthlyPayment: values.monthlyPayment,
+            rate: values.rate,
+            fromPeriodId: values.fromPeriodId || null,
+            clientId: request.id,
+          })
+          .then(
+            (id) => {
+              request.renew()
+              return id
+            },
+            (error: unknown) => {
+              request.afterFailure(error)
+              throw error
+            },
+          )
     return done.catch(() => undefined)
   })
 

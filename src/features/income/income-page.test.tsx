@@ -127,6 +127,7 @@ describe('income page', () => {
 
     await waitFor(() => {
       expect(db.rpc.add_income).toHaveBeenCalledWith({
+        p_client_id: expect.any(String) as unknown,
         p_budget_id: BUDGET_ID,
         p_name: 'Bonus',
         p_amount: 100_050,

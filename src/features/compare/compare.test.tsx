@@ -45,6 +45,7 @@ function trendRow(period: typeof P1, overrides: Partial<TrendPeriod> = {}): Tren
     average_income: 723_456,
     average_spent: 411_111,
     average_result: 312_345,
+    transfer_committed_total: 0,
     ...overrides,
   }
 }
@@ -57,7 +58,7 @@ const TREND = [
 const IDS = TREND.map((row) => row.period_id)
 
 function line(overrides: Partial<CategoryLine> & Pick<CategoryLine, 'category_id' | 'name'>) {
-  return {
+  const base = {
     parent_id: null,
     is_group: false,
     display_order: 0,
@@ -66,10 +67,22 @@ function line(overrides: Partial<CategoryLine> & Pick<CategoryLine, 'category_id
     planned: [50_000, 50_000, 50_000],
     spent: [10_000, 20_000, 30_000],
     committed: [0, 0, 0],
+    transfer_committed: [0, 0, 0],
     transaction_count: [1, 1, 1],
     completed_count: 2,
     average_spent: 15_000,
     ...overrides,
+  }
+  // The database's flags, as the progress view would give them for these figures (D-391).
+  const isOverspent = base.spent.map((spent, index) => {
+    const planned = base.planned[index]
+    return planned !== null && planned !== undefined && spent > planned
+  })
+  return {
+    active_count: base.completed_count,
+    active_average_spent: base.average_spent,
+    is_overspent: isOverspent,
+    ...base,
   } satisfies CategoryLine
 }
 
@@ -141,14 +154,23 @@ function totalRow(overrides: Partial<ComparisonRow> = {}): ComparisonRow {
     a_committed: 10_390,
     b_committed: 10_390,
     committed_difference: 0,
-    a_transaction_count: null,
-    b_transaction_count: null,
+    a_transaction_count: 12,
+    b_transaction_count: 0,
     a_income: 720_000,
     b_income: 870_000,
     income_difference: 150_000,
     a_result: 717_610,
     b_result: 491_782,
     result_difference: -225_828,
+    a_is_current: false,
+    a_is_completed: true,
+    b_is_current: true,
+    b_is_completed: false,
+    a_is_overspent: null,
+    b_is_overspent: null,
+    a_transfer_committed: 0,
+    b_transfer_committed: 0,
+    transfer_committed_difference: 0,
     ...overrides,
   }
 }
@@ -595,5 +617,67 @@ describe('the range choice [R-COMPARE-190]', () => {
       expect(screen.getByRole('radio', { name: 'Last 24' })).toHaveAttribute('aria-checked', 'true')
     })
     expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Last 24' }))
+  })
+})
+
+describe('the comparison after the database round of step 6', () => {
+  it('says in words that a chosen side is still running, from the database’s flags [R-COMPARE-071]', async () => {
+    open(compareDb(), '/compare?view=side')
+    await screen.findByTestId('side-totals')
+    // B (P3) is the running period in the fixture; A is completed.
+    expect(screen.getByTestId('side-b-running')).toHaveTextContent(
+      'Still running: its figures are so far, not final.',
+    )
+    expect(screen.queryByTestId('side-a-running')).not.toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('side-totals')).getByRole('columnheader', { name: 'B (running)' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Period B' })).toHaveTextContent('(running)')
+  })
+
+  it('marks no side as running when both are completed (the default)', async () => {
+    const side = SIDE.map((row) => ({ ...row, b_is_current: false, b_is_completed: true }))
+    open(compareDb({ side }), '/compare?view=side')
+    await screen.findByTestId('side-totals')
+    expect(screen.queryByTestId('side-b-running')).not.toBeInTheDocument()
+  })
+
+  it('takes "over the plan" from the database, never from the figures [R-COMPARE-192]', async () => {
+    const lines = LINES.map((item) =>
+      item.category_id === 'c-food'
+        ? // Above the plan in figures, but not over the plan for the database.
+          { ...item, spent: [90_000, 20_000, 30_000], is_overspent: [false, false, false] }
+        : item.category_id === 'c-gifts'
+          ? { ...item, is_overspent: [false, true, false] }
+          : item,
+    )
+    open(compareDb({ lines }), '/compare?view=categories')
+    const table = await screen.findByRole('table', { name: 'Spending per category and period' })
+    const food = within(table).getByRole('rowheader', { name: /Food/ }).closest('tr')!
+    expect(within(food).queryByText('over the plan')).not.toBeInTheDocument()
+    const gifts = within(table).getByRole('rowheader', { name: /Gifts/ }).closest('tr')!
+    expect(within(gifts).getAllByText('over the plan')).toHaveLength(1)
+  })
+
+  it('shows the average over the periods a line existed beside the first, where they differ [R-COMPARE-192]', async () => {
+    const lines = LINES.map((item) =>
+      item.category_id === 'c-garden'
+        ? { ...item, active_count: 1, active_average_spent: 4_000 }
+        : item,
+    )
+    open(compareDb({ lines }), '/compare?view=categories')
+    const actives = await screen.findAllByTestId('active-average')
+    expect(actives).toHaveLength(1)
+    expect(plain(actives[0]!)).toBe('CHF 40.00 over the 1 period it was in use')
+  })
+
+  it('marks a side over the plan, side by side, from the database [R-COMPARE-194]', async () => {
+    const side = SIDE.map((row) =>
+      row.category_id === 'c-garden' ? { ...row, b_is_overspent: true } : row,
+    )
+    open(compareDb({ side }), '/compare?view=side')
+    const rows = await screen.findAllByTestId('side-row')
+    expect(within(rows[1]!).getByTestId('side-over')).toHaveTextContent('over the plan')
+    expect(screen.getAllByTestId('side-over')).toHaveLength(1)
   })
 })
