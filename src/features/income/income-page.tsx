@@ -35,7 +35,9 @@ import {
 } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { IncomeFormDialog } from '@/features/income/components/income-form-dialog'
+import { MakePrimaryDialog } from '@/features/income/components/make-primary-dialog'
 import { RemoveIncomeDialog } from '@/features/income/components/remove-income-dialog'
+import { SalaryArrivedPrompt } from '@/features/income/components/salary-arrived-prompt'
 import { useRemoveIncome, useSetPrimaryIncome } from '@/features/income/income-mutations'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -45,6 +47,7 @@ type DialogState =
   | { kind: 'add' }
   | { kind: 'edit'; income: IncomeOverview }
   | { kind: 'remove'; income: IncomeOverview }
+  | { kind: 'primary'; income: IncomeOverview }
 
 export function IncomePage() {
   const { t } = useTranslation()
@@ -56,6 +59,8 @@ export function IncomePage() {
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const remove = useRemoveIncome(budgetId)
   const makePrimary = useSetPrimaryIncome(budgetId)
+  // R-PERIOD-037: the date this month's salary was due under new primary terms, to ask about.
+  const [arrivedDue, setArrivedDue] = useState<string | null>(null)
 
   const queries = [incomes, members, current]
   const failed = queries.find((query) => query.isError)
@@ -142,7 +147,10 @@ export function IncomePage() {
                 remove.reset()
                 setDialog({ kind: 'remove', income })
               }}
-              onMakePrimary={() => makePrimary.mutate(income)}
+              onMakePrimary={() => {
+                makePrimary.reset()
+                setDialog({ kind: 'primary', income })
+              }}
               makingPrimary={makePrimary.isPending}
             />
           ))}
@@ -162,7 +170,17 @@ export function IncomePage() {
         members={memberList}
         periods={periods.data ?? []}
         currentPeriod={currentPeriod}
+        onSalaryMayHaveArrived={setArrivedDue}
       />
+      <MakePrimaryDialog
+        budgetId={budgetId}
+        income={dialog.kind === 'primary' ? dialog.income : null}
+        currentPeriod={currentPeriod}
+        mutation={makePrimary}
+        onClose={() => setDialog({ kind: 'closed' })}
+        onSalaryMayHaveArrived={setArrivedDue}
+      />
+      <SalaryArrivedPrompt dueDate={arrivedDue} onClose={() => setArrivedDue(null)} />
       <RemoveIncomeDialog
         income={dialog.kind === 'remove' ? dialog.income : null}
         periods={periods.data ?? []}

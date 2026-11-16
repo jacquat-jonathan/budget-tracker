@@ -121,6 +121,7 @@ export function useEditIncome(
 export function useSetPrimaryIncome(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<string | null, IncomeOverview>({
+    errorDisplay: 'inline',
     mutationFn: async (income) => {
       unwrap(await supabase.rpc('set_primary_income', { p_income_id: income.id }))
       return nextExpectedPayDate(budgetId)

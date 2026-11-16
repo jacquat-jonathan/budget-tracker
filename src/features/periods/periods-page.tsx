@@ -9,8 +9,10 @@ import {
   SkipForwardIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 import { z } from 'zod'
 
 import { CalendarDate, CalendarDateField } from '@/components/form/calendar-date-field'
@@ -45,6 +47,7 @@ import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { addDays, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
+import type { Database } from '@/lib/database.types'
 import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
 
@@ -66,7 +69,8 @@ import { supabase } from '@/lib/supabase'
 type Action =
   | { kind: 'expected'; period: PeriodSummary }
   | { kind: 'resetExpected'; period: PeriodSummary }
-  | { kind: 'early'; period: PeriodSummary }
+  /** `date`: proposed from the prompt after a pay-day correction (R-PERIOD-037). */
+  | { kind: 'early'; period: PeriodSummary; date?: string }
   | { kind: 'reopen'; period: PeriodSummary; previous: PeriodSummary }
   | { kind: 'moveStart'; period: PeriodSummary; previous: PeriodSummary }
 
@@ -119,6 +123,15 @@ export function PeriodsPage() {
   const current = useCurrentPeriod(budgetId)
   const [action, setAction] = useState<Action | null>(null)
   const write = useBoundaryAction(budgetId)
+  // Arriving from "has this salary already arrived?": open "arrived early" with its date.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requested = searchParams.get('record') === 'early' ? searchParams.get('date') : null
+  const currentRow = current.data
+  useEffect(() => {
+    if (!requested || !currentRow) return
+    setSearchParams({}, { replace: true })
+    setAction({ kind: 'early', period: currentRow, date: requested })
+  }, [requested, currentRow, setSearchParams])
   const close = () => setAction(null)
   const open = (next: Action) => {
     write.reset()
@@ -349,7 +362,7 @@ function BoundaryForm({
     action.kind === 'expected'
       ? addDays(period.end_date, 1)
       : action.kind === 'early'
-        ? today
+        ? (action.date ?? today)
         : action.kind === 'moveStart'
           ? period.start_date
           : ''
@@ -359,6 +372,8 @@ function BoundaryForm({
   })
   const date = useWatch({ control: form.control, name: 'date' })
   const valid = isCalendarDate(date)
+  const { budgetId } = useCurrentBudget()
+  const reopenPreview = useReopenPreview(budgetId, action.kind === 'reopen')
 
   /** The resulting dates, worded from the user's point of view, and how to undo. */
   const preview: { result: string | null; undo: string } = (() => {
@@ -425,9 +440,7 @@ function BoundaryForm({
             description={t(`periods.dialogs.${action.kind}.range`, { today: fmt(today) })}
           />
         )}
-        {action.kind === 'reopen' && (
-          <p className="text-sm text-muted-foreground">{t('periods.reopenMoves')}</p>
-        )}
+        {action.kind === 'reopen' && <ReopenPreview preview={reopenPreview} />}
         {preview.result && (
           <Alert data-testid="boundary-preview">
             <CalendarRangeIcon aria-hidden />
@@ -441,7 +454,10 @@ function BoundaryForm({
           <Button type="button" variant="outline" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button
+            type="submit"
+            disabled={mutation.isPending || (action.kind === 'reopen' && reopenPreview.isPending)}
+          >
             {mutation.isPending
               ? t('common.saving')
               : action.kind === 'resetExpected'
@@ -472,4 +488,69 @@ function ListConsistency({
     if (missing) refetch()
   }, [missing, refetch])
   return null
+}
+
+type ReopenChange = Database['public']['Functions']['preview_reopen']['Returns'][number]
+
+/** R-PERIOD-053: what reopening would move, from preview_reopen, before it is confirmed. */
+function useReopenPreview(budgetId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...budgetKeys.budget(budgetId), 'preview-reopen'] as const,
+    enabled,
+    staleTime: 0,
+    queryFn: async (): Promise<ReopenChange[]> =>
+      unwrap(await supabase.rpc('preview_reopen', { p_budget_id: budgetId })),
+  })
+}
+
+const KNOWN_KINDS = ['income'] as const
+const KNOWN_CHANGES = ['added', 'ended', 'removed', 'terms_changed', 'made_primary'] as const
+
+function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPreview> }) {
+  const { t } = useTranslation()
+  const errorMessage = useErrorMessage()
+  if (preview.isError) {
+    return (
+      <Alert>
+        <AlertDescription>
+          {t('periods.reopen.failed', { reason: errorMessage(preview.error) })}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  if (preview.data === undefined) return <LoadingState rows={1} />
+  if (preview.data.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground" data-testid="reopen-preview">
+        {t('periods.reopen.nothing')}
+      </p>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2 text-sm" data-testid="reopen-preview">
+      <p className="font-medium">{t('periods.reopen.title')}</p>
+      <ul className="flex list-disc flex-col gap-1 pl-5">
+        {preview.data.map((item) => {
+          // Later steps add kinds and changes: unknown ones get a generic sentence.
+          const kind = (KNOWN_KINDS as readonly string[]).includes(item.record_kind)
+            ? t(`periods.reopen.kinds.${item.record_kind as (typeof KNOWN_KINDS)[number]}`, {
+                name: item.record_name,
+              })
+            : t('periods.reopen.kinds.other', { name: item.record_name })
+          const change = (KNOWN_CHANGES as readonly string[]).includes(item.change)
+            ? t(`periods.reopen.changes.${item.change as (typeof KNOWN_CHANGES)[number]}`)
+            : t('periods.reopen.changes.other')
+          return (
+            <li key={`${item.record_kind}-${item.record_id}-${item.change}`}>
+              {kind}: {change}
+              {item.replaces_previous && item.change !== 'removed'
+                ? ` ${t('periods.reopen.replaces')}`
+                : ''}
+            </li>
+          )
+        })}
+      </ul>
+      <p className="text-muted-foreground">{t('periods.reopen.datesOnly')}</p>
+    </div>
+  )
 }
