@@ -105,17 +105,27 @@ insert into public.transactions (budget_id, kind, amount, date, category_id)
 select tests.id('o'), 'expense', 100, date '2026-07-25' + (g % 100), tests.id('o_cat') from generate_series(1, 3000) as g;
 analyze public.transactions;
 select tests.authenticate_as('alice');
-create temp table scans (step text, seq_tup_read bigint) on commit drop;
-grant insert, select on scans to authenticated;
-set local enable_seqscan = off;
-insert into scans select 'before', seq_tup_read from pg_stat_xact_user_tables where relid = 'public.transactions'::regclass;
-select count(*) from public.category_overview where budget_id = tests.id('b');
+-- Count the transaction rows the categories page looks at: a restrictive policy that counts
+-- every row it is evaluated for (row-level security is checked on each row a scan reads, before
+-- any other condition). The other budget holds 3000 transactions; this budget a handful.
+select tests.clear_authentication();
+create sequence tests.rows_seen;
+create function tests.row_seen() returns boolean language sql volatile as $$ select nextval('tests.rows_seen') > 0 $$;
+grant usage, select on sequence tests.rows_seen to authenticated;
+grant execute on function tests.row_seen() to authenticated;
+create policy "test: count rows read" on public.transactions as restrictive for select to authenticated
+  using (tests.row_seen());
+select setval('tests.rows_seen', 1, false);
+select tests.authenticate_as('alice');
+-- the columns must be read for the lookup to run (count(*) alone would skip them)
+select count(*) filter (where has_transactions), bool_and(removal_deletes)
+from public.category_overview where budget_id = tests.id('b');
+select cmp_ok((select last_value from tests.rows_seen), '<', 100::bigint,
+  'R-CATEGORY-102: the categories page reads this budget''s transactions only, not the other budget''s 3000');
+select tests.clear_authentication();
+drop policy "test: count rows read" on public.transactions;
+select tests.authenticate_as('alice');
 select public.end_category(pg_temp.cat('Late'), pg_temp.crev(pg_temp.cat('Late')));
-insert into scans select 'after', seq_tup_read from pg_stat_xact_user_tables where relid = 'public.transactions'::regclass;
-reset enable_seqscan;
-select is(
-  (select max(seq_tup_read) filter (where step = 'after') - max(seq_tup_read) filter (where step = 'before') from scans), 0::bigint,
-  'R-CATEGORY-102: listing and removing categories read no other budget''s transactions (no sequential scan of the table)');
 
 -- ===========================================================================
 -- Finding 5: count from an earlier period, and restore
