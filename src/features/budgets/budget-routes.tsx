@@ -27,6 +27,7 @@ export function BudgetsRoute() {
 }
 
 /** Pages about a budget: without one, the user is sent to the first-run setup. */
+// R-BUDGET-050: no budget, first-run setup.
 export function RequireBudget() {
   const { current } = useBudgets()
   if (!current) return <Navigate to={paths.welcome} replace />

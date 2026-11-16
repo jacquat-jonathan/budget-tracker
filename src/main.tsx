@@ -12,6 +12,7 @@ import { MissingEnvError, missingEnvVars } from '@/lib/env'
 const root = createRoot(document.getElementById('root') as HTMLElement)
 const missing = missingEnvVars()
 
+// R-APP-003: refuse to start without the Supabase settings, naming them.
 if (missing.length > 0) {
   // Fail loudly in the console too, with the full explanation.
   console.error(new MissingEnvError(missing))

@@ -103,6 +103,7 @@ function isNetworkError(error: unknown): boolean {
  */
 export type DbErrorOverrides = Partial<Record<DbErrorCode, ParseKeys>>
 
+// R-APP-004: every stable code has its own text; anything else a generic one.
 /** Translation key for any error a database call can produce. */
 export function dbErrorKey(
   error: unknown,

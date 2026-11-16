@@ -31,7 +31,7 @@ import { currentLanguage } from '@/lib/i18n'
 
 /**
  * Remove an income: from the current period by default, or, as an explicit correction, from
- * an earlier period it counted in (R-INCOME-015), with a warning that past totals change.
+ * an earlier period it counted in, with a warning that past totals change.
  */
 export function RemoveIncomeDialog({
   income,
@@ -87,6 +87,7 @@ function RemoveIncomeForm({
   const correctable = periods.filter(
     (period) => !period.is_current && period.seq >= income.first_seq,
   )
+  // R-INCOME-051: off by default, with a warning.
   const [correct, setCorrect] = useState(false)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
 

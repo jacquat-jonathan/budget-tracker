@@ -35,6 +35,7 @@ void i18n
     nonExplicitSupportedLngs: true,
     load: 'languageOnly',
     interpolation: { escapeValue: false },
+    // R-I18N-002: the chosen language is remembered in the browser.
     detection: {
       order: ['localStorage', 'navigator'],
       lookupLocalStorage: LANGUAGE_STORAGE_KEY,

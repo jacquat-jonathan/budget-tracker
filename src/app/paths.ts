@@ -25,6 +25,7 @@ export interface RedirectState {
 }
 
 /** The path to return to after sign-in, read from location state; never an auth page. */
+// R-AUTH-003: only an in-app path, never an auth page or another site.
 export function redirectTarget(state: unknown): string {
   const from = (state as RedirectState | null)?.from
   if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//')) {

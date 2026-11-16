@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase'
 
 const accountSchema = z.object({ displayName: signUpSchema.shape.displayName })
 
-/** My account: the display name other members see (R-PROFILE-002). */
+/** My account: the display name other members see. */
 export function AccountSettings() {
   const { t } = useTranslation()
   const { user } = useAuth()

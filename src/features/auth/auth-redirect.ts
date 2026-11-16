@@ -168,6 +168,7 @@ export function captureAuthRedirect(): void {
     writeParked({ tokens: redirect.tokens, type: redirect.type, capturedAt: Date.now() })
   }
   const cleaned = stripAuthParams(window.location.href)
+  // R-AUTH-013: the token-bearing entry is replaced, not followed by a new one.
   window.history.replaceState(window.history.state, '', cleaned)
 }
 
@@ -190,6 +191,7 @@ export function takeAuthRedirect(): TakenRedirect | null {
 }
 
 /** The check failed for a transient reason while `currentKey` was the current session. */
+// R-AUTH-022: kept for this tab only, never in a URL; a reload retries.
 export function parkLink(redirect: AuthRedirect, currentKey: string | null): void {
   if (!redirect.tokens) return
   writeParked({
@@ -201,6 +203,7 @@ export function parkLink(redirect: AuthRedirect, currentKey: string | null): voi
 }
 
 /** Forget parked link tokens: definite answer, sign-out, or another sign-in. */
+// R-AUTH-021: one user, one attempt.
 export function dropParkedLink(): void {
   try {
     sessionStorage.removeItem(PENDING_LINK_KEY)

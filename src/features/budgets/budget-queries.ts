@@ -37,7 +37,7 @@ export function useMyBudgets(enabled = true) {
 }
 
 /**
- * Periods are created on demand (R-PERIOD-009): this runs ensure_periods when a budget is
+ * Periods are created on demand: this runs ensure_periods when a budget is
  * opened, again when the window regains focus after a while, and reports how many it made.
  */
 export function useEnsurePeriods(budgetId: string | undefined) {

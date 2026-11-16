@@ -41,6 +41,7 @@ export function isCalendarDate(value: string): boolean {
  * Format a calendar date "YYYY-MM-DD" as dd.mm.yyyy, exactly as written: no time-zone shift.
  * Throws a RangeError for anything else, including timestamps.
  */
+// C-DATE-001 C-DATE-002: a calendar date is printed as written, never through a time zone.
 export function formatCalendarDate(value: string): string {
   const match = CALENDAR_DATE.exec(value)
   if (!match || !isCalendarDate(value)) {

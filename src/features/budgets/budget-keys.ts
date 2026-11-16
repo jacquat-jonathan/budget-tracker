@@ -1,7 +1,8 @@
 /**
  * Query keys. Everything that belongs to one budget sits under ['budget', budgetId], so a
- * write can refetch all of a budget's data with one key (C-QUERY-001).
+ * write can refetch all of a budget's data with one key.
  */
+// C-QUERY-001: budget data is keyed by budget id.
 export const budgetKeys = {
   /** my_budgets: the budgets I belong to. */
   list: ['budgets'] as const,

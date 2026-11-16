@@ -24,7 +24,7 @@ export interface AuthBootstrap {
   linkError: AuthLinkError | null
   /**
    * A valid email link signed in a different user than the one who was signed in: the
-   * browser now belongs to the link's account, and the user must be told (R-AUTH-026).
+   * browser now belongs to the link's account, and the user must be told.
    */
   accountSwitch: AccountSwitch | null
 }
@@ -72,8 +72,10 @@ async function run(): Promise<AuthBootstrap> {
       if (!error && data.session) {
         dropParkedLink()
         // This tab established the session: the recovery flag now belongs to it or to nobody.
+        // R-AUTH-012: a confirmation link signs the user straight in.
         if (redirect.type === 'recovery') startRecovery(data.session)
         else pruneRecovery(data.session)
+        // R-AUTH-026: a link for another account than the one signed in is reported.
         const switched = before !== null && before.user.id !== data.session.user.id
         const accountSwitch = switched
           ? { from: before.user.email ?? null, to: data.session.user.email ?? null }
@@ -85,6 +87,7 @@ async function run(): Promise<AuthBootstrap> {
       failure = error
     }
 
+    // R-AUTH-019 R-AUTH-020: the outcome is reported whoever is signed in, never a form for them.
     // The link did not sign anyone in. Whatever session exists is untouched and is *not*
     // in recovery because of this link; the outcome is reported regardless (B).
     const transient = isTransient(failure)

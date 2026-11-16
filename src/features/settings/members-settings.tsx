@@ -71,8 +71,8 @@ export function MembersSettings() {
     invalidate: () => [budgetKeys.list],
   })
 
-  // R-MEMBER-050: whose income is primary; that member can neither be removed nor leave
-  // (D-031). Until the incomes are known, both stay disabled.
+  // R-MEMBER-050: whose income is primary; that member can neither be removed nor leave.
+  // Until the incomes are known, both stay disabled.
   const primaryOwner = incomes.data?.find((income) => income.is_primary)?.user_id ?? null
   const incomesKnown = incomes.data !== undefined
 
@@ -241,7 +241,7 @@ function Invitations() {
     // Accepted meanwhile: the invitation is gone and the person is now a member.
     invalidate: () => [budgetKeys.invitations(budgetId), budgetKeys.members(budgetId)],
   })
-  // Inviting the same address again renews the invitation for 30 days (R-INVITE-009).
+  // Inviting the same address again renews the invitation for 30 days.
   const renew = useAppMutation<string, BudgetInvitation>({
     mutationFn: async (invitation) =>
       unwrap(

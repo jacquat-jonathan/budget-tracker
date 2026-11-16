@@ -22,6 +22,7 @@ const BY_CODE: Record<string, AuthErrorKey> = {
 }
 
 /** Map an error returned by Supabase Auth to a translation key. */
+// R-AUTH-011: never the raw error.
 export function authErrorKey(error: unknown): AuthErrorKey {
   if (isAuthError(error)) {
     if (error.code && error.code in BY_CODE) return BY_CODE[error.code] ?? 'auth.errors.generic'

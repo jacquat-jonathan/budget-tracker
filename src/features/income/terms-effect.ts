@@ -6,7 +6,7 @@ import { addMonths } from '@/lib/date'
  * income made primary) does to the current period. The current period keeps its start and
  * ends the day before the next month's pay date under the new terms; when that date has
  * already come, it closes at once. A manual end is kept while it lies within 14 days of the
- * new schedule (R-PERIOD-026): the database decides that, so it is described, not computed.
+ * new schedule: the database decides that, so it is described, not computed.
  */
 export type TermsEffect =
   | { kind: 'none' }

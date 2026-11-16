@@ -3,7 +3,7 @@ import { daysInclusive } from '@/lib/date'
 
 /**
  * Day N of M of a period, counted to the database's "today" (period_summaries.today,
- * R-PERIOD-028) and clamped to the period. Calendar arithmetic only, no time zone.
+ * and clamped to the period. Calendar arithmetic only, no time zone.
  */
 export function periodProgress(
   period: Pick<PeriodSummary, 'start_date' | 'end_date'>,

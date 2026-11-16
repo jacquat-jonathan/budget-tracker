@@ -99,6 +99,7 @@ export const routes: RouteObject[] = [
       // Reached from the reset email with a recovery session, so it sits outside both guards.
       { path: paths.resetPassword, element: <ResetPasswordPage /> },
       {
+        // R-APP-001: the app shell, for signed-in users.
         element: <ProtectedRoute />,
         children: [
           {
@@ -149,6 +150,7 @@ export const routes: RouteObject[] = [
           },
         ],
       },
+      // R-APP-002: any unknown path.
       { path: '*', element: <NotFoundPage /> },
     ],
   },

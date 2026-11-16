@@ -87,7 +87,7 @@ export function CalendarDateField<TValues extends FieldValues, TOut extends Fiel
   )
 }
 
-/** A calendar date for display, dd.mm.yyyy, read from the string (C-DATE-002). */
+/** A calendar date for display, dd.mm.yyyy, read from the string. */
 export function CalendarDate({ value }: { value: string }) {
   return (
     <time dateTime={value} className="tabular-nums">

@@ -26,6 +26,7 @@ export function SignInPage() {
     defaultValues: { email: '', password: '' },
   })
 
+  // R-AUTH-009: the fields are validated before Supabase is called.
   const onSubmit = form.handleSubmit(async (values) => {
     setErrorKey(null)
     try {
@@ -66,6 +67,7 @@ export function SignInPage() {
             <Alert variant="destructive">
               <AlertDescription>
                 <p>{t(errorKey)}</p>
+                {/* R-AUTH-015: offer to resend the confirmation, with the address. */}
                 {errorKey === 'auth.errors.emailNotConfirmed' && (
                   <Link
                     to={paths.resendConfirmation}

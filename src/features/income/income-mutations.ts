@@ -49,7 +49,7 @@ export function useAddIncome(budgetId: string, options: { onDone: () => void }) 
 export interface EditIncomeInput extends IncomeTerms {
   /**
    * An explicit correction: the terms apply from this earlier period on, changing past
-   * totals (R-VERSION-010). Null for the normal edit, from the current period.
+   * totals. Null for the normal edit, from the current period.
    */
   fromPeriodId: string | null
 }
@@ -118,7 +118,7 @@ export function useSetPrimaryIncome(budgetId: string) {
 
 export interface RemoveIncomeInput {
   income: IncomeOverview
-  /** An explicit correction: removed from this earlier period on (R-INCOME-015). */
+  /** An explicit correction: removed from this earlier period on. */
   fromPeriodId: string | null
 }
 

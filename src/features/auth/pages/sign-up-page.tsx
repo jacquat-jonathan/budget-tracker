@@ -32,6 +32,7 @@ export function SignUpPage() {
   const onSubmit = form.handleSubmit(async ({ displayName, email, password }) => {
     setErrorKey(null)
     try {
+      // R-AUTH-004: the display name is stored with the new account.
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -46,6 +47,7 @@ export function SignUpPage() {
       }
       // With a session the user is signed in and the public-only route redirects to the
       // app. Without one, the project requires email confirmation first.
+      // R-AUTH-007 R-AUTH-008: check the inbox, or straight into the app with a session.
       if (!data.session) setConfirmationSentTo(email)
     } catch (error) {
       setErrorKey(authErrorKey(error))

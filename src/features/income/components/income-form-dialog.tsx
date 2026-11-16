@@ -108,7 +108,7 @@ function IncomeForm({
       amount: income?.amount ?? null,
       payDay: income?.pay_day ?? 25,
       weekendRule: income?.weekend_rule ?? 'nearest',
-      // A new income is mine unless I pick another member (D-045).
+      // R-INCOME-002: any member's income; mine by default.
       userId: income?.user_id ?? user?.id ?? '',
       fromPeriodId: '',
       correct: false,
@@ -257,6 +257,7 @@ function IncomeForm({
   )
 }
 
+// R-INCOME-051: corrections of the past are explicit, off by default, with a warning.
 /** "Correct an earlier period": off by default, with a warning that past totals change. */
 function CorrectionFields({
   control,

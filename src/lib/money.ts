@@ -13,6 +13,7 @@ export interface FormatMoneyOptions {
   currency?: boolean
 }
 
+// C-MONEY-001: amounts are integer rappen.
 function assertRappen(rappen: number): void {
   if (!Number.isSafeInteger(rappen)) {
     throw new RangeError(`Money amounts must be integer rappen, received ${String(rappen)}`)

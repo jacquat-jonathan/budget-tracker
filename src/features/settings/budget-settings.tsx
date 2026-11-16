@@ -52,6 +52,7 @@ export function BudgetSettings() {
         {/* Keyed by budget: switching budgets starts the forms from that budget's values. */}
         <RenameForm key={`name-${budget.id}`} />
         <FieldSeparator />
+        {/* R-MEMBER-050: owner-only, with the reason for a member. */}
         {isOwner ? (
           <EndDateForm key={`end-${budget.id}-${budget.end_date ?? ''}`} />
         ) : (
@@ -219,6 +220,7 @@ function DeleteBudget() {
         description={<p>{t('settings.budget.deleteConfirmDescription')}</p>}
         confirmLabel={t('settings.budget.delete')}
         destructive
+        // R-BUDGET-052: the budget's name is typed before it is deleted.
         typeToConfirm={budget.name}
         pending={remove.isPending}
         error={remove.error}

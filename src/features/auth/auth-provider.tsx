@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (next: Session | null) => {
       const nextUserId = next?.user.id ?? null
       // Never show one user's cached data to another.
+      // R-AUTH-025: never show one user's cached data to another.
       if (cachedUserId.current !== undefined && cachedUserId.current !== nextUserId) {
         queryClient.clear()
       }
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextKey !== currentKey.current) {
         // A different sign-in (or none) took over, in this tab or another: the link this
         // page landed with is no longer the story, and a parked attempt is over (C).
+        // R-AUTH-021: another sign-in took over, the parked attempt is over.
         dropParkedLink()
         setLinkError(null)
         setAccountSwitch(null)

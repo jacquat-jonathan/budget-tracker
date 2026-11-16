@@ -10,11 +10,13 @@ export function ProtectedRoute() {
   const location = useLocation()
 
   if (loading) return <FullPageSpinner />
+  // R-AUTH-001: signed out, to sign-in and back to the page asked for.
   if (!session) {
     const state: RedirectState = { from: `${location.pathname}${location.search}${location.hash}` }
     return <Navigate to={paths.signIn} replace state={state} />
   }
   // Signed in by a password-recovery link: choose a new password first, wherever it landed.
+  // R-AUTH-018: recovery mode leads every app page to the new-password form.
   if (recovery) return <Navigate to={paths.resetPassword} replace />
   // R-AUTH-025: everything below is one user's. Keyed by user, it is rebuilt from scratch
   // (queries, observers, forms, dialogs) when another user's session takes over the tab.
@@ -27,6 +29,7 @@ export function PublicOnlyRoute() {
   const location = useLocation()
 
   if (loading) return <FullPageSpinner />
+  // R-AUTH-002: a signed-in user is sent on into the app.
   if (session) {
     return <Navigate to={recovery ? paths.resetPassword : redirectTarget(location.state)} replace />
   }

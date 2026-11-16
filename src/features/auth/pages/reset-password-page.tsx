@@ -46,6 +46,7 @@ export function ResetPasswordPage() {
 
   if (loading || leaving) return <FullPageSpinner />
 
+  // R-AUTH-024: one message and one way on for every state.
   if (notice) {
     return (
       <AuthLayout title={notice.title} description={notice.description} hideLinkNotice>
@@ -74,6 +75,7 @@ export function ResetPasswordPage() {
         </button>
       }
     >
+      {/* R-AUTH-017 R-AUTH-027: names the account, and is emptied when the user changes. */}
       {/* Keyed by user: text typed for one account never carries over to another
           (another tab's link can switch the session while this form is open). */}
       <NewPasswordForm

@@ -20,6 +20,7 @@ export interface LinkNotice {
  * in: one message and the actions that make sense for whoever is (or is not) signed in.
  * Returns null when there is nothing to say.
  */
+// R-AUTH-014: a dead link is explained, with a way to get a new one.
 export function useLinkNotice(): LinkNotice | null {
   const { t } = useTranslation()
   const navigate = useNavigate()

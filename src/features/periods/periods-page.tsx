@@ -52,17 +52,15 @@ import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
 
 /**
- * Periods: one per calendar month, each starting on that month's salary (R-PERIOD-021).
+ * Periods: one per calendar month, each starting on that month's salary.
  * Boundaries are changed as what happened to a salary, never as a raw end date:
  *
  * - "The <month> salary arrived on another day": the boundary before that month's period.
  * - "The <month> salary has not arrived yet" (latest period only): that boundary moves to
- *   after today, so the latest period is removed and the previous one is current again
- *   (R-PERIOD-023).
+ *   after today, so the latest period is removed and the previous one is current again.
  * - "The <next month> salary arrived early" (latest period): closes the current period;
  *   the next month's period starts (or, for a date still to come, ends this one earlier).
- * - "Reset to the schedule" on any boundary set by hand: the inverse of each of the above
- *   (R-PERIOD-025).
+ * - "Reset to the schedule" on any boundary set by hand: the inverse of each of the above.
  *
  * Each dialog previews the resulting dates. The database applies the rules (14 days from
  * the scheduled pay date, no empty period) and its "today" comes with the period rows.
@@ -101,6 +99,7 @@ function useMoveBoundary(budgetId: string) {
   })
 }
 
+// R-PERIOD-051: salary-based actions with a preview, and a reset for every manual boundary.
 export function PeriodsPage() {
   const { t } = useTranslation()
   const language = currentLanguage()
@@ -410,7 +409,7 @@ function SalaryDateForm({
   const preview = (() => {
     if (!isCalendarDate(date)) return null
     if (action.kind === 'final') {
-      // The final month has no next period: its end is the budget's last day (R-BUDGET-015).
+      // The final month has no next period: its end is the budget's last day.
       return date < today
         ? t('periods.preview.finalPast', { end: formatCalendarDate(date) })
         : t('periods.preview.final', { end: formatCalendarDate(date) })

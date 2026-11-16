@@ -55,6 +55,7 @@ export function endRecovery(): void {
 }
 
 /** Recovery mode is active for exactly this session. */
+// R-AUTH-016 R-AUTH-023: only for the exact sign-in the recovery link created.
 export function isRecoveryFor(session: Session | null | undefined): boolean {
   const flag = readFlag()
   return (

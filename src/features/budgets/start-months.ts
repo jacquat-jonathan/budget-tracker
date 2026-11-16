@@ -12,7 +12,7 @@ export type StartMonthOption =
 /**
  * The months a budget with these terms may start from, newest first, each with the date its
  * first period would start (get_start_months). The database decides them, with its own
- * "today" (R-PERIOD-027); the client never works them out.
+ * "today"; the client never works them out.
  */
 export function useStartMonths(payDay: number, weekendRule: WeekendRule) {
   return useQuery({
