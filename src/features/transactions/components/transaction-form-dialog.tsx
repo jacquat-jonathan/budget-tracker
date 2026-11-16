@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2Icon } from 'lucide-react'
+import { CheckCircle2Icon, RepeatIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +9,8 @@ import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { CalendarDateField } from '@/components/form/calendar-date-field'
 import { MoneyField } from '@/components/form/money-field'
 import { SegmentedField } from '@/components/form/segmented-field'
+import { SelectField } from '@/components/form/select-field'
+import { useDebts } from '@/features/debts/debt-queries'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -50,9 +52,11 @@ export interface DateRange {
   max: string
 }
 
-function transactionSchema(range: DateRange) {
+function transactionSchema(range: DateRange, subscriptionLinked: boolean) {
   return z
     .object({
+      /** The debt this expense pays; "" for none. */
+      debtId: z.string(),
       kind: z.enum(['expense', 'refund', 'extra_income']),
       amount: rappenSchema(),
       // R-TRANSACTION-090: up to the database's today, from the first period's start.
@@ -73,6 +77,10 @@ function transactionSchema(range: DateRange) {
           message: 'validation.categoryRequired',
         })
       }
+      // R-TRANSACTION-110: a payment or a subscription charge stays an expense.
+      if (values.kind !== 'expense' && (values.debtId !== '' || subscriptionLinked)) {
+        ctx.addIssue({ code: 'custom', path: ['kind'], message: 'validation.linkedIsExpense' })
+      }
     })
 }
 type TransactionInput = z.input<ReturnType<typeof transactionSchema>>
@@ -89,6 +97,8 @@ interface TransactionFormDialogProps {
   today: string
   /** The budget has ended: the latest date is its last day, not today. */
   ended: boolean
+  /** A new debt payment: its category and debt chosen beforehand. */
+  prefill?: { categoryId: string; debtId: string }
 }
 
 /** Add or edit a transaction. The form mounts only while open. */
@@ -100,10 +110,18 @@ export function TransactionFormDialog(props: TransactionFormDialogProps) {
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="pr-8">
-            {transaction ? t('transactions.editTitle') : t('transactions.addTitle')}
+            {transaction
+              ? t('transactions.editTitle')
+              : props.prefill
+                ? t('transactions.paymentTitle')
+                : t('transactions.addTitle')}
           </DialogTitle>
           <DialogDescription>
-            {transaction ? t('transactions.editDescription') : t('transactions.addDescription')}
+            {transaction
+              ? t('transactions.editDescription')
+              : props.prefill
+                ? t('transactions.paymentDescription')
+                : t('transactions.addDescription')}
           </DialogDescription>
         </DialogHeader>
         {open && <TransactionForm {...props} />}
@@ -120,33 +138,68 @@ function TransactionForm({
   range,
   today,
   ended,
+  prefill,
 }: TransactionFormDialogProps) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
   const close = () => onOpenChange(false)
   const views = useRecordViews()
+  // The payment link is part of what this form shows and saves: another member's change of
+  // it is a change of this form's fields.
+  const describe = (record: Transaction) => [
+    ...views.transaction(record),
+    {
+      key: 'debt',
+      label: t('transactions.fields.debt'),
+      value: record.debt_name ?? t('concurrent.none'),
+    },
+  ]
   // R-CONCURRENCY-091: saved over the version opened; the record is read by its id, so a
   // date moved out of the filtered list is still the same transaction.
   const live = useRecord('transaction_list', budgetId, opened?.id)
-  const edit = useEditBase(opened, live, views.transaction)
+  const edit = useEditBase(opened, live, describe)
   const transaction = edit.base
-  const schema = useMemo(() => transactionSchema(range), [range])
+  const subscriptionLinked = transaction?.subscription_id != null
+  const schema = useMemo(
+    () => transactionSchema(range, subscriptionLinked),
+    [range, subscriptionLinked],
+  )
+  const debts = useDebts(budgetId)
 
   const valuesOf = (from: Transaction | undefined): TransactionInput => ({
     kind: from?.kind ?? 'expense',
     amount: from?.amount ?? null,
     date: from?.date ?? (today > range.max ? range.max : today),
-    categoryId: from?.category_id ?? '',
+    categoryId: from?.category_id ?? prefill?.categoryId ?? '',
     description: from?.description ?? '',
+    debtId: from ? (from.debt_id ?? '') : (prefill?.debtId ?? ''),
   })
   const form = useForm<TransactionInput, unknown, TransactionValues>({
     resolver: zodResolver(schema),
     defaultValues: valuesOf(transaction),
   })
-  const [kind, date, categoryId] = useWatch({
+  const [kind, date, categoryId, debtId] = useWatch({
     control: form.control,
-    name: ['kind', 'date', 'categoryId'],
+    name: ['kind', 'date', 'categoryId', 'debtId'],
   })
+  // R-DEBT-123: the debts paid from the chosen category (the database checks the date). A
+  // payment keeps its debt while it keeps its category, even after the debt moved category.
+  const keptDebt = transaction?.debt_id ?? null
+  const payable = useMemo(
+    () =>
+      (debts.data ?? []).filter(
+        (debt) =>
+          (debt.category_id === categoryId && debt.is_active) ||
+          (debt.id === keptDebt && categoryId === transaction?.category_id),
+      ),
+    [debts.data, categoryId, keptDebt, transaction?.category_id],
+  )
+  useEffect(() => {
+    // A debt of another category cannot be paid from this one: the link is cleared.
+    if (debts.data && debtId !== '' && !payable.some((debt) => debt.id === debtId)) {
+      form.setValue('debtId', '')
+    }
+  }, [debts.data, debtId, payable, form])
   const isExtra = kind === 'extra_income'
   // R-TRANSACTION-091: the categories this date may use, read again whenever it changes.
   const dateInRange = isCalendarDate(date) && range.min <= date && date <= range.max
@@ -200,6 +253,8 @@ function TransactionForm({
         date: values.date,
         categoryId: values.kind === 'extra_income' ? null : values.categoryId,
         description: values.description,
+        // Unchanged for a subscription charge: its link is not this form's.
+        debtId: subscriptionLinked ? undefined : values.debtId || null,
       }
       if (transaction) {
         return update
@@ -254,6 +309,11 @@ function TransactionForm({
           }))}
           description={t(`transactions.kindHelp.${kind}`)}
         />
+        {form.formState.errors.kind && (
+          <p role="alert" className="-mt-3 text-sm text-destructive" data-testid="kind-error">
+            {t('validation.linkedIsExpense')}
+          </p>
+        )}
         <MoneyField
           control={form.control}
           name="amount"
@@ -305,6 +365,37 @@ function TransactionForm({
               </Button>
             </AlertDescription>
           </Alert>
+        )}
+        {transaction?.subscription_id && (
+          <Alert data-testid="charge-note">
+            <RepeatIcon aria-hidden />
+            <AlertDescription>
+              {transaction.charge_date
+                ? transaction.review_state === 'awaiting_confirmation'
+                  ? t('transactions.chargeAwaitingNote', {
+                      name: transaction.subscription_name ?? '',
+                    })
+                  : t('transactions.chargeNote', { name: transaction.subscription_name ?? '' })
+                : t('transactions.subscriptionNote', {
+                    name: transaction.subscription_name ?? '',
+                  })}
+            </AlertDescription>
+          </Alert>
+        )}
+        {!subscriptionLinked && (kind === 'expense' || debtId !== '') && payable.length > 0 && (
+          <SelectField
+            control={form.control}
+            name="debtId"
+            label={t('transactions.fields.debt')}
+            description={t('transactions.fields.debtHelp')}
+            options={[
+              { value: '', label: t('transactions.fields.noDebt') },
+              ...payable.map((debt) => ({
+                value: debt.id,
+                label: t('transactions.fields.paymentOn', { name: debt.name }),
+              })),
+            ]}
+          />
         )}
         <TextField
           control={form.control}

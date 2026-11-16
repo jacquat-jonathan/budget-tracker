@@ -42,6 +42,7 @@ export function periodRow(
     spent_total: 0,
     left_to_assign: 650_000,
     result: 650_000,
+    committed_total: 0,
     ...overrides,
   }
 }
@@ -128,6 +129,8 @@ export function categoryRow(
     terms_from_seq: 1,
     has_transactions: true,
     removal_deletes: false,
+    committed_amount: 0,
+    in_use: false,
     revision: 1,
     created_at: '2026-10-01T10:00:00+00:00',
     updated_at: '2026-10-01T10:00:00+00:00',
@@ -155,6 +158,12 @@ export function transactionRow(
     revision: 1,
     created_at: '2026-11-08T10:00:00+00:00',
     updated_at: '2026-11-08T10:00:00+00:00',
+    subscription_id: null,
+    subscription_name: null,
+    debt_id: null,
+    debt_name: null,
+    charge_date: null,
+    review_state: 'confirmed',
     ...overrides,
   }
 }

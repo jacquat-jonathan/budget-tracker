@@ -1,7 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
-import { unwrap } from '@/features/budgets/budget-queries'
+import { unwrap, useCurrentPeriod, usePeriods } from '@/features/budgets/budget-queries'
 import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
@@ -9,6 +10,23 @@ export type Transaction = Tables<'transaction_list'>
 export type TransactionKind = Database['public']['Enums']['transaction_kind']
 
 export const TRANSACTION_KINDS: readonly TransactionKind[] = ['expense', 'refund', 'extra_income']
+
+/**
+ * R-TRANSACTION-090: the dates a transaction may take, from the first period's start to today,
+ * not after an ended budget's last day (null until the periods are known), and the database's
+ * today. For forms opened outside the transactions page (a debt payment).
+ */
+export function useTransactionDateRange(budgetId: string) {
+  const periods = usePeriods(budgetId)
+  const current = useCurrentPeriod(budgetId)
+  const list = periods.data
+  const today = current.data?.today ?? list?.[0]?.today ?? null
+  const min = list?.at(-1)?.start_date
+  const lastEnd = list?.[0]?.end_date
+  const max = lastEnd && today ? (today < lastEnd ? today : lastEnd) : undefined
+  const range = useMemo(() => (min && max ? { min, max } : null), [min, max])
+  return { range, today, ended: current.data === null }
+}
 
 /** Page size of the transaction list (the contract allows 1 to 200). */
 export const TRANSACTION_PAGE_SIZE = 50

@@ -19,6 +19,12 @@ export const paths = {
   resetPassword: '/reset-password',
 } as const
 
+/** One debt's page: its evolution, history and actions. */
+export const debtRoute = `${paths.debts}/:debtId`
+export function debtPath(debtId: string): string {
+  return `${paths.debts}/${encodeURIComponent(debtId)}`
+}
+
 /** Location state carried to the sign-in page so the user lands where they wanted to go. */
 export interface RedirectState {
   from?: string

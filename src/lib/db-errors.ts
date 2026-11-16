@@ -58,6 +58,23 @@ export const DB_ERROR_CODES = [
   'category_limit_reached',
   'transaction_limit_reached',
   'category_not_ended',
+  'category_in_use',
+  // Step 4
+  'subscription_not_found',
+  'debt_not_found',
+  'adjustment_not_found',
+  'subscription_ended',
+  'debt_ended',
+  'invalid_charge_date',
+  'invalid_interest_rate',
+  'invalid_link',
+  'debt_not_in_force',
+  'subscription_not_in_force',
+  'not_a_charge',
+  'debt_has_history',
+  'subscription_limit_reached',
+  'debt_limit_reached',
+  'adjustment_limit_reached',
 ] as const
 
 export type DbErrorCode = (typeof DB_ERROR_CODES)[number]
@@ -78,6 +95,9 @@ export const NOT_FOUND_CODES: readonly DbErrorCode[] = [
   'invitation_not_found',
   'category_not_found',
   'transaction_not_found',
+  'subscription_not_found',
+  'debt_not_found',
+  'adjustment_not_found',
 ]
 
 /** An error the client raises itself in the database's terms, e.g. a write that hit 0 rows. */

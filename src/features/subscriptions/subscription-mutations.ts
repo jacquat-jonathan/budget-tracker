@@ -1,0 +1,181 @@
+import { useTranslation } from 'react-i18next'
+
+import { budgetKeys } from '@/features/budgets/budget-keys'
+import { unwrap } from '@/features/budgets/budget-queries'
+import type {
+  Subscription,
+  SubscriptionCadence,
+} from '@/features/subscriptions/subscription-queries'
+import type { Transaction } from '@/features/transactions/transaction-queries'
+import { useAppMutation } from '@/hooks/use-app-mutation'
+import { formatMoney } from '@/lib/money'
+import { supabase } from '@/lib/supabase'
+
+// A subscription moves committed figures, charges (transactions), totals and progress:
+// refetch everything of the budget.
+const affected = (budgetId: string) => [budgetKeys.budget(budgetId)]
+
+export interface CreateSubscriptionInput {
+  name: string
+  price: number
+  cadence: SubscriptionCadence
+  categoryId: string
+  firstChargeDate: string
+  /** An earlier period it counts from (an explicit correction); the current one when null. */
+  fromPeriodId: string | null
+}
+
+export function useCreateSubscription(budgetId: string, options: { onDone: () => void }) {
+  const { t } = useTranslation()
+  return useAppMutation<string, CreateSubscriptionInput>({
+    errorDisplay: 'inline',
+    mutationFn: async (input) => {
+      const rows = unwrap(
+        await supabase.rpc('create_subscription', {
+          p_budget_id: budgetId,
+          p_name: input.name,
+          p_price: input.price,
+          p_cadence: input.cadence,
+          p_category_id: input.categoryId,
+          p_first_charge_date: input.firstChargeDate,
+          ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
+        }),
+      )
+      return rows[0]?.id ?? ''
+    },
+    success: (_row, input) => t('subscriptions.created', { name: input.name }),
+    onSuccess: () => options.onDone(),
+    invalidate: () => affected(budgetId),
+  })
+}
+
+export interface UpdateSubscriptionInput {
+  /** The version the form saves over (useEditBase). */
+  subscription: Subscription
+  name: string
+  price: number
+  cadence: SubscriptionCadence
+  categoryId: string
+  /** A new next charge date (after today, or any date for a correction); null keeps the schedule. */
+  nextChargeDate: string | null
+  /** An explicit correction from an earlier period; the current period when null. */
+  fromPeriodId: string | null
+}
+
+/**
+ * One edit: rename and/or new terms. Only what changed is sent, except that price, cadence
+ * and the next charge date form one group: when any of them changed, the group is sent whole,
+ * as the form shows it, so a save never combines one member's price with another's cadence.
+ * A correction always sends the terms. Returns false when there was nothing to save.
+ */
+// R-SUBSCRIPTION-122: price, cadence and schedule are saved together.
+export function useUpdateSubscription(budgetId: string, options: { onDone: () => void }) {
+  const { t } = useTranslation()
+  return useAppMutation<boolean, UpdateSubscriptionInput>({
+    errorDisplay: 'inline',
+    mutationFn: async (input) => {
+      const { subscription } = input
+      const correcting = input.fromPeriodId !== null
+      const renamed = input.name !== subscription.name
+      const terms =
+        correcting ||
+        input.price !== subscription.price ||
+        input.cadence !== subscription.cadence ||
+        input.nextChargeDate !== null
+      const category = correcting || input.categoryId !== subscription.category_id
+      if (!renamed && !terms && !category) return false
+      unwrap(
+        await supabase.rpc('update_subscription', {
+          p_subscription_id: subscription.id,
+          p_expected_revision: subscription.revision,
+          ...(renamed ? { p_name: input.name } : {}),
+          ...(terms ? { p_price: input.price, p_cadence: input.cadence } : {}),
+          ...(terms && input.nextChargeDate ? { p_next_charge_date: input.nextChargeDate } : {}),
+          ...(category ? { p_category_id: input.categoryId } : {}),
+          ...(correcting && input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
+        }),
+      )
+      return true
+    },
+    success: (saved, input) => (saved ? t('subscriptions.saved', { name: input.name }) : ''),
+    onSuccess: () => options.onDone(),
+    invalidate: () => affected(budgetId),
+  })
+}
+
+export interface EndSubscriptionInput {
+  subscription: Subscription
+  revision: number
+  /** An explicit correction from an earlier period; the current period when null. */
+  fromPeriodId: string | null
+}
+
+export function useEndSubscription(budgetId: string) {
+  const { t } = useTranslation()
+  return useAppMutation<string, EndSubscriptionInput>({
+    errorDisplay: 'inline',
+    mutationFn: async ({ subscription, revision, fromPeriodId }) =>
+      unwrap(
+        await supabase.rpc('end_subscription', {
+          p_subscription_id: subscription.id,
+          p_expected_revision: revision,
+          ...(fromPeriodId ? { p_from_period_id: fromPeriodId } : {}),
+        }),
+      ),
+    success: (outcome, { subscription }) =>
+      outcome === 'deleted'
+        ? t('subscriptions.deleted', { name: subscription.name })
+        : t('subscriptions.ended', { name: subscription.name }),
+    invalidate: () => affected(budgetId),
+  })
+}
+
+/**
+ * Answers to an automatic charge (R-SUBSCRIPTION-075, R-SUBSCRIPTION-077), with the
+ * transaction's revision. When another member answered first (record_changed, or the charge is
+ * gone), the list is read again and the message says so; nothing is sent again.
+ */
+export function useAnswerCharge(budgetId: string) {
+  const { t } = useTranslation()
+  const answeredElsewhere = {
+    record_changed: 'charges.answeredElsewhere',
+    transaction_not_found: 'charges.answeredElsewhere',
+  } as const
+  const confirm = useAppMutation<null, Transaction>({
+    mutationFn: async (charge) => {
+      unwrap(
+        await supabase.rpc('confirm_subscription_charge', {
+          p_transaction_id: charge.id,
+          p_expected_revision: charge.revision,
+        }),
+      )
+      return null
+    },
+    success: (_data, charge) =>
+      t('charges.confirmed', {
+        name: charge.subscription_name ?? '',
+        amount: formatMoney(charge.amount),
+      }),
+    errorMessages: answeredElsewhere,
+    invalidate: () => affected(budgetId),
+  })
+  const dismiss = useAppMutation<null, Transaction>({
+    mutationFn: async (charge) => {
+      unwrap(
+        await supabase.rpc('dismiss_subscription_charge', {
+          p_transaction_id: charge.id,
+          p_expected_revision: charge.revision,
+        }),
+      )
+      return null
+    },
+    success: (_data, charge) =>
+      t('charges.dismissed', {
+        name: charge.subscription_name ?? '',
+        amount: formatMoney(charge.amount),
+      }),
+    errorMessages: answeredElsewhere,
+    invalidate: () => affected(budgetId),
+  })
+  return { confirm, dismiss }
+}

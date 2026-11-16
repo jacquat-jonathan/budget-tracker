@@ -32,9 +32,9 @@ describe('protected routes', () => {
 
   it('render the app shell for a signed-in user [R-APP-001]', async () => {
     mock.current = createSupabaseMock(fakeSession())
-    renderRoutes(routes, '/debts')
+    renderRoutes(routes, '/money-flow')
 
-    expect(await screen.findByRole('heading', { name: 'Debts' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Money flow' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
     expect(screen.getByText('Coming soon')).toBeInTheDocument()
   })

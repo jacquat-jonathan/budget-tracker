@@ -1,16 +1,22 @@
 import {
   ArrowLeftRightIcon,
+  BellRingIcon,
   CalendarOffIcon,
+  CheckIcon,
   EllipsisVerticalIcon,
   PencilIcon,
   PlusIcon,
+  RepeatIcon,
   Trash2Icon,
+  XIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { useAnswerCharge } from '@/features/subscriptions/subscription-mutations'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -28,6 +34,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
@@ -68,6 +75,7 @@ type DialogState =
   | { kind: 'add' }
   | { kind: 'edit'; transaction: Transaction }
   | { kind: 'delete'; transaction: Transaction }
+  | { kind: 'dismiss'; transaction: Transaction }
 
 const ALL = 'all'
 
@@ -87,6 +95,7 @@ export function TransactionsPage() {
   const [params, setParams] = useSearchParams()
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
+  const charges = useAnswerCharge(budgetId)
 
   const periodList = periods.data
   // The current period by default; once the budget has ended, its last period.
@@ -216,6 +225,10 @@ export function TransactionsPage() {
           rows={rows}
           onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
           onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
+          onAnswer={(transaction, answer) => {
+            if (answer === 'confirm') charges.confirm.mutate(transaction)
+            else setDialog({ kind: 'dismiss', transaction })
+          }}
         />
       )}
       {list.hasNextPage && (
@@ -246,6 +259,39 @@ export function TransactionsPage() {
         budgetId={budgetId}
         transaction={dialog.kind === 'delete' ? dialog.transaction : null}
         onClose={close}
+      />
+      <ConfirmDialog
+        open={dialog.kind === 'dismiss'}
+        onOpenChange={(open) => {
+          if (!open) close()
+        }}
+        title={t('charges.dismissTitle')}
+        description={
+          dialog.kind === 'dismiss' ? (
+            <>
+              <p>
+                {t('charges.dismissDescription', {
+                  what: t('charges.what', {
+                    name: dialog.transaction.subscription_name ?? '',
+                    amount: formatMoney(dialog.transaction.amount),
+                    date: formatCalendarDate(
+                      dialog.transaction.charge_date ?? dialog.transaction.date,
+                    ),
+                  }),
+                })}
+              </p>
+              <p>{t('charges.dismissNever')}</p>
+            </>
+          ) : null
+        }
+        confirmLabel={t('charges.dismissConfirm')}
+        destructive
+        pending={charges.dismiss.isPending}
+        onConfirm={() => {
+          if (dialog.kind === 'dismiss') {
+            charges.dismiss.mutate(dialog.transaction, { onSettled: close })
+          }
+        }}
       />
     </div>
   )
@@ -388,10 +434,12 @@ function TransactionList({
   rows,
   onEdit,
   onDelete,
+  onAnswer,
 }: {
   rows: Transaction[]
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
+  onAnswer: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
 }) {
   const { t, i18n } = useTranslation()
   const days: { date: string; items: Transaction[] }[] = []
@@ -412,7 +460,13 @@ function TransactionList({
           </h2>
           <ul className="flex flex-col divide-y rounded-xl border bg-card">
             {day.items.map((row) => (
-              <TransactionRow key={row.id} row={row} onEdit={onEdit} onDelete={onDelete} />
+              <TransactionRow
+                key={row.id}
+                row={row}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onAnswer={onAnswer}
+              />
             ))}
           </ul>
         </section>
@@ -422,14 +476,64 @@ function TransactionList({
   )
 }
 
+/** A debt payment or a subscription charge, and whether it awaits confirmation. */
+// R-SUBSCRIPTION-123: automatic charges and those awaiting confirmation are marked, in words.
+function LinkBadges({ row }: { row: Transaction }) {
+  const { t } = useTranslation()
+  if (row.review_state === 'awaiting_confirmation') {
+    return (
+      <Badge
+        variant="outline"
+        className="shrink-0 border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+        data-testid="awaiting-confirmation"
+      >
+        <BellRingIcon aria-hidden />
+        <span className="max-sm:sr-only">{t('transactions.awaiting')}</span>
+        <span className="sm:hidden" aria-hidden>
+          {t('transactions.awaitingShort')}
+        </span>
+      </Badge>
+    )
+  }
+  if (row.charge_date) {
+    return (
+      <Badge variant="secondary" className="hidden shrink-0 sm:inline-flex" data-testid="automatic">
+        <RepeatIcon aria-hidden />
+        {t('transactions.automatic')}
+      </Badge>
+    )
+  }
+  return null
+}
+
+function LinkNote({ row }: { row: Transaction }) {
+  const { t } = useTranslation()
+  if (row.debt_name) {
+    return <>{t('transactions.paymentOnNote', { name: row.debt_name })} · </>
+  }
+  if (row.subscription_name) {
+    return (
+      <>
+        {row.charge_date
+          ? t('transactions.automaticOf', { name: row.subscription_name })
+          : t('transactions.subscriptionOf', { name: row.subscription_name })}
+        {' · '}
+      </>
+    )
+  }
+  return null
+}
+
 function TransactionRow({
   row,
   onEdit,
   onDelete,
+  onAnswer,
 }: {
   row: Transaction
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
+  onAnswer?: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
 }) {
   const { t } = useTranslation()
   const incoming = row.kind !== 'expense'
@@ -450,11 +554,13 @@ function TransactionRow({
               {t('transactions.kind.refund')}
             </Badge>
           )}
+          <LinkBadges row={row} />
         </div>
         <span className="truncate text-xs text-muted-foreground">
           {row.kind === 'refund' && (
             <span className="sm:hidden">{t('transactions.kind.refund')} · </span>
           )}
+          <LinkNote row={row} />
           {row.description ? what : null}
           {row.description && row.recorded_by_name ? ' · ' : null}
           {row.recorded_by_name
@@ -483,6 +589,19 @@ function TransactionRow({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {row.review_state === 'awaiting_confirmation' && onAnswer && (
+            <>
+              <DropdownMenuItem onSelect={() => onAnswer(row, 'confirm')}>
+                <CheckIcon />
+                {t('charges.wentThrough')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onAnswer(row, 'dismiss')}>
+                <XIcon />
+                {t('charges.didNot')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onSelect={() => onEdit(row)}>
             <PencilIcon />
             {t('transactions.edit')}

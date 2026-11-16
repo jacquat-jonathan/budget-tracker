@@ -40,6 +40,12 @@ export default defineConfig([
       'react-hooks/purity': 'off',
       'react-hooks/set-state-in-effect': 'off',
       '@typescript-eslint/no-confusing-void-expression': 'off',
+      // chart.tsx as the shadcn CLI writes it (Recharts' loosely typed payloads).
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
     },
   },
   {

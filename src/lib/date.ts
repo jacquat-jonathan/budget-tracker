@@ -110,6 +110,18 @@ function dayNumber(value: string): number {
 }
 
 /**
+ * A calendar date as a day number (days since 1970-01-01), and back: a time-zone-free axis
+ * for charts, where dates must be spaced by the days between them.
+ */
+export function calendarDayNumber(value: string): number {
+  return dayNumber(value)
+}
+
+export function fromCalendarDayNumber(day: number): string {
+  return addDays('1970-01-01', Math.round(day))
+}
+
+/**
  * Calendar date arithmetic, with no time zone involved: "2026-03-28" + 2 -> "2026-03-30",
  * also across a change to summer time.
  */

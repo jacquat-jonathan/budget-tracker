@@ -667,8 +667,15 @@ function useReopenPreview(budgetId: string, enabled: boolean) {
   })
 }
 
-const KNOWN_KINDS = ['income', 'category'] as const
-const KNOWN_CHANGES = ['added', 'ended', 'removed', 'terms_changed', 'made_primary'] as const
+const KNOWN_KINDS = ['income', 'category', 'subscription', 'debt'] as const
+const KNOWN_CHANGES = [
+  'added',
+  'ended',
+  'removed',
+  'terms_changed',
+  'made_primary',
+  'interest_removed',
+] as const
 /** A category's changes have their own words (its expectation, "in use" rather than "count"). */
 const CATEGORY_CHANGES = ['added', 'ended', 'removed', 'terms_changed'] as const
 
@@ -720,9 +727,13 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
               ? t(
                   `periods.reopen.categoryChanges.${item.change as (typeof CATEGORY_CHANGES)[number]}`,
                 )
-              : (KNOWN_CHANGES as readonly string[]).includes(item.change)
-                ? t(`periods.reopen.changes.${item.change as (typeof KNOWN_CHANGES)[number]}`)
-                : t('periods.reopen.changes.other')
+              : (item.record_kind === 'subscription' || item.record_kind === 'debt') &&
+                  item.change === 'removed'
+                ? // Kept without being in force when it has charges, payments or adjustments.
+                  t(`periods.reopen.removedKept.${item.record_kind}`)
+                : (KNOWN_CHANGES as readonly string[]).includes(item.change)
+                  ? t(`periods.reopen.changes.${item.change as (typeof KNOWN_CHANGES)[number]}`)
+                  : t('periods.reopen.changes.other')
           return (
             <li key={`${item.record_kind}-${item.record_id}-${item.change}`}>
               {t('periods.reopen.item', { kind, change })}

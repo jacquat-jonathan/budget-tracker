@@ -1,4 +1,5 @@
 import type { Translation } from '@/locales/en/translation'
+import { chargesFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
 
 // French typography: a narrow no-break space (U+202F) precedes ? ! : and ;.
 export const fr: Translation = {
@@ -97,6 +98,11 @@ export const fr: Translation = {
     dateOutsidePeriods: 'Choisissez une date dans la plage indiquée sous le champ.',
     descriptionTooLong: 'Utilisez au plus 500 caractères.',
     categoryRequired: 'Choisissez une catégorie.',
+    nextChargeAfterToday:
+      'Un nouveau prochain prélèvement doit être après aujourd’hui (ou cochez la correction d’une période antérieure).',
+    interestRate: 'Saisissez un taux de 0 à 100, avec au plus trois décimales, par exemple 4.875.',
+    linkedIsExpense:
+      'Un remboursement de dette ou un prélèvement d’abonnement est une dépense. Retirez d’abord le lien pour en faire un remboursement reçu ou un revenu.',
   },
   auth: {
     signIn: {
@@ -276,6 +282,31 @@ export const fr: Translation = {
       transaction_limit_reached:
         'Ce budget contient déjà 50 000 transactions, le maximum possible.',
       category_not_ended: 'Cette catégorie n’a pas pris fin : il n’y a rien à restaurer.',
+      category_in_use:
+        'Un abonnement ou une dette utilise encore cette catégorie. Terminez-le ou déplacez-le d’abord dans une autre catégorie.',
+      subscription_not_found: 'Cet abonnement n’existe plus.',
+      debt_not_found: 'Cette dette n’existe plus.',
+      adjustment_not_found: 'Cet ajustement de solde n’existe plus.',
+      subscription_ended: 'Cet abonnement est terminé (pour cette période).',
+      debt_ended: 'Cette dette est terminée (pour cette période).',
+      invalid_charge_date:
+        'Saisissez une date de prélèvement valide, au plus dix ans à l’avance ; un nouveau prochain prélèvement doit être après aujourd’hui.',
+      invalid_interest_rate:
+        'Le taux d’intérêt doit être compris entre 0 et 100 %, avec au plus trois décimales.',
+      invalid_link:
+        'Seule une dépense peut être un remboursement de dette ou un prélèvement d’abonnement, et un remboursement doit être dans la catégorie de la dette.',
+      debt_not_in_force:
+        'Cette dette n’était pas en cours dans la période de cette date. Choisissez une autre date.',
+      subscription_not_in_force:
+        'Cet abonnement n’était pas en cours dans la période de cette date.',
+      not_a_charge: 'Cette transaction n’est pas un prélèvement automatique d’abonnement.',
+      debt_has_history:
+        'Cette dette a déjà des remboursements, des intérêts ou des ajustements : son montant de départ ne peut plus changer. Ajustez plutôt son solde.',
+      subscription_limit_reached:
+        'Ce budget contient déjà le maximum d’abonnements (50 en cours, ou 200 au total).',
+      debt_limit_reached:
+        'Ce budget contient déjà le maximum de dettes (50 en cours, ou 200 au total).',
+      adjustment_limit_reached: 'Ce budget contient déjà 5000 ajustements de solde, le maximum.',
       income_limit_reached:
         'Ce budget compte déjà le maximum de revenus autorisé (50 en vigueur, ou 500 au total).',
     },
@@ -718,6 +749,14 @@ export const fr: Translation = {
       overAssignedHint:
         'Vous prévoyez plus que vos revenus. C’est permis : baissez certains montants si vous voulez que cela tienne.',
     },
+    committedNote: 'dont {{amount}} engagés en abonnements',
+    inUse: {
+      title: 'Encore utilisée',
+      description:
+        'Un abonnement ou une dette en cours utilise cette catégorie (ou une de ses sous-catégories). Terminez-le ou déplacez-le dans une autre catégorie avant de retirer la catégorie.',
+      subscription: 'Abonnement « {{name}} »',
+      debt: 'Dette « {{name}} »',
+    },
   },
   transactions: {
     add: 'Ajouter une transaction',
@@ -791,6 +830,10 @@ export const fr: Translation = {
         'Aucune catégorie n’était prévue dans la période de cette date. Ajoutez-en une sur la page Budget, ou choisissez une autre date.',
       description: 'Note (facultative)',
       descriptionPlaceholder: 'Migros, pharmacie, billet de train…',
+      debt: 'Remboursement de dette',
+      debtHelp: 'Un remboursement diminue ce qui reste dû sur la dette.',
+      noDebt: 'Pas un remboursement de dette',
+      paymentOn: 'C’est un remboursement de {{name}}',
     },
     filters: {
       label: 'Filtrer les transactions',
@@ -804,6 +847,18 @@ export const fr: Translation = {
       kind: 'Type',
       allKinds: 'Tous les types',
     },
+    paymentTitle: 'Enregistrer un remboursement',
+    paymentDescription: 'Une dépense dans la catégorie de la dette : elle diminue ce qui reste dû.',
+    awaiting: 'À confirmer',
+    awaitingShort: 'À confirmer',
+    automatic: 'Automatique',
+    paymentOnNote: 'Remboursement de {{name}}',
+    automaticOf: 'Prélèvement automatique de {{name}}',
+    subscriptionOf: 'Prélèvement de {{name}}',
+    chargeAwaitingNote:
+      'Un prélèvement automatique de « {{name}} », à confirmer. Le modifier ne le confirme pas.',
+    chargeNote: 'Un prélèvement automatique de « {{name}} ».',
+    subscriptionNote: 'Un prélèvement de l’abonnement « {{name}} ».',
   },
   progress: {
     title: 'Avancement de la période',
@@ -835,6 +890,7 @@ export const fr: Translation = {
     emptyHelp:
       'Prévoyez vos dépenses par catégorie sur la page Budget, puis enregistrez vos transactions.',
     toBudget: 'Aller au budget',
+    committed: 'dont {{amount}} engagés',
   },
   periods: {
     description:
@@ -929,6 +985,8 @@ export const fr: Translation = {
         income: 'Revenu « {{name}} »',
         category: 'Catégorie « {{name}} »',
         other: '« {{name}} »',
+        subscription: 'Abonnement « {{name}} »',
+        debt: 'Dette « {{name}} »',
       },
       changes: {
         added: 'ajouté dans cette période, il comptera dès la période rouverte.',
@@ -937,6 +995,8 @@ export const fr: Translation = {
         terms_changed: 'ses nouvelles conditions s’appliqueront à la période rouverte.',
         made_primary: 'il devient le revenu principal dès la période rouverte.',
         other: 'ce changement passera à la période rouverte.',
+        interest_removed:
+          'les intérêts ajoutés au début de cette période sont retirés ; ils sont ajoutés de nouveau, une fois, quand la période recommence.',
       },
       categoryChanges: {
         added: 'ajoutée dans cette période, elle sera prévue à partir de la période rouverte.',
@@ -949,6 +1009,11 @@ export const fr: Translation = {
       replaces: 'Il remplace ce que la période rouverte avait pour lui.',
       datesOnly:
         'Enregistrer de nouveau ce salaire plus tard (« Le salaire est arrivé en avance ») rétablit seulement les dates, pas ces changements.',
+      removedKept: {
+        subscription:
+          'il disparaîtra : il ne serait jamais en cours. S’il a des prélèvements, il est conservé sans être en cours et ils continuent de compter dans la période rouverte.',
+        debt: 'elle disparaîtra : elle ne serait jamais en cours. Si elle a des remboursements ou des ajustements, elle est conservée sans être en cours, avec eux.',
+      },
     },
     preview: {
       expected:
@@ -1022,6 +1087,9 @@ export const fr: Translation = {
       saved: 'Nom affiché enregistré.',
     },
   },
+  subscriptions: subscriptionsFr,
+  charges: chargesFr,
+  debts: debtsFr,
   ui: {
     close: 'Fermer',
     more: 'Plus',

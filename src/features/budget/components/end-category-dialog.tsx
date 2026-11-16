@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
+import { CategoryInUse } from '@/features/budget/components/category-in-use'
 import { useEndCategory } from '@/features/categories/category-mutations'
 import type { Category } from '@/features/categories/category-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
@@ -113,7 +114,9 @@ function EndCategoryBody({
   const keptVoid =
     !correct && !deletes && currentPeriod !== null && category.first_seq >= currentPeriod.seq
   const from = currentPeriod ? formatCalendarDate(currentPeriod.start_date) : null
-  const blocked = removal.changed || removal.gone
+  // A removal from now is refused while a subscription or debt in force uses it.
+  const inUse = !correct && category.in_use === true
+  const blocked = removal.changed || removal.gone || inUse
 
   return (
     <>
@@ -192,6 +195,9 @@ function EndCategoryBody({
             </>
           )}
         </div>
+      )}
+      {inUse && (
+        <CategoryInUse budgetId={budgetId} category={category} subcategories={subcategories} />
       )}
       {removal.gone && <GoneElsewhere />}
       {removal.changed && (

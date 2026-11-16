@@ -40,6 +40,8 @@ interface ProgressRow {
   is_overspent: boolean
   transaction_count: number
   display_order: number
+  /** The subscriptions' monthly costs inside `expected` (never added to it). */
+  committed: number
 }
 
 function readRow(row: ProgressRowRead): ProgressRow {
@@ -57,6 +59,7 @@ function readRow(row: ProgressRowRead): ProgressRow {
     is_overspent: row.is_overspent === true,
     transaction_count: row.transaction_count ?? 0,
     display_order: row.display_order ?? 0,
+    committed: row.committed ?? 0,
   }
 }
 
@@ -198,9 +201,16 @@ function Totals({ period }: { period: PeriodSummary }) {
         label={t('progress.expected')}
         amount={period.expected_total ?? 0}
         hint={
-          left < 0
-            ? t('progress.overAssigned', { amount: formatMoney(-left) })
-            : t('progress.leftToAssign', { amount: formatMoney(left) })
+          <>
+            {left < 0
+              ? t('progress.overAssigned', { amount: formatMoney(-left) })
+              : t('progress.leftToAssign', { amount: formatMoney(left) })}
+            {(period.committed_total ?? 0) > 0 && (
+              <span className="block" data-testid="progress-committed">
+                {t('progress.committed', { amount: formatMoney(period.committed_total ?? 0) })}
+              </span>
+            )}
+          </>
         }
       />
       <MoneyStat label={t('progress.spent')} amount={period.spent_total ?? 0} />
@@ -343,6 +353,12 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
             expected: formatMoney(row.expected),
           })}
         </span>
+        {row.committed > 0 && (
+          // R-PROGRESS-120: the subscriptions' share of the plan, inside it.
+          <span className="text-xs text-muted-foreground tabular-nums" data-testid="row-committed">
+            {t('progress.committed', { amount: formatMoney(row.committed) })}
+          </span>
+        )}
       </div>
       <span
         role="cell"

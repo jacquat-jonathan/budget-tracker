@@ -1,3 +1,5 @@
+import { chargesEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
+
 export const en = {
   app: {
     name: 'Budget Tracker',
@@ -88,6 +90,11 @@ export const en = {
     dateOutsidePeriods: 'Choose a date within the range shown under the field.',
     descriptionTooLong: 'Use at most 500 characters.',
     categoryRequired: 'Choose a category.',
+    nextChargeAfterToday:
+      'A new next charge must be after today (or tick the correction of an earlier period).',
+    interestRate: 'Enter a rate from 0 to 100, with at most three decimals, such as 4.875.',
+    linkedIsExpense:
+      'A debt payment or a subscription charge is an expense. Remove the link first to make it a refund or an income.',
   },
   auth: {
     signIn: {
@@ -263,6 +270,31 @@ export const en = {
       transaction_limit_reached:
         'This budget already holds 50 000 transactions, the most it can hold.',
       category_not_ended: 'This category has not ended, so there is nothing to restore.',
+      category_in_use:
+        'A subscription or a debt still uses this category. End it, or move it to another category, first.',
+      subscription_not_found: 'This subscription no longer exists.',
+      debt_not_found: 'This debt no longer exists.',
+      adjustment_not_found: 'This balance adjustment no longer exists.',
+      subscription_ended: 'This subscription has ended (for that period).',
+      debt_ended: 'This debt has ended (for that period).',
+      invalid_charge_date:
+        'Enter a valid charge date, at most ten years ahead; a new next charge must be after today.',
+      invalid_interest_rate:
+        'The interest rate must be between 0 and 100 %, with at most three decimals.',
+      invalid_link:
+        'Only an expense can be a debt payment or a subscription charge, and a debt payment must be in the debt’s category.',
+      debt_not_in_force:
+        'This debt was not in force in the period of this date. Choose another date.',
+      subscription_not_in_force: 'This subscription was not in force in the period of this date.',
+      not_a_charge: 'This transaction is not an automatic subscription charge.',
+      debt_has_history:
+        'This debt already has payments, interest or adjustments, so its starting amount cannot change: adjust its balance instead.',
+      subscription_limit_reached:
+        'This budget already has the most subscriptions it can hold (50 in force, or 200 in all).',
+      debt_limit_reached:
+        'This budget already has the most debts it can hold (50 in force, or 200 in all).',
+      adjustment_limit_reached:
+        'This budget already holds 5000 balance adjustments, the most it can hold.',
     },
   },
   concurrent: {
@@ -680,6 +712,14 @@ export const en = {
       overAssignedHint:
         'You plan more than the income. This is allowed: lower some amounts if you want it to fit.',
     },
+    committedNote: 'of which {{amount}} committed to subscriptions',
+    inUse: {
+      title: 'Still in use',
+      description:
+        'A subscription or a debt in force uses this category (or one of its subcategories). End it, or move it to another category, before removing the category.',
+      subscription: 'Subscription “{{name}}”',
+      debt: 'Debt “{{name}}”',
+    },
   },
   transactions: {
     add: 'Add transaction',
@@ -750,6 +790,10 @@ export const en = {
         'No category was planned in the period of this date. Add one on the Budget page, or choose another date.',
       description: 'Note (optional)',
       descriptionPlaceholder: 'Migros, pharmacy, train ticket…',
+      debt: 'Debt payment',
+      debtHelp: 'A payment lowers what remains of the debt.',
+      noDebt: 'Not a debt payment',
+      paymentOn: 'This is a payment on {{name}}',
     },
     filters: {
       label: 'Filter the transactions',
@@ -763,6 +807,18 @@ export const en = {
       kind: 'Kind',
       allKinds: 'All kinds',
     },
+    paymentTitle: 'Record a payment',
+    paymentDescription: 'An expense in the debt’s category: it lowers what remains.',
+    awaiting: 'Awaiting confirmation',
+    awaitingShort: 'To confirm',
+    automatic: 'Automatic',
+    paymentOnNote: 'Payment on {{name}}',
+    automaticOf: 'Automatic charge of {{name}}',
+    subscriptionOf: 'Charge of {{name}}',
+    chargeAwaitingNote:
+      'An automatic charge of “{{name}}”, awaiting confirmation. Editing it does not confirm it.',
+    chargeNote: 'An automatic charge of “{{name}}”.',
+    subscriptionNote: 'A charge of the subscription “{{name}}”.',
   },
   progress: {
     title: 'Period progress',
@@ -793,6 +849,7 @@ export const en = {
     empty: 'Nothing planned or spent in this period',
     emptyHelp: 'Plan your spending in categories on the Budget page, then record transactions.',
     toBudget: 'Go to the budget',
+    committed: 'of which {{amount}} committed',
   },
   periods: {
     description:
@@ -885,6 +942,8 @@ export const en = {
         income: 'Income “{{name}}”',
         category: 'Category “{{name}}”',
         other: '“{{name}}”',
+        subscription: 'Subscription “{{name}}”',
+        debt: 'Debt “{{name}}”',
       },
       changes: {
         added: 'added in this period, it will count from the reopened period.',
@@ -893,6 +952,8 @@ export const en = {
         terms_changed: 'its new terms will apply to the reopened period.',
         made_primary: 'it becomes the primary income from the reopened period.',
         other: 'this change will move to the reopened period.',
+        interest_removed:
+          'the interest added when this period started goes; it is added again, once, when the period starts again.',
       },
       categoryChanges: {
         added: 'added in this period, it will be planned from the reopened period.',
@@ -905,6 +966,11 @@ export const en = {
       replaces: 'It replaces what the reopened period had for it.',
       datesOnly:
         'Recording this salary again later (“The salary arrived early”) restores the dates only, not these changes.',
+      removedKept: {
+        subscription:
+          'it will disappear: it would never be in force. If it has charges, it is kept without being in force and they keep counting in the reopened period.',
+        debt: 'it will disappear: it would never be in force. If it has payments or adjustments, it is kept without being in force, with them.',
+      },
     },
     preview: {
       expected:
@@ -972,6 +1038,9 @@ export const en = {
       saved: 'Display name saved.',
     },
   },
+  subscriptions: subscriptionsEn,
+  charges: chargesEn,
+  debts: debtsEn,
   ui: {
     close: 'Close',
     more: 'More',

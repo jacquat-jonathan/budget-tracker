@@ -4,6 +4,7 @@ import { MoneyStat } from '@/components/money-stat'
 import { Card, CardContent } from '@/components/ui/card'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { formatCalendarDate } from '@/lib/date'
+import { formatMoney } from '@/lib/money'
 
 /**
  * The current period's plan: income, total expected and what is left to assign, as the
@@ -33,6 +34,13 @@ export function BudgetTotals({ period }: { period: PeriodSummary }) {
             label={t('categories.totals.expected')}
             amount={period.expected_total ?? 0}
             testId="total-expected"
+            hint={
+              (period.committed_total ?? 0) > 0
+                ? t('categories.committedNote', {
+                    amount: formatMoney(period.committed_total ?? 0),
+                  })
+                : undefined
+            }
           />
           <MoneyStat
             label={left < 0 ? t('categories.totals.overAssigned') : t('categories.totals.left')}

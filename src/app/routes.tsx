@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Outlet, type RouteObject } from 'react-router'
 
 import type { NavKey, PageHandle } from '@/app/navigation'
-import { paths } from '@/app/paths'
+import { debtRoute, paths } from '@/app/paths'
 import { ProtectedRoute, PublicOnlyRoute } from '@/app/route-guards'
 import { FullPageSpinner } from '@/components/full-page-spinner'
 import { AppLayout } from '@/components/layout/app-layout'
@@ -52,6 +52,10 @@ const SubscriptionsPage = lazy(() =>
 )
 const DebtsPage = lazy(() =>
   import('@/features/debts/debts-page').then((m) => ({ default: m.DebtsPage })),
+)
+// The chart library (Recharts) is only in this page's chunk: the first load does not carry it.
+const DebtDetailPage = lazy(() =>
+  import('@/features/debts/debt-detail-page').then((m) => ({ default: m.DebtDetailPage })),
 )
 const PeriodsPage = lazy(() =>
   import('@/features/periods/periods-page').then((m) => ({ default: m.PeriodsPage })),
@@ -129,6 +133,7 @@ export const routes: RouteObject[] = [
                         ...page('subscriptions'),
                       },
                       { path: paths.debts, element: <DebtsPage />, ...page('debts') },
+                      { path: debtRoute, element: <DebtDetailPage />, ...page('debts') },
                       { path: paths.periods, element: <PeriodsPage />, ...page('periods') },
                       {
                         path: paths.moneyFlow,

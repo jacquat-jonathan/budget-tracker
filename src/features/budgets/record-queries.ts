@@ -5,7 +5,12 @@ import { unwrap } from '@/features/budgets/budget-queries'
 import type { Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
-type RecordView = 'income_overview' | 'category_overview' | 'transaction_list'
+type RecordView =
+  | 'income_overview'
+  | 'category_overview'
+  | 'transaction_list'
+  | 'subscription_overview'
+  | 'debt_overview'
 
 /**
  * One editable record read by its id, for an edit form or a removal confirmation: never
@@ -25,7 +30,7 @@ export function useRecord<V extends RecordView>(
     queryFn: async (): Promise<Tables<V> | null> =>
       unwrap(
         await supabase
-          // All three views have budget_id and id; one typed call serves them.
+          // All these views have budget_id and id; one typed call serves them.
           .from(view as 'income_overview')
           .select('*')
           .eq('budget_id', budgetId)

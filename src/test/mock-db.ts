@@ -75,6 +75,14 @@ function emptyTables(): MockTables {
     income_overview: [],
     my_budgets: [],
     period_summaries: [],
+    subscriptions: [],
+    subscription_versions: [],
+    subscription_overview: [],
+    debts: [],
+    debt_versions: [],
+    debt_adjustments: [],
+    debt_interest: [],
+    debt_overview: [],
   }
 }
 
@@ -225,6 +233,25 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         .slice(0, typeof args.p_limit === 'number' ? args.p_limit : 50)
     }),
     get_period_progress: handler(() => []),
+    // Step 4: tests that use these give them their behaviour.
+    link_transaction: handler(() => []),
+    subscription_charge_dates: handler(() => []),
+    create_subscription: handler(() => []),
+    update_subscription: handler(() => []),
+    end_subscription: handler(() => 'ended'),
+    confirm_subscription_charge: handler(() => []),
+    dismiss_subscription_charge: handler(() => null),
+    list_charges_awaiting_confirmation: handler((args) =>
+      db.tables.transaction_list.filter(
+        (row) => row.budget_id === args.p_budget_id && row.review_state === 'awaiting_confirmation',
+      ),
+    ),
+    create_debt: handler(() => []),
+    update_debt: handler(() => []),
+    remove_debt: handler(() => 'ended'),
+    adjust_debt_balance: handler(() => []),
+    delete_debt_adjustment: handler(() => []),
+    get_debt_history: handler(() => []),
   }
 
   return db

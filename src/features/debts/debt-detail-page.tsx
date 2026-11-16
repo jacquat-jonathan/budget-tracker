@@ -1,0 +1,405 @@
+import {
+  ArrowLeftIcon,
+  CalendarOffIcon,
+  EllipsisVerticalIcon,
+  PencilIcon,
+  PlusIcon,
+  ScaleIcon,
+  Trash2Icon,
+} from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Link, useNavigate, useParams } from 'react-router'
+
+import { paths } from '@/app/paths'
+import { CalendarDate } from '@/components/form/calendar-date-field'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { MoneyStat } from '@/components/money-stat'
+import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Progress } from '@/components/ui/progress'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { useCurrentPeriod, usePeriods } from '@/features/budgets/budget-queries'
+import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { AdjustBalanceDialog } from '@/features/debts/components/adjust-balance-dialog'
+import { DebtChart, KindLegendMark } from '@/features/debts/components/debt-chart'
+import { DebtFormDialog } from '@/features/debts/components/debt-form-dialog'
+import { Payoff } from '@/features/debts/components/payoff'
+import { RemoveDebtDialog } from '@/features/debts/components/remove-debt-dialog'
+import { useDeleteAdjustment } from '@/features/debts/debt-mutations'
+import {
+  paidShare,
+  useDebtHistory,
+  useDebtRecord,
+  type Debt,
+  type HistoryEntry,
+} from '@/features/debts/debt-queries'
+import { useCategoryPath } from '@/features/subscriptions/subscription-views'
+import { TransactionFormDialog } from '@/features/transactions/components/transaction-form-dialog'
+import { useTransactionDateRange } from '@/features/transactions/transaction-queries'
+import { formatCalendarDate } from '@/lib/date'
+import { formatInterestRate } from '@/lib/interest-rate'
+import { formatMoney } from '@/lib/money'
+import { cn } from '@/lib/utils'
+
+type DialogState =
+  | { kind: 'closed' }
+  | { kind: 'payment' }
+  | { kind: 'adjust' }
+  | { kind: 'edit' }
+  | { kind: 'remove' }
+  | { kind: 'deleteAdjustment'; entry: HistoryEntry }
+
+/**
+ * One debt: its figures and projection, its evolution as a chart with the history as a table
+ * (its text alternative), and its actions: record a payment, adjust the balance, delete an
+ * adjustment, edit, remove. Every figure is the database's.
+ */
+// R-DEBT-122: the evolution, the history and every action on one debt.
+export function DebtDetailPage() {
+  const { t } = useTranslation()
+  const { debtId = '' } = useParams()
+  const { budgetId } = useCurrentBudget()
+  const debt = useDebtRecord(budgetId, debtId)
+  const history = useDebtHistory(budgetId, debtId)
+  const current = useCurrentPeriod(budgetId)
+  const periods = usePeriods(budgetId)
+  const { range, today, ended } = useTransactionDateRange(budgetId)
+  const path = useCategoryPath()
+  const navigate = useNavigate()
+  const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
+  const close = () => setDialog({ kind: 'closed' })
+  const deleteAdjustment = useDeleteAdjustment(budgetId)
+
+  const back = (
+    <Button asChild variant="ghost" size="sm" className="self-start">
+      <Link to={paths.debts}>
+        <ArrowLeftIcon aria-hidden />
+        {t('debts.backToList')}
+      </Link>
+    </Button>
+  )
+  if (debt === null) {
+    return (
+      <div className="flex flex-col gap-6">
+        {back}
+        <EmptyState title={t('debts.notFound')} description={t('debts.notFoundHelp')} />
+      </div>
+    )
+  }
+  if (debt === undefined || current.data === undefined || !periods.data) {
+    return (
+      <div className="flex flex-col gap-6">
+        {back}
+        <LoadingState rows={4} />
+      </div>
+    )
+  }
+  const inForce = debt.is_active && !ended
+  const share = paidShare(debt)
+
+  return (
+    <div className="flex flex-col gap-6">
+      {back}
+      <PageHeader
+        title={debt.name}
+        description={path(debt.category_name, debt.parent_category_name)}
+        action={
+          <>
+            {inForce && range && (
+              <Button onClick={() => setDialog({ kind: 'payment' })}>
+                <PlusIcon />
+                {t('debts.recordPayment')}
+              </Button>
+            )}
+            {range && (
+              <Button variant="outline" onClick={() => setDialog({ kind: 'adjust' })}>
+                <ScaleIcon />
+                {t('debts.adjust.action')}
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={t('debts.actionsFor', { name: debt.name })}
+                >
+                  <EllipsisVerticalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-48">
+                <DropdownMenuItem onSelect={() => setDialog({ kind: 'edit' })} disabled={!inForce}>
+                  <PencilIcon />
+                  {t('debts.edit')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => setDialog({ kind: 'remove' })}
+                  disabled={!inForce}
+                >
+                  <Trash2Icon />
+                  {t('debts.remove.action')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+      {!debt.is_active && (
+        <Alert>
+          <CalendarOffIcon aria-hidden />
+          <AlertTitle>{t('debts.endedTitleOne')}</AlertTitle>
+          <AlertDescription>{t('debts.endedOneHelp')}</AlertDescription>
+        </Alert>
+      )}
+      <Card>
+        <CardContent className="flex flex-col gap-5">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-4">
+            <MoneyStat
+              label={t('debts.remaining')}
+              amount={debt.remaining}
+              emphasis
+              testId="detail-remaining"
+            />
+            <MoneyStat label={t('debts.paid')} amount={debt.paid_total} />
+            <MoneyStat label={t('debts.interestAdded')} amount={debt.interest_total} />
+            <MoneyStat label={t('debts.adjustments')} amount={debt.adjustment_total} />
+          </dl>
+          <div className="flex flex-col gap-1">
+            <Progress value={share} aria-label={t('debts.paidShare', { percent: share })} />
+            <p className="text-xs text-muted-foreground">
+              {t('debts.principalWas', {
+                amount: formatMoney(debt.principal),
+                date: formatCalendarDate(debt.opened_on),
+              })}
+            </p>
+          </div>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-xs text-muted-foreground">{t('debts.fields.payment')}</dt>
+              <dd className="font-medium tabular-nums">{formatMoney(debt.monthly_payment)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">{t('debts.fields.rate')}</dt>
+              <dd className="font-medium tabular-nums">
+                {debt.interest_rate === 0
+                  ? t('debts.noInterest')
+                  : t('debts.ratePerYear', { rate: formatInterestRate(debt.interest_rate) })}
+              </dd>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <dt className="text-xs text-muted-foreground">{t('debts.projection')}</dt>
+              <dd>
+                <Payoff debt={debt} />
+              </dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2>{t('debts.chart.title')}</h2>
+          </CardTitle>
+          <CardDescription>{t('debts.chart.description')}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {history.isError ? (
+            <ErrorState error={history.error} onRetry={() => void history.refetch()} />
+          ) : !history.data ? (
+            <LoadingState rows={2} />
+          ) : (
+            <>
+              <DebtChart entries={history.data} />
+              <HistoryTable
+                debt={debt}
+                entries={history.data}
+                onDeleteAdjustment={(entry) => {
+                  deleteAdjustment.reset()
+                  setDialog({ kind: 'deleteAdjustment', entry })
+                }}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {range && today && (
+        <TransactionFormDialog
+          budgetId={budgetId}
+          open={dialog.kind === 'payment'}
+          onOpenChange={(open) => {
+            if (!open) close()
+          }}
+          range={range}
+          today={today}
+          ended={ended}
+          prefill={{ categoryId: debt.category_id, debtId: debt.id }}
+        />
+      )}
+      {range && today && (
+        <AdjustBalanceDialog
+          budgetId={budgetId}
+          debt={dialog.kind === 'adjust' ? debt : null}
+          range={range}
+          today={today}
+          onClose={close}
+        />
+      )}
+      <DebtFormDialog
+        budgetId={budgetId}
+        open={dialog.kind === 'edit'}
+        onOpenChange={(open) => {
+          if (!open) close()
+        }}
+        debt={debt}
+        periods={periods.data}
+        currentPeriod={current.data}
+      />
+      <RemoveDebtDialog
+        budgetId={budgetId}
+        debt={dialog.kind === 'remove' ? debt : null}
+        periods={periods.data}
+        currentPeriod={current.data}
+        onClose={close}
+        onRemoved={(outcome) => {
+          if (outcome === 'deleted') void navigate(paths.debts)
+        }}
+      />
+      <ConfirmDialog
+        open={dialog.kind === 'deleteAdjustment'}
+        onOpenChange={(open) => {
+          if (!open) close()
+        }}
+        title={t('debts.adjust.deleteTitle')}
+        description={
+          dialog.kind === 'deleteAdjustment' ? (
+            <p>
+              {t('debts.adjust.deleteDescription', {
+                amount: formatMoney(dialog.entry.amount),
+                date: formatCalendarDate(dialog.entry.date),
+              })}
+            </p>
+          ) : null
+        }
+        confirmLabel={t('debts.adjust.delete')}
+        destructive
+        pending={deleteAdjustment.isPending}
+        error={deleteAdjustment.error}
+        onConfirm={() => {
+          if (dialog.kind !== 'deleteAdjustment') return
+          // The debt's revision, as the contract asks: another change to the debt refuses it.
+          deleteAdjustment.mutate(
+            { adjustmentId: dialog.entry.entry_id, debtRevision: debt.revision },
+            { onSuccess: close },
+          )
+        }}
+      />
+    </div>
+  )
+}
+
+/**
+ * The history, newest first: the chart's text alternative. Payments lead to their
+ * transactions (in their period); adjustments can be deleted.
+ */
+function HistoryTable({
+  debt,
+  entries,
+  onDeleteAdjustment,
+}: {
+  debt: Debt
+  entries: HistoryEntry[]
+  onDeleteAdjustment: (entry: HistoryEntry) => void
+}) {
+  const { t } = useTranslation()
+  const rows = [...entries].reverse()
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium">{t('debts.history.title')}</h3>
+      <Table data-testid="debt-history" aria-label={t('debts.history.label', { name: debt.name })}>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-full">{t('debts.history.entry')}</TableHead>
+            <TableHead className="text-right">{t('debts.history.amount')}</TableHead>
+            <TableHead className="text-right">{t('debts.history.balance')}</TableHead>
+            <TableHead>
+              <span className="sr-only">{t('common.actions')}</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((entry) => (
+            <TableRow key={`${entry.kind}-${entry.entry_id}`} data-testid="history-row">
+              <TableCell className="max-w-0 whitespace-normal">
+                <div className="flex items-center gap-1.5">
+                  <KindLegendMark kind={entry.kind} />
+                  <span className="font-medium">{t(`debts.history.kind.${entry.kind}`)}</span>
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  <CalendarDate value={entry.date} />
+                  {entry.description ? ` · ${entry.description}` : ''}
+                </div>
+              </TableCell>
+              <TableCell
+                className={cn('text-right tabular-nums', entry.amount < 0 && 'text-positive')}
+              >
+                {formatMoney(entry.amount)}
+              </TableCell>
+              <TableCell className="text-right font-medium tabular-nums">
+                {formatMoney(entry.balance)}
+              </TableCell>
+              <TableCell className="pr-0 text-right">
+                {entry.kind === 'payment' && entry.period_id && (
+                  <Button asChild variant="link" size="xs" className="px-0">
+                    <Link
+                      to={`${paths.transactions}?period=${entry.period_id}`}
+                      aria-label={t('debts.history.seePayment', {
+                        amount: formatMoney(-entry.amount),
+                        date: formatCalendarDate(entry.date),
+                      })}
+                    >
+                      {t('debts.history.see')}
+                    </Link>
+                  </Button>
+                )}
+                {entry.kind === 'adjustment' && (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => onDeleteAdjustment(entry)}
+                    aria-label={t('debts.adjust.deleteFor', {
+                      amount: formatMoney(entry.amount),
+                      date: formatCalendarDate(entry.date),
+                    })}
+                  >
+                    <Trash2Icon />
+                  </Button>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}

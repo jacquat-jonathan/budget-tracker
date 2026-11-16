@@ -21,4 +21,9 @@ export const budgetKeys = {
   transactions: (budgetId: string) => ['budget', budgetId, 'transactions'] as const,
   progress: (budgetId: string, periodId: string) =>
     ['budget', budgetId, 'progress', periodId] as const,
+  subscriptions: (budgetId: string) => ['budget', budgetId, 'subscriptions'] as const,
+  awaitingCharges: (budgetId: string) => ['budget', budgetId, 'awaiting-charges'] as const,
+  debts: (budgetId: string) => ['budget', budgetId, 'debts'] as const,
+  debtHistory: (budgetId: string, debtId: string) =>
+    ['budget', budgetId, 'debt-history', debtId] as const,
 }

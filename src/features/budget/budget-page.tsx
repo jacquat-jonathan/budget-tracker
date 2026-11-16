@@ -287,6 +287,14 @@ function CategoryRow({
         {category.is_group && (
           <span className="text-xs text-muted-foreground">{t('categories.groupNote')}</span>
         )}
+        {(category.committed_amount ?? 0) > 0 && (
+          // R-PROGRESS-120: the subscriptions' share, inside the amount, never added to it.
+          <span className="text-xs text-muted-foreground" data-testid="category-committed">
+            {t('categories.committedNote', {
+              amount: formatMoney(category.committed_amount ?? 0),
+            })}
+          </span>
+        )}
       </div>
       <span
         className={cn(
