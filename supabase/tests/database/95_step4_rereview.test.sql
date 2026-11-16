@@ -36,6 +36,11 @@ select count(*) from public.import_transactions(tests.id('o'), tests.id('o_batch
 select tests.remember('o_rule', (select rule_id from public.create_merchant_rule(tests.id('o'), 'shop', tests.id('o_cat'))));
 create temp table o_token on commit drop as select token from public.create_import_token(tests.id('o'), 'Script');
 grant select on o_token to authenticated;
+-- step 7: two accounts and a planned transfer between them
+select tests.remember('o_acc1', (select id from public.create_account(tests.id('o'), 'A', 'current')));
+select tests.remember('o_acc2', (select id from public.create_account(tests.id('o'), 'B', 'savings')));
+select tests.remember('o_tr', (select id from public.create_transfer(tests.id('o'), 'T', tests.id('o_acc1'), tests.id('o_acc2'),
+  1000, 'pay_date')));
 select tests.clear_authentication();
 select tests.set_today('2066-11-16');
 
@@ -65,7 +70,9 @@ insert into arg_values values
   ('p_from_period_id', (select id::text from public.periods where budget_id = tests.id('o') and seq = 1)),
   ('p_batch_id', tests.id('o_batch')::text), ('p_chunk', '2'), ('p_source', 'csv'),
   ('p_rows', '[{"date": "2026-11-16", "amount": 700, "direction": "debit"}]'), ('p_fragment', 'cafe'),
-  ('p_rule_id', tests.id('o_rule')::text), ('p_token', (select token from o_token));
+  ('p_rule_id', tests.id('o_rule')::text), ('p_token', (select token from o_token)),
+  ('p_account_id', tests.id('o_acc1')::text), ('p_from_account_id', tests.id('o_acc1')::text),
+  ('p_to_account_id', tests.id('o_acc2')::text), ('p_schedule', 'pay_date'), ('p_transfer_id', tests.id('o_tr')::text);
 -- refused for what the arguments say before any catch-up (the owner can neither leave nor be
 -- removed), so they touch no period either
 create temp table refused_first (proname text primary key, outcome text) on commit drop;
@@ -75,7 +82,10 @@ grant select on refused_first, stale to authenticated;
 create temp table calls on commit drop as
 select f.proname,
        pg_catalog.format('select * from public.%I(%s)', f.proname,
-         (select string_agg(pg_catalog.format('%I => %L::%s', a.name, v.value, pg_catalog.format_type(a.type, null)), ', ' order by a.i)
+         (select string_agg(pg_catalog.format('%I => %L::%s', a.name,
+                              -- an argument whose name means another type (an account's kind)
+                              case when a.name = 'p_kind' and a.type = 'public.account_kind'::regtype then 'current' else v.value end,
+                              pg_catalog.format_type(a.type, null)), ', ' order by a.i)
           from pg_catalog.pg_proc as p
           cross join lateral unnest(p.proargnames[1:p.pronargs - p.pronargdefaults], p.proargtypes::oid[]) with ordinality as a (name, type, i)
           left join arg_values as v on v.name = a.name

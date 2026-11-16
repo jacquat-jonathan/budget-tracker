@@ -1286,7 +1286,7 @@
       "id": "F-MONEYFLOW",
       "step": 7,
       "title": "Accounts and money flow",
-      "status": "planned",
+      "status": "in-progress",
       "description": "Accounts, planned transfers after payday, a per-period checklist and the money flow diagram.",
       "userStories": [
         {
@@ -1301,7 +1301,15 @@
             "R-ACCOUNT-004",
             "R-ACCOUNT-070",
             "R-ACCOUNT-071",
-            "R-VERSION-071"
+            "R-VERSION-071",
+            "R-ACCOUNT-230",
+            "R-ACCOUNT-231",
+            "R-ACCOUNT-232",
+            "R-ACCOUNT-233",
+            "R-ACCOUNT-234",
+            "R-ACCOUNT-236",
+            "R-ACCOUNT-237",
+            "R-ACCOUNT-239"
           ]
         },
         {
@@ -1309,21 +1317,27 @@
           "actor": "A-MEMBER",
           "iWant": "a per-period checklist of the manual transfers",
           "soThat": "I do not forget one",
-          "rules": ["R-ACCOUNT-005"]
+          "rules": ["R-ACCOUNT-005", "R-ACCOUNT-240", "R-ACCOUNT-241", "R-CONCURRENCY-230"]
         },
         {
           "id": "US-MONEYFLOW-003",
           "actor": "A-MEMBER",
           "iWant": "a diagram of the planned flow of money",
           "soThat": "I see the whole plan at a glance",
-          "rules": ["R-ACCOUNT-006", "R-ACCOUNT-007", "R-ACCOUNT-075"]
+          "rules": ["R-ACCOUNT-006", "R-ACCOUNT-007", "R-ACCOUNT-075", "R-ACCOUNT-235"]
         },
         {
           "id": "US-MONEYFLOW-004",
           "actor": "A-MEMBER",
           "iWant": "to link a planned transfer to a category, so that its transaction is created when it is done",
           "soThat": "savings, third pillar or tax transfers count in the budget without being entered twice",
-          "rules": ["R-ACCOUNT-072", "R-ACCOUNT-073", "R-ACCOUNT-074"]
+          "rules": [
+            "R-ACCOUNT-072",
+            "R-ACCOUNT-073",
+            "R-ACCOUNT-074",
+            "R-ACCOUNT-238",
+            "R-CATEGORY-230"
+          ]
         }
       ]
     }
@@ -2581,10 +2595,13 @@
       "area": "version",
       "statement": "An edit to a planned transfer creates a new version effective from the current period.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-121", "Q-015"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-VERSION-005",
@@ -3760,21 +3777,25 @@
       "area": "account",
       "statement": "The user defines accounts (salary account, savings, third pillar, tax reserve, possibly at different banks).",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Account and planned transfer (money flow)"]
+      "source": [
+        "domain: Account and planned transfer (money flow)",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-002",
       "area": "account",
       "statement": "The user defines planned transfers between accounts, such as \"payday + 2 days: 1000 CHF from A to Savings\" or \"on the 1st: 200 CHF from A to the tax reserve\".",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["Q-008", "Q-015", "D-120", "D-121"],
       "source": [
         "domain: Account and planned transfer (money flow)",
-        "owner-request: product owner decisions on the open questions, 2026-11-16"
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
     },
     {
@@ -3782,66 +3803,87 @@
       "area": "account",
       "statement": "Each planned transfer is flagged automatic or manual.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Account and planned transfer (money flow)"]
+      "source": [
+        "domain: Account and planned transfer (money flow)",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-004",
       "area": "account",
       "statement": "An automatic transfer (standing order) is assumed done.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Account and planned transfer (money flow)"]
+      "source": [
+        "domain: Account and planned transfer (money flow)",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-005",
       "area": "account",
       "statement": "Manual transfers are shown as a per-period checklist.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Account and planned transfer (money flow)"]
+      "source": [
+        "domain: Account and planned transfer (money flow)",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-006",
       "area": "account",
       "statement": "The money flow diagram is drawn from the plan of transfers.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Account and planned transfer (money flow)"]
+      "source": [
+        "domain: Account and planned transfer (money flow)",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-007",
       "area": "account",
       "statement": "The app has no bank connection and does not depend on detecting automatic transactions.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "review",
       "related": ["D-040"],
-      "source": ["domain: Account and planned transfer (money flow)"]
+      "source": [
+        "domain: Account and planned transfer (money flow)",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-070",
       "area": "account",
       "statement": "A planned transfer is scheduled either as an offset in days from the actual pay date of a chosen income, or on a fixed day of the month.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-120", "Q-059"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-071",
       "area": "account",
       "statement": "A planned transfer scheduled from a pay date refers to the primary income unless the user chooses another income.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-120", "Q-059"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-072",
@@ -3849,40 +3891,52 @@
       "statement": "A planned transfer can be linked to a category.",
       "rationale": "Examples: savings, third pillar, taxes.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-122"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-073",
       "area": "account",
       "statement": "Marking a manual transfer linked to a category as done creates its transaction in that category.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-122", "Q-060"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-074",
       "area": "account",
       "statement": "An automatic transfer linked to a category creates its transaction in that category.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-122", "Q-060"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-ACCOUNT-075",
       "area": "account",
       "statement": "Account balances are not tracked: the money flow diagram shows flows only.",
       "feature": "F-MONEYFLOW",
-      "status": "planned",
+      "status": "active",
       "enforcement": "review",
       "related": ["D-123"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     },
     {
       "id": "R-CONCURRENCY-070",
@@ -6430,6 +6484,188 @@
       "source": [
         "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-230",
+      "area": "account",
+      "statement": "A budget has at most 50 accounts and 50 planned transfers in force, and 200 of each in all (void ones not counted); each overview stays within 900 rows.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-357", "R-APP-170"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-231",
+      "area": "account",
+      "statement": "The accounts named by a planned transfer's or an income's terms, and the category of a transfer's terms (a leaf), are in force in every period those terms govern.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-350", "D-351", "R-CATEGORY-130"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-232",
+      "area": "account",
+      "statement": "Closing an account that the terms of a transfer or an income still use from then on is refused, naming what uses it; an account never named and never counted before is deleted instead; earlier periods keep a closed account.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-350", "R-CATEGORY-131"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-233",
+      "area": "account",
+      "statement": "The previews of creating and editing a planned transfer give, with the write's own code, the due dates and amounts of the periods its terms govern (the next periods at their projected boundaries) and the transactions the write creates at once; the preview of ending one gives its outcome and what it removes.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-354", "R-ACCOUNT-239"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-234",
+      "area": "account",
+      "statement": "Ending a planned transfer removes its occurrences and their marks from that period on; their transactions stay, as ordinary transactions; a transfer that never counted before and was never marked is deleted instead.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-355"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-235",
+      "area": "account",
+      "statement": "The money flow of a period adds up: its incomes total the period's salaries, each income flows into its account or into \"not assigned\", and each account shows what comes in, what goes out and what stays (negative when more is planned out than comes in), never a balance.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-356", "R-ACCOUNT-006", "R-ACCOUNT-075"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-236",
+      "area": "account",
+      "statement": "An income can name the account it is paid into, as part of its terms, versioned with them.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-351"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-237",
+      "area": "account",
+      "statement": "A reopen moves a mark of the merged period to the reopened period when that period has none for the transfer; otherwise the mark goes, the catch-up's transaction with it, a member's transaction staying as an ordinary transaction; preview_reopen lists each.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-358", "R-VERSION-011"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-238",
+      "area": "account",
+      "statement": "A planned transfer linked to a category commits its planned amount in that category in each period it is in force, shown apart from the subscriptions' committed amount.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-359", "R-SUBSCRIPTION-079"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-239",
+      "area": "account",
+      "statement": "A planned transfer has exactly one occurrence in each period it is in force. Its due date is the first date with the chosen day on or after the period's start (clamped to the month's length, no weekend rule), or the chosen income's actual pay date in the period plus an offset of 0 to 31 days (the period's start for the primary income, and where the chosen income is not in force); never after the period's last day.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-352", "R-ACCOUNT-070", "R-ACCOUNT-071"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-240",
+      "area": "account",
+      "statement": "Deleting the transaction of a done transfer puts it back: a manual one is to do again; an automatic one is not done and its transaction is not created again. Undoing a mark restores what the occurrence is without one: to do, or assumed done with its transaction.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-353", "D-360"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-241",
+      "area": "account",
+      "statement": "The dashboard counts the current period's manual transfers still to do, and those of them whose due date has passed.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-361", "R-ACCOUNT-005"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-CATEGORY-230",
+      "area": "category",
+      "statement": "A category that the terms of a planned transfer use from a period on cannot end from then (category_in_use names the transfer), and its first subcategory moves the transfer's category to \"Other\".",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-CATEGORY-130", "R-CATEGORY-131", "R-CATEGORY-110", "R-ACCOUNT-072"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-CONCURRENCY-230",
+      "area": "concurrency",
+      "statement": "A mark of a transfer's occurrence names the revision of the mark the member read (0: none); a mark made or changed since is refused with record_changed.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-360", "R-CONCURRENCY-070"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
     }
   ],
@@ -9127,6 +9363,182 @@
         "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16",
         "code: supabase/migrations/20261119100000_import.sql"
       ]
+    },
+    {
+      "id": "D-350",
+      "title": "Accounts",
+      "decision": "An account has a name, a kind (current or salary, savings, third pillar, tax reserve, investment, cash, credit card, other), an optional bank label and an optional member it belongs to (none: shared). It counts from a period and can be closed from a period, like a category; earlier periods keep it. Its name, kind, label and holder are not versioned: a rename shows everywhere, past periods included. It keeps its holder after the member leaves (shown as a former member); an account whose holder deleted their login becomes shared. No balance (D-123).",
+      "why": "The coordinator's defaults for step 7; renames read like categories'. Closing an account a member held when they leave would break the transfers of the others.",
+      "rejected": [
+        "Versioning the name or the kind.",
+        "Closing a member's accounts when they leave."
+      ],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-001", "R-ACCOUNT-230", "R-ACCOUNT-232", "D-123"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-351",
+      "title": "The account an income is paid into",
+      "decision": "An income can name the account it is paid into: part of its terms (optional), versioned with them, changed from the current period or as a correction like an amount. An income with no account flows into one \"not assigned\" node of the money flow, so its totals still add up.",
+      "why": "The flow starts where the salary arrives, which changes when a member changes bank.",
+      "rejected": ["A field of the income itself, the same in every period."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-236", "R-ACCOUNT-235", "R-VERSION-001"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-352",
+      "title": "Schedules and due dates of planned transfers",
+      "decision": "A transfer has exactly one occurrence in each period it is in force. On a fixed day of the month (1 to 31): the first date with that day on or after the period's start, clamped to the month's length, no weekend rule. From a pay date: the chosen income's actual pay date in the period plus 0 to 31 days (never negative); the primary income's actual pay date in a period is the period's start (an early salary and a moved boundary included); another income's is its first actual pay date on or after the period's start, under its terms then. Where the chosen income is not in force (ended, its member gone), the transfer follows the primary income, and the checklist and overview say so. A due date is never after the period's last day. Answers Q-059.",
+      "why": "The coordinator's defaults. A period starts on the primary salary, so its start is that salary's actual date, whatever moved it; this needs no other record of past pay dates.",
+      "rejected": [
+        "A weekend rule for fixed days.",
+        "Negative offsets.",
+        "Several occurrences per period, or none."
+      ],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-070", "R-ACCOUNT-071", "R-ACCOUNT-239", "Q-059", "D-120"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-353",
+      "title": "Transactions of transfers linked to a category",
+      "decision": "An automatic transfer is assumed done on its due date, without confirmation (only subscription charges are confirmed). Linked to a category, its transaction is created by the catch-up on its due date: dated then, at the planned amount of its period, confirmed, exactly once, held back at the transaction limit; marked not done, its transaction is deleted and not created again; undoing that creates it again. A manual transfer linked to a category gets its transaction when marked done, dated the done date, with the amount moved (default the planned amount); undoing \"done\" deletes it. Deleting the transaction puts the occurrence back (a manual one to do, an automatic one not done). Editing its amount or date is allowed and shows on the occurrence. Answers Q-060.",
+      "why": "The coordinator's defaults: recorded once (D-122), and the transaction exists exactly when the transfer counts as done.",
+      "rejected": [
+        "Automatic transfers awaiting confirmation like subscription charges.",
+        "Undoing \"done\" keeping the transaction."
+      ],
+      "status": "accepted",
+      "related": [
+        "R-ACCOUNT-004",
+        "R-ACCOUNT-073",
+        "R-ACCOUNT-074",
+        "R-ACCOUNT-240",
+        "Q-060",
+        "D-122"
+      ],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-354",
+      "title": "Occurrences are computed, marks are stored",
+      "decision": "An occurrence is computed from the transfer's terms in force in a period and that period's boundaries; only what was done is stored: one mark at most per transfer and period (done, skipped, not done), the catch-up's included. The catch-up settles each transfer's periods in order (transfers.settled_seq) within its bounded step, after the subscription charges. An edit or a correction of the terms settles again the periods it governs, so an automatic linked occurrence already due without a mark gets its transaction then, past periods of a correction included.",
+      "why": "Past occurrences follow the plan as corrected without rows to rewrite; settling again after an edit keeps \"a transaction exists exactly when an automatic linked transfer counts as done\" true for every period.",
+      "rejected": [
+        "A row per transfer and period.",
+        "Never creating a transaction for a period already passed after a correction, as for subscription charges (Q-221)."
+      ],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-074", "R-ACCOUNT-233", "R-ACCOUNT-239", "D-270", "D-276", "Q-221"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-355",
+      "title": "Nothing deletes a transfer's transaction implicitly",
+      "decision": "Only a member's act deletes a transfer's transaction: undoing \"done\", marking an automatic transfer not done, or deleting the transaction. Ending a transfer, closing what it uses, or a member leaving keeps it: when its mark goes, the transaction stays as an ordinary one. The one exception is a reopen (D-358).",
+      "why": "A transaction is money the member sees in the totals; it never disappears behind an edit of the plan.",
+      "rejected": ["Deleting the catch-up's transactions when a transfer ends from their period."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-234", "R-ACCOUNT-240", "D-353"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-356",
+      "title": "The money flow read",
+      "decision": "One call, get_money_flow, typed rows (income, not_assigned, account, transfer, total), from the plan in force in the chosen period (default the current one), never from transactions: incomes at their amounts then (salaries only: their total is period_summaries.salary_total; extra incomes are actual transactions, not plan), transfers at their planned amounts, every account in force with what comes in, what goes out and what stays (in minus out, flagged when negative). No balance.",
+      "why": "The coordinator's defaults; a diagram of the plan stays the same whatever was spent.",
+      "rejected": ["Extra incomes in the flow.", "Reading actual transfers."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-006", "R-ACCOUNT-235", "R-ACCOUNT-075"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-357",
+      "title": "Limits of accounts and transfers",
+      "decision": "50 accounts and 50 planned transfers in force, 200 of each in all (void ones not counted), 900 rows of each a budget (R-APP-170); previews list at most 60 occurrences; an offset is at most 31 days; a bank label at most 100 characters.",
+      "why": "Like subscriptions and debts; every read stays within the API's 1000 rows.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-230", "R-APP-170"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-358",
+      "title": "Reopen and the marks of the merged period",
+      "decision": "A mark of the merged period moves to the reopened period when that period has none for the transfer. Otherwise it goes: one made by the catch-up with its transaction (made again if the period comes back, like a debt's interest), a member's leaving its transaction as an ordinary one. A transfer ended in the merged period ends in the reopened one, and its marks there go the same way. Every transfer is settled again from the reopened period.",
+      "why": "The reopened period keeps what happened in it; the catch-up's assumption of the merged period would otherwise be counted twice once the period comes back.",
+      "rejected": ["Keeping the catch-up's transaction as an ordinary one (counted twice later)."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-237", "R-VERSION-011", "D-355"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-359",
+      "title": "Transfers in the committed amounts",
+      "decision": "A linked transfer's planned amount is committed in its category in each period it is in force, as its own figure: transfer_committed in get_period_progress, transfer_committed_amount in category_overview, transfer_committed_total in period_summaries; never added to the subscriptions' committed amount, so every existing figure is unchanged.",
+      "why": "The coordinator's default (\"yes, as its own kind\"); keeping it apart avoids changing what committed meant.",
+      "rejected": ["Adding it to committed."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-238", "R-SUBSCRIPTION-079"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-360",
+      "title": "Marks of an occurrence",
+      "decision": "A mark is made from no mark (revision 0) and undone back to none; changing a mark means undoing it first. Only a manual transfer is marked done or skipped, only an automatic one not done. Done's date defaults to today in the current period, else to the due date, and is never after today. Every mark and undo names the revision of the mark the member read.",
+      "why": "One state per occurrence and one way between states keep two members' marks from crossing (R-CONCURRENCY-230).",
+      "rejected": ["Changing a mark in place."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-005", "R-ACCOUNT-240", "R-CONCURRENCY-230"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-361",
+      "title": "The dashboard counts of manual transfers",
+      "decision": "my_budgets.transfers_to_do and transfers_overdue count the current period's manual transfers still to do and, of those, the ones whose due date has passed; past periods' unfinished ones show in their own checklist only.",
+      "why": "A bounded read on every page; a forgotten transfer of an earlier period is rare and visible in that period.",
+      "rejected": ["Counting every past period (unbounded over the budget's life)."],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-241", "Q-222"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     }
   ],
   "conventions": [
@@ -9623,17 +10035,19 @@
       "id": "Q-059",
       "question": "For a planned transfer on a fixed day of the month, is the day clamped to the month's length and does a weekend rule apply; may a pay-date offset be negative; and what happens to a transfer whose chosen income ends?",
       "context": "D-120 allows an offset in days from a chosen income's actual pay date, or a fixed day of the month. Subscriptions clamp and use no weekend rule (D-108), but nothing says the same for transfers. An income ends when it is removed or its member leaves (R-MEMBER-007).",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-120", "R-ACCOUNT-070", "R-ACCOUNT-071", "R-MEMBER-007"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "resolvedBy": "D-352"
     },
     {
       "id": "Q-060",
       "question": "On which date is the transaction of an automatic transfer linked to a category created, does it wait for confirmation like a subscription charge, and does unmarking a manual transfer as done remove its transaction?",
       "context": "D-122: when a transfer linked to a category is marked done, or when it is automatic, its transaction is created in that category. Automatic transfers are assumed done (R-ACCOUNT-004); subscription charges, also automatic, wait for confirmation (D-109).",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-122", "D-109", "R-ACCOUNT-073", "R-ACCOUNT-074", "R-ACCOUNT-004"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "resolvedBy": "D-353"
     },
     {
       "id": "Q-040",
@@ -9984,6 +10398,56 @@
       "related": ["D-315", "R-IMPORT-203"],
       "source": [
         "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-220",
+      "question": "Should planned transfers support other cadences, such as a yearly third-pillar payment?",
+      "context": "D-352: one occurrence in each period a transfer is in force. A yearly payment is entered as a manual transfer the member skips, or created and ended each year.",
+      "status": "open",
+      "related": ["D-352", "R-ACCOUNT-002"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-221",
+      "question": "Should a correction that makes a transfer automatic and linked in past periods create those periods' transactions?",
+      "context": "D-354 creates them, so a transaction exists exactly when the transfer counts as done; a correction of a subscription never creates charges for dates already passed.",
+      "status": "open",
+      "related": ["D-354", "R-SUBSCRIPTION-073"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-222",
+      "question": "Should the dashboard also count manual transfers left to do in past periods?",
+      "context": "D-361 counts the current period only.",
+      "status": "open",
+      "related": ["D-361", "R-ACCOUNT-241"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-223",
+      "question": "Should a closed account be restorable, like a category, rather than created again?",
+      "context": "Step 7 has no restore for accounts; a correction can only close it from an earlier period.",
+      "status": "open",
+      "related": ["D-350", "R-ACCOUNT-232"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-224",
+      "question": "When a period is short (an early salary), should a fixed-day transfer whose day falls after the period's end be due on the period's last day, or have no occurrence in that period?",
+      "context": "D-352 caps the due date at the period's last day, so one calendar day can lead to two occurrences close together (the short period's last day, then the day in the next period).",
+      "status": "open",
+      "related": ["D-352", "R-ACCOUNT-239"],
+      "source": [
+        "owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16"
       ]
     }
   ]

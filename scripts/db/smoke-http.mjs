@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Smoke test of the database contract over the real API (PostgREST and Auth), as the
-// browser calls it: sign-up, the main step 2, 3 and 4 RPCs and views, the error contract
+// browser calls it: sign-up, the main step 2 to 7 RPCs and views, the error contract
 // (P0001 with a stable message), what an anonymous visitor and a non-member get, and two
 // members racing the same boundary operation and the same subscription charge. Run it
 // against a full local stack:
@@ -337,6 +337,48 @@ check(refused(await rpc(mallory, 'preview_import', { p_budget_id: budget, p_batc
   'a non-member cannot preview an import into the budget')
 const undone = await rpc(alice, 'undo_import_batch', { p_batch_id: importBatch })
 check(ok(undone) && undone.body[0]?.deleted === 2, 'undo_import_batch removes what is still to review', undone)
+
+// --- step 7: accounts and money flow -------------------------------------------------------
+const firstPeriod = periods[0].id
+const mainAccount = await rpc(alice, 'create_account', { p_budget_id: budget, p_name: 'Main', p_kind: 'current', p_bank_label: 'Bank', p_from_period_id: firstPeriod })
+const savingsAccount = await rpc(alice, 'create_account', { p_budget_id: budget, p_name: 'Savings', p_kind: 'savings', p_from_period_id: firstPeriod })
+check(ok(mainAccount) && mainAccount.body[0]?.kind === 'current' && mainAccount.body[0]?.bank_label === 'Bank' && ok(savingsAccount),
+  'create_account returns the account', mainAccount)
+const transferArgs = {
+  p_budget_id: budget, p_from_account_id: mainAccount.body[0].id, p_to_account_id: savingsAccount.body[0].id, p_amount: 50000,
+  p_schedule: 'pay_date', p_offset_days: 0, p_is_automatic: true, p_category_id: food.body[0].id,
+}
+const transferPreview = await rpc(alice, 'preview_create_transfer', { ...transferArgs, p_count: 3 })
+const transfer = await rpc(alice, 'create_transfer', { ...transferArgs, p_name: 'To savings' })
+check(ok(transferPreview) && ok(transfer) && transfer.body[0]?.schedule === 'pay_date' && transfer.body[0]?.is_automatic === true,
+  'create_transfer returns the transfer with its terms', [transferPreview, transfer])
+const transferTx = await get(alice, `transaction_list?transfer_id=eq.${transfer.body[0].id}&order=date`)
+check(ok(transferTx) && transferTx.body.length === transferPreview.body.filter((r) => r.created_at_once).length && transferTx.body.length >= 1 &&
+  transferTx.body.every((t) => t.kind === 'expense' && t.review_state === 'confirmed'),
+  'its transactions due by today are created at once, as the preview said', [transferPreview.body, transferTx.body])
+const checklist = await rpc(bob, 'get_transfer_checklist', { p_period_id: periods.at(-1).id })
+const occurrence = checklist.body?.find((row) => row.transfer_id === transfer.body[0].id)
+check(ok(checklist) && occurrence?.status === 'done' && occurrence.transaction_id !== null, 'get_transfer_checklist: an automatic transfer is done once due', checklist)
+const markArgs = { p_transfer_id: transfer.body[0].id, p_period_id: periods.at(-1).id, p_expected_revision: occurrence.mark_revision }
+const notDone = await Promise.all([rpc(alice, 'mark_transfer_not_done', markArgs), rpc(bob, 'mark_transfer_not_done', markArgs)])
+check(notDone.filter(ok).length === 1 && notDone.filter((res) => refused(res, 'record_changed')).length === 1,
+  'two members marking the same transfer at once: one succeeds, the other gets record_changed', notDone)
+const flow = await rpc(alice, 'get_money_flow', { p_budget_id: budget })
+const flowTotal = flow.body?.find((row) => row.row_kind === 'total')
+const flowPeriod = (await get(alice, `period_summaries?id=eq.${periods.at(-1).id}`)).body[0]
+check(ok(flow) && flowTotal?.amount === flowPeriod.salary_total && flow.body.some((row) => row.row_kind === 'not_assigned') &&
+  flow.body.find((row) => row.id === mainAccount.body[0].id)?.stays === -50000,
+  'get_money_flow: the incomes add up to the salaries, unassigned income flows to "not assigned", an account shows what stays', flow)
+const closeInUse = await rpc(alice, 'close_account', { p_account_id: savingsAccount.body[0].id, p_expected_revision: 1 })
+check(refused(closeInUse, 'account_in_use') && JSON.parse(closeInUse.body?.details ?? '[]').some((user) => user.kind === 'transfer' && user.name === 'To savings'),
+  'close_account refuses an account in use and names the transfer in the detail', closeInUse)
+check(refused(await rpc(mallory, 'get_money_flow', { p_budget_id: budget }), 'budget_not_found'), 'a non-member gets no money flow')
+const outsiderAccounts = await get(mallory, `account_overview?budget_id=eq.${budget}`)
+check(ok(outsiderAccounts) && outsiderAccounts.body.length === 0, 'a non-member reads no accounts', outsiderAccounts)
+const anonTransfers = await get(null, `transfer_overview?budget_id=eq.${budget}`)
+check(anonTransfers.status >= 400 && anonTransfers.body?.code === '42501', 'an anonymous visitor cannot read transfers (no privilege)', anonTransfers)
+const anonFlow = await rpc(null, 'get_money_flow', { p_budget_id: budget })
+check(anonFlow.status >= 400, 'nor call the money flow', anonFlow.status)
 
 // --- a budget 40 years behind: every call but the catch-up answers catching_up, quickly ---
 if (db) {

@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-428 rules (407 active, 14 planned), 24 conventions, 203 decisions, 24 open questions. 12 rules and conventions are marked **TEST PENDING**.
+442 rules (435 active, 0 planned), 24 conventions, 215 decisions, 27 open questions. 12 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -219,20 +219,20 @@ Bulk import of transactions from PDF bank and card statements, from CSV, or by a
 - **US-IMPORT-007** As a budget member, I want card-bill payments, transfers between my own accounts, salaries and other credits to be recognised when I import a statement, so that nothing is counted twice and I decide what each credit is.
   Rules: R-IMPORT-091, R-IMPORT-092, R-IMPORT-093, R-IMPORT-094
 
-### Step 7: Accounts and the money flow diagram (planned)
+### Step 7: Accounts and the money flow diagram (in-progress)
 
-#### F-MONEYFLOW Accounts and money flow (planned)
+#### F-MONEYFLOW Accounts and money flow (in-progress)
 
 Accounts, planned transfers after payday, a per-period checklist and the money flow diagram.
 
 - **US-MONEYFLOW-001** As a budget member, I want to define my accounts and the transfers planned between them after payday, so that the money goes where it should every period.
-  Rules: R-ACCOUNT-001, R-ACCOUNT-002, R-ACCOUNT-003, R-ACCOUNT-004, R-ACCOUNT-070, R-ACCOUNT-071, R-VERSION-071
+  Rules: R-ACCOUNT-001, R-ACCOUNT-002, R-ACCOUNT-003, R-ACCOUNT-004, R-ACCOUNT-070, R-ACCOUNT-071, R-VERSION-071, R-ACCOUNT-230, R-ACCOUNT-231, R-ACCOUNT-232, R-ACCOUNT-233, R-ACCOUNT-234, R-ACCOUNT-236, R-ACCOUNT-237, R-ACCOUNT-239
 - **US-MONEYFLOW-002** As a budget member, I want a per-period checklist of the manual transfers, so that I do not forget one.
-  Rules: R-ACCOUNT-005
+  Rules: R-ACCOUNT-005, R-ACCOUNT-240, R-ACCOUNT-241, R-CONCURRENCY-230
 - **US-MONEYFLOW-003** As a budget member, I want a diagram of the planned flow of money, so that I see the whole plan at a glance.
-  Rules: R-ACCOUNT-006, R-ACCOUNT-007, R-ACCOUNT-075
+  Rules: R-ACCOUNT-006, R-ACCOUNT-007, R-ACCOUNT-075, R-ACCOUNT-235
 - **US-MONEYFLOW-004** As a budget member, I want to link a planned transfer to a category, so that its transaction is created when it is done, so that savings, third pillar or tax transfers count in the budget without being entered twice.
-  Rules: R-ACCOUNT-072, R-ACCOUNT-073, R-ACCOUNT-074
+  Rules: R-ACCOUNT-072, R-ACCOUNT-073, R-ACCOUNT-074, R-ACCOUNT-238, R-CATEGORY-230
 
 ## Business rules
 
@@ -979,9 +979,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-107, D-065, D-084
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-VERSION-071** An edit to a planned transfer creates a new version effective from the current period.
-  _planned · enforced by test · F-MONEYFLOW_
+  _active · enforced by test · F-MONEYFLOW_
   - Related: D-121, Q-015
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-VERSION-005** Past periods keep reading the version that was in force at the time.
   _active · enforced by test · F-INCOME_
   - Source: domain: Versioning: edits never rewrite the past
@@ -1182,6 +1182,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-312
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-CATEGORY-230** A category that the terms of a planned transfer use from a period on cannot end from then (category_in_use names the transfer), and its first subcategory moves the transfer's category to "Other".
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-CATEGORY-130, R-CATEGORY-131, R-CATEGORY-110, R-ACCOUNT-072
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Transactions
 
@@ -1866,53 +1870,101 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 ### Accounts and planned transfers (money flow)
 
 - **R-ACCOUNT-001** The user defines accounts (salary account, savings, third pillar, tax reserve, possibly at different banks).
-  _planned · enforced by test · F-MONEYFLOW_
-  - Source: domain: Account and planned transfer (money flow)
+  _active · enforced by test · F-MONEYFLOW_
+  - Source: domain: Account and planned transfer (money flow); code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-002** The user defines planned transfers between accounts, such as "payday + 2 days: 1000 CHF from A to Savings" or "on the 1st: 200 CHF from A to the tax reserve".
-  _planned · enforced by test · F-MONEYFLOW_
+  _active · enforced by test · F-MONEYFLOW_
   - Related: Q-008, Q-015, D-120, D-121
-  - Source: domain: Account and planned transfer (money flow); owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: domain: Account and planned transfer (money flow); owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-003** Each planned transfer is flagged automatic or manual.
-  _planned · enforced by test · F-MONEYFLOW_
-  - Source: domain: Account and planned transfer (money flow)
+  _active · enforced by test · F-MONEYFLOW_
+  - Source: domain: Account and planned transfer (money flow); code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-004** An automatic transfer (standing order) is assumed done.
-  _planned · enforced by test · F-MONEYFLOW_
-  - Source: domain: Account and planned transfer (money flow)
+  _active · enforced by test · F-MONEYFLOW_
+  - Source: domain: Account and planned transfer (money flow); code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-005** Manual transfers are shown as a per-period checklist.
-  _planned · enforced by test · F-MONEYFLOW_
-  - Source: domain: Account and planned transfer (money flow)
+  _active · enforced by test · F-MONEYFLOW_
+  - Source: domain: Account and planned transfer (money flow); code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-006** The money flow diagram is drawn from the plan of transfers.
-  _planned · enforced by test · F-MONEYFLOW_
-  - Source: domain: Account and planned transfer (money flow)
+  _active · enforced by test · F-MONEYFLOW_
+  - Source: domain: Account and planned transfer (money flow); code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-007** The app has no bank connection and does not depend on detecting automatic transactions.
-  _planned · enforced by review · F-MONEYFLOW_
+  _active · enforced by review · F-MONEYFLOW_
   - Related: D-040
-  - Source: domain: Account and planned transfer (money flow)
+  - Source: domain: Account and planned transfer (money flow); code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-070** A planned transfer is scheduled either as an offset in days from the actual pay date of a chosen income, or on a fixed day of the month.
-  _planned · enforced by test · F-MONEYFLOW_
+  _active · enforced by test · F-MONEYFLOW_
   - Related: D-120, Q-059
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-071** A planned transfer scheduled from a pay date refers to the primary income unless the user chooses another income.
-  _planned · enforced by test · F-MONEYFLOW_
+  _active · enforced by test · F-MONEYFLOW_
   - Related: D-120, Q-059
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-072** A planned transfer can be linked to a category.
-  _planned · enforced by test · F-MONEYFLOW_
+  _active · enforced by test · F-MONEYFLOW_
   - Why: Examples: savings, third pillar, taxes.
   - Related: D-122
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-073** Marking a manual transfer linked to a category as done creates its transaction in that category.
-  _planned · enforced by test · F-MONEYFLOW_
+  _active · enforced by test · F-MONEYFLOW_
   - Related: D-122, Q-060
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-074** An automatic transfer linked to a category creates its transaction in that category.
-  _planned · enforced by test · F-MONEYFLOW_
+  _active · enforced by test · F-MONEYFLOW_
   - Related: D-122, Q-060
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-075** Account balances are not tracked: the money flow diagram shows flows only.
-  _planned · enforced by review · F-MONEYFLOW_
+  _active · enforced by review · F-MONEYFLOW_
   - Related: D-123
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-230** A budget has at most 50 accounts and 50 planned transfers in force, and 200 of each in all (void ones not counted); each overview stays within 900 rows.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-357, R-APP-170
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-231** The accounts named by a planned transfer's or an income's terms, and the category of a transfer's terms (a leaf), are in force in every period those terms govern.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-350, D-351, R-CATEGORY-130
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-232** Closing an account that the terms of a transfer or an income still use from then on is refused, naming what uses it; an account never named and never counted before is deleted instead; earlier periods keep a closed account.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-350, R-CATEGORY-131
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-233** The previews of creating and editing a planned transfer give, with the write's own code, the due dates and amounts of the periods its terms govern (the next periods at their projected boundaries) and the transactions the write creates at once; the preview of ending one gives its outcome and what it removes.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-354, R-ACCOUNT-239
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-234** Ending a planned transfer removes its occurrences and their marks from that period on; their transactions stay, as ordinary transactions; a transfer that never counted before and was never marked is deleted instead.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-355
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-235** The money flow of a period adds up: its incomes total the period's salaries, each income flows into its account or into "not assigned", and each account shows what comes in, what goes out and what stays (negative when more is planned out than comes in), never a balance.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-356, R-ACCOUNT-006, R-ACCOUNT-075
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-236** An income can name the account it is paid into, as part of its terms, versioned with them.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-351
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-237** A reopen moves a mark of the merged period to the reopened period when that period has none for the transfer; otherwise the mark goes, the catch-up's transaction with it, a member's transaction staying as an ordinary transaction; preview_reopen lists each.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-358, R-VERSION-011
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-238** A planned transfer linked to a category commits its planned amount in that category in each period it is in force, shown apart from the subscriptions' committed amount.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-359, R-SUBSCRIPTION-079
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-239** A planned transfer has exactly one occurrence in each period it is in force. Its due date is the first date with the chosen day on or after the period's start (clamped to the month's length, no weekend rule), or the chosen income's actual pay date in the period plus an offset of 0 to 31 days (the period's start for the primary income, and where the chosen income is not in force); never after the period's last day.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-352, R-ACCOUNT-070, R-ACCOUNT-071
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-240** Deleting the transaction of a done transfer puts it back: a manual one is to do again; an automatic one is not done and its transaction is not created again. Undoing a mark restores what the occurrence is without one: to do, or assumed done with its transaction.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-353, D-360
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-241** The dashboard counts the current period's manual transfers still to do, and those of them whose due date has passed.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-361, R-ACCOUNT-005
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 
@@ -1945,6 +1997,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-CONCURRENCY-091, D-160, R-VERSION-140
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/income/components/income-form-dialog.tsx; code: src/features/budget/components/category-form-dialog.tsx; code: src/features/budgets/terms-at.ts
+- **R-CONCURRENCY-230** A mark of a transfer's occurrence names the revision of the mark the member read (0: none); a mark made or changed since is refused with record_changed.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-360, R-CONCURRENCY-070
+  - Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ## Conventions
 
@@ -4721,6 +4777,178 @@ Related: D-312, D-314, D-316, D-318
 
 Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
+### D-350 Accounts (accepted)
+
+An account has a name, a kind (current or salary, savings, third pillar, tax reserve, investment, cash, credit card, other), an optional bank label and an optional member it belongs to (none: shared). It counts from a period and can be closed from a period, like a category; earlier periods keep it. Its name, kind, label and holder are not versioned: a rename shows everywhere, past periods included. It keeps its holder after the member leaves (shown as a former member); an account whose holder deleted their login becomes shared. No balance (D-123).
+
+**Why:** The coordinator's defaults for step 7; renames read like categories'. Closing an account a member held when they leave would break the transfers of the others.
+
+**Rejected:**
+
+- Versioning the name or the kind.
+- Closing a member's accounts when they leave.
+
+Related: R-ACCOUNT-001, R-ACCOUNT-230, R-ACCOUNT-232, D-123
+
+Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-351 The account an income is paid into (accepted)
+
+An income can name the account it is paid into: part of its terms (optional), versioned with them, changed from the current period or as a correction like an amount. An income with no account flows into one "not assigned" node of the money flow, so its totals still add up.
+
+**Why:** The flow starts where the salary arrives, which changes when a member changes bank.
+
+**Rejected:**
+
+- A field of the income itself, the same in every period.
+
+Related: R-ACCOUNT-236, R-ACCOUNT-235, R-VERSION-001
+
+Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-352 Schedules and due dates of planned transfers (accepted)
+
+A transfer has exactly one occurrence in each period it is in force. On a fixed day of the month (1 to 31): the first date with that day on or after the period's start, clamped to the month's length, no weekend rule. From a pay date: the chosen income's actual pay date in the period plus 0 to 31 days (never negative); the primary income's actual pay date in a period is the period's start (an early salary and a moved boundary included); another income's is its first actual pay date on or after the period's start, under its terms then. Where the chosen income is not in force (ended, its member gone), the transfer follows the primary income, and the checklist and overview say so. A due date is never after the period's last day. Answers Q-059.
+
+**Why:** The coordinator's defaults. A period starts on the primary salary, so its start is that salary's actual date, whatever moved it; this needs no other record of past pay dates.
+
+**Rejected:**
+
+- A weekend rule for fixed days.
+- Negative offsets.
+- Several occurrences per period, or none.
+
+Related: R-ACCOUNT-070, R-ACCOUNT-071, R-ACCOUNT-239, Q-059, D-120
+
+Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-353 Transactions of transfers linked to a category (accepted)
+
+An automatic transfer is assumed done on its due date, without confirmation (only subscription charges are confirmed). Linked to a category, its transaction is created by the catch-up on its due date: dated then, at the planned amount of its period, confirmed, exactly once, held back at the transaction limit; marked not done, its transaction is deleted and not created again; undoing that creates it again. A manual transfer linked to a category gets its transaction when marked done, dated the done date, with the amount moved (default the planned amount); undoing "done" deletes it. Deleting the transaction puts the occurrence back (a manual one to do, an automatic one not done). Editing its amount or date is allowed and shows on the occurrence. Answers Q-060.
+
+**Why:** The coordinator's defaults: recorded once (D-122), and the transaction exists exactly when the transfer counts as done.
+
+**Rejected:**
+
+- Automatic transfers awaiting confirmation like subscription charges.
+- Undoing "done" keeping the transaction.
+
+Related: R-ACCOUNT-004, R-ACCOUNT-073, R-ACCOUNT-074, R-ACCOUNT-240, Q-060, D-122
+
+Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-354 Occurrences are computed, marks are stored (accepted)
+
+An occurrence is computed from the transfer's terms in force in a period and that period's boundaries; only what was done is stored: one mark at most per transfer and period (done, skipped, not done), the catch-up's included. The catch-up settles each transfer's periods in order (transfers.settled_seq) within its bounded step, after the subscription charges. An edit or a correction of the terms settles again the periods it governs, so an automatic linked occurrence already due without a mark gets its transaction then, past periods of a correction included.
+
+**Why:** Past occurrences follow the plan as corrected without rows to rewrite; settling again after an edit keeps "a transaction exists exactly when an automatic linked transfer counts as done" true for every period.
+
+**Rejected:**
+
+- A row per transfer and period.
+- Never creating a transaction for a period already passed after a correction, as for subscription charges (Q-221).
+
+Related: R-ACCOUNT-074, R-ACCOUNT-233, R-ACCOUNT-239, D-270, D-276, Q-221
+
+Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-355 Nothing deletes a transfer's transaction implicitly (accepted)
+
+Only a member's act deletes a transfer's transaction: undoing "done", marking an automatic transfer not done, or deleting the transaction. Ending a transfer, closing what it uses, or a member leaving keeps it: when its mark goes, the transaction stays as an ordinary one. The one exception is a reopen (D-358).
+
+**Why:** A transaction is money the member sees in the totals; it never disappears behind an edit of the plan.
+
+**Rejected:**
+
+- Deleting the catch-up's transactions when a transfer ends from their period.
+
+Related: R-ACCOUNT-234, R-ACCOUNT-240, D-353
+
+Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-356 The money flow read (accepted)
+
+One call, get_money_flow, typed rows (income, not_assigned, account, transfer, total), from the plan in force in the chosen period (default the current one), never from transactions: incomes at their amounts then (salaries only: their total is period_summaries.salary_total; extra incomes are actual transactions, not plan), transfers at their planned amounts, every account in force with what comes in, what goes out and what stays (in minus out, flagged when negative). No balance.
+
+**Why:** The coordinator's defaults; a diagram of the plan stays the same whatever was spent.
+
+**Rejected:**
+
+- Extra incomes in the flow.
+- Reading actual transfers.
+
+Related: R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-075
+
+Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-357 Limits of accounts and transfers (accepted)
+
+50 accounts and 50 planned transfers in force, 200 of each in all (void ones not counted), 900 rows of each a budget (R-APP-170); previews list at most 60 occurrences; an offset is at most 31 days; a bank label at most 100 characters.
+
+**Why:** Like subscriptions and debts; every read stays within the API's 1000 rows.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-230, R-APP-170
+
+Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-358 Reopen and the marks of the merged period (accepted)
+
+A mark of the merged period moves to the reopened period when that period has none for the transfer. Otherwise it goes: one made by the catch-up with its transaction (made again if the period comes back, like a debt's interest), a member's leaving its transaction as an ordinary one. A transfer ended in the merged period ends in the reopened one, and its marks there go the same way. Every transfer is settled again from the reopened period.
+
+**Why:** The reopened period keeps what happened in it; the catch-up's assumption of the merged period would otherwise be counted twice once the period comes back.
+
+**Rejected:**
+
+- Keeping the catch-up's transaction as an ordinary one (counted twice later).
+
+Related: R-ACCOUNT-237, R-VERSION-011, D-355
+
+Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-359 Transfers in the committed amounts (accepted)
+
+A linked transfer's planned amount is committed in its category in each period it is in force, as its own figure: transfer_committed in get_period_progress, transfer_committed_amount in category_overview, transfer_committed_total in period_summaries; never added to the subscriptions' committed amount, so every existing figure is unchanged.
+
+**Why:** The coordinator's default ("yes, as its own kind"); keeping it apart avoids changing what committed meant.
+
+**Rejected:**
+
+- Adding it to committed.
+
+Related: R-ACCOUNT-238, R-SUBSCRIPTION-079
+
+Source: owner-request: coordinator brief for the step 7 database (accounts and money flow), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-360 Marks of an occurrence (accepted)
+
+A mark is made from no mark (revision 0) and undone back to none; changing a mark means undoing it first. Only a manual transfer is marked done or skipped, only an automatic one not done. Done's date defaults to today in the current period, else to the due date, and is never after today. Every mark and undo names the revision of the mark the member read.
+
+**Why:** One state per occurrence and one way between states keep two members' marks from crossing (R-CONCURRENCY-230).
+
+**Rejected:**
+
+- Changing a mark in place.
+
+Related: R-ACCOUNT-005, R-ACCOUNT-240, R-CONCURRENCY-230
+
+Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-361 The dashboard counts of manual transfers (accepted)
+
+my_budgets.transfers_to_do and transfers_overdue count the current period's manual transfers still to do and, of those, the ones whose due date has passed; past periods' unfinished ones show in their own checklist only.
+
+**Why:** A bounded read on every page; a forgotten transfer of an earlier period is rare and visible in that period.
+
+**Rejected:**
+
+- Counting every past period (unbounded over the budget's life).
+
+Related: R-ACCOUNT-241, Q-222
+
+Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -4835,11 +5063,11 @@ Source: owner-request: database developer decision for step 6, within the coordi
   - Context: D-119 asks for presets for these five sources. "One" may be Viseca's "one" credit-card portal; that is unconfirmed. Twint may offer no export at all. Sample export files are needed before the presets can be built.
   - Related: D-119, R-IMPORT-083, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-059** For a planned transfer on a fixed day of the month, is the day clamped to the month's length and does a weekend rule apply; may a pay-date offset be negative; and what happens to a transfer whose chosen income ends?
+- **Q-059** (resolved by D-352) For a planned transfer on a fixed day of the month, is the day clamped to the month's length and does a weekend rule apply; may a pay-date offset be negative; and what happens to a transfer whose chosen income ends?
   - Context: D-120 allows an offset in days from a chosen income's actual pay date, or a fixed day of the month. Subscriptions clamp and use no weekend rule (D-108), but nothing says the same for transfers. An income ends when it is removed or its member leaves (R-MEMBER-007).
   - Related: D-120, R-ACCOUNT-070, R-ACCOUNT-071, R-MEMBER-007
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-060** On which date is the transaction of an automatic transfer linked to a category created, does it wait for confirmation like a subscription charge, and does unmarking a manual transfer as done remove its transaction?
+- **Q-060** (resolved by D-353) On which date is the transaction of an automatic transfer linked to a category created, does it wait for confirmation like a subscription charge, and does unmarking a manual transfer as done remove its transaction?
   - Context: D-122: when a transfer linked to a category is marked done, or when it is automatic, its transaction is created in that category. Automatic transfers are assumed done (R-ACCOUNT-004); subscription charges, also automatic, wait for confirmation (D-109).
   - Related: D-122, D-109, R-ACCOUNT-073, R-ACCOUNT-074, R-ACCOUNT-004
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
@@ -4991,6 +5219,26 @@ Source: owner-request: database developer decision for step 6, within the coordi
   - Context: D-315: a typed purchase and a different purchase of the same amount within three days are matched, and the row is skipped (listed for the member) until imported anyway.
   - Related: D-315, R-IMPORT-203
   - Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16
+- **Q-220** Should planned transfers support other cadences, such as a yearly third-pillar payment?
+  - Context: D-352: one occurrence in each period a transfer is in force. A yearly payment is entered as a manual transfer the member skips, or created and ended each year.
+  - Related: D-352, R-ACCOUNT-002
+  - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
+- **Q-221** Should a correction that makes a transfer automatic and linked in past periods create those periods' transactions?
+  - Context: D-354 creates them, so a transaction exists exactly when the transfer counts as done; a correction of a subscription never creates charges for dates already passed.
+  - Related: D-354, R-SUBSCRIPTION-073
+  - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
+- **Q-222** Should the dashboard also count manual transfers left to do in past periods?
+  - Context: D-361 counts the current period only.
+  - Related: D-361, R-ACCOUNT-241
+  - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
+- **Q-223** Should a closed account be restorable, like a category, rather than created again?
+  - Context: Step 7 has no restore for accounts; a correction can only close it from an earlier period.
+  - Related: D-350, R-ACCOUNT-232
+  - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
+- **Q-224** When a period is short (an early salary), should a fixed-day transfer whose day falls after the period's end be due on the period's last day, or have no occurrence in that period?
+  - Context: D-352 caps the due date at the period's last day, so one calendar day can lead to two occurrences close together (the short period's last day, then the day in the next period).
+  - Related: D-352, R-ACCOUNT-239
+  - Source: owner-request: database developer decision for step 7, within the coordinator's brief, 2026-11-16
 
 ## Glossary
 
