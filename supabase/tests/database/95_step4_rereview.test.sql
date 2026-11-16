@@ -10,7 +10,7 @@ select tests.create_user('ann', 'Ann');
 select tests.set_today('2026-11-16');
 
 -- ===========================================================================
--- One bounded step of catch-up per call (R-PERIOD-180, D-270)
+-- One bounded step of catch-up per call (R-PERIOD-180, D-387)
 -- ===========================================================================
 select tests.authenticate_as('ann');
 select tests.remember('o', public.create_budget('Old', 'Salary', 500000, 25, 'nearest', '2026-08-01'));
@@ -29,6 +29,18 @@ create temp table no_arg_preview on commit drop as
 select is((select dates from no_arg_preview),
           (select array_agg(d) from public.preview_update_subscription(tests.id('o_sub'), p_price => 1000, p_count => 3) as d),
   'R-SUBSCRIPTION-133: a preview with no term argument answers the schedule as it stands');
+-- step 6: a batch, a merchant rule and an import token of this budget
+select tests.remember('o_batch', gen_random_uuid());
+select count(*) from public.import_transactions(tests.id('o'), tests.id('o_batch'), 1,
+  '[{"date": "2026-11-16", "amount": 500, "direction": "debit", "description": "Shop"}]', 'csv');
+select tests.remember('o_rule', (select rule_id from public.create_merchant_rule(tests.id('o'), 'shop', tests.id('o_cat'))));
+create temp table o_token on commit drop as select token from public.create_import_token(tests.id('o'), 'Script');
+grant select on o_token to authenticated;
+-- step 7: two accounts and a planned transfer between them
+select tests.remember('o_acc1', (select id from public.create_account(tests.id('o'), 'A', 'current')));
+select tests.remember('o_acc2', (select id from public.create_account(tests.id('o'), 'B', 'savings')));
+select tests.remember('o_tr', (select id from public.create_transfer(tests.id('o'), 'T', tests.id('o_acc1'), tests.id('o_acc2'),
+  1000, 'pay_date')));
 select tests.clear_authentication();
 select tests.set_today('2066-11-16');
 
@@ -55,7 +67,12 @@ insert into arg_values values
   ('p_kind', 'expense'), ('p_date', '2026-11-16'), ('p_price', '100'), ('p_cadence', 'monthly'),
   ('p_first_charge_date', '2026-12-01'), ('p_principal', '100'), ('p_monthly_payment', '10'), ('p_balance', '50'),
   ('p_pay_day', '25'), ('p_pay_date', '2026-11-10'), ('p_category_ids', '{' || tests.id('o_cat') || '}'),
-  ('p_from_period_id', (select id::text from public.periods where budget_id = tests.id('o') and seq = 1));
+  ('p_from_period_id', (select id::text from public.periods where budget_id = tests.id('o') and seq = 1)),
+  ('p_batch_id', tests.id('o_batch')::text), ('p_chunk', '2'), ('p_source', 'csv'),
+  ('p_rows', '[{"date": "2026-11-16", "amount": 700, "direction": "debit"}]'), ('p_fragment', 'cafe'),
+  ('p_rule_id', tests.id('o_rule')::text), ('p_token', (select token from o_token)),
+  ('p_account_id', tests.id('o_acc1')::text), ('p_from_account_id', tests.id('o_acc1')::text),
+  ('p_to_account_id', tests.id('o_acc2')::text), ('p_schedule', 'pay_date'), ('p_transfer_id', tests.id('o_tr')::text);
 -- refused for what the arguments say before any catch-up (the owner can neither leave nor be
 -- removed), so they touch no period either
 create temp table refused_first (proname text primary key, outcome text) on commit drop;
@@ -65,7 +82,10 @@ grant select on refused_first, stale to authenticated;
 create temp table calls on commit drop as
 select f.proname,
        pg_catalog.format('select * from public.%I(%s)', f.proname,
-         (select string_agg(pg_catalog.format('%I => %L::%s', a.name, v.value, pg_catalog.format_type(a.type, null)), ', ' order by a.i)
+         (select string_agg(pg_catalog.format('%I => %L::%s', a.name,
+                              -- an argument whose name means another type (an account's kind)
+                              case when a.name = 'p_kind' and a.type = 'public.account_kind'::regtype then 'current' else v.value end,
+                              pg_catalog.format_type(a.type, null)), ', ' order by a.i)
           from pg_catalog.pg_proc as p
           cross join lateral unnest(p.proargnames[1:p.pronargs - p.pronargdefaults], p.proargtypes::oid[]) with ordinality as a (name, type, i)
           left join arg_values as v on v.name = a.name
@@ -75,6 +95,9 @@ select f.proname,
         cross join lateral unnest(p.proargnames[1:p.pronargs - p.pronargdefaults]) with ordinality as a (name, i)
         where p.oid = f.oid and not exists (select 1 from arg_values as v where v.name = a.name)) as unknown_args
 from catch_up_fns as f;
+-- the token import answers a refusal in its error column once the call is counted (F10)
+update calls set sql = format($f$do $x$ declare e text; begin select q.error into e from (%s) as q; if e is not null then raise exception '%%', e; end if; end $x$$f$, sql)
+where proname = 'import_with_token';
 create temp table results (proname text, outcome text, periods integer) on commit drop;
 grant select on calls to authenticated;
 grant insert, select on results to authenticated;

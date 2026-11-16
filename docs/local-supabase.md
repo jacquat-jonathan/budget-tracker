@@ -129,17 +129,24 @@ commit, and tests roll back, so assert them with
 `docs/database.md`. Name the spec rule id a test proves in its description
 (`'R-PERIOD-030: ...'`); `npm run spec:check` checks every test-enforced rule has one.
 `70_properties.test.sql` runs random sequences of every public operation (step 2's for
-40 % of the steps, the category and transaction ones for 35 %, the subscription and debt
-ones, with absences of up to 40 days, for 25 %) for eight fixed seeds (220 steps each, about
-80 seconds) and checks the invariants after each step, including every period's totals
-against `tests.naive_totals` and its progress rows, and `tests.step4_violations`. It also
+8 steps in 23, the category and transaction ones for 7, the subscription, debt and import
+ones, with absences of up to 40 days, for 5, the account, transfer and mark ones for 3) for
+eight fixed seeds (250 steps each, two to three minutes) and checks the invariants after each
+step, including every period's totals against `tests.naive_totals` and its progress rows,
+`tests.step4_violations` and `tests.moneyflow_violations` (marks only where their transfer
+is in force, every automatic linked occurrence due has its mark, due dates equal to
+`tests.naive_transfer_due`, accounts and categories in force, every period's money flow adding
+up), and that the previews of creating, editing and ending a transfer equal the write. It also
 keeps its own models of step 4 and checks them after each step: the charges created since
 the last check against `tests.naive_charge_dates` (the nominal day the run asked for, the
 price and category of the terms in force in each period), every new period's interest
 against a naive balance (the state the step before left, since a period's interest is fixed
-when it is created), and every debt's projection against `tests.naive_projection`. Before
-each step the budget is opened (`ensure_periods`), so charges an absence left due count as
-what the budget held. A seed walks the same
+when it is created), every debt's projection against `tests.naive_projection`, and each
+transaction the catch-up makes for a transfer, once, when first seen, against a naive due
+date and the terms in force in its period. Before each step the budget is opened
+(`ensure_periods`) and what that catch-up made is checked at once, so charges an absence left
+due count as what the budget held, and an operation changing terms from now on is not taken
+for a wrong charge. A seed walks the same
 way on any database: every pick comes from the run's own rows in creation order
 (`pg_temp.pick`), never from a scan whose order depends on what else the database holds, and
 a pick is never called inside a `where` clause (it would run once per row scanned). A failure
@@ -152,11 +159,46 @@ run it with `00_helpers.test.sql`.
 and `get_period_progress` (renamed, ended, restored, "Other" and void categories, a reopen, an
 ended budget, catching up, access); the property test also checks them every fourth step.
 
+`91b_step5_review.test.sql` holds the regression tests of the step 5 review: a moved start and
+the debts' interest, far-behind budgets answering `catching_up` at once, `ensure_periods`
+waiting about two seconds for a lock another connection holds (one `dblink` connection that
+only takes an advisory lock; nothing is committed), one step per call, the time bound (the
+test replaces `private.limit_catch_up_work()`), the comparison's flags, default and second
+average, the membership limit and paged invitations, the held charge's preview, `preview_reopen`
+at exactly 1000 changes, and the access and terms cases the earlier tests left open.
+
+`97_import.test.sql` covers the import (preview equal to the write, validation, duplicates by
+count, flags, salaries, matches, merchant rules, "to categorise", review, undo, chunks, tokens,
+access); `97b_import_concurrency.test.sql` races two members sending one chunk, an import
+against an undo, against a category's end, and a token import against its revocation (dblink,
+like `98`), and two calls of one token at its last allowed call.
+`97e_import_review.test.sql` holds the regression tests of the step 6 review: a token's answer
+for every budget state (a matrix), rolling windows and their edges, tokens ending with their
+creator, token limits and deletion, bounded stored rows, duplicates and matches counted per
+batch across chunks, replays and out-of-order chunks, edited imports, null-batch previews,
+undo and rules leaving linked and frozen transactions alone, clean error codes, the salary
+window, "to categorise" restrictions, the shared text cleaner, merchant keys, the batch's
+counts after "import anyway", paged reads, and a GET refused. The import script is described
+in `docs/import-script.md`.
+
+`97c_money_flow.test.sql` covers accounts, planned transfers and their versions, due dates,
+the checklist and its marks, the transactions of linked transfers (by a mark or by the
+catch-up, held back at the limit), the money flow, an income's account, closing an account,
+ending a transfer, reopen, members, limits and access; `97d_money_flow_concurrency.test.sql`
+races two members marking (and undoing) the same occurrence, an early salary against an edit
+of a transfer, and closing an account against a transfer created on it (dblink; it runs on the
+real today).
+
+`97f_money_flow_review.test.sql` holds the first fixes of the step 7 review: removing a mark
+never leaves an automatic linked occurrence without its transaction, the dashboard's count, an
+ended chosen income does not block an edit, ending while a transaction is held back, the
+previews' counts, and the comparison's transfer-committed figure.
+
 `99_step4_review.test.sql` holds the regression tests of the step 4 database review (one
 section per finding: the projection's period ends, catch-up after 13 and 40 years, category
 coverage, the nominal day, opened dates, due charges, previews, and the contract additions).
 
-`60_concurrency.test.sql`, `62_concurrent_edits.test.sql` and
+`60_concurrency.test.sql`, `62_concurrent_edits.test.sql`, `97b`, `97d` and
 `98_step4_concurrency.test.sql` are the exceptions to the rollback rule: each opens extra connections with `dblink` (local credentials
 `postgres`/`postgres`) to race two callers, commits throwaway users and budgets, and
 deletes them at the end (and at the start, should an earlier run have failed half-way).

@@ -171,12 +171,14 @@ select is_empty(
 -- ===========================================================================
 -- Two periods side by side (R-COMPARE-071, R-COMPARE-174)
 -- ===========================================================================
-create temp table cmp on commit drop as select * from public.get_period_comparison(tests.id('b'));
+create temp table cmp on commit drop as
+  select * from public.get_period_comparison(tests.id('b'), null,
+    (select id from public.periods where budget_id = tests.id('b') and seq = (select seq from cur_seq)));
 grant select on cmp to authenticated;
 select is((select row(a_period_id, b_period_id)::text from cmp where kind = 'total'),
           (select row((select id from public.periods where budget_id = tests.id('b') and seq = s.seq - 1),
                       (select id from public.periods where budget_id = tests.id('b') and seq = s.seq))::text from cur_seq as s),
-  'R-COMPARE-071: by default the current period and the one before');
+  'R-COMPARE-071: B the current period, A by default the one before');
 select is((select kind from cmp limit 1), 'total', 'R-COMPARE-071: the totals come first');
 select is(
   (select row(a_income, b_income, income_difference, a_spent, b_spent, spent_difference, a_result, b_result, result_difference,

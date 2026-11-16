@@ -80,9 +80,22 @@ language sql immutable set search_path = '' as $$ select 600 $$;
 create or replace function private.limit_schedule_days_ahead() returns integer
 language sql immutable set search_path = '' as $$ select 3660 $$;
 -- R-PERIOD-031, R-PERIOD-130: the most periods one read's catch-up creates (ten years); a
--- longer absence is caught up over several calls, each saving its progress (D-270).
+-- longer absence is caught up over several calls, each saving its progress (D-387).
 create or replace function private.limit_catch_up_periods() returns integer
 language sql immutable set search_path = '' as $$ select 120 $$;
+-- D-276: the most work one catch-up step does (a test may replace it to prove the bound).
+create or replace function private.limit_catch_up_work() returns interval
+language sql immutable set search_path = '' as $$ select interval '2 seconds' $$;
+-- R-PERIOD-250, D-387: how far behind a budget may be for a call other than ensure_periods and
+-- get_current_period to do its own roll-over: its last period ended at most 62 days ago (about
+-- two monthly periods); further behind, the call answers catching_up at once, without the lock
+-- and without any work.
+create or replace function private.limit_roll_over_days() returns integer
+language sql immutable set search_path = '' as $$ select 62 $$;
+-- R-PERIOD-250, D-387: how long ensure_periods and get_current_period wait for the budget lock
+-- held by another session before answering catching_up (never the statement timeout).
+create or replace function private.limit_catch_up_wait() returns text
+language sql immutable set search_path = '' as $$ select '2s' $$;
 -- A page of a debt's history.
 create or replace function private.limit_history_page() returns integer
 language sql immutable set search_path = '' as $$ select 1000 $$;
@@ -780,6 +793,34 @@ create trigger periods_apply_debt_interest
   after insert on public.periods
   for each row execute function private.apply_debt_interest();
 
+-- R-DEBT-131, D-272, D-386: D-272 as a statement about the stored data, whatever changes a
+-- period's boundaries (a moved start today; any later boundary operation that updates a
+-- start): a period's interest entry exists only for a debt opened before the period's start,
+-- so every history starts with the opening. When a start moves to on or before a debt's
+-- opening, that debt's entry in the period goes. The other way (a start moved later, so a
+-- debt is now opened before the start of a period that has no entry for it) adds nothing:
+-- interest is computed once, when the period is created, on the balance before its start;
+-- computing it afterwards would charge interest for a period that began, as the member
+-- recorded it, before the debt existed, on a balance that already includes later rows.
+create or replace function private.drop_interest_before_opening()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.debt_interest as i
+  using public.debts as d
+  where i.period_id = new.id and d.id = i.debt_id and d.opened_on >= new.start_date;
+  return null;
+end;
+$$;
+
+create trigger periods_drop_interest_before_opening
+  after update of start_date on public.periods
+  for each row when (new.start_date < old.start_date)
+  execute function private.drop_interest_before_opening();
+
 -- ===========================================================================
 -- Automatic charges (R-SUBSCRIPTION-073, R-SUBSCRIPTION-075, R-SUBSCRIPTION-111, D-171)
 -- ===========================================================================
@@ -945,11 +986,11 @@ end;
 $$;
 
 -- R-PERIOD-008, R-PERIOD-009, R-PERIOD-031, R-PERIOD-130, R-SUBSCRIPTION-073, Q-054, D-171,
--- D-270: as in step 2, then the subscription charges due up to today (missed dates
+-- D-387: as in step 2, then the subscription charges due up to today (missed dates
 -- included). The fast path, without the lock, also checks that no charge is due, so a read
 -- never waits for a writer when there is nothing to do (R-SECURITY-006). Creating a period
 -- applies the debts' interest (trigger periods_apply_debt_interest). At most p_max periods
--- are created, and never more than limit_catch_up_periods() (D-270: no call of any kind does
+-- are created, and never more than limit_catch_up_periods() (D-387: no call of any kind does
 -- an unbounded catch-up); the charges follow the periods created, so a call after decades of
 -- absence does a bounded amount of work and the next call continues (no runaway error: step
 -- 2's guard is gone, the loop is bounded by the dates). Returns how many periods it created.
@@ -1022,7 +1063,7 @@ as $$
   and not private.charges_pending(p_budget_id)
 $$;
 
--- R-PERIOD-130, R-PERIOD-180, D-270: catching_up unless the budget is caught up.
+-- R-PERIOD-130, R-PERIOD-180, D-387: catching_up unless the budget is caught up.
 create or replace function private.assert_caught_up(p_budget_id uuid)
 returns void
 language plpgsql
@@ -1036,7 +1077,7 @@ begin
 end;
 $$;
 
--- R-PERIOD-180, D-270: the catch-up of every read and preview other than ensure_periods and
+-- R-PERIOD-180, D-387: the catch-up of every read and preview other than ensure_periods and
 -- get_current_period: one bounded step, then catching_up when the budget is still behind (the
 -- call then changes nothing: its step is rolled back with it).
 create or replace function private.read_catch_up(p_budget_id uuid)
@@ -1051,7 +1092,7 @@ begin
 end;
 $$;
 
--- R-PERIOD-180, D-270: step 2's current_period: one bounded step of catch-up, catching_up when
+-- R-PERIOD-180, D-387: step 2's current_period: one bounded step of catch-up, catching_up when
 -- the budget is still behind; then the period containing today, or null once the budget has
 -- ended.
 create or replace function private.current_period(p_budget_id uuid)
@@ -1070,7 +1111,7 @@ begin
 end;
 $$;
 
--- R-PERIOD-032, R-PERIOD-180, D-270: step 2's lock_and_catch_up for every write: the budget
+-- R-PERIOD-032, R-PERIOD-180, D-387: step 2's lock_and_catch_up for every write: the budget
 -- lock, one bounded step of catch-up, and catching_up (nothing changed) when the budget is
 -- still behind; the client brings it up to date with ensure_periods first.
 create or replace function private.lock_and_catch_up(p_budget_id uuid)
@@ -1082,6 +1123,7 @@ as $$
 declare
   v_budget public.budgets;
 begin
+  perform private.catch_up_gate(p_budget_id);  -- far behind: catching_up before the lock (D-387)
   v_budget := private.lock_budget(p_budget_id);
   perform private.read_catch_up(p_budget_id);
   return v_budget;
@@ -1139,9 +1181,16 @@ volatile
 security definer
 set search_path = ''
 as $$
+declare
+  v_created integer;
 begin
   perform private.assert_member(p_budget_id);
-  return private.ensure_periods(p_budget_id, private.limit_catch_up_periods());
+  -- each call is its own step (also several calls in one statement)
+  perform pg_catalog.set_config('budget_tracker.catch_up_step', '', true);
+  perform pg_catalog.set_config('budget_tracker.catch_up', 'multi', true);
+  v_created := private.ensure_periods(p_budget_id, private.limit_catch_up_periods());
+  perform pg_catalog.set_config('budget_tracker.catch_up', '', true);
+  return v_created;
 end;
 $$;
 
@@ -1157,7 +1206,11 @@ set search_path = ''
 as $$
 begin
   perform private.assert_member(p_budget_id);
+  -- each call is its own step (also several calls in one statement)
+  perform pg_catalog.set_config('budget_tracker.catch_up_step', '', true);
+  perform pg_catalog.set_config('budget_tracker.catch_up', 'multi', true);
   perform private.ensure_periods(p_budget_id, private.limit_catch_up_periods());
+  perform pg_catalog.set_config('budget_tracker.catch_up', '', true);
   return query select s.* from public.period_summaries as s
                where s.budget_id = p_budget_id and private.today() between s.start_date and s.end_date;
 end;
@@ -2829,12 +2882,14 @@ begin
 end;
 $$;
 
--- R-PERIOD-133, Q-091: what move_period_start(p_period_id, revision) without a date would do:
+-- R-PERIOD-133, Q-091: what move_period_start(p_period_id, revision, p_start_date) would do:
 -- the start the schedule gives (the previous period's projected end, the day after), and
--- whether the move would be accepted now (refusal: its message code). Computed with the
--- write's own checks; changes nothing (like get_current_period, it first catches up).
-create or replace function public.preview_move_period_start(p_period_id uuid)
-returns table (period_id uuid, scheduled_start date, accepted boolean, refusal text)
+-- whether the move to p_start_date (default: that scheduled start) would be accepted now
+-- (refusal: its message code); interest_removed: the debts whose interest entry of the period
+-- the move removes (opened on or after the new start: D-386). Computed with the write's own
+-- checks; changes nothing (like get_current_period, it first catches up).
+create or replace function public.preview_move_period_start(p_period_id uuid, p_start_date date default null)
+returns table (period_id uuid, scheduled_start date, accepted boolean, refusal text, interest_removed integer)
 language plpgsql
 volatile
 security definer
@@ -2845,11 +2900,15 @@ declare
   v_period public.periods;
   v_previous public.periods;
   v_start date;
+  v_scheduled date;
   v_refusal text;
 begin
   select p.budget_id into v_budget_id from public.periods as p where p.id = p_period_id;
   if v_budget_id is null or not private.is_budget_member(v_budget_id) then
     raise exception 'period_not_found' using errcode = 'P0001';
+  end if;
+  if p_start_date is not null and not private.is_sane_date(p_start_date) then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
   end if;
   perform private.read_catch_up(v_budget_id);
   select p.* into v_period from public.periods as p where p.id = p_period_id;
@@ -2859,10 +2918,11 @@ begin
   select p.* into v_previous from public.periods as p
   where p.budget_id = v_budget_id and p.seq = v_period.seq - 1;
   if v_previous.id is null then
-    return query select v_period.id, null::date, false, 'invalid_boundary'::text;
+    return query select v_period.id, null::date, false, 'invalid_boundary'::text, 0;
     return;
   end if;
-  v_start := private.projected_end(v_budget_id, v_previous.start_date, v_previous.seq) + 1;
+  v_scheduled := private.projected_end(v_budget_id, v_previous.start_date, v_previous.seq) + 1;
+  v_start := coalesce(p_start_date, v_scheduled);
   begin
     if v_start > private.today()
        or v_start > coalesce((select b.end_date from public.budgets as b where b.id = v_budget_id), v_start) then
@@ -2873,8 +2933,10 @@ begin
   exception when sqlstate 'P0001' then
     v_refusal := sqlerrm;
   end;
-  return query select v_period.id, v_start, v_refusal is null and v_start <> v_period.start_date, coalesce(v_refusal,
-    case when v_start = v_period.start_date then 'already_on_schedule' end);
+  return query select v_period.id, v_scheduled, v_refusal is null and v_start <> v_period.start_date, coalesce(v_refusal,
+    case when v_start = v_period.start_date then 'already_on_schedule' end),
+    (select pg_catalog.count(*)::integer from public.debt_interest as i join public.debts as d on d.id = i.debt_id
+     where i.period_id = v_period.id and d.opened_on >= v_start and v_refusal is null and v_start < v_period.start_date);
 end;
 $$;
 
@@ -3431,8 +3493,9 @@ $$;
 -- produce: the scheduled dates after today (after the subscription's watermark), at most
 -- p_count (1 to 60), under the terms that would then be in force from the current period on
 -- (a correction shadowed by a later change changes none of them), never beyond the budget's
--- end. Computed with the write's own helpers; changes nothing (it catches up first). Errors
--- as update_subscription's, and invalid_limit.
+-- end; a charge held back comes first, at its due date (subscription_overview.next_charge_date).
+-- Computed with the write's own helpers; changes nothing (it catches up first). Errors as
+-- update_subscription's (charge_held_back included), and invalid_limit.
 create or replace function public.preview_update_subscription(
   p_subscription_id uuid,
   p_price bigint default null,
@@ -3469,6 +3532,14 @@ begin
   end if;
   perform private.read_catch_up(v_subscription.budget_id);
   select s.* into v_subscription from public.subscriptions as s where s.id = p_subscription_id;
+  -- R-SUBSCRIPTION-180, D-388: refused where the write is refused (a schedule change while a
+  -- charge waits for room)
+  if p_next_charge_date is not null
+     or (p_cadence is not null and p_cadence is distinct from (
+           select v.cadence from public.subscription_versions as v
+           where v.subscription_id = v_subscription.id order by v.effective_from_seq desc limit 1)) then
+    perform private.assert_no_held_charge(v_subscription);
+  end if;
   if p_from_period_id is null then
     v_current := private.current_seq(v_subscription.budget_id);
   else
@@ -3505,6 +3576,10 @@ begin
     where v.subscription_id = v_subscription.id order by v.effective_from_seq desc limit 1;
   end if;
   v_after := greatest(v_subscription.charged_through, coalesce(private.charge_horizon(v_subscription.budget_id), v_subscription.charged_through));
+  -- D-388: a charge held back (due, waiting for room) comes first: the list starts with its date
+  if v_subscription.next_due is not null and v_subscription.next_due <= private.charge_horizon(v_subscription.budget_id) then
+    v_after := v_subscription.next_due - 1;
+  end if;
   v_budget_end := private.budget_end_date(v_subscription.budget_id);
   return query
     select d from private.charge_dates(v_anchor, v_cadence, greatest(v_after + 1, v_anchor),
@@ -4383,7 +4458,7 @@ grant execute on function
   public.adjust_debt_balance(uuid, integer, bigint, date, text),
   public.delete_debt_adjustment(uuid, integer),
   public.get_debt_history(uuid, integer, date, text, timestamptz, uuid, boolean),
-  public.preview_move_period_start(uuid),
+  public.preview_move_period_start(uuid, date),
   public.get_subscription_terms(uuid, uuid),
   public.get_debt_terms(uuid, uuid),
   public.get_category_terms(uuid, uuid),
