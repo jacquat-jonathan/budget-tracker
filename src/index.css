@@ -136,3 +136,8 @@
     @apply font-sans;
   }
 }
+
+/* A step heading takes the focus after each step of a flow: no ring around a title. */
+[data-step-heading]:focus {
+  outline: none;
+}

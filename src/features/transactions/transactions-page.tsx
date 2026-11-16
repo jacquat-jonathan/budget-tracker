@@ -333,6 +333,7 @@ export function TransactionsPage() {
             type="button"
             variant="outline"
             size="sm"
+            className="h-auto min-h-8 max-w-full py-1 text-left whitespace-normal"
             onClick={() => setFilter('review', '1')}
           >
             <ListChecksIcon aria-hidden />

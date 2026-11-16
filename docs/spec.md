@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-516 rules (508 active, 0 planned), 24 conventions, 282 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+516 rules (508 active, 0 planned), 24 conventions, 282 decisions, 47 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -6537,7 +6537,7 @@ Source: owner-request: coordinator brief for the step 6 screens (part B, import)
   - Related: R-IMPORT-092
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
 - **Q-273** Can an imported transaction waiting in "to categorise" be edited (amount, note) while it stays there, or must every update give it a real category?
-  - Context: docs/database.md says update_transaction refuses "to categorise" for a transaction moved into it; it does not say whether one already there may keep it. The form asks for a real category (the conservative reading, D-447).
+  - Context: docs/database.md says update_transaction refuses "to categorise" for a transaction moved into it; it does not say whether one already there may keep it. The form asks for a real category (the conservative reading, D-447). Observed on the local stack: update_transaction with the "to categorise" category unchanged and a new note is accepted, so the database allows it; the contract should say so before the form relaxes.
   - Related: R-CATEGORY-250
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
 - **Q-274** Should the preview give the total amount to import (money out and money in), for the summary above the table?
@@ -6547,6 +6547,10 @@ Source: owner-request: coordinator brief for the step 6 screens (part B, import)
 - **Q-275** Should one batch be readable by its id (list_import_batches with p_batch_id)?
   - Context: After an import the summary counts the answers rather than reading the batch's own counts, which the paged list gives only by scanning pages; a link to one batch cannot be opened either.
   - Related: R-IMPORT-257
+  - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-276** How should a choice for an own transfer be remembered, and should the import remember the default of a flagged row the member did not change?
+  - Context: toImportBatch sends an own transfer without description and merchant (R-IMPORT-219: the payee is the holder), so its merchant key is empty and a choice for it cannot be remembered (R-IMPORT-092); on the local stack, importing it by choice stored no import_choices row. Conversely, after a first import of the Migros Bank fixture with no action sent, import_choices held a row for every transfer to a person (import) and for the card-bill payment (skip): the database remembers defaults too, which the contract describes as "a member's choice".
+  - Related: R-IMPORT-092, R-IMPORT-219, D-314
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
 
 ## Glossary
