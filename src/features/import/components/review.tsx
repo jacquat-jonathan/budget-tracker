@@ -325,7 +325,15 @@ export function RuleOffer({
     ? `${after.parent_category_name} › ${after.category_name ?? ''}`
     : (after.category_name ?? '')
   return (
-    <Alert data-testid="rule-offer" role="region" aria-label={t('import.review.rule.title')}>
+    // Fixed in the window (under the header on a phone, bottom left beside the sidebar, away
+    // from the toasts): in view wherever the saved row is, never scrolling the
+    // page, and it takes no focus by itself (a stray Enter would create a rule).
+    <Alert
+      data-testid="rule-offer"
+      role="region"
+      aria-label={t('import.review.rule.title')}
+      className="fixed inset-x-4 top-16 z-40 max-h-[50vh] w-auto overflow-y-auto shadow-lg md:top-auto md:right-auto md:bottom-4 md:left-[calc(var(--sidebar-width)+1rem)] md:w-[28rem]"
+    >
       <SparklesIcon aria-hidden />
       <AlertTitle>{t('import.review.rule.title')}</AlertTitle>
       <AlertDescription className="flex flex-col gap-2">
@@ -343,7 +351,6 @@ export function RuleOffer({
             size="sm"
             disabled={create.isPending}
             onClick={() => create.mutate()}
-            autoFocus
           >
             {t('import.review.rule.create')}
           </Button>

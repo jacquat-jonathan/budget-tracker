@@ -128,6 +128,19 @@ describe('imported transactions to review [R-IMPORT-081] [R-IMPORT-209]', () => 
     await waitFor(() => expect(router.state.location.search).not.toContain('review=1'))
   })
 
+  it('"show only the N to review" shows those N, in every period, whatever else was filtered', async () => {
+    const db = reviewDb()
+    const { router } = open(db, '/transactions?category=cat-groceries')
+    const button = await screen.findByRole('button', { name: 'Show only the 3 to review' })
+    await userEvent.click(button)
+    await waitFor(() => expect(router.state.location.search).toBe('?period=all&review=1'))
+    await waitFor(() => expect(screen.getAllByTestId('transaction-row')).toHaveLength(3))
+    const last = db.rpc.list_transactions.mock.calls.at(-1)?.[0]
+    expect(last).toMatchObject({ p_to_review_only: true })
+    expect(last?.p_period_id ?? null).toBeNull()
+    expect(last?.p_category_id ?? null).toBeNull()
+  })
+
   it('confirms one, and a transaction still in "to categorise" says why it cannot be', async () => {
     const db = reviewDb()
     open(db, '/transactions?period=all&review=1')
@@ -199,6 +212,11 @@ describe('one click to always put a merchant in a category [R-IMPORT-007]', () =
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     const offer = await screen.findByTestId('rule-offer')
     expect(offer).toHaveTextContent('Next imports put “\u2068coop pronto 12\u2069” in Groceries.')
+    // In view wherever the row is (fixed in the window), and it takes no focus by itself: a
+    // stray Enter must not create a rule.
+    expect(offer.className).toContain('fixed')
+    expect(within(offer).getByRole('button', { name: 'Always' })).not.toHaveFocus()
+    expect(offer).not.toContainElement(document.activeElement as HTMLElement | null)
     await userEvent.click(within(offer).getByRole('button', { name: 'Always' }))
     await waitFor(() =>
       expect(db.rpc.create_merchant_rule).toHaveBeenCalledWith({
