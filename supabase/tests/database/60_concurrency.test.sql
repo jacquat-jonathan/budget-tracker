@@ -125,7 +125,7 @@ select is(
 select is(
   pg_temp.q('setup', format('select count(*)::text from tests.period_violations(%L)', (select id from ids where name = 'budget'))),
   '0',
-  'R-PERIOD-005 R-PERIOD-021: and the periods are valid'
+  'R-PERIOD-005 R-PERIOD-020: and the periods are valid'
 );
 
 -- ===========================================================================
