@@ -284,6 +284,63 @@ as $$
   select format('version from period %s beyond the latest period', v.effective_from_seq)
   from public.income_versions as v cross join latest
   where v.budget_id = period_violations.budget and v.effective_from_seq > latest.seq
+  -- step 3: categories, expectations, transactions
+  union all
+  select format('category %s keyed beyond the latest period', c.name)
+  from public.categories as c cross join latest
+  where c.budget_id = period_violations.budget and (c.first_seq > latest.seq or c.end_seq > latest.seq)
+  union all
+  select format('expectation from period %s beyond the latest period', e.effective_from_seq)
+  from public.category_expectations as e cross join latest
+  where e.budget_id = period_violations.budget and e.effective_from_seq > latest.seq
+  union all
+  select format('transaction on %s outside every period', t.date)
+  from public.transactions as t
+  where t.budget_id = period_violations.budget
+    and not exists (select 1 from public.periods as p
+                    where p.budget_id = t.budget_id and t.date between p.start_date and p.end_date)
+  union all
+  select format('transaction on group %s', c.name)
+  from public.transactions as t join public.categories as c on c.id = t.category_id
+  where t.budget_id = period_violations.budget and c.is_group
+  union all
+  select format('subcategory %s outside its group', c.name)
+  from public.categories as c join public.categories as g on g.id = c.parent_id
+  where c.budget_id = period_violations.budget
+    and (not g.is_group or g.parent_id is not null or c.first_seq < g.first_seq
+         or (g.end_seq is not null and (c.end_seq is null or c.end_seq > g.end_seq)))
+$$;
+
+-- Independent recomputation of a period's totals from the rows, written without the
+-- migration's helpers (step 3): expected adds each leaf's monthly share (a yearly amount /
+-- 12, rounded half up with numeric arithmetic), spent is expenses minus refunds.
+create or replace function tests.naive_totals(period uuid)
+returns table (salary_total bigint, extra_income_total bigint, expected_total bigint, spent_total bigint)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with p as (select * from public.periods where id = naive_totals.period)
+  select
+    (select coalesce(sum((select v.amount from public.income_versions as v
+                          where v.income_id = i.id and v.effective_from_seq <= p.seq
+                          order by v.effective_from_seq desc limit 1)), 0)::bigint
+     from public.incomes as i
+     where i.budget_id = p.budget_id and i.first_seq <= p.seq and (i.end_seq is null or p.seq < i.end_seq)),
+    (select coalesce(sum(t.amount), 0)::bigint from public.transactions as t
+     where t.budget_id = p.budget_id and t.kind = 'extra_income' and t.date >= p.start_date and t.date <= p.end_date),
+    (select coalesce(sum(case e.cadence when 'monthly' then e.amount::numeric else round(e.amount::numeric / 12) end), 0)::bigint
+     from public.categories as c
+     cross join lateral (select x.amount, x.cadence from public.category_expectations as x
+                         where x.category_id = c.id and x.effective_from_seq <= p.seq
+                         order by x.effective_from_seq desc limit 1) as e
+     where c.budget_id = p.budget_id and not c.is_group
+       and c.first_seq <= p.seq and (c.end_seq is null or p.seq < c.end_seq)),
+    (select coalesce(sum(case t.kind when 'expense' then t.amount when 'refund' then -t.amount else 0 end), 0)::bigint
+     from public.transactions as t
+     where t.budget_id = p.budget_id and t.date >= p.start_date and t.date <= p.end_date)
+  from p
 $$;
 
 grant execute on all functions in schema tests to anon, authenticated;
