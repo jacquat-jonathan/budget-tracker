@@ -236,13 +236,41 @@ export const fr: Translation = {
       income_is_primary: 'C’est le revenu principal. Désignez d’abord un autre revenu principal.',
       income_ended: 'Ce revenu a pris fin et ne peut plus être modifié.',
       income_not_in_force:
-        'Ce revenu ne commence que dans une période ultérieure : il ne peut pas encore être le revenu principal.',
+        'Ce revenu n’est pas en vigueur dans la période en cours (il commence plus tard ou a pris fin) : il ne peut pas être le revenu principal.',
       budget_ended:
         'Ce budget est terminé : il n’y a pas de période en cours à laquelle appliquer ce changement.',
       budget_limit_reached: 'Vous possédez déjà 20 budgets, le maximum autorisé.',
       member_limit_reached: 'Ce budget compte déjà 20 membres, le maximum autorisé.',
       invitation_limit_reached:
         'Ce budget a déjà 20 invitations en attente. Annulez-en une avant d’inviter quelqu’un d’autre.',
+      record_changed:
+        'Quelqu’un d’autre a modifié cet élément entre-temps. L’affichage a été actualisé : vérifiez-le, puis refaites votre modification.',
+      invalid_revision:
+        'Cette modification n’a pas pu être comparée à la dernière version. Rechargez la page et réessayez.',
+      category_not_found: 'Cette catégorie n’existe plus.',
+      transaction_not_found: 'Cette transaction n’existe plus.',
+      invalid_cadence: 'Choisissez par mois ou par an.',
+      invalid_kind: 'Choisissez une dépense, un remboursement ou un revenu supplémentaire.',
+      invalid_description: 'La note peut compter au plus 500 caractères.',
+      invalid_date: 'Saisissez une date valide.',
+      invalid_category: 'Un revenu supplémentaire n’a pas de catégorie.',
+      invalid_parent: 'Une sous-catégorie ne peut pas avoir ses propres sous-catégories.',
+      invalid_limit: 'Cette liste n’a pas pu être chargée. Réessayez.',
+      invalid_cursor: 'La suite de cette liste n’a pas pu être chargée. Rechargez-la.',
+      date_outside_periods:
+        'Cette date est en dehors des périodes du budget : elle doit se situer entre le début de la première période et aujourd’hui.',
+      category_required: 'Choisissez une catégorie.',
+      category_is_group:
+        'Cette catégorie a des sous-catégories : choisissez-en une (une catégorie avec sous-catégories n’a pas de montant propre).',
+      category_not_in_force:
+        'Cette catégorie n’était pas utilisée dans la période de cette date. Choisissez une autre catégorie ou une autre date.',
+      category_ended: 'Cette catégorie a pris fin (pour cette période).',
+      other_name_required:
+        'Il faut un nom pour la sous-catégorie qui reprend ce que contenait la catégorie.',
+      category_limit_reached:
+        'Ce budget contient déjà le maximum de catégories (200 en usage, ou 2000 au total).',
+      transaction_limit_reached:
+        'Ce budget contient déjà 200 000 transactions, le maximum possible.',
       income_limit_reached:
         'Ce budget compte déjà le maximum de revenus autorisé (50 en vigueur, ou 500 au total).',
     },
@@ -365,7 +393,7 @@ export const fr: Translation = {
       nextPayDayOf: '{{name}}',
       nextPayDayOfManual: '{{name}}, date fixée à la main',
       budgetEnds: 'Fin du budget',
-      lastPeriodHelp: 'C’est la dernière période du budget : aucune nouvelle période ne commence ensuite.',
+      lastPeriodHelp: 'C’est la dernière période du budget : aucune nouvelle période ne commence ensuite.',
     },
     ended: {
       title: 'Ce budget est terminé',
@@ -427,9 +455,9 @@ export const fr: Translation = {
         'Avec le nouveau jour de paie, le salaire de ce mois était dû le {{date}}. S’il est arrivé, enregistrez-le ; sinon, la période en cours continue jusqu’au salaire du mois prochain.',
       notYet: 'Pas encore',
       keepStart: 'Non, le garder',
-      moveStartTitle: 'Le salaire de cette période est-il arrivé le {{date}} ?',
+      moveStartTitle: 'Le salaire de cette période est-il arrivé le {{date}} ?',
       moveStartDescription:
-        'Avec le nouveau jour de paie, le salaire qui a ouvert cette période le {{start}} était dû le {{date}}. S’il est vraiment arrivé le {{date}}, déplacez le début de la période à ce jour : la période précédente se termine alors la veille.',
+        'Avec le nouveau jour de paie, le salaire qui a ouvert cette période le {{start}} était dû le {{date}}. S’il est vraiment arrivé le {{date}}, déplacez le début de la période à ce jour : la période précédente se termine alors la veille.',
       moveStart: 'Déplacer le début',
       record: 'Enregistrer la date de paie',
     },

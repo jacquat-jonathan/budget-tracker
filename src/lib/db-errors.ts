@@ -37,6 +37,26 @@ export const DB_ERROR_CODES = [
   'member_limit_reached',
   'invitation_limit_reached',
   'income_limit_reached',
+  'record_changed',
+  'invalid_revision',
+  'category_not_found',
+  'transaction_not_found',
+  'invalid_cadence',
+  'invalid_kind',
+  'invalid_description',
+  'invalid_date',
+  'invalid_category',
+  'invalid_parent',
+  'invalid_limit',
+  'invalid_cursor',
+  'date_outside_periods',
+  'category_required',
+  'category_is_group',
+  'category_not_in_force',
+  'category_ended',
+  'other_name_required',
+  'category_limit_reached',
+  'transaction_limit_reached',
 ] as const
 
 export type DbErrorCode = (typeof DB_ERROR_CODES)[number]
@@ -55,6 +75,8 @@ export const NOT_FOUND_CODES: readonly DbErrorCode[] = [
   'period_not_found',
   'member_not_found',
   'invitation_not_found',
+  'category_not_found',
+  'transaction_not_found',
 ]
 
 /** An error the client raises itself in the database's terms, e.g. a write that hit 0 rows. */

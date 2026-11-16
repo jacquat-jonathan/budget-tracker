@@ -230,6 +230,31 @@ export const en = {
         'This budget already has 20 pending invitations. Cancel one before inviting someone else.',
       income_limit_reached:
         'This budget already has the most incomes it can hold (50 in force, or 500 in all).',
+      record_changed:
+        'Someone else changed this in the meantime. What you see has been refreshed: check it, then make your change again.',
+      invalid_revision: 'This change could not be checked against the latest version. Reload and try again.',
+      category_not_found: 'This category no longer exists.',
+      transaction_not_found: 'This transaction no longer exists.',
+      invalid_cadence: 'Choose per month or per year.',
+      invalid_kind: 'Choose an expense, a refund or an extra income.',
+      invalid_description: 'The note can be at most 500 characters long.',
+      invalid_date: 'Enter a valid date.',
+      invalid_category: 'An extra income has no category.',
+      invalid_parent: 'A subcategory cannot have subcategories of its own.',
+      invalid_limit: 'This list could not be loaded. Try again.',
+      invalid_cursor: 'This list could not be loaded further. Reload it.',
+      date_outside_periods:
+        'This date is outside the budget’s periods: it must be between the first period’s start and today.',
+      category_required: 'Choose a category.',
+      category_is_group:
+        'This category has subcategories: choose one of them (a category with subcategories has no amount of its own).',
+      category_not_in_force:
+        'This category was not in use in the period of this date. Choose another category or another date.',
+      category_ended: 'This category has ended (for that period).',
+      other_name_required: 'A name is needed for the subcategory that takes what the category held.',
+      category_limit_reached:
+        'This budget already has the most categories it can hold (200 in use, or 2000 in all).',
+      transaction_limit_reached: 'This budget already holds 200 000 transactions, the most it can hold.',
     },
   },
   confirm: {
