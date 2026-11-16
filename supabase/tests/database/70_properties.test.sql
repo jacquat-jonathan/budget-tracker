@@ -1,7 +1,8 @@
 -- Property test: after any sequence of the public operations, in any order, on any day,
 -- the period invariants hold, nothing gets stuck, no raw error reaches the client, and no
 -- closed period's total changes except through an operation that names it. Step 3 adds
--- category and transaction operations to the sequences.
+-- category and transaction operations to the sequences, step 4 subscription and debt
+-- operations (automatic charges, confirmations, payments, interest, adjustments).
 --
 -- Deterministic: a fixed list of seeds; each seed runs on fresh budgets with its own user.
 -- Every pick is made from the run's own rows in the order the run created them (pg_temp.pick),
@@ -25,7 +26,12 @@
 --   * every period's totals equal a naive recomputation from the rows (tests.naive_totals)
 --     and the sum of its progress rows; the step 3 invariants (tests.period_violations);
 --   * an edit just saved (current period) is the terms or expectation in force now;
---   * an edit based on an older revision is refused.
+--   * an edit based on an older revision is refused;
+--   * step 4 (tests.step4_violations): no subscription charged twice for a date, no interest
+--     entry without its period and at most one per debt and period, every debt's remaining
+--     amount and every period's committed total equal a naive recomputation from the rows.
+-- Closed totals now include the committed total. Before each step the budget is opened (its
+-- catch-up runs), so the charges a long absence left due count as what the budget held.
 begin;
 
 create temp table seeds (seed double precision) on commit drop;
@@ -51,7 +57,12 @@ insert into documented_codes values
   ('category_required'), ('category_is_group'), ('category_not_in_force'), ('category_ended'),
   ('invalid_parent'), ('other_name_required'), ('category_limit_reached'),
   ('transaction_limit_reached'), ('record_changed'), ('invalid_revision'), ('invalid_limit'),
-  ('invalid_cursor');
+  ('invalid_cursor'),
+  -- step 4
+  ('subscription_not_found'), ('debt_not_found'), ('adjustment_not_found'), ('subscription_ended'),
+  ('debt_ended'), ('invalid_charge_date'), ('invalid_interest_rate'), ('subscription_limit_reached'),
+  ('debt_limit_reached'), ('adjustment_limit_reached'), ('invalid_link'), ('debt_not_in_force'),
+  ('subscription_not_in_force'), ('not_a_charge'), ('category_in_use'), ('debt_has_history');
 
 create or replace function pg_temp.primary_of(b uuid) returns uuid language sql as $$
   select primary_income_id from public.budgets where id = b
@@ -78,13 +89,29 @@ declare
   v_ids uuid[];
 begin
   execute format('select array_agg(m.id order by m.ord) from made as m join %s as t on t.id = m.id where m.kind = $1 and m.budget = $2 and (%s)',
-                 case k when 'income' then 'public.incomes' when 'category' then 'public.categories' else 'public.transactions' end, cond)
+                 case k when 'income' then 'public.incomes' when 'category' then 'public.categories'
+                        when 'subscription' then 'public.subscriptions' when 'debt' then 'public.debts'
+                        when 'adjustment' then 'public.debt_adjustments' else 'public.transactions' end, cond)
     into v_ids using k, b;
   if v_ids is null then
     return null;
   end if;
   return v_ids[1 + floor(random() * cardinality(v_ids))::integer];
 end;
+$$;
+-- Record the automatic charges of a budget the run has not seen yet, in a deterministic order:
+-- by charge date, then by when the run made the subscription.
+create or replace function pg_temp.made_charges(b uuid) returns void language sql as $$
+  insert into made (kind, budget, id)
+  select 'charge', b, t.id from public.transactions as t join made as s on s.id = t.subscription_id
+  where t.budget_id = b and t.charge_date is not null and not exists (select 1 from made as m where m.id = t.id)
+  order by t.charge_date, s.ord
+$$;
+-- Record the adjustment an operation just made (at most one per step).
+create or replace function pg_temp.made_adjustments(b uuid) returns void language sql as $$
+  insert into made (kind, budget, id)
+  select 'adjustment', b, a.id from public.debt_adjustments as a
+  where a.budget_id = b and not exists (select 1 from made as m where m.id = a.id)
 $$;
 -- A random period of budget b, by seq.
 create or replace function pg_temp.pick_period(b uuid) returns public.periods language plpgsql as $$
@@ -119,7 +146,7 @@ create or replace function pg_temp.seqs_of(b uuid, ds date[]) returns integer[] 
 $$;
 -- Closed periods' totals (income, expected, spent), keyed by seq.
 create or replace function pg_temp.closed_totals(b uuid, before date) returns jsonb language sql as $$
-  select coalesce(jsonb_object_agg(seq, jsonb_build_array(income_total, expected_total, spent_total)), '{}')
+  select coalesce(jsonb_object_agg(seq, jsonb_build_array(income_total, expected_total, spent_total, committed_total)), '{}')
   from public.period_summaries where budget_id = b and end_date < before
 $$;
 -- Periods whose totals disagree with a naive recomputation or with their progress rows.
@@ -138,7 +165,7 @@ create or replace function pg_temp.totals_disagree(b uuid) returns setof text la
          or s.result <> s.income_total - s.spent_total)
 $$;
 
-select plan(12);
+select plan(17);
 
 do $prop$
 declare
@@ -174,6 +201,8 @@ declare
   v_first date;
   v_kind public.transaction_kind;
   v_pick uuid;  -- picks are called once, never in a WHERE clause (it would run per row scanned)
+  v_sub public.subscriptions;
+  v_debt public.debts;
 begin
   for v_seed in select seed from seeds order by seed loop
     perform setseed(v_seed);
@@ -193,8 +222,9 @@ begin
       v_budget := tests.id(v_user || v_name);
       v_today := private.today();
       v_r := random();
-      -- Step 2 operations take half the steps, step 3 operations the other half.
-      if random() < 0.5 then
+      -- Step 2 operations take 40 % of the steps, step 3 operations 35 %, step 4 operations 25 %.
+      v_k := floor(random() * 20)::integer;
+      if v_k < 8 then
       v_op := case
         when v_r < 0.14 then 'advance_day'
         when v_r < 0.21 then 'update_terms'
@@ -216,7 +246,7 @@ begin
         when v_r < 0.98 then 'current'
         else 'preview_then_correct_primary'
       end;
-      else
+      elsif v_k < 15 then
         v_op := case
           when v_r < 0.10 then 'create_category'
           when v_r < 0.15 then 'create_category_backdated'
@@ -235,8 +265,35 @@ begin
           when v_r < 0.98 then 'restore_category'
           else 'reopen_previous_period'
         end;
+      else
+        v_op := case
+          when v_r < 0.12 then 'create_subscription'
+          when v_r < 0.22 then 'create_subscription_backdated'
+          when v_r < 0.29 then 'update_subscription'
+          when v_r < 0.33 then 'correct_subscription'
+          when v_r < 0.36 then 'end_subscription'
+          when v_r < 0.38 then 'end_subscription_from'
+          when v_r < 0.45 then 'confirm_charge'
+          when v_r < 0.51 then 'dismiss_charge'
+          when v_r < 0.58 then 'create_debt'
+          when v_r < 0.61 then 'create_debt_backdated'
+          when v_r < 0.66 then 'update_debt'
+          when v_r < 0.69 then 'correct_debt'
+          when v_r < 0.78 then 'add_payment'
+          when v_r < 0.83 then 'adjust_debt'
+          when v_r < 0.85 then 'delete_adjustment'
+          when v_r < 0.88 then 'remove_debt'
+          when v_r < 0.91 then 'link_transaction'
+          when v_r < 0.93 then 'stale_step4_edit'
+          else 'long_absence'
+        end;
       end if;
 
+      -- The member opens the budget first: charges a long absence left due are created now.
+      perform tests.authenticate_as(v_user);
+      perform public.ensure_periods(v_budget);
+      perform tests.clear_authentication();
+      perform pg_temp.made_charges(v_budget);
       v_before := pg_temp.closed_totals(v_budget, v_today);
       v_touched := '{}';
       v_from := null;
@@ -247,6 +304,9 @@ begin
       begin
         if v_op = 'advance_day' then
           perform tests.set_today(v_today + 1 + floor(random() * 12)::integer);
+        elsif v_op = 'long_absence' then
+          -- nobody opens the budgets for up to 40 days: periods, charges and interest are caught up
+          perform tests.set_today(v_today + 1 + floor(random() * 40)::integer);
         else
           perform tests.authenticate_as(v_user);
           v_period := pg_temp.pick_period(v_budget);
@@ -437,6 +497,154 @@ begin
             perform public.reorder_categories(v_budget,
               pg_temp.shuffle(array(select m.id from made as m join public.categories as c on c.id = m.id
                                     where m.budget = v_budget and c.parent_id is null and c.end_seq is null order by m.ord)));
+          elsif v_op in ('create_subscription', 'create_subscription_backdated', 'create_debt', 'create_debt_backdated') then
+            if v_op like '%backdated' then
+              v_from := v_period.seq;
+            end if;
+            begin
+              v_category := pg_temp.pick('category', v_budget,
+                format('t.id in (select category_id from public.list_categories_for_date(%L, %L))', v_budget,
+                       case when v_from is not null then v_period.start_date else v_today end));
+            exception when sqlstate 'P0001' then
+              v_category := null;
+            end;
+            if v_category is null then
+              v_category := pg_temp.pick('category', v_budget);
+            end if;
+            if v_op like 'create_subscription%' then
+              perform pg_temp.made('subscription', v_budget, (select s.id from public.create_subscription(v_budget, 'Sub ' || v_step,
+                1 + floor(random() * 50000)::bigint,
+                (array['monthly', 'quarterly', 'half_yearly', 'yearly'])[1 + floor(random() * 4)::integer]::public.subscription_cadence,
+                v_category, v_today + floor(random() * 200)::integer - 180,
+                case when v_from is not null then v_period.id end) as s));
+            else
+              perform pg_temp.made('debt', v_budget, (select d.id from public.create_debt(v_budget, 'Debt ' || v_step,
+                1000 + floor(random() * 2000000)::bigint, v_category, floor(random() * 100000)::bigint,
+                (array[0, 0, 1.5, 4.875, 12, 100])[1 + floor(random() * 6)::integer],
+                case when v_from is not null then v_period.id end) as d));
+            end if;
+          elsif v_op in ('update_subscription', 'correct_subscription') then
+            v_pick := pg_temp.pick('subscription', v_budget);
+            select * into v_sub from public.subscriptions where id = v_pick;
+            if v_sub.id is not null then
+              if v_op = 'correct_subscription' then
+                v_from := v_period.seq;
+                perform public.update_subscription(v_sub.id, v_sub.revision, p_price => 1 + floor(random() * 50000)::bigint,
+                  p_from_period_id => v_period.id);
+              else
+                v_k := floor(random() * 4)::integer;
+                if v_k = 0 then
+                  perform public.update_subscription(v_sub.id, v_sub.revision, p_price => 1 + floor(random() * 50000)::bigint);
+                elsif v_k = 1 then
+                  perform public.update_subscription(v_sub.id, v_sub.revision,
+                    p_cadence => (array['monthly', 'quarterly', 'half_yearly', 'yearly'])[1 + floor(random() * 4)::integer]::public.subscription_cadence);
+                elsif v_k = 2 then
+                  perform public.update_subscription(v_sub.id, v_sub.revision, p_next_charge_date => v_today + floor(random() * 70)::integer);
+                else
+                  v_pick := pg_temp.pick('category', v_budget);
+                  perform public.update_subscription(v_sub.id, v_sub.revision, p_category_id => v_pick);
+                end if;
+              end if;
+            end if;
+          elsif v_op in ('end_subscription', 'end_subscription_from') then
+            v_pick := pg_temp.pick('subscription', v_budget);
+            select * into v_sub from public.subscriptions where id = v_pick;
+            if v_sub.id is not null then
+              if v_op = 'end_subscription_from' then
+                v_from := v_period.seq;
+              end if;
+              perform public.end_subscription(v_sub.id, v_sub.revision, case when v_from is not null then v_period.id end);
+            end if;
+          elsif v_op in ('confirm_charge', 'dismiss_charge') then
+            v_pick := pg_temp.pick('charge', v_budget,
+              case when v_op = 'confirm_charge' then 't.review_state = ''awaiting_confirmation''' else 'true' end);
+            select * into v_tx from public.transactions where id = v_pick;
+            if v_tx.id is not null then
+              if v_op = 'confirm_charge' then
+                perform public.confirm_subscription_charge(v_tx.id, v_tx.revision);
+              else
+                v_touched := pg_temp.seqs_of(v_budget, array[v_tx.date]);
+                perform public.dismiss_subscription_charge(v_tx.id, v_tx.revision);
+              end if;
+            else
+              v_outcome := 'nothing to pick';
+            end if;
+          elsif v_op in ('update_debt', 'correct_debt', 'remove_debt') then
+            v_pick := pg_temp.pick('debt', v_budget);
+            select * into v_debt from public.debts where id = v_pick;
+            if v_debt.id is not null then
+              if v_op = 'remove_debt' then
+                if random() < 0.3 then
+                  v_from := v_period.seq;
+                end if;
+                perform public.remove_debt(v_debt.id, v_debt.revision, case when v_from is not null then v_period.id end);
+              elsif v_op = 'correct_debt' then
+                v_from := v_period.seq;
+                perform public.update_debt(v_debt.id, v_debt.revision,
+                  p_interest_rate => (array[0, 2.5, 12])[1 + floor(random() * 3)::integer], p_from_period_id => v_period.id);
+              else
+                perform public.update_debt(v_debt.id, v_debt.revision,
+                  p_interest_rate => case when random() < 0.5 then (array[0, 3, 6.125])[1 + floor(random() * 3)::integer] end,
+                  p_monthly_payment => case when random() < 0.7 then floor(random() * 100000)::bigint end,
+                  p_principal => case when random() < 0.2 then 1000 + floor(random() * 100000)::bigint end);
+              end if;
+            end if;
+          elsif v_op = 'add_payment' then
+            v_pick := pg_temp.pick('debt', v_budget);
+            select * into v_debt from public.debts where id = v_pick;
+            if v_debt.id is not null then
+              select min(start_date) into v_first from public.periods where budget_id = v_budget;
+              v_date := v_first + floor(random() * (least(v_today, (select max(end_date) from public.periods where budget_id = v_budget)) - v_first + 3))::integer;
+              v_touched := pg_temp.seqs_of(v_budget, array[v_date]);
+              perform pg_temp.made('transaction', v_budget,
+                (select l.id from public.add_transaction(v_budget, 'expense', 1 + floor(random() * 80000)::bigint, v_date,
+                                                         v_debt.category_id, 'Payment ' || v_step, p_debt_id => v_debt.id) as l));
+            end if;
+          elsif v_op = 'adjust_debt' then
+            v_pick := pg_temp.pick('debt', v_budget);
+            select * into v_debt from public.debts where id = v_pick;
+            if v_debt.id is not null then
+              select min(start_date) into v_first from public.periods where budget_id = v_budget;
+              perform public.adjust_debt_balance(v_debt.id, v_debt.revision, floor(random() * 2000000)::bigint,
+                v_first + floor(random() * (v_today - v_first + 2))::integer);
+              perform pg_temp.made_adjustments(v_budget);
+            end if;
+          elsif v_op = 'delete_adjustment' then
+            v_pick := pg_temp.pick('adjustment', v_budget);
+            if v_pick is not null then
+              perform public.delete_debt_adjustment(v_pick,
+                (select d.revision from public.debts as d join public.debt_adjustments as a on a.debt_id = d.id where a.id = v_pick));
+            end if;
+          elsif v_op = 'link_transaction' then
+            v_pick := pg_temp.pick('transaction', v_budget);
+            select * into v_tx from public.transactions where id = v_pick;
+            if v_tx.id is not null then
+              v_r := random();
+              if v_r < 0.4 then
+                v_pick := pg_temp.pick('debt', v_budget);
+                perform public.link_transaction(v_tx.id, v_tx.revision, v_pick);
+              elsif v_r < 0.7 then
+                v_pick := pg_temp.pick('subscription', v_budget);
+                perform public.link_transaction(v_tx.id, v_tx.revision, null, v_pick);
+              else
+                perform public.link_transaction(v_tx.id, v_tx.revision);
+              end if;
+            end if;
+          elsif v_op = 'stale_step4_edit' then
+            -- an edit based on an older revision must be refused
+            v_pick := pg_temp.pick('subscription', v_budget, 't.revision > 1');
+            select * into v_sub from public.subscriptions where id = v_pick;
+            if v_sub.id is not null then
+              perform public.update_subscription(v_sub.id, v_sub.revision - 1, 'Stale');
+              insert into failures values (v_seed, v_step, v_name, v_op, 'a stale subscription edit was accepted');
+            else
+              v_pick := pg_temp.pick('debt', v_budget, 't.revision > 1');
+              select * into v_debt from public.debts where id = v_pick;
+              if v_debt.id is not null then
+                perform public.adjust_debt_balance(v_debt.id, v_debt.revision - 1, 0);
+                insert into failures values (v_seed, v_step, v_name, v_op, 'a stale debt edit was accepted');
+              end if;
+            end if;
           elsif v_op = 'ensure' then
             perform public.ensure_periods(v_budget);
           else
@@ -482,12 +690,17 @@ begin
         insert into failures values (v_seed, v_step, v_name, v_op, 'constraint: ' || sqlerrm);
       end;
 
-      -- Every period's totals equal a naive recomputation and the sum of its progress rows.
+      -- Every period's totals equal a naive recomputation and the sum of its progress rows;
+      -- the step 4 invariants hold.
       perform tests.authenticate_as(v_user);
       for v_problem in select pg_temp.totals_disagree(v_budget) loop
         insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
       end loop;
+      for v_problem in select tests.step4_violations(v_budget) loop
+        insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
+      end loop;
       perform tests.clear_authentication();
+      perform pg_temp.made_charges(v_budget);
 
       -- Closed totals, except what the operation names or touches.
       select coalesce(jsonb_object_agg(key, value), '{}') into v_after
@@ -524,7 +737,7 @@ $prop$;
 
 select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
-  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070: across all seeds, every step kept the invariants (no transaction outside every period or on a group), nothing got stuck, only documented errors reached the client, every period''s totals equalled a naive recomputation and its progress rows, closed income, expected and spent totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
+  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
 );
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
   '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');
@@ -550,9 +763,20 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in
   '>=', 40, 'R-VERSION-012: and many explicit corrections');
 select cmp_ok((select count(*)::integer from runs where op = 'preview_then_update_primary' and outcome = 'ok'),
   '>=', 15, 'R-PERIOD-036: the previews of the expected pay date always matched the write');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op like '%subscription%'),
+  '>=', 40, 'R-VERSION-003: the runs created, edited, corrected and ended many subscriptions');
+select cmp_ok((select count(*)::integer from made where kind = 'charge'), '>=', 60,
+  'R-SUBSCRIPTION-073 Q-054: which were charged automatically, many times, also after long absences');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('confirm_charge', 'dismiss_charge')),
+  '>=', 10, 'R-SUBSCRIPTION-075 R-SUBSCRIPTION-077: and charges were confirmed or dismissed');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_debt', 'create_debt_backdated', 'update_debt', 'correct_debt', 'add_payment', 'adjust_debt', 'delete_adjustment', 'remove_debt')),
+  '>=', 60, 'R-VERSION-004 R-DEBT-075: the runs recorded, paid, adjusted and removed many debts');
+select cmp_ok((select count(*)::integer from public.debt_interest as i join made as m on m.id = i.debt_id),
+  '>=', 20, 'R-DEBT-073: and interest was added to them');
 select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 
+select diag('automatic charges created: ' || (select count(*) from made where kind = 'charge'));
 select diag('fingerprint of the walks: ' || md5(string_agg(format('%s/%s/%s/%s/%s', seed, step, budget, op, outcome), ',' order by seed, step)))
 from runs;
 select diag(op || ' / ' || split_part(outcome, ':', 1) || coalesce(':' || nullif(split_part(outcome, ':', 2), ''), '') || ' x' || count(*))

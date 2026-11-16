@@ -445,6 +445,135 @@ begin
   end if;
 end; $$;
 
+-- Step 4: a period's committed total recomputed from the rows, without the migration's
+-- helpers: each subscription in force in the period, at the terms in force then, its price
+-- divided by the months of its cadence, rounded half up with numeric arithmetic.
+create or replace function tests.naive_committed(period uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with p as (select * from public.periods where id = naive_committed.period)
+  select coalesce(sum(round(v.price::numeric / case v.cadence when 'monthly' then 1 when 'quarterly' then 3
+                                                               when 'half_yearly' then 6 else 12 end)), 0)::bigint
+  from p
+  join public.subscriptions as s on s.budget_id = p.budget_id
+  cross join lateral (select x.price, x.cadence from public.subscription_versions as x
+                      where x.subscription_id = s.id and x.effective_from_seq <= p.seq
+                      order by x.effective_from_seq desc limit 1) as v
+  where s.first_seq <= p.seq and (s.end_seq is null or p.seq < s.end_seq)
+$$;
+
+-- Step 4: a debt's remaining amount recomputed from its rows: principal + interest +
+-- adjustments - linked payments.
+create or replace function tests.naive_remaining(debt uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select d.principal
+         + coalesce((select sum(i.amount) from public.debt_interest as i where i.debt_id = d.id), 0)
+         + coalesce((select sum(a.amount) from public.debt_adjustments as a where a.debt_id = d.id), 0)
+         - coalesce((select sum(t.amount) from public.transactions as t where t.debt_id = d.id), 0)
+  from public.debts as d where d.id = naive_remaining.debt
+$$;
+
+-- Step 4 invariants of one budget, written without the migration's helpers (no rows: all
+-- hold): one charge per subscription and date, none past its watermark; interest entries in
+-- the budget's own periods, at most one per debt and period; links and review states
+-- consistent; nothing keyed beyond the latest period; terms from the first period; nothing on
+-- a group; every debt's remaining amount and every period's committed total equal a naive
+-- recomputation, and the progress rows add up to the committed total.
+create or replace function tests.step4_violations(budget uuid)
+returns setof text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with latest as (select max(seq) as seq from public.periods where budget_id = step4_violations.budget)
+  select format('subscription %s charged twice on %s', t.subscription_id, t.charge_date)
+  from public.transactions as t
+  where t.budget_id = step4_violations.budget and t.charge_date is not null
+  group by t.subscription_id, t.charge_date having count(*) > 1
+  union all
+  select format('charge on %s after the watermark %s', t.charge_date, s.charged_through)
+  from public.transactions as t join public.subscriptions as s on s.id = t.subscription_id
+  where t.budget_id = step4_violations.budget and t.charge_date > s.charged_through
+  union all
+  select format('interest of debt %s in a period of another budget or none', i.debt_id)
+  from public.debt_interest as i left join public.periods as p on p.id = i.period_id
+  where i.budget_id = step4_violations.budget and (p.id is null or p.budget_id <> i.budget_id)
+  union all
+  select format('debt %s has %s interest entries in one period', i.debt_id, count(*))
+  from public.debt_interest as i where i.budget_id = step4_violations.budget
+  group by i.debt_id, i.period_id having count(*) > 1
+  union all
+  select format('transaction %s: %s', t.id, v.what)
+  from public.transactions as t
+  cross join lateral (values
+    (case when t.subscription_id is not null and t.debt_id is not null then 'linked twice' end),
+    (case when (t.subscription_id is not null or t.debt_id is not null) and t.kind <> 'expense' then 'linked but not an expense' end),
+    (case when t.review_state <> 'confirmed' and t.charge_date is null then 'awaiting but not a charge' end),
+    (case when t.subscription_id is not null and not exists (select 1 from public.subscriptions as s
+            where s.id = t.subscription_id and s.budget_id = t.budget_id) then 'subscription of another budget' end),
+    (case when t.debt_id is not null and not exists (select 1 from public.debts as d
+            where d.id = t.debt_id and d.budget_id = t.budget_id) then 'debt of another budget' end)
+  ) as v (what)
+  where t.budget_id = step4_violations.budget and v.what is not null
+  union all
+  select format('subscription %s keyed beyond the latest period', s.name)
+  from public.subscriptions as s cross join latest
+  where s.budget_id = step4_violations.budget and (s.first_seq > latest.seq or s.end_seq > latest.seq)
+  union all
+  select format('debt %s keyed beyond the latest period', d.name)
+  from public.debts as d cross join latest
+  where d.budget_id = step4_violations.budget and (d.first_seq > latest.seq or d.end_seq > latest.seq)
+  union all
+  select format('subscription terms from period %s beyond the latest period', v.effective_from_seq)
+  from public.subscription_versions as v cross join latest
+  where v.budget_id = step4_violations.budget and v.effective_from_seq > latest.seq
+  union all
+  select format('debt terms from period %s beyond the latest period', v.effective_from_seq)
+  from public.debt_versions as v cross join latest
+  where v.budget_id = step4_violations.budget and v.effective_from_seq > latest.seq
+  union all
+  select format('subscription %s has no terms in its first period', s.name)
+  from public.subscriptions as s
+  where s.budget_id = step4_violations.budget
+    and not exists (select 1 from public.subscription_versions as v where v.subscription_id = s.id and v.effective_from_seq <= s.first_seq)
+  union all
+  select format('debt %s has no terms in its first period', d.name)
+  from public.debts as d
+  where d.budget_id = step4_violations.budget
+    and not exists (select 1 from public.debt_versions as v where v.debt_id = d.id and v.effective_from_seq <= d.first_seq)
+  union all
+  select format('subscription terms on group %s', c.name)
+  from public.subscription_versions as v join public.categories as c on c.id = v.category_id
+  where v.budget_id = step4_violations.budget and c.is_group
+  union all
+  select format('debt %s on group %s', d.name, c.name)
+  from public.debts as d join public.categories as c on c.id = d.category_id
+  where d.budget_id = step4_violations.budget and c.is_group
+  union all
+  select format('debt %s remaining %s, naive %s', o.name, o.remaining, tests.naive_remaining(o.id))
+  from public.debt_overview as o
+  where o.budget_id = step4_violations.budget and o.remaining is distinct from tests.naive_remaining(o.id)
+  union all
+  select format('period %s committed %s, naive %s, rows %s', s.seq, s.committed_total, x.naive, x.from_rows)
+  from public.period_summaries as s
+  cross join lateral (
+    select tests.naive_committed(s.id) as naive,
+           coalesce((select sum(r.committed) from public.get_period_progress(s.id) as r where not r.is_group), 0)::bigint as from_rows
+  ) as x
+  where s.budget_id = step4_violations.budget
+    and (s.committed_total is distinct from x.naive or s.committed_total is distinct from x.from_rows)
+$$;
+
 grant execute on all functions in schema tests to anon, authenticated;
 
 select has_function('tests', 'authenticate_as', array['text'], 'test helpers are installed');

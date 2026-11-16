@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-330 rules (240 active, 83 planned), 24 conventions, 134 decisions, 22 open questions. 0 rules and conventions are marked **TEST PENDING**.
+343 rules (279 active, 57 planned), 24 conventions, 146 decisions, 23 open questions. 1 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -161,27 +161,27 @@ Each period, the current one and past ones, tracked against its expectations, wi
 - **US-PROGRESS-003** As a budget member, I want to browse past periods and see the progress view of each, so that I can look back at how any period went.
   Rules: R-COMPARE-001, R-PROGRESS-090, R-PROGRESS-050
 
-### Step 4: Subscriptions and debts (planned)
+### Step 4: Subscriptions and debts (in-progress)
 
-#### F-SUBSCRIPTION Subscriptions (planned)
+#### F-SUBSCRIPTION Subscriptions (in-progress)
 
 Recurring charges and their next charge date.
 
 - **US-SUBSCRIPTION-001** As a budget member, I want to track subscriptions and see when each will next be charged, so that recurring costs do not surprise me.
-  Rules: R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-071, R-SUBSCRIPTION-072, R-VERSION-003
+  Rules: R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-071, R-SUBSCRIPTION-072, R-VERSION-003, R-SUBSCRIPTION-110, R-SUBSCRIPTION-114, R-CATEGORY-110
 - **US-SUBSCRIPTION-002** As a budget member, I want each subscription charge to be recorded automatically on its charge date, and to confirm from the home page that it really went through, so that I do not enter recurring charges by hand and still catch one that failed.
-  Rules: R-SUBSCRIPTION-073, R-SUBSCRIPTION-074, R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, R-SUBSCRIPTION-077, R-SUBSCRIPTION-078
+  Rules: R-SUBSCRIPTION-073, R-SUBSCRIPTION-074, R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, R-SUBSCRIPTION-077, R-SUBSCRIPTION-078, R-SUBSCRIPTION-111, R-SUBSCRIPTION-112, R-SUBSCRIPTION-113, R-TRANSACTION-003, R-VERSION-110
 - **US-SUBSCRIPTION-003** As a budget member, I want to see a subscription's monthly cost as committed within its category's expectation, so that I see how much of the category is already spoken for.
   Rules: R-SUBSCRIPTION-079
 
-#### F-DEBT Debts (planned)
+#### F-DEBT Debts (in-progress)
 
 Debts with planned payments, their evolution and expected end date.
 
 - **US-DEBT-001** As a budget member, I want to record a debt with its principal, interest rate and planned monthly payment, so that I can follow it down to zero.
-  Rules: R-DEBT-001, R-DEBT-002, R-DEBT-070, R-DEBT-072, R-VERSION-004
+  Rules: R-DEBT-001, R-DEBT-002, R-DEBT-070, R-DEBT-072, R-VERSION-004, R-DEBT-110, R-DEBT-114
 - **US-DEBT-002** As a budget member, I want payments linked to a debt to reduce what remains, interest to be added to it, and to see its history and expected end date, so that I know when it will be paid off, or that it never will at this pace.
-  Rules: R-DEBT-003, R-DEBT-004, R-DEBT-005, R-DEBT-071, R-DEBT-073, R-DEBT-074
+  Rules: R-DEBT-003, R-DEBT-004, R-DEBT-005, R-DEBT-071, R-DEBT-073, R-DEBT-074, R-DEBT-111, R-DEBT-112, R-DEBT-113, R-TRANSACTION-110
 - **US-DEBT-003** As a budget member, I want to adjust a debt's balance by hand, so that it matches my bank statement.
   Rules: R-DEBT-075
 
@@ -915,12 +915,12 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-VERSION-002** An edit to a category expectation creates a new version effective from the current period.
   _active · enforced by test · F-CATEGORY_
   - Source: domain: Versioning: edits never rewrite the past
-- **R-VERSION-003** An edit to a subscription creates a new version effective from the current period.
-  _planned · enforced by test · F-SUBSCRIPTION_
-  - Source: domain: Versioning: edits never rewrite the past
-- **R-VERSION-004** An edit to a debt's terms creates a new version effective from the current period.
-  _planned · enforced by test · F-DEBT_
-  - Source: domain: Versioning: edits never rewrite the past
+- **R-VERSION-003** An edit to a subscription's terms (price, cadence, category, schedule) creates a new version effective from the current period; charges already created never change.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Source: domain: Versioning: edits never rewrite the past; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-VERSION-004** An edit to a debt's terms (interest rate, planned monthly payment) creates a new version effective from the current period; interest already added never changes.
+  _active · enforced by test · F-DEBT_
+  - Source: domain: Versioning: edits never rewrite the past; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-VERSION-070** An edit to a category expectation can, as an explicit "correct an earlier period" choice, apply from an earlier period instead of the current one.
   _active · enforced by test · F-CATEGORY_
   - Why: The same optional correction as for incomes (D-065); like an income correction, it applies until the next existing change (D-084).
@@ -973,6 +973,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-155, D-091, R-VERSION-014
   - Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-VERSION-110** Subscriptions, debts and their terms take part in a reopen like incomes and categories (what the merged period recorded replaces the reopened period's, and the preview lists it), and a reopen never loses a charge, a payment or an adjustment.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-174
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Categories and subcategories
 
@@ -1079,6 +1083,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: D-153
   - Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-110** A category that a subscription or debt in force still uses cannot be removed; one that any subscription or debt references is ended, never deleted; adding its first subcategory moves its subscriptions and debts to "Other" with its transactions.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-179
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Transactions
 
@@ -1090,7 +1098,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Source: domain: Transaction
 - **R-TRANSACTION-003** A transaction has an optional link to at most one of a debt or a subscription.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Why: Built with step 4, when debts and subscriptions exist: the transactions table takes the link columns then without reshaping (docs/database.md, "For later tables").
   - Related: Q-005, D-111
   - Source: domain: Transaction; owner-request: product owner decisions on the open questions, 2026-11-16
@@ -1164,6 +1172,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: D-159, R-TRANSACTION-091, R-CATEGORY-095
   - Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-TRANSACTION-110** A transaction linked to a debt or a subscription is an expense; a debt payment is in the debt's category; the debt or subscription is in force in the period of the date, except that a linked transaction keeping its period and category keeps its link.
+  _active · enforced by test · F-DEBT_
+  - Related: D-177
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Period progress and result
 
@@ -1203,99 +1215,141 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 ### Subscriptions
 
 - **R-SUBSCRIPTION-001** A subscription has a price, a first charge date, a cadence, and a category.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Related: Q-006, D-108
   - Source: domain: Subscription; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-SUBSCRIPTION-002** The app shows when the next charge of a subscription will occur.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Source: domain: Subscription
 - **R-SUBSCRIPTION-070** A subscription's cadence is monthly, quarterly, half-yearly or yearly.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-108
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-SUBSCRIPTION-071** After its first charge date, a subscription is charged once per cadence interval on the first charge's day of the month, clamped to the length of each month.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Why: Example: first charged on 31 January, monthly: 28 (or 29) February, 31 March, 30 April.
   - Related: D-108
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-SUBSCRIPTION-072** No weekend rule applies to a subscription's charge dates.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-108
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-SUBSCRIPTION-073** On each charge date, a transaction for the subscription's price is created automatically in its category, linked to the subscription.
-  _planned · enforced by test · F-SUBSCRIPTION_
-  - Related: D-109, Q-054
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-073** On each charge date up to today, in a period where the subscription is in force, a transaction for the price in force in that period is created automatically in its category, linked to the subscription; charges are created by the catch-up that also creates periods (when a member opens the budget, and before every write), so dates missed while nobody opened the app are caught up.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-109, Q-054, D-171
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-SUBSCRIPTION-074** A transaction created from a subscription can be edited or deleted like any other transaction.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-109
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-SUBSCRIPTION-075** An automatically created subscription charge is marked as awaiting confirmation until a member confirms that it went through.
-  _planned · enforced by test · F-SUBSCRIPTION_
+- **R-SUBSCRIPTION-075** An automatically created subscription charge is marked as awaiting confirmation until a member confirms that it went through; editing it does not confirm it.
+  _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-109
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-SUBSCRIPTION-076** The dashboard shows a notification for each subscription charge awaiting confirmation, asking whether it really went through.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_ · **TEST PENDING** (supabase/tests)
   - Related: D-109
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-SUBSCRIPTION-077** Answering that a subscription charge did not go through removes its transaction.
-  _planned · enforced by test · F-SUBSCRIPTION_
-  - Related: D-109, Q-054
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-077** Answering that a subscription charge did not go through removes its transaction, and that charge is never created again.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-109, Q-054, D-171
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-SUBSCRIPTION-078** A subscription charge awaiting confirmation counts in totals from the moment it is created.
-  _planned · enforced by test · F-SUBSCRIPTION_
+  _active · enforced by test · F-SUBSCRIPTION_
   - Why: Assumption stated in D-109, by analogy with imported transactions (D-118); the product owner was not asked.
   - Related: D-109, D-118
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-SUBSCRIPTION-079** A subscription's monthly cost is shown as committed within its category's expectation, not added on top of it.
-  _planned · enforced by test · F-SUBSCRIPTION_
-  - Related: D-110, Q-050
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-SUBSCRIPTION-079** A subscription's monthly cost (its price divided by the months of its cadence, rounded half up to the rappen) is shown as committed within its category's expectation, for each period in which it is in force, not added on top of it.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-110, Q-050, D-173
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-110** A budget has at most 50 subscriptions in force and 200 in all (void ones not counted); a price is 1 to 1 000 000 000 rappen; a schedule date is at most ten years ahead.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Why: Abuse bounds, generous for a household: with them a catch-up after years of absence stays within a few seconds.
+  - Related: D-180
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-111** A subscription is charged at most once per scheduled date, however many members open the budget at once or retry: a charge deleted or answered as not gone through is never created again, and no edit, correction or reopen creates a charge for a date already passed.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-171, D-175
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-112** A subscription counts from the start of its first period: its charges due from then up to today are created when it is created (from an earlier period, as an explicit correction, too). Automatic charges count towards the transaction limit; when the budget is full they wait, none skipped, until there is room.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-176
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-113** Ending a subscription stops its charges from that period on and keeps it in the past; one that never counted before that period and has no transaction is deleted instead. Its charges are never deleted.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-174
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-114** Changing a subscription's schedule from now sets the date of its next charge (after today), and the later ones follow from it at its cadence; a new cadence without a date continues from the next charge of the current schedule.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: D-170
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Debts
 
-- **R-DEBT-001** Debts can be created, updated and deleted.
-  _planned · enforced by test · F-DEBT_
-  - Source: domain: Debt
+- **R-DEBT-001** Debts can be created, updated and removed: a debt that never counted and has no payment, interest or adjustment is deleted; otherwise it ends and keeps its history.
+  _active · enforced by test · F-DEBT_
+  - Source: domain: Debt; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-002** A debt has a principal, an optional interest rate, and a planned monthly payment.
-  _planned · enforced by test · F-DEBT_
+  _active · enforced by test · F-DEBT_
   - Source: domain: Debt
-- **R-DEBT-003** A debt's remaining amount is its principal plus the interest added to it, minus the payments linked to it, corrected by its balance adjustments.
-  _planned · enforced by test · F-DEBT_
+- **R-DEBT-003** A debt's remaining amount is its principal plus the interest added to it plus its balance adjustments, minus the payments linked to it; it may be negative when overpaid.
+  _active · enforced by test · F-DEBT_
   - Related: Q-007, D-113
-  - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-004** The app shows a debt's history: its payments, the interest added each period and its balance adjustments.
-  _planned · enforced by test · F-DEBT_
+  _active · enforced by test · F-DEBT_
   - Related: D-113
   - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-DEBT-005** The app shows a debt's expected end date, projected from its remaining amount, its interest rate and its planned monthly payment.
-  _planned · enforced by test · F-DEBT_
+- **R-DEBT-005** The app shows a debt's expected end date, projected from its remaining amount, its interest rate and its planned monthly payment in force now: the end of the period in which the last planned payment falls.
+  _active · enforced by test · F-DEBT_
   - Related: Q-007, D-113
-  - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: domain: Debt; owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-070** A debt is tied to one category.
-  _planned · enforced by test · F-DEBT_
+  _active · enforced by test · F-DEBT_
   - Related: D-112
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-DEBT-071** A debt payment is a normal transaction in the debt's category, linked to the debt.
-  _planned · enforced by test · F-DEBT_
+  _active · enforced by test · F-DEBT_
   - Related: D-112, R-TRANSACTION-003
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-DEBT-072** Only money the household owes is tracked as a debt; money owed to the household is not.
-  _planned · enforced by review · F-DEBT_
+  _active · enforced by review · F-DEBT_
   - Related: D-112
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-DEBT-073** When a debt has an interest rate, once per period one twelfth of the yearly rate is applied to its remaining amount and added to it.
-  _planned · enforced by test · F-DEBT_
-  - Related: D-113, Q-055
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-DEBT-074** When the planned monthly payment does not cover the interest added each period, the app says the debt never ends instead of showing an end date.
-  _planned · enforced by test · F-DEBT_
-  - Related: D-113, Q-055
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-DEBT-075** A member can add a manual "adjust balance" entry to a debt, which changes its remaining amount to match the bank statement.
-  _planned · enforced by test · F-DEBT_
+- **R-DEBT-073** When a period is created, however it comes to exist (roll-over, catch-up over several periods, an early salary), each debt in force in it that has an interest rate and a positive remaining amount gets one twelfth of its yearly rate applied to the remaining amount at that moment, rounded half up to the rappen, added to it as an interest entry of that period.
+  _active · enforced by test · F-DEBT_
+  - Related: D-113, Q-055, D-172
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-074** When the planned monthly payment is less than or equal to one period's interest on the remaining amount, the app says the debt never ends instead of showing an end date.
+  _active · enforced by test · F-DEBT_
+  - Related: D-113, Q-055, D-172
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-075** A member can adjust a debt's balance to match the bank statement: the database adds an adjustment entry for the difference, so the remaining amount becomes the balance entered.
+  _active · enforced by test · F-DEBT_
   - Related: D-113
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-110** A budget has at most 50 debts in force and 200 in all (void ones not counted) and 5000 balance adjustments; a principal and a planned payment are at most 1 000 000 000 rappen, a rate 0 to 100 % with at most three decimals, and a remaining amount never grows beyond CHF 10 billion.
+  _active · enforced by test · F-DEBT_
+  - Why: Abuse bounds; the balance bound keeps every amount within range however long interest runs.
+  - Related: D-180
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-111** Interest is applied at most once per debt and period, however many members open the budget at once or retry, and a reopen followed by a new roll-over applies it once again.
+  _active · enforced by test · F-DEBT_
+  - Related: D-172
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-112** The expected end is projected period by period: the planned payment still due in the current period first, then each later period adds its interest and receives the planned payment; beyond 600 periods (50 years) the answer is that the debt never ends.
+  _active · enforced by test · F-DEBT_
+  - Related: D-172, D-181
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-113** A reopen that merges a period removes the interest that period added (and the reopen preview says so); removing a debt with history ends it and keeps its payments, interest and adjustments, and its remaining amount.
+  _active · enforced by test · F-DEBT_
+  - Related: D-172, D-174
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-114** A debt's principal can be corrected only while it has no payment, interest or adjustment; afterwards its balance is adjusted instead. A correction of its terms from an earlier period never recomputes interest already added.
+  _active · enforced by test · F-DEBT_
+  - Related: D-178
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Browsing and comparing periods
 
@@ -3415,6 +3469,168 @@ Related: R-TRANSACTION-100, D-144
 
 Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
+### D-170 Editing a subscription's schedule sets its next charge (accepted)
+
+A subscription's terms carry the date its schedule counts from. An edit from now that gives a next charge date (after today) makes it the next charge, the later ones following at the cadence; a new cadence without a date continues from the next charge date of the current schedule; any other edit keeps the schedule. A charge already created never moves and a date already passed is never charged. A correction from an earlier period may name any date: it changes the terms recorded for those periods and the charges still to come, never those already created. Decided by the project coordinator on 2026-11-16 (step 4 brief: decide what an edit to the schedule does to the next charge date).
+
+**Why:** The user thinks of a schedule change as "the next charge is then"; anchoring the new schedule on that date cannot move or duplicate a charge already made.
+
+**Rejected:**
+
+- Recomputing the whole schedule from the first charge date under the new cadence, which could skip or repeat a charge around the change.
+
+Related: R-SUBSCRIPTION-114, R-VERSION-003
+
+Source: owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-171 Charges are created by the catch-up, exactly once per date (accepted)
+
+There is no server, so subscription charges are created by the same catch-up that creates periods: whenever a member opens the budget and before every write, every charge date up to the database's today that has not been materialised is created, exactly once per subscription and date however many members or tabs trigger it at once (under the budget lock). Missed dates are caught up. Each subscription keeps a watermark (charged_through) that only moves forward, so a charge that was deleted or answered as not gone through is never created again for that date, and no edit, correction or reopen creates a charge for a date already passed. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to Q-054. A watermark rather than one tombstone per dismissed charge: the same guarantee, with nothing to keep for dismissed dates.
+
+**Rejected:**
+
+- A scheduled job: there is no server (D-003).
+- Recreating a dismissed charge on the next catch-up.
+
+Related: Q-054, D-109, R-SUBSCRIPTION-073, R-SUBSCRIPTION-077, R-SUBSCRIPTION-111
+
+Source: owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-172 Interest at period creation; the projection and "never" (accepted)
+
+Interest is applied when a new period is created, on the balance at that moment, as one twelfth of the yearly rate rounded half up to the rappen, as an entry of that period in the debt's history (dated at the period's start). It is applied exactly once per debt and period however the period came to exist (roll-over, catch-up over several periods, an early salary), and a reopen that merges a period removes the interest entry that period created. No interest on a balance of zero or less. A planned payment less than or equal to one period's interest means the debt never ends. The projection has a horizon of 600 periods (50 years) beyond which it answers "never". Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to Q-055. Periods run salary to salary, so the period, not the calendar month, is the step of interest; tying the entry to its period keeps a reopen exact.
+
+**Rejected:**
+
+- Interest at the end of a period, after its payments: the end of the current period is not a fact until the next one starts.
+
+Related: Q-055, D-113, R-DEBT-073, R-DEBT-074, R-DEBT-111, R-DEBT-112, R-DEBT-113
+
+Source: owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-173 A non-monthly subscription's monthly cost (accepted)
+
+The monthly cost of a subscription, for the committed figure, is its price divided by the number of months in its cadence (1, 3, 6, 12), rounded half up to the rappen; totals add the rounded monthly costs (as D-140). The charge itself counts in full in the period containing its date. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to the subscription part of Q-050, the same rule as yearly expectations (D-140).
+
+**Rejected:** none recorded.
+
+Related: Q-050, D-140, D-110, R-SUBSCRIPTION-079
+
+Source: owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-174 Subscriptions and debts are versioned like incomes; ending follows the established rule (accepted)
+
+A subscription's terms (price, cadence, category, schedule) and a debt's terms (interest rate, planned monthly payment) are versioned like incomes and category amounts, through the registry (private.period_keyed_tables), so committed figures and projections for past periods use the terms in force then, and a reopen treats them like any other recorded change. Ending or deleting follows the established rule: something that has counted in the past is ended from now and kept in the past; something that never counted is deleted. A debt with linked payments, or a subscription with charges, is never silently destroyed (a reopen keeps it as a void row). Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** One mechanism for every versioned record; the user's history is never lost to a removal or a reopen.
+
+**Rejected:** none recorded.
+
+Related: D-083, D-089, D-091, R-VERSION-003, R-VERSION-004, R-VERSION-110, R-SUBSCRIPTION-113, R-DEBT-113
+
+Source: owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-175 A charge is a transaction with its scheduled date and a review state (accepted)
+
+An automatic charge is an ordinary expense transaction linked to its subscription, with the scheduled date it was created for (charge_date, unique per subscription; the transaction's own date may be edited) and review_state 'awaiting_confirmation' until a member confirms it (confirm_subscription_charge). "Did not go through" (dismiss_subscription_charge) deletes it; delete_transaction does the same. Editing a charge keeps it a charge and does not confirm it. The column review_state is the one step 6 planned for imports (D-118), which adds its own value.
+
+**Why:** A charge must count in totals at once (D-109) and be edited like any transaction (R-SUBSCRIPTION-074): it is one. A single review state serves both automatic charges and, later, imports.
+
+**Rejected:**
+
+- A separate table of charges pointing at transactions: two records for one fact.
+
+Related: D-109, D-118, R-SUBSCRIPTION-075, R-SUBSCRIPTION-111
+
+Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-176 A subscription counts from its first period (accepted)
+
+A subscription is in force from the period it is created in (or, as an explicit correction, from an earlier one); its charges are the scheduled dates on or after its first charge date in the periods where it is in force, so creating it creates at once, awaiting confirmation, the charges of its first period up to today (for a back-dated one, those of the earlier periods too). Dates before its first period are never charged. When the budget is at its transaction limit, charges wait (the watermark stops before the first that does not fit) and are created once there is room.
+
+**Why:** A first charge date in the past sets the schedule without flooding closed periods with charges the user may have recorded by hand; an explicit correction is the only way to add charges to closed periods. Waiting at the limit never loses a charge.
+
+**Rejected:**
+
+- Charging every date since the first charge date, back to the budget's start.
+- Skipping charges that do not fit the limit.
+
+Related: R-SUBSCRIPTION-112, D-158
+
+Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-177 Links: payments are expenses in the debt's category (accepted)
+
+A transaction is linked through add_transaction (p_debt_id or p_subscription_id) or link_transaction (which also unlinks; unlinking a charge makes it an ordinary confirmed transaction). update_transaction keeps the link. A linked transaction is an expense; a debt payment is in the debt's category; the debt or subscription is in force in the period of the date; a linked transaction keeping its period and category keeps its link even when the debt's category changed or it ended (as D-159). A refund is never a payment.
+
+**Why:** Step 3 callers of update_transaction send every field; a link they do not know of must not be dropped. Payments in the debt's category keep the category's spending and the debt's payments the same money.
+
+**Rejected:**
+
+- Refunds linked to a debt as reversed payments.
+
+Related: D-111, D-112, D-159, R-TRANSACTION-003, R-TRANSACTION-110, R-DEBT-071
+
+Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-178 Debt principal, balance adjustments and corrections (accepted)
+
+A debt's principal can change only while it has no payment, interest or adjustment (a typo at creation); afterwards the balance is adjusted. adjust_debt_balance takes the balance the bank shows and the database stores the difference as a dated entry (no entry when there is none), so a payment recorded meanwhile cannot make it wrong; an adjustment can be deleted. A correction of a debt's terms from an earlier period records the terms for those periods and the projection, and never recomputes interest already added (each entry records the rate and balance it used); a wrong past interest is fixed with an adjustment. Ending a debt keeps its remaining amount. A debt created from an earlier period (a correction) starts its history at that period's start and gets no interest for periods that already existed.
+
+**Why:** Interest entries are facts of the moment a period was created; recomputing them could not reproduce that moment.
+
+**Rejected:**
+
+- Recomputing every later interest entry after a rate correction.
+
+Related: R-DEBT-075, R-DEBT-114, D-113
+
+Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-179 Categories in use by subscriptions and debts (accepted)
+
+end_category refuses (category_in_use) a category that a subscription or debt in force from that period still uses; one that any subscription version or debt references is ended rather than deleted, like one with transactions. Adding the first subcategory to a category with subscriptions or debts needs "Other", and moves them there with its transactions and expectations (create_category redefined). category_overview gains in_use and accounts for the references in removal_deletes.
+
+**Why:** Otherwise a removal would fail on a foreign key, a charge would land on a category not in force or on a group, or a debt's payments would have nowhere to go.
+
+**Rejected:**
+
+- Ending the subscriptions and debts with the category.
+
+Related: D-141, D-146, R-CATEGORY-110
+
+Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-180 Limits for subscriptions and debts (accepted)
+
+Per budget at most 50 subscriptions in force and 200 in all, 50 debts in force and 200 in all (void rows not counted), and 5000 balance adjustments; prices, principals and planned payments up to 1 000 000 000 rappen; interest rates 0 to 100 % with three decimals; a schedule date at most ten years ahead; a debt's balance never grows beyond 1 000 000 000 000 rappen through interest or an adjustment. Automatic charges count towards the 50 000 transactions (D-153). Defined in one place in the step 4 migration.
+
+**Why:** Abuse bounds: with 50 monthly subscriptions, ten years of absence create 6000 charges in one catch-up, within the hosted statement timeout.
+
+**Rejected:** none recorded.
+
+Related: D-153, R-SUBSCRIPTION-110, R-DEBT-110
+
+Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-181 The payoff projection (accepted)
+
+debt_overview projects, for a debt in force in a budget with a current period: 'paid_off' when nothing remains; otherwise the planned payment still due in the current period (the planned payment minus what was paid in it) is paid first, then each later period adds its interest and receives the planned payment, until nothing remains ('ends', with payments_left and expected_end_date, the projected end of the period of the last payment, future periods following the primary income's schedule) or the planned payment does not exceed a period's interest or the horizon is reached ('never').
+
+**Why:** Counting this period's payment once, whether or not it was made yet, keeps the end date stable through the period.
+
+**Rejected:** none recorded.
+
+Related: D-172, R-DEBT-005, R-DEBT-112
+
+Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -3495,7 +3711,7 @@ Source: owner-request: project coordinator decision on the step 3 database revie
   - Source: owner-request: step 2 frontend review, finding 11
 - **Q-050** (resolved by D-140) How is a half rappen rounded when one twelfth (or another monthly share) falls exactly between two rappen, and do the totals (left to assign, results, committed amounts) add up the rounded monthly shares or round the exact sum?
   - Context: D-100 says one twelfth rounded to the nearest rappen. A yearly amount that is 6 rappen more than a multiple of 12 gives exactly half a rappen (CHF 1.50 a year gives 12.5 rappen), and the tie rule is not given. D-110 also needs a monthly cost for quarterly, half-yearly and yearly subscriptions; the answers do not say it uses the same rounding.
-  - Related: D-100, D-110, R-CATEGORY-005, R-SUBSCRIPTION-079
+  - Related: D-100, D-110, R-CATEGORY-005, R-SUBSCRIPTION-079, D-173
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **Q-051** (resolved by D-141) What happens to the transactions already on a category when the user adds its first subcategory?
   - Context: D-102: when a category has subcategories, a transaction goes on a subcategory, never on the parent. A category without subcategories holds transactions directly, so adding a subcategory later would leave them on the parent (they could be moved, refused, or kept for past periods only).
@@ -3509,11 +3725,11 @@ Source: owner-request: project coordinator decision on the step 3 database revie
   - Context: D-105 lets transactions in past periods be added and edited freely; D-107 ends a deleted category from the current period while past periods keep it.
   - Related: D-105, D-107, R-TRANSACTION-008, R-CATEGORY-072
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-054** When are automatic subscription charges created, given that there is no server: are charge dates missed while nobody opened the app created later, back-dated, and is a charge whose transaction was deleted or answered "did not go through" ever created again?
+- **Q-054** (resolved by D-171) When are automatic subscription charges created, given that there is no server: are charge dates missed while nobody opened the app created later, back-dated, and is a charge whose transaction was deleted or answered "did not go through" ever created again?
   - Context: D-109: the transaction is created on the charge date, can be deleted, and is removed when the user says it did not go through. The app is a static SPA on Supabase (D-003), so creation can only happen when the database is next called. Also open: whether editing the subscription (a new version) changes charges already created.
   - Related: D-109, D-003, R-SUBSCRIPTION-073, R-SUBSCRIPTION-077
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-055** When in a period is a debt's interest applied (at its start or end, before or after that period's payments), how is it rounded to the rappen, and does a payment exactly equal to the interest count as "never ends"?
+- **Q-055** (resolved by D-172) When in a period is a debt's interest applied (at its start or end, before or after that period's payments), how is it rounded to the rappen, and does a payment exactly equal to the interest count as "never ends"?
   - Context: D-113: once per period, one twelfth of the yearly rate is applied to the remaining balance and added to it; when the planned payment does not cover the interest the app says the debt never ends. Periods run salary to salary, not by calendar month (D-080), and the expected end date needs a date for each future interest step.
   - Related: D-113, R-DEBT-073, R-DEBT-074
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
@@ -3609,6 +3825,18 @@ Source: owner-request: project coordinator decision on the step 3 database revie
   - Context: The boundary operations name the period they act on (D-151), so a retry is refused; an add has no record to name yet. The review recorded a double-submitted add_transaction as two rows. The screens disable the button while saving, but a retry after a lost response would still record twice.
   - Related: D-151, R-CONCURRENCY-100, R-TRANSACTION-095
   - Source: owner-request: coordinator, step 3 database review, 2026-11-16
+- **Q-100** When the transaction limit holds automatic charges back, should the app tell the members?
+  - Context: D-176: charges wait, none skipped, until there is room; nothing tells the user that some are waiting. Reaching 50 000 transactions takes decades of normal use.
+  - Related: D-176, R-SUBSCRIPTION-112
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16
+- **Q-101** Should a price change also update the charges already created and still awaiting confirmation?
+  - Context: D-170: charges already created never change; a member edits a charge awaiting confirmation like any transaction. A price rise announced after a charge was created leaves that charge at the old price.
+  - Related: D-170, R-VERSION-003
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16
+- **Q-102** Should an old charge awaiting confirmation be confirmed automatically after some time?
+  - Context: D-175: a charge awaits confirmation until a member answers; the dashboard list can grow if nobody does. It counts in totals meanwhile (R-SUBSCRIPTION-078).
+  - Related: D-175, R-SUBSCRIPTION-076
+  - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16
 
 ## Glossary
 
