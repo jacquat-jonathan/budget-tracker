@@ -127,7 +127,7 @@ export function validateSchema(root, spec, report) {
       'schema',
       `${PATHS.spec} ${where}${label}`,
       `${error.message}${params}.`,
-      'make the entry match spec/spec.schema.json (id patterns: R-AREA-001, C-AREA-001, D-001, Q-001, US-FEATURE-001, F-NAME, A-NAME, G-TERM).',
+      'make the entry match spec/spec.schema.json (id patterns: R-AREA-001, C-AREA-001, D-001, Q-001, US-FEATURE-001, F-NAME, A-NAME, G-TERM).', // spec-check: ignore-ids
     )
   }
   return false
@@ -584,7 +584,7 @@ export function checkTests(spec, refs, report) {
       report.error(
         'malformed-id',
         where,
-        `test title names "${ref.id}", which is not a valid id (three digits: R-AREA-001).`,
+        `test title names "${ref.id}", which is not a valid id (three digits: R-AREA-001).`, // spec-check: ignore-ids
         'write the id exactly as in spec/spec.json.',
       )
       continue
@@ -656,6 +656,99 @@ export function checkTests(spec, refs, report) {
     )
   }
   return counted
+}
+
+// ---------------------------------------------------------------------------------------
+// Ids mentioned anywhere: they must exist and be current
+// ---------------------------------------------------------------------------------------
+
+/**
+ * Where an id may be written outside the spec (code comments, migrations, docs). The
+ * generated docs/spec.md is the spec itself and is left out.
+ */
+export const MENTION_ROOTS = [
+  'src',
+  'supabase/migrations',
+  'supabase/tests',
+  'scripts',
+  'docs',
+  'README.md',
+  'CLAUDE.md',
+]
+const MENTION_FILE = /\.(?:[cm]?[jt]sx?|sql|md|json|ya?ml|toml|css|html)$/
+const MENTION_EXCLUDE = new Set([PATHS.specDoc])
+/** A line with this marker is not checked (an example id in the checker's own tests). */
+export const MENTION_IGNORE = 'spec-check: ignore-ids'
+const MENTION_ID = /\b(?:[RC]-[A-Z][A-Z0-9]*-\d{3}|[DQ]-\d{3})\b/g
+
+/** Every id written in the mention roots: { file, line, id }. */
+export function findMentions(root) {
+  const files = []
+  for (const entry of MENTION_ROOTS) {
+    const full = path.join(root, entry)
+    if (!existsSync(full)) continue
+    if (MENTION_FILE.test(entry)) files.push(full)
+    else walk(full, MENTION_FILE, files)
+  }
+  const mentions = []
+  for (const full of files) {
+    const file = path.relative(root, full).split(path.sep).join('/')
+    if (MENTION_EXCLUDE.has(file)) continue
+    const lines = readFileSync(full, 'utf8').split('\n')
+    lines.forEach((text, index) => {
+      if (text.includes(MENTION_IGNORE)) return
+      for (const match of text.matchAll(MENTION_ID)) {
+        mentions.push({ file, line: index + 1, id: match[0] })
+      }
+    })
+  }
+  return mentions
+}
+
+/**
+ * A rule, convention, decision or question id written anywhere must exist in the spec, and
+ * must not point at a retired rule or a superseded decision. Ids are never required in
+ * implementation code; dangling ones are made impossible. Test titles are checked by
+ * checkTests and not reported twice.
+ */
+export function checkMentions(root, spec, refs, report) {
+  const byId = new Map()
+  for (const item of [
+    ...spec.rules,
+    ...spec.conventions,
+    ...spec.decisions,
+    ...spec.openQuestions,
+  ]) {
+    byId.set(item.id, item)
+  }
+  const inTitles = new Set(refs.map((ref) => `${ref.file}:${ref.line}:${ref.id}`))
+  for (const { file, line, id } of findMentions(root)) {
+    if (inTitles.has(`${file}:${line}:${id}`)) continue
+    const where = `${file}:${line}`
+    const item = byId.get(id)
+    if (!item) {
+      report.error(
+        'unknown-mention',
+        where,
+        `mentions ${id}, which is not in spec/spec.json.`,
+        'fix the id, or add the entry to the spec in the same change.',
+      )
+    } else if (item.status === 'superseded') {
+      report.error(
+        'superseded-mention',
+        where,
+        `mentions ${id}, which is superseded by ${item.supersededBy}.`,
+        `refer to ${item.supersededBy} instead.`,
+      )
+    } else if (item.status === 'retired') {
+      report.error(
+        'retired-mention',
+        where,
+        `mentions ${id}, which is retired: ${item.retiredBecause}`,
+        'remove the reference, or refer to the rule that replaced it.',
+      )
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1060,6 +1153,7 @@ export async function runCheck(root, { baseRef = 'HEAD' } = {}) {
   checkRemovedIds(root, spec, report, baseRef)
   const refs = findTestReferences(root)
   const counted = checkTests(spec, refs, report)
+  checkMentions(root, spec, refs, report)
   await checkLintEnforcement(root, spec, report)
   checkGenerated(root, spec, report)
 

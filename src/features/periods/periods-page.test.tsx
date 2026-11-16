@@ -164,6 +164,49 @@ describe('periods page [R-PERIOD-051]', () => {
     ).toBeInTheDocument()
   })
 
+  it('accepts a date typed with commas, as a phone keypad offers', async () => {
+    const { db, rows } = await openPeriods()
+
+    await choose(rows[0]!, 'October 2026', 'The October 2026 salary arrived on another day')
+    const dialog = await screen.findByRole('dialog')
+    await typeDate(dialog, /Day the October 2026 salary arrived/, '27,10,2026')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(db.rpc.move_period_boundary).toHaveBeenCalledWith({
+        p_period_id: 'period-1',
+        p_new_end: '2026-10-26',
+      })
+    })
+  })
+
+  it('in the final month of a budget with an end date, changes the budget’s last day [R-BUDGET-015]', async () => {
+    const db = householdDb(undefined, {
+      my_budgets: [budgetRow({ end_month: '2026-10-01', end_date: '2026-11-24' })],
+    })
+    const { rows } = await openPeriods(db)
+
+    await userEvent.click(
+      within(rows[0]!).getByRole('button', { name: 'Actions for October 2026' }),
+    )
+    expect(screen.queryByRole('menuitem', { name: /salary arrived early/ })).not.toBeInTheDocument()
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Change the budget’s last day' }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    await typeDate(dialog, /Last day of the budget/, '30.11.2026')
+    expect(within(dialog).getByTestId('boundary-preview')).toHaveTextContent(
+      'The budget will end on 30.11.2026.',
+    )
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.move_period_boundary).toHaveBeenCalledWith({
+        p_period_id: 'period-2',
+        p_new_end: '2026-11-30',
+      })
+    })
+  })
+
   it('in an ended budget, says so and marks the final month', async () => {
     const db = householdDb(undefined, {
       my_budgets: [budgetRow({ end_date: '2026-10-22', end_month: '2026-09-01' })],
@@ -179,9 +222,10 @@ describe('periods page [R-PERIOD-051]', () => {
         }),
       ],
     })
+    db.rpc.get_current_period.mockImplementation(() => [])
     const { rows } = await openPeriods(db)
 
-    expect(screen.getByText('This budget has ended')).toBeInTheDocument()
+    expect(await screen.findByText('This budget has ended')).toBeInTheDocument()
     expect(within(rows[0]!).getByText('Final month')).toBeInTheDocument()
   })
 })

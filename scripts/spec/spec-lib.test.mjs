@@ -203,11 +203,11 @@ describe('spec:check', () => {
 
   it('fails when a test names an unknown id', async () => {
     const tests = {
-      'src/lib/other.test.ts': "it('formats [R-MONEY-099]', () => {})\n",
+      'src/lib/other.test.ts': "it('formats [R-MONEY-099]', () => {})\n", // spec-check: ignore-ids
     }
     const report = await runCheck(fixture({ tests }))
     expect(codes(report.errors)).toEqual(['unknown-id src/lib/other.test.ts:1'])
-    expect(report.errors[0].message).toContain('R-MONEY-099')
+    expect(report.errors[0].message).toContain('R-MONEY-099') // spec-check: ignore-ids
   })
 
   it('fails when a test names a planned rule or a malformed id', async () => {
@@ -290,7 +290,7 @@ describe('spec:check', () => {
   it('fails on a duplicate id, a dangling reference and a wrong namespace', async () => {
     const spec = baseSpec()
     spec.decisions.push({ ...spec.decisions[0] })
-    spec.features[0].userStories[0].rules.push('R-MONEY-404')
+    spec.features[0].userStories[0].rules.push('R-MONEY-404') // spec-check: ignore-ids
     spec.rules[0].area = 'spec'
     const report = await runCheck(fixture({ spec }))
     expect(codes(report.errors)).toEqual(
@@ -325,10 +325,72 @@ describe('spec:check', () => {
   })
 })
 
+describe('ids mentioned outside test titles', () => {
+  const superseded = () => {
+    const spec = baseSpec()
+    spec.decisions.push({
+      id: 'D-002',
+      title: 'Floats',
+      decision: 'Amounts were floats.',
+      why: 'Simple.',
+      rejected: [],
+      status: 'superseded',
+      supersededBy: 'D-001',
+      source: ['domain: Money'],
+    })
+    return spec
+  }
+
+  it('accepts existing ids in code, migrations, docs and scripts', async () => {
+    const tests = {
+      'src/lib/money.ts': '// R-MONEY-001: shown in francs (D-001)\n',
+      'supabase/migrations/1_init.sql': '-- R-MONEY-002 C-SPEC-001\n',
+      'docs/notes.md': 'See D-001.\n',
+    }
+    expect(codes((await runCheck(fixture({ tests }))).errors)).toEqual([])
+  })
+
+  it('reports an unknown id with its file and line', async () => {
+    const tests = { 'src/lib/money.ts': 'const a = 1\n// R-MONEY-777 enforced here\n' } // spec-check: ignore-ids
+    const report = await runCheck(fixture({ tests }))
+    expect(codes(report.errors)).toEqual(['unknown-mention src/lib/money.ts:2'])
+    expect(report.errors[0].message).toContain('R-MONEY-777') // spec-check: ignore-ids
+  })
+
+  it('reports a superseded decision, naming its replacement', async () => {
+    const tests = { 'README.md': 'We follow D-002.\n' }
+    const report = await runCheck(fixture({ spec: superseded(), tests }))
+    expect(codes(report.errors)).toEqual(['superseded-mention README.md:1'])
+    expect(report.errors[0].fix).toContain('D-001')
+  })
+
+  it('reports a retired rule', async () => {
+    const spec = baseSpec()
+    spec.rules[1] = { ...spec.rules[1], status: 'retired', retiredBecause: 'Dropped.' }
+    const tests = { 'supabase/tests/x.test.sql': '-- R-MONEY-002\nselect 1;\n' }
+    const report = await runCheck(fixture({ spec, tests }))
+    expect(codes(report.errors)).toContain('retired-mention supabase/tests/x.test.sql:1')
+  })
+
+  it('leaves out the generated docs/spec.md and lines marked as examples', async () => {
+    const tests = {
+      'docs/spec.md': null,
+      'scripts/example.mjs': '// e.g. R-AREA-001 spec-check: ignore-ids\n',
+    }
+    expect(codes((await runCheck(fixture({ tests }))).errors)).toEqual([])
+  })
+
+  it('does not report a test title twice', async () => {
+    const tests = { 'src/lib/other.test.ts': "it('x [R-MONEY-555]', () => {})\n" } // spec-check: ignore-ids
+    const report = await runCheck(fixture({ tests }))
+    expect(codes(report.errors)).toEqual(['unknown-id src/lib/other.test.ts:1'])
+  })
+})
+
 describe('test title extraction', () => {
   it('reads describe/it/test titles, with modifiers and each tables', () => {
     const text = [
-      "describe('a [R-X-001]', () => {",
+      "describe('a [R-X-001]', () => {", // spec-check: ignore-ids
       '  it.only("b", () => {})',
       '  test.each([[1, 2]])(`c %i`, () => {})',
       "  it.todo('d')",
@@ -337,7 +399,7 @@ describe('test title extraction', () => {
       '})',
     ].join('\n')
     expect(extractJsTitles(text)).toEqual([
-      { title: 'a [R-X-001]', line: 1, skipped: false },
+      { title: 'a [R-X-001]', line: 1, skipped: false }, // spec-check: ignore-ids
       { title: 'b', line: 2, skipped: false },
       { title: 'c %i', line: 3, skipped: false },
       { title: 'd', line: 4, skipped: true },
@@ -346,8 +408,8 @@ describe('test title extraction', () => {
 
   it('reads SQL string literals, skipping comments and dollar-quoted bodies', () => {
     const text =
-      "-- it's a comment\nselect throws_ok($$select 'x'$$, 'P0001', 'it''s [R-A-001]');\n"
-    expect(extractSqlLiterals(text).map((l) => l.title)).toEqual(['P0001', "it's [R-A-001]"])
+      "-- it's a comment\nselect throws_ok($$select 'x'$$, 'P0001', 'it''s [R-A-001]');\n" // spec-check: ignore-ids
+    expect(extractSqlLiterals(text).map((l) => l.title)).toEqual(['P0001', "it's [R-A-001]"]) // spec-check: ignore-ids
   })
 
   it('finds a step in the named job only', () => {

@@ -34,7 +34,7 @@ interface SelectFieldProps<TValues extends FieldValues, TOut extends FieldValues
  * Radix Select treats "" as "nothing selected" and shows an empty box, but forms use "" for
  * a real choice ("the current period"). It travels through the select as this stand-in.
  */
-const EMPTY_VALUE = '\u0000empty'
+const EMPTY_VALUE = '__empty__'
 const toSelect = (value: string) => (value === '' ? EMPTY_VALUE : value)
 const fromSelect = (value: string) => (value === EMPTY_VALUE ? '' : value)
 

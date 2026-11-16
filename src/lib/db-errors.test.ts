@@ -57,6 +57,13 @@ describe('database errors are shown as translated text [R-APP-004]', () => {
       'errors.invalidValue',
     )
     expect(dbErrorKey(new TypeError('Failed to fetch'))).toBe('errors.network')
+    expect(dbErrorKey(new TypeError('NetworkError when attempting to fetch resource.'))).toBe(
+      'errors.network',
+    )
+    // A bug in the client is not "cannot reach the server".
+    expect(dbErrorKey(new TypeError("Cannot read properties of undefined (reading 'id')"))).toBe(
+      'errors.generic',
+    )
     expect(dbErrorKey({ code: '', message: 'TypeError: Failed to fetch' })).toBe('errors.network')
   })
 

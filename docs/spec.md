@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-196 rules (154 active, 42 planned), 24 conventions, 63 decisions, 15 open questions. 0 rules and conventions are marked **TEST PENDING**.
+200 rules (158 active, 42 planned), 24 conventions, 63 decisions, 16 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -71,9 +71,9 @@ Local Supabase stack, row-level security baseline, CI, and the manual deploy to 
 Create, rename, end and delete a budget, created atomically with its first income and period.
 
 - **US-BUDGET-001** As a signed-in user, I want to create a budget with its first income in one step, so that I can start tracking at once and the budget is never half set up.
-  Rules: R-BUDGET-002, R-BUDGET-003, R-BUDGET-010, R-BUDGET-011, R-BUDGET-012, R-PERIOD-015, R-PERIOD-016, R-PERIOD-019, R-BUDGET-050, R-APP-004
+  Rules: R-BUDGET-002, R-BUDGET-003, R-BUDGET-010, R-BUDGET-011, R-BUDGET-012, R-PERIOD-015, R-PERIOD-016, R-PERIOD-019, R-BUDGET-050, R-APP-004, R-APP-005
 - **US-BUDGET-002** As a signed-in user, I want to belong to several budgets, so that I can keep a personal budget next to the household one.
-  Rules: R-BUDGET-004, R-SECURITY-002, R-SECURITY-003, R-SECURITY-004, R-BUDGET-051
+  Rules: R-BUDGET-004, R-SECURITY-002, R-SECURITY-003, R-SECURITY-004, R-BUDGET-051, R-BUDGET-053
 - **US-BUDGET-003** As a budget owner, I want to give a budget an end date or run it indefinitely, so that tracking stops when the budget is no longer needed.
   Rules: R-BUDGET-005, R-BUDGET-006, R-BUDGET-007, R-BUDGET-008, R-BUDGET-013, R-MEMBER-003
 - **US-BUDGET-004** As a budget member, I want to rename a budget, so that its name stays meaningful.
@@ -105,7 +105,7 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 - **US-INCOME-002** As a budget member, I want to change an income's terms when my salary changes, so that the change applies from now on and past periods stay as they were.
   Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-052
 - **US-INCOME-003** As a budget member, I want to make another income the primary one, so that periods follow the salary that really sets our rhythm.
-  Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008
+  Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008, R-INCOME-053
 - **US-INCOME-004** As a budget member, I want to remove an income, so that it stops counting without rewriting past periods.
   Rules: R-INCOME-001, R-INCOME-009, R-INCOME-012, R-INCOME-051
 
@@ -114,7 +114,7 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 
 - **US-PERIOD-001** As a budget member, I want periods to run from pay day to pay day of the primary income, so that the salary is always day one of the period.
-  Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018, R-PERIOD-050
+  Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018, R-PERIOD-050, R-PERIOD-052
 - **US-PERIOD-002** As a budget member, I want to move a period boundary when the salary arrived on another day, so that public holidays do not put transactions in the wrong period.
   Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
@@ -221,6 +221,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-BUDGET_
   - Related: D-027, D-047
   - Source: docs/database.md: Error messages; code: src/lib/db-errors.ts
+- **R-APP-005** After a write fails, the data it acted on is read again, so a row that changed or disappeared meanwhile is never left on screen.
+  _active · enforced by test · F-BUDGET_
+  - Related: R-APP-004, D-047
+  - Source: code: src/hooks/use-app-mutation.ts
 
 ### Accounts and sign-in
 
@@ -439,7 +443,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-BUDGET_
   - Related: D-046
   - Source: code: src/features/budgets/budget-routes.tsx
-- **R-BUDGET-051** The budget a user works in is remembered for that user in this browser; when it is no longer one of theirs (deleted, left, or they were removed), the app moves to another of their budgets, or to the first-run setup when none is left.
+- **R-BUDGET-051** The budget a user works in is remembered for that user in this browser, also when it was chosen for them as a fallback, so a rename elsewhere never moves them to another budget; when it is no longer one of theirs (deleted, left, or they were removed), the app moves to another of their budgets, or to the first-run setup when none is left.
   _active · enforced by test · F-BUDGET_
   - Related: D-046, C-QUERY-001
   - Source: code: src/features/budgets/current-budget-provider.tsx
@@ -467,6 +471,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-BUDGET_
   - Related: D-072
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
+- **R-BUDGET-053** A page and everything open on it (dialogs, forms) belong to the budget they were opened for: when the current budget changes, they are discarded, so nothing typed for one budget is saved into another.
+  _active · enforced by test · F-BUDGET_
+  - Related: R-BUDGET-051, C-QUERY-001
+  - Source: code: src/components/layout/app-layout.tsx
 
 ### Members and roles
 
@@ -613,10 +621,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-VERSION-010, R-INCOME-015, D-065
   - Source: code: src/features/income/components/income-form-dialog.tsx; code: src/features/income/components/remove-income-dialog.tsx
-- **R-INCOME-052** Before new terms of the primary income are saved, the form warns when they would close the current period at once (the next month's pay date under the new terms has already come).
+- **R-INCOME-052** Before new terms of the primary income are saved, the form says what they do to the current period: that it closes at once (the next month's pay date under the new terms has already come), the day it now ends, or, when its end was set by hand, the 14-day rule that decides; Save waits until this is known, and the form says so when it cannot be checked.
   _active · enforced by test · F-INCOME_
   - Related: R-PERIOD-026, R-VERSION-008
   - Source: code: src/features/income/components/income-form-dialog.tsx
+- **R-INCOME-053** Making another income primary is confirmed first, with what it does to the current period (it may close at once) and how to undo that.
+  _active · enforced by test · F-INCOME_
+  - Related: R-INCOME-052, R-INCOME-008, R-PERIOD-026
+  - Source: code: src/features/income/components/make-primary-dialog.tsx
 
 ### Pay dates and the weekend rule
 
@@ -757,6 +769,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-023, R-PERIOD-025, D-063
   - Source: code: src/features/periods/periods-page.tsx
+- **R-PERIOD-052** Reads that depend on which periods exist wait for ensure_periods, are read again after each of its runs (at least every 15 minutes while the page is open), and show an error with a retry when it fails; whether a budget has ended is the database's answer, never the absence of a current row.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-050, R-PERIOD-028
+  - Source: code: src/features/budgets/budget-queries.ts
 
 ### Versioning: edits never rewrite the past
 
@@ -1923,6 +1939,10 @@ Source: owner-request: coordinator decisions on the step 2 database review, 2026
   - Context: No client path deletes accounts yet. Today, deleting the owner's account deletes their budgets for every member (R-BUDGET-016), and deleting a member's account keeps their incomes with a null owner without the member rules: an income that is primary stays active and primary (review finding 8). Settle before any account-deletion feature.
   - Related: R-BUDGET-016, R-MEMBER-007, R-MEMBER-009
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15
+- **Q-018** When two members edit the same income at the same time, should the second save be refused (for example with a version check) instead of silently overwriting the first?
+  - Context: Today the last write wins without a warning: update_income_terms and the rename both replace what is there. Every member can edit every income (D-045), so two members of a household can edit the same salary from two browsers.
+  - Related: D-045, R-VERSION-006
+  - Source: owner-request: step 2 frontend review, finding 11
 
 ## Glossary
 

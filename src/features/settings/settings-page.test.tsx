@@ -122,7 +122,9 @@ describe('settings as a plain member [R-MEMBER-050]', () => {
     renderRoutes(routes, '/settings')
 
     expect(
-      await screen.findByText('Your income is the primary income: make another income primary first.'),
+      await screen.findByText(
+        'Your income is the primary income: make another income primary first.',
+      ),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Leave budget' })).toBeDisabled()
   })

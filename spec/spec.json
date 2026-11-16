@@ -629,7 +629,8 @@
             "R-PERIOD-016",
             "R-PERIOD-019",
             "R-BUDGET-050",
-            "R-APP-004"
+            "R-APP-004",
+            "R-APP-005"
           ]
         },
         {
@@ -642,7 +643,8 @@
             "R-SECURITY-002",
             "R-SECURITY-003",
             "R-SECURITY-004",
-            "R-BUDGET-051"
+            "R-BUDGET-051",
+            "R-BUDGET-053"
           ]
         },
         {
@@ -777,7 +779,7 @@
           "actor": "A-MEMBER",
           "iWant": "to make another income the primary one",
           "soThat": "periods follow the salary that really sets our rhythm",
-          "rules": ["R-INCOME-006", "R-INCOME-007", "R-INCOME-008"]
+          "rules": ["R-INCOME-006", "R-INCOME-007", "R-INCOME-008", "R-INCOME-053"]
         },
         {
           "id": "US-INCOME-004",
@@ -812,7 +814,8 @@
             "R-PERIOD-010",
             "R-PERIOD-017",
             "R-PERIOD-018",
-            "R-PERIOD-050"
+            "R-PERIOD-050",
+            "R-PERIOD-052"
           ]
         },
         {
@@ -1073,6 +1076,16 @@
       "statement": "A refused or failed database call is shown as a translated message: each stable error code of the contract has its own text, and anything else a generic one; the raw error is never shown.",
       "related": ["D-027", "D-047"],
       "source": ["docs/database.md: Error messages", "code: src/lib/db-errors.ts"]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-005",
+      "area": "app",
+      "feature": "F-BUDGET",
+      "statement": "After a write fails, the data it acted on is read again, so a row that changed or disappeared meanwhile is never left on screen.",
+      "related": ["R-APP-004", "D-047"],
+      "source": ["code: src/hooks/use-app-mutation.ts"]
     },
     {
       "id": "R-I18N-001",
@@ -1600,7 +1613,7 @@
       "id": "R-BUDGET-051",
       "area": "budget",
       "feature": "F-BUDGET",
-      "statement": "The budget a user works in is remembered for that user in this browser; when it is no longer one of theirs (deleted, left, or they were removed), the app moves to another of their budgets, or to the first-run setup when none is left.",
+      "statement": "The budget a user works in is remembered for that user in this browser, also when it was chosen for them as a fallback, so a rename elsewhere never moves them to another budget; when it is no longer one of theirs (deleted, left, or they were removed), the app moves to another of their budgets, or to the first-run setup when none is left.",
       "related": ["D-046", "C-QUERY-001"],
       "source": ["code: src/features/budgets/current-budget-provider.tsx"]
     },
@@ -2748,6 +2761,16 @@
       "source": ["code: src/features/periods/periods-page.tsx"]
     },
     {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-052",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "Reads that depend on which periods exist wait for ensure_periods, are read again after each of its runs (at least every 15 minutes while the page is open), and show an error with a retry when it fails; whether a budget has ended is the database's answer, never the absence of a current row.",
+      "related": ["R-PERIOD-050", "R-PERIOD-028"],
+      "source": ["code: src/features/budgets/budget-queries.ts"]
+    },
+    {
       "id": "R-BUDGET-014",
       "area": "budget",
       "statement": "When the terms change after an end date is set, the final period still ends on a normal boundary of its month, never a stub carrying a full month's income.",
@@ -2812,6 +2835,16 @@
         "owner-request: coordinator decisions on the step 2 database review, 2026-11-15",
         "docs/database.md: RPCs"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-BUDGET-053",
+      "area": "budget",
+      "feature": "F-BUDGET",
+      "statement": "A page and everything open on it (dialogs, forms) belong to the budget they were opened for: when the current budget changes, they are discarded, so nothing typed for one budget is saved into another.",
+      "related": ["R-BUDGET-051", "C-QUERY-001"],
+      "source": ["code: src/components/layout/app-layout.tsx"]
     },
     {
       "id": "R-PROFILE-004",
@@ -2962,9 +2995,19 @@
       "id": "R-INCOME-052",
       "area": "income",
       "feature": "F-INCOME",
-      "statement": "Before new terms of the primary income are saved, the form warns when they would close the current period at once (the next month's pay date under the new terms has already come).",
+      "statement": "Before new terms of the primary income are saved, the form says what they do to the current period: that it closes at once (the next month's pay date under the new terms has already come), the day it now ends, or, when its end was set by hand, the 14-day rule that decides; Save waits until this is known, and the form says so when it cannot be checked.",
       "related": ["R-PERIOD-026", "R-VERSION-008"],
       "source": ["code: src/features/income/components/income-form-dialog.tsx"]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-INCOME-053",
+      "area": "income",
+      "feature": "F-INCOME",
+      "statement": "Making another income primary is confirmed first, with what it does to the current period (it may close at once) and how to undo that.",
+      "related": ["R-INCOME-052", "R-INCOME-008", "R-PERIOD-026"],
+      "source": ["code: src/features/income/components/make-primary-dialog.tsx"]
     },
     {
       "id": "R-VERSION-009",
@@ -4127,6 +4170,14 @@
       "status": "open",
       "related": ["R-BUDGET-016", "R-MEMBER-007", "R-MEMBER-009"],
       "source": ["owner-request: coordinator decisions on the step 2 database review, 2026-11-15"]
+    },
+    {
+      "id": "Q-018",
+      "status": "open",
+      "question": "When two members edit the same income at the same time, should the second save be refused (for example with a version check) instead of silently overwriting the first?",
+      "context": "Today the last write wins without a warning: update_income_terms and the rename both replace what is there. Every member can edit every income (D-045), so two members of a household can edit the same salary from two browsers.",
+      "related": ["D-045", "R-VERSION-006"],
+      "source": ["owner-request: step 2 frontend review, finding 11"]
     }
   ]
 }
