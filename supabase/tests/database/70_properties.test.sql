@@ -185,14 +185,16 @@ begin
   end loop;
 end;
 $$;
--- The interest oracle. A period's interest is fixed when the period is created, and every
--- operation catches up before it writes, so a period created during a step saw the debts and
--- their rows as they stood at the end of the step before: debt_snap and ledger_snap keep that
--- state. For each period created since the last check, in order: one twelfth of the rate then
--- in force on the naive balance, half up, for each debt then in force; nothing for the others.
+-- The interest oracle (D-272). A period's interest is fixed when the period is created, on
+-- the balance from everything dated before the period's start, and every operation catches up
+-- before it writes, so a period created during a step saw the debts and their rows as they
+-- stood at the end of the step before: debt_snap and ledger_snap keep that state. For each
+-- period created since the last check, in order: one twelfth of the rate then in force on the
+-- naive balance of the entries dated before its start, half up, for each debt then in force
+-- and opened before its start; nothing for the others.
 create temp table debt_snap (debt uuid primary key, budget uuid not null, principal bigint not null, first_seq integer not null,
-                             end_seq integer, rate numeric not null) on commit drop;
-create temp table ledger_snap (debt uuid not null, id uuid primary key, amount bigint not null) on commit drop;
+                             end_seq integer, rate numeric not null, opened_on date not null) on commit drop;
+create temp table ledger_snap (debt uuid not null, id uuid primary key, amount bigint not null, date date not null) on commit drop;
 grant select, insert, update, delete on debt_snap, ledger_snap to authenticated;
 create or replace function pg_temp.interest_oracle(b uuid) returns setof text language plpgsql as $$
 declare
@@ -203,17 +205,18 @@ declare
 begin
   for p in select x.* from public.periods as x where x.budget_id = b and not exists (select 1 from seen_periods as s where s.id = x.id)
            order by x.seq loop
-    for d in select x.id, x.name, s.principal, s.first_seq, s.end_seq, s.rate, s.debt is not null as known, i.amount as actual
+    for d in select x.id, x.name, s.principal, s.first_seq, s.end_seq, s.rate, s.opened_on, s.debt is not null as known, i.amount as actual
              from public.debts as x
              left join debt_snap as s on s.debt = x.id
              left join public.debt_interest as i on i.debt_id = x.id and i.period_id = p.id
              where x.budget_id = b loop
       v_expected := 0;
-      if d.known and d.first_seq <= p.seq and (d.end_seq is null or p.seq < d.end_seq) and d.rate > 0 then
+      if d.known and d.first_seq <= p.seq and (d.end_seq is null or p.seq < d.end_seq) and d.rate > 0
+         and d.opened_on < p.start_date then
         v_balance := d.principal
           + coalesce((select sum(i.amount) from public.debt_interest as i join public.periods as q on q.id = i.period_id
                       where i.debt_id = d.id and q.seq < p.seq), 0)
-          + coalesce((select sum(l.amount) from ledger_snap as l where l.debt = d.id), 0);
+          + coalesce((select sum(l.amount) from ledger_snap as l where l.debt = d.id and l.date < p.start_date), 0);
         if v_balance > 0 then
           v_expected := round(v_balance * d.rate / 1200);
         end if;
@@ -229,12 +232,13 @@ begin
   delete from debt_snap where budget = b;
   insert into debt_snap
   select x.id, x.budget_id, x.principal, x.first_seq, x.end_seq,
-         (select v.interest_rate from public.debt_versions as v where v.debt_id = x.id order by v.effective_from_seq desc limit 1)
+         (select v.interest_rate from public.debt_versions as v where v.debt_id = x.id order by v.effective_from_seq desc limit 1),
+         x.opened_on
   from public.debts as x where x.budget_id = b;
   insert into ledger_snap
-  select t.debt_id, t.id, -t.amount from public.transactions as t where t.budget_id = b and t.debt_id is not null
+  select t.debt_id, t.id, -t.amount, t.date from public.transactions as t where t.budget_id = b and t.debt_id is not null
   union all
-  select a.debt_id, a.id, a.amount from public.debt_adjustments as a where a.budget_id = b;
+  select a.debt_id, a.id, a.amount, a.date from public.debt_adjustments as a where a.budget_id = b;
 end;
 $$;
 -- The projection oracle: every debt in force against tests.naive_projection.

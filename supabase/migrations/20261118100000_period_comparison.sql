@@ -25,10 +25,7 @@ set search_path = ''
 as $$
 begin
   perform private.assert_member(p_budget_id);
-  perform private.ensure_periods(p_budget_id, private.limit_catch_up_periods());
-  if not private.caught_up(p_budget_id) then
-    raise exception 'catching_up' using errcode = 'P0001';
-  end if;
+  perform private.read_catch_up(p_budget_id);  -- the one catch-up of every read (D-270)
   return private.reading_seq(p_budget_id);
 end;
 $$;

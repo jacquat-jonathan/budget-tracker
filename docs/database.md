@@ -100,7 +100,7 @@ below lists the rule ids it implements.
 | `income_overview` (view) | incomes, ended ones included | `id`, `budget_id`, `user_id` (whose income; null if their account was deleted), `user_display_name` (also for a former member), `name`, `is_primary`, `is_active` (in force in the current period), `first_seq`, `end_seq`, terms in force now `amount`, `pay_day`, `weekend_rule`, `terms_from_seq`, `next_pay_date` (first actual pay date on or after today; null when ended) | R-INCOME-003, R-INCOME-006, R-VERSION-001, R-PROFILE-004 |
 | `period_summaries` (view) | existing periods | `id`, `budget_id`, `seq`, `start_date`, `end_date` (inclusive), `end_is_manual`, `is_current`, `today`, `income_total` (`salary_total` + `extra_income_total`), `salary_total` (incomes in force in the period, each at the version in force then: the sum of the incomes' own amounts, so the income page's total for the current period is this figure), `extra_income_total` (extra incomes dated in it), `expected_total` (the rounded monthly shares of the expectations in force, added up), `spent_total` (expenses minus refunds dated in it, automatic charges and debt payments included; may be negative), `left_to_assign` (`income_total - expected_total`; negative when over-assigned), `result` (`income_total - spent_total`: a surplus when positive, a deficit when negative), `committed_total` (the monthly costs of the subscriptions in force in the period: part of `expected_total`, never added to it) | R-PERIOD-004, R-PERIOD-018, R-INCOME-011, R-PERIOD-028, R-CATEGORY-006, R-CATEGORY-071, R-CATEGORY-091, R-PROGRESS-002, R-PROGRESS-090, R-TRANSACTION-092, R-SUBSCRIPTION-078, R-SUBSCRIPTION-079 |
 | `category_overview` (view) | categories and subcategories, ended and void ones included | `id`, `budget_id`, `parent_id` (null: top level), `name`, `sort_order` (among siblings), `is_group` (has, or had, subcategories: no expectation of its own), `is_active` (in force in the current period), `first_seq`, `end_seq`, expectation in force now: `amount` (as entered), `cadence` (`'monthly'` \| `'yearly'`), `monthly_amount` (the monthly share; for a group, the total of its active subcategories), `terms_from_seq`; `has_transactions` (itself or its subcategories), `removal_deletes` (removing it now deletes it instead of ending it: no transactions, no subscription or debt on it, never counted in a past period), `revision`; `committed_amount` (the monthly costs of the subscriptions on it in force now; a group: its subcategories'), `in_use` (the terms of a subscription or debt in force now or later use it or a subcategory: `end_category` from now refuses it with `category_in_use`) | R-CATEGORY-001 to R-CATEGORY-005, R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-090, R-CATEGORY-110, R-SUBSCRIPTION-079 |
-| `transaction_list` (view) | transactions | `id`, `budget_id`, `kind` (`'expense'` \| `'refund'` \| `'extra_income'`), `amount` (positive), `date`, `period_id` (the period containing the date), `category_id` (null for an extra income), `category_name`, `parent_category_id`, `parent_category_name`, `description` (may be null), `recorded_by` (null if their account was deleted, and for an automatic charge), `recorded_by_name` (also for a former member), `revision`, `created_at`, `updated_at`, `subscription_id` and `subscription_name` (linked to a subscription), `debt_id` and `debt_name` (a debt payment), `charge_date` (an automatic charge: the scheduled date it was created for; null for a transaction a member recorded), `review_state` (enum `review_state`: `'confirmed'` \| `'awaiting_confirmation'`). List it with `list_transactions` (paged); select it directly only by `id` | R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-006, R-TRANSACTION-095, R-SUBSCRIPTION-075 |
+| `transaction_list` (view) | transactions | `id`, `budget_id`, `kind` (`'expense'` \| `'refund'` \| `'extra_income'`), `amount` (positive), `date`, `period_id` (the period containing the date), `category_id` (null for an extra income), `category_name`, `parent_category_id`, `parent_category_name`, `description` (may be null), `recorded_by` (null if their account was deleted, and for an automatic charge), `recorded_by_name` (also for a former member), `revision`, `created_at`, `updated_at`, `subscription_id` and `subscription_name` (linked to a subscription), `debt_id` and `debt_name` (a debt payment), `charge_date` (an automatic charge: the scheduled date it was created for; null for a transaction a member recorded), `review_state` (enum `review_state`: `'confirmed'` \| `'awaiting_confirmation'`), `debt_ended` (a payment of a debt that has ended: frozen, it cannot be changed, unlinked or deleted; false otherwise; an ended subscription freezes nothing, D-274). List it with `list_transactions` (paged); select it directly only by `id` | R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-006, R-TRANSACTION-095, R-SUBSCRIPTION-075 |
 | `subscription_overview` (view) | subscriptions, ended and void ones included | `id`, `budget_id`, `name`, `is_active` (in force in the current period), `first_seq`, `end_seq`, terms in force now: `price`, `cadence` (`'monthly'` \| `'quarterly'` \| `'half_yearly'` \| `'yearly'`), `category_id`, `category_name`, `parent_category_id`, `parent_category_name`, `anchor_date` (the date the schedule counts from: the first charge date, or the next charge date given when the schedule last changed), `terms_from_seq`; `monthly_cost` (its committed amount: price / months of the cadence, rounded half up), `next_charge_date` (the next scheduled date not yet charged; null once ended, when the budget has ended, or when it falls after the budget's end), `charged_through` (every charge up to this date is settled), `charge_count` (its automatic charges), `awaiting_count` (of which awaiting confirmation), `removal_deletes` (removing it now deletes it instead of ending it), `revision`, `created_at`, `updated_at` (an edit; never the catch-up), `charge_day` (the nominal day of the month, 1 to 31, of the terms in force now) | R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-079, R-SUBSCRIPTION-130, R-SUBSCRIPTION-132, R-VERSION-003 |
 | `debt_overview` (view) | debts, ended and void ones included | `id`, `budget_id`, `name`, `category_id`, `category_name`, `parent_category_id`, `parent_category_name` (the category of the terms in force now; for an ended debt, of its last terms), `principal`, `opened_on`, `is_active`, `first_seq`, `end_seq`, terms in force now: `interest_rate`, `monthly_payment`, `terms_from_seq`; `interest_total`, `adjustment_total` (signed), `paid_total`, `remaining` (`principal + interest_total + adjustment_total - paid_total`; negative when overpaid), `payoff` (enum `debt_payoff`: `'paid_off'` \| `'ends'` \| `'never'`; null for an ended debt, or when the budget has ended), `payments_left` (the planned payments still needed, this period's included while still due; 0 for `'paid_off'`; null for `'never'` and when `payoff` is null), `expected_end_date` (the projected end of the period of the last planned payment; null unless `'ends'`), `has_history` (a payment, interest or adjustment exists: the principal can no longer change), `removal_deletes`, `revision`, `created_at`, `updated_at`, `expected_end_after_budget_end` (the projected end falls after the budget's end: say so rather than show the date as a plan; false when there is no end date), `overpaid_by` (how much more than owed was paid; 0 unless `remaining` is negative), `paid_percent` (the payments as a whole percent of principal + interest + adjustments, rounded down: 100 exactly when `remaining` is 0 or less, 0 while nothing has been paid) | R-DEBT-001 to R-DEBT-005, R-DEBT-070, R-DEBT-074, R-DEBT-112, R-DEBT-132, R-DEBT-136, R-DEBT-137, R-VERSION-004 |
 | `debt_totals` (view) | one row per budget with a debt in force now | `budget_id`, `remaining_total` (the positive remaining amounts of its debts in force, added up: an overpaid or paid-off debt adds nothing), `owing_count` (how many debts in force still owe something). No row: no debt in force (show 0) | R-DEBT-133, D-216 |
@@ -132,18 +132,22 @@ budget is opened. The same catch-up creates the subscription charges due up to t
   scheduled date has come): the call reads, takes no lock and writes nothing, so it never
   waits for a writer. (R-SECURITY-006, R-SUBSCRIPTION-131)
 - **Something to do**: the call takes the budget lock (a concurrent caller waits for it and
-  then finds nothing to do) and creates at most **120 periods** (ten years) with their
-  interest and the charges due in them, and keeps them. It does not fail for a budget you
-  can see, however long the absence (no "runaway" error any more).
-- **A very long absence** (more than ten years): `my_budgets.caught_up` stays false and
-  `get_current_period` returns no row until the periods reach today; call `ensure_periods`
-  again until it returns 0 (each call keeps its progress; measured locally: 120 periods
-  with 50 subscriptions and 50 debts with interest in under 2 s per call). Writes catch up
-  in full before they act; reads that need the current period while it is still being
-  caught up answer `catching_up`.
+  then finds nothing to do) and does **one step**: at most 120 periods (ten years), and at
+  most about two seconds of work (D-276), with their interest and the charges due in them.
+- **No call does more than one step** (R-PERIOD-180, D-270). `ensure_periods` and
+  `get_current_period` keep their step. Every other read, preview and write does one step
+  too and, when the budget is still behind after it, answers **`catching_up`** and changes
+  nothing (its step is not kept). A write never catches up in full.
+- **A long absence** (more than one step behind): `my_budgets.caught_up` is false and
+  `get_current_period` returns no row; call `ensure_periods` until it returns 0 (each call
+  keeps its step), then read or write. Measured locally with 50 subscriptions and 50 debts
+  with interest after 100 years away: 15 steps of 25 to 120 periods, each statement at
+  most 3.7 s and its commit at most 0.7 s (under the API's 8 s statement timeout); a step
+  makes fewer periods as the history grows, since a period then costs up to about three
+  times more.
 
-(R-PERIOD-008, R-PERIOD-009, R-PERIOD-031, R-PERIOD-130, R-SECURITY-006,
-R-SUBSCRIPTION-073, R-SUBSCRIPTION-111, R-DEBT-073, R-DEBT-111, D-201, D-204)
+(R-PERIOD-008, R-PERIOD-009, R-PERIOD-031, R-PERIOD-130, R-PERIOD-180, R-SECURITY-006,
+R-SUBSCRIPTION-073, R-SUBSCRIPTION-111, R-DEBT-073, R-DEBT-111, D-270, D-204, D-276)
 
 `weekend_rule` is `'nearest'` (Sat -> Fri, Sun -> Mon, the default), `'previous'` (-> Fri),
 `'next'` (-> Mon) or `'none'`. (R-PAYDATE-001 to R-PAYDATE-007)
@@ -286,8 +290,9 @@ R-INCOME-015, R-INCOME-050)
 ### Periods
 
 **`ensure_periods(p_budget_id) -> integer`** Member. Creates missing periods towards the
-current one (never one starting after the end date), at most 120 per call, with their
-interest and charges, and returns how many it created: 0 means caught up. Idempotent;
+current one (never one starting after the end date), one step per call (at most 120, and
+about two seconds of work), with their interest and charges, and returns how many it
+created: 0 means caught up. Idempotent;
 concurrent calls are safe. (R-PERIOD-008, R-PERIOD-009, R-PERIOD-031, R-PERIOD-130)
 
 **`list_periods(p_budget_id, p_limit = 120, p_before_seq = null) -> period_summaries[]`**
@@ -369,7 +374,7 @@ shadowed by a later version changes nothing, and the preview says so; an income 
 the primary moves nothing), or if that income became primary. Computed with the write's own
 functions; an end set by hand stays as it is (`end_is_manual`). Pass the returned
 `end_date` to the write as `p_previewed_end_date`. Changes nothing (like
-`get_current_period`, it first creates missing periods). Errors: `income_not_found`,
+`get_current_period`, it first does one catch-up step; `catching_up` when still behind). Errors: `income_not_found`,
 `budget_ended`, `income_ended`, `income_not_in_force`, `invalid_period`,
 `period_not_found`, `invalid_amount`, `invalid_pay_day`, `invalid_weekend_rule`.
 (R-PERIOD-036, D-157)
@@ -386,8 +391,9 @@ move it back. (R-PERIOD-100, D-152)
 (one row) Member. What `move_period_start` without a date would do now: `scheduled_start`
 (the start the schedule gives), and whether the move would be accepted (`accepted`; when
 not, `refusal` is the code the write would answer, or `'already_on_schedule'` when the period
-already starts there). Computed with the write's own checks; changes nothing. Errors:
-`period_not_found`. (R-PERIOD-133, Q-091)
+already starts there). Computed with the write's own checks; like every read it first does
+the catch-up step (and answers `catching_up` when the budget is still behind), and changes
+nothing else. Errors: `period_not_found`, `catching_up`. (R-PERIOD-133, Q-091)
 
 ### Pure helper
 
@@ -660,7 +666,7 @@ listing), `subscription_overview.awaiting_count` the count per subscription. In 
 transaction list, `charge_date` marks an automatic charge and `review_state` whether it
 awaits confirmation; `list_transactions(..., p_awaiting_only => true)` lists only those.
 
-All subscription RPCs are for members; each catches up first, and each that changes an
+All subscription RPCs are for members; each first does one catch-up step (`catching_up` when the budget is still behind, R-PERIOD-180), and each that changes an
 existing subscription takes `p_expected_revision` (from `subscription_overview`).
 
 **`subscription_charge_dates(p_first_charge_date, p_cadence, p_from = null, p_count = 12) -> date[]`**
@@ -682,7 +688,7 @@ produce: the scheduled dates not yet charged, at most `p_count`, under the terms
 then be in force from the current period on (a correction shadowed by a later change changes
 none of them), never beyond the budget's end; none for an ended subscription. Changes
 nothing. Errors: those of `update_subscription` for these arguments, and `invalid_limit`.
-(R-SUBSCRIPTION-133)
+With no term argument (a form not yet changed) it answers the schedule as it stands. (R-SUBSCRIPTION-133)
 
 **`create_subscription(p_budget_id, p_name, p_price, p_cadence, p_category_id, p_first_charge_date, p_from_period_id = null) -> subscription_overview[]`** (one row)
 In force from the current period, or, as an explicit correction, from `p_from_period_id`.
@@ -712,7 +718,7 @@ Show the effect with `preview_update_subscription` (same arguments). Errors:
 `record_changed`, `invalid_revision`, `invalid_name`, `invalid_amount`, `invalid_cadence`,
 `invalid_charge_date`, `category_not_found`, `category_is_group`, `category_not_in_force`,
 `subscription_ended` (no new terms from now for an ended one; a correction within its
-validity), `invalid_period` (before it started, or `p_from_period_id` without new terms),
+validity; its name can still change), `charge_held_back` (a new cadence or next charge date while a charge waits for room), `invalid_period` (before it started, or `p_from_period_id` without new terms),
 `period_not_found`, `budget_ended`. (R-VERSION-003, R-VERSION-005, R-VERSION-006,
 R-VERSION-012, R-SUBSCRIPTION-114, R-SUBSCRIPTION-130, R-CATEGORY-130, R-CONCURRENCY-070)
 
@@ -722,7 +728,17 @@ Deleted when it never counted before that period and has no transaction
 (`subscription_overview.removal_deletes` says so beforehand); otherwise ended, keeping its
 charges (kept void when it would never be in force). Charges awaiting confirmation still
 await an answer. Errors: `subscription_not_found`, `record_changed`, `invalid_revision`,
-`subscription_ended`, `period_not_found`, `budget_ended`. (R-SUBSCRIPTION-113)
+`subscription_ended`, `charge_held_back` (see below), `period_not_found`, `budget_ended`.
+(R-SUBSCRIPTION-113)
+
+**A charge held back** (R-SUBSCRIPTION-180, D-271): while a subscription's next scheduled
+date has come and its charge waits for room (the budget holds 50 000 transactions),
+`subscription_overview.next_charge_date` shows that held date, and changing its schedule
+(`update_subscription` with a new `p_cadence` or a `p_next_charge_date`, from now or as a
+correction) or ending it (`end_subscription`) is refused with `charge_held_back`, changing
+nothing (`preview_end_subscription` gives it as `refusal`). A new name, price or category is
+allowed: once there is room the held charge is created with the terms in force in its own
+period. Free room first (delete transactions), then change the schedule.
 
 **`preview_end_subscription(p_subscription_id, p_from_period_id = null) -> {outcome, refusal}[]`**
 (one row) What `end_subscription` from that period (default: the current one) would do now:
@@ -746,7 +762,7 @@ Errors: `budget_not_found`, `invalid_date`. (R-SUBSCRIPTION-134)
 
 **`list_charges_awaiting_confirmation(p_budget_id, p_limit = 50) -> transaction_list[]`**
 The automatic charges awaiting confirmation, oldest first, at most `p_limit` (1 to 200).
-Catches up first, like `get_current_period`. Errors: `budget_not_found`, `invalid_limit`.
+Catches up first (one step; `catching_up` when still behind). Errors: `budget_not_found`, `invalid_limit`.
 (R-SUBSCRIPTION-075, R-SUBSCRIPTION-076)
 
 ### Debts
@@ -765,14 +781,19 @@ frozen**: no payment can be linked to it, changed or deleted, and no adjustment 
 deleted (`debt_ended`, D-209). (R-DEBT-001 to R-DEBT-003, R-DEBT-070 to R-DEBT-072,
 R-DEBT-131, R-DEBT-133, R-DEBT-134, R-DEBT-136, D-111 to D-113)
 
-**Interest** (R-DEBT-073, R-DEBT-111, R-DEBT-113, D-172): when a period is created, however
-it comes to exist (roll-over, catch-up over several periods, an early salary), each debt in
-force in it with a rate and a positive remaining amount gets one interest entry: one twelfth
-of the rate in force then on the remaining amount at that moment, rounded half up. Exactly
-once per debt and period; a reopen that merges the period removes its entry
-(`preview_reopen` says `'interest_removed'`), and creating the period again adds it again,
-once. Interest already added is never recomputed (corrections of the rate apply to later
-periods; fix a past amount with an adjustment).
+**Interest** (R-DEBT-073, R-DEBT-111, R-DEBT-113, R-DEBT-180, D-272): when a period is
+created, however it comes to exist (roll-over, catch-up over several periods, an early
+salary), each debt in force in it **opened before its start**, with a rate, gets one
+interest entry: one twelfth of the rate in force then on its balance from **everything dated
+before the period's start** (opening, payments, adjustments, earlier interest), rounded half
+up; none on a balance of zero or less. The day the catch-up runs does not matter. A debt
+opened on or after the period's start gets its first interest with the next period, so a
+history always starts with the opening. Exactly once per debt and period; a reopen that
+merges the period removes its entry (`preview_reopen` says `'interest_removed'`), and
+creating the period again computes it again by the same rule (the same amount when nothing
+dated before it changed). Interest already added is never recomputed, also when a payment or
+adjustment is back-dated later (corrections of the rate apply to later periods; fix a past
+amount with an adjustment).
 
 **Payments** are transactions: `add_transaction(..., p_debt_id)` (an expense in the category
 of the debt's terms in force in the period of its date) or `link_transaction`, or
@@ -800,7 +821,7 @@ row per event, oldest first, with `date`, `kind`, `amount` (its effect) and `bal
 remaining amount after it); plot `balance` against `date` (a step line), and mark the kinds.
 Group by `period_id` for one point per period.
 
-All debt RPCs are for members; each catches up first, and each that changes an existing
+All debt RPCs are for members; each first does one catch-up step (`catching_up` when the budget is still behind), and each that changes an existing
 debt takes `p_expected_revision` (from `debt_overview`).
 
 **`create_debt(p_budget_id, p_name, p_principal, p_category_id, p_monthly_payment, p_interest_rate = null, p_from_period_id = null) -> debt_overview[]`** (one row)
@@ -823,8 +844,9 @@ periods the new terms cover (payments dated in earlier periods stay where they a
 be a leaf in force in all of them. Errors: `debt_not_found`,
 `record_changed`, `invalid_revision`, `invalid_name`, `invalid_amount`,
 `invalid_interest_rate`, `category_not_found`, `category_is_group`, `category_not_in_force`,
-`debt_has_history`, `debt_ended`, `invalid_period`, `period_not_found`, `budget_ended`.
-(R-VERSION-004, R-VERSION-012, R-DEBT-070, R-DEBT-114, R-CATEGORY-130)
+`debt_has_history`, `debt_ended` (**any** edit of an ended debt: it is frozen, D-209),
+`invalid_period`, `period_not_found`, `budget_ended`. (R-VERSION-004, R-VERSION-012, R-DEBT-070,
+R-DEBT-114, R-DEBT-134, R-CATEGORY-130)
 
 **`remove_debt(p_debt_id, p_expected_revision, p_from_period_id = null) -> 'deleted' | 'ended'`**
 Deleted when it never counted before that period and has no payment, interest or
@@ -851,7 +873,7 @@ Match the bank statement: send the balance the bank shows (`p_balance`, 0 to
 `p_expected_revision`: **the debt's**. Errors: `adjustment_not_found`, `record_changed`,
 `invalid_revision`, `debt_ended`. (R-DEBT-075, R-DEBT-134)
 
-**`get_debt_history(p_debt_id, p_limit = 500, p_after_date = null, p_after_kind = null, p_after_created_at = null, p_after_id = null) -> debt_history_row[]`** (`{entry_id, kind, date, amount, balance, period_id, description, created_at}`)
+**`get_debt_history(p_debt_id, p_limit = 500, p_after_date = null, p_after_kind = null, p_after_created_at = null, p_after_id = null, p_newest_first = false) -> debt_history_row[]`** (`{entry_id, kind, date, amount, balance, period_id, description, created_at}`)
 `kind`: `'opened'` (the principal, on `opened_on`), `'interest'` (on its period's start),
 `'adjustment'`, `'payment'` (`amount` negative; `entry_id` is the transaction's). Oldest
 first; on one date the principal, then interest, then adjustments and payments together in
@@ -860,9 +882,12 @@ adjustment's note or the payment's description (may be null). **Paged**: at most
 rows (1 to 1000); for the next page pass the last row's `date`, `kind`, `created_at` and
 `entry_id` as `p_after_date`, `p_after_kind`, `p_after_created_at`, `p_after_id` (all four);
 a page shorter than `p_limit` is the last. `balance` is always over the whole history, so the
-last row of the last page has `remaining`. With TanStack Query, `useInfiniteQuery` keyed by
-budget id and debt id. Errors: `debt_not_found`, `invalid_limit`, `invalid_cursor`.
-(R-DEBT-004, R-DEBT-135)
+last row of the last page has `remaining`. **Newest first** (`p_newest_first = true`): the
+same rows in reverse order, the first page starting with the latest event; the cursor is the
+same four values of the last row, and the next page continues towards older rows; `balance`
+is the same as oldest first (the remaining amount after the event). With TanStack Query,
+`useInfiniteQuery` keyed by budget id, debt id and direction. Errors: `debt_not_found`,
+`invalid_limit`, `invalid_cursor`. (R-DEBT-004, R-DEBT-135, R-DEBT-181, D-275)
 
 **`get_debt_terms(p_debt_id, p_period_id) -> {period_id, in_force, category_id, interest_rate, monthly_payment, terms_from_period_id, until_period_id}[]`**
 and **`get_subscription_terms(p_subscription_id, p_period_id) -> {period_id, in_force, price, cadence, category_id, anchor_date, charge_day, terms_from_period_id, until_period_id}[]`**
@@ -872,12 +897,14 @@ and **`get_subscription_terms(p_subscription_id, p_period_id) -> {period_id, in_
 
 `get_subscription_terms`, `get_debt_terms`, `get_category_terms` and `get_income_terms`
 (each `(p_<record>_id, p_period_id)`, one row) give, for a correction form, the terms of the
-record in force in that period (`in_force` false and the terms null when the record is not
-in force there), the period they took effect (`terms_from_period_id`), and
+record in force in that period, the period they took effect (`terms_from_period_id`), and
 `until_period_id`: the first period of the next existing change or of the record's end (null:
 open-ended, or beyond the latest period). A correction from `p_period_id` applies up to the
 period before `until_period_id`: say so in the form ("from March to June; July has its own
-terms"). Errors: `<record>_not_found`, `period_not_found`. (R-VERSION-132, R-VERSION-133)
+terms"). Where the record is **not in force** (before its first period, or from its end
+period on), `in_force` is false and every term, `terms_from_period_id` and `until_period_id`
+are null: there is nothing to correct there (D-273). Errors: `<record>_not_found`,
+`period_not_found`. (R-VERSION-132, R-VERSION-133)
 
 ### In an ended budget
 
@@ -1073,7 +1100,8 @@ Step 4 messages:
 | `subscription_not_found`, `debt_not_found`, `adjustment_not_found` | does not exist (any more) or not visible to you |
 | `subscription_ended`, `debt_ended` | it has ended (for that period); an ended debt is frozen: no payment or adjustment can be added, changed or removed |
 | `before_debt_opened` | a payment or adjustment dated before the debt's `opened_on` |
-| `catching_up` | after a very long absence the budget is still being caught up: call `ensure_periods` until it returns 0, then retry |
+| `catching_up` | the budget is more than one catch-up step behind (a long absence): call `ensure_periods` until it returns 0, then retry; nothing was changed |
+| `charge_held_back` | a charge of the subscription waits for room (transaction limit): its schedule cannot change and it cannot end until the charge is created |
 | `preview_required` | an income edit that moves the current period's end needs the end its preview showed (`p_previewed_end_date`) |
 | `invalid_charge_date` | not a valid date, more than ten years ahead, or (a new schedule from now) not after today |
 | `invalid_interest_rate` | not 0 to 100, or more than three decimals |
@@ -1179,5 +1207,5 @@ and its check:
   `private.assert_transaction_category`).
 - `add_transaction` gains optional arguments for the new columns (default null, at the
   end), so step 3 callers keep working; `update_transaction` keeps columns it does not take
-  (step 4: the links, changed by `link_transaction`); `transaction_list` appends the new
-  columns at its end.
+  (step 4: the links, unless it is called with `p_relink`; `link_transaction` changes them
+  too); `transaction_list` appends the new columns at its end.

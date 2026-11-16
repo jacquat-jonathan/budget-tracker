@@ -8,24 +8,25 @@
 //   npx supabase start        # the whole stack, not only the database
 //   npm run db:smoke          # reads the URL and keys from `npx supabase status`
 //
-// or with SUPABASE_URL and SUPABASE_ANON_KEY set. It creates throwaway users and budgets
+// or with SUPABASE_URL and SUPABASE_ANON_KEY set (and SMOKE_DB_URL, the local database, for
+// the check that needs to age a throwaway budget; skipped without it). It creates throwaway users and budgets
 // (emails ending in @smoke.test) and leaves them; `npm run db:reset` removes them. Exits
 // non-zero on the first broken expectation. See docs/local-supabase.md.
 import { execFileSync } from 'node:child_process'
 
 function stackEnv() {
   if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-    return { url: process.env.SUPABASE_URL, anon: process.env.SUPABASE_ANON_KEY }
+    return { url: process.env.SUPABASE_URL, anon: process.env.SUPABASE_ANON_KEY, db: process.env.SMOKE_DB_URL }
   }
   const out = execFileSync('npx', ['supabase', 'status', '-o', 'env'], { encoding: 'utf8' })
   const get = (name) => out.match(new RegExp(`^${name}="?([^"\\n]+)"?$`, 'm'))?.[1]
   const url = get('API_URL')
   const anon = get('PUBLISHABLE_KEY') ?? get('ANON_KEY')
   if (!url || !anon) throw new Error('cannot read API_URL and the anon key from `npx supabase status`')
-  return { url, anon }
+  return { url, anon, db: process.env.SMOKE_DB_URL ?? get('DB_URL') }
 }
 
-const { url, anon } = stackEnv()
+const { url, anon, db } = stackEnv()
 let checks = 0
 
 function fail(message, detail) {
@@ -294,6 +295,24 @@ check(ok(sideBySide) && sideBySide.body[0]?.kind === 'total' && sideBySide.body[
 check(refused(await rpc(mallory, 'get_period_trend', { p_budget_id: budget }), 'budget_not_found'), 'a non-member gets no trend')
 const anonTrend = await rpc(null, 'get_period_trend', { p_budget_id: budget })
 check(anonTrend.status >= 400, 'an anonymous visitor cannot call the comparison', anonTrend)
+
+// --- a budget 40 years behind: every call but the catch-up answers catching_up, quickly ---
+if (db) {
+  const aged = (await rpc(alice, 'create_budget', { p_name: 'Aged', p_income_name: 'Salary', p_amount: 650000, p_pay_day: 25 })).body
+  // the throwaway budget's only period moved 40 years back, as if nobody had opened it since
+  execFileSync('psql', [db, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-c',
+    `update public.periods set start_date = start_date - interval '40 years', end_date = end_date - interval '40 years' where budget_id = '${aged}'`])
+  const agedIncome = (await get(alice, `my_budgets?id=eq.${aged}`)).body[0].primary_income_id
+  const started = Date.now()
+  const previewAged = await rpc(alice, 'preview_update_income', { p_income_id: agedIncome, p_amount: 700000 })
+  const reopenAged = await rpc(alice, 'preview_reopen', { p_budget_id: aged })
+  check(refused(previewAged, 'catching_up') && refused(reopenAged, 'catching_up') && Date.now() - started < 8000,
+    'previews on a budget 40 years behind answer catching_up, not a timeout', [previewAged, reopenAged])
+  const step = await rpc(alice, 'ensure_periods', { p_budget_id: aged })
+  check(ok(step) && step.body > 0 && step.body <= 120, 'ensure_periods does one bounded step', step)
+} else {
+  console.log('skip: no SMOKE_DB_URL, the aged-budget check needs the local database')
+}
 
 // --- access ---------------------------------------------------------------------------
 const anonRead = await get(null, `transaction_list?budget_id=eq.${budget}`)

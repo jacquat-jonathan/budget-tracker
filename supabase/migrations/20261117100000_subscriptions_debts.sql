@@ -30,7 +30,7 @@
 --   * Interest: when a period is created (however: roll-over, catch-up, early salary), one
 --     entry per debt in force with a rate, one twelfth of the yearly rate on the balance at
 --     that moment, rounded half up. The entry references the period, so a reopen that merges
---     that period removes it.                                     (R-DEBT-073, D-172)
+--     that period removes it.                                     (R-DEBT-073, D-272)
 
 -- ===========================================================================
 -- Types
@@ -80,7 +80,7 @@ language sql immutable set search_path = '' as $$ select 600 $$;
 create or replace function private.limit_schedule_days_ahead() returns integer
 language sql immutable set search_path = '' as $$ select 3660 $$;
 -- R-PERIOD-031, R-PERIOD-130: the most periods one read's catch-up creates (ten years); a
--- longer absence is caught up over several calls, each saving its progress (D-201).
+-- longer absence is caught up over several calls, each saving its progress (D-270).
 create or replace function private.limit_catch_up_periods() returns integer
 language sql immutable set search_path = '' as $$ select 120 $$;
 -- A page of a debt's history.
@@ -701,7 +701,7 @@ begin
 end;
 $$;
 
--- R-DEBT-073, Q-055, D-172: one period's interest on a balance: one twelfth of the yearly
+-- R-DEBT-073, Q-055, D-272: one period's interest on a balance: one twelfth of the yearly
 -- rate, rounded half up to the rappen; none on a balance of zero or less; never beyond the
 -- balance limit.
 create or replace function private.period_interest(p_balance bigint, p_rate numeric)
@@ -716,10 +716,36 @@ as $$
   end
 $$;
 
--- R-DEBT-073, R-DEBT-111, D-172: when a period is created, add one interest entry to each debt
--- in force in it that has a rate and a positive balance, on the balance at that moment.
--- Runs for every period insert, so it holds however the period came to exist; at most one
--- entry per debt and period (unique), so a retried or concurrent catch-up adds nothing more.
+-- R-DEBT-180, D-272: a debt's balance from everything dated before p_start, the start of the
+-- period being created (always the latest: periods are only ever added at the end, so every
+-- interest entry the debt has belongs to an earlier period and is dated before p_start): its
+-- principal, its interest, and the adjustments and payments dated before p_start (index
+-- range scans by debt; no join with the periods, so the cost does not grow with them).
+create or replace function private.debt_balance_before(p_debt_id uuid, p_start date)
+returns bigint
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  return (
+    select d.principal
+      + coalesce((select pg_catalog.sum(i.amount) from public.debt_interest as i where i.debt_id = d.id), 0)
+      + coalesce((select pg_catalog.sum(a.amount) from public.debt_adjustments as a
+                  where a.debt_id = d.id and a.date < p_start), 0)
+      - coalesce((select pg_catalog.sum(t.amount) from public.transactions as t
+                  where t.debt_id = d.id and t.date < p_start), 0)
+    from public.debts as d where d.id = p_debt_id)::bigint;
+end;
+$$;
+
+-- R-DEBT-073, R-DEBT-111, R-DEBT-180, D-272: when a period is created, add one interest
+-- entry to each debt in force in it, opened before its start, that has a rate and a positive
+-- balance from everything dated before the period's start, whatever day the catch-up runs.
+-- Computed once (a later back-dated entry does not recompute it); a period created again after
+-- a reopen gets it again by the same rule. Runs for every period insert, so it holds however
+-- the period came to exist; at most one entry per debt and period (unique), so a retried or
+-- concurrent catch-up adds nothing more.
 create or replace function private.apply_debt_interest()
 returns trigger
 language plpgsql
@@ -738,9 +764,9 @@ begin
       where dv.debt_id = x.id and dv.effective_from_seq <= new.seq
       order by dv.effective_from_seq desc limit 1
     ) as v
-    cross join lateral (select private.debt_remaining(x.id) as balance offset 0) as b
+    cross join lateral (select private.debt_balance_before(x.id, new.start_date) as balance offset 0) as b
     where x.budget_id = new.budget_id and x.first_seq <= new.seq and (x.end_seq is null or new.seq < x.end_seq)
-      and v.interest_rate > 0
+      and x.opened_on < new.start_date and v.interest_rate > 0
     offset 0
   ) as i
   where i.amount >= 1
@@ -918,14 +944,14 @@ end;
 $$;
 
 -- R-PERIOD-008, R-PERIOD-009, R-PERIOD-031, R-PERIOD-130, R-SUBSCRIPTION-073, Q-054, D-171,
--- D-201: as in step 2, then the subscription charges due up to today (missed dates
+-- D-270: as in step 2, then the subscription charges due up to today (missed dates
 -- included). The fast path, without the lock, also checks that no charge is due, so a read
 -- never waits for a writer when there is nothing to do (R-SECURITY-006). Creating a period
 -- applies the debts' interest (trigger periods_apply_debt_interest). At most p_max periods
--- are created (null: all that are missing); the charges follow the periods created, so a
--- call after decades of absence does a bounded amount of work, keeps it, and the next call
--- continues (no runaway error: step 2's guard is gone, the loop is bounded by the dates).
--- Returns how many periods it created.
+-- are created, and never more than limit_catch_up_periods() (D-270: no call of any kind does
+-- an unbounded catch-up); the charges follow the periods created, so a call after decades of
+-- absence does a bounded amount of work and the next call continues (no runaway error: step
+-- 2's guard is gone, the loop is bounded by the dates). Returns how many periods it created.
 drop function private.ensure_periods(uuid);
 create function private.ensure_periods(p_budget_id uuid, p_max integer default null)
 returns integer
@@ -939,6 +965,7 @@ declare
   v_last public.periods;
   v_start date;
   v_created integer := 0;
+  v_started timestamptz;
 begin
   -- Fast path, without the lock: nothing to create, no charge due.
   select p.* into v_last from public.periods as p
@@ -953,8 +980,12 @@ begin
   end if;
 
   v_end := (private.lock_budget(p_budget_id)).end_date;
+  v_started := pg_catalog.clock_timestamp();
   loop
-    exit when p_max is not null and v_created >= p_max;
+    exit when v_created >= least(coalesce(p_max, private.limit_catch_up_periods()), private.limit_catch_up_periods());
+    -- D-276: and at most about two seconds of work (with the charges and the commit, a step
+    -- stays well under the API's 8 s statement timeout whatever the budget holds)
+    exit when v_created > 0 and pg_catalog.clock_timestamp() - v_started > interval '2 seconds';
     select p.* into v_last from public.periods as p
     where p.budget_id = p_budget_id order by p.seq desc limit 1;
     exit when v_last.id is null;
@@ -990,8 +1021,97 @@ as $$
   and not private.charges_pending(p_budget_id)
 $$;
 
--- R-PERIOD-130: step 2's current_seq, with a distinct answer while a long absence is still
--- being caught up (only reads catch up in steps; every write catches up in full first).
+-- R-PERIOD-130, R-PERIOD-180, D-270: catching_up unless the budget is caught up.
+create or replace function private.assert_caught_up(p_budget_id uuid)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  if not private.caught_up(p_budget_id) then
+    raise exception 'catching_up' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+-- R-PERIOD-180, D-270: the catch-up of every read and preview other than ensure_periods and
+-- get_current_period: one bounded step, then catching_up when the budget is still behind (the
+-- call then changes nothing: its step is rolled back with it).
+create or replace function private.read_catch_up(p_budget_id uuid)
+returns void
+language plpgsql
+volatile
+set search_path = ''
+as $$
+begin
+  perform private.ensure_periods(p_budget_id, private.limit_catch_up_periods());
+  perform private.assert_caught_up(p_budget_id);
+end;
+$$;
+
+-- R-PERIOD-180, D-270: step 2's current_period: one bounded step of catch-up, catching_up when
+-- the budget is still behind; then the period containing today, or null once the budget has
+-- ended.
+create or replace function private.current_period(p_budget_id uuid)
+returns public.periods
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  v_period public.periods;
+begin
+  perform private.read_catch_up(p_budget_id);
+  select p.* into v_period from public.periods as p
+  where p.budget_id = p_budget_id and private.today() between p.start_date and p.end_date;
+  return v_period;
+end;
+$$;
+
+-- R-PERIOD-032, R-PERIOD-180, D-270: step 2's lock_and_catch_up for every write: the budget
+-- lock, one bounded step of catch-up, and catching_up (nothing changed) when the budget is
+-- still behind; the client brings it up to date with ensure_periods first.
+create or replace function private.lock_and_catch_up(p_budget_id uuid)
+returns public.budgets
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  v_budget public.budgets;
+begin
+  v_budget := private.lock_budget(p_budget_id);
+  perform private.read_catch_up(p_budget_id);
+  return v_budget;
+end;
+$$;
+
+-- R-PERIOD-180: step 2's lock_income, with the same catch-up as every write.
+create or replace function private.lock_income(p_income_id uuid)
+returns public.incomes
+language plpgsql
+volatile
+set search_path = ''
+as $$
+declare
+  v_budget_id uuid;
+  v_income public.incomes;
+begin
+  select i.budget_id into v_budget_id from public.incomes as i where i.id = p_income_id;
+  if v_budget_id is null or not private.is_budget_member(v_budget_id) then
+    raise exception 'income_not_found' using errcode = 'P0001';
+  end if;
+  perform private.lock_and_catch_up(v_budget_id);
+  select i.* into v_income from public.incomes as i where i.id = p_income_id;
+  if v_income.id is null then
+    raise exception 'income_not_found' using errcode = 'P0001';
+  end if;
+  return v_income;
+end;
+$$;
+
+-- R-PERIOD-130: step 2's current_seq; catching_up comes from current_period.
 create or replace function private.current_seq(p_budget_id uuid)
 returns integer
 language plpgsql
@@ -1002,9 +1122,6 @@ declare
   v_seq integer := (private.current_period(p_budget_id)).seq;
 begin
   if v_seq is null then
-    if not private.caught_up(p_budget_id) then
-      raise exception 'catching_up' using errcode = 'P0001';
-    end if;
     raise exception 'budget_ended' using errcode = 'P0001';
   end if;
   return v_seq;
@@ -1549,7 +1666,7 @@ begin
 end;
 $$;
 
--- R-DEBT-005, R-DEBT-074, R-DEBT-112, R-DEBT-132, Q-055, D-172: when a debt in force now is
+-- R-DEBT-005, R-DEBT-074, R-DEBT-112, R-DEBT-132, Q-055, D-272: when a debt in force now is
 -- expected to be paid off, under the terms in force now. The planned payment still due in the
 -- current period (the planned payment minus what was paid in it) is paid first; then every
 -- later period adds its interest (one twelfth of the rate on the remaining amount, rounded
@@ -1886,7 +2003,7 @@ create view public.debt_overview with (security_invoker = true) as
 
 -- R-DEBT-133, D-216: what a budget still owes: the positive remaining amounts of its debts in
 -- force now, added up (an overpaid or paid-off debt adds nothing), and how many debts still
--- owe something (D-191, Q-110). One row per budget that has a debt in force.
+-- owe something (Q-110). One row per budget that has a debt in force.
 create view public.debt_totals with (security_invoker = true) as
   select x.budget_id,
          coalesce(pg_catalog.sum(greatest(x.remaining, 0)), 0)::bigint as remaining_total,
@@ -1921,7 +2038,7 @@ create or replace view public.my_budgets with (security_invoker = true) as
 
 -- As in step 3, plus the links and the charge columns (R-TRANSACTION-003, R-SUBSCRIPTION-075):
 -- subscription_id and its name, debt_id and its name, charge_date (an automatic charge's
--- scheduled date; null for a transaction a member recorded), review_state.
+-- scheduled date; null for a transaction a member recorded), review_state, debt_ended.
 create or replace view public.transaction_list with (security_invoker = true) as
   select
     t.id,
@@ -1945,7 +2062,10 @@ create or replace view public.transaction_list with (security_invoker = true) as
     t.debt_id,
     d.name as debt_name,
     t.charge_date,
-    t.review_state
+    t.review_state,
+    -- R-DEBT-134, D-274: the payment's debt has ended, so the transaction is frozen (it cannot
+    -- be changed, unlinked or deleted); false when it is not a payment
+    coalesce(d.end_seq is not null, false) as debt_ended
   from public.transactions as t
   left join public.categories as c on c.id = t.category_id
   left join public.categories as pc on pc.id = c.parent_id
@@ -2019,6 +2139,21 @@ $$;
 -- ===========================================================================
 -- Internal helpers for the RPCs
 -- ===========================================================================
+
+-- R-SUBSCRIPTION-180, D-271: a charge of the subscription is due and held back (the budget
+-- holds the most transactions): after the catch-up, a due date not charged is a held one.
+create or replace function private.assert_no_held_charge(p_subscription public.subscriptions)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  if p_subscription.next_due is not null and p_subscription.next_due <= private.charge_horizon(p_subscription.budget_id) then
+    raise exception 'charge_held_back' using errcode = 'P0001';
+  end if;
+end;
+$$;
 
 -- Lock the budget of a subscription, catch up, and return the subscription read after the
 -- lock; subscription_not_found unless it exists and the caller is a member. (R-SECURITY-004)
@@ -2715,7 +2850,7 @@ begin
   if v_budget_id is null or not private.is_budget_member(v_budget_id) then
     raise exception 'period_not_found' using errcode = 'P0001';
   end if;
-  perform private.ensure_periods(v_budget_id, private.limit_catch_up_periods());
+  perform private.read_catch_up(v_budget_id);
   select p.* into v_period from public.periods as p where p.id = p_period_id;
   if v_period.id is null then
     raise exception 'period_not_found' using errcode = 'P0001';
@@ -3204,7 +3339,7 @@ begin
   if p_count is null or p_count not between 1 and 60 then
     raise exception 'invalid_limit' using errcode = 'P0001';
   end if;
-  perform private.ensure_periods(p_budget_id, private.limit_catch_up_periods());
+  perform private.read_catch_up(p_budget_id);
   if p_from_period_id is not null then
     v_seq := private.period_seq(p_budget_id, p_from_period_id);
   else
@@ -3259,6 +3394,14 @@ begin
   end if;
   v_subscription := private.lock_subscription(p_subscription_id);
   perform private.assert_revision(v_subscription.revision, p_expected_revision);
+  -- R-SUBSCRIPTION-180: the schedule cannot change while a charge waits for room (it would be
+  -- lost); price, category and name can (the charge takes the terms of its period when made)
+  if p_next_charge_date is not null
+     or (p_cadence is not null and p_cadence is distinct from (
+           select v.cadence from public.subscription_versions as v
+           where v.subscription_id = v_subscription.id order by v.effective_from_seq desc limit 1)) then
+    perform private.assert_no_held_charge(v_subscription);
+  end if;
   if num_nonnulls(p_price, p_cadence, p_category_id, p_next_charge_date) > 0 then
     select * into v_span from private.subscription_edit_span(v_subscription, p_from_period_id);
     select * into v_terms from private.subscription_new_terms(v_subscription, v_span.from_seq, p_from_period_id is not null,
@@ -3323,7 +3466,7 @@ begin
   if p_count is null or p_count not between 1 and 60 then
     raise exception 'invalid_limit' using errcode = 'P0001';
   end if;
-  perform private.ensure_periods(v_subscription.budget_id, private.limit_catch_up_periods());
+  perform private.read_catch_up(v_subscription.budget_id);
   select s.* into v_subscription from public.subscriptions as s where s.id = p_subscription_id;
   if p_from_period_id is null then
     v_current := private.current_seq(v_subscription.budget_id);
@@ -3349,7 +3492,12 @@ begin
   if v_subscription.end_seq is not null then
     return;  -- no charge comes
   end if;
-  if v_new and (v_span.to_seq is null or v_span.to_seq > v_current) then
+  -- R-SUBSCRIPTION-133: with no term argument (a form not yet changed) the schedule as it
+  -- stands (v_span and v_terms are then never read: a record not assigned must not be)
+  if v_new then
+    v_new := coalesce(v_span.to_seq is null or v_span.to_seq > v_current, false);
+  end if;
+  if v_new then
     v_anchor := v_terms.anchor_date; v_cadence := v_terms.cadence; v_day := v_terms.charge_day;
   else
     select v.anchor_date, v.cadence, v.charge_day into v_anchor, v_cadence, v_day from public.subscription_versions as v
@@ -3389,6 +3537,7 @@ declare
 begin
   v_subscription := private.lock_subscription(p_subscription_id);
   perform private.assert_revision(v_subscription.revision, p_expected_revision);
+  perform private.assert_no_held_charge(v_subscription);  -- R-SUBSCRIPTION-180
   if p_from_period_id is null then
     v_seq := private.current_seq(v_subscription.budget_id);
   else
@@ -3495,7 +3644,7 @@ begin
   if p_limit is null or p_limit not between 1 and private.limit_page_size() then
     raise exception 'invalid_limit' using errcode = 'P0001';
   end if;
-  perform private.ensure_periods(p_budget_id, private.limit_catch_up_periods());
+  perform private.read_catch_up(p_budget_id);
   return query
     select l.* from public.transaction_list as l
     where l.budget_id = p_budget_id and l.review_state = 'awaiting_confirmation'
@@ -3638,6 +3787,9 @@ begin
   end if;
   v_debt := private.lock_debt(p_debt_id);
   perform private.assert_revision(v_debt.revision, p_expected_revision);
+  if v_debt.end_seq is not null then
+    raise exception 'debt_ended' using errcode = 'P0001';  -- R-DEBT-134, D-209: frozen
+  end if;
   if num_nonnulls(p_interest_rate, p_monthly_payment, p_category_id) = 0 and p_from_period_id is not null then
     raise exception 'invalid_period' using errcode = 'P0001';
   end if;
@@ -3810,7 +3962,8 @@ $$;
 -- remaining amount (amount: positive raises it) and the remaining amount after it (balance,
 -- over the whole history). period_id: the period containing the date. At most p_limit rows
 -- (1 to 1000); the next page: pass the last row's date, kind, created_at and entry_id as
--- p_after_*. Members.
+-- p_after_*. p_newest_first (R-DEBT-181, D-275): the same rows newest first, the cursor then
+-- continuing towards older rows; balance is the same in both directions. Members.
 create type public.debt_history_row as (
   entry_id uuid, kind text, date date, amount bigint, balance bigint, period_id uuid,
   description text, created_at timestamptz
@@ -3824,7 +3977,8 @@ create or replace function public.get_debt_history(
   p_after_date date default null,
   p_after_kind text default null,
   p_after_created_at timestamptz default null,
-  p_after_id uuid default null
+  p_after_id uuid default null,
+  p_newest_first boolean default false
 )
 returns setof public.debt_history_row
 language plpgsql
@@ -3852,7 +4006,8 @@ begin
   return query
     select h.id, h.kind, h.date, h.amount, h.balance, pp.id, h.description, h.created_at
     from (
-      select e.*, (pg_catalog.sum(e.amount) over (order by e.date, e.ord, e.created_at, e.id rows unbounded preceding))::bigint as balance
+      select e.*, (pg_catalog.sum(e.amount) over (order by e.date, e.ord, e.created_at, e.id rows unbounded preceding))::bigint as balance,
+             pg_catalog.row_number() over (order by e.date, e.ord, e.created_at, e.id) as rn
       from (
         select v_debt.id, 'opened'::text, v_debt.opened_on, v_debt.principal, null::text, v_debt.created_at, 0
         union all
@@ -3872,8 +4027,12 @@ begin
       where x.budget_id = v_debt.budget_id and x.start_date <= h.date
       order by x.start_date desc limit 1
     ) as pp on h.date <= pp.end_date
-    where p_after_id is null or (h.date, h.ord, h.created_at, h.id) > (p_after_date, v_after_ord, p_after_created_at, p_after_id)
-    order by h.date, h.ord, h.created_at, h.id
+    where p_after_id is null
+       or (not coalesce(p_newest_first, false)
+           and (h.date, h.ord, h.created_at, h.id) > (p_after_date, v_after_ord, p_after_created_at, p_after_id))
+       or (coalesce(p_newest_first, false)
+           and (h.date, h.ord, h.created_at, h.id) < (p_after_date, v_after_ord, p_after_created_at, p_after_id))
+    order by case when coalesce(p_newest_first, false) then -h.rn else h.rn end
     limit p_limit;
 end;
 $$;
@@ -3926,6 +4085,12 @@ begin
   end if;
   v_seq := private.period_seq(v_s.budget_id, p_period_id);
   select * into w from private.version_window('public.subscription_versions', 'subscription_id', v_s.id, v_seq, v_s.end_seq);
+  -- R-VERSION-133, D-273: no terms where the record is not in force (before it starts, from its
+  -- end on), so a correction is never offered for a period the record does not cover
+  if not (v_s.first_seq <= v_seq and (v_s.end_seq is null or v_seq < v_s.end_seq)) then
+    w.from_seq := null;
+    w.until_seq := null;
+  end if;
   return query
     select p_period_id, v_s.first_seq <= v_seq and (v_s.end_seq is null or v_seq < v_s.end_seq),
            v.price, v.cadence, v.category_id, v.anchor_date, v.charge_day,
@@ -3955,6 +4120,12 @@ begin
   end if;
   v_seq := private.period_seq(v_d.budget_id, p_period_id);
   select * into w from private.version_window('public.debt_versions', 'debt_id', v_d.id, v_seq, v_d.end_seq);
+  -- R-VERSION-133, D-273: no terms where the record is not in force (before it starts, from its
+  -- end on), so a correction is never offered for a period the record does not cover
+  if not (v_d.first_seq <= v_seq and (v_d.end_seq is null or v_seq < v_d.end_seq)) then
+    w.from_seq := null;
+    w.until_seq := null;
+  end if;
   return query
     select p_period_id, v_d.first_seq <= v_seq and (v_d.end_seq is null or v_seq < v_d.end_seq),
            v.category_id, v.interest_rate, v.monthly_payment,
@@ -3984,6 +4155,12 @@ begin
   end if;
   v_seq := private.period_seq(v_c.budget_id, p_period_id);
   select * into w from private.version_window('public.category_expectations', 'category_id', v_c.id, v_seq, v_c.end_seq);
+  -- R-VERSION-133, D-273: no terms where the record is not in force (before it starts, from its
+  -- end on), so a correction is never offered for a period the record does not cover
+  if not (v_c.first_seq <= v_seq and (v_c.end_seq is null or v_seq < v_c.end_seq)) then
+    w.from_seq := null;
+    w.until_seq := null;
+  end if;
   return query
     select p_period_id, v_c.first_seq <= v_seq and (v_c.end_seq is null or v_seq < v_c.end_seq),
            v.amount, v.cadence,
@@ -4013,6 +4190,12 @@ begin
   end if;
   v_seq := private.period_seq(v_i.budget_id, p_period_id);
   select * into w from private.version_window('public.income_versions', 'income_id', v_i.id, v_seq, v_i.end_seq);
+  -- R-VERSION-133, D-273: no terms where the record is not in force (before it starts, from its
+  -- end on), so a correction is never offered for a period the record does not cover
+  if not (v_i.first_seq <= v_seq and (v_i.end_seq is null or v_seq < v_i.end_seq)) then
+    w.from_seq := null;
+    w.until_seq := null;
+  end if;
   return query
     select p_period_id, v_i.first_seq <= v_seq and (v_i.end_seq is null or v_seq < v_i.end_seq),
            v.amount, v.pay_day, v.weekend_rule,
@@ -4041,7 +4224,7 @@ begin
   if v_s.id is null or not private.is_budget_member(v_s.budget_id) then
     raise exception 'subscription_not_found' using errcode = 'P0001';
   end if;
-  perform private.ensure_periods(v_s.budget_id, private.limit_catch_up_periods());
+  perform private.read_catch_up(v_s.budget_id);
   begin
     if p_from_period_id is null then
       v_seq := private.current_seq(v_s.budget_id);
@@ -4051,7 +4234,12 @@ begin
     if v_s.end_seq is not null and v_seq >= v_s.end_seq then
       raise exception 'subscription_ended' using errcode = 'P0001';
     end if;
+    select s.* into v_s from public.subscriptions as s where s.id = p_subscription_id;
+    perform private.assert_no_held_charge(v_s);
   exception when sqlstate 'P0001' then
+    if sqlerrm = 'catching_up' then
+      raise;
+    end if;
     return query select null::text, sqlerrm;
     return;
   end;
@@ -4077,7 +4265,7 @@ begin
   if v_d.id is null or not private.is_budget_member(v_d.budget_id) then
     raise exception 'debt_not_found' using errcode = 'P0001';
   end if;
-  perform private.ensure_periods(v_d.budget_id, private.limit_catch_up_periods());
+  perform private.read_catch_up(v_d.budget_id);
   begin
     if p_from_period_id is null then
       v_seq := private.current_seq(v_d.budget_id);
@@ -4193,7 +4381,7 @@ grant execute on function
   public.remove_debt(uuid, integer, uuid),
   public.adjust_debt_balance(uuid, integer, bigint, date, text),
   public.delete_debt_adjustment(uuid, integer),
-  public.get_debt_history(uuid, integer, date, text, timestamptz, uuid),
+  public.get_debt_history(uuid, integer, date, text, timestamptz, uuid, boolean),
   public.preview_move_period_start(uuid),
   public.get_subscription_terms(uuid, uuid),
   public.get_debt_terms(uuid, uuid),

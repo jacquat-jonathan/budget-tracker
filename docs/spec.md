@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-398 rules (337 active, 54 planned), 24 conventions, 180 decisions, 30 open questions. 0 rules and conventions are marked **TEST PENDING**.
+403 rules (342 active, 54 planned), 24 conventions, 187 decisions, 30 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -871,7 +871,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
 - **R-PERIOD-031** A budget can never get stuck: creating the missing periods always succeeds, each starting the day after the previous one ends, until one contains today or the budget's end is reached; after a very long absence a read may create them over several calls, each keeping its progress (R-PERIOD-130).
   _active · enforced by test · F-PERIOD_
-  - Related: D-080, D-201
+  - Related: D-080, D-270
   - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
 - **R-PERIOD-032** Every write first creates the missing periods up to today, then acts.
   _active · enforced by test · F-PERIOD_
@@ -914,9 +914,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-152, Q-071, R-PERIOD-014, R-PERIOD-025
   - Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
-- **R-PERIOD-130** A read's catch-up creates at most 120 periods (ten years) per call, with their interest and charges, never fails and always keeps its progress; until the budget is caught up my_budgets.caught_up is false and the current period is not answered (catching_up for the writes that need it); a write catches up in full first.
+- **R-PERIOD-130** A catch-up step creates at most 120 periods (ten years), and at most about two seconds of work, with their interest and charges; ensure_periods and get_current_period keep their step; until the budget is caught up my_budgets.caught_up is false, get_current_period gives no row, and every other call answers catching_up (R-PERIOD-180).
   _active · enforced by test · F-PERIOD_
-  - Related: R-PERIOD-031, D-201
+  - Related: R-PERIOD-031, D-270, D-276
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-PERIOD-131** The end date of a future period, as the debt projection uses it, is the one the catch-up will give it under the terms in force, whatever the current period's end (set by hand early or late).
   _active · enforced by test · F-DEBT_
@@ -934,6 +934,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-PERIOD-036, D-205
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-PERIOD-180** No call of any kind creates more than one bounded step of periods: ensure_periods and get_current_period do one step and keep it; every other read, preview and write does at most one step and, when the budget is still behind, answers catching_up and changes nothing.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-130, D-270
+  - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
 
 ### Versioning: edits never rewrite the past
 
@@ -1017,7 +1021,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: R-CATEGORY-093
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-VERSION-132** The terms of a subscription, debt, category or income in force in a chosen period can be read, with the period they took effect.
+- **R-VERSION-132** The terms of a subscription, debt, category or income in force in a chosen period can be read, with the period they took effect; where the record is not in force (before it starts, from its end on) there are no terms.
   _active · enforced by test · F-SUBSCRIPTION_
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-VERSION-133** A correction from a chosen period applies up to the period before the next existing change or end, and that period is given with the terms.
@@ -1243,6 +1247,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-TRANSACTION-095
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-TRANSACTION-180** The transactions list says, per transaction, whether it is a payment of a debt that has ended (and so cannot be changed, unlinked or deleted).
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-134, D-274
+  - Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Period progress and result
 
@@ -1343,7 +1351,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-171, D-175
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-SUBSCRIPTION-112** A subscription counts from the start of its first period: its charges due from then up to today are created when it is created (from an earlier period, as an explicit correction, too). Automatic charges count towards the transaction limit; when the budget is full they wait, none skipped, until there is room.
+- **R-SUBSCRIPTION-112** A subscription counts from the start of its first period: its charges due from then up to today are created when it is created (from an earlier period, as an explicit correction, too). Automatic charges count towards the transaction limit; when the budget is full they wait, none skipped, until there is room. A change that would lose a held charge is refused (R-SUBSCRIPTION-180).
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-176
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
@@ -1415,6 +1423,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-113, R-SUBSCRIPTION-124
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-180** While a charge of a subscription is due and held back by the transaction limit, its schedule (cadence or next charge date, from now or as a correction) cannot change and it cannot end (charge_held_back); its name, price and category can; its next charge date shows the held date.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-112, D-271
+  - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Debts
 
@@ -1448,13 +1460,13 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by review · F-DEBT_
   - Related: D-112
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-DEBT-073** When a period is created, however it comes to exist (roll-over, catch-up over several periods, an early salary), each debt in force in it that has an interest rate and a positive remaining amount gets one twelfth of its yearly rate applied to the remaining amount at that moment, rounded half up to the rappen, added to it as an interest entry of that period.
+- **R-DEBT-073** When a period is created, however it comes to exist (roll-over, catch-up over several periods, an early salary), each debt in force in it, opened before its start, that has an interest rate and a positive balance from everything dated before the period's start gets one twelfth of its yearly rate applied to that balance, rounded half up to the rappen, added to it as an interest entry of that period.
   _active · enforced by test · F-DEBT_
-  - Related: D-113, Q-055, D-172
+  - Related: D-113, Q-055, D-272
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-074** When the planned monthly payment is less than or equal to one period's interest on the remaining amount, the app says the debt never ends instead of showing an end date.
   _active · enforced by test · F-DEBT_
-  - Related: D-113, Q-055, D-172
+  - Related: D-113, Q-055, D-272
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-075** A member can adjust a debt's balance to match the bank statement: the database adds an adjustment entry for the difference, so the remaining amount becomes the balance entered.
   _active · enforced by test · F-DEBT_
@@ -1467,15 +1479,15 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-111** Interest is applied at most once per debt and period, however many members open the budget at once or retry, and a reopen followed by a new roll-over applies it once again.
   _active · enforced by test · F-DEBT_
-  - Related: D-172
+  - Related: D-272
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-112** The expected end is projected period by period: the planned payment still due in the current period first, then each later period adds its interest and receives the planned payment; beyond 600 periods (50 years) the answer is that the debt never ends.
   _active · enforced by test · F-DEBT_
-  - Related: D-172, D-181
+  - Related: D-272, D-181
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-113** A reopen that merges a period removes the interest that period added (and the reopen preview says so); removing a debt with history ends it and keeps its payments, interest and adjustments, and its remaining amount.
   _active · enforced by test · F-DEBT_
-  - Related: D-172, D-174
+  - Related: D-272, D-174
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-114** A debt's principal can be corrected only while it has no payment, interest or adjustment; afterwards its balance is adjusted instead. A correction of its terms from an earlier period never recomputes interest already added.
   _active · enforced by test · F-DEBT_
@@ -1501,7 +1513,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-VERSION-140, R-DEBT-114, D-210
   - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/debts/components/debt-form-dialog.tsx; code: src/features/debts/debt-mutations.ts
-- **R-DEBT-131** A debt's principal is the balance on its opened date; no payment or balance adjustment is dated before it. A debt recorded from an earlier period is opened on that period's start.
+- **R-DEBT-131** A debt's principal is the balance on its opened date; no payment, balance adjustment or interest is dated before it, so its history always starts with the opening. A debt recorded from an earlier period is opened on that period's start.
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-003, D-202
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
@@ -1513,7 +1525,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: Q-110, D-216
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-DEBT-134** An ended debt is frozen: no payment can be linked to it, changed or removed, and no balance adjustment added or removed, so its remaining amount stays.
+- **R-DEBT-134** An ended debt is frozen: no payment can be linked to it, changed or removed, no balance adjustment added or removed, and none of its fields or terms changed (update_debt answers debt_ended), so its remaining amount stays.
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-113, D-209
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
@@ -1533,6 +1545,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-001
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-180** A period's interest for a debt is computed once, when the period is created, on the balance from everything dated before the period's start (opening, payments, adjustments, earlier interest), whatever day the catch-up runs; a debt not opened before the period's start gets none for it; a period created again after a reopen gets it again by the same rule.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-073, D-272
+  - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-181** A debt's history can also be read newest first, a page at a time with the same cursor, each row with the same running balance as oldest first.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-135, D-275
+  - Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Browsing and comparing periods
 
@@ -3732,7 +3752,7 @@ Related: Q-054, D-109, R-SUBSCRIPTION-073, R-SUBSCRIPTION-077, R-SUBSCRIPTION-11
 
 Source: owner-request: project coordinator decision for step 4, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
-### D-172 Interest at period creation; the projection and "never" (accepted)
+### D-172 Interest at period creation; the projection and "never" (superseded by D-272)
 
 Interest is applied when a new period is created, on the balance at that moment, as one twelfth of the yearly rate rounded half up to the rappen, as an entry of that period in the debt's history (dated at the period's start). It is applied exactly once per debt and period however the period came to exist (roll-over, catch-up over several periods, an early salary), and a reopen that merges a period removes the interest entry that period created. No interest on a balance of zero or less. A planned payment less than or equal to one period's interest means the debt never ends. The projection has a horizon of 600 periods (50 years) beyond which it answers "never". Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
 
@@ -4027,7 +4047,7 @@ Related: R-SUBSCRIPTION-071, R-SUBSCRIPTION-130, D-170
 
 Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
-### D-201 Catch-up in bounded steps, no runaway error (accepted)
+### D-201 Catch-up in bounded steps, no runaway error (superseded by D-270)
 
 A read's catch-up (ensure_periods, get_current_period, the charge list, the previews) creates at most 120 periods per call with their interest and charges and keeps them; my_budgets.caught_up says whether more remains and the client calls ensure_periods until it returns 0. A write catches up in full first. Step 2's period_generation_runaway error is gone: the loop is bounded by the dates, so opening a budget always succeeds and progresses after any absence.
 
@@ -4300,6 +4320,99 @@ The API returns at most 1000 rows per request (max_rows, not raised) and cuts a 
 Related: R-APP-170, D-153, D-180, D-260, R-COMPARE-070
 
 Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
+
+### D-270 No call does an unbounded catch-up (accepted)
+
+A catch-up step creates at most 120 periods with their interest and charges (D-276 also bounds its time). ensure_periods and get_current_period do one step and keep it; my_budgets.caught_up says whether more remains, and the client calls ensure_periods until it returns 0. Every other read, preview and write (all of them through private.read_catch_up, private.current_period or private.lock_and_catch_up) does at most one step and, when the budget is still behind, answers catching_up and changes nothing (its step is rolled back with it). A write no longer catches up in full. Step 2's period_generation_runaway error stays gone. Supersedes D-201.
+
+**Why:** Re-review finding 1: seven previews created every missing period in one call (480 after 40 years) and timed out over HTTP, and catching_up was never answered. A write catching up in full would hit the statement timeout at the limits.
+
+**Rejected:**
+
+- Writes catching up in full: the statement timeout at the limits.
+- Raising the step size: the same cliff later.
+
+Related: R-PERIOD-130, R-PERIOD-180, R-PERIOD-031, D-080, D-180
+
+Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
+
+### D-271 A held-back charge blocks schedule changes (accepted)
+
+While a subscription's next scheduled date has come and its charge is held back by the transaction limit, update_subscription refuses a change of cadence or a next charge date (from now or as a correction) and end_subscription refuses to end it, with charge_held_back, changing nothing; preview_end_subscription says so as its refusal. A name, price or category change is allowed: the held charge is created, once there is room, with the terms in force in its own period, so it cannot be lost. subscription_overview.next_charge_date shows the held date meanwhile.
+
+**Why:** Re-review finding 3: a cadence change while a charge waited moved the schedule past the held date, so the charge was never created (R-SUBSCRIPTION-112: none skipped).
+
+**Rejected:**
+
+- Creating the held charge at the moment of the edit: the budget has no room for it.
+
+Related: R-SUBSCRIPTION-180, R-SUBSCRIPTION-112, D-176
+
+Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-272 Interest on the balance before the period, at period creation; the projection and "never" (accepted)
+
+A period's interest for a debt is computed when the period is created, on the debt's balance from everything dated before the period's start (its opening, payments, adjustments and earlier interest), whatever day the catch-up runs, as one twelfth of the yearly rate rounded half up to the rappen, as an entry of that period in the debt's history (dated at the period's start). A debt whose opened_on is not before the period's start gets no interest for that period; its first comes with the next one, so the history always starts with the opening. It is computed once: a payment or adjustment back-dated later does not recompute it (an adjustment exists for that). It is applied exactly once per debt and period however the period came to exist; a reopen that merges a period removes its entry and creating the period again computes it by the same rule, so redoing without other changes gives the same amount. No interest on a balance of zero or less. A planned payment less than or equal to one period's interest means the debt never ends; the projection has a horizon of 600 periods (50 years). Supersedes D-172.
+
+**Why:** Re-review finding 4: interest on the balance at the moment of the catch-up gave an entry dated before the opening (an early pay date) and a different amount for a period created again after a payment dated inside it. The projection already assumes this rule (each period's interest on what remains after the previous period).
+
+**Rejected:**
+
+- The balance at the moment of creation: depends on the day the catch-up runs.
+
+Related: R-DEBT-073, R-DEBT-180, R-DEBT-131, R-DEBT-074, R-DEBT-111, R-DEBT-112, R-DEBT-113, Q-055, D-113
+
+Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-273 No terms where a record is not in force (accepted)
+
+get_subscription_terms, get_debt_terms, get_category_terms and get_income_terms answer in_force false and every term, terms_from_period_id and until_period_id null for a period where the record is not in force (before it starts, from its end on), so a correction form cannot offer to correct a period the record does not cover.
+
+**Why:** Re-review: from the end period on the last terms came back with in_force false, which the form could have offered to correct.
+
+**Rejected:** none recorded.
+
+Related: R-VERSION-132, R-VERSION-133, D-219
+
+Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-274 The transactions list says which payments are frozen (accepted)
+
+transaction_list has debt_ended: true for a payment of a debt that has ended (it cannot be changed, unlinked or deleted, D-209), false otherwise. Nothing is frozen for an ended subscription: its charges can still be edited, confirmed, dismissed or deleted, so there is no subscription counterpart.
+
+**Why:** Screens round 2 (Q-140): the list read debt_overview to know which payments were frozen.
+
+**Rejected:** none recorded.
+
+Related: R-TRANSACTION-180, R-DEBT-134, D-209
+
+Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-275 A debt's history newest first (accepted)
+
+get_debt_history takes p_newest_first (default false): the same rows newest first, the four-part cursor (date, kind, created_at, entry_id) then continuing towards older rows; balance is computed over the whole history in the oldest-first order, so it is the same in both directions.
+
+**Why:** Screens round 2 (Q-141): the history table starts with the latest events.
+
+**Rejected:** none recorded.
+
+Related: R-DEBT-181, R-DEBT-135
+
+Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-276 A catch-up step's work is bounded in time too (accepted)
+
+A step stops creating periods after about two seconds of work (at least one period per call), then creates the charges due in what it created. Measured locally with 50 subscriptions and 50 debts with interest after 100 years: statement at most 3.7 s, commit at most 0.7 s, 25 to 120 periods per step; a period costs about three times more at 1200 periods of history than at 120 (deferred checks and the budget's transactions), so the time bound, not the period bound, keeps each step under the 8 s statement timeout.
+
+**Why:** Re-review: the tenth 120-period step after 100 years took 11.6 s over HTTP.
+
+**Rejected:**
+
+- A fixed smaller step: still unbounded in time as the history grows.
+
+Related: R-PERIOD-130, D-270
+
+Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ## Open questions
 

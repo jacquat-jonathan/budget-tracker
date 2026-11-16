@@ -9,7 +9,7 @@ select tests.create_user('alice', 'Alice');
 select tests.set_today('2026-11-16');
 
 -- ===========================================================================
--- One period's interest, pure (R-DEBT-073, Q-055, D-172)
+-- One period's interest, pure (R-DEBT-073, Q-055, D-272)
 -- ===========================================================================
 create temp table interest_cases (balance bigint, rate numeric, expected bigint, why text) on commit drop;
 insert into interest_cases values

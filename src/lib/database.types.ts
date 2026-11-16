@@ -736,7 +736,7 @@ isOneToOne: false
                   ]
                 },"transaction_list": {
                   Row: {
-                    "amount": number,"budget_id": string,"category_id": string | null,"category_name": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_id": string | null,"debt_name": string | null,"description": string | null,"id": string,"kind": Database["public"]['Enums']["transaction_kind"],"parent_category_id": string | null,"parent_category_name": string | null,"period_id": string | null,"recorded_by": string | null,"recorded_by_name": string | null,"review_state": Database["public"]['Enums']["review_state"],"revision": number,"subscription_id": string | null,"subscription_name": string | null,"updated_at": string
+                    "amount": number,"budget_id": string,"category_id": string | null,"category_name": string | null,"charge_date": string | null,"created_at": string,"date": string,"debt_ended": boolean | null,"debt_id": string | null,"debt_name": string | null,"description": string | null,"id": string,"kind": Database["public"]['Enums']["transaction_kind"],"parent_category_id": string | null,"parent_category_name": string | null,"period_id": string | null,"recorded_by": string | null,"recorded_by_name": string | null,"review_state": Database["public"]['Enums']["review_state"],"revision": number,"subscription_id": string | null,"subscription_name": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -808,6 +808,7 @@ isOneToOne: false
 "charge_date": string | null,
 "created_at": string,
 "date": string,
+"debt_ended": boolean | null,
 "debt_id": string | null,
 "debt_name": string | null,
 "description": string | null,
@@ -881,6 +882,7 @@ isOneToOne: false
 "charge_date": string | null,
 "created_at": string,
 "date": string,
+"debt_ended": boolean | null,
 "debt_id": string | null,
 "debt_name": string | null,
 "description": string | null,
@@ -1136,7 +1138,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "get_debt_history":
-{ Args: { "p_after_created_at"?: string,"p_after_date"?: string,"p_after_id"?: string,"p_after_kind"?: string,"p_debt_id": string,"p_limit"?: number }; Returns: Database["public"]['CompositeTypes']["debt_history_row"][]
+{ Args: { "p_after_created_at"?: string,"p_after_date"?: string,"p_after_id"?: string,"p_after_kind"?: string,"p_debt_id": string,"p_limit"?: number,"p_newest_first"?: boolean }; Returns: Database["public"]['CompositeTypes']["debt_history_row"][]
                           SetofOptions: {
         from: "*"
         to: "debt_history_row"
@@ -1199,6 +1201,7 @@ isOneToOne: false
 "charge_date": string | null,
 "created_at": string,
 "date": string,
+"debt_ended": boolean | null,
 "debt_id": string | null,
 "debt_name": string | null,
 "description": string | null,
@@ -1238,6 +1241,7 @@ isOneToOne: false
 "charge_date": string | null,
 "created_at": string,
 "date": string,
+"debt_ended": boolean | null,
 "debt_id": string | null,
 "debt_name": string | null,
 "description": string | null,
@@ -1300,6 +1304,7 @@ isOneToOne: false
 "charge_date": string | null,
 "created_at": string,
 "date": string,
+"debt_ended": boolean | null,
 "debt_id": string | null,
 "debt_name": string | null,
 "description": string | null,
@@ -1628,6 +1633,7 @@ isOneToOne: false
 "charge_date": string | null,
 "created_at": string,
 "date": string,
+"debt_ended": boolean | null,
 "debt_id": string | null,
 "debt_name": string | null,
 "description": string | null,
