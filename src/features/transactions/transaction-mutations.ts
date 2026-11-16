@@ -43,6 +43,7 @@ export function useAddTransaction(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<Transaction | null, TransactionFields & PaymentLink>({
     errorDisplay: 'inline',
+    errorMessages: { debt_ended: 'debts.endedErrors.payment' },
     mutationFn: async (input) => {
       const rows = unwrap(
         await supabase.rpc('add_transaction', {
@@ -65,49 +66,30 @@ export interface UpdateTransactionInput extends TransactionFields, PaymentLink {
   revision: number
 }
 
-/** link_transaction: a debt payment, or unlinked (null). Returns the row with its revision. */
-async function linkTransaction(id: string, revision: number, debtId: string | null) {
-  const rows = unwrap(
-    await supabase.rpc('link_transaction', {
-      p_transaction_id: id,
-      p_expected_revision: revision,
-      ...(debtId ? { p_debt_id: debtId } : {}),
-    }),
-  )
-  return rows[0] ?? null
-}
-
 /**
- * update_transaction replaces every field: all are sent. It never changes a link: a change of
- * debt goes through link_transaction (D-177), each call with the revision the previous one
- * returned. An old link is removed before the fields change and a new one added after, so
- * the transaction never sits in another category than the debt it pays.
+ * update_transaction replaces every field: all are sent. When the debt it pays changes, the
+ * same call relinks it (p_relink, D-218): the fields and the link change together or not at
+ * all, so a refused save leaves the transaction, and both debts, as they were.
  */
-// R-DEBT-123: the payment link is changed by link_transaction, never by update_transaction.
+// R-DEBT-123: the payment link changes in the one update_transaction call, all or nothing.
 export function useUpdateTransaction(budgetId: string, options: { onDone: () => void }) {
   const { t } = useTranslation()
   return useAppMutation<Transaction | null, UpdateTransactionInput>({
     errorDisplay: 'inline',
+    errorMessages: { debt_ended: 'debts.endedErrors.frozenPayment' },
     mutationFn: async (input) => {
       const before = input.transaction.debt_id
       const after = input.debtId === undefined ? before : input.debtId
-      let revision = input.revision
-      if (before !== null && after !== before) {
-        revision =
-          (await linkTransaction(input.transaction.id, revision, null))?.revision ?? revision
-      }
+      const relink = after !== before
       const rows = unwrap(
         await supabase.rpc('update_transaction', {
           p_transaction_id: input.transaction.id,
-          p_expected_revision: revision,
+          p_expected_revision: input.revision,
           ...fieldArgs(input),
+          ...(relink ? { p_relink: true, ...(after ? { p_debt_id: after } : {}) } : {}),
         }),
       )
-      const row = rows[0] ?? null
-      if (after !== null && after !== before && row) {
-        return await linkTransaction(row.id, row.revision, after)
-      }
-      return row
+      return rows[0] ?? null
     },
     success: () => t('transactions.saved'),
     onSuccess: () => options.onDone(),
@@ -119,6 +101,7 @@ export function useDeleteTransaction(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<null, { transaction: Transaction; revision: number }>({
     errorDisplay: 'inline',
+    errorMessages: { debt_ended: 'debts.endedErrors.frozenPayment' },
     mutationFn: async ({ transaction, revision }) => {
       unwrap(
         await supabase.rpc('delete_transaction', {

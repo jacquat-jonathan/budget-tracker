@@ -49,7 +49,7 @@ export interface UpdateDebtInput {
   /** The version the form saves over (useEditBase). */
   debt: Debt
   /** The terms the form started from: those now, or those of the corrected period. */
-  base: Pick<Debt, 'interest_rate' | 'monthly_payment'>
+  base: Pick<Debt, 'interest_rate' | 'monthly_payment' | 'category_id'>
   name: string
   categoryId: string
   /** Only while the debt has no history. */
@@ -60,9 +60,10 @@ export interface UpdateDebtInput {
 }
 
 /**
- * One edit, only what changed. The rate and the planned payment are compared with the terms
- * the form started from (for a correction, those of its period), so a correction never writes
- * today's terms over the past; one that changes neither is sent without the correction.
+ * One edit, only what changed. The category, the rate and the planned payment (its terms) are
+ * compared with the terms the form started from (for a correction, those of its period), so a
+ * correction never writes today's terms over the past; one that changes none of them is sent
+ * without the correction.
  */
 // R-DEBT-140: a correction sends only what the user changed.
 export function useUpdateDebt(budgetId: string, options: { onDone: () => void }) {
@@ -76,10 +77,12 @@ export function useUpdateDebt(budgetId: string, options: { onDone: () => void })
       const rate = interestRateValue(input.rate)
       const rateChanged = rate !== base.interest_rate
       const paymentChanged = input.monthlyPayment !== base.monthly_payment
-      const correcting = input.fromPeriodId !== null && (rateChanged || paymentChanged)
+      const categoryChanged = input.categoryId !== base.category_id
+      const correcting =
+        input.fromPeriodId !== null && (rateChanged || paymentChanged || categoryChanged)
       const changes = {
         ...(input.name !== debt.name ? { p_name: input.name } : {}),
-        ...(input.categoryId !== debt.category_id ? { p_category_id: input.categoryId } : {}),
+        ...(categoryChanged ? { p_category_id: input.categoryId } : {}),
         ...(!debt.has_history && input.principal !== debt.principal
           ? { p_principal: input.principal }
           : {}),
@@ -139,7 +142,10 @@ export function useAdjustBalance(budgetId: string, options: { onDone: () => void
   const { t } = useTranslation()
   return useAppMutation<null, AdjustBalanceInput>({
     errorDisplay: 'inline',
-    errorMessages: { record_changed: 'debts.changedNotShown' },
+    errorMessages: {
+      record_changed: 'debts.changedNotShown',
+      debt_ended: 'debts.endedErrors.adjust',
+    },
     mutationFn: async ({ debt, revision, balance, date, note }) => {
       const trimmed = note.trim()
       unwrap(
@@ -164,6 +170,7 @@ export function useDeleteAdjustment(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<null, { adjustmentId: string; debtRevision: number }>({
     errorDisplay: 'inline',
+    errorMessages: { debt_ended: 'debts.endedErrors.deleteAdjustment' },
     mutationFn: async ({ adjustmentId, debtRevision }) => {
       unwrap(
         await supabase.rpc('delete_debt_adjustment', {

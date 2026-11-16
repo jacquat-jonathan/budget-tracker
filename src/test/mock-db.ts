@@ -83,6 +83,7 @@ function emptyTables(): MockTables {
     debt_adjustments: [],
     debt_interest: [],
     debt_overview: [],
+    debt_totals: [],
   }
 }
 
@@ -252,6 +253,76 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     adjust_debt_balance: handler(() => []),
     delete_debt_adjustment: handler(() => []),
     get_debt_history: handler(() => []),
+    // Step 4 database fix round: tests that use these give them their behaviour.
+    preview_create_subscription: handler(() => []),
+    preview_update_subscription: handler(() => []),
+    confirm_subscription_charges: handler(() => 0),
+    preview_end_subscription: handler(() => [{ outcome: 'ended', refusal: null }]),
+    preview_remove_debt: handler(() => [{ outcome: 'ended', refusal: null }]),
+    // By default a record's terms in any period are those it has now, open-ended: tests of a
+    // correction set the terms of the period they choose.
+    get_subscription_terms: handler((args) => {
+      const row = db.tables.subscription_overview.find((item) => item.id === args.p_subscription_id)
+      if (!row) rpcError('subscription_not_found')
+      return [
+        {
+          period_id: args.p_period_id,
+          in_force: true,
+          price: row.price,
+          cadence: row.cadence,
+          category_id: row.category_id,
+          anchor_date: row.anchor_date,
+          charge_day: row.charge_day,
+          terms_from_period_id: args.p_period_id,
+          until_period_id: null,
+        },
+      ]
+    }),
+    get_debt_terms: handler((args) => {
+      const row = db.tables.debt_overview.find((item) => item.id === args.p_debt_id)
+      if (!row) rpcError('debt_not_found')
+      return [
+        {
+          period_id: args.p_period_id,
+          in_force: true,
+          category_id: row.category_id,
+          interest_rate: row.interest_rate,
+          monthly_payment: row.monthly_payment,
+          terms_from_period_id: args.p_period_id,
+          until_period_id: null,
+        },
+      ]
+    }),
+    get_category_terms: handler((args) => {
+      const row = db.tables.category_overview.find((item) => item.id === args.p_category_id)
+      if (!row) rpcError('category_not_found')
+      return [
+        {
+          period_id: args.p_period_id,
+          in_force: true,
+          amount: row.amount,
+          cadence: row.cadence,
+          terms_from_period_id: args.p_period_id,
+          until_period_id: null,
+        },
+      ]
+    }),
+    get_income_terms: handler((args) => {
+      const row = db.tables.income_overview.find((item) => item.id === args.p_income_id)
+      if (!row) rpcError('income_not_found')
+      return [
+        {
+          period_id: args.p_period_id,
+          in_force: true,
+          amount: row.amount,
+          pay_day: row.pay_day,
+          weekend_rule: row.weekend_rule,
+          terms_from_period_id: args.p_period_id,
+          until_period_id: null,
+        },
+      ]
+    }),
+    preview_move_period_start: handler(() => rpcError('not_mocked')),
   }
 
   return db
@@ -370,13 +441,13 @@ export function mockDataClient(db: MockDb) {
   })
 
   const rpc = vi.fn(
-    (name: FunctionName, args: Record<string, unknown> = {}): Promise<RpcResult> => {
+    // A handler may return a promise (a call that takes time) or fail later.
+    async (name: FunctionName, args: Record<string, unknown> = {}): Promise<RpcResult> => {
       const handle = db.rpc[name]
       try {
-        return Promise.resolve({ data: handle(args) ?? null, error: null })
+        return { data: (await handle(args)) ?? null, error: null }
       } catch (failure) {
-        if (failure instanceof RpcFailure)
-          return Promise.resolve({ data: null, error: failure.error })
+        if (failure instanceof RpcFailure) return { data: null, error: failure.error }
         throw failure
       }
     },

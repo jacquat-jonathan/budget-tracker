@@ -4862,11 +4862,20 @@
       "id": "R-PERIOD-055",
       "area": "period",
       "feature": "F-PERIOD",
-      "statement": "Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its \"set by hand\" mark; when the database refuses that move as an invalid boundary, the confirmation says the schedule's day does not fit between the neighbouring periods (it names no date: Q-091).",
-      "related": ["R-CONCURRENCY-100", "R-PERIOD-100", "R-PERIOD-051", "D-151", "D-152", "Q-091"],
+      "statement": "Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its \"set by hand\" mark (R-PERIOD-151).",
+      "related": [
+        "R-CONCURRENCY-100",
+        "R-PERIOD-100",
+        "R-PERIOD-051",
+        "D-151",
+        "D-152",
+        "Q-091",
+        "R-PERIOD-151"
+      ],
       "source": [
         "owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16",
-        "code: src/features/periods/periods-page.tsx"
+        "code: src/features/periods/periods-page.tsx",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16"
       ]
     },
     {
@@ -5163,11 +5172,21 @@
       "id": "R-SUBSCRIPTION-121",
       "area": "subscription",
       "feature": "F-SUBSCRIPTION",
-      "statement": "The subscription form previews the upcoming charge dates as subscription_charge_dates gives them (a new one from the start of the period it counts from, flagging the dates up to today as charged at once; an edit from the new next charge date, from the next charge for a new cadence alone, otherwise the schedule as it stands); an edit says that new terms apply from the current period and past periods keep theirs; a new next charge date from now must be after today; counting from an earlier period is an explicit, warned correction.",
-      "related": ["R-SUBSCRIPTION-071", "R-SUBSCRIPTION-114", "D-170", "D-193"],
+      "statement": "The subscription form previews the charges its save would make, as preview_create_subscription and preview_update_subscription give them for exactly the save's arguments (a correction's period included), and says in words how many are recorded at once, to confirm (charged_at_once), or that no charge falls before the budget ends; it never computes a schedule itself. An edit says that new terms apply from the current period and past periods keep theirs; a new next charge date from now must be after today; counting from an earlier period is an explicit, warned correction.",
+      "related": [
+        "R-SUBSCRIPTION-071",
+        "R-SUBSCRIPTION-114",
+        "D-170",
+        "D-193",
+        "R-SUBSCRIPTION-133",
+        "D-230"
+      ],
       "source": [
         "owner-request: coordinator brief for the step 4 screens, 2026-11-16",
-        "code: src/features/subscriptions/components/subscription-form-dialog.tsx"
+        "code: src/features/subscriptions/components/subscription-form-dialog.tsx",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/subscriptions/components/charge-dates-preview.tsx",
+        "code: src/features/subscriptions/subscription-queries.ts"
       ]
     },
     {
@@ -5203,11 +5222,12 @@
       "id": "R-SUBSCRIPTION-124",
       "area": "subscription",
       "feature": "F-SUBSCRIPTION",
-      "statement": "Removing a subscription says beforehand, from the database's removal_deletes, whether it is deleted or ended from the current period (its charges kept, those awaiting confirmation still to answer); ending it from an earlier period is an explicit, warned correction.",
-      "related": ["R-SUBSCRIPTION-113"],
+      "statement": "Removing a subscription says beforehand, from the database's answer (preview_end_subscription), whether it is deleted or ended from the current period (its charges kept, those awaiting confirmation still to answer); ending it from an earlier period is an explicit, warned correction.",
+      "related": ["R-SUBSCRIPTION-113", "R-SUBSCRIPTION-136"],
       "source": [
         "owner-request: coordinator brief for the step 4 screens, 2026-11-16",
-        "code: src/features/subscriptions/components/end-subscription-dialog.tsx"
+        "code: src/features/subscriptions/components/end-subscription-dialog.tsx",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16"
       ]
     },
     {
@@ -5229,13 +5249,25 @@
       "id": "R-DEBT-121",
       "area": "debt",
       "feature": "F-DEBT",
-      "statement": "The debts page shows each debt in force with its remaining amount, how much is paid off (a bar with its figure in words), its planned payment and rate, and the database's projection in words: \"Paid off\", \"Ends around <month year> · N payments left\" said to be an estimate, or a \"Never ends at this payment\" warning with an icon; and the total remaining across the debts in force. An overpaid debt is shown as paid off and overpaid, never with a negative remaining amount; the total counts only what is still owed (D-211). With no planned payment, it says so rather than \"never ends\".",
-      "related": ["R-DEBT-005", "R-DEBT-074", "R-DEBT-112", "D-191"],
+      "statement": "The debts page shows each debt in force with its remaining amount, how much is paid off (a bar with its figure in words, from paid_percent), its planned payment and rate, and the database's projection in words: \"Paid off\", \"Ends around <month year> · N payments left\" said to be an estimate (and, when expected_end_after_budget_end, that this is after the budget ends), or a \"Never ends at this payment\" warning with an icon; and what is still owed in all, with how many debts owe it, from debt_totals. An overpaid debt is shown as paid off and overpaid by overpaid_by, never with a negative remaining amount. Nothing is added up in the client. With no planned payment, it says so rather than \"never ends\".",
+      "related": [
+        "R-DEBT-005",
+        "R-DEBT-074",
+        "R-DEBT-112",
+        "D-191",
+        "R-DEBT-132",
+        "R-DEBT-133",
+        "R-DEBT-136",
+        "R-DEBT-137",
+        "D-216"
+      ],
       "source": [
         "owner-request: coordinator brief for the step 4 screens, 2026-11-16",
         "code: src/features/debts/debts-page.tsx",
         "code: src/features/debts/components/payoff.tsx",
-        "owner-request: coordinator, step 4 screens review round 1, 2026-11-16"
+        "owner-request: coordinator, step 4 screens review round 1, 2026-11-16",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/debts/debt-queries.ts"
       ]
     },
     {
@@ -5244,14 +5276,23 @@
       "id": "R-DEBT-122",
       "area": "debt",
       "feature": "F-DEBT",
-      "statement": "A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative), payments leading to their transactions; it records a payment (the transaction form with the debt and its category chosen), adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history) and removes it, saying beforehand whether it is deleted or ended.",
-      "related": ["R-DEBT-004", "R-DEBT-075", "R-DEBT-114", "D-190", "D-192"],
+      "statement": "A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative), both read page by page with get_debt_history's cursor: the chart reads the pages by itself up to 10 000 events and, when the history is longer, says where it stops; the table shows 50 rows at a time, oldest first, reading the next page when it needs it. Payments lead to their transactions. It records a payment (the transaction form with the debt chosen), adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history), removes it, saying beforehand whether it is deleted or ended, and links to its payments among the transactions.",
+      "related": [
+        "R-DEBT-004",
+        "R-DEBT-075",
+        "R-DEBT-114",
+        "D-190",
+        "D-192",
+        "R-DEBT-135",
+        "D-232"
+      ],
       "source": [
         "owner-request: coordinator brief for the step 4 screens, 2026-11-16",
         "code: src/features/debts/debt-detail-page.tsx",
         "code: src/features/debts/components/debt-chart.tsx",
         "code: src/features/debts/components/adjust-balance-dialog.tsx",
-        "code: src/features/debts/components/remove-debt-dialog.tsx"
+        "code: src/features/debts/components/remove-debt-dialog.tsx",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16"
       ]
     },
     {
@@ -5260,12 +5301,20 @@
       "id": "R-DEBT-123",
       "area": "debt",
       "feature": "F-DEBT",
-      "statement": "The transaction form offers \"This is a payment on …\" for an expense in a category that debts in force are paid from; a payment stays an expense; on an existing transaction the link is changed through link_transaction (removed before its fields change, added after), never through update_transaction.",
-      "related": ["R-DEBT-071", "R-TRANSACTION-110", "D-177", "D-194"],
+      "statement": "The transaction form offers \"This is a payment on …\" for an expense, among the debts not ended (and the one a payment already pays); a payment stays an expense; on an existing transaction the fields and the link change in one update_transaction call (p_relink), so a refused save leaves the transaction and both debts as they were, and the message names the database's reason.",
+      "related": [
+        "R-DEBT-071",
+        "R-TRANSACTION-110",
+        "D-177",
+        "D-194",
+        "R-TRANSACTION-131",
+        "D-218"
+      ],
       "source": [
         "owner-request: coordinator brief for the step 4 screens, 2026-11-16",
         "code: src/features/transactions/components/transaction-form-dialog.tsx",
-        "code: src/features/transactions/transaction-mutations.ts"
+        "code: src/features/transactions/transaction-mutations.ts",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16"
       ]
     },
     {
@@ -5303,11 +5352,12 @@
       "id": "R-VERSION-140",
       "area": "version",
       "feature": "F-INCOME",
-      "statement": "A correction from an earlier period, for an income, a category, a subscription or a debt, starts from the terms in force in the period chosen, read from the database, and sends only what the user changed from them (a group of values that belong together whole); one that changes nothing is not sent as a correction. The period is chosen before the terms, and the form says the values shown are that period's.",
-      "related": ["R-VERSION-012", "D-160", "D-210"],
+      "statement": "A correction from an earlier period, for an income, a category, a subscription or a debt, starts from the terms in force in the period chosen, as get_income_terms, get_category_terms, get_subscription_terms or get_debt_terms give them, and sends only what the user changed from them (a group of values that belong together whole); one that changes nothing is not sent as a correction. The period is chosen before the terms, and the form says the values shown are that period's.",
+      "related": ["R-VERSION-012", "D-160", "D-210", "R-VERSION-132", "D-230"],
       "source": [
         "owner-request: coordinator, step 4 screens review round 1, 2026-11-16",
-        "code: src/features/budgets/terms-at.ts"
+        "code: src/features/budgets/terms-at.ts",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16"
       ]
     },
     {
@@ -5330,12 +5380,22 @@
       "id": "R-SUBSCRIPTION-141",
       "area": "subscription",
       "feature": "F-SUBSCRIPTION",
-      "statement": "Ending a subscription or a debt from an earlier period is said as \"End or delete\", with both outcomes and when each applies: the database says beforehand only whether a removal from now deletes.",
-      "related": ["R-SUBSCRIPTION-124", "R-DEBT-122", "D-214", "Q-131"],
+      "statement": "Ending a subscription or a debt, from now or from an earlier period, says beforehand the one outcome preview_end_subscription or preview_remove_debt gives for that period: deleted, ended, or the refusal in words (then nothing can be confirmed); the title and the button say the same, never \"End or delete\".",
+      "related": [
+        "R-SUBSCRIPTION-124",
+        "R-DEBT-122",
+        "D-214",
+        "Q-131",
+        "R-SUBSCRIPTION-136",
+        "R-DEBT-138",
+        "D-220"
+      ],
       "source": [
         "owner-request: coordinator, step 4 screens review round 1, 2026-11-16",
         "code: src/features/subscriptions/components/end-subscription-dialog.tsx",
-        "code: src/features/debts/components/remove-debt-dialog.tsx"
+        "code: src/features/debts/components/remove-debt-dialog.tsx",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/budgets/removal-preview.ts"
       ]
     },
     {
@@ -5344,11 +5404,13 @@
       "id": "R-SUBSCRIPTION-142",
       "area": "subscription",
       "feature": "F-SUBSCRIPTION",
-      "statement": "The dashboard's charges card says how many charges await in all (the subscriptions' awaiting counts), lists the five oldest with a way to the others, names a charge by its own date (with the date it was scheduled for when it was moved), and after an answer keeps the focus in the list (the next charge, or the page heading once none is left).",
-      "related": ["R-SUBSCRIPTION-076", "D-212"],
+      "statement": "The dashboard's charges card says how many charges await in all (my_budgets.charges_awaiting), lists the five oldest with a link to the others (the transactions filtered to those awaiting), and offers \"All went through\" behind a confirmation that states how many and the dates they span, then says how many were confirmed, also when that is not the number stated; it names a charge by its own date (with the date it was scheduled for when it was moved), and after an answer keeps the focus in the list (the next charge, or the page heading once none is left). The transactions list filtered to the charges awaiting offers the same \"All went through\".",
+      "related": ["R-SUBSCRIPTION-076", "D-212", "R-SUBSCRIPTION-134", "R-SUBSCRIPTION-135"],
       "source": [
         "owner-request: coordinator, step 4 screens review round 1, 2026-11-16",
-        "code: src/features/subscriptions/components/charges-to-confirm-card.tsx"
+        "code: src/features/subscriptions/components/charges-to-confirm-card.tsx",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/subscriptions/components/confirm-all-charges.tsx"
       ]
     },
     {
@@ -5357,12 +5419,13 @@
       "id": "R-DEBT-140",
       "area": "debt",
       "feature": "F-DEBT",
-      "statement": "A debt's edit form, as a correction, starts from the rate and planned payment of the period chosen and sends only what changed; the starting amount can be edited only while the debt, as read afresh, has no history (a payment recorded meanwhile locks it); when another member ended the debt meanwhile, the form says so once and offers no save.",
-      "related": ["R-VERSION-140", "R-DEBT-114", "D-210"],
+      "statement": "A debt's edit form, as a correction, starts from the category, rate and planned payment of the period chosen (get_debt_terms) and sends only what changed, the category offered being those in force in that period; the starting amount can be edited only while the debt, as read afresh, has no history (a payment recorded meanwhile locks it); when another member ended the debt meanwhile, the form says so once and offers no save.",
+      "related": ["R-VERSION-140", "R-DEBT-114", "D-210", "D-219", "D-230"],
       "source": [
         "owner-request: coordinator, step 4 screens review round 1, 2026-11-16",
         "code: src/features/debts/components/debt-form-dialog.tsx",
-        "code: src/features/debts/debt-mutations.ts"
+        "code: src/features/debts/debt-mutations.ts",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16"
       ]
     },
     {
@@ -5767,6 +5830,171 @@
       "source": [
         "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-VERSION-150",
+      "area": "version",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "A correction form says how far the correction reaches, from the database's until_period_id: \"from <start> up to the period ending <end>; from <next>, the terms recorded later stay\", or \"from <start> on\"; when the record was not in force in the period chosen (in_force false), it says in words that there is nothing to correct there and offers no save.",
+      "related": ["R-VERSION-133", "R-VERSION-140", "D-230"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/budgets/correction-reach.tsx",
+        "code: src/features/budgets/terms-at.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-SUBSCRIPTION-150",
+      "area": "subscription",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "A subscription's charge day is said as the day of the month, and for the 29th to the 31st as \"on the 31st, or on the last day of a shorter month\"; an edit that changes only the cadence says that the charge day stays.",
+      "related": ["R-SUBSCRIPTION-130"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/subscriptions/subscription-views.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-SUBSCRIPTION-151",
+      "area": "subscription",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "A subscription in force without a next charge date, in a budget with an end date, says \"No further charge before the budget ends\".",
+      "related": ["R-SUBSCRIPTION-132"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/subscriptions/subscriptions-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-DEBT-150",
+      "area": "debt",
+      "feature": "F-DEBT",
+      "statement": "A payment or a balance adjustment is not dated before the debt was opened: the payment form, its debt choice and the adjust dialog say the earliest date, refuse an earlier one before sending, and the database's before_debt_opened reads the same.",
+      "related": ["R-DEBT-131", "D-202"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/transactions/components/transaction-form-dialog.tsx",
+        "code: src/features/debts/components/adjust-balance-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-DEBT-151",
+      "area": "debt",
+      "feature": "F-DEBT",
+      "statement": "An ended debt is frozen on screen too: its payments can be looked at but not changed, deleted or relinked, it cannot be adjusted and its adjustments cannot be deleted; the actions are absent or disabled with the reason, and the database's debt_ended is said for what was tried (a new payment, a payment change, an adjustment, an adjustment's deletion).",
+      "related": ["R-DEBT-134", "D-209"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/transactions/components/transaction-form-dialog.tsx",
+        "code: src/features/transactions/transactions-page.tsx",
+        "code: src/features/debts/debt-detail-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-DEBT-152",
+      "area": "debt",
+      "feature": "F-DEBT",
+      "statement": "In the transaction form, choosing the debt a payment is for sets its category: the category of the debt's terms in force in the period of the date (get_debt_terms), said under the choice; a debt not in force on that date is said so and nothing is saved.",
+      "related": ["R-TRANSACTION-110", "D-207"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/transactions/components/transaction-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-TRANSACTION-150",
+      "area": "transaction",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "\"See its transactions\" from a subscription, \"See its payments\" from a debt, and the charges card's link to the others open the transactions list filtered to that subscription, that debt or the charges awaiting confirmation, over all periods; the filter is shown, kept in the address and removable, and one that names no record of the budget is dropped.",
+      "related": ["R-TRANSACTION-132", "R-TRANSACTION-051"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/transactions/transactions-page.tsx",
+        "code: src/app/paths.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-150",
+      "area": "period",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "After a very long absence (my_budgets.caught_up false) the app catches the budget up before showing any page: it calls ensure_periods until it answers 0 and meanwhile says \"Catching up on the time since your last visit…\", with no figure; a failure is said with a retry. No page shows a budget as ended or empty while it is being caught up.",
+      "related": ["R-PERIOD-130", "D-201", "D-231"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/budgets/budget-routes.tsx",
+        "code: src/features/budgets/budget-queries.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-151",
+      "area": "period",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "\"Move this period's start back to the schedule\" is offered from preview_move_period_start: with the start it would give when the move would be accepted, disabled with the refusal in words when not, and not at all when the period already starts there; the confirmation names the dates.",
+      "related": ["R-PERIOD-133", "R-PERIOD-100", "D-233"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/periods/periods-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-INCOME-150",
+      "area": "income",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "An edit of the primary income that may move the current period's end (a new pay day or weekend rule, any correction) shows the preview's end first and always sends it (p_previewed_end_date); when the database still answers preview_required, the form shows the preview and asks to save again.",
+      "related": ["R-PERIOD-134", "D-205"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/income/components/income-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CATEGORY-150",
+      "area": "category",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "When the database refuses to end a category because subscriptions or debts use it (category_in_use), the dialog lists them from the refusal's detail, each with a way to it; the up-front check (category_overview.in_use) stays.",
+      "related": ["R-CATEGORY-131", "R-CATEGORY-120"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/features/budget/category-users.ts",
+        "code: src/features/budget/components/end-category-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-BUDGET-150",
+      "area": "budget",
+      "feature": "F-SUBSCRIPTION",
+      "statement": "Once the budget has ended, the subscriptions and debts screens still offer adding, editing and ending, each as a correction from one of its periods (the correction choice ticked and fixed, saying why), recording payments and adjusting balances within its periods (an adjustment left on its default date sent without one, so the database dates it on the budget's last day), and answering charges; nothing from the current period is offered.",
+      "related": ["R-BUDGET-130", "D-206"],
+      "source": [
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16",
+        "code: src/components/form/correction-toggle.tsx",
+        "code: src/features/subscriptions/components/subscription-form-dialog.tsx",
+        "code: src/features/debts/components/debt-form-dialog.tsx"
       ]
     }
   ],
@@ -7726,13 +7954,16 @@
     },
     {
       "id": "D-191",
-      "title": "The total remaining across debts is added up in the client",
-      "decision": "debt_overview has no total: the debts page adds up the remaining amounts the database gives for the debts in force (integer rappen, no rounding). Nothing else about a debt is computed in the client.",
-      "why": "The contract offers no total; adding integers cannot round. Q-110 asks whether the database should give it.",
+      "title": "The client adds up no debt amounts",
+      "decision": "The debts page shows what is still owed in all, and how many debts owe it, as debt_totals gives them (D-216); each debt's paid share and overpaid amount are paid_percent and overpaid_by. Nothing about a debt is added up or computed in the client. (Until the database gave the total, the page added up the remaining amounts of the debts in force.)",
+      "why": "C-LOGIC-003: the database owns the figures; Q-110 asked for the total and D-216 answered it. Reworded rather than superseded: the migration that gives the total names this decision.",
       "rejected": [],
       "status": "accepted",
-      "related": ["R-DEBT-121", "Q-110", "C-LOGIC-003"],
-      "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"]
+      "related": ["R-DEBT-121", "Q-110", "C-LOGIC-003", "D-216"],
+      "source": [
+        "owner-request: coordinator brief for the step 4 screens, 2026-11-16",
+        "owner-request: coordinator, step 4 screens review round 2, 2026-11-16"
+      ]
     },
     {
       "id": "D-192",
@@ -7760,9 +7991,10 @@
       "decision": "update_transaction never changes a link (D-177), so an edit that changes the debt a transaction pays calls link_transaction to remove the old link before the fields change, update_transaction, then link_transaction to add the new one, each with the revision the previous call returned. They are not one transaction: a failure part-way leaves the steps already done (the form shows the error, the lists are read again).",
       "why": "Removing first and linking last keeps every intermediate state valid (a payment is always in its debt's category). Q-111 asks for one call.",
       "rejected": [],
-      "status": "accepted",
-      "related": ["R-DEBT-123", "D-177", "Q-111"],
-      "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"]
+      "status": "superseded",
+      "related": ["R-DEBT-123", "D-177", "Q-111", "D-218"],
+      "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"],
+      "supersededBy": "D-218"
     },
     {
       "id": "D-195",
@@ -7792,9 +8024,10 @@
       "rejected": [
         "Showing today's terms and sending only changed fields: the user cannot see what they are correcting."
       ],
-      "status": "accepted",
-      "related": ["R-VERSION-140", "Q-130", "C-LOGIC-003", "D-219"],
-      "source": ["owner-request: coordinator, step 4 screens review round 1, 2026-11-16"]
+      "status": "superseded",
+      "related": ["R-VERSION-140", "Q-130", "C-LOGIC-003", "D-219", "D-230"],
+      "source": ["owner-request: coordinator, step 4 screens review round 1, 2026-11-16"],
+      "supersededBy": "D-230"
     },
     {
       "id": "D-211",
@@ -7832,9 +8065,10 @@
       "decision": "Whether a removal deletes is known beforehand only for a removal from now (removal_deletes). Ending a subscription or a debt from an earlier period is therefore offered as \"End or delete\", saying when each happens, until the database answers for a chosen period (Q-131).",
       "why": "The dialog said \"End\" and the database deleted.",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-SUBSCRIPTION-141", "Q-131", "D-220"],
-      "source": ["owner-request: coordinator, step 4 screens review round 1, 2026-11-16"]
+      "source": ["owner-request: coordinator, step 4 screens review round 1, 2026-11-16"],
+      "supersededBy": "D-220"
     },
     {
       "id": "D-200",
@@ -8053,6 +8287,51 @@
         "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
       ]
+    },
+    {
+      "id": "D-230",
+      "title": "Corrections read the terms of their period from the database",
+      "decision": "The correction forms (incomes, categories, subscriptions, debts) read the terms in force in the period chosen with get_income_terms, get_category_terms, get_subscription_terms and get_debt_terms, show them as the starting values, say how far the correction reaches (until_period_id), offer no save when the record was not in force there, and send only what the user changes. The client no longer reads the version tables.",
+      "why": "D-219 gives these terms in the database (C-LOGIC-001); the client's own lookup of the version tables (D-210) was the one place it chose a version itself.",
+      "rejected": [
+        "Keeping the version-table lookup (D-210): it duplicated the database's choice of version."
+      ],
+      "status": "accepted",
+      "related": ["R-VERSION-140", "R-VERSION-150", "D-219", "C-LOGIC-003", "D-210"],
+      "source": ["owner-request: coordinator, step 4 screens review round 2, 2026-11-16"]
+    },
+    {
+      "id": "D-231",
+      "title": "A long absence is caught up in words, without progress",
+      "decision": "While a very long absence is caught up, the app shows only \"Catching up on the time since your last visit…\" and a short explanation, no progress bar and no figure, then loads the pages.",
+      "why": "Answer to Q-121 by default: ensure_periods says how many periods it made, not how many remain, so a bar would invent its end; each call takes under 2 s and ten years take one call.",
+      "rejected": ["A progress bar from the periods made so far: the total is unknown."],
+      "status": "accepted",
+      "related": ["Q-121", "R-PERIOD-150", "D-201"],
+      "source": ["owner-request: coordinator, step 4 screens review round 2, 2026-11-16"]
+    },
+    {
+      "id": "D-232",
+      "title": "The debt chart reads up to 10 000 events",
+      "decision": "The debt page reads get_debt_history 1000 rows a page; the chart reads pages by itself until the history ends or 10 000 events, and then says where it stops; the table shows 50 rows at a time, oldest first (the order the database pages in), reading the next page when its rows are shown.",
+      "why": "A debt with 20 000 payments must not freeze the page, and the chart of an ordinary debt must show all of it; ten pages are about 2 MB and a few hundred milliseconds.",
+      "rejected": [
+        "Reading the whole history whatever its size: a very long one would be read and drawn at once.",
+        "The table newest first: the database pages oldest first only (Q-141)."
+      ],
+      "status": "accepted",
+      "related": ["R-DEBT-122", "R-DEBT-135", "D-213"],
+      "source": ["owner-request: coordinator, step 4 screens review round 2, 2026-11-16"]
+    },
+    {
+      "id": "D-233",
+      "title": "Back to the schedule from the database's preview",
+      "decision": "The periods page asks preview_move_period_start when the menu of a period whose previous end was set by hand opens: it offers the move with the start it would give when accepted, disabled with the refusal in words when not, and nothing when already on the schedule.",
+      "why": "Answer to Q-091, with R-PERIOD-133: the client offers only what the database would accept and names its date.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-091", "R-PERIOD-151", "R-PERIOD-133"],
+      "source": ["owner-request: coordinator, step 4 screens review round 2, 2026-11-16"]
     }
   ],
   "conventions": [
@@ -8729,11 +9008,12 @@
     },
     {
       "id": "Q-091",
-      "status": "open",
+      "status": "resolved",
       "question": "Should the database say where the schedule would put a period's start, and whether moving it back there would be accepted?",
       "context": "\"Move this period's start back to the schedule\" calls move_period_start without a date; the client cannot know the schedule's day (C-LOGIC-003), so the confirmation names no date and the action is offered even when the database will refuse it (invalid_boundary), which the dialog then says. Options: a period_summaries.scheduled_start column (null when it equals the start), or preview_move_period_start(p_period_id) returning the scheduled date and whether it fits between the neighbouring periods, so the action is offered only when it can work and names its date.",
-      "related": ["R-PERIOD-055", "D-152", "C-LOGIC-003"],
-      "source": ["owner-request: coordinator, step 3 final review, 2026-11-16"]
+      "related": ["R-PERIOD-055", "D-152", "C-LOGIC-003", "D-233"],
+      "source": ["owner-request: coordinator, step 3 final review, 2026-11-16"],
+      "resolvedBy": "D-233"
     },
     {
       "id": "Q-100",
@@ -8821,9 +9101,26 @@
       "id": "Q-121",
       "question": "Should the app show progress while a very long absence is caught up?",
       "context": "D-201: after more than ten years away, reading a budget takes several ensure_periods calls (120 periods each); my_budgets.caught_up is false meanwhile and get_current_period answers no row.",
+      "status": "resolved",
+      "related": ["D-201", "R-PERIOD-130", "D-231"],
+      "source": ["owner-request: coordinator review of the step 4 database, 2026-11-16"],
+      "resolvedBy": "D-231"
+    },
+    {
+      "id": "Q-140",
       "status": "open",
-      "related": ["D-201", "R-PERIOD-130"],
-      "source": ["owner-request: coordinator review of the step 4 database, 2026-11-16"]
+      "question": "Should transaction_list say that a payment's debt has ended?",
+      "context": "D-209: a payment of an ended debt cannot be changed or deleted. transaction_list gives debt_id and debt_name only, so the transactions list reads debt_overview to know which payments are frozen and disable their actions. A column debt_ended (or a frozen flag) would let the list say so from its own row.",
+      "related": ["D-209", "R-DEBT-151"],
+      "source": ["owner-request: coordinator, step 4 screens review round 2, 2026-11-16"]
+    },
+    {
+      "id": "Q-141",
+      "status": "open",
+      "question": "Should get_debt_history also page newest first?",
+      "context": "D-232: the history table shows the oldest events first because get_debt_history pages only in that order; for a long history the latest events, the ones a member usually looks for, are many pages away. A p_newest_first flag with the mirrored cursor would let the table start with them.",
+      "related": ["D-232", "R-DEBT-135"],
+      "source": ["owner-request: coordinator, step 4 screens review round 2, 2026-11-16"]
     }
   ]
 }

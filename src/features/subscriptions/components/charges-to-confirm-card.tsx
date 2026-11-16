@@ -3,14 +3,17 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
-import { paths } from '@/app/paths'
+import { transactionsOf } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { ErrorState } from '@/components/states'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useBudgetStatus } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { ChargeAnswers } from '@/features/subscriptions/components/charge-answers'
-import { useAwaitingCharges, useSubscriptions } from '@/features/subscriptions/subscription-queries'
+import { ConfirmAllCharges } from '@/features/subscriptions/components/confirm-all-charges'
+import { useAwaitingCharges } from '@/features/subscriptions/subscription-queries'
+import { useTransactionDateRange } from '@/features/transactions/transaction-queries'
 import { useCategoryPath } from '@/features/subscriptions/subscription-views'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -20,26 +23,24 @@ const SHOWN = 5
 
 /**
  * The dashboard's notification (R-SUBSCRIPTION-076): the oldest automatic charges awaiting
- * confirmation, asking whether each really went through, with the real number awaiting (the
- * subscriptions' awaiting_count, not the length of a page). Read after the catch-up; when
- * another member answered first, the list is read again and a message says so. Nothing is
- * shown when nothing awaits. After an answer, focus moves to the next charge, never lost.
+ * confirmation, asking whether each really went through, with the real number awaiting
+ * (my_budgets.charges_awaiting, not the length of a page), "all went through" for all of them,
+ * and the others a link away (the transactions, filtered to those awaiting). Read after the
+ * catch-up; when another member answered first, the list is read again and a message says so.
+ * Nothing is shown when nothing awaits. After an answer, focus moves to the next charge.
  */
 // R-SUBSCRIPTION-142: a compact card, the true count, focus kept in the list.
 export function ChargesToConfirmCard() {
   const { t } = useTranslation()
   const { budgetId } = useCurrentBudget()
   const charges = useAwaitingCharges(budgetId)
-  const subscriptions = useSubscriptions(budgetId)
+  const status = useBudgetStatus(budgetId)
+  const { today } = useTransactionDateRange(budgetId)
   const path = useCategoryPath()
   const list = charges.data ?? []
   const shown = list.slice(0, SHOWN)
-  const counted = (subscriptions.data ?? []).reduce(
-    (sum, subscription) => sum + subscription.awaiting_count,
-    0,
-  )
-  // The list read is the newest; the count may lag a moment behind it, never below it.
-  const total = Math.max(counted, list.length)
+  // The database's count; until it is read, what the list holds.
+  const total = status.data?.charges_awaiting ?? list.length
 
   // Where focus goes once the charge that had it is answered and leaves the list.
   const cardRef = useRef<HTMLDivElement>(null)
@@ -126,13 +127,21 @@ export function ChargesToConfirmCard() {
             </li>
           ))}
         </ul>
-        {total > shown.length && (
-          <Button asChild variant="link" className="self-start px-0">
-            <Link to={`${paths.transactions}?period=all`} data-testid="charges-see-all">
-              {t('charges.seeAll', { count: total - shown.length })}
-            </Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <ConfirmAllCharges
+            budgetId={budgetId}
+            count={total}
+            oldest={list[0]?.date ?? null}
+            today={today}
+          />
+          {total > shown.length && (
+            <Button asChild variant="link" className="px-0">
+              <Link to={transactionsOf({ awaiting: true })} data-testid="charges-see-all">
+                {t('charges.seeAll', { count: total - shown.length })}
+              </Link>
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

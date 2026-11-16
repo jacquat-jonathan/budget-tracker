@@ -28,6 +28,7 @@ import {
   type Subscription,
 } from '@/features/subscriptions/subscription-queries'
 import { useRecordSettled } from '@/features/budgets/record-settled'
+import { useRemovalPreview } from '@/features/budgets/removal-preview'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useEditBase } from '@/hooks/use-edit-base'
@@ -38,8 +39,7 @@ import { formatCalendarDate } from '@/lib/date'
  * (removal_deletes): deleted when it never counted and has no charge, otherwise ended from
  * the current period with its charges kept (R-SUBSCRIPTION-113).
  */
-// R-SUBSCRIPTION-124: which of the two happens, said before it does; from an earlier period,
-// where the database does not say beforehand, both outcomes are said (R-SUBSCRIPTION-141).
+// R-SUBSCRIPTION-124 R-SUBSCRIPTION-141: the one outcome the database gives, said beforehand.
 export function EndSubscriptionDialog({
   budgetId,
   subscription,
@@ -100,10 +100,22 @@ function EndBody({
   const correctable = periods.filter(
     (period) => !period.is_current && period.seq >= subscription.first_seq,
   )
-  const [correct, setCorrect] = useState(false)
+  // R-BUDGET-150: once the budget has ended, only from one of its periods.
+  const mustCorrect = currentPeriod === null
+  const [correct, setCorrect] = useState(mustCorrect)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
-  const deletes = !correct && subscription.removal_deletes
-  const blocked = removal.changed || removal.gone || !settled
+  // What happens, from now or from the period chosen, is the database's answer (D-220).
+  const preview = useRemovalPreview(
+    'subscription',
+    budgetId,
+    subscription.id,
+    correct ? fromPeriodId || null : null,
+  )
+  const outcome = preview.data?.outcome ?? null
+  const refusal = preview.data?.refusal ?? null
+  const deletes = outcome === 'deleted'
+  const blocked =
+    removal.changed || removal.gone || !settled || outcome === null || preview.isFetching
   const label = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
       start: formatCalendarDate(period.start_date),
@@ -114,26 +126,32 @@ function EndBody({
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>
-          {correct
-            ? t('subscriptions.remove.endOrDeleteTitle', { name: subscription.name })
-            : deletes
-              ? t('subscriptions.remove.deleteTitle', { name: subscription.name })
-              : t('subscriptions.remove.endTitle', { name: subscription.name })}
+          {deletes
+            ? t('subscriptions.remove.deleteTitle', { name: subscription.name })
+            : t('subscriptions.remove.endTitle', { name: subscription.name })}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="end-subscription-outcome">
             <p>
-              {correct
-                ? t('subscriptions.remove.fromEarlier')
-                : deletes
-                  ? t('subscriptions.remove.deletes')
-                  : currentPeriod
-                    ? t('subscriptions.remove.ends', {
-                        date: formatCalendarDate(currentPeriod.start_date),
-                      })
-                    : t('subscriptions.remove.endsNoPeriod')}
+              {preview.isError
+                ? errorMessage(preview.error)
+                : refusal
+                  ? t('subscriptions.remove.refused', { reason: t(`errors.db.${refusal}`) })
+                  : outcome === null
+                    ? t('common.loading')
+                    : deletes
+                      ? correct
+                        ? t('subscriptions.remove.deletesFromEarlier')
+                        : t('subscriptions.remove.deletes')
+                      : correct
+                        ? t('subscriptions.remove.fromEarlier')
+                        : currentPeriod
+                          ? t('subscriptions.remove.ends', {
+                              date: formatCalendarDate(currentPeriod.start_date),
+                            })
+                          : t('subscriptions.remove.endsNoPeriod')}
             </p>
-            {!deletes && !correct && subscription.charge_count > 0 && (
+            {outcome === 'ended' && subscription.charge_count > 0 && (
               <p>{t('subscriptions.remove.keepsCharges', { count: subscription.charge_count })}</p>
             )}
             {subscription.awaiting_count > 0 && (
@@ -150,6 +168,7 @@ function EndBody({
           onCheckedChange={setCorrect}
           label={t('subscriptions.remove.earlierLabel')}
           warning={t('subscriptions.remove.earlierWarning')}
+          required={mustCorrect ? t('corrections.budgetEnded') : undefined}
         >
           <Field>
             <FieldLabel htmlFor="end-subscription-period">
@@ -205,11 +224,9 @@ function EndBody({
         >
           {end.isPending
             ? t('common.saving')
-            : correct
-              ? t('subscriptions.remove.endOrDelete')
-              : deletes
-                ? t('subscriptions.remove.delete')
-                : t('subscriptions.remove.end')}
+            : deletes
+              ? t('subscriptions.remove.delete')
+              : t('subscriptions.remove.end')}
         </Button>
       </AlertDialogFooter>
     </>

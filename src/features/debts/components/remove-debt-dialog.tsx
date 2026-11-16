@@ -25,6 +25,7 @@ import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { useRemoveDebt } from '@/features/debts/debt-mutations'
 import { useDebtRecord, type Debt } from '@/features/debts/debt-queries'
 import { useRecordSettled } from '@/features/budgets/record-settled'
+import { useRemovalPreview } from '@/features/budgets/removal-preview'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useEditBase } from '@/hooks/use-edit-base'
@@ -36,8 +37,7 @@ import { formatMoney } from '@/lib/money'
  * (removal_deletes), otherwise ended from the current period, its history and remaining
  * amount kept (R-DEBT-001, R-DEBT-113). Said before it happens.
  */
-// R-DEBT-122: which of the two happens, said before it does; from an earlier period, where the
-// database does not say beforehand, both outcomes are said (R-SUBSCRIPTION-141).
+// R-DEBT-122 R-SUBSCRIPTION-141: the one outcome the database gives, said beforehand.
 export function RemoveDebtDialog({
   budgetId,
   debt,
@@ -103,34 +103,52 @@ function RemoveBody({
   const debt = live ?? removal.base ?? opened
   const remove = useRemoveDebt(budgetId)
   const correctable = periods.filter((period) => !period.is_current && period.seq >= debt.first_seq)
-  const [correct, setCorrect] = useState(false)
+  // R-BUDGET-150: once the budget has ended, only from one of its periods.
+  const mustCorrect = currentPeriod === null
+  const [correct, setCorrect] = useState(mustCorrect)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
-  const deletes = !correct && debt.removal_deletes
-  const blocked = removal.changed || removal.gone || !settled
+  // What happens, from now or from the period chosen, is the database's answer (D-220).
+  const preview = useRemovalPreview(
+    'debt',
+    budgetId,
+    debt.id,
+    correct ? fromPeriodId || null : null,
+  )
+  const outcome = preview.data?.outcome ?? null
+  const refusal = preview.data?.refusal ?? null
+  const deletes = outcome === 'deleted'
+  const blocked =
+    removal.changed || removal.gone || !settled || outcome === null || preview.isFetching
 
   return (
     <>
       <AlertDialogHeader>
         <AlertDialogTitle>
-          {correct
-            ? t('debts.remove.endOrDeleteTitle', { name: debt.name })
-            : deletes
-              ? t('debts.remove.deleteTitle', { name: debt.name })
-              : t('debts.remove.endTitle', { name: debt.name })}
+          {deletes
+            ? t('debts.remove.deleteTitle', { name: debt.name })
+            : t('debts.remove.endTitle', { name: debt.name })}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="remove-debt-outcome">
             <p>
-              {correct
-                ? t('debts.remove.fromEarlier')
-                : deletes
-                  ? t('debts.remove.deletes')
-                  : currentPeriod
-                    ? t('debts.remove.ends', {
-                        date: formatCalendarDate(currentPeriod.start_date),
-                        amount: formatMoney(debt.remaining),
-                      })
-                    : t('debts.remove.endsNoPeriod')}
+              {preview.isError
+                ? errorMessage(preview.error)
+                : refusal
+                  ? t('debts.remove.refused', { reason: t(`errors.db.${refusal}`) })
+                  : outcome === null
+                    ? t('common.loading')
+                    : deletes
+                      ? correct
+                        ? t('debts.remove.deletesFromEarlier')
+                        : t('debts.remove.deletes')
+                      : correct
+                        ? t('debts.remove.fromEarlier')
+                        : currentPeriod
+                          ? t('debts.remove.ends', {
+                              date: formatCalendarDate(currentPeriod.start_date),
+                              amount: formatMoney(debt.remaining),
+                            })
+                          : t('debts.remove.endsNoPeriod')}
             </p>
           </div>
         </AlertDialogDescription>
@@ -141,6 +159,7 @@ function RemoveBody({
           onCheckedChange={setCorrect}
           label={t('debts.remove.earlierLabel')}
           warning={t('debts.remove.earlierWarning')}
+          required={mustCorrect ? t('corrections.budgetEnded') : undefined}
         >
           <Field>
             <FieldLabel htmlFor="remove-debt-period">
@@ -204,11 +223,9 @@ function RemoveBody({
         >
           {remove.isPending
             ? t('common.saving')
-            : correct
-              ? t('debts.remove.endOrDelete')
-              : deletes
-                ? t('debts.remove.delete')
-                : t('debts.remove.end')}
+            : deletes
+              ? t('debts.remove.delete')
+              : t('debts.remove.end')}
         </Button>
       </AlertDialogFooter>
     </>

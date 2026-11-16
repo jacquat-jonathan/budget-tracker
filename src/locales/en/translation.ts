@@ -1,4 +1,4 @@
-import { chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
+import { catchUpEn, chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
 
 export const en = {
   app: {
@@ -277,6 +277,12 @@ export const en = {
       adjustment_not_found: 'This balance adjustment no longer exists.',
       subscription_ended: 'This subscription has ended (for that period).',
       debt_ended: 'This debt has ended (for that period).',
+      before_debt_opened:
+        'This date is before the debt was opened: payments and adjustments start on its opening date.',
+      catching_up:
+        'The budget is still catching up on the time since your last visit. Try again in a moment.',
+      preview_required:
+        'This change moves the end of the current period: look at the new end below, then save again.',
       invalid_charge_date:
         'Enter a valid charge date, at most ten years ahead; a new next charge must be after today.',
       invalid_interest_rate:
@@ -900,6 +906,7 @@ export const en = {
       moveStart: 'This period’s salary actually arrived on another day',
       resetExpected: 'Reset the expected date to the projection',
       moveSchedule: 'Move this period’s start back to the schedule',
+      moveScheduleTo: 'Move this period’s start back to the schedule ({{date}})',
     },
     dialogs: {
       moveSchedule: {
@@ -997,6 +1004,8 @@ export const en = {
       moveStart: 'The previous period will end on {{end}}, and this one starts on {{start}}.',
       moveSchedule:
         'The boundary goes back to the day the schedule gives, and its “set by hand” mark is cleared.',
+      moveScheduleTo:
+        'This period will start on {{start}}, the day the schedule gives, and the previous one end on {{end}}; the “set by hand” mark is cleared.',
     },
     undo: {
       expected: 'To undo: set another date, or reset it to the projection.',
@@ -1057,6 +1066,7 @@ export const en = {
   subscriptions: subscriptionsEn,
   charges: chargesEn,
   debts: debtsEn,
+  catchUp: catchUpEn,
   ui: {
     close: 'Close',
     more: 'More',

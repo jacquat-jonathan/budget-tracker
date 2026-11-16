@@ -25,6 +25,23 @@ export function debtPath(debtId: string): string {
   return `${paths.debts}/${encodeURIComponent(debtId)}`
 }
 
+/**
+ * The transactions of one subscription or debt, or the charges awaiting confirmation: a link
+ * to the list with that filter in the address, over all periods unless one is given.
+ */
+export function transactionsOf(filter: {
+  subscription?: string
+  debt?: string
+  awaiting?: boolean
+  period?: string
+}): string {
+  const params = new URLSearchParams({ period: filter.period ?? 'all' })
+  if (filter.subscription) params.set('subscription', filter.subscription)
+  if (filter.debt) params.set('debt', filter.debt)
+  if (filter.awaiting) params.set('awaiting', '1')
+  return `${paths.transactions}?${params.toString()}`
+}
+
 /** Location state carried to the sign-in page so the user lands where they wanted to go. */
 export interface RedirectState {
   from?: string

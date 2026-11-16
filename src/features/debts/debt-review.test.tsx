@@ -19,27 +19,37 @@ vi.mock('@/lib/supabase', () => ({
 
 const money = (rappen: number) => formatMoney(rappen).replace(/\s/g, ' ')
 
-function version(seq: number, rate: number, payment: number): Tables<'debt_versions'> {
-  return {
-    id: `dv${seq}`,
-    budget_id: BUDGET_ID,
-    debt_id: DEBT_ID,
-    effective_from_seq: seq,
-    interest_rate: rate,
-    monthly_payment: payment,
-    created_at: '2026-10-01T10:00:00+00:00',
-    updated_at: '2026-10-01T10:00:00+00:00',
-  }
-}
-
-/** The car loan: 3.5 % and CHF 400.00 in period 1, 4.875 % and CHF 500.00 since period 2. */
+/**
+ * The car loan: 3.5 % and CHF 400.00 in period 1 (up to period 2), 4.875 % and CHF 500.00
+ * since period 2, as get_debt_terms gives them.
+ */
 function debtDb(overrides: Partial<Tables<'debt_overview'>> = {}) {
   const db = categoriesDb({
     debt_overview: [debtRow({ first_seq: 1, ...overrides })],
-    debt_versions: [version(1, 3.5, 40_000), version(2, 4.875, 50_000)],
   })
   db.rpc.get_debt_history.mockImplementation(() => [])
   db.rpc.update_debt.mockImplementation(() => [])
+  db.rpc.get_debt_terms.mockImplementation((args) => [
+    args.p_period_id === 'period-1'
+      ? {
+          period_id: 'period-1',
+          in_force: true,
+          category_id: 'cat-groceries',
+          interest_rate: 3.5,
+          monthly_payment: 40_000,
+          terms_from_period_id: 'period-1',
+          until_period_id: 'period-2',
+        }
+      : {
+          period_id: args.p_period_id,
+          in_force: true,
+          category_id: 'cat-groceries',
+          interest_rate: 4.875,
+          monthly_payment: 50_000,
+          terms_from_period_id: 'period-2',
+          until_period_id: null,
+        },
+  ])
   return db
 }
 
@@ -58,13 +68,17 @@ async function openEdit(db: ReturnType<typeof debtDb>) {
 }
 
 describe('correcting a debt from an earlier period [R-DEBT-140]', () => {
-  it('starts from that period’s rate and payment and sends only what was changed', async () => {
+  it('starts from that period’s rate and payment and sends only what was changed [R-VERSION-140]', async () => {
     const db = debtDb()
     const { dialog } = await openEdit(db)
     await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
     const payment = within(dialog).getByLabelText('Planned payment per month')
     await waitFor(() => {
       expect(payment).toHaveValue('400.00')
+    })
+    expect(db.rpc.get_debt_terms).toHaveBeenCalledWith({
+      p_debt_id: DEBT_ID,
+      p_period_id: 'period-1',
     })
     expect(within(dialog).getByLabelText('Interest rate per year, % (optional)')).toHaveValue('3.5')
     await userEvent.clear(payment)
@@ -75,6 +89,60 @@ describe('correcting a debt from an earlier period [R-DEBT-140]', () => {
         p_debt_id: DEBT_ID,
         p_expected_revision: 1,
         p_monthly_payment: 45_000,
+        p_from_period_id: 'period-1',
+      })
+    })
+  })
+})
+
+describe('how far a correction reaches [R-VERSION-150]', () => {
+  it('says up to which period the correction applies, from until_period_id', async () => {
+    const db = debtDb()
+    const { dialog } = await openEdit(db)
+    await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
+    expect(await within(dialog).findByTestId('correction-start')).toHaveTextContent(
+      'The correction applies from 25.09.2026 up to the period ending 22.10.2026; from 23.10.2026, the terms recorded later stay.',
+    )
+  })
+
+  it('says there is nothing to correct in a period the debt was not in force, and offers no save', async () => {
+    const db = debtDb()
+    db.rpc.get_debt_terms.mockImplementation((args) => [
+      {
+        period_id: args.p_period_id,
+        in_force: false,
+        category_id: null,
+        interest_rate: null,
+        monthly_payment: null,
+        terms_from_period_id: null,
+        until_period_id: 'period-2',
+      },
+    ])
+    const { dialog } = await openEdit(db)
+    await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
+    expect(await within(dialog).findByTestId('correction-not-in-force')).toHaveTextContent(
+      'It was not in force in that period, so there is nothing to correct there.',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+})
+
+describe('correcting a debt’s category [R-DEBT-140]', () => {
+  it('sends a new category as a term of the period corrected', async () => {
+    const db = debtDb()
+    const { dialog } = await openEdit(db)
+    await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('Planned payment per month')).toHaveValue('400.00')
+    })
+    await userEvent.click(within(dialog).getByLabelText('Category of the payments'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Rent' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.update_debt).toHaveBeenCalledWith({
+        p_debt_id: DEBT_ID,
+        p_expected_revision: 1,
+        p_category_id: 'cat-rent',
         p_from_period_id: 'period-1',
       })
     })
@@ -95,22 +163,38 @@ describe('debt dialogs [R-DEBT-122]', () => {
     expect(within(dialog).queryByLabelText('Amount owed at the start')).not.toBeInTheDocument()
   })
 
-  it('says beforehand that a debt with no history is deleted, and both outcomes from earlier', async () => {
+  it('says beforehand the one outcome the database gives, from now and from an earlier period [R-SUBSCRIPTION-141]', async () => {
     const db = debtDb({ removal_deletes: true, has_history: false })
+    db.rpc.preview_remove_debt.mockImplementation((args) =>
+      args.p_from_period_id
+        ? [{ outcome: null, refusal: 'period_not_found' }]
+        : [{ outcome: 'deleted', refusal: null }],
+    )
     await openDebt(db)
     await userEvent.click(screen.getByRole('button', { name: 'More actions for Car loan' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'End or delete' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     const dialog = await screen.findByRole('alertdialog')
+    await waitFor(() => {
+      expect(within(dialog).getByTestId('remove-debt-outcome')).toHaveTextContent(
+        'It has no payment, interest or adjustment yet, so it is deleted.',
+      )
+    })
     expect(dialog).toHaveTextContent('Delete “Car loan”?')
-    expect(within(dialog).getByTestId('remove-debt-outcome')).toHaveTextContent(
-      'It has no payment, interest or adjustment yet, so it is deleted.',
-    )
     expect(within(dialog).getByRole('button', { name: 'Delete' })).toBeEnabled()
+    expect(db.rpc.preview_remove_debt).toHaveBeenCalledWith({ p_debt_id: DEBT_ID })
+    // From an earlier period: the database's answer for that period, a refusal in words.
     await userEvent.click(within(dialog).getByLabelText('End it from an earlier period'))
-    expect(dialog).toHaveTextContent('End or delete “Car loan”?')
-    expect(within(dialog).getByTestId('remove-debt-outcome')).toHaveTextContent(
-      'it is deleted; otherwise it ends there',
-    )
+    await waitFor(() => {
+      expect(within(dialog).getByTestId('remove-debt-outcome')).toHaveTextContent(
+        'It cannot be ended from that period:',
+      )
+    })
+    expect(db.rpc.preview_remove_debt).toHaveBeenCalledWith({
+      p_debt_id: DEBT_ID,
+      p_from_period_id: 'period-1',
+    })
+    expect(dialog).not.toHaveTextContent('End or delete')
+    expect(within(dialog).getByRole('button', { name: 'End debt' })).toBeDisabled()
   })
 
   it('shows another member’s change of the planned payment, and keeps mine on request', async () => {
@@ -178,8 +262,14 @@ describe('debt dialogs [R-DEBT-122]', () => {
 
 describe('debt figures [R-DEBT-121]', () => {
   it('shows an overpaid debt as paid off, never a negative remaining amount', async () => {
-    const db = debtDb({ remaining: -10_000, payoff: 'paid_off', payments_left: null })
+    const db = debtDb({
+      remaining: -10_000,
+      overpaid_by: 10_000,
+      payoff: 'paid_off',
+      payments_left: null,
+    })
     db.tables.debt_overview.push(debtRow({ id: 'other', name: 'Phone', remaining: 30_000 }))
+    db.tables.debt_totals = [{ budget_id: BUDGET_ID, remaining_total: 30_000, owing_count: 1 }]
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/debts')
     const cards = await screen.findAllByTestId('debt-card')

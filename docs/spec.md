@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-390 rules (326 active, 57 planned), 24 conventions, 175 decisions, 27 open questions. 0 rules and conventions are marked **TEST PENDING**.
+402 rules (338 active, 57 planned), 24 conventions, 179 decisions, 27 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -525,6 +525,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-BUDGET-008, D-206
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-BUDGET-150** Once the budget has ended, the subscriptions and debts screens still offer adding, editing and ending, each as a correction from one of its periods (the correction choice ticked and fixed, saying why), recording payments and adjusting balances within its periods (an adjustment left on its default date sent without one, so the database dates it on the budget's last day), and answering charges; nothing from the current period is offered.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-BUDGET-130, D-206
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/components/form/correction-toggle.tsx; code: src/features/subscriptions/components/subscription-form-dialog.tsx; code: src/features/debts/components/debt-form-dialog.tsx
 
 ### Members and roles
 
@@ -709,6 +713,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-150, R-CONCURRENCY-090
   - Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-INCOME-150** An edit of the primary income that may move the current period's end (a new pay day or weekend rule, any correction) shows the preview's end first and always sends it (p_previewed_end_date); when the database still answers preview_required, the form shows the preview and asks to save again.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-PERIOD-134, D-205
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/income/components/income-form-dialog.tsx
 
 ### Pay dates and the weekend rule
 
@@ -902,10 +910,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-020, R-PERIOD-034, R-PERIOD-012, R-BUDGET-008
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/periods/boundary-ranges.ts
-- **R-PERIOD-055** Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its "set by hand" mark; when the database refuses that move as an invalid boundary, the confirmation says the schedule's day does not fit between the neighbouring periods (it names no date: Q-091).
+- **R-PERIOD-055** Every period action sends the period the user was looking at (its id and revision). When the database refuses it because that period changed (another member acted first, or an earlier attempt already went through), the action is closed, the periods are read again and the page says so; nothing is retried automatically. A start set by hand can be moved back to the schedule's day, which clears its "set by hand" mark (R-PERIOD-151).
   _active · enforced by test · F-PERIOD_
-  - Related: R-CONCURRENCY-100, R-PERIOD-100, R-PERIOD-051, D-151, D-152, Q-091
-  - Source: owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16; code: src/features/periods/periods-page.tsx
+  - Related: R-CONCURRENCY-100, R-PERIOD-100, R-PERIOD-051, D-151, D-152, Q-091, R-PERIOD-151
+  - Source: owner-request: coordinator, frontend adaptation to the step 3 database review fixes, 2026-11-16; code: src/features/periods/periods-page.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 - **R-PERIOD-100** A boundary moved to where the schedule puts it (the previous period's projected end) is not marked as set by hand, and a past boundary can be moved back to the schedule without giving a date.
   _active · enforced by test · F-PERIOD_
   - Related: D-152, Q-071, R-PERIOD-014, R-PERIOD-025
@@ -930,6 +938,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-PERIOD-036, D-205
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-PERIOD-150** After a very long absence (my_budgets.caught_up false) the app catches the budget up before showing any page: it calls ensure_periods until it answers 0 and meanwhile says "Catching up on the time since your last visit…", with no figure; a failure is said with a retry. No page shows a budget as ended or empty while it is being caught up.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-PERIOD-130, D-201, D-231
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budgets/budget-routes.tsx; code: src/features/budgets/budget-queries.ts
+- **R-PERIOD-151** "Move this period's start back to the schedule" is offered from preview_move_period_start: with the start it would give when the move would be accepted, disabled with the refusal in words when not, and not at all when the period already starts there; the confirmation names the dates.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-PERIOD-133, R-PERIOD-100, D-233
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/periods/periods-page.tsx
 
 ### Versioning: edits never rewrite the past
 
@@ -1001,10 +1017,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-174
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-VERSION-140** A correction from an earlier period, for an income, a category, a subscription or a debt, starts from the terms in force in the period chosen, read from the database, and sends only what the user changed from them (a group of values that belong together whole); one that changes nothing is not sent as a correction. The period is chosen before the terms, and the form says the values shown are that period's.
+- **R-VERSION-140** A correction from an earlier period, for an income, a category, a subscription or a debt, starts from the terms in force in the period chosen, as get_income_terms, get_category_terms, get_subscription_terms or get_debt_terms give them, and sends only what the user changed from them (a group of values that belong together whole); one that changes nothing is not sent as a correction. The period is chosen before the terms, and the form says the values shown are that period's.
   _active · enforced by test · F-INCOME_
-  - Related: R-VERSION-012, D-160, D-210
-  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/budgets/terms-at.ts
+  - Related: R-VERSION-012, D-160, D-210, R-VERSION-132, D-230
+  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/budgets/terms-at.ts; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 - **R-VERSION-130** No version of a category, subscription, debt or income is kept at or after its end; a reopen that leaves a category without referrers deletes it rather than leaving it void.
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-VERSION-014, D-208
@@ -1020,6 +1036,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-VERSION-132
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-VERSION-150** A correction form says how far the correction reaches, from the database's until_period_id: "from <start> up to the period ending <end>; from <next>, the terms recorded later stay", or "from <start> on"; when the record was not in force in the period chosen (in_force false), it says in words that there is nothing to correct there and offers no save.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-VERSION-133, R-VERSION-140, D-230
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budgets/correction-reach.tsx; code: src/features/budgets/terms-at.ts
 
 ### Categories and subcategories
 
@@ -1142,6 +1162,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-CATEGORY-110
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-CATEGORY-150** When the database refuses to end a category because subscriptions or debts use it (category_in_use), the dialog lists them from the refusal's detail, each with a way to it; the up-front check (category_overview.in_use) stays.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CATEGORY-131, R-CATEGORY-120
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budget/category-users.ts; code: src/features/budget/components/end-category-dialog.tsx
 
 ### Transactions
 
@@ -1239,6 +1263,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-TRANSACTION-095
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-TRANSACTION-150** "See its transactions" from a subscription, "See its payments" from a debt, and the charges card's link to the others open the transactions list filtered to that subscription, that debt or the charges awaiting confirmation, over all periods; the filter is shown, kept in the address and removable, and one that names no record of the budget is dropped.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-TRANSACTION-132, R-TRANSACTION-051
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/transactions/transactions-page.tsx; code: src/app/paths.ts
 
 ### Period progress and result
 
@@ -1355,10 +1383,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-002, R-SUBSCRIPTION-079, C-LOGIC-003
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/subscriptions-page.tsx
-- **R-SUBSCRIPTION-121** The subscription form previews the upcoming charge dates as subscription_charge_dates gives them (a new one from the start of the period it counts from, flagging the dates up to today as charged at once; an edit from the new next charge date, from the next charge for a new cadence alone, otherwise the schedule as it stands); an edit says that new terms apply from the current period and past periods keep theirs; a new next charge date from now must be after today; counting from an earlier period is an explicit, warned correction.
+- **R-SUBSCRIPTION-121** The subscription form previews the charges its save would make, as preview_create_subscription and preview_update_subscription give them for exactly the save's arguments (a correction's period included), and says in words how many are recorded at once, to confirm (charged_at_once), or that no charge falls before the budget ends; it never computes a schedule itself. An edit says that new terms apply from the current period and past periods keep theirs; a new next charge date from now must be after today; counting from an earlier period is an explicit, warned correction.
   _active · enforced by test · F-SUBSCRIPTION_
-  - Related: R-SUBSCRIPTION-071, R-SUBSCRIPTION-114, D-170, D-193
-  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/components/subscription-form-dialog.tsx
+  - Related: R-SUBSCRIPTION-071, R-SUBSCRIPTION-114, D-170, D-193, R-SUBSCRIPTION-133, D-230
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/components/subscription-form-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/subscriptions/components/charge-dates-preview.tsx; code: src/features/subscriptions/subscription-queries.ts
 - **R-SUBSCRIPTION-122** A subscription's price, cadence and new next charge date are one field for concurrent edits: shown as one value of the other member's version, kept or taken whole by "Keep mine", and saved together whenever any of them differs.
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: D-160, R-CONCURRENCY-091, D-196
@@ -1367,22 +1395,22 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-075, R-SUBSCRIPTION-076, D-195
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/transactions/transactions-page.tsx
-- **R-SUBSCRIPTION-124** Removing a subscription says beforehand, from the database's removal_deletes, whether it is deleted or ended from the current period (its charges kept, those awaiting confirmation still to answer); ending it from an earlier period is an explicit, warned correction.
+- **R-SUBSCRIPTION-124** Removing a subscription says beforehand, from the database's answer (preview_end_subscription), whether it is deleted or ended from the current period (its charges kept, those awaiting confirmation still to answer); ending it from an earlier period is an explicit, warned correction.
   _active · enforced by test · F-SUBSCRIPTION_
-  - Related: R-SUBSCRIPTION-113
-  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/components/end-subscription-dialog.tsx
+  - Related: R-SUBSCRIPTION-113, R-SUBSCRIPTION-136
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/subscriptions/components/end-subscription-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 - **R-SUBSCRIPTION-140** A subscription's edit form, as a correction, starts from the price, cadence and category of the period chosen and sends only what changed; it is not saved before the subscription has been read afresh; when another member ended the subscription meanwhile, it says so once and offers no save.
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-VERSION-140, R-CONCURRENCY-091, D-210
   - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/subscriptions/components/subscription-form-dialog.tsx; code: src/features/subscriptions/subscription-mutations.ts
-- **R-SUBSCRIPTION-141** Ending a subscription or a debt from an earlier period is said as "End or delete", with both outcomes and when each applies: the database says beforehand only whether a removal from now deletes.
+- **R-SUBSCRIPTION-141** Ending a subscription or a debt, from now or from an earlier period, says beforehand the one outcome preview_end_subscription or preview_remove_debt gives for that period: deleted, ended, or the refusal in words (then nothing can be confirmed); the title and the button say the same, never "End or delete".
   _active · enforced by test · F-SUBSCRIPTION_
-  - Related: R-SUBSCRIPTION-124, R-DEBT-122, D-214, Q-131
-  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/subscriptions/components/end-subscription-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx
-- **R-SUBSCRIPTION-142** The dashboard's charges card says how many charges await in all (the subscriptions' awaiting counts), lists the five oldest with a way to the others, names a charge by its own date (with the date it was scheduled for when it was moved), and after an answer keeps the focus in the list (the next charge, or the page heading once none is left).
+  - Related: R-SUBSCRIPTION-124, R-DEBT-122, D-214, Q-131, R-SUBSCRIPTION-136, R-DEBT-138, D-220
+  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/subscriptions/components/end-subscription-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budgets/removal-preview.ts
+- **R-SUBSCRIPTION-142** The dashboard's charges card says how many charges await in all (my_budgets.charges_awaiting), lists the five oldest with a link to the others (the transactions filtered to those awaiting), and offers "All went through" behind a confirmation that states how many and the dates they span, then says how many were confirmed, also when that is not the number stated; it names a charge by its own date (with the date it was scheduled for when it was moved), and after an answer keeps the focus in the list (the next charge, or the page heading once none is left). The transactions list filtered to the charges awaiting offers the same "All went through".
   _active · enforced by test · F-SUBSCRIPTION_
-  - Related: R-SUBSCRIPTION-076, D-212
-  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/subscriptions/components/charges-to-confirm-card.tsx
+  - Related: R-SUBSCRIPTION-076, D-212, R-SUBSCRIPTION-134, R-SUBSCRIPTION-135
+  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/subscriptions/components/charges-to-confirm-card.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/subscriptions/components/confirm-all-charges.tsx
 - **R-SUBSCRIPTION-130** A subscription's terms keep its nominal day of the month apart from its anchor date: a schedule re-anchored on a clamped date (a change of cadence without a date) keeps charging on the nominal day, never drifting to the clamped one.
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-071, D-200
@@ -1411,6 +1439,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-113, R-SUBSCRIPTION-124
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-150** A subscription's charge day is said as the day of the month, and for the 29th to the 31st as "on the 31st, or on the last day of a shorter month"; an edit that changes only the cadence says that the charge day stays.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-130
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/subscriptions/subscription-views.ts
+- **R-SUBSCRIPTION-151** A subscription in force without a next charge date, in a budget with an end date, says "No further charge before the budget ends".
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-132
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/subscriptions/subscriptions-page.tsx
 
 ### Debts
 
@@ -1481,22 +1517,22 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-110, C-MONEY-001
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/lib/interest-rate.ts
-- **R-DEBT-121** The debts page shows each debt in force with its remaining amount, how much is paid off (a bar with its figure in words), its planned payment and rate, and the database's projection in words: "Paid off", "Ends around <month year> · N payments left" said to be an estimate, or a "Never ends at this payment" warning with an icon; and the total remaining across the debts in force. An overpaid debt is shown as paid off and overpaid, never with a negative remaining amount; the total counts only what is still owed (D-211). With no planned payment, it says so rather than "never ends".
+- **R-DEBT-121** The debts page shows each debt in force with its remaining amount, how much is paid off (a bar with its figure in words, from paid_percent), its planned payment and rate, and the database's projection in words: "Paid off", "Ends around <month year> · N payments left" said to be an estimate (and, when expected_end_after_budget_end, that this is after the budget ends), or a "Never ends at this payment" warning with an icon; and what is still owed in all, with how many debts owe it, from debt_totals. An overpaid debt is shown as paid off and overpaid by overpaid_by, never with a negative remaining amount. Nothing is added up in the client. With no planned payment, it says so rather than "never ends".
   _active · enforced by test · F-DEBT_
-  - Related: R-DEBT-005, R-DEBT-074, R-DEBT-112, D-191
-  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debts-page.tsx; code: src/features/debts/components/payoff.tsx; owner-request: coordinator, step 4 screens review round 1, 2026-11-16
-- **R-DEBT-122** A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative), payments leading to their transactions; it records a payment (the transaction form with the debt and its category chosen), adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history) and removes it, saying beforehand whether it is deleted or ended.
+  - Related: R-DEBT-005, R-DEBT-074, R-DEBT-112, D-191, R-DEBT-132, R-DEBT-133, R-DEBT-136, R-DEBT-137, D-216
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debts-page.tsx; code: src/features/debts/components/payoff.tsx; owner-request: coordinator, step 4 screens review round 1, 2026-11-16; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/debts/debt-queries.ts
+- **R-DEBT-122** A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative), both read page by page with get_debt_history's cursor: the chart reads the pages by itself up to 10 000 events and, when the history is longer, says where it stops; the table shows 50 rows at a time, oldest first, reading the next page when it needs it. Payments lead to their transactions. It records a payment (the transaction form with the debt chosen), adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history), removes it, saying beforehand whether it is deleted or ended, and links to its payments among the transactions.
   _active · enforced by test · F-DEBT_
-  - Related: R-DEBT-004, R-DEBT-075, R-DEBT-114, D-190, D-192
-  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debt-detail-page.tsx; code: src/features/debts/components/debt-chart.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx
-- **R-DEBT-123** The transaction form offers "This is a payment on …" for an expense in a category that debts in force are paid from; a payment stays an expense; on an existing transaction the link is changed through link_transaction (removed before its fields change, added after), never through update_transaction.
+  - Related: R-DEBT-004, R-DEBT-075, R-DEBT-114, D-190, D-192, R-DEBT-135, D-232
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debt-detail-page.tsx; code: src/features/debts/components/debt-chart.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+- **R-DEBT-123** The transaction form offers "This is a payment on …" for an expense, among the debts not ended (and the one a payment already pays); a payment stays an expense; on an existing transaction the fields and the link change in one update_transaction call (p_relink), so a refused save leaves the transaction and both debts as they were, and the message names the database's reason.
   _active · enforced by test · F-DEBT_
-  - Related: R-DEBT-071, R-TRANSACTION-110, D-177, D-194
-  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx; code: src/features/transactions/transaction-mutations.ts
-- **R-DEBT-140** A debt's edit form, as a correction, starts from the rate and planned payment of the period chosen and sends only what changed; the starting amount can be edited only while the debt, as read afresh, has no history (a payment recorded meanwhile locks it); when another member ended the debt meanwhile, the form says so once and offers no save.
+  - Related: R-DEBT-071, R-TRANSACTION-110, D-177, D-194, R-TRANSACTION-131, D-218
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx; code: src/features/transactions/transaction-mutations.ts; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+- **R-DEBT-140** A debt's edit form, as a correction, starts from the category, rate and planned payment of the period chosen (get_debt_terms) and sends only what changed, the category offered being those in force in that period; the starting amount can be edited only while the debt, as read afresh, has no history (a payment recorded meanwhile locks it); when another member ended the debt meanwhile, the form says so once and offers no save.
   _active · enforced by test · F-DEBT_
-  - Related: R-VERSION-140, R-DEBT-114, D-210
-  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/debts/components/debt-form-dialog.tsx; code: src/features/debts/debt-mutations.ts
+  - Related: R-VERSION-140, R-DEBT-114, D-210, D-219, D-230
+  - Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16; code: src/features/debts/components/debt-form-dialog.tsx; code: src/features/debts/debt-mutations.ts; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 - **R-DEBT-131** A debt's principal is the balance on its opened date; no payment or balance adjustment is dated before it. A debt recorded from an earlier period is opened on that period's start.
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-003, D-202
@@ -1529,6 +1565,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-001
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-150** A payment or a balance adjustment is not dated before the debt was opened: the payment form, its debt choice and the adjust dialog say the earliest date, refuse an earlier one before sending, and the database's before_debt_opened reads the same.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-131, D-202
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx
+- **R-DEBT-151** An ended debt is frozen on screen too: its payments can be looked at but not changed, deleted or relinked, it cannot be adjusted and its adjustments cannot be deleted; the actions are absent or disabled with the reason, and the database's debt_ended is said for what was tried (a new payment, a payment change, an adjustment, an adjustment's deletion).
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-134, D-209
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx; code: src/features/transactions/transactions-page.tsx; code: src/features/debts/debt-detail-page.tsx
+- **R-DEBT-152** In the transaction form, choosing the debt a payment is for sets its category: the category of the debt's terms in force in the period of the date (get_debt_terms), said under the choice; a debt not in force on that date is said so and nothing is saved.
+  _active · enforced by test · F-DEBT_
+  - Related: R-TRANSACTION-110, D-207
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx
 
 ### Browsing and comparing periods
 
@@ -3847,17 +3895,17 @@ Related: R-DEBT-122, C-CSP-001
 
 Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
 
-### D-191 The total remaining across debts is added up in the client (accepted)
+### D-191 The client adds up no debt amounts (accepted)
 
-debt_overview has no total: the debts page adds up the remaining amounts the database gives for the debts in force (integer rappen, no rounding). Nothing else about a debt is computed in the client.
+The debts page shows what is still owed in all, and how many debts owe it, as debt_totals gives them (D-216); each debt's paid share and overpaid amount are paid_percent and overpaid_by. Nothing about a debt is added up or computed in the client. (Until the database gave the total, the page added up the remaining amounts of the debts in force.)
 
-**Why:** The contract offers no total; adding integers cannot round. Q-110 asks whether the database should give it.
+**Why:** C-LOGIC-003: the database owns the figures; Q-110 asked for the total and D-216 answered it. Reworded rather than superseded: the migration that gives the total names this decision.
 
 **Rejected:** none recorded.
 
-Related: R-DEBT-121, Q-110, C-LOGIC-003
+Related: R-DEBT-121, Q-110, C-LOGIC-003, D-216
 
-Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 
 ### D-192 A debt has its own page (accepted)
 
@@ -3883,7 +3931,7 @@ Related: R-SUBSCRIPTION-121, D-170
 
 Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
 
-### D-194 Changing a transaction's debt link takes several calls (accepted)
+### D-194 Changing a transaction's debt link takes several calls (superseded by D-218)
 
 update_transaction never changes a link (D-177), so an edit that changes the debt a transaction pays calls link_transaction to remove the old link before the fields change, update_transaction, then link_transaction to add the new one, each with the revision the previous call returned. They are not one transaction: a failure part-way leaves the steps already done (the form shows the error, the lists are read again).
 
@@ -3891,7 +3939,7 @@ update_transaction never changes a link (D-177), so an edit that changes the deb
 
 **Rejected:** none recorded.
 
-Related: R-DEBT-123, D-177, Q-111
+Related: R-DEBT-123, D-177, Q-111, D-218
 
 Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
 
@@ -3919,7 +3967,7 @@ Related: D-160, R-SUBSCRIPTION-122
 
 Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
 
-### D-210 A correction starts from the terms of its period (accepted)
+### D-210 A correction starts from the terms of its period (superseded by D-230)
 
 The correction forms (incomes, categories, subscriptions, debts) read the terms in force in the period chosen from the version tables the contract makes readable (income_versions, category_expectations, subscription_versions, debt_versions: the row with the greatest effective_from_seq not after the period's seq), show them as the starting values, and send only what the user changes from them. Until the database gives these terms itself (Q-130), this lookup is the client's one use of the version tables.
 
@@ -3929,7 +3977,7 @@ The correction forms (incomes, categories, subscriptions, debts) read the terms 
 
 - Showing today's terms and sending only changed fields: the user cannot see what they are correcting.
 
-Related: R-VERSION-140, Q-130, C-LOGIC-003, D-219
+Related: R-VERSION-140, Q-130, C-LOGIC-003, D-219, D-230
 
 Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16
 
@@ -3969,7 +4017,7 @@ Related: D-190, R-DEBT-122
 
 Source: owner-request: coordinator, step 4 screens review round 1, 2026-11-16
 
-### D-214 Ending from an earlier period says both outcomes (accepted)
+### D-214 Ending from an earlier period says both outcomes (superseded by D-220)
 
 Whether a removal deletes is known beforehand only for a removal from now (removal_deletes). Ending a subscription or a debt from an earlier period is therefore offered as "End or delete", saying when each happens, until the database answers for a chosen period (Q-131).
 
@@ -4197,6 +4245,61 @@ Related: Q-131, D-214, R-SUBSCRIPTION-136, R-DEBT-138, R-SUBSCRIPTION-141
 
 Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
+### D-230 Corrections read the terms of their period from the database (accepted)
+
+The correction forms (incomes, categories, subscriptions, debts) read the terms in force in the period chosen with get_income_terms, get_category_terms, get_subscription_terms and get_debt_terms, show them as the starting values, say how far the correction reaches (until_period_id), offer no save when the record was not in force there, and send only what the user changes. The client no longer reads the version tables.
+
+**Why:** D-219 gives these terms in the database (C-LOGIC-001); the client's own lookup of the version tables (D-210) was the one place it chose a version itself.
+
+**Rejected:**
+
+- Keeping the version-table lookup (D-210): it duplicated the database's choice of version.
+
+Related: R-VERSION-140, R-VERSION-150, D-219, C-LOGIC-003, D-210
+
+Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+
+### D-231 A long absence is caught up in words, without progress (accepted)
+
+While a very long absence is caught up, the app shows only "Catching up on the time since your last visit…" and a short explanation, no progress bar and no figure, then loads the pages.
+
+**Why:** Answer to Q-121 by default: ensure_periods says how many periods it made, not how many remain, so a bar would invent its end; each call takes under 2 s and ten years take one call.
+
+**Rejected:**
+
+- A progress bar from the periods made so far: the total is unknown.
+
+Related: Q-121, R-PERIOD-150, D-201
+
+Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+
+### D-232 The debt chart reads up to 10 000 events (accepted)
+
+The debt page reads get_debt_history 1000 rows a page; the chart reads pages by itself until the history ends or 10 000 events, and then says where it stops; the table shows 50 rows at a time, oldest first (the order the database pages in), reading the next page when its rows are shown.
+
+**Why:** A debt with 20 000 payments must not freeze the page, and the chart of an ordinary debt must show all of it; ten pages are about 2 MB and a few hundred milliseconds.
+
+**Rejected:**
+
+- Reading the whole history whatever its size: a very long one would be read and drawn at once.
+- The table newest first: the database pages oldest first only (Q-141).
+
+Related: R-DEBT-122, R-DEBT-135, D-213
+
+Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+
+### D-233 Back to the schedule from the database's preview (accepted)
+
+The periods page asks preview_move_period_start when the menu of a period whose previous end was set by hand opens: it offers the move with the start it would give when accepted, disabled with the refusal in words when not, and nothing when already on the schedule.
+
+**Why:** Answer to Q-091, with R-PERIOD-133: the client offers only what the database would accept and names its date.
+
+**Rejected:** none recorded.
+
+Related: Q-091, R-PERIOD-151, R-PERIOD-133
+
+Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -4391,9 +4494,9 @@ Source: owner-request: coordinator addendum to the step 4 database review (scree
   - Context: The boundary operations name the period they act on (D-151), so a retry is refused; an add has no record to name yet. The review recorded a double-submitted add_transaction as two rows. The screens disable the button while saving, but a retry after a lost response would still record twice.
   - Related: D-151, R-CONCURRENCY-100, R-TRANSACTION-095
   - Source: owner-request: coordinator, step 3 database review, 2026-11-16
-- **Q-091** Should the database say where the schedule would put a period's start, and whether moving it back there would be accepted?
+- **Q-091** (resolved by D-233) Should the database say where the schedule would put a period's start, and whether moving it back there would be accepted?
   - Context: "Move this period's start back to the schedule" calls move_period_start without a date; the client cannot know the schedule's day (C-LOGIC-003), so the confirmation names no date and the action is offered even when the database will refuse it (invalid_boundary), which the dialog then says. Options: a period_summaries.scheduled_start column (null when it equals the start), or preview_move_period_start(p_period_id) returning the scheduled date and whether it fits between the neighbouring periods, so the action is offered only when it can work and names its date.
-  - Related: R-PERIOD-055, D-152, C-LOGIC-003
+  - Related: R-PERIOD-055, D-152, C-LOGIC-003, D-233
   - Source: owner-request: coordinator, step 3 final review, 2026-11-16
 - **Q-100** When the transaction limit holds automatic charges back, should the app tell the members?
   - Context: D-176: charges wait, none skipped, until there is room; nothing tells the user that some are waiting. Reaching 50 000 transactions takes decades of normal use.
@@ -4431,10 +4534,18 @@ Source: owner-request: coordinator addendum to the step 4 database review (scree
   - Context: D-209 freezes an ended debt: a payment forgotten before it was removed cannot be added any more. Undoing the removal is possible only as a correction of its end (none exists for debts yet).
   - Related: D-209, R-DEBT-134
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16
-- **Q-121** Should the app show progress while a very long absence is caught up?
+- **Q-121** (resolved by D-231) Should the app show progress while a very long absence is caught up?
   - Context: D-201: after more than ten years away, reading a budget takes several ensure_periods calls (120 periods each); my_budgets.caught_up is false meanwhile and get_current_period answers no row.
-  - Related: D-201, R-PERIOD-130
+  - Related: D-201, R-PERIOD-130, D-231
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16
+- **Q-140** Should transaction_list say that a payment's debt has ended?
+  - Context: D-209: a payment of an ended debt cannot be changed or deleted. transaction_list gives debt_id and debt_name only, so the transactions list reads debt_overview to know which payments are frozen and disable their actions. A column debt_ended (or a frozen flag) would let the list say so from its own row.
+  - Related: D-209, R-DEBT-151
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+- **Q-141** Should get_debt_history also page newest first?
+  - Context: D-232: the history table shows the oldest events first because get_debt_history pages only in that order; for a long history the latest events, the ones a member usually looks for, are many pages away. A p_newest_first flag with the mirrored cursor would let the table start with them.
+  - Related: D-232, R-DEBT-135
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 
 ## Glossary
 

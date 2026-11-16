@@ -1,4 +1,5 @@
 import {
+  ListIcon,
   BellRingIcon,
   CalendarOffIcon,
   ChevronDownIcon,
@@ -12,7 +13,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
-import { paths } from '@/app/paths'
+import { paths, transactionsOf } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -54,7 +55,7 @@ type DialogState =
 // R-SUBSCRIPTION-120: next charge, monthly cost, charges to confirm, all read, never computed.
 export function SubscriptionsPage() {
   const { t } = useTranslation()
-  const { budgetId } = useCurrentBudget()
+  const { budgetId, budget } = useCurrentBudget()
   const subscriptions = useSubscriptions(budgetId)
   const current = useCurrentPeriod(budgetId)
   const periods = usePeriods(budgetId)
@@ -67,7 +68,7 @@ export function SubscriptionsPage() {
       title={t('nav.subscriptions')}
       description={t('pages.subscriptions.description')}
       action={
-        <Button onClick={() => setDialog({ kind: 'add' })} disabled={!current.isSuccess || ended}>
+        <Button onClick={() => setDialog({ kind: 'add' })} disabled={!current.isSuccess}>
           <PlusIcon />
           {t('subscriptions.add')}
         </Button>
@@ -123,12 +124,10 @@ export function SubscriptionsPage() {
           title={t('subscriptions.empty')}
           description={t('subscriptions.emptyHelp')}
           action={
-            !ended && (
-              <Button onClick={() => setDialog({ kind: 'add' })}>
-                <PlusIcon />
-                {t('subscriptions.addFirst')}
-              </Button>
-            )
+            <Button onClick={() => setDialog({ kind: 'add' })}>
+              <PlusIcon />
+              {t('subscriptions.addFirst')}
+            </Button>
           }
         />
       ) : (
@@ -137,7 +136,7 @@ export function SubscriptionsPage() {
             <SubscriptionCard
               key={subscription.id}
               subscription={subscription}
-              readOnly={ended}
+              budgetHasEnd={budget.end_date !== null}
               onEdit={() => setDialog({ kind: 'edit', subscription })}
               onEnd={() => setDialog({ kind: 'end', subscription })}
             />
@@ -191,14 +190,15 @@ function CommittedSummary({ period, count }: { period: PeriodSummary; count: num
 
 function SubscriptionCard({
   subscription,
-  readOnly,
+  budgetHasEnd,
   onEdit,
   onEnd,
 }: {
   subscription: Subscription
-  readOnly: boolean
   onEdit: () => void
   onEnd: () => void
+  /** The budget has an end date: a subscription with no charge left before it says so. */
+  budgetHasEnd: boolean
 }) {
   const { t } = useTranslation()
   const path = useCategoryPath()
@@ -240,6 +240,11 @@ function SubscriptionCard({
                 <dd className="font-medium" data-testid="next-charge">
                   {subscription.next_charge_date ? (
                     <CalendarDate value={subscription.next_charge_date} />
+                  ) : budgetHasEnd ? (
+                    // R-SUBSCRIPTION-151: no next date, because none falls before the budget ends.
+                    <span className="font-normal text-muted-foreground">
+                      {t('subscriptions.noFurtherCharge')}
+                    </span>
                   ) : (
                     '–'
                   )}
@@ -264,14 +269,22 @@ function SubscriptionCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-48">
-              <DropdownMenuItem onSelect={onEdit} disabled={readOnly}>
+              <DropdownMenuItem onSelect={onEdit}>
                 <PencilIcon />
                 {t('subscriptions.edit')}
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to={transactionsOf({ subscription: subscription.id })}>
+                  <ListIcon />
+                  {t('subscriptions.seeTransactions')}
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onSelect={onEnd} disabled={readOnly}>
+              <DropdownMenuItem variant="destructive" onSelect={onEnd}>
                 <Trash2Icon />
-                {t('subscriptions.remove.action')}
+                {subscription.removal_deletes
+                  ? t('subscriptions.remove.delete')
+                  : t('subscriptions.remove.endAction')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

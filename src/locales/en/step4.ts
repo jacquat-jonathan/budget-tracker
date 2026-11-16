@@ -62,13 +62,35 @@ export const subscriptionsEn = {
     kept: 'The schedule stays as it is.',
     cadence:
       'With a new cadence and no new date, the schedule continues from the next charge, {{date}}.',
+    none: 'No charge on these terms before the budget ends.',
+    atOnce_one: 'Saving records 1 charge at once, dated in the past, for you to confirm.',
+    atOnce_other:
+      'Saving records {{count}} charges at once, dated in the past, for you to confirm.',
+    atOnceAtLeast_one: 'Saving records at least {{count}} charge at once, dated in the past.',
+    atOnceAtLeast_other:
+      'Saving records at least {{count}} charges at once, dated in the past, for you to confirm.',
+    cadenceKeepsDay: 'Changing only how often keeps the charge day: {{day}}.',
+    refused: 'These terms cannot be saved: {{reason}}',
   },
+  day: {
+    plain_ordinal_one: 'on the {{count}}st',
+    plain_ordinal_two: 'on the {{count}}nd',
+    plain_ordinal_few: 'on the {{count}}rd',
+    plain_ordinal_other: 'on the {{count}}th',
+    late_ordinal_one: 'on the {{count}}st, or on the last day of a shorter month',
+    late_ordinal_two: 'on the {{count}}nd, or on the last day of a shorter month',
+    late_ordinal_few: 'on the {{count}}rd, or on the last day of a shorter month',
+    late_ordinal_other: 'on the {{count}}th, or on the last day of a shorter month',
+  },
+  noFurtherCharge: 'No further charge before the budget ends',
   remove: {
-    action: 'End or delete',
     deleteTitle: 'Delete “{{name}}”?',
     endTitle: 'End “{{name}}”?',
     fromEarlier:
-      'From the period you chose, it no longer counts and no charge is created. If it never counted before that period and has no charge, it is deleted; otherwise it ends there, and the periods before keep it with their charges.',
+      'It ends from the period you chose: it no longer counts there and no charge is created from then on. The periods before keep it with their charges.',
+    deletesFromEarlier:
+      'It never counted before the period you chose and has no charge, so it is deleted.',
+    refused: 'It cannot be ended from that period: {{reason}}',
     deletes: 'It never counted in a past period and has no charge, so it is deleted.',
     ends: 'It ends from the current period (from {{date}}): no more charges. Past periods keep it.',
     endsNoPeriod: 'It ends: no more charges. Past periods keep it.',
@@ -81,10 +103,12 @@ export const subscriptionsEn = {
       'This changes past periods: from the period you choose, it no longer counts and no charge is created.',
     delete: 'Delete',
     end: 'End subscription',
-    endOrDeleteTitle: 'End or delete “{{name}}”?',
-    endOrDelete: 'End or delete',
+    endAction: 'End',
   },
-  endedBudget: 'The budget has ended: subscriptions can no longer be added or changed.',
+  endedBudget:
+    'The budget has ended: a subscription can still be added, changed or ended as a correction from one of its periods, and its charges answered.',
+  filterChip: 'Subscription: {{name}}',
+  seeTransactions: 'See its transactions',
   empty: 'No subscriptions yet',
   emptyHelp:
     'Add the charges that come back, like streaming, insurance or a phone plan: each is recorded on its date, and you confirm it went through.',
@@ -130,6 +154,26 @@ export const chargesEn = {
   scheduledFor: '(scheduled for {{date}})',
   seeAll_one: 'And 1 more: see the transactions',
   seeAll_other: 'And {{count}} more: see the transactions',
+  filterChip: 'Awaiting confirmation',
+  linkFilters: 'Filters from a link',
+  removeFilter: 'Remove the filter “{{what}}”',
+  confirmAll: 'All went through',
+  confirmAllTitle_one: 'Confirm the charge awaiting?',
+  confirmAllTitle_other: 'Confirm all {{count}} charges awaiting?',
+  confirmAllOneDay_one: 'The charge dated {{date}} is confirmed: it went through.',
+  confirmAllOneDay_other:
+    'The {{count}} charges dated {{date}} are confirmed: they all went through.',
+  confirmAllRange_one: 'The charge awaiting, dated from {{from}} to {{to}}, is confirmed.',
+  confirmAllRange_other:
+    'The {{count}} charges awaiting, dated from {{from}} to {{to}}, are confirmed: they all went through. Any that did not, answer one by one instead.',
+  confirmAllAction_one: 'Confirm it',
+  confirmAllAction_other: 'Confirm all {{count}}',
+  confirmedAll_one: '1 charge confirmed.',
+  confirmedAll_other: '{{count}} charges confirmed.',
+  confirmedAllOther_one:
+    '1 charge confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
+  confirmedAllOther_other:
+    '{{count}} charges confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
 }
 
 export const debtsEn = {
@@ -173,11 +217,13 @@ export const debtsEn = {
     'New terms apply from the current period (from {{date}}); past periods keep theirs.',
   addAppliesFrom: 'It counts from the current period, opened today.',
   remove: {
-    action: 'End or delete',
     deleteTitle: 'Delete “{{name}}”?',
     endTitle: 'End “{{name}}”?',
     fromEarlier:
-      'From the period you chose: no more interest and no payment dated from then on. If it never counted before that period and has no payment, interest or adjustment, it is deleted; otherwise it ends there and keeps its history.',
+      'It ends from the period you chose: no more interest and no payment dated from then on. Its history stays.',
+    deletesFromEarlier:
+      'It never counted before the period you chose and has no payment, interest or adjustment, so it is deleted.',
+    refused: 'It cannot be ended from that period: {{reason}}',
     deletes: 'It has no payment, interest or adjustment yet, so it is deleted.',
     ends: 'It ends from the current period (from {{date}}): no more interest and no new payments. Its history stays, and so does its remaining amount ({{amount}}).',
     endsNoPeriod: 'It ends: no more interest and no new payments. Its history stays.',
@@ -186,8 +232,7 @@ export const debtsEn = {
       'This changes past periods: from the period you choose, no interest is added and no payment can be dated.',
     delete: 'Delete',
     end: 'End debt',
-    endOrDeleteTitle: 'End or delete “{{name}}”?',
-    endOrDelete: 'End or delete',
+    endAction: 'End',
   },
   adjust: {
     action: 'Adjust balance',
@@ -209,6 +254,7 @@ export const debtsEn = {
       'The adjustment of {{amount}} on {{date}} is deleted: the remaining amount changes by as much.',
     delete: 'Delete adjustment',
     deleteFor: 'Delete the adjustment of {{amount}} on {{date}}',
+    dateRange: 'From {{min}}, when the debt was opened, to {{max}}.',
   },
   payoff: {
     none: 'No projection: the debt has ended.',
@@ -225,8 +271,29 @@ export const debtsEn = {
     budgetEnded: 'No projection: the budget has ended.',
     unknown: 'No projection yet.',
     noPayment: 'No planned payment',
+    afterBudgetEnd: 'This is after the budget ends.',
   },
-  endedBudget: 'The budget has ended: debts can no longer be added or changed.',
+  endedBudget:
+    'The budget has ended: a debt can still be added, changed or ended as a correction from one of its periods, and payments recorded within its periods.',
+  filterChip: 'Debt: {{name}}',
+  seeTransactions: 'See its payments',
+  frozenPayment:
+    'This is a payment on “{{name}}”, which has ended: it can no longer be changed or deleted.',
+  frozenView: 'View',
+  frozenDelete: 'Its debt has ended: it stays as it is.',
+  endedErrors: {
+    payment: 'This debt has ended: it takes no new payment.',
+    frozenPayment:
+      'This payment’s debt has ended: the payment can no longer be changed or deleted.',
+    adjust: 'This debt has ended: its balance can no longer be adjusted.',
+    deleteAdjustment: 'This debt has ended: its adjustments can no longer be deleted.',
+  },
+  payment: {
+    dateRange: 'From {{min}}, when “{{name}}” was opened, to {{max}}.',
+    opened: 'Payments on “{{name}}” can be dated from {{date}}, the day it was opened.',
+    notInForce: '“{{name}}” was not in force on this date: choose another date, or no debt.',
+    categoryFollows: 'Payments on “{{name}}” are in the category of its terms on that date.',
+  },
   totalRemaining_one: 'Still owed on 1 debt',
   totalRemaining_other: 'Still owed on {{count}} debts',
   empty: 'No debts',
@@ -246,7 +313,8 @@ export const debtsEn = {
   actionsFor: 'More actions for {{name}}',
   edit: 'Edit',
   endedTitleOne: 'This debt has ended',
-  endedOneHelp: 'Its history stays. No interest is added and no new payment can be recorded.',
+  endedOneHelp:
+    'Its history stays. No interest is added, no new payment can be recorded, and its payments and adjustments can no longer be changed or deleted.',
   paid: 'Paid',
   interestAdded: 'Interest added',
   adjustments: 'Adjustments',
@@ -264,10 +332,14 @@ export const debtsEn = {
     today: 'Today (no new event)',
     marksNote:
       'With this many events, only balance adjustments are marked; point at the line for every event of a date, or read the history below.',
+    labelCapped:
+      'Remaining amount over time, the first {{count}} events, up to {{date}}. The table below lists them.',
+    capped:
+      'The chart shows the first {{count}} events, up to {{date}}: the history is longer. The table below goes on to the latest.',
   },
   history: {
     title: 'History',
-    label: 'History of {{name}}, newest first',
+    label: 'History of {{name}}, oldest first',
     entry: 'Event',
     amount: 'Amount',
     balance: 'Remaining',
@@ -279,8 +351,12 @@ export const debtsEn = {
     },
     see: 'See',
     seePayment: 'See the payment of {{amount}} on {{date}} among the transactions',
-    showLatest: 'Show only the latest {{count}}',
-    showAll: 'Show all {{count}} events',
+    showMore: 'Show {{count}} more',
+    shownSoFar_one: '1 event shown, oldest first; there are more.',
+    shownSoFar_other: '{{count}} events shown, oldest first; there are more.',
+    shownAll_one: '1 event.',
+    shownAll_other: 'All {{count}} events, oldest first.',
+    loadFailed: 'The next events could not be read. Try again.',
   },
   overpaid: 'Overpaid',
   overpaidHint: 'More was paid than was owed.',
@@ -298,4 +374,16 @@ export const correctionsEn = {
   period: 'Correct from the period',
   showsPeriodTerms:
     'The fields below now show what was in force in that period. Change only what was wrong: what you leave as it is stays as it was.',
+  reachUntil:
+    'The correction applies from {{start}} up to the period ending {{end}}; from {{next}}, the terms recorded later stay.',
+  reachOn: 'The correction applies from {{start}} on.',
+  notInForce:
+    'It was not in force in that period, so there is nothing to correct there. Choose another period.',
+  budgetEnded:
+    'The budget has ended: a change applies only as a correction from one of its periods.',
+}
+
+export const catchUpEn = {
+  title: 'Catching up on the time since your last visit…',
+  help: 'The budget is creating the periods, charges and interest since then. This can take a few seconds.',
 }

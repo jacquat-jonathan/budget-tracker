@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { routes } from '@/app/routes'
 import { formatMoney } from '@/lib/money'
 import { renderRoutes } from '@/test/render'
-import { categoriesDb, DEBT_ID, debtRow } from '@/test/budget-fixtures'
+import { BUDGET_ID, categoriesDb, DEBT_ID, debtRow } from '@/test/budget-fixtures'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
@@ -42,8 +42,11 @@ function debtsDb() {
         payoff: 'paid_off',
         payments_left: null,
         expected_end_date: null,
+        paid_percent: 100,
       }),
     ],
+    // What is still owed in all is the database's figure, never added up on the page.
+    debt_totals: [{ budget_id: BUDGET_ID, remaining_total: 1_234_500, owing_count: 2 }],
   })
   db.rpc.get_debt_history.mockImplementation(() => [
     {
@@ -105,8 +108,47 @@ describe('debts page [R-DEBT-121]', () => {
     )
     expect(within(card('Phone')).getByTestId('payoff')).toHaveTextContent('Paid off')
     expect(within(card('Phone')).getByText('No interest')).toBeInTheDocument()
-    // The total remaining across the debts in force: the database's amounts added up.
-    expect(screen.getByTestId('debts-total')).toHaveTextContent(money(1_450_000))
+    // The paid share is the database's paid_percent.
+    expect(car).toHaveTextContent(`${money(50_000)} paid · 4 %`)
+    expect(within(car).getByRole('progressbar', { name: '4 % paid off' })).toBeInTheDocument()
+    // The total and the count are debt_totals', not the cards' amounts added up.
+    expect(screen.getByTestId('debts-total')).toHaveTextContent(
+      `Still owed on 2 debts${money(1_234_500)}`,
+    )
+  })
+
+  it('says a projected end after the budget’s end, and an overpaid debt by overpaid_by [R-DEBT-121]', async () => {
+    const db = debtsDb()
+    db.tables.debt_overview = [
+      debtRow({ expected_end_after_budget_end: true }),
+      debtRow({
+        id: 'debt-over',
+        name: 'Overpaid',
+        remaining: -12_345,
+        overpaid_by: 12_345,
+        payoff: 'paid_off',
+        payments_left: 0,
+        expected_end_date: null,
+        paid_percent: 100,
+      }),
+    ]
+    db.tables.debt_totals = []
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/debts')
+    await screen.findAllByTestId('debt-card')
+    expect(within(card('Car loan')).getByTestId('payoff-after-budget-end')).toHaveTextContent(
+      'This is after the budget ends.',
+    )
+    const over = card('Overpaid')
+    expect(within(over).getByTestId('debt-remaining')).toHaveTextContent(money(12_345))
+    expect(over).toHaveTextContent('Overpaid')
+    expect(within(over).getByTestId('payoff')).toHaveTextContent(
+      `Paid off · overpaid by ${money(12_345)}`,
+    )
+    // No debt_totals row: nothing owed.
+    expect(screen.getByTestId('debts-total')).toHaveTextContent(
+      `Nothing left to pay on your debts${money(0)}`,
+    )
   })
 
   it('says the month of the expected end in French too', async () => {
@@ -166,27 +208,30 @@ describe('debts page [R-DEBT-121]', () => {
 })
 
 describe('debt detail [R-DEBT-122]', () => {
-  it('shows the history as a table next to the chart, newest first', async () => {
-    mock.current = createSupabaseMock(fakeSession(), debtsDb())
+  it('shows the history as a table next to the chart, oldest first as the database pages it', async () => {
+    const db = debtsDb()
+    mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, `/debts/${DEBT_ID}`)
     const table = await screen.findByTestId('debt-history')
     const rows = within(table).getAllByTestId('history-row')
     expect(rows.map((row) => row.textContent)).toEqual([
-      expect.stringContaining('Adjustment'),
-      expect.stringContaining('Payment'),
       expect.stringContaining('Opened'),
+      expect.stringContaining('Payment'),
+      expect.stringContaining('Adjustment'),
     ])
-    expect(rows[0]).toHaveTextContent(`10.11.2026 · ${money(-2_500)}Statement`)
-    expect(rows[0]).toHaveTextContent(money(1_147_500))
+    expect(rows[2]).toHaveTextContent(`10.11.2026 · ${money(-2_500)}Statement`)
+    expect(rows[2]).toHaveTextContent(money(1_147_500))
+    expect(screen.getByTestId('history-shown')).toHaveTextContent('All 3 events, oldest first.')
     expect(screen.getByTestId('debt-chart')).toBeInTheDocument()
     expect(
       screen.getByRole('img', { name: /Remaining amount over time, 3 events/ }),
     ).toBeInTheDocument()
-    // A payment leads to its transactions.
+    // A payment leads to the debt's payments in its period.
     expect(within(rows[1]!).getByRole('link', { name: /See the payment of/ })).toHaveAttribute(
       'href',
-      '/transactions?period=period-2',
+      `/transactions?period=period-2&debt=${DEBT_ID}`,
     )
+    expect(db.rpc.get_debt_history).toHaveBeenCalledWith({ p_debt_id: DEBT_ID, p_limit: 1000 })
   })
 
   it('adjusts the balance to the bank’s figure, saying the difference is what is stored', async () => {
@@ -257,10 +302,51 @@ describe('debt detail [R-DEBT-122]', () => {
     renderRoutes(routes, `/debts/${DEBT_ID}`)
     await screen.findByTestId('debt-history')
     await userEvent.click(screen.getByRole('button', { name: 'More actions for Car loan' }))
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'End or delete' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'End' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByTestId('remove-debt-outcome')).toHaveTextContent(
       `Its history stays, and so does its remaining amount (${money(1_150_000)})`,
     )
+  })
+})
+
+describe('a debt in an ended budget [R-BUDGET-150]', () => {
+  it('adjusts on the budget’s last day by default, sending no date, as the database does', async () => {
+    const db = debtsDb()
+    db.rpc.get_current_period.mockImplementation(() => [])
+    db.tables.period_summaries = db.tables.period_summaries.map((period) => ({
+      ...period,
+      is_current: false,
+    }))
+    db.rpc.adjust_debt_balance.mockImplementation(() => [])
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
+    await screen.findByTestId('debt-history')
+    await userEvent.click(screen.getByRole('button', { name: 'Adjust balance' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Date of the statement')).toHaveValue('15.11.2026')
+    await userEvent.type(within(dialog).getByLabelText('Balance on your statement'), '11000')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Adjust' }))
+    await waitFor(() => {
+      expect(db.rpc.adjust_debt_balance).toHaveBeenCalledWith({
+        p_debt_id: DEBT_ID,
+        p_expected_revision: 1,
+        p_balance: 1_100_000,
+      })
+    })
+  })
+
+  it('freezes an ended debt: no payment, no adjustment, adjustments kept, and says why [R-DEBT-151]', async () => {
+    const db = debtsDb()
+    db.tables.debt_overview[0] = debtRow({ is_active: false, end_seq: 2 })
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
+    await screen.findByTestId('debt-history')
+    expect(screen.queryByRole('button', { name: 'Record a payment' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Adjust balance' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Delete the adjustment of/ })).toBeNull()
+    expect(
+      screen.getByText(/its payments and adjustments can no longer be changed/),
+    ).toBeInTheDocument()
   })
 })

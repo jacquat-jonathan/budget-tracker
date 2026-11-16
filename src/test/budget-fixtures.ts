@@ -28,6 +28,7 @@ export function subscriptionRow(
     revision: 1,
     created_at: '2026-11-01T10:00:00+00:00',
     updated_at: '2026-11-01T10:00:00+00:00',
+    charge_day: 5,
     ...overrides,
   }
 }
@@ -61,6 +62,9 @@ export function debtRow(overrides: Partial<Tables<'debt_overview'>> = {}): Table
     revision: 1,
     created_at: '2026-10-23T10:00:00+00:00',
     updated_at: '2026-10-23T10:00:00+00:00',
+    expected_end_after_budget_end: false,
+    overpaid_by: 0,
+    paid_percent: 4,
     ...overrides,
   }
 }
@@ -83,6 +87,8 @@ export function budgetRow(overrides: Partial<Tables<'my_budgets'>> = {}): Tables
     end_date_entered: null,
     is_owner: true,
     revision: 1,
+    caught_up: true,
+    charges_awaiting: 0,
     created_at: '2026-10-01T10:00:00+00:00',
     updated_at: '2026-10-01T10:00:00+00:00',
     ...overrides,

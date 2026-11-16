@@ -71,15 +71,43 @@ export interface UpdateSubscriptionInput {
   fromPeriodId: string | null
 }
 
+/** The terms arguments of an edit, as the save and its preview both send them. */
+export interface TermsArgs {
+  p_price?: number
+  p_cadence?: SubscriptionCadence
+  p_next_charge_date?: string
+  p_category_id?: string
+  p_from_period_id?: string
+}
+
 /**
- * One edit: rename and/or new terms. Only what differs from the terms the form started from is
- * sent (for a correction, those of the period it corrects: never today's terms written over
- * the past), except that price, cadence and the next charge date form one group: when any of
- * them changed, the group is sent whole, as the form shows it, so a save never combines one
- * member's price with another's cadence. A correction that changes no term is no correction:
- * only the name, if changed, is sent. Returns false when there was nothing to save.
+ * The terms part of one edit: only what differs from the terms the form started from (for a
+ * correction, those of the period it corrects: never today's terms written over the past),
+ * except that price, cadence and the next charge date form one group: when any of them
+ * changed, the group is sent whole, as the form shows it. A correction that changes no term is
+ * no correction. preview_update_subscription receives exactly these arguments (D-231).
  */
 // R-SUBSCRIPTION-122 R-SUBSCRIPTION-140: the group together; only what the user changed.
+export function termsArgs(
+  input: Pick<
+    UpdateSubscriptionInput,
+    'base' | 'price' | 'cadence' | 'categoryId' | 'nextChargeDate' | 'fromPeriodId'
+  >,
+): TermsArgs {
+  const { base } = input
+  const terms =
+    input.price !== base.price || input.cadence !== base.cadence || input.nextChargeDate !== null
+  const category = input.categoryId !== base.category_id
+  const correcting = input.fromPeriodId !== null && (terms || category)
+  return {
+    ...(terms ? { p_price: input.price, p_cadence: input.cadence } : {}),
+    ...(terms && input.nextChargeDate ? { p_next_charge_date: input.nextChargeDate } : {}),
+    ...(category ? { p_category_id: input.categoryId } : {}),
+    ...(correcting && input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
+  }
+}
+
+/** One edit: rename and/or new terms (termsArgs). Returns false when there was nothing to save. */
 export function useUpdateSubscription(budgetId: string, options: { onDone: () => void }) {
   const { t } = useTranslation()
   return useAppMutation<boolean, UpdateSubscriptionInput>({
@@ -87,24 +115,16 @@ export function useUpdateSubscription(budgetId: string, options: { onDone: () =>
     // Shown only when what changed is not on the form (the banner says the rest).
     errorMessages: { record_changed: 'subscriptions.changedNotShown' },
     mutationFn: async (input) => {
-      const { subscription, base } = input
+      const { subscription } = input
       const renamed = input.name !== subscription.name
-      const terms =
-        input.price !== base.price ||
-        input.cadence !== base.cadence ||
-        input.nextChargeDate !== null
-      const category = input.categoryId !== base.category_id
-      const correcting = input.fromPeriodId !== null && (terms || category)
-      if (!renamed && !terms && !category) return false
+      const args = termsArgs(input)
+      if (!renamed && Object.keys(args).length === 0) return false
       unwrap(
         await supabase.rpc('update_subscription', {
           p_subscription_id: subscription.id,
           p_expected_revision: subscription.revision,
           ...(renamed ? { p_name: input.name } : {}),
-          ...(terms ? { p_price: input.price, p_cadence: input.cadence } : {}),
-          ...(terms && input.nextChargeDate ? { p_next_charge_date: input.nextChargeDate } : {}),
-          ...(category ? { p_category_id: input.categoryId } : {}),
-          ...(correcting && input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
+          ...args,
         }),
       )
       return true
@@ -148,6 +168,29 @@ export function useEndSubscription(budgetId: string) {
  * transaction's revision. When another member answered first (record_changed, or the charge is
  * gone), the list is read again and the message says so; nothing is sent again.
  */
+/**
+ * Every charge awaiting confirmation up to the date, in one call (it acts on what awaits when
+ * it runs): the message says how many it confirmed, and when that is not the number the
+ * confirmation stated.
+ */
+export function useConfirmAllCharges(budgetId: string) {
+  const { t } = useTranslation()
+  return useAppMutation<number, { throughDate: string; stated: number }>({
+    mutationFn: async ({ throughDate }) =>
+      unwrap(
+        await supabase.rpc('confirm_subscription_charges', {
+          p_budget_id: budgetId,
+          p_through_date: throughDate,
+        }),
+      ),
+    success: (confirmed, { stated }) =>
+      confirmed === stated
+        ? t('charges.confirmedAll', { count: confirmed })
+        : t('charges.confirmedAllOther', { count: confirmed, stated }),
+    invalidate: () => affected(budgetId),
+  })
+}
+
 export function useAnswerCharge(budgetId: string) {
   const { t } = useTranslation()
   const answeredElsewhere = {

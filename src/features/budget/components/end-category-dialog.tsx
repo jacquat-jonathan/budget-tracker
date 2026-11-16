@@ -27,7 +27,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
-import { CategoryInUse } from '@/features/budget/components/category-in-use'
+import { categoryUsers } from '@/features/budget/category-users'
+import { CategoryInUse, CategoryUsers } from '@/features/budget/components/category-in-use'
 import { useEndCategory } from '@/features/categories/category-mutations'
 import type { Category } from '@/features/categories/category-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
@@ -118,6 +119,7 @@ function EndCategoryBody({
   // any earlier period alike (in force now means in force from there on): nothing to offer.
   const inUse = category.in_use === true
   const blocked = removal.changed || removal.gone || inUse
+  const refusedFor = blocked ? null : categoryUsers(end.error)
 
   return (
     <>
@@ -219,7 +221,12 @@ function EndCategoryBody({
           }}
         />
       )}
-      <SaveError error={end.error} hidden={blocked} message={errorMessage} />
+      {refusedFor ? (
+        // The refusal names what still uses the category from that period on.
+        <CategoryUsers users={refusedFor} />
+      ) : (
+        <SaveError error={end.error} hidden={blocked} message={errorMessage} />
+      )}
       <AlertDialogFooter>
         <AlertDialogCancel disabled={end.isPending}>{t('common.cancel')}</AlertDialogCancel>
         <Button

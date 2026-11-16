@@ -34,17 +34,21 @@ import { formatMoney } from '@/lib/money'
 /** The largest balance the database accepts: CHF 10 billion (R-DEBT-110). */
 const MAX_BALANCE_RAPPEN = 1_000_000_000_000
 
-function adjustSchema(range: DateRange) {
+// R-DEBT-150: no adjustment before the day the debt was opened, refused before it is sent.
+function adjustSchema(range: DateRange, openedOn: string) {
   return z.object({
     balance: rappenSchema({
       min: 0,
       max: MAX_BALANCE_RAPPEN,
       tooSmall: 'validation.amountNegative',
     }),
-    date: calendarDateSchema.refine(
-      (value) => !isCalendarDate(value) || (range.min <= value && value <= range.max),
-      { error: 'validation.dateOutsidePeriods' },
-    ),
+    date: calendarDateSchema
+      .refine((value) => !isCalendarDate(value) || (range.min <= value && value <= range.max), {
+        error: 'validation.dateOutsidePeriods',
+      })
+      .refine((value) => !isCalendarDate(value) || value >= openedOn, {
+        error: 'errors.db.before_debt_opened',
+      }),
     note: z.string().max(DESCRIPTION_MAX_LENGTH, { error: 'validation.descriptionTooLong' }),
   })
 }
@@ -124,11 +128,15 @@ function AdjustForm({
   const live = useDebtRecord(budgetId, opened.id)
   const edit = useEditBase(opened, live, views.debtBalance)
   const debt = edit.base ?? opened
-  const schema = useMemo(() => adjustSchema(range), [range])
+  const schema = useMemo(() => adjustSchema(range, opened.opened_on), [range, opened.opened_on])
+  // The date the database gives an adjustment sent without one: today, or the budget's last
+  // day once it has ended (D-206). Left as it is, none is sent.
+  const defaultDate = today > range.max ? range.max : today
   const form = useForm<Input, unknown, Values>({
     resolver: zodResolver(schema),
-    defaultValues: { balance: null, date: today > range.max ? range.max : today, note: '' },
+    defaultValues: { balance: null, date: defaultDate, note: '' },
   })
+  const earliest = opened.opened_on > range.min ? opened.opened_on : range.min
   const adjust = useAdjustBalance(budgetId, { onDone: onClose })
   // The remaining amount as it is now (payments meanwhile included): the difference to store.
   const current = live ?? debt
@@ -141,7 +149,7 @@ function AdjustForm({
         debt,
         revision: debt.revision,
         balance: values.balance,
-        date: values.date === today ? null : values.date,
+        date: values.date === defaultDate ? null : values.date,
         note: values.note,
       })
       .catch(() => undefined),
@@ -180,13 +188,17 @@ function AdjustForm({
           control={form.control}
           name="date"
           label={t('debts.adjust.date')}
-          description={t(
-            ended ? 'transactions.fields.dateRangeEnded' : 'transactions.fields.dateRange',
-            {
-              min: formatCalendarDate(range.min),
-              max: formatCalendarDate(range.max),
-            },
-          )}
+          description={
+            earliest !== range.min
+              ? t('debts.adjust.dateRange', {
+                  min: formatCalendarDate(earliest),
+                  max: formatCalendarDate(range.max),
+                })
+              : t(ended ? 'transactions.fields.dateRangeEnded' : 'transactions.fields.dateRange', {
+                  min: formatCalendarDate(range.min),
+                  max: formatCalendarDate(range.max),
+                })
+          }
         />
         <TextField
           control={form.control}

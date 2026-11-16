@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
@@ -8,7 +8,7 @@ import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
 type DebtRead = Tables<'debt_overview'>
-export type Payoff = 'paid_off' | 'ends' | 'never'
+export type Payoff = Database['public']['Enums']['debt_payoff']
 
 /**
  * A debt as the contract describes it: totals, remaining and flags are never null; the
@@ -25,6 +25,9 @@ export interface Debt extends Omit<
   | 'payoff'
   | 'has_history'
   | 'removal_deletes'
+  | 'overpaid_by'
+  | 'paid_percent'
+  | 'expected_end_after_budget_end'
 > {
   is_active: boolean
   interest_total: number
@@ -34,9 +37,13 @@ export interface Debt extends Omit<
   payoff: Payoff | null
   has_history: boolean
   removal_deletes: boolean
+  /** How much more was paid than owed; 0 unless overpaid. */
+  overpaid_by: number
+  /** Paid off, a whole percent (D-215): for the bar and its label. */
+  paid_percent: number
+  /** The projected end falls after the budget's end (R-DEBT-132). */
+  expected_end_after_budget_end: boolean
 }
-
-const PAYOFFS: readonly string[] = ['paid_off', 'ends', 'never']
 
 export function readDebt(row: DebtRead): Debt {
   return {
@@ -46,20 +53,35 @@ export function readDebt(row: DebtRead): Debt {
     adjustment_total: row.adjustment_total ?? 0,
     paid_total: row.paid_total ?? 0,
     remaining: row.remaining ?? 0,
-    payoff: row.payoff !== null && PAYOFFS.includes(row.payoff) ? (row.payoff as Payoff) : null,
+    payoff: row.payoff,
     has_history: row.has_history === true,
     removal_deletes: row.removal_deletes === true,
+    overpaid_by: row.overpaid_by ?? 0,
+    paid_percent: row.paid_percent ?? 0,
+    expected_end_after_budget_end: row.expected_end_after_budget_end === true,
   }
 }
 
-/**
- * How much of what was owed is paid off, in percent, for a bar only: never a money figure.
- * Paid and remaining are the database's.
- */
-export function paidShare(debt: Pick<Debt, 'paid_total' | 'remaining'>): number {
-  const paid = Math.max(debt.paid_total, 0)
-  const owed = paid + Math.max(debt.remaining, 0)
-  return owed <= 0 ? 0 : Math.round((paid / owed) * 100)
+export interface DebtTotals {
+  /** The positive remaining amounts of the debts in force, added up by the database. */
+  remaining_total: number
+  /** How many debts in force still owe something. */
+  owing_count: number
+}
+
+/** debt_totals: no row when no debt is in force (0 owed, D-216). */
+// What is owed in all is the database's total (D-216); the client adds nothing up.
+export function useDebtTotals(budgetId: string): PeriodRead<DebtTotals> {
+  return usePeriodDependentQuery(budgetId, budgetKeys.debtTotals(budgetId), async () => {
+    const row = unwrap(
+      await supabase
+        .from('debt_totals')
+        .select('remaining_total, owing_count')
+        .eq('budget_id', budgetId)
+        .maybeSingle(),
+    )
+    return { remaining_total: row?.remaining_total ?? 0, owing_count: row?.owing_count ?? 0 }
+  })
 }
 
 export function isVoidDebt(debt: Pick<Debt, 'first_seq' | 'end_seq'>) {
@@ -151,13 +173,50 @@ function readEntry(row: HistoryRead): HistoryEntry | null {
   }
 }
 
-/** R-DEBT-004: the debt's history, oldest first, each row with the balance after it. */
+/** Rows per page of get_debt_history (the contract allows up to 1000). */
+export const HISTORY_PAGE = 1000
+/**
+ * Pages the chart reads by itself before it stops and says so: 10 000 events, enough for any
+ * ordinary debt; the table reads on, page after page, on request.
+ */
+export const HISTORY_AUTO_PAGES = 10
+
+interface HistoryCursor {
+  p_after_date: string
+  p_after_kind: string
+  p_after_created_at: string
+  p_after_id: string
+}
+
+/**
+ * The debt's history, oldest first, each row with the balance after it, a page at a time: the
+ * next page continues after the last row of the one before (all four of its keys); a page
+ * shorter than the limit is the last.
+ */
+// R-DEBT-122: the history read page by page with the database's cursor, never all at once.
 export function useDebtHistory(budgetId: string, debtId: string) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: budgetKeys.debtHistory(budgetId, debtId),
-    queryFn: async (): Promise<HistoryEntry[]> =>
-      unwrap(await supabase.rpc('get_debt_history', { p_debt_id: debtId }))
+    initialPageParam: null as HistoryCursor | null,
+    queryFn: async ({ pageParam }): Promise<HistoryEntry[]> =>
+      unwrap(
+        await supabase.rpc('get_debt_history', {
+          p_debt_id: debtId,
+          p_limit: HISTORY_PAGE,
+          ...(pageParam ?? {}),
+        }),
+      )
         .map(readEntry)
         .filter((entry): entry is HistoryEntry => entry !== null),
+    getNextPageParam: (page): HistoryCursor | null => {
+      const last = page.at(-1)
+      if (page.length < HISTORY_PAGE || !last) return null
+      return {
+        p_after_date: last.date,
+        p_after_kind: last.kind,
+        p_after_created_at: last.created_at,
+        p_after_id: last.entry_id,
+      }
+    },
   })
 }

@@ -4,51 +4,100 @@ import type { FieldValues, Path, PathValue, UseFormReturn } from 'react-hook-for
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap } from '@/features/budgets/budget-queries'
-import type { Tables } from '@/lib/database.types'
+import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
-/** The version tables of docs/database.md, each keyed by its record and effective_from_seq. */
-const VERSIONS = {
-  income: { table: 'income_versions', column: 'income_id' },
-  category: { table: 'category_expectations', column: 'category_id' },
-  subscription: { table: 'subscription_versions', column: 'subscription_id' },
-  debt: { table: 'debt_versions', column: 'debt_id' },
-} as const
-
-type Kind = keyof typeof VERSIONS
-export type VersionOf<K extends Kind> = Tables<(typeof VERSIONS)[K]['table']>
+type Functions = Database['public']['Functions']
+type Row<F extends keyof Functions> = Functions[F] extends { Returns: (infer R)[] } ? R : never
 
 /**
- * The terms a record had in force in an earlier period, as the database stored them: its
- * version row with the greatest effective_from_seq not after the period's seq (the
- * contract's versioning rule, read, not recomputed). What a correction starts from, and
- * what it compares with to send only what the user changed.
+ * What get_<record>_terms answers for a chosen period (D-219): the terms in force there, or
+ * `inForce` false when the record did not exist in that period (its terms are then null),
+ * and up to which period a correction from there applies (`untilPeriodId`, the first period
+ * of the next existing change or of the record's end; null: from that period on). The
+ * generated types mark every field required; the contract says the terms and
+ * `untilPeriodId` may be null, so they are read once here.
+ */
+export interface TermsAt<T> {
+  inForce: boolean
+  /** The terms in force in the chosen period; null when not in force. */
+  terms: T | null
+  termsFromPeriodId: string | null
+  untilPeriodId: string | null
+}
+
+export type SubscriptionTerms = Pick<
+  Row<'get_subscription_terms'>,
+  'price' | 'cadence' | 'category_id' | 'anchor_date' | 'charge_day'
+>
+export type DebtTerms = Pick<
+  Row<'get_debt_terms'>,
+  'category_id' | 'interest_rate' | 'monthly_payment'
+>
+export type CategoryTerms = Pick<Row<'get_category_terms'>, 'amount' | 'cadence'>
+export type IncomeTerms = Pick<Row<'get_income_terms'>, 'amount' | 'pay_day' | 'weekend_rule'>
+
+interface Kinds {
+  subscription: SubscriptionTerms
+  debt: DebtTerms
+  category: CategoryTerms
+  income: IncomeTerms
+}
+
+async function read<K extends keyof Kinds>(kind: K, id: string, periodId: string) {
+  // One call per kind: the database decides which terms were in force (C-LOGIC-001).
+  const rows: unknown[] =
+    kind === 'subscription'
+      ? unwrap(
+          await supabase.rpc('get_subscription_terms', {
+            p_subscription_id: id,
+            p_period_id: periodId,
+          }),
+        )
+      : kind === 'debt'
+        ? unwrap(await supabase.rpc('get_debt_terms', { p_debt_id: id, p_period_id: periodId }))
+        : kind === 'category'
+          ? unwrap(
+              await supabase.rpc('get_category_terms', {
+                p_category_id: id,
+                p_period_id: periodId,
+              }),
+            )
+          : unwrap(
+              await supabase.rpc('get_income_terms', { p_income_id: id, p_period_id: periodId }),
+            )
+  const row = (rows[0] ?? null) as
+    | (Kinds[K] & {
+        in_force: boolean | null
+        terms_from_period_id: string | null
+        until_period_id: string | null
+      })
+    | null
+  const inForce = row?.in_force === true
+  return {
+    inForce,
+    terms: inForce ? row : null,
+    termsFromPeriodId: row?.terms_from_period_id ?? null,
+    untilPeriodId: row?.until_period_id ?? null,
+  } satisfies TermsAt<Kinds[K]>
+}
+
+/**
+ * The terms a record had in force in an earlier period, from the database (get_*_terms): what
+ * a correction starts from, and what it compares with to send only what the user changed.
  */
 // R-VERSION-140: a correction starts from, and is compared with, the terms of its period.
-export function useTermsAt<K extends Kind>(
+export function useTermsAt<K extends keyof Kinds>(
   kind: K,
   budgetId: string,
   id: string | undefined,
-  seq: number | null,
+  periodId: string | null,
 ) {
-  const { table, column } = VERSIONS[kind]
   return useQuery({
-    queryKey: [...budgetKeys.budget(budgetId), 'terms-at', kind, id ?? '', seq ?? 0] as const,
-    enabled: id !== undefined && seq !== null,
+    queryKey: [...budgetKeys.budget(budgetId), 'terms-at', kind, id ?? '', periodId ?? ''] as const,
+    enabled: id !== undefined && periodId !== null,
     staleTime: 0,
-    queryFn: async (): Promise<VersionOf<K> | null> =>
-      unwrap(
-        await supabase
-          // All four tables have budget_id, the record column and effective_from_seq.
-          .from(table as 'income_versions')
-          .select('*')
-          .eq('budget_id', budgetId)
-          .eq(column as 'income_id', id ?? '')
-          .lte('effective_from_seq', seq ?? 0)
-          .order('effective_from_seq', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ) as unknown as VersionOf<K> | null,
+    queryFn: (): Promise<TermsAt<Kinds[K]>> => read(kind, id ?? '', periodId ?? ''),
   })
 }
 

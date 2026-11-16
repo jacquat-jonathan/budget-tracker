@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { InfoIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -25,6 +25,7 @@ import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCategoriesForDate } from '@/features/categories/category-queries'
 import { useCreateDebt, useUpdateDebt } from '@/features/debts/debt-mutations'
 import { useRecordSettled } from '@/features/budgets/record-settled'
+import { CorrectionReach } from '@/features/budgets/correction-reach'
 import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useDebtRecord, type Debt } from '@/features/debts/debt-queries'
 import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
@@ -148,24 +149,42 @@ function DebtForm({
           (debt.end_seq === null || period.seq < debt.end_seq),
       )
     : []
+
+  // R-BUDGET-150: once the budget has ended, a change is only a correction of its periods.
+  const mustCorrect = currentPeriod === null
+  const firstCorrectable = correctable[0]?.id
+  const firstEarlier = earlier[0]?.id
+  useEffect(() => {
+    if (!mustCorrect) return
+    if (debt && !correct && firstCorrectable) {
+      form.setValue('correct', true)
+      form.setValue('fromPeriodId', firstCorrectable)
+    }
+    if (!debt && fromPeriodId === '' && firstEarlier) form.setValue('fromPeriodId', firstEarlier)
+  }, [mustCorrect, debt, correct, fromPeriodId, firstCorrectable, firstEarlier, form])
   const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
   // A correction starts from the terms of the period chosen, read from the database.
   const correcting = debt !== undefined && correct && fromPeriod !== null
-  const termsAt = useTermsAt('debt', budgetId, debt?.id, correcting ? fromPeriod.seq : null)
-  const periodTerms = correcting ? (termsAt.data ?? null) : null
+  const termsAt = useTermsAt('debt', budgetId, debt?.id, correcting ? fromPeriod.id : null)
+  const periodTerms = correcting ? (termsAt.data?.terms ?? null) : null
+  // Not in force in that period: nothing to correct there, nothing to save.
+  const notInForce = correcting && termsAt.data?.inForce === false
   const base = debt ? (correcting ? periodTerms : debt) : null
   useStartFrom(
     form,
-    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    correcting ? `period-${fromPeriod.id}-${termsAt.dataUpdatedAt}` : 'now',
     base && debt
       ? {
           rate: base.interest_rate !== 0 ? formatInterestRate(base.interest_rate) : '',
           monthlyPayment: base.monthly_payment,
+          categoryId: base.category_id,
         }
       : null,
   )
-  // A new debt's category is one in force in its first period; an edited one's, from now on.
-  const effective = (debt ? null : fromPeriod) ?? currentPeriod ?? periods[0] ?? null
+  // A new debt's category is one in force in its first period; an edited one's, from now on
+  // or from the period corrected.
+  const effective =
+    (debt ? (correcting ? fromPeriod : null) : fromPeriod) ?? currentPeriod ?? periods[0] ?? null
   const choices = useCategoriesForDate(budgetId, effective?.start_date ?? '')
   const options = useMemo((): CategoryChoice[] => {
     const list: CategoryChoice[] = choices.data ?? []
@@ -241,6 +260,7 @@ function DebtForm({
             }}
             label={t('income.correction.label')}
             warning={t('debts.correctionWarning')}
+            required={mustCorrect ? t('corrections.budgetEnded') : undefined}
           >
             <SelectField
               control={form.control}
@@ -248,13 +268,13 @@ function DebtForm({
               label={t('corrections.period')}
               options={correctable.map((period) => ({ value: period.id, label: label(period) }))}
             />
-            <p className="text-sm text-muted-foreground" data-testid="correction-start">
-              {periodTerms
-                ? t('corrections.showsPeriodTerms')
-                : termsAt.isError
-                  ? errorMessage(termsAt.error)
-                  : t('common.loading')}
-            </p>
+            <CorrectionReach
+              periods={periods}
+              periodId={fromPeriodId}
+              terms={termsAt.data}
+              pending={termsAt.isPending}
+              error={termsAt.isError ? errorMessage(termsAt.error) : null}
+            />
           </CorrectionToggle>
         )}
         <CategorySelectField
@@ -301,7 +321,7 @@ function DebtForm({
             label={t('debts.fields.from')}
             description={t('debts.fields.fromHelp')}
             options={[
-              { value: '', label: t('income.fields.fromCurrent') },
+              ...(mustCorrect ? [] : [{ value: '', label: t('income.fields.fromCurrent') }]),
               ...earlier.map((period) => ({ value: period.id, label: label(period) })),
             ]}
           />
@@ -331,6 +351,7 @@ function DebtForm({
               sync.pending !== null ||
               edit.gone ||
               !settled ||
+              notInForce ||
               (!!debt && !base)
             }
           >

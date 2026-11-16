@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils'
  * around a month (an estimate: future periods follow the primary income's schedule) with the
  * payments left, or never at this payment, as a warning with an icon and words.
  */
-// R-DEBT-121: the database's projection, said in words; "never ends" never by colour alone.
+// R-DEBT-121: the database's projection, said in words; "never ends" never by colour alone,
+// an end after the budget's end said as such.
 export function Payoff({
   debt,
   budgetEnded = false,
@@ -32,8 +33,8 @@ export function Payoff({
         data-testid="payoff"
       >
         <CircleCheckIcon className="size-4 shrink-0" aria-hidden />
-        {debt.remaining < 0
-          ? t('debts.payoff.overpaid', { amount: formatMoney(-debt.remaining) })
+        {debt.overpaid_by > 0
+          ? t('debts.payoff.overpaid', { amount: formatMoney(debt.overpaid_by) })
           : t('debts.payoff.paidOff')}
       </p>
     )
@@ -82,6 +83,11 @@ export function Payoff({
         </span>
         {' · '}
         {t('debts.payoff.paymentsLeft', { count: debt.payments_left ?? 0 })}
+        {debt.expected_end_after_budget_end && (
+          <span className="block text-xs font-medium" data-testid="payoff-after-budget-end">
+            {t('debts.payoff.afterBudgetEnd')}
+          </span>
+        )}
         <span className="block text-xs text-muted-foreground">{t('debts.payoff.estimate')}</span>
       </span>
     </p>

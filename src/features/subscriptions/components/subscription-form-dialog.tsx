@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { InfoIcon } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -24,20 +24,23 @@ import { FieldGroup } from '@/components/ui/field'
 import { TextField } from '@/features/auth/components/text-field'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
 import { useRecordSettled } from '@/features/budgets/record-settled'
+import { CorrectionReach } from '@/features/budgets/correction-reach'
 import { useStartFrom, useTermsAt } from '@/features/budgets/terms-at'
 import { useCategoriesForDate } from '@/features/categories/category-queries'
 import { ChargeDatesPreview } from '@/features/subscriptions/components/charge-dates-preview'
-import { useSubscriptionViews } from '@/features/subscriptions/subscription-views'
+import { useChargeDayText, useSubscriptionViews } from '@/features/subscriptions/subscription-views'
 import {
   useCreateSubscription,
   useUpdateSubscription,
+  termsArgs,
   type TermsBase,
 } from '@/features/subscriptions/subscription-mutations'
 import {
   SUBSCRIPTION_CADENCES,
+  usePreviewCreate,
+  usePreviewUpdate,
   useSubscriptionRecord,
   type Subscription,
-  type SubscriptionCadence,
 } from '@/features/subscriptions/subscription-queries'
 import {
   CategorySelectField,
@@ -45,6 +48,7 @@ import {
 } from '@/features/transactions/components/category-select-field'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
+import { useDebounced } from '@/hooks/use-debounced'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { nameSchema, rappenSchema } from '@/lib/form-schemas'
@@ -154,9 +158,9 @@ function SubscriptionForm({
     resolver: zodResolver(schema),
     defaultValues: valuesOf(subscription),
   })
-  const [cadence, chargeDate, fromPeriodId, correct, categoryId] = useWatch({
+  const [cadence, chargeDate, fromPeriodId, correct, categoryId, price] = useWatch({
     control: form.control,
-    name: ['cadence', 'chargeDate', 'fromPeriodId', 'correct', 'categoryId'],
+    name: ['cadence', 'chargeDate', 'fromPeriodId', 'correct', 'categoryId', 'price'],
   })
 
   const create = useCreateSubscription(budgetId, { onDone: close })
@@ -178,6 +182,19 @@ function SubscriptionForm({
           (subscription.end_seq === null || period.seq < subscription.end_seq),
       )
     : []
+
+  // R-BUDGET-150: once the budget has ended, a change is only a correction of its periods.
+  const mustCorrect = currentPeriod === null
+  const firstCorrectable = correctable[0]?.id
+  const firstEarlier = earlier[0]?.id
+  useEffect(() => {
+    if (!mustCorrect) return
+    if (editing && !correct && firstCorrectable) {
+      form.setValue('correct', true)
+      form.setValue('fromPeriodId', firstCorrectable)
+    }
+    if (!editing && fromPeriodId === '' && firstEarlier) form.setValue('fromPeriodId', firstEarlier)
+  }, [mustCorrect, editing, correct, fromPeriodId, firstCorrectable, firstEarlier, form])
   // The period the terms take effect in: the categories offered are those in force then.
   const fromPeriod = periods.find((period) => period.id === fromPeriodId) ?? null
   const effective = (editing ? (correct ? fromPeriod : null) : fromPeriod) ?? currentPeriod
@@ -190,26 +207,70 @@ function SubscriptionForm({
     'subscription',
     budgetId,
     subscription?.id,
-    correcting ? fromPeriod.seq : null,
+    correcting ? fromPeriod.id : null,
   )
-  const periodTerms = correcting ? (termsAt.data ?? null) : null
-  const base: (TermsBase & { anchor_date: string }) | null = subscription
+  const periodTerms = correcting ? (termsAt.data?.terms ?? null) : null
+  // Not in force in that period: nothing to correct there, nothing to save.
+  const notInForce = correcting && termsAt.data?.inForce === false
+  const base: (TermsBase & { charge_day: number }) | null = subscription
     ? correcting
       ? periodTerms && {
           price: periodTerms.price,
           cadence: periodTerms.cadence,
           category_id: periodTerms.category_id,
-          anchor_date: periodTerms.anchor_date,
+          charge_day: periodTerms.charge_day,
         }
       : subscription
     : null
   useStartFrom(
     form,
-    correcting ? `period-${fromPeriod.id}-${periodTerms?.id ?? ''}` : 'now',
+    correcting ? `period-${fromPeriod.id}-${termsAt.dataUpdatedAt}` : 'now',
     base && subscription
       ? { price: base.price, cadence: base.cadence, categoryId: base.category_id }
       : null,
   )
+
+  // The preview: the database's answer for exactly the arguments the save will send.
+  const typedPrice = typeof price === 'number' && Number.isSafeInteger(price) ? price : null
+  const updateArgs = useDebounced(
+    base && typedPrice !== null
+      ? termsArgs({
+          base,
+          price: typedPrice,
+          cadence,
+          categoryId,
+          nextChargeDate: isCalendarDate(chargeDate) ? chargeDate : null,
+          fromPeriodId: correct ? fromPeriodId || null : null,
+        })
+      : null,
+  )
+  const createArgs = useDebounced({
+    cadence,
+    firstChargeDate: isCalendarDate(chargeDate) ? chargeDate : '',
+    fromPeriodId: fromPeriodId || null,
+  })
+  const createPreview = usePreviewCreate(budgetId, createArgs)
+  const updatePreview = usePreviewUpdate(
+    budgetId,
+    subscription?.id,
+    updateArgs ?? {},
+    editing &&
+      updateArgs !== null &&
+      !notInForce &&
+      (chargeDate === '' || isCalendarDate(chargeDate)),
+  )
+  const preview = editing ? updatePreview : createPreview
+  const dayText = useChargeDayText()
+  const typedDay = isCalendarDate(chargeDate) ? Number(chargeDate.slice(8, 10)) : null
+  const scheduleNote = editing
+    ? typedDay !== null
+      ? dayText(typedDay)
+      : cadence !== subscription.cadence && !correcting
+        ? t('subscriptions.preview.cadenceKeepsDay', { day: dayText(base?.charge_day ?? 1) })
+        : dayText(base?.charge_day ?? subscription.charge_day)
+    : typedDay !== null
+      ? dayText(typedDay)
+      : null
 
   const options = useMemo((): CategoryChoice[] => {
     const list: CategoryChoice[] = choices.data ?? []
@@ -285,6 +346,7 @@ function SubscriptionForm({
             }}
             label={t('income.correction.label')}
             warning={t('subscriptions.correctionWarning')}
+            required={mustCorrect ? t('corrections.budgetEnded') : undefined}
           >
             <SelectField
               control={form.control}
@@ -295,13 +357,13 @@ function SubscriptionForm({
                 label: periodLabel(period),
               }))}
             />
-            <p className="text-sm text-muted-foreground" data-testid="correction-start">
-              {periodTerms
-                ? t('corrections.showsPeriodTerms')
-                : termsAt.isError
-                  ? errorMessage(termsAt.error)
-                  : t('common.loading')}
-            </p>
+            <CorrectionReach
+              periods={periods}
+              periodId={fromPeriodId}
+              terms={termsAt.data}
+              pending={termsAt.isPending}
+              error={termsAt.isError ? errorMessage(termsAt.error) : null}
+            />
           </CorrectionToggle>
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -343,19 +405,20 @@ function SubscriptionForm({
             label={t('subscriptions.fields.from')}
             description={t('subscriptions.fields.fromHelp')}
             options={[
-              { value: '', label: t('income.fields.fromCurrent') },
+              ...(mustCorrect ? [] : [{ value: '', label: t('income.fields.fromCurrent') }]),
               ...earlier.map((period) => ({ value: period.id, label: periodLabel(period) })),
             ]}
           />
         )}
-        <SchedulePreview
-          subscription={subscription}
-          cadence={cadence}
-          chargeDate={chargeDate}
-          firstPeriodStart={effective?.start_date ?? null}
-          today={today}
-          correctionAnchor={correcting ? (periodTerms?.anchor_date ?? null) : undefined}
-        />
+        {!notInForce && (
+          <ChargeDatesPreview
+            charges={preview.data}
+            pending={preview.isPending || (editing && updateArgs === null)}
+            error={preview.error}
+            needsDate={!editing && !isCalendarDate(chargeDate)}
+            note={scheduleNote}
+          />
+        )}
         <Alert>
           <InfoIcon aria-hidden />
           <AlertDescription>
@@ -381,6 +444,7 @@ function SubscriptionForm({
               sync.pending !== null ||
               edit.gone ||
               !settled ||
+              notInForce ||
               (editing && !base)
             }
           >
@@ -389,67 +453,5 @@ function SubscriptionForm({
         </DialogFooter>
       </FieldGroup>
     </form>
-  )
-}
-
-/**
- * Which dates the database will charge, for the schedule the form describes (D-170):
- *
- * - a new subscription: its schedule from the first charge date, from the start of the period
- *   it counts from (earlier dates are never charged); those up to today are created at once;
- * - a new next charge date: that date and the ones after it;
- * - a new cadence alone: it continues from the next charge of the current schedule;
- * - otherwise the schedule stays: its next charges.
- */
-function SchedulePreview({
-  subscription,
-  cadence,
-  chargeDate,
-  firstPeriodStart,
-  today,
-  correctionAnchor,
-}: {
-  subscription: Subscription | undefined
-  cadence: SubscriptionCadence
-  chargeDate: string
-  /** A correction: the date the chosen period's schedule counts from (undefined otherwise). */
-  correctionAnchor?: string | null
-  firstPeriodStart: string | null
-  today: string | null
-}) {
-  const typed = isCalendarDate(chargeDate) ? chargeDate : null
-  let anchor: string | null
-  let from: string | null = null
-  let note: 'new' | 'date' | 'cadence' | 'kept'
-  if (!subscription) {
-    anchor = typed
-    from = firstPeriodStart
-    note = 'new'
-  } else if (chargeDate !== '') {
-    anchor = typed
-    note = 'date'
-  } else if (correctionAnchor !== undefined) {
-    // A correction keeps the date its schedule counts from (D-170): the charges still to come.
-    anchor = correctionAnchor
-    from = subscription.next_charge_date
-    note = 'kept'
-  } else if (cadence !== subscription.cadence) {
-    anchor = subscription.next_charge_date
-    note = 'cadence'
-  } else {
-    anchor = subscription.anchor_date
-    from = subscription.next_charge_date
-    note = 'kept'
-  }
-  if (subscription && subscription.next_charge_date === null && note !== 'date') return null
-  return (
-    <ChargeDatesPreview
-      anchor={anchor}
-      cadence={cadence}
-      from={from}
-      today={today}
-      note={note}
-      nextChargeDate={subscription?.next_charge_date ?? null}
-    />
   )
 }

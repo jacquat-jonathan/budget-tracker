@@ -2,41 +2,46 @@ import { CalendarClockIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
-  useChargeDates,
-  type SubscriptionCadence,
+  PREVIEW_CREATE_COUNT,
+  PREVIEW_SHOWN,
+  type PreviewCharge,
 } from '@/features/subscriptions/subscription-queries'
+import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 
 /**
- * The upcoming charge dates of a schedule, as subscription_charge_dates computes them: the
- * client never works a schedule out (C-LOGIC-003). Dates up to today are flagged: they are
- * charged at once, awaiting confirmation.
+ * The charges a save would make, exactly as the database previews them for the arguments
+ * the save will send (preview_create_subscription / preview_update_subscription): the client
+ * never works a schedule out (C-LOGIC-003). Charges created with the save are said in words.
+ * A preview the database refuses shows its reason: the save would be refused alike.
  */
+// R-SUBSCRIPTION-121: the preview is the database's answer for the save's own arguments.
 export function ChargeDatesPreview({
-  anchor,
-  cadence,
-  from,
-  today,
+  charges,
+  pending,
+  error,
+  needsDate,
   note,
-  nextChargeDate,
 }: {
-  anchor: string | null
-  cadence: SubscriptionCadence
-  from: string | null
-  today: string | null
-  note: 'new' | 'date' | 'cadence' | 'kept'
-  nextChargeDate: string | null
+  charges: PreviewCharge[] | undefined
+  pending: boolean
+  error: unknown
+  /** No date typed yet (a new subscription): nothing to preview. */
+  needsDate: boolean
+  /** How the schedule follows from what was entered (the nominal day, a kept cadence…). */
+  note: string | null
 }) {
   const { t } = useTranslation()
-  const dates = useChargeDates(anchor, cadence, from, 6)
-  const explanation =
-    note === 'cadence' && nextChargeDate
-      ? t('subscriptions.preview.cadence', { date: formatCalendarDate(nextChargeDate) })
-      : note === 'date'
-        ? t('subscriptions.preview.date')
-        : note === 'kept'
-          ? t('subscriptions.preview.kept')
-          : t('subscriptions.preview.new')
+  const errorMessage = useErrorMessage()
+  const list = charges ?? []
+  const atOnce = list.filter((charge) => charge.atOnce).length
+  // Every date the database gave is charged at once: there may be more than it gave.
+  const atLeast = atOnce === PREVIEW_CREATE_COUNT
+  // The charges made with the save, when few, then the next ones.
+  const shown = [
+    ...(atOnce <= PREVIEW_SHOWN ? list.filter((charge) => charge.atOnce) : []),
+    ...list.filter((charge) => !charge.atOnce).slice(0, PREVIEW_SHOWN),
+  ]
   return (
     <section
       className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-sm"
@@ -47,32 +52,42 @@ export function ChargeDatesPreview({
         <CalendarClockIcon className="size-4 text-muted-foreground" aria-hidden />
         {t('subscriptions.preview.title')}
       </p>
-      {anchor === null ? (
+      {needsDate ? (
         <p className="text-muted-foreground">{t('subscriptions.preview.needsDate')}</p>
-      ) : dates.isError ? (
-        <p className="text-muted-foreground">{t('subscriptions.preview.failed')}</p>
-      ) : !dates.data ? (
+      ) : error !== null && error !== undefined ? (
+        <p className="text-destructive" data-testid="preview-refused">
+          {errorMessage(error)}
+        </p>
+      ) : pending || !charges ? (
         <p className="text-muted-foreground">{t('common.loading')}</p>
+      ) : charges.length === 0 ? (
+        <p className="text-muted-foreground">{t('subscriptions.preview.none')}</p>
       ) : (
-        <ul className="flex flex-wrap gap-1.5" aria-live="polite">
-          {dates.data.map((date) => {
-            const due = today !== null && date <= today
-            return (
+        <>
+          {atOnce > 0 && (
+            <p className="font-medium" data-testid="charged-at-once">
+              {atLeast
+                ? t('subscriptions.preview.atOnceAtLeast', { count: atOnce })
+                : t('subscriptions.preview.atOnce', { count: atOnce })}
+            </p>
+          )}
+          <ul className="flex flex-wrap gap-1.5" aria-live="polite">
+            {shown.map((charge) => (
               <li
-                key={date}
+                key={charge.date}
                 className="rounded-md border bg-background px-2 py-0.5 tabular-nums"
-                data-due={due || undefined}
+                data-due={charge.atOnce || undefined}
               >
-                <time dateTime={date}>{formatCalendarDate(date)}</time>
-                {due && (
+                <time dateTime={charge.date}>{formatCalendarDate(charge.date)}</time>
+                {charge.atOnce && (
                   <span className="text-muted-foreground"> · {t('subscriptions.preview.due')}</span>
                 )}
               </li>
-            )
-          })}
-        </ul>
+            ))}
+          </ul>
+        </>
       )}
-      <p className="text-xs text-muted-foreground">{explanation}</p>
+      {note && <p className="text-xs text-muted-foreground">{note}</p>}
     </section>
   )
 }

@@ -57,7 +57,7 @@ import { nextSalary } from '@/features/periods/next-salary'
 import { progressPath } from '@/features/progress/progress-path'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { isRecordChanged } from '@/hooks/use-edit-base'
-import { dbErrorCode } from '@/lib/db-errors'
+import { dbErrorCode, dbErrorKey } from '@/lib/db-errors'
 import { addDays, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
 import type { Database } from '@/lib/database.types'
@@ -87,7 +87,7 @@ type Action =
   | { kind: 'reopen'; period: PeriodSummary; previous: PeriodSummary }
   | { kind: 'moveStart'; period: PeriodSummary; previous: PeriodSummary; date?: string }
   /** The boundary before `period` back to the schedule's day; clears the "set by hand" mark. */
-  | { kind: 'moveSchedule'; period: PeriodSummary; previous: PeriodSummary }
+  | { kind: 'moveSchedule'; period: PeriodSummary; previous: PeriodSummary; start: string }
 
 interface BoundaryWrite {
   action: Action
@@ -372,12 +372,12 @@ export function PeriodsPage() {
                           </p>
                         )}
                         {previous?.end_is_manual && (
-                          <DropdownMenuItem
-                            onSelect={() => open({ kind: 'moveSchedule', period, previous })}
-                          >
-                            <RotateCcwIcon />
-                            {t('periods.actions.moveSchedule')}
-                          </DropdownMenuItem>
+                          <MoveScheduleItem
+                            period={period}
+                            onOpen={(start) =>
+                              open({ kind: 'moveSchedule', period, previous, start })
+                            }
+                          />
                         )}
                         {isCurrent && period.end_is_manual && (
                           <>
@@ -550,7 +550,10 @@ function BoundaryForm({
         }
       case 'moveSchedule':
         return {
-          result: t('periods.preview.moveSchedule'),
+          result: t('periods.preview.moveScheduleTo', {
+            start: fmt(action.start),
+            end: fmt(addDays(action.start, -1)),
+          }),
           undo: t('periods.undo.moveStart', { date: fmt(period.start_date) }),
         }
     }
@@ -637,6 +640,64 @@ function BoundaryForm({
         </DialogFooter>
       </FieldGroup>
     </form>
+  )
+}
+
+/**
+ * "Back to the schedule", as preview_move_period_start answers for this period: offered with
+ * the start the schedule gives when the move would be accepted, its refusal in words when not,
+ * nothing when the period already starts there. Asked when the menu opens.
+ */
+// R-PERIOD-151: offered only when the database would accept it, with the date it would give.
+function MoveScheduleItem({
+  period,
+  onOpen,
+}: {
+  period: PeriodSummary
+  onOpen: (start: string) => void
+}) {
+  const { t } = useTranslation()
+  const preview = useQuery({
+    queryKey: [...budgetKeys.budget(period.budget_id), 'move-schedule', period.id] as const,
+    staleTime: 0,
+    queryFn: async () =>
+      unwrap(await supabase.rpc('preview_move_period_start', { p_period_id: period.id }))[0] ??
+      null,
+  })
+  const answer = preview.data
+  if (answer?.refusal === 'already_on_schedule') return null
+  const refusal =
+    answer && !answer.accepted
+      ? answer.refusal === 'invalid_boundary'
+        ? t('periods.moveScheduleRefused')
+        : t(dbErrorKey({ code: 'P0001', message: answer.refusal }))
+      : null
+  return (
+    <>
+      <DropdownMenuItem
+        disabled={!answer?.accepted}
+        onSelect={() => {
+          if (answer?.accepted) onOpen(answer.scheduled_start)
+        }}
+        data-testid="move-schedule"
+      >
+        <RotateCcwIcon />
+        {answer?.accepted
+          ? t('periods.actions.moveScheduleTo', {
+              date: formatCalendarDate(answer.scheduled_start),
+            })
+          : t('periods.actions.moveSchedule')}
+      </DropdownMenuItem>
+      {(preview.isPending || refusal || preview.isError) && (
+        <p className="max-w-72 px-2 pb-1.5 pl-8 text-xs text-muted-foreground">
+          {preview.isPending
+            ? t('common.loading')
+            : preview.isError
+              ? t(dbErrorKey(preview.error))
+              : refusal}
+        </p>
+      )}
+    </>
   )
 }
 
