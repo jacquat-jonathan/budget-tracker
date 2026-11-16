@@ -5,7 +5,7 @@
 -- Deferred constraint triggers only fire at commit and tests roll back, so the tests force
 -- them with `set constraints all immediate`. "Today" only moves forward in this file.
 begin;
-select plan(109);
+select plan(113);
 
 select tests.create_user('alice', 'Alice');
 
@@ -306,6 +306,9 @@ select public.update_income_terms(tests.id('late_old'), 550000, 25, 'nearest');
 -- 26 November 2026: the salary has not arrived; pay-day change the day after pay day
 -- ===========================================================================
 select pg_temp.day('2026-11-26');
+select throws_ok(
+  format('select public.reopen_previous_period(%L, %L)', tests.id('late'), '2026-11-26'),
+  'P0001', 'invalid_boundary', 'R-PERIOD-023: the reopened period must end today or later (the salary is not here yet)');
 select lives_ok(
   format('select public.reopen_previous_period(%L, %L)', tests.id('late'), '2026-11-27'),
   'R-PERIOD-023: the salary will come on the 27th: November''s period is merged back into October''s'
@@ -400,6 +403,9 @@ select results_eq(
   'R-PERIOD-030: one period from 23 Dec to 24 Jan, not a stub before the scheduled 25th'
 );
 select public.ensure_periods(tests.id('early'));
+select throws_ok(
+  format('select public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-24'),
+  'P0001', 'invalid_boundary', 'R-PERIOD-034: an early salary cannot be dated after today');
 select results_eq(
   format('select seq, start_date, end_date from public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
   $$values (3, '2026-12-23'::date, '2027-01-24'::date)$$,
@@ -410,9 +416,6 @@ select results_eq(
   $$values (2, 500000::bigint), (3, 500000::bigint)$$,
   'R-PERIOD-018 R-INCOME-011: from 25 Nov to 24 Jan the salary counts once per period, twice in all'
 );
-select throws_ok(
-  format('select public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-26'),
-  'P0001', 'invalid_boundary', 'R-PERIOD-034: an early salary cannot be dated after today');
 select throws_ok(
   format('select public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
   'P0001', 'invalid_boundary', 'R-PERIOD-020: closing the period that started today would leave it empty');
@@ -560,25 +563,30 @@ select throws_ok(
 
 select lives_ok('set constraints all immediate', 'R-PERIOD-005: invariants hold again');
 set constraints all deferred;
+-- the latest period of 'ended' is current, so the next one would start after today
 insert into public.periods (budget_id, seq, start_date, end_date)
-select tests.id('jan'), max(seq) + 1, max(end_date) + 1, max(end_date) + 30
-from public.periods where budget_id = tests.id('jan');
-update public.periods set start_date = '2027-07-01', end_date = '2027-07-30'
-where budget_id = tests.id('jan') and seq = (select max(seq) from public.periods where budget_id = tests.id('jan'));
+select tests.id('ended'), max(seq) + 1, max(end_date) + 1, max(end_date) + 30
+from public.periods where budget_id = tests.id('ended');
 select throws_ok('set constraints all immediate', '23514', 'periods_invalid', 'R-PERIOD-022: a period starting after today is rejected');
 set constraints all deferred;
-delete from public.periods where budget_id = tests.id('jan')
-  and seq = (select max(seq) from public.periods where budget_id = tests.id('jan'));
+delete from public.periods where budget_id = tests.id('ended')
+  and seq = (select max(seq) from public.periods where budget_id = tests.id('ended'));
+select lives_ok('set constraints all immediate', 'R-PERIOD-005: invariants hold again (2)');
+set constraints all deferred;
 
 update public.budgets set end_date = '2026-06-01' where id = tests.id('jan');
 select throws_ok('set constraints all immediate', '23514', 'periods_invalid', 'R-BUDGET-007: no period may start after the end date');
 set constraints all deferred;
 update public.budgets set end_date = null where id = tests.id('jan');
+select lives_ok('set constraints all immediate', 'R-PERIOD-005: invariants hold again (3)');
+set constraints all deferred;
 
 update public.incomes set first_seq = 99 where id = pg_temp.primary_of(tests.id('jan'));
 select throws_ok('set constraints all immediate', '23514', null, 'R-VERSION-011: nothing may be keyed beyond the latest period');
 set constraints all deferred;
 update public.incomes set first_seq = 1 where id = pg_temp.primary_of(tests.id('jan'));
+select lives_ok('set constraints all immediate', 'R-PERIOD-005: invariants hold again (4)');
+set constraints all deferred;
 
 delete from public.periods where budget_id = tests.id('jan') and seq = 5;
 select throws_ok('set constraints all immediate', '23514', 'periods_invalid', 'R-PERIOD-005: a missing period is rejected');

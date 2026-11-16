@@ -77,14 +77,14 @@ isOneToOne: false
                   ]
                 },"budgets": {
                   Row: {
-                    "created_at": string,"end_month": string | null,"id": string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
+                    "created_at": string,"end_date": string | null,"id": string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"end_month"?: string | null,"id"?: string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at"?: string
+                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name": string,"owner_id": string,"primary_income_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"end_month"?: string | null,"id"?: string,"name"?: string,"owner_id"?: string,"primary_income_id"?: string,"updated_at"?: string
+                    "created_at"?: string,"end_date"?: string | null,"id"?: string,"name"?: string,"owner_id"?: string,"primary_income_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -155,14 +155,14 @@ isOneToOne: false
                   ]
                 },"periods": {
                   Row: {
-                    "anchor_date": string,"budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"month": string,"seq": number,"start_date": string,"updated_at": string
+                    "budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"seq": number,"start_date": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "anchor_date": string,"budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"month": string,"seq": number,"start_date": string,"updated_at"?: string
+                    "budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"seq": number,"start_date": string,"updated_at"?: string
                   }
                   Update: {
-                    "anchor_date"?: string,"budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"month"?: string,"seq"?: number,"start_date"?: string,"updated_at"?: string
+                    "budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"seq"?: number,"start_date"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -238,7 +238,7 @@ isOneToOne: false
                   ]
                 },"my_budgets": {
                   Row: {
-                    "created_at": string,"end_date": string | null,"end_month": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
+                    "created_at": string,"end_date": string | null,"end_date_entered": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -258,14 +258,14 @@ isOneToOne: false
                   ]
                 },"period_summaries": {
                   Row: {
-                    "anchor_date": string,"budget_id": string,"end_date": string,"end_is_manual": boolean,"id": string,"income_total": number | null,"is_current": boolean | null,"month": string,"seq": number,"start_date": string,"today": string | null
+                    "budget_id": string,"end_date": string,"end_is_manual": boolean,"id": string,"income_total": number | null,"is_current": boolean | null,"seq": number,"start_date": string,"today": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                           "anchor_date"?: string | null,"budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"month"?: string | null,"seq"?: number | null,"start_date"?: string | null,"today"?: never
+                           "budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"seq"?: number | null,"start_date"?: string | null,"today"?: never
                          }
                         Update: {
-                           "anchor_date"?: string | null,"budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"month"?: string | null,"seq"?: number | null,"start_date"?: string | null,"today"?: never
+                           "budget_id"?: string | null,"end_date"?: string | null,"end_is_manual"?: boolean | null,"id"?: string | null,"income_total"?: never,"is_current"?: never,"seq"?: number | null,"start_date"?: string | null,"today"?: never
                          }
                         Relationships: [
                     {
@@ -308,14 +308,12 @@ isOneToOne: false
                            },
 "get_current_period":
 { Args: { "p_budget_id": string }; Returns: {
-              "anchor_date": string,
-"budget_id": string,
+              "budget_id": string,
 "end_date": string,
 "end_is_manual": boolean,
 "id": string,
 "income_total": number | null,
 "is_current": boolean | null,
-"month": string,
 "seq": number,
 "start_date": string,
 "today": string | null
@@ -345,23 +343,59 @@ isOneToOne: false
               "budget_id": string,"budget_name": string,"created_at": string,"expires_at": string,"id": string,"invited_by_email": string,"invited_by_name": string
             }[]
                            },
-"move_period_boundary":
-{ Args: { "p_new_end"?: string,"p_period_id": string }; Returns: undefined
+"move_period_start":
+{ Args: { "p_period_id": string,"p_start_date": string }; Returns: undefined
                            },
 "pay_date":
 { Args: { "p_month": number,"p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"],"p_year": number }; Returns: string
                            },
+"record_early_pay_date":
+{ Args: { "p_budget_id": string,"p_pay_date": string }; Returns: {
+              "budget_id": string,
+"end_date": string,
+"end_is_manual": boolean,
+"id": string,
+"income_total": number | null,
+"is_current": boolean | null,
+"seq": number,
+"start_date": string,
+"today": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "period_summaries"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "remove_income":
 { Args: { "p_from_period_id"?: string,"p_income_id": string }; Returns: string
                            },
 "remove_member":
 { Args: { "p_budget_id": string,"p_user_id": string }; Returns: undefined
                            },
+"reopen_previous_period":
+{ Args: { "p_budget_id": string,"p_pay_date"?: string }; Returns: {
+              "budget_id": string,
+"end_date": string,
+"end_is_manual": boolean,
+"id": string,
+"income_total": number | null,
+"is_current": boolean | null,
+"seq": number,
+"start_date": string,
+"today": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "period_summaries"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "set_budget_end_date":
 { Args: { "p_budget_id": string,"p_end_date"?: string }; Returns: {
               "created_at": string,
 "end_date": string | null,
-"end_month": string | null,
+"end_date_entered": string | null,
 "id": string,
 "is_owner": boolean | null,
 "name": string,
@@ -372,6 +406,24 @@ isOneToOne: false
                           SetofOptions: {
         from: "*"
         to: "my_budgets"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"set_expected_pay_date":
+{ Args: { "p_budget_id": string,"p_pay_date"?: string }; Returns: {
+              "budget_id": string,
+"end_date": string,
+"end_is_manual": boolean,
+"id": string,
+"income_total": number | null,
+"is_current": boolean | null,
+"seq": number,
+"start_date": string,
+"today": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "period_summaries"
         isOneToOne: false
         isSetofReturn: true
       } },

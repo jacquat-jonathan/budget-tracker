@@ -105,8 +105,10 @@ commit, and tests roll back, so assert them with
 `set constraints all deferred;`. The client contract the tests protect is in
 `docs/database.md`. Name the spec rule id a test proves in its description
 (`'R-PERIOD-030: ...'`); `npm run spec:check` checks every test-enforced rule has one.
-`70_properties.test.sql` runs a seeded random sequence of operations and checks the
-invariants after each.
+`70_properties.test.sql` runs random sequences of every public operation for eight fixed
+seeds (110 steps each, a few seconds) and checks the invariants after each step. To run it
+longer, add seeds or raise the step count in the `seeds` / `prop_config` tables at the top
+of the file (do not commit that), then run it with `00_helpers.test.sql`.
 
 `60_concurrency.test.sql` is the exception to the rollback rule: it opens extra
 connections with `dblink` (local credentials `postgres`/`postgres`) to race two callers,
