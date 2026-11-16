@@ -194,15 +194,29 @@ interface HistoryCursor {
  * shorter than the limit is the last.
  */
 // R-DEBT-122: the history read page by page with the database's cursor, never all at once.
-export function useDebtHistory(budgetId: string, debtId: string) {
+export function useDebtHistory(
+  budgetId: string,
+  debtId: string,
+  /** Newest first (the table), each next page older (p_newest_first); oldest first otherwise. */
+  order: { newestFirst: boolean; pageSize: number } = {
+    newestFirst: false,
+    pageSize: HISTORY_PAGE,
+  },
+) {
+  const { newestFirst, pageSize } = order
   return useInfiniteQuery({
-    queryKey: budgetKeys.debtHistory(budgetId, debtId),
+    queryKey: [
+      ...budgetKeys.debtHistory(budgetId, debtId),
+      newestFirst ? 'newest' : 'oldest',
+      pageSize,
+    ] as const,
     initialPageParam: null as HistoryCursor | null,
     queryFn: async ({ pageParam }): Promise<HistoryEntry[]> =>
       unwrap(
         await supabase.rpc('get_debt_history', {
           p_debt_id: debtId,
-          p_limit: HISTORY_PAGE,
+          p_limit: pageSize,
+          ...(newestFirst ? { p_newest_first: true } : {}),
           ...(pageParam ?? {}),
         }),
       )
@@ -210,7 +224,7 @@ export function useDebtHistory(budgetId: string, debtId: string) {
         .filter((entry): entry is HistoryEntry => entry !== null),
     getNextPageParam: (page): HistoryCursor | null => {
       const last = page.at(-1)
-      if (page.length < HISTORY_PAGE || !last) return null
+      if (page.length < pageSize || !last) return null
       return {
         p_after_date: last.date,
         p_after_kind: last.kind,

@@ -1,4 +1,5 @@
 import {
+  HourglassIcon,
   ListIcon,
   BellRingIcon,
   CalendarOffIcon,
@@ -137,6 +138,7 @@ export function SubscriptionsPage() {
               key={subscription.id}
               subscription={subscription}
               budgetHasEnd={budget.end_date !== null}
+              today={current.data?.today ?? periods.data?.[0]?.today ?? null}
               onEdit={() => setDialog({ kind: 'edit', subscription })}
               onEnd={() => setDialog({ kind: 'end', subscription })}
             />
@@ -191,6 +193,7 @@ function CommittedSummary({ period, count }: { period: PeriodSummary; count: num
 function SubscriptionCard({
   subscription,
   budgetHasEnd,
+  today,
   onEdit,
   onEnd,
 }: {
@@ -199,6 +202,8 @@ function SubscriptionCard({
   onEnd: () => void
   /** The budget has an end date: a subscription with no charge left before it says so. */
   budgetHasEnd: boolean
+  /** The database's today: a next charge date not after it is a charge held back. */
+  today: string | null
 }) {
   const { t } = useTranslation()
   const path = useCategoryPath()
@@ -238,7 +243,22 @@ function SubscriptionCard({
               <div>
                 <dt className="text-muted-foreground">{t('subscriptions.nextCharge')}</dt>
                 <dd className="font-medium" data-testid="next-charge">
-                  {subscription.next_charge_date ? (
+                  {subscription.next_charge_date &&
+                  today !== null &&
+                  subscription.next_charge_date <= today ? (
+                    // R-SUBSCRIPTION-190: its date has come and the charge waits for room.
+                    <span className="flex flex-col font-normal" data-testid="charge-held">
+                      <span className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-200">
+                        <HourglassIcon className="size-3.5" aria-hidden />
+                        {t('subscriptions.held.title', {
+                          date: formatCalendarDate(subscription.next_charge_date),
+                        })}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {t('subscriptions.held.why')}
+                      </span>
+                    </span>
+                  ) : subscription.next_charge_date ? (
                     <CalendarDate value={subscription.next_charge_date} />
                   ) : budgetHasEnd ? (
                     // R-SUBSCRIPTION-151: no next date, because none falls before the budget ends.

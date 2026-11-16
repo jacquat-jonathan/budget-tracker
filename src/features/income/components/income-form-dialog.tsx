@@ -5,8 +5,9 @@ import { useForm, useWatch, type Control } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { MoneyField } from '@/components/form/money-field'
-import { SelectField, type SelectOption } from '@/components/form/select-field'
+import { SelectField, type MoreOption, type SelectOption } from '@/components/form/select-field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -114,6 +115,7 @@ function IncomeForm({
   onSalaryMayHaveArrived,
 }: IncomeFormDialogProps) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   const { user } = useAuth()
   const { budget } = useCurrentBudget()
   // R-CONCURRENCY-150: a refused save over a change this form does not show says so (the shown fields that
@@ -286,6 +288,7 @@ function IncomeForm({
           <CorrectionFields
             control={form.control}
             correct={correct}
+            more={olderPeriods}
             reach={
               <CorrectionReach
                 periods={periods}
@@ -312,6 +315,7 @@ function IncomeForm({
           <SelectField
             control={form.control}
             name="fromPeriodId"
+            more={olderPeriods}
             label={t('income.fields.from')}
             description={t('income.fields.fromHelp')}
             options={periodOptions}
@@ -369,9 +373,11 @@ function CorrectionFields({
   options,
   onToggle,
   reach,
+  more,
 }: {
   control: Control<IncomeInput, unknown, IncomeValues>
   reach: ReactNode
+  more: MoreOption | undefined
   correct: boolean
   options: SelectOption[]
   onToggle: (next: boolean) => void
@@ -396,6 +402,7 @@ function CorrectionFields({
           <SelectField
             control={control}
             name="fromPeriodId"
+            more={more}
             label={t('corrections.period')}
             options={options}
           />

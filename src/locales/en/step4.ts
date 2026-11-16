@@ -83,6 +83,10 @@ export const subscriptionsEn = {
     late_ordinal_other: 'on the {{count}}th, or on the last day of a shorter month',
   },
   noFurtherCharge: 'No further charge before the budget ends',
+  held: {
+    title: 'Waiting since {{date}}',
+    why: 'The budget holds 50 000 transactions, the most it can hold: this charge is created once there is room.',
+  },
   remove: {
     deleteTitle: 'Delete “{{name}}”?',
     endTitle: 'End “{{name}}”?',
@@ -276,6 +280,7 @@ export const debtsEn = {
   endedBudget:
     'The budget has ended: a debt can still be added, changed or ended as a correction from one of its periods, and payments recorded within its periods.',
   filterChip: 'Debt: {{name}}',
+  endedNoEdit: 'This debt has ended: it can no longer be changed.',
   seeTransactions: 'See its payments',
   frozenPayment:
     'This is a payment on “{{name}}”, which has ended: it can no longer be changed or deleted.',
@@ -287,6 +292,7 @@ export const debtsEn = {
       'This payment’s debt has ended: the payment can no longer be changed or deleted.',
     adjust: 'This debt has ended: its balance can no longer be adjusted.',
     deleteAdjustment: 'This debt has ended: its adjustments can no longer be deleted.',
+    edit: 'This debt has ended: it can no longer be changed.',
   },
   payment: {
     dateRange: 'From {{min}}, when “{{name}}” was opened, to {{max}}.',
@@ -352,10 +358,10 @@ export const debtsEn = {
     see: 'See',
     seePayment: 'See the payment of {{amount}} on {{date}} among the transactions',
     showMore: 'Show {{count}} more',
-    shownSoFar_one: '1 event shown, oldest first; there are more.',
-    shownSoFar_other: '{{count}} events shown, oldest first; there are more.',
+    shownSoFar_one: 'The latest event shown; there are older ones.',
+    shownSoFar_other: 'The latest {{count}} events shown; there are older ones.',
     shownAll_one: '1 event.',
-    shownAll_other: 'All {{count}} events, oldest first.',
+    shownAll_other: 'All {{count}} events, newest first.',
     loadFailed: 'The next events could not be read. Try again.',
   },
   overpaid: 'Overpaid',
@@ -378,7 +384,7 @@ export const correctionsEn = {
     'The correction applies from {{start}} up to the period ending {{end}}; from {{next}}, the terms recorded later stay.',
   reachOn: 'The correction applies from {{start}} on.',
   notInForce:
-    'It was not in force in that period, so there is nothing to correct there. Choose another period.',
+    'It did not exist in that period (not yet, or no longer), so there is nothing to correct there. Choose another period.',
   budgetEnded:
     'The budget has ended: a change applies only as a correction from one of its periods.',
   changedNotShown:

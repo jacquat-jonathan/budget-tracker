@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { MoneyField } from '@/components/form/money-field'
 import { SegmentedField } from '@/components/form/segmented-field'
@@ -101,6 +102,7 @@ function CategoryForm({
   currentPeriod,
 }: CategoryFormDialogProps) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   // A refused save over a change this form does not show says so (the shown fields that
   // changed have their own notice), in the save's own words.
   const errorMessage = useErrorMessage({ record_changed: 'corrections.changedNotShown' })
@@ -249,6 +251,7 @@ function CategoryForm({
               <SelectField
                 control={form.control}
                 name="fromPeriodId"
+                more={olderPeriods}
                 label={t('corrections.period')}
                 options={correctable.map((period) => ({
                   value: period.id,
@@ -290,6 +293,7 @@ function CategoryForm({
           <SelectField
             control={form.control}
             name="fromPeriodId"
+            more={olderPeriods}
             label={t('categories.fields.from')}
             description={t('categories.fields.fromHelp')}
             options={[

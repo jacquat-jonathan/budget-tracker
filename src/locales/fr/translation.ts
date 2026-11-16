@@ -292,7 +292,9 @@ export const fr: Translation = {
       before_debt_opened:
         'Cette date précède l’ouverture de la dette : remboursements et ajustements commencent à sa date d’ouverture.',
       catching_up:
-        'Le budget rattrape encore le temps écoulé depuis votre dernière visite. Réessayez dans un instant.',
+        'Rien n’a été enregistré : le budget rattrapait encore le temps écoulé depuis votre dernière visite. C’est fait : vos saisies sont toujours là, enregistrez de nouveau.',
+      charge_held_back:
+        'Un prélèvement de cet abonnement attend : le budget contient 50 000 transactions, le maximum. Son calendrier ne peut pas changer et il ne peut pas être terminé avant que ce prélèvement soit créé ; supprimez d’abord des transactions pour faire de la place.',
       preview_required:
         'Cette modification déplace la fin de la période en cours : regardez la nouvelle fin ci-dessous, puis enregistrez de nouveau.',
       invalid_charge_date:
@@ -325,7 +327,8 @@ export const fr: Translation = {
       'Quelqu’un d’autre a modifié cet élément ; le formulaire affiche maintenant sa version :',
     goneTitle: 'Quelqu’un d’autre a supprimé cet élément',
     endedTitle: 'Quelqu’un d’autre a retiré cet élément',
-    ended: 'Il n’est plus utilisé à partir de la période en cours : ces modifications ne peuvent donc pas être enregistrées. Fermez cette fenêtre ; il figure parmi les éléments retirés et peut être restauré.',
+    ended:
+      'Il n’est plus utilisé à partir de la période en cours : ces modifications ne peuvent donc pas être enregistrées. Fermez cette fenêtre ; il figure parmi les éléments retirés et peut être restauré.',
     gone: 'Il n’existe plus et ne peut donc pas être enregistré. Fermez cette fenêtre.',
     none: 'aucune',
     amountPer: {
@@ -673,7 +676,8 @@ export const fr: Translation = {
       'Ses sous-catégories restent telles quelles : restaurez aussi celles que vous voulez.',
     restoreGroupFirst: 'Son groupe « {{group}} » a pris fin : restaurez d’abord le groupe.',
     restored: '« {{name}} » est de nouveau prévue.',
-    restoredElsewhere: 'Quelqu’un d’autre a déjà restauré « {{name}} » : il n’y a plus rien à restaurer.',
+    restoredElsewhere:
+      'Quelqu’un d’autre a déjà restauré « {{name}} » : il n’y a plus rien à restaurer.',
     becameGroup:
       'Quelqu’un d’autre a ajouté une sous-catégorie : « {{name}} » est donc un groupe, sans montant propre. Le montant saisi ({{amount}}) ne peut pas être enregistré ici : indiquez-le sur l’une de ses sous-catégories. Vous pouvez encore la renommer.',
     removeFromEarlier:
@@ -707,7 +711,8 @@ export const fr: Translation = {
     endedHelp:
       'Elles ne sont plus prévues, mais les périodes passées les conservent avec leurs transactions.',
     endedLabel: 'Retirée',
-    neverPlanned: 'Retirée dans la période où elle a été ajoutée ; ses transactions comptent toujours',
+    neverPlanned:
+      'Retirée dans la période où elle a été ajoutée ; ses transactions comptent toujours',
     lastCounted: 'Prévue pour la dernière fois dans la période se terminant le {{date}}',
     groupHasNoAmount:
       'Cette catégorie a des sous-catégories : son montant est le total des leurs. Modifiez les montants des sous-catégories.',
@@ -912,6 +917,8 @@ export const fr: Translation = {
     includes: 'dont {{amount}} d’abonnements',
   },
   periods: {
+    older: 'Périodes plus anciennes…',
+    showOlder: 'Afficher les périodes plus anciennes (les {{count}} plus récentes sont listées)',
     description:
       'Chaque période va d’un salaire à la veille du suivant. Les périodes passées restent telles quelles.',
     empty: 'Aucune période pour l’instant',
@@ -998,6 +1005,8 @@ export const fr: Translation = {
     thisPeriod: 'Cette période : du {{start}} au {{end}}.',
     reopen: {
       title: 'Ce qui a été enregistré dans cette période s’appliquera à la période rouverte :',
+      more_one: 'Et 1 autre changement, non listé.',
+      more_other: 'Et {{count}} autres changements, non listés.',
       nothing: 'Rien n’a été enregistré dans cette période : seules les dates changent.',
       failed: 'Impossible de lister le contenu de cette période : {{reason}}',
       required: 'L’enregistrement attend cette liste : c’est elle que vous confirmez.',

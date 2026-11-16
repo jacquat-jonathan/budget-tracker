@@ -203,9 +203,9 @@ function TransactionForm({
   )
   const chosenDebt = payable.find((debt) => debt.id === debtId) ?? null
   // R-DEBT-151: a payment of an ended debt is frozen: nothing can be saved.
-  const frozenDebt =
-    keptDebt !== null ? (debts.data?.find((debt) => debt.id === keptDebt) ?? null) : null
-  const frozen = frozenDebt !== null && frozenDebt.end_seq !== null
+  // The list says so on the row itself (transaction_list.debt_ended).
+  const frozen = transaction?.debt_ended === true
+  const frozenDebt = frozen ? { name: transaction.debt_name ?? '' } : null
   const datePeriod =
     isCalendarDate(date) && kind === 'expense'
       ? (periods.data?.find((period) => period.start_date <= date && date <= period.end_date) ??
@@ -391,7 +391,7 @@ function TransactionForm({
           <Alert data-testid="frozen-payment">
             <LockIcon aria-hidden />
             <AlertDescription>
-              {t('debts.frozenPayment', { name: frozenDebt.name })}
+              {t('debts.frozenPayment', { name: frozenDebt?.name ?? '' })}
             </AlertDescription>
           </Alert>
         )}

@@ -121,7 +121,7 @@ describe('how far a correction reaches [R-VERSION-150]', () => {
     const { dialog } = await openEdit(db)
     await userEvent.click(within(dialog).getByLabelText('Correct an earlier period'))
     expect(await within(dialog).findByTestId('correction-not-in-force')).toHaveTextContent(
-      'It was not in force in that period, so there is nothing to correct there.',
+      'It did not exist in that period (not yet, or no longer), so there is nothing to correct there.',
     )
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
   })

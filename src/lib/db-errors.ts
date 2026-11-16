@@ -78,6 +78,7 @@ export const DB_ERROR_CODES = [
   'before_debt_opened',
   'catching_up',
   'preview_required',
+  'charge_held_back',
 ] as const
 
 export type DbErrorCode = (typeof DB_ERROR_CODES)[number]

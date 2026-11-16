@@ -237,6 +237,7 @@ export function transactionRow(
     debt_name: null,
     charge_date: null,
     review_state: 'confirmed',
+    debt_ended: false,
     ...overrides,
   }
 }

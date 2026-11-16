@@ -323,6 +323,19 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
       ]
     }),
     preview_move_period_start: handler(() => rpcError('not_mocked')),
+    // list_periods: newest first, a page at a time (p_before_seq: the last row's seq).
+    list_periods: handler((args) => {
+      const limit = Number(args.p_limit ?? 120)
+      const before = args.p_before_seq === undefined ? null : Number(args.p_before_seq)
+      return db.tables.period_summaries
+        .filter((period) => period.budget_id === args.p_budget_id || args.p_budget_id === undefined)
+        .filter((period) => before === null || period.seq < before)
+        .sort((x, y) => y.seq - x.seq)
+        .slice(0, limit)
+    }),
+    get_period_trend: handler(() => []),
+    get_category_trend: handler(() => []),
+    get_period_comparison: handler(() => []),
   }
 
   return db

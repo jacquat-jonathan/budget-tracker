@@ -28,7 +28,17 @@ interface SelectFieldProps<TValues extends FieldValues, TOut extends FieldValues
   /** The form value is a number (e.g. a pay day): options' values are its digits. */
   numeric?: boolean
   className?: string
+  /** A last entry that is an action, not a value (e.g. "Older periods…"): the value stays. */
+  more?: MoreOption
 }
+
+export interface MoreOption {
+  label: string
+  onSelect: () => void
+}
+
+/** The value of the action entry: never a form value. */
+export const MORE_VALUE = '__more__'
 
 /**
  * Radix Select treats "" as "nothing selected" and shows an empty box, but forms use "" for
@@ -48,6 +58,7 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
   disabled,
   numeric = false,
   className,
+  more,
 }: SelectFieldProps<TValues, TOut>) {
   const { t } = useTranslation()
   const id = useId()
@@ -68,6 +79,10 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
         }
         disabled={disabled}
         onValueChange={(next) => {
+          if (next === MORE_VALUE) {
+            more?.onSelect()
+            return
+          }
           const chosen = fromSelect(next)
           onChange(numeric ? Number(chosen) : chosen)
         }}
@@ -88,6 +103,11 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
               {option.label}
             </SelectItem>
           ))}
+          {more && (
+            <SelectItem value={MORE_VALUE} className="text-muted-foreground italic">
+              {more.label}
+            </SelectItem>
+          )}
         </SelectContent>
       </Select>
       {description && <FieldDescription id={`${id}-description`}>{description}</FieldDescription>}

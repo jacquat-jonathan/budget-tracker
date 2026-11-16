@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
+import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
+import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { TriangleAlertIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 
@@ -110,6 +112,7 @@ function EndCategoryBody({
   )
   const [correct, setCorrect] = useState(false)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   const deletes = !correct && category.removal_deletes === true
   // Added in this period but with transactions: kept without a plan, never in force (void).
   const keptVoid =
@@ -183,7 +186,10 @@ function EndCategoryBody({
                 <FieldLabel htmlFor={`${id}-period`}>
                   {t('income.correction.removeFrom')}
                 </FieldLabel>
-                <Select value={fromPeriodId} onValueChange={setFromPeriodId}>
+                <Select
+                  value={fromPeriodId}
+                  onValueChange={pickPeriod(olderPeriods, setFromPeriodId)}
+                >
                   <SelectTrigger id={`${id}-period`} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -196,6 +202,7 @@ function EndCategoryBody({
                         })}
                       </SelectItem>
                     ))}
+                    <OlderPeriodsItem option={olderPeriods} />
                   </SelectContent>
                 </Select>
               </Field>

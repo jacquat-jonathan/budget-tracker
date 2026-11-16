@@ -280,7 +280,9 @@ export const en = {
       before_debt_opened:
         'This date is before the debt was opened: payments and adjustments start on its opening date.',
       catching_up:
-        'The budget is still catching up on the time since your last visit. Try again in a moment.',
+        'Nothing was saved: the budget was still catching up on the time since your last visit. It is caught up now: what you entered is still here, save again.',
+      charge_held_back:
+        'A charge of this subscription is waiting: the budget holds 50 000 transactions, the most it can hold. Its schedule cannot change and it cannot end until that charge is created; delete transactions to make room first.',
       preview_required:
         'This change moves the end of the current period: look at the new end below, then save again.',
       invalid_charge_date:
@@ -310,7 +312,8 @@ export const en = {
     updatedTitle: 'Someone else changed this; the form now shows their version:',
     goneTitle: 'Someone else deleted this',
     endedTitle: 'Someone else removed this',
-    ended: 'It is no longer in use from the current period, so these changes cannot be saved. Close this window; it is listed with the removed ones and can be restored.',
+    ended:
+      'It is no longer in use from the current period, so these changes cannot be saved. Close this window; it is listed with the removed ones and can be restored.',
     gone: 'It no longer exists, so it cannot be saved. Close this window.',
     none: 'none',
     amountPer: {
@@ -639,7 +642,8 @@ export const en = {
       'It was removed from the current period (which started on {{start}}): it is planned again from that period, as if it had never been removed. Earlier periods do not change.',
     restoreGroupFirst: 'Its group “{{group}}” has ended: restore the group first.',
     restored: '“{{name}}” is planned again.',
-    restoredElsewhere: 'Someone else has already restored “{{name}}”: there is nothing left to restore.',
+    restoredElsewhere:
+      'Someone else has already restored “{{name}}”: there is nothing left to restore.',
     becameGroup:
       'Someone else added a subcategory, so “{{name}}” is now a group with no amount of its own. The amount you typed ({{amount}}) cannot be saved here: set it on one of its subcategories. You can still rename it.',
     removeFromEarlier:
@@ -871,6 +875,8 @@ export const en = {
     includes: 'incl. {{amount}} for subscriptions',
   },
   periods: {
+    older: 'Older periods…',
+    showOlder: 'Show older periods (the {{count}} newest are listed)',
     description:
       'Each period runs from one salary to the day before the next. Periods that have happened stay as they were.',
     empty: 'No periods yet',
@@ -955,6 +961,8 @@ export const en = {
     thisPeriod: 'This period: {{start}} – {{end}}.',
     reopen: {
       title: 'What was recorded in this period will apply to the reopened period:',
+      more_one: 'And 1 more change, not listed.',
+      more_other: 'And {{count}} more changes, not listed.',
       nothing: 'Nothing was recorded in this period: only the dates change.',
       failed: 'Could not list what this period holds: {{reason}}',
       required: 'Saving waits for this list: what it shows is what you confirm.',

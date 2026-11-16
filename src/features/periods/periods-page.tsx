@@ -402,6 +402,20 @@ export function PeriodsPage() {
           })}
         </ol>
       )}
+      {/* R-PERIOD-191: the newest periods first; older ones a page at a time, on request. */}
+      {periods.hasOlder && (
+        <Button
+          variant="outline"
+          className="self-center"
+          disabled={periods.loadingOlder}
+          onClick={() => void periods.loadOlder()}
+          data-testid="periods-older"
+        >
+          {periods.loadingOlder
+            ? t('common.loading')
+            : t('periods.showOlder', { count: list.length })}
+        </Button>
+      )}
 
       <BoundaryDialog
         action={action}
@@ -782,6 +796,14 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
       <p className="font-medium">{t('periods.reopen.title')}</p>
       <ul className="flex list-disc flex-col gap-1 pl-5">
         {preview.data.map((item) => {
+          // R-PERIOD-193: at most 1000 rows; the last says how many more are not listed.
+          if (item.record_kind === 'more') {
+            return (
+              <li key="more" data-testid="reopen-more">
+                {t('periods.reopen.more', { count: Number(item.record_name) || 0 })}
+              </li>
+            )
+          }
           // Later steps add kinds and changes: unknown ones get a generic sentence.
           const kind = (KNOWN_KINDS as readonly string[]).includes(item.record_kind)
             ? t(`periods.reopen.kinds.${item.record_kind as (typeof KNOWN_KINDS)[number]}`, {

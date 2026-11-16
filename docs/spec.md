@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-416 rules (355 active, 54 planned), 24 conventions, 191 decisions, 28 open questions. 0 rules and conventions are marked **TEST PENDING**.
+423 rules (362 active, 54 planned), 24 conventions, 195 decisions, 28 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -954,6 +954,22 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-130, D-270
   - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-PERIOD-190** Whatever read or write answers catching_up (a tab left open across a long absence), the app catches the budget up (ensure_periods until it answers 0) behind the catching-up screen, then reads every query of the budget again; the page stays mounted underneath, so a refused save keeps what was typed and says that nothing was saved and that it can be saved again now. A catch-up that ends within a moment shows nothing different.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-PERIOD-180, R-PERIOD-150, D-270, D-291
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/budgets/budget-routes.tsx
+- **R-PERIOD-191** Periods are read a page at a time with list_periods (120, newest first); the periods page shows the newest and offers the older ones on request, saying how many are listed.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-APP-170, D-292
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/budgets/budget-queries.ts; code: src/features/periods/periods-page.tsx
+- **R-PERIOD-192** Every period picker (the transactions filter, a correction's or a removal's period, a new record's first period, the progress view's step back) reaches the oldest period: while older periods exist than those read, its last entry "Older periods…" reads the next page.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-191, D-292
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/budgets/older-periods.ts
+- **R-PERIOD-193** A reopen preview that lists at most 1000 changes says how many more there are, in words, from its 'more' row.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-053, R-APP-170
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/periods/periods-page.tsx
 
 ### Versioning: edits never rewrite the past
 
@@ -1044,10 +1060,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-VERSION-132
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **R-VERSION-150** A correction form says how far the correction reaches, from the database's until_period_id: "from <start> up to the period ending <end>; from <next>, the terms recorded later stay", or "from <start> on"; when the record was not in force in the period chosen (in_force false), it says in words that there is nothing to correct there and offers no save.
+- **R-VERSION-150** A correction form says how far the correction reaches, from the database's until_period_id: "from <start> up to the period ending <end>; from <next>, the terms recorded later stay", or "from <start> on"; when the record did not exist in the period chosen (in_force false: not yet, or no longer, its end period included), it says so in words and offers no save.
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-VERSION-133, R-VERSION-140, D-230
-  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budgets/correction-reach.tsx; code: src/features/budgets/terms-at.ts
+  - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budgets/correction-reach.tsx; code: src/features/budgets/terms-at.ts; owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
 ### Categories and subcategories
 
@@ -1463,6 +1479,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-112, D-271
   - Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-SUBSCRIPTION-190** A subscription whose next charge date has come is shown as waiting since that date, with the reason in words (the budget holds the most transactions it can); charge_held_back, from a schedule change, an end or the end dialog's preview, is said in words with what to do first.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-180, D-271
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/subscriptions/subscriptions-page.tsx
 
 ### Debts
 
@@ -1537,10 +1557,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-005, R-DEBT-074, R-DEBT-112, D-191, R-DEBT-132, R-DEBT-133, R-DEBT-136, R-DEBT-137, D-216
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debts-page.tsx; code: src/features/debts/components/payoff.tsx; owner-request: coordinator, step 4 screens review round 1, 2026-11-16; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/debts/debt-queries.ts
-- **R-DEBT-122** A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative), both read page by page with get_debt_history's cursor: the chart reads the pages by itself up to 10 000 events and, when the history is longer, says where it stops; the table shows 50 rows at a time, oldest first, reading the next page when it needs it. Payments lead to their transactions. It records a payment (the transaction form with the debt chosen), adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history), removes it, saying beforehand whether it is deleted or ended, and links to its payments among the transactions.
+- **R-DEBT-122** A debt's page shows its evolution as a step chart of the balance by date, each kind of event with its own mark, and the same history as a table (its text alternative): the chart reads the history oldest first, a page at a time, up to 10 000 events and says where it stops when the history is longer; the table lists the latest events first (R-DEBT-191). Payments lead to their transactions. It records a payment, adjusts the balance (the user types the balance the bank shows and is told the database stores the difference), deletes an adjustment (with the debt's revision), edits the debt (its principal only while it has no history), removes it, saying beforehand whether it is deleted or ended, and links to its payments among the transactions.
   _active · enforced by test · F-DEBT_
-  - Related: R-DEBT-004, R-DEBT-075, R-DEBT-114, D-190, D-192, R-DEBT-135, D-232
-  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debt-detail-page.tsx; code: src/features/debts/components/debt-chart.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+  - Related: R-DEBT-004, R-DEBT-075, R-DEBT-114, D-190, D-192, R-DEBT-135, D-232, R-DEBT-191, D-290
+  - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/debts/debt-detail-page.tsx; code: src/features/debts/components/debt-chart.tsx; code: src/features/debts/components/adjust-balance-dialog.tsx; code: src/features/debts/components/remove-debt-dialog.tsx; owner-request: coordinator, step 4 screens review round 2, 2026-11-16; owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 - **R-DEBT-123** The transaction form offers "This is a payment on …" for an expense, among the debts not ended (and the one a payment already pays); a payment stays an expense; on an existing transaction the fields and the link change in one update_transaction call (p_relink), so a refused save leaves the transaction and both debts as they were, and the message names the database's reason.
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-071, R-TRANSACTION-110, D-177, D-194, R-TRANSACTION-131, D-218
@@ -1601,6 +1621,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-135, D-275
   - Source: owner-request: coordinator addendum (screens round 2 findings), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-190** An ended debt cannot be edited: its menu says why, its form (if open) offers no save with the reason, and update_debt's debt_ended reads the same.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-134, R-DEBT-151
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/debts/components/debt-form-dialog.tsx
+- **R-DEBT-191** A debt's history table shows the latest events first, 50 at a time, older ones read with get_debt_history's newest-first cursor; the chart reads oldest first.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-122, R-DEBT-135, D-290
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/debts/debt-detail-page.tsx
 
 ### Browsing and comparing periods
 
@@ -4319,17 +4347,17 @@ Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 
 While a very long absence is caught up, the app shows only "Catching up on the time since your last visit…" and a short explanation, no progress bar and no figure, then loads the pages.
 
-**Why:** Answer to Q-121 by default: ensure_periods says how many periods it made, not how many remain, so a bar would invent its end; each call takes under 2 s and ten years take one call.
+**Why:** Answer to Q-121 by default: ensure_periods says how many periods it made, not how many remain, so a bar would invent its end; a step takes up to about 3 s plus its commit (D-276), and a long absence a few steps.
 
 **Rejected:**
 
 - A progress bar from the periods made so far: the total is unknown.
 
-Related: Q-121, R-PERIOD-150, D-270
+Related: Q-121, R-PERIOD-150, D-270, D-276
 
-Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
+Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
-### D-232 The debt chart reads up to 10 000 events (accepted)
+### D-232 The debt chart reads up to 10 000 events (superseded by D-290)
 
 The debt page reads get_debt_history 1000 rows a page; the chart reads pages by itself until the history ends or 10 000 events, and then says where it stops; the table shows 50 rows at a time, oldest first (the order the database pages in), reading the next page when its rows are shown.
 
@@ -4340,7 +4368,7 @@ The debt page reads get_debt_history 1000 rows a page; the chart reads pages by 
 - Reading the whole history whatever its size: a very long one would be read and drawn at once.
 - The table newest first: the database pages oldest first only (Q-141).
 
-Related: R-DEBT-122, R-DEBT-135, D-213
+Related: R-DEBT-122, R-DEBT-135, D-213, D-290
 
 Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 
@@ -4520,6 +4548,58 @@ A step stops creating periods after about two seconds of work (at least one peri
 Related: R-PERIOD-130, D-270
 
 Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-290 The history table newest first, the chart oldest first (accepted)
+
+The debt page reads get_debt_history twice: the table newest first (p_newest_first) 50 rows a page, older ones on request; the chart oldest first, 1000 rows a page, up to 10 000 events, saying where it stops.
+
+**Why:** The database now pages newest first (answer to Q-141): the latest events, the ones a member looks for, come first; D-232's reason for oldest first no longer holds.
+
+**Rejected:** none recorded.
+
+Related: D-232, Q-141, R-DEBT-191
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-291 catching_up is handled in one place (accepted)
+
+One component watches every query and mutation of the budget for catching_up: it runs ensure_periods until 0 behind the catching-up screen (shown only after 700 ms), then reads the budget's queries again. Pages stay mounted, so forms keep what was typed; a refused save says to save again.
+
+**Why:** Since D-270 every call but ensure_periods and get_current_period answers catching_up when the budget is behind; handling it per screen would miss some, and remounting pages would lose what was typed. A catch-up of one step (a new day) ends in about 100 ms: a flash of the full screen helps nobody.
+
+**Rejected:**
+
+- Remounting the page after the catch-up: loses form content.
+
+Related: D-270, R-PERIOD-190, D-231
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-292 Older periods are read on request, from every picker (accepted)
+
+usePeriods reads list_periods 120 at a time; the periods page has a button for older periods, and every period picker ends with "Older periods…", which reads the next page (the list stays open for the next choice).
+
+**Why:** R-APP-170: a budget's periods grow without bound and the API cuts an answer at 1000 rows. Ten years fit in one page, so the entry is rarely seen.
+
+**Rejected:**
+
+- Loading every page at once: what the paging is for.
+
+Related: R-APP-170, R-PERIOD-191, R-PERIOD-192
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-293 Frozen payments from the list itself (accepted)
+
+The transactions list and form read transaction_list.debt_ended to know that a payment's debt has ended; they no longer read debt_overview for it.
+
+**Why:** Answer to Q-140: the database gives the flag on the row.
+
+**Rejected:** none recorded.
+
+Related: Q-140, R-DEBT-151
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
 ## Open questions
 
@@ -4759,13 +4839,13 @@ Source: owner-request: coordinator, independent re-review of the step 4 database
   - Context: D-201: after more than ten years away, reading a budget takes several ensure_periods calls (120 periods each); my_budgets.caught_up is false meanwhile and get_current_period answers no row.
   - Related: D-270, R-PERIOD-130, D-231
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16
-- **Q-140** (resolved by D-274) Should transaction_list say that a payment's debt has ended?
+- **Q-140** (resolved by D-293) Should transaction_list say that a payment's debt has ended?
   - Context: D-209: a payment of an ended debt cannot be changed or deleted. transaction_list gives debt_id and debt_name only, so the transactions list reads debt_overview to know which payments are frozen and disable their actions. A column debt_ended (or a frozen flag) would let the list say so from its own row.
   - Related: D-209, R-DEBT-151
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
-- **Q-141** (resolved by D-275) Should get_debt_history also page newest first?
+- **Q-141** (resolved by D-290) Should get_debt_history also page newest first?
   - Context: D-232: the history table shows the oldest events first because get_debt_history pages only in that order; for a long history the latest events, the ones a member usually looks for, are many pages away. A p_newest_first flag with the mirrored cursor would let the table start with them.
-  - Related: D-232, R-DEBT-135
+  - Related: D-232, R-DEBT-135, D-290
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16
 - **Q-160** Should a category's average spent count only the periods where it was in force?
   - Context: D-261: it divides by every completed period of the range, so a category added three periods ago averages over all twelve and looks smaller than its usual spending. Counting only periods in force would make the per-category averages not add up to the trend's average spent.

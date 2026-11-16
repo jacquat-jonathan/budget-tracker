@@ -88,6 +88,10 @@ export const subscriptionsFr: Translation['subscriptions'] = {
     late_ordinal_other: 'le {{count}}, ou le dernier jour d’un mois plus court',
   },
   noFurtherCharge: 'Plus aucun prélèvement avant la fin du budget',
+  held: {
+    title: 'En attente depuis le {{date}}',
+    why: 'Le budget contient 50 000 transactions, le maximum : ce prélèvement sera créé dès qu’il y aura de la place.',
+  },
   remove: {
     deleteTitle: 'Supprimer « {{name}} » ?',
     endTitle: 'Terminer « {{name}} » ?',
@@ -288,6 +292,7 @@ export const debtsFr: Translation['debts'] = {
   endedBudget:
     'Le budget est terminé : une dette peut encore être ajoutée, modifiée ou terminée comme correction dès l’une de ses périodes, et des remboursements enregistrés dans ses périodes.',
   filterChip: 'Dette : {{name}}',
+  endedNoEdit: 'Cette dette est terminée : elle ne peut plus être modifiée.',
   seeTransactions: 'Voir ses remboursements',
   frozenPayment:
     'C’est un remboursement de « {{name}} », qui est terminée : il ne peut plus être modifié ni supprimé.',
@@ -299,6 +304,7 @@ export const debtsFr: Translation['debts'] = {
       'La dette de ce remboursement est terminée : il ne peut plus être modifié ni supprimé.',
     adjust: 'Cette dette est terminée : son solde ne peut plus être ajusté.',
     deleteAdjustment: 'Cette dette est terminée : ses ajustements ne peuvent plus être supprimés.',
+    edit: 'Cette dette est terminée : elle ne peut plus être modifiée.',
   },
   payment: {
     dateRange: 'Du {{min}}, ouverture de « {{name}} », au {{max}}.',
@@ -368,10 +374,10 @@ export const debtsFr: Translation['debts'] = {
     see: 'Voir',
     seePayment: 'Voir le remboursement de {{amount}} du {{date}} parmi les transactions',
     showMore: 'Afficher {{count}} de plus',
-    shownSoFar_one: '1 événement affiché, du plus ancien ; il y en a d’autres.',
-    shownSoFar_other: '{{count}} événements affichés, du plus ancien ; il y en a d’autres.',
+    shownSoFar_one: 'Le dernier événement affiché ; il y en a de plus anciens.',
+    shownSoFar_other: 'Les {{count}} derniers événements affichés ; il y en a de plus anciens.',
     shownAll_one: '1 événement.',
-    shownAll_other: 'Les {{count}} événements, du plus ancien au plus récent.',
+    shownAll_other: 'Les {{count}} événements, du plus récent au plus ancien.',
     loadFailed: 'Les événements suivants n’ont pas pu être lus. Réessayez.',
   },
   overpaid: 'Trop-payé',
@@ -394,7 +400,7 @@ export const correctionsFr: Translation['corrections'] = {
     'La correction s’applique du {{start}} jusqu’à la période qui se termine le {{end}} ; dès le {{next}}, les conditions enregistrées ensuite restent.',
   reachOn: 'La correction s’applique dès le {{start}}.',
   notInForce:
-    'Il n’était pas en vigueur dans cette période : il n’y a rien à y corriger. Choisissez une autre période.',
+    'Il n’existait pas dans cette période (pas encore, ou plus) : il n’y a rien à y corriger. Choisissez une autre période.',
   budgetEnded:
     'Le budget est terminé : une modification ne s’applique que comme correction dès l’une de ses périodes.',
   changedNotShown:

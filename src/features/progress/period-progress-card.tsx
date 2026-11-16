@@ -121,8 +121,17 @@ export function PeriodProgressCard({ className }: { className?: string }) {
             <Button
               variant="outline"
               size="icon-sm"
-              disabled={!older}
-              onClick={() => older && go(older)}
+              disabled={!older && !periods.hasOlder}
+              onClick={() => {
+                if (older) go(older)
+                else {
+                  // The oldest period read so far: the next page is read, then the step taken.
+                  void periods.loadOlder().then((all) => {
+                    const next = all?.[index + 1]
+                    if (next) go(next)
+                  })
+                }
+              }}
               aria-label={t('progress.older')}
             >
               <ChevronLeftIcon />

@@ -1,4 +1,5 @@
-import { keepPreviousData, useQuery, type QueryKey } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery, type QueryKey } from '@tanstack/react-query'
+import { useCallback, useMemo } from 'react'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { calendarMonth } from '@/lib/date'
@@ -173,17 +174,74 @@ export function useCurrentPeriod(budgetId: string): PeriodRead<PeriodSummary | n
   })
 }
 
-/** All existing periods, newest first. */
-export function usePeriods(budgetId: string): PeriodRead<PeriodSummary[]> {
-  return usePeriodDependentQuery(budgetId, budgetKeys.periods(budgetId), async () =>
-    unwrap(
-      await supabase
-        .from('period_summaries')
-        .select('*')
-        .eq('budget_id', budgetId)
-        .order('seq', { ascending: false }),
-    ),
+/** Periods per page of list_periods (1 to 200; ten years of monthly periods). */
+export const PERIOD_PAGE = 120
+
+export interface PeriodsRead extends PeriodRead<PeriodSummary[]> {
+  /** Older periods than those read exist: `loadOlder` reads the next page. */
+  hasOlder: boolean
+  loadingOlder: boolean
+  /** Reads the next page; resolves to every period read so far. */
+  loadOlder: () => Promise<PeriodSummary[] | undefined>
+}
+
+/**
+ * The periods, newest first, a page at a time (list_periods, R-APP-170): the newest page at
+ * once, older ones on request. Every caller shares the pages read so far (one cache entry).
+ */
+// R-PERIOD-191: periods are listed in pages, never all at once.
+export function usePeriods(budgetId: string): PeriodsRead {
+  const ensured = useEnsurePeriods(budgetId)
+  const query = useInfiniteQuery({
+    queryKey: [...budgetKeys.periods(budgetId), ensured.dataUpdatedAt],
+    enabled: ensured.isSuccess,
+    placeholderData: keepPreviousData,
+    initialPageParam: null as number | null,
+    queryFn: async ({ pageParam }): Promise<PeriodSummary[]> =>
+      unwrap(
+        await supabase.rpc('list_periods', {
+          p_budget_id: budgetId,
+          p_limit: PERIOD_PAGE,
+          ...(pageParam !== null ? { p_before_seq: pageParam } : {}),
+        }),
+      ),
+    getNextPageParam: (page): number | null => {
+      const last = page.at(-1)
+      return page.length < PERIOD_PAGE || !last ? null : last.seq
+    },
+  })
+  const pages = query.data?.pages
+  const data = useMemo(() => pages?.flat(), [pages])
+  const { fetchNextPage } = query
+  const loadOlder = useCallback(
+    async () => (await fetchNextPage()).data?.pages.flat(),
+    [fetchNextPage],
   )
+  const older = {
+    hasOlder: query.hasNextPage,
+    loadingOlder: query.isFetchingNextPage,
+    loadOlder,
+  }
+  if (ensured.isError && data === undefined) {
+    return {
+      data: undefined,
+      isPending: false,
+      isSuccess: false,
+      isError: true,
+      error: ensured.error,
+      refetch: () => void ensured.refetch(),
+      ...older,
+    }
+  }
+  return {
+    data,
+    isPending: data === undefined && !query.isError,
+    isSuccess: data !== undefined,
+    isError: query.isError && data === undefined,
+    error: query.error,
+    refetch: () => void query.refetch(),
+    ...older,
+  }
 }
 
 /** Incomes, ended ones included, oldest first (next_pay_date depends on today). */

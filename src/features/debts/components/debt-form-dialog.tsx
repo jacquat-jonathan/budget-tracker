@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { CorrectionToggle } from '@/components/form/correction-toggle'
 import { MoneyField } from '@/components/form/money-field'
@@ -95,19 +96,25 @@ function DebtForm({
   onCreated,
 }: Props) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   // The version the dialog was opened on, kept: the page may pass newer ones while it is open.
   const [opened] = useState(openedNow)
   // A refused save over a change this form does not show says so (the shown fields that
   // changed have their own notice), in the save's own words.
-  const errorMessage = useErrorMessage({ record_changed: 'debts.changedNotShown' })
+  const errorMessage = useErrorMessage({
+    record_changed: 'debts.changedNotShown',
+    debt_ended: 'debts.endedErrors.edit',
+  })
   const close = () => onOpenChange(false)
   const views = useSubscriptionViews()
   const live = useDebtRecord(budgetId, opened?.id)
   // Ended by someone else meanwhile: nothing can be saved from now (as step 3's forms).
-  const endedElsewhere = (record: Debt) => opened?.is_active === true && !record.is_active
+  const endedElsewhere = (record: Debt) => opened?.end_seq === null && record.end_seq !== null
   const edit = useEditBase(opened, live, views.debt, endedElsewhere)
   const debt = edit.base
   const endedNow = live !== null && live !== undefined && edit.gone
+  // R-DEBT-190: an ended debt is frozen: its form says so and offers no save.
+  const frozen = !edit.gone && debt !== undefined && debt.end_seq !== null
   const settled = useRecordSettled(budgetId, 'debt_overview', opened?.id, live)
 
   const valuesOf = (from: Debt | undefined): Input => ({
@@ -233,6 +240,12 @@ function DebtForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate data-testid="debt-form">
       <FieldGroup>
+        {frozen && (
+          <Alert data-testid="debt-frozen">
+            <InfoIcon aria-hidden />
+            <AlertDescription>{t('debts.endedNoEdit')}</AlertDescription>
+          </Alert>
+        )}
         <ConcurrentNotices
           gone={edit.gone}
           pending={sync.pending}
@@ -267,6 +280,7 @@ function DebtForm({
             <SelectField
               control={form.control}
               name="fromPeriodId"
+              more={olderPeriods}
               label={t('corrections.period')}
               options={correctable.map((period) => ({ value: period.id, label: label(period) }))}
             />
@@ -320,6 +334,7 @@ function DebtForm({
           <SelectField
             control={form.control}
             name="fromPeriodId"
+            more={olderPeriods}
             label={t('debts.fields.from')}
             description={t('debts.fields.fromHelp')}
             options={[
@@ -354,6 +369,7 @@ function DebtForm({
               edit.gone ||
               !settled ||
               notInForce ||
+              frozen ||
               (!!debt && !base)
             }
           >

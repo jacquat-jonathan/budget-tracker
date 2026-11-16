@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
+import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { CorrectionToggle } from '@/components/form/correction-toggle'
 import {
@@ -106,6 +108,7 @@ function EndBody({
   const mustCorrect = currentPeriod === null
   const [correct, setCorrect] = useState(mustCorrect)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   // What happens, from now or from the period chosen, is the database's answer (D-220).
   const preview = useRemovalPreview(
     'subscription',
@@ -176,7 +179,7 @@ function EndBody({
             <FieldLabel htmlFor="end-subscription-period">
               {t('income.correction.removeFrom')}
             </FieldLabel>
-            <Select value={fromPeriodId} onValueChange={setFromPeriodId}>
+            <Select value={fromPeriodId} onValueChange={pickPeriod(olderPeriods, setFromPeriodId)}>
               <SelectTrigger id="end-subscription-period" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -186,6 +189,7 @@ function EndBody({
                     {label(period)}
                   </SelectItem>
                 ))}
+                <OlderPeriodsItem option={olderPeriods} />
               </SelectContent>
             </Select>
           </Field>

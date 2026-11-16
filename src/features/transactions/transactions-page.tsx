@@ -14,6 +14,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
+import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
+import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { useAnswerCharge } from '@/features/subscriptions/subscription-mutations'
@@ -59,7 +61,6 @@ import { useAwaitingCharges } from '@/features/subscriptions/subscription-querie
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { isVoid, useCategories, type Category } from '@/features/categories/category-queries'
 import { isUuid } from '@/lib/uuid'
-import { useDebts } from '@/features/debts/debt-queries'
 import {
   TransactionFormDialog,
   type DateRange,
@@ -105,12 +106,6 @@ export function TransactionsPage() {
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
   const charges = useAnswerCharge(budgetId)
-  // Payments of an ended debt are frozen (D-209): the list says so instead of offering a delete.
-  const debtList = useDebts(budgetId)
-  const endedDebtIds = useMemo(
-    () => new Set((debtList.data ?? []).filter((d) => d.end_seq !== null).map((d) => d.id)),
-    [debtList.data],
-  )
 
   const periodList = periods.data
   // The current period by default; once the budget has ended, its last period.
@@ -254,6 +249,7 @@ export function TransactionsPage() {
       )}
       <div className="@container/filters">
         <Filters
+          budgetId={budgetId}
           periods={periodList ?? []}
           period={period}
           allPeriods={periodParam === ALL}
@@ -292,7 +288,6 @@ export function TransactionsPage() {
       ) : (
         <TransactionList
           rows={rows}
-          endedDebtIds={endedDebtIds}
           onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
           onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
           onAnswer={(transaction, answer) => {
@@ -433,6 +428,7 @@ function LinkFilters({
 }
 
 function Filters({
+  budgetId,
   periods,
   period,
   allPeriods,
@@ -443,6 +439,7 @@ function Filters({
   onCategory,
   onKind,
 }: {
+  budgetId: string
   periods: PeriodSummary[]
   period: PeriodSummary | null
   allPeriods: boolean
@@ -454,6 +451,7 @@ function Filters({
   onKind: (value: string | null) => void
 }) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   // A category without a plan (void) is offered only when a link selected it.
   const shown = (category: Category) => !isVoid(category) || category.id === categoryId
   const tops = categories.filter((category) => category.parent_id === null && shown(category))
@@ -476,7 +474,7 @@ function Filters({
         </Label>
         <Select
           value={allPeriods ? ALL : (period?.id ?? ALL)}
-          onValueChange={(value) => onPeriod(value)}
+          onValueChange={pickPeriod(olderPeriods, onPeriod)}
         >
           <SelectTrigger id="filter-period" className="w-full">
             <SelectValue />
@@ -491,6 +489,7 @@ function Filters({
                   : label(item)}
               </SelectItem>
             ))}
+            <OlderPeriodsItem option={olderPeriods} />
           </SelectContent>
         </Select>
       </div>
@@ -569,13 +568,11 @@ function weekday(date: string, language: string): string {
 /** Transactions grouped by day, newest first. */
 function TransactionList({
   rows,
-  endedDebtIds,
   onEdit,
   onDelete,
   onAnswer,
 }: {
   rows: Transaction[]
-  endedDebtIds: ReadonlySet<string>
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
@@ -602,7 +599,8 @@ function TransactionList({
               <TransactionRow
                 key={row.id}
                 row={row}
-                frozen={row.debt_id !== null && endedDebtIds.has(row.debt_id)}
+                // A payment of an ended debt is frozen (transaction_list.debt_ended).
+                frozen={row.debt_ended === true}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onAnswer={onAnswer}

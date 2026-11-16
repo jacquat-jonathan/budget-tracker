@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { MoneyField } from '@/components/form/money-field'
 import { SegmentedField } from '@/components/form/segmented-field'
@@ -112,6 +113,7 @@ function HistoryForm({
   onClose,
 }: Props & { category: Category }) {
   const { t } = useTranslation()
+  const olderPeriods = useOlderPeriodsOption(budgetId)
   const errorMessage = useErrorMessage()
   const views = useRecordViews()
   const id = useId()
@@ -228,6 +230,7 @@ function HistoryForm({
           <SelectField
             control={form.control}
             name="fromPeriodId"
+            more={olderPeriods}
             label={t('categories.extendFrom')}
             options={earlier.map((period) => ({ value: period.id, label: label(period) }))}
           />

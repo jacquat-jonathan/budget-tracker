@@ -236,6 +236,10 @@ describe('debt payments in the transaction form [R-DEBT-123]', () => {
         end_seq: 2,
       }),
     ]
+    // The list's own flag says the payment is frozen (transaction_list.debt_ended).
+    db.tables.transaction_list = db.tables.transaction_list.map((row) =>
+      row.debt_id === 'debt-car' ? { ...row, debt_ended: true } : row,
+    )
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/transactions?period=all')
     await screen.findAllByTestId('transaction-row')

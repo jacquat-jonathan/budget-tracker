@@ -195,6 +195,11 @@ export function DebtDetailPage() {
                 <PencilIcon />
                 {t('debts.edit')}
               </DropdownMenuItem>
+              {!editable && (
+                <p className="max-w-56 px-2 pb-1.5 pl-8 text-xs text-muted-foreground">
+                  {t('debts.endedNoEdit')}
+                </p>
+              )}
               <DropdownMenuItem asChild>
                 <Link to={transactionsOf({ debt: debt.id })}>
                   <ListIcon />
@@ -305,13 +310,9 @@ export function DebtDetailPage() {
                 cappedAt={hasNextPage || entries.length > chartCap ? chartCap : null}
               />
               <HistoryTable
+                budgetId={budgetId}
                 debt={debt}
-                entries={entries}
                 frozen={!notEnded}
-                hasMore={hasNextPage}
-                loadingMore={isFetchingNextPage}
-                loadFailed={history.isFetchNextPageError}
-                onLoadMore={() => void fetchNextPage()}
                 onDeleteAdjustment={(entry) => {
                   deleteAdjustment.reset()
                   setDialog({ kind: 'deleteAdjustment', entry })
@@ -400,34 +401,36 @@ export function DebtDetailPage() {
 }
 
 /**
- * The history, oldest first as the database pages it: the chart's text alternative, shown
- * 50 rows at a time, the next page read with its cursor when the rows read so far are shown.
+ * The history, newest first as the database pages it (p_newest_first, D-290): the chart's text
+ * alternative, 50 rows at a time, the next (older) page read with its cursor on request.
  * Payments lead to their transactions; adjustments can be deleted, unless the debt has ended.
  */
+// R-DEBT-191: the latest events first, a page at a time.
 function HistoryTable({
+  budgetId,
   debt,
-  entries,
   frozen,
-  hasMore,
-  loadingMore,
-  loadFailed,
-  onLoadMore,
   onDeleteAdjustment,
 }: {
+  budgetId: string
   debt: Debt
-  entries: HistoryEntry[]
   /** Ended: its adjustments can no longer be deleted (D-209). */
   frozen: boolean
-  hasMore: boolean
-  loadingMore: boolean
-  loadFailed: boolean
-  onLoadMore: () => void
   onDeleteAdjustment: (entry: HistoryEntry) => void
 }) {
   const { t } = useTranslation()
-  const [shown, setShown] = useState(HISTORY_SHOWN)
-  const rows = entries.slice(0, shown)
-  const more = entries.length > shown || hasMore
+  const history = useDebtHistory(budgetId, debt.id, {
+    newestFirst: true,
+    pageSize: HISTORY_SHOWN,
+  })
+  const rows = useMemo(() => history.data?.pages.flat() ?? [], [history.data])
+  const more = history.hasNextPage
+  const loadingMore = history.isFetchingNextPage
+  const loadFailed = history.isFetchNextPageError
+  if (history.isError && !history.data) {
+    return <ErrorState error={history.error} onRetry={() => void history.refetch()} />
+  }
+  if (!history.data) return <LoadingState rows={2} />
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-sm font-medium">{t('debts.history.title')}</h3>
@@ -518,11 +521,7 @@ function HistoryTable({
           size="sm"
           className="self-start"
           disabled={loadingMore}
-          onClick={() => {
-            const next = shown + HISTORY_SHOWN
-            if (next > entries.length && hasMore) onLoadMore()
-            setShown(next)
-          }}
+          onClick={() => void history.fetchNextPage()}
           data-testid="history-more"
         >
           {loadingMore
