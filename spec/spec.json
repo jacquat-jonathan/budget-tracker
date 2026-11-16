@@ -5478,7 +5478,7 @@
       "feature": "F-DEBT",
       "status": "active",
       "enforcement": "test",
-      "related": ["Q-110", "D-211"],
+      "related": ["Q-110", "D-216"],
       "source": [
         "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
@@ -5530,7 +5530,7 @@
       "feature": "F-DEBT",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-210"],
+      "related": ["D-215"],
       "source": [
         "owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
@@ -5582,7 +5582,7 @@
       "feature": "F-DEBT",
       "status": "active",
       "enforcement": "test",
-      "related": ["Q-111", "D-213"],
+      "related": ["Q-111", "D-218"],
       "source": [
         "owner-request: coordinator review of the step 4 database, 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
@@ -7845,7 +7845,7 @@
       ]
     },
     {
-      "id": "D-210",
+      "id": "D-215",
       "title": "A debt's paid share",
       "decision": "debt_overview.paid_percent is the payments over principal plus interest plus adjustments, a whole percent rounded down, 100 exactly when nothing remains, 0 while nothing has been paid (and when the total owed is not positive with nothing paid).",
       "why": "Rounding down never shows 100 % for a debt that still owes a rappen.",
@@ -7860,7 +7860,7 @@
       ]
     },
     {
-      "id": "D-211",
+      "id": "D-216",
       "title": "The database gives the total still owed",
       "decision": "A view debt_totals gives per budget the sum of the positive remaining amounts of its debts in force and the number still owing; overpaid and paid-off debts add nothing.",
       "why": "Answer to Q-110: the client no longer adds amounts up (C-LOGIC-003), and an overpaid debt cannot hide another's debt.",
@@ -7873,7 +7873,7 @@
       ]
     },
     {
-      "id": "D-212",
+      "id": "D-217",
       "title": "Hot helper functions are plpgsql",
       "decision": "Helpers called per row or per period by the views (totals, spans, reading_seq, the projection) are plpgsql, so their plans are kept for the session; a SQL function with a search_path setting is planned again on each call. A lookup that a generic plan would scan sequentially disables sequential scans in the function rather than forcing custom plans.",
       "why": "The pages at the limits (50 subscriptions, 50 debts, 200 categories, 120 periods) must read in about 250 ms.",
@@ -7886,7 +7886,7 @@
       ]
     },
     {
-      "id": "D-213",
+      "id": "D-218",
       "title": "Changing a transaction and its link in one call",
       "decision": "update_transaction takes p_relink: with it, p_debt_id and p_subscription_id (both null: no link) replace the link in the same call, checked against the new fields; without it the link is kept as before.",
       "why": "Answer to Q-111: a payment is never left half-changed by a failure between calls.",
@@ -8616,7 +8616,7 @@
       "context": "D-191: the debts page adds up debt_overview.remaining for the debts in force. A database total would follow C-LOGIC-003 to the letter and could exclude or include ended debts by rule.",
       "related": ["D-191", "R-DEBT-121"],
       "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"],
-      "resolvedBy": "D-211"
+      "resolvedBy": "D-216"
     },
     {
       "id": "Q-111",
@@ -8625,7 +8625,7 @@
       "context": "D-194: changing the debt a transaction pays takes up to three calls (unlink, update, link), not atomic; a failure part-way leaves part of the change.",
       "related": ["D-194", "D-177"],
       "source": ["owner-request: coordinator brief for the step 4 screens, 2026-11-16"],
-      "resolvedBy": "D-213"
+      "resolvedBy": "D-218"
     },
     {
       "id": "Q-112",

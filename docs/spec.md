@@ -1229,7 +1229,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-TRANSACTION-131** One call can change a transaction and its debt or subscription link together, checked against the new fields, all or nothing.
   _active · enforced by test · F-DEBT_
-  - Related: Q-111, D-213
+  - Related: Q-111, D-218
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-TRANSACTION-132** The transactions list can be filtered to one subscription, one debt, or the charges awaiting confirmation.
   _active · enforced by test · F-SUBSCRIPTION_
@@ -1487,7 +1487,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-133** What a budget still owes is the sum of the positive remaining amounts of its debts in force (an overpaid or paid-off debt adds nothing), given with the number of debts still owing.
   _active · enforced by test · F-DEBT_
-  - Related: Q-110, D-211
+  - Related: Q-110, D-216
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-134** An ended debt is frozen: no payment can be linked to it, changed or removed, and no balance adjustment added or removed, so its remaining amount stays.
   _active · enforced by test · F-DEBT_
@@ -1503,7 +1503,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-137** A debt's paid share is its payments as a whole percent, rounded down, of its principal plus its interest plus its adjustments: 100 exactly when nothing remains, 0 while nothing has been paid.
   _active · enforced by test · F-DEBT_
-  - Related: D-210
+  - Related: D-215
   - Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 - **R-DEBT-138** What removing a debt from a chosen period would do (deleted, ended, or the refusal) can be asked beforehand, with the same conditions as the write.
   _active · enforced by test · F-DEBT_
@@ -4033,7 +4033,7 @@ Related: R-DEBT-134, R-DEBT-113
 
 Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
-### D-210 A debt's paid share (accepted)
+### D-215 A debt's paid share (accepted)
 
 debt_overview.paid_percent is the payments over principal plus interest plus adjustments, a whole percent rounded down, 100 exactly when nothing remains, 0 while nothing has been paid (and when the total owed is not positive with nothing paid).
 
@@ -4047,7 +4047,7 @@ Related: R-DEBT-137
 
 Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
-### D-211 The database gives the total still owed (accepted)
+### D-216 The database gives the total still owed (accepted)
 
 A view debt_totals gives per budget the sum of the positive remaining amounts of its debts in force and the number still owing; overpaid and paid-off debts add nothing.
 
@@ -4061,7 +4061,7 @@ Related: Q-110, R-DEBT-133, D-191
 
 Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
-### D-212 Hot helper functions are plpgsql (accepted)
+### D-217 Hot helper functions are plpgsql (accepted)
 
 Helpers called per row or per period by the views (totals, spans, reading_seq, the projection) are plpgsql, so their plans are kept for the session; a SQL function with a search_path setting is planned again on each call. A lookup that a generic plan would scan sequentially disables sequential scans in the function rather than forcing custom plans.
 
@@ -4075,7 +4075,7 @@ Related: C-LOGIC-001
 
 Source: owner-request: coordinator review of the step 4 database, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
-### D-213 Changing a transaction and its link in one call (accepted)
+### D-218 Changing a transaction and its link in one call (accepted)
 
 update_transaction takes p_relink: with it, p_debt_id and p_subscription_id (both null: no link) replace the link in the same call, checked against the new fields; without it the link is kept as before.
 
@@ -4299,11 +4299,11 @@ Source: owner-request: coordinator review of the step 4 database, 2026-11-16; co
   - Context: D-175: a charge awaits confirmation until a member answers; the dashboard list can grow if nobody does. It counts in totals meanwhile (R-SUBSCRIPTION-078).
   - Related: D-175, R-SUBSCRIPTION-076
   - Source: owner-request: database developer decision for step 4, within the coordinator's brief, 2026-11-16
-- **Q-110** (resolved by D-211) Should the database give the total remaining across a budget's debts?
+- **Q-110** (resolved by D-216) Should the database give the total remaining across a budget's debts?
   - Context: D-191: the debts page adds up debt_overview.remaining for the debts in force. A database total would follow C-LOGIC-003 to the letter and could exclude or include ended debts by rule.
   - Related: D-191, R-DEBT-121
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
-- **Q-111** (resolved by D-213) Should one call change a transaction and its debt link together?
+- **Q-111** (resolved by D-218) Should one call change a transaction and its debt link together?
   - Context: D-194: changing the debt a transaction pays takes up to three calls (unlink, update, link), not atomic; a failure part-way leaves part of the change.
   - Related: D-194, D-177
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16

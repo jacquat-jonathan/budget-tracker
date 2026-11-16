@@ -1048,7 +1048,7 @@ $$;
 
 
 -- ===========================================================================
--- Step 3's per-period figures, the same queries in plpgsql (D-212): a SQL function with a
+-- Step 3's per-period figures, the same queries in plpgsql (D-217): a SQL function with a
 -- search_path setting is planned again on every call, which made period_summaries cost a
 -- plan per period and figure; plpgsql keeps its plans for the session.
 -- ===========================================================================
@@ -1169,7 +1169,7 @@ $$;
 
 -- R-TRANSACTION-095: step 3's recorder_name, the same answer from the index on (recorded_by,
 -- budget_id): a sequential scan could read thousands of automatic charges (recorded by
--- nobody) before the first row of the person (D-212).
+-- nobody) before the first row of the person (D-217).
 create or replace function private.recorder_name(p_budget_id uuid, p_user_id uuid)
 returns text
 language sql
@@ -1185,7 +1185,7 @@ as $$
 $$;
 
 -- Step 3's category_has_transactions, the same answer with index lookups forced instead of a
--- custom plan per call (D-212; D-153's concern, a generic plan scanning every transaction for
+-- custom plan per call (D-217; D-153's concern, a generic plan scanning every transaction for
 -- a category with many, is met by disabling sequential scans in the function).
 create or replace function private.category_has_transactions(p_category_id uuid)
 returns boolean
@@ -1202,7 +1202,7 @@ begin
 end;
 $$;
 
--- Step 2's reading_seq, the same answer in plpgsql (D-212): the views call it for every row.
+-- Step 2's reading_seq, the same answer in plpgsql (D-217): the views call it for every row.
 create or replace function private.reading_seq(p_budget_id uuid)
 returns integer
 language plpgsql
@@ -1855,7 +1855,7 @@ create view public.debt_overview with (security_invoker = true) as
     pr.after_budget_end as expected_end_after_budget_end,
     -- R-DEBT-136: how much it is overpaid by (0 unless remaining is negative)
     greatest(-(d.principal + a.interest_total + a.adjustment_total - a.paid_total), 0)::bigint as overpaid_by,
-    -- R-DEBT-137, D-210: the payments as a share of everything owed so far (principal +
+    -- R-DEBT-137, D-215: the payments as a share of everything owed so far (principal +
     -- interest + adjustments), a whole percent rounded down: 100 exactly when nothing
     -- remains, 0 while nothing has been paid
     (case
@@ -1879,7 +1879,7 @@ create view public.debt_overview with (security_invoker = true) as
   -- the projection only for a debt in force (an ended one has none: no call)
   left join lateral (select * from private.debt_projection(d.id) as x where d.end_seq is null offset 0) as pr on true;
 
--- R-DEBT-133, D-211: what a budget still owes: the positive remaining amounts of its debts in
+-- R-DEBT-133, D-216: what a budget still owes: the positive remaining amounts of its debts in
 -- force now, added up (an overpaid or paid-off debt adds nothing), and how many debts still
 -- owe something (D-191, Q-110). One row per budget that has a debt in force.
 create view public.debt_totals with (security_invoker = true) as

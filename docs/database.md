@@ -83,7 +83,7 @@ below lists the rule ids it implements.
 | `transaction_list` (view) | transactions | `id`, `budget_id`, `kind` (`'expense'` \| `'refund'` \| `'extra_income'`), `amount` (positive), `date`, `period_id` (the period containing the date), `category_id` (null for an extra income), `category_name`, `parent_category_id`, `parent_category_name`, `description` (may be null), `recorded_by` (null if their account was deleted, and for an automatic charge), `recorded_by_name` (also for a former member), `revision`, `created_at`, `updated_at`, `subscription_id` and `subscription_name` (linked to a subscription), `debt_id` and `debt_name` (a debt payment), `charge_date` (an automatic charge: the scheduled date it was created for; null for a transaction a member recorded), `review_state` (enum `review_state`: `'confirmed'` \| `'awaiting_confirmation'`). List it with `list_transactions` (paged); select it directly only by `id` | R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-006, R-TRANSACTION-095, R-SUBSCRIPTION-075 |
 | `subscription_overview` (view) | subscriptions, ended and void ones included | `id`, `budget_id`, `name`, `is_active` (in force in the current period), `first_seq`, `end_seq`, terms in force now: `price`, `cadence` (`'monthly'` \| `'quarterly'` \| `'half_yearly'` \| `'yearly'`), `category_id`, `category_name`, `parent_category_id`, `parent_category_name`, `anchor_date` (the date the schedule counts from: the first charge date, or the next charge date given when the schedule last changed), `terms_from_seq`; `monthly_cost` (its committed amount: price / months of the cadence, rounded half up), `next_charge_date` (the next scheduled date not yet charged; null once ended, when the budget has ended, or when it falls after the budget's end), `charged_through` (every charge up to this date is settled), `charge_count` (its automatic charges), `awaiting_count` (of which awaiting confirmation), `removal_deletes` (removing it now deletes it instead of ending it), `revision`, `created_at`, `updated_at` (an edit; never the catch-up), `charge_day` (the nominal day of the month, 1 to 31, of the terms in force now) | R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-079, R-SUBSCRIPTION-130, R-SUBSCRIPTION-132, R-VERSION-003 |
 | `debt_overview` (view) | debts, ended and void ones included | `id`, `budget_id`, `name`, `category_id`, `category_name`, `parent_category_id`, `parent_category_name` (the category of the terms in force now; for an ended debt, of its last terms), `principal`, `opened_on`, `is_active`, `first_seq`, `end_seq`, terms in force now: `interest_rate`, `monthly_payment`, `terms_from_seq`; `interest_total`, `adjustment_total` (signed), `paid_total`, `remaining` (`principal + interest_total + adjustment_total - paid_total`; negative when overpaid), `payoff` (enum `debt_payoff`: `'paid_off'` \| `'ends'` \| `'never'`; null for an ended debt, or when the budget has ended), `payments_left` (the planned payments still needed, this period's included while still due; 0 for `'paid_off'`; null for `'never'` and when `payoff` is null), `expected_end_date` (the projected end of the period of the last planned payment; null unless `'ends'`), `has_history` (a payment, interest or adjustment exists: the principal can no longer change), `removal_deletes`, `revision`, `created_at`, `updated_at`, `expected_end_after_budget_end` (the projected end falls after the budget's end: say so rather than show the date as a plan; false when there is no end date), `overpaid_by` (how much more than owed was paid; 0 unless `remaining` is negative), `paid_percent` (the payments as a whole percent of principal + interest + adjustments, rounded down: 100 exactly when `remaining` is 0 or less, 0 while nothing has been paid) | R-DEBT-001 to R-DEBT-005, R-DEBT-070, R-DEBT-074, R-DEBT-112, R-DEBT-132, R-DEBT-136, R-DEBT-137, R-VERSION-004 |
-| `debt_totals` (view) | one row per budget with a debt in force now | `budget_id`, `remaining_total` (the positive remaining amounts of its debts in force, added up: an overpaid or paid-off debt adds nothing), `owing_count` (how many debts in force still owe something). No row: no debt in force (show 0) | R-DEBT-133, D-211 |
+| `debt_totals` (view) | one row per budget with a debt in force now | `budget_id`, `remaining_total` (the positive remaining amounts of its debts in force, added up: an overpaid or paid-off debt adds nothing), `owing_count` (how many debts in force still owe something). No row: no debt in force (show 0) | R-DEBT-133, D-216 |
 | `profiles` | me and people who share a budget with me now | `id`, `display_name`, `email` | R-PROFILE-002, R-PROFILE-003, R-PROFILE-005 |
 
 `my_budgets`, `income_overview` and `period_summaries` also have `revision` (for a period:
@@ -517,7 +517,7 @@ the period after a boundary moved); the category must be in force in the period 
 date only when the category or the period changes. **The link**: without `p_relink` it is
 kept (`p_debt_id` / `p_subscription_id` ignored); with `p_relink = true` it becomes
 `p_debt_id` / `p_subscription_id` (both null: no link) in the same call, checked against the
-new fields, all or nothing (R-TRANSACTION-131, D-213). An automatic charge keeps its
+new fields, all or nothing (R-TRANSACTION-131, D-218). An automatic charge keeps its
 `charge_date` and `review_state` while it stays linked (editing a charge does not confirm
 it); relinking it makes it an ordinary confirmed transaction. A linked transaction stays an
 expense; a payment moved to another category or period must still satisfy its link. A
@@ -727,7 +727,7 @@ monthly payment** (per period; 0: none). Its **remaining amount** is
 `principal + interest + adjustments - payments` (`debt_overview.remaining`), computed by the
 database from its rows; it may be negative when overpaid (`overpaid_by`). What the budget
 still owes in all is `debt_totals.remaining_total` (only positive remaining amounts of debts
-in force; `owing_count` of them), so the client adds nothing up (D-211). No payment or
+in force; `owing_count` of them), so the client adds nothing up (D-216). No payment or
 adjustment is dated before `opened_on` (`before_debt_opened`, D-202). An **ended debt is
 frozen**: no payment can be linked to it, changed or deleted, and no adjustment added or
 deleted (`debt_ended`, D-209). (R-DEBT-001 to R-DEBT-003, R-DEBT-070 to R-DEBT-072,
@@ -758,7 +758,7 @@ whatever the current period's end: R-PERIOD-131, D-203; a later change of the pr
 income's schedule moves it); `expected_end_after_budget_end` when it falls after the
 budget's end (R-DEBT-132). `'never'`: the planned payment does not exceed one period's
 interest (equal counts as never), or the debt would run beyond 600 periods (50 years).
-`'paid_off'`: `payments_left` 0. All null for an ended debt. `paid_percent` (D-210): the
+`'paid_off'`: `payments_left` 0. All null for an ended debt. `paid_percent` (D-215): the
 payments over principal + interest + adjustments, a whole percent rounded down, 100 exactly
 when nothing remains, 0 while nothing has been paid; show it beside `payoff`, which stays
 the answer to "is it paid off".
@@ -1006,7 +1006,7 @@ row's own id or category through an index; a lookup by a value with very uneven 
 (such as a category id) in a function must not fall back to a sequential scan (`set
 enable_seqscan = off` in the function, as `private.category_has_transactions`); a helper
 called per row or per period by a view is plpgsql, whose plans are kept for the session (a
-SQL function with a `set` clause is planned again on every call, D-212); a deferred check
+SQL function with a `set` clause is planned again on every call, D-217); a deferred check
 of a row checks that row, not the whole budget, so operations touching hundreds of rows
 stay fast (D-153).
 
