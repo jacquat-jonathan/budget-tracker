@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { CopyIcon, KeyRoundIcon, PlusIcon, TriangleAlertIcon } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -216,7 +217,12 @@ export function ImportTokensSettings() {
   )
 }
 
-/** Create a token; then its secret, once. The secret is held here only, and dropped on close. */
+/**
+ * Create a token; then its secret, once. The secret is held in this dialog's state only: the
+ * call is made here, outside the query library, so no mutation (and no closure a cache keeps)
+ * can reach it once the dialog is closed. Closing by Escape or a click outside asks first.
+ */
+// R-IMPORT-326: the secret lives in this dialog only, and is never dismissed by accident.
 function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: () => void }) {
   const { t } = useTranslation()
   const id = useId()
@@ -228,36 +234,48 @@ function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: (
   const secretRef = useRef<HTMLTextAreaElement>(null)
   const dayCount = Number(days)
   const daysValid = Number.isInteger(dayCount) && dayCount >= 1 && dayCount <= TOKEN_DAYS_MAX
-  const create = useAppMutation<{ tokenId: string }, { name: string; days: number }>({
-    errorDisplay: 'inline',
-    // The secret goes to this dialog's state and nowhere else: the mutation keeps only the id.
-    mutationFn: async (input) => {
-      const row = unwrap(
-        await supabase.rpc('create_import_token', {
-          p_budget_id: budgetId,
-          p_name: input.name,
-          p_expires_in_days: input.days,
-        }),
-      )[0]
+  const queryClient = useQueryClient()
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<unknown>(null)
+  const [leaving, setLeaving] = useState(false)
+  const submit = async (input: { name: string; days: number }) => {
+    if (pending) return
+    setPending(true)
+    setError(null)
+    try {
+      const result = await supabase.rpc('create_import_token', {
+        p_budget_id: budgetId,
+        p_name: input.name,
+        p_expires_in_days: input.days,
+      })
+      const row = unwrap(result)[0]
       setSecret(row?.token ?? null)
-      return { tokenId: row?.token_id ?? '' }
-    },
-    invalidate: () => [budgetKeys.importTokens(budgetId)],
-  })
+    } catch (thrown) {
+      setError(thrown)
+    } finally {
+      setPending(false)
+      void queryClient.invalidateQueries({ queryKey: budgetKeys.importTokens(budgetId) })
+    }
+  }
   const close = () => {
     setSecret(null)
-    create.reset()
     onClose()
   }
+  // While the secret is shown, a dismissal the member may not have meant asks first.
+  const dismiss = (event: Event) => {
+    if (secret === null) return
+    event.preventDefault()
+    setLeaving(true)
+  }
   return (
-    <Dialog open onOpenChange={(open) => !open && close()}>
-      <DialogContent>
+    <Dialog open onOpenChange={(open) => !open && secret === null && close()}>
+      <DialogContent onEscapeKeyDown={dismiss} onInteractOutside={dismiss}>
         {secret === null ? (
           <form
             onSubmit={(event) => {
               event.preventDefault()
               if (name.trim() === '' || !daysValid) return
-              create.mutate({ name: name.trim(), days: dayCount })
+              void submit({ name: name.trim(), days: dayCount })
             }}
             className="flex flex-col gap-4"
           >
@@ -265,9 +283,9 @@ function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: (
               <DialogTitle>{t('import.tokens.createTitle')}</DialogTitle>
               <DialogDescription>{t('import.tokens.help')}</DialogDescription>
             </DialogHeader>
-            {create.isError && (
+            {error !== null && (
               <Alert variant="destructive">
-                <AlertDescription>{errorMessage(create.error)}</AlertDescription>
+                <AlertDescription>{errorMessage(error)}</AlertDescription>
               </Alert>
             )}
             <div className="flex flex-col gap-1.5">
@@ -307,8 +325,8 @@ function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: (
               <Button type="button" variant="outline" onClick={close}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={create.isPending || name.trim() === '' || !daysValid}>
-                {create.isPending ? t('common.saving') : t('import.tokens.createButton')}
+              <Button type="submit" disabled={pending || name.trim() === '' || !daysValid}>
+                {pending ? t('common.saving') : t('import.tokens.createButton')}
               </Button>
             </DialogFooter>
           </form>
@@ -365,6 +383,30 @@ function CreateTokenDialog({ budgetId, onClose }: { budgetId: string; onClose: (
               <p>{t('import.tokens.secretWhere', { name: 'BUDGET_IMPORT_TOKEN' })}</p>
               <p className="font-medium">{t('import.tokens.secretNever')}</p>
             </div>
+            {leaving && (
+              <Alert role="alert" data-testid="secret-leave">
+                <TriangleAlertIcon aria-hidden />
+                <AlertDescription className="flex flex-col gap-2">
+                  <p>{t('import.tokens.leaveAsk')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" size="sm" onClick={close}>
+                      {t('import.tokens.leaveCopied')}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setLeaving(false)
+                        secretRef.current?.focus()
+                      }}
+                    >
+                      {t('import.tokens.leaveBack')}
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
             <DialogFooter>
               <Button type="button" onClick={close}>
                 {t('import.tokens.done')}

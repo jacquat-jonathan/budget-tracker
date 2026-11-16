@@ -671,6 +671,10 @@ export const importEn = {
     copy: 'Copy the token',
     copied: 'Copied.',
     copyFailed: 'Could not copy: select the text and copy it.',
+    leaveAsk:
+      'Close without the secret? It is not shown again: if you have not copied it, revoke this token and create another.',
+    leaveCopied: 'I have copied it: close',
+    leaveBack: 'Back to the secret',
     done: 'I have copied it',
     list: 'Tokens of this budget',
     empty: 'No token yet.',

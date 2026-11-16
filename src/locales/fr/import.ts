@@ -701,6 +701,10 @@ export const importFr: Translation['import'] = {
     copy: 'Copier le jeton',
     copied: 'Copié.',
     copyFailed: 'Impossible de copier : sélectionnez le texte et copiez-le.',
+    leaveAsk:
+      'Fermer sans le secret ? Il n’est plus affiché ensuite : si vous ne l’avez pas copié, révoquez ce jeton et créez-en un autre.',
+    leaveCopied: 'Je l’ai copié : fermer',
+    leaveBack: 'Revenir au secret',
     done: 'Je l’ai copié',
     list: 'Jetons de ce budget',
     empty: 'Aucun jeton pour l’instant.',

@@ -140,7 +140,31 @@ describe('import tokens [R-IMPORT-074] [R-IMPORT-326]', () => {
     expect(JSON.stringify(stored(localStorage))).not.toContain(SECRET)
     expect(JSON.stringify(stored(sessionStorage))).not.toContain(SECRET)
     expect(window.location.href).not.toContain(SECRET)
+    // No mutation was made for it at all: nothing a cache keeps can reach the secret.
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0)
     // Two dialogs, typing and the whole page: about 1 s alone, several times that under load.
+  }, 10_000)
+
+  it('asks before an Escape or a click outside closes the secret', async () => {
+    open(settingsDb())
+    await userEvent.click(await screen.findByRole('button', { name: 'Create a token' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Create an import token' })
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Session')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
+    await screen.findByTestId('token-secret')
+    await userEvent.keyboard('{Escape}')
+    const ask = await screen.findByTestId('secret-leave')
+    expect(ask).toHaveTextContent('Close without the secret? It is not shown again')
+    expect(screen.getByTestId('token-secret')).toHaveValue(SECRET)
+    await userEvent.click(within(ask).getByRole('button', { name: 'Back to the secret' }))
+    expect(screen.getByTestId('token-secret')).toHaveFocus()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(
+      within(await screen.findByTestId('secret-leave')).getByRole('button', {
+        name: 'I have copied it: close',
+      }),
+    )
+    await waitFor(() => expect(screen.queryByTestId('token-secret')).not.toBeInTheDocument())
   }, 10_000)
 
   it('lists the tokens with their state, revokes behind a confirmation, deletes a revoked one', async () => {
