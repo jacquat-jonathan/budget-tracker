@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { compareHref } from '@/features/compare/compare-format'
+import { compareHref, lengthsToMention, resultWord } from '@/features/compare/compare-format'
 import { usePeriodTrend, type Count, type TrendPeriod } from '@/features/compare/compare-queries'
 import {
   IncomeSpentChart,
@@ -26,13 +26,11 @@ import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
-/** Lengths that differ by more than this share are said not to be adjusted (D-296). */
-const LENGTHS_NOTE_RATIO = 1.1
-
 /**
  * The trend of the last periods (get_period_trend): the three averages over the completed
  * periods (null: "no completed period yet", never CHF 0.00), the charts, and the table with
- * each period's figures, length and links (its progress, and side by side with another).
+ * each period's figures, length and links (its progress, and side by side with the one
+ * before it).
  */
 // R-COMPARE-191: averages in words when there are none, the running period marked and left out.
 export function TrendView({
@@ -67,9 +65,7 @@ export function TrendView({
     )
   }
   const live = periods.find((period) => period.is_current)
-  const days = periods.map((period) => period.days)
-  const minDays = Math.min(...days)
-  const maxDays = Math.max(...days)
+  const lengths = lengthsToMention(periods)
   const chosen = periods.find((period) => period.period_id === selected) ?? null
   const label = (period: TrendPeriod) =>
     t('compare.period', {
@@ -80,7 +76,7 @@ export function TrendView({
   return (
     <div className="flex min-w-0 flex-col gap-6" data-testid="trend-view">
       <Averages first={first} />
-      {(live || maxDays > minDays * LENGTHS_NOTE_RATIO) && (
+      {(live || lengths) && (
         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
           {live && (
             <p data-testid="not-averaged">
@@ -90,11 +86,7 @@ export function TrendView({
               })}
             </p>
           )}
-          {maxDays > minDays * LENGTHS_NOTE_RATIO && (
-            <p data-testid="lengths-differ">
-              {t('compare.lengthsDiffer', { min: minDays, max: maxDays })}
-            </p>
-          )}
+          {lengths && <p data-testid="lengths-differ">{t('compare.lengthsDiffer', lengths)}</p>}
         </div>
       )}
       <Card>
@@ -159,7 +151,7 @@ function Averages({ first }: { first: TrendPeriod }) {
             </dd>
             {stat.key === 'result' && stat.value !== null && (
               <dd className="text-xs text-muted-foreground">
-                {stat.value < 0 ? t('compare.trend.deficit') : t('compare.trend.surplus')}
+                {t(`compare.trend.${resultWord(stat.value)}`)}
               </dd>
             )}
           </div>
@@ -203,6 +195,11 @@ function Selected({
   )
 }
 
+/**
+ * Open the period, or put it side by side: the period chosen is B, the one before it A (the
+ * database's default for A); the first period has none before it, so A is left to pick.
+ */
+// R-COMPARE-284: "Compare with…" puts the period as B, never beside itself.
 function PeriodActions({
   period,
   label,
@@ -228,7 +225,7 @@ function PeriodActions({
       </Button>
       <Button asChild variant="outline" size={compact ? 'icon-sm' : 'sm'}>
         <Link
-          to={compareHref('side', { a: period.period_id })}
+          to={compareHref('side', { b: period.period_id })}
           aria-label={t('compare.trend.compareWithFor', { period: label })}
           title={compact ? t('compare.trend.compareWith') : undefined}
         >
@@ -264,14 +261,22 @@ function TrendTable({
         >
           <TableHeader>
             <TableRow>
-              <TableHead className="sticky left-0 z-10 bg-card">
+              <TableHead scope="col" className="sticky left-0 z-10 bg-card">
                 {t('compare.periodHeader')}
               </TableHead>
-              <TableHead className="text-right">{t('compare.series.income')}</TableHead>
-              <TableHead className="text-right">{t('compare.series.spent')}</TableHead>
-              <TableHead className="text-right">{t('compare.series.planned')}</TableHead>
-              <TableHead className="text-right">{t('compare.series.result')}</TableHead>
-              <TableHead>
+              <TableHead scope="col" className="text-right">
+                {t('compare.series.income')}
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                {t('compare.series.spent')}
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                {t('compare.series.planned')}
+              </TableHead>
+              <TableHead scope="col" className="text-right">
+                {t('compare.series.result')}
+              </TableHead>
+              <TableHead scope="col">
                 <span className="sr-only">{t('common.actions')}</span>
               </TableHead>
             </TableRow>
@@ -283,7 +288,11 @@ function TrendTable({
                 data-testid="trend-row"
                 data-state={period.period_id === selected ? 'selected' : undefined}
               >
-                <TableCell className="sticky left-0 z-10 bg-card">
+                {/* The row's header: its period, so each figure is read with it. */}
+                <th
+                  scope="row"
+                  className="sticky left-0 z-10 bg-card p-2 text-left align-middle font-normal whitespace-nowrap"
+                >
                   <button
                     type="button"
                     className="text-left font-medium tabular-nums underline-offset-4 hover:underline"
@@ -296,7 +305,7 @@ function TrendTable({
                     {t('compare.days', { count: period.days })}
                     {period.is_current && <Badge variant="secondary">{t('compare.running')}</Badge>}
                   </div>
-                </TableCell>
+                </th>
                 <TableCell className="text-right tabular-nums">
                   {formatMoney(period.income_total)}
                 </TableCell>
@@ -314,7 +323,7 @@ function TrendTable({
                 >
                   {formatMoney(period.result)}
                   <span className="block text-xs font-normal text-muted-foreground">
-                    {period.result < 0 ? t('compare.trend.deficit') : t('compare.trend.surplus')}
+                    {t(`compare.trend.${resultWord(period.result)}`)}
                   </span>
                 </TableCell>
                 <TableCell className="text-right">

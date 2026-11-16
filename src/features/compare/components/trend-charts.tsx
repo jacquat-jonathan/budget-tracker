@@ -12,8 +12,14 @@ import {
 } from 'recharts'
 
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
-import { axisMoney, periodTick } from '@/features/compare/compare-format'
+import { periodLabels } from '@/features/compare/compare-format'
 import type { TrendPeriod } from '@/features/compare/compare-queries'
+import {
+  ChartFrame,
+  PeriodTick,
+  PLOT_TOP,
+  X_AXIS_HEIGHT,
+} from '@/features/compare/components/chart-frame'
 import { valueTicks } from '@/features/debts/debt-chart-data'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -23,7 +29,7 @@ import { formatMoney } from '@/lib/money'
  * spending as columns side by side with the planned total as a line, and the result as
  * columns from zero (above a surplus, below a deficit: position, not colour, tells which).
  * The running period carries the word "Running" over its columns. One named image each; the
- * table is their text alternative. A column or a point selects its period.
+ * table is their text alternative. A column selects its period.
  */
 // R-COMPARE-191: the trend drawn from the database's rows, the running period marked in words.
 
@@ -34,8 +40,10 @@ const config = {
   result: { label: 'result', color: 'var(--chart-3)' },
 } satisfies ChartConfig
 
-/** Each period needs this much width: a wide range scrolls inside its own frame on a phone. */
-const PER_PERIOD_PX = 44
+/** Each period needs this much width: 24 periods fit from 1024 px; fewer scroll on a phone. */
+const MIN_BAND = 24
+const MAIN_HEIGHT = 272
+const RESULT_HEIGHT = 200
 
 interface Point {
   id: string
@@ -57,29 +65,13 @@ function points(periods: TrendPeriod[]): Point[] {
   }))
 }
 
-/**
- * A chart's own scrolling frame: on a phone a wide range scrolls inside it (never the page),
- * opening on its right end, the newest periods.
- */
-export function ChartFrame({
-  count,
-  perPeriod = PER_PERIOD_PX,
-  children,
-}: {
-  count: number
-  perPeriod?: number
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className="relative -mx-1 overflow-x-auto px-1 pb-1"
-      data-testid="chart-frame"
-      ref={(node) => {
-        if (node) node.scrollLeft = node.scrollWidth
-      }}
-    >
-      <div style={{ minWidth: count * perPeriod }}>{children}</div>
-    </div>
+function useTicks(periods: TrendPeriod[]) {
+  const labels = periodLabels(periods)
+  return new Map(
+    periods.map((period, index) => [
+      period.period_id,
+      labels[index] ?? { dayMonth: '', year: null },
+    ]),
   )
 }
 
@@ -148,8 +140,49 @@ export function TrendLegend({ withPlanned = true }: { withPlanned?: boolean }) {
   )
 }
 
-function running(data: Point[]) {
-  return data.find((point) => point.period.is_current)
+/** The running period's band: shaded, with the word "Running" above it. */
+function RunningBand({ id }: { id: string | undefined }) {
+  const { t } = useTranslation()
+  if (!id) return null
+  return (
+    <ReferenceArea
+      x1={id}
+      x2={id}
+      fill="var(--muted)"
+      fillOpacity={0.6}
+      label={{
+        value: t('compare.running'),
+        // The running period is the last one: the word ends at its right edge, never cut.
+        position: 'insideTopRight',
+        fontSize: 11,
+        fill: 'var(--muted-foreground)',
+        dy: -18,
+      }}
+    />
+  )
+}
+
+/** The shared parts of both charts: grid, period axis, hidden value axis (pinned outside). */
+function axes(ticks: number[], labels: ReturnType<typeof useTicks>) {
+  return [
+    <CartesianGrid key="grid" vertical={false} />,
+    <XAxis
+      key="x"
+      dataKey="id"
+      tickLine={false}
+      axisLine={false}
+      height={X_AXIS_HEIGHT}
+      interval={0}
+      tick={<PeriodTick labels={labels} />}
+    />,
+    <YAxis
+      key="y"
+      hide
+      ticks={ticks}
+      domain={[ticks[0] ?? 0, ticks.at(-1) ?? 0]}
+      allowDataOverflow
+    />,
+  ]
 }
 
 export function IncomeSpentChart({
@@ -161,68 +194,47 @@ export function IncomeSpentChart({
 }) {
   const { t } = useTranslation()
   const data = points(periods)
+  const labels = useTicks(periods)
   const values = valueTicks([
     0,
     ...data.flatMap((point) => [point.income, point.spent, point.planned]),
   ])
   const first = periods[0]
   const last = periods.at(-1)
-  const live = running(data)
+  const live = data.find((point) => point.period.is_current)?.id
   const select = (payload: unknown) => {
     const point = (payload as { payload?: Point } | undefined)?.payload
     if (point) onSelect(point.id)
   }
+  const name = t('compare.trend.chartLabel', {
+    count: data.length,
+    from: first ? formatCalendarDate(first.start_date) : '',
+    to: last ? formatCalendarDate(last.end_date) : '',
+  })
   return (
-    <ChartFrame count={data.length}>
+    <ChartFrame
+      count={data.length}
+      minBand={MIN_BAND}
+      height={MAIN_HEIGHT}
+      axis={values}
+      name={name}
+    >
       <ChartContainer
         config={config}
-        className="aspect-auto h-64 w-full sm:h-72"
+        className="aspect-auto w-full"
+        style={{ height: MAIN_HEIGHT }}
         role="img"
-        aria-label={t('compare.trend.chartLabel', {
-          count: data.length,
-          from: first ? formatCalendarDate(first.start_date) : '',
-          to: last ? formatCalendarDate(last.end_date) : '',
-        })}
+        aria-label={name}
         data-testid="trend-chart"
       >
         <ComposedChart
           data={data}
-          margin={{ top: 20, right: 8, bottom: 0, left: 4 }}
+          margin={{ top: PLOT_TOP, right: 0, bottom: 0, left: 0 }}
           accessibilityLayer={false}
           barGap={2}
         >
-          <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="id"
-            tickFormatter={periodTick(periods)}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            interval="preserveStartEnd"
-          />
-          <YAxis
-            width={72}
-            tickLine={false}
-            axisLine={false}
-            ticks={values.ticks}
-            domain={[values.ticks[0] ?? 0, values.ticks.at(-1) ?? 0]}
-            tickFormatter={(value: number) => axisMoney(value, values.decimals)}
-          />
-          {live && (
-            <ReferenceArea
-              x1={live.id}
-              x2={live.id}
-              fill="var(--muted)"
-              fillOpacity={0.6}
-              label={{
-                value: t('compare.running'),
-                position: 'insideTop',
-                fontSize: 11,
-                fill: 'var(--muted-foreground)',
-                dy: -18,
-              }}
-            />
-          )}
+          {axes(values.ticks, labels)}
+          <RunningBand id={live} />
           <ReferenceLine y={0} stroke="var(--border)" />
           <ChartTooltip
             cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
@@ -284,60 +296,39 @@ export function ResultChart({
 }) {
   const { t } = useTranslation()
   const data = points(periods)
+  const labels = useTicks(periods)
   const values = valueTicks([0, ...data.map((point) => point.result)])
   const first = periods[0]
   const last = periods.at(-1)
-  const live = running(data)
+  const live = data.find((point) => point.period.is_current)?.id
+  const name = t('compare.trend.resultLabel', {
+    count: data.length,
+    from: first ? formatCalendarDate(first.start_date) : '',
+    to: last ? formatCalendarDate(last.end_date) : '',
+  })
   return (
-    <ChartFrame count={data.length}>
+    <ChartFrame
+      count={data.length}
+      minBand={MIN_BAND}
+      height={RESULT_HEIGHT}
+      axis={values}
+      name={name}
+    >
       <ChartContainer
         config={config}
-        className="aspect-auto h-44 w-full sm:h-52"
+        className="aspect-auto w-full"
+        style={{ height: RESULT_HEIGHT }}
         role="img"
-        aria-label={t('compare.trend.resultLabel', {
-          count: data.length,
-          from: first ? formatCalendarDate(first.start_date) : '',
-          to: last ? formatCalendarDate(last.end_date) : '',
-        })}
+        aria-label={name}
         data-testid="result-chart"
       >
         <BarChart
           data={data}
-          margin={{ top: 20, right: 8, bottom: 0, left: 4 }}
+          margin={{ top: PLOT_TOP, right: 0, bottom: 0, left: 0 }}
           accessibilityLayer={false}
         >
-          <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="id"
-            tickFormatter={periodTick(periods)}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            interval="preserveStartEnd"
-          />
-          <YAxis
-            width={72}
-            tickLine={false}
-            axisLine={false}
-            ticks={values.ticks}
-            domain={[values.ticks[0] ?? 0, values.ticks.at(-1) ?? 0]}
-            tickFormatter={(value: number) => axisMoney(value, values.decimals)}
-          />
-          {live && (
-            <ReferenceArea
-              x1={live.id}
-              x2={live.id}
-              fill="var(--muted)"
-              fillOpacity={0.6}
-              label={{
-                value: t('compare.running'),
-                position: 'insideTop',
-                fontSize: 11,
-                fill: 'var(--muted-foreground)',
-                dy: -18,
-              }}
-            />
-          )}
+          {axes(values.ticks, labels)}
+          <RunningBand id={live} />
           <ReferenceLine y={0} stroke="var(--muted-foreground)" />
           <ChartTooltip
             cursor={{ fill: 'var(--muted)', opacity: 0.4 }}

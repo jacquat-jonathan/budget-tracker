@@ -70,13 +70,14 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  /* Chart series, in a fixed order validated for colour-vision deficiencies (adjacent
-     pairs; the first three also all together). Identity is never colour alone. */
-  --chart-1: #2a78d6;
-  --chart-2: #eb6834;
-  --chart-3: #1baf7a;
-  --chart-4: #eda100;
-  --chart-5: #e87ba4;
+  /* Chart series (D-405): five hues in a fixed order, every pair kept apart under protan,
+     deutan and tritan simulation (all pairs, not only neighbours), each at least 3:1 on the
+     card. Identity is never colour alone: lines also have their own mark and dash. */
+  --chart-1: #3c5296;
+  --chart-2: #d06002;
+  --chart-3: #0da3a8;
+  --chart-4: #a668f9;
+  --chart-5: #812f52;
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -108,12 +109,12 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  /* The same hues, stepped for the dark surface. */
-  --chart-1: #3987e5;
-  --chart-2: #d95926;
-  --chart-3: #199e70;
-  --chart-4: #c98500;
-  --chart-5: #d55181;
+  /* The same hues, stepped for the dark card, validated the same way (D-405). */
+  --chart-1: #2265db;
+  --chart-2: #df692a;
+  --chart-3: #14a185;
+  --chart-4: #a77fd4;
+  --chart-5: #a9348d;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

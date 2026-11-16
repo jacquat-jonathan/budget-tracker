@@ -1,20 +1,37 @@
 import { useTranslation } from 'react-i18next'
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from 'recharts'
 
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
-import { axisMoney, periodTick, SLOT_COLORS } from '@/features/compare/compare-format'
+import {
+  periodLabels,
+  SLOT_COLORS,
+  SLOT_DASHES,
+  SLOT_MARKS,
+  type SlotMark,
+} from '@/features/compare/compare-format'
 import type { CategoryLine, TrendPeriod } from '@/features/compare/compare-queries'
-import { ChartFrame } from '@/features/compare/components/trend-charts'
+import {
+  ChartFrame,
+  PeriodTick,
+  PLOT_TOP,
+  X_AXIS_HEIGHT,
+} from '@/features/compare/components/chart-frame'
 import { valueTicks } from '@/features/debts/debt-chart-data'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 
+const HEIGHT = 272
+/** Lines need less room than columns: 24 periods fit from a tablet. */
+const MIN_BAND = 20
+
 /**
- * The spending of the chosen category lines over the range, one line each in the hue of its
- * slot, with a legend naming every line (identity never by colour alone) and a tooltip listing
- * every line at a period. One named image; the table is its text alternative.
+ * The spending of the chosen category lines over the range, one line each in the hue, the
+ * mark and the dash of its slot, with a legend naming every line with the same mark (identity
+ * never by colour alone) and a tooltip listing every line at a period. The running period is
+ * shaded and named "Running": its spending is not final. One named image; the table is its
+ * text alternative.
  */
-// R-COMPARE-192: at most five lines, each keeping its hue while others are added or removed.
+// R-COMPARE-192: at most five lines, each keeping its hue, mark and dash while others change.
 export function CategoryChart({
   periods,
   slots,
@@ -36,8 +53,22 @@ export function CategoryChart({
     ...Object.fromEntries(drawn.map((item) => [item.key, item.line.spent[index] ?? 0])),
   }))
   const values = valueTicks([0, ...drawn.flatMap((item) => item.line.spent)])
+  const labels = periodLabels(periods)
+  const ticks = new Map(
+    periods.map((period, index) => [
+      period.period_id,
+      labels[index] ?? { dayMonth: '', year: null },
+    ]),
+  )
+  const live = periods.find((period) => period.is_current)
   const first = periods[0]
   const last = periods.at(-1)
+  const name = t('compare.categories.chartLabel', {
+    count: periods.length,
+    names: drawn.map((item) => item.line.name).join(', '),
+    from: first ? formatCalendarDate(first.start_date) : '',
+    to: last ? formatCalendarDate(last.end_date) : '',
+  })
   return (
     <div className="flex flex-col gap-3">
       <ul
@@ -46,50 +77,63 @@ export function CategoryChart({
       >
         {drawn.map((item) => (
           <li key={item.key} className="flex min-w-0 items-center gap-1.5">
-            <span
-              className="h-0.5 w-3 shrink-0 rounded-full"
-              style={{ background: SLOT_COLORS[item.slot] }}
-              aria-hidden
-            />
+            <SlotSwatch slot={item.slot} />
             <span className="max-w-48 truncate">{item.line.name}</span>
           </li>
         ))}
       </ul>
-      <ChartFrame count={periods.length} perPeriod={24}>
+      <ChartFrame
+        count={periods.length}
+        minBand={MIN_BAND}
+        height={HEIGHT}
+        axis={values}
+        name={name}
+      >
         <ChartContainer
           config={config}
-          className="aspect-auto h-64 w-full"
+          className="aspect-auto w-full"
+          style={{ height: HEIGHT }}
           role="img"
-          aria-label={t('compare.categories.chartLabel', {
-            count: periods.length,
-            names: drawn.map((item) => item.line.name).join(', '),
-            from: first ? formatCalendarDate(first.start_date) : '',
-            to: last ? formatCalendarDate(last.end_date) : '',
-          })}
+          aria-label={name}
           data-testid="category-chart"
         >
           <LineChart
             data={data}
-            margin={{ top: 12, right: 12, bottom: 0, left: 4 }}
+            margin={{ top: PLOT_TOP, right: 8, bottom: 0, left: 8 }}
             accessibilityLayer={false}
           >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="id"
-              tickFormatter={periodTick(periods)}
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
-              interval="preserveStartEnd"
+              height={X_AXIS_HEIGHT}
+              interval={0}
+              padding={{ left: 8, right: 8 }}
+              tick={<PeriodTick labels={ticks} />}
             />
             <YAxis
-              width={72}
-              tickLine={false}
-              axisLine={false}
+              hide
               ticks={values.ticks}
               domain={[values.ticks[0] ?? 0, values.ticks.at(-1) ?? 0]}
-              tickFormatter={(value: number) => axisMoney(value, values.decimals)}
+              allowDataOverflow
             />
+            {live && (
+              <ReferenceArea
+                x1={live.period_id}
+                x2={live.period_id}
+                fill="var(--muted)"
+                fillOpacity={0.6}
+                label={{
+                  value: t('compare.running'),
+                  // The running period is the last one: the word ends at its right edge, never cut.
+                  position: 'insideTopRight',
+                  fontSize: 11,
+                  fill: 'var(--muted-foreground)',
+                  dy: -18,
+                }}
+              />
+            )}
             <ChartTooltip
               cursor={{ stroke: 'var(--border)' }}
               content={({ active, payload }) => {
@@ -105,13 +149,13 @@ export function CategoryChart({
                         end: formatCalendarDate(row.period.end_date),
                       })}
                     </div>
+                    <div className="text-muted-foreground">
+                      {t('compare.days', { count: row.period.days })}
+                      {row.period.is_current && ` · ${t('compare.runningLong')}`}
+                    </div>
                     {drawn.map((item) => (
                       <div key={item.key} className="flex items-center gap-2">
-                        <span
-                          className="h-0.5 w-3 shrink-0 rounded-full"
-                          style={{ background: SLOT_COLORS[item.slot] }}
-                          aria-hidden
-                        />
+                        <SlotSwatch slot={item.slot} />
                         <span className="max-w-40 truncate text-muted-foreground">
                           {item.line.name}
                         </span>
@@ -131,13 +175,25 @@ export function CategoryChart({
                 type="linear"
                 stroke={SLOT_COLORS[item.slot]}
                 strokeWidth={2}
-                dot={{
-                  r: 4,
-                  stroke: 'var(--card)',
-                  strokeWidth: 2,
-                  fill: SLOT_COLORS[item.slot],
-                }}
-                activeDot={{ r: 5 }}
+                strokeDasharray={SLOT_DASHES[item.slot] || undefined}
+                dot={(props: { cx?: number; cy?: number; index?: number }) => (
+                  <Mark
+                    key={`${item.key}-${props.index ?? 0}`}
+                    kind={SLOT_MARKS[item.slot] ?? 'circle'}
+                    x={props.cx}
+                    y={props.cy}
+                    color={SLOT_COLORS[item.slot] ?? SLOT_COLORS[0]}
+                  />
+                )}
+                activeDot={(props: { cx?: number; cy?: number }) => (
+                  <Mark
+                    kind={SLOT_MARKS[item.slot] ?? 'circle'}
+                    x={props.cx}
+                    y={props.cy}
+                    color={SLOT_COLORS[item.slot] ?? SLOT_COLORS[0]}
+                    size={6}
+                  />
+                )}
                 isAnimationActive={false}
               />
             ))}
@@ -145,5 +201,72 @@ export function CategoryChart({
         </ChartContainer>
       </ChartFrame>
     </div>
+  )
+}
+
+/** A slot's mark, drawn at a point: its shape in its hue, ringed with the card colour. */
+function Mark({
+  kind,
+  x,
+  y,
+  color,
+  size = 4.5,
+}: {
+  kind: SlotMark
+  x?: number
+  y?: number
+  color: string
+  size?: number
+}) {
+  if (x === undefined || y === undefined) return <g />
+  const common = { fill: color, stroke: 'var(--card)', strokeWidth: 1.5 }
+  const s = size
+  switch (kind) {
+    case 'circle':
+      return <circle cx={x} cy={y} r={s} {...common} />
+    case 'square':
+      return <rect x={x - s} y={y - s} width={s * 2} height={s * 2} {...common} />
+    case 'triangle':
+      return (
+        <polygon
+          points={`${x},${y - s * 1.2} ${x + s * 1.1},${y + s * 0.9} ${x - s * 1.1},${y + s * 0.9}`}
+          {...common}
+        />
+      )
+    case 'diamond':
+      return (
+        <polygon
+          points={`${x},${y - s * 1.3} ${x + s * 1.1},${y} ${x},${y + s * 1.3} ${x - s * 1.1},${y}`}
+          {...common}
+        />
+      )
+    case 'cross':
+      return (
+        <path
+          d={`M${x - s},${y - s}L${x + s},${y + s}M${x + s},${y - s}L${x - s},${y + s}`}
+          stroke={color}
+          strokeWidth={2.5}
+          strokeLinecap="round"
+        />
+      )
+  }
+}
+
+/** The legend's and the tooltip's mark: a short line in the slot's dash, its mark on it. */
+export function SlotSwatch({ slot }: { slot: number }) {
+  const color = SLOT_COLORS[slot] ?? SLOT_COLORS[0]
+  return (
+    <svg width={22} height={12} viewBox="0 0 22 12" className="shrink-0" aria-hidden>
+      <line
+        x1={1}
+        y1={6}
+        x2={21}
+        y2={6}
+        stroke={color}
+        strokeWidth={2}
+        strokeDasharray={SLOT_DASHES[slot] || undefined}
+      />
+      <Mark kind={SLOT_MARKS[slot] ?? 'circle'} x={11} y={6} color={color} size={3.5} />
+    </svg>
   )
 }

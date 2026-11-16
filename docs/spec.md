@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-452 rules (431 active, 14 planned), 24 conventions, 217 decisions, 49 open questions. 26 rules and conventions are marked **TEST PENDING**.
+457 rules (436 active, 14 planned), 24 conventions, 221 decisions, 50 open questions. 26 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1717,22 +1717,42 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: R-COMPARE-002, R-COMPARE-172, R-COMPARE-173, D-296, D-297
   - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/trend-view.tsx
-- **R-COMPARE-192** The categories view lists every category line by period as get_category_trend gives it: groups at the top level, opened on their subcategories; each line's average; in each period the spending (a link to that category's transactions in that period), the planned amount on request, spending above the plan marked with a sign and words, and "—", said as not planned, where the category was not in force and nothing was spent (never 0). A chart draws up to five lines the user picks, by default the three top-level lines with the highest average; a line keeps its colour while others are added or removed.
+- **R-COMPARE-192** The categories view lists every category line by period as get_category_trend gives it: groups at the top level, opened on their subcategories (the open ones kept in the address); each period column with its dates, its number of days and the year where it changes; each line's average after the periods; in each period the spending (a link to that category's transactions in that period, also when they net to zero), the planned amount on request, spending above the plan marked with a sign and words, and "—", said as not planned, where the category was not in force and nothing was recorded (never 0). When period lengths differ by more than a tenth it says amounts are not adjusted. A chart draws up to five lines the user picks (every tick counts, however quick), by default the three top-level lines with the highest average; each line has the hue, the mark and the dash of its slot, kept while others are added or removed, and the running period is shaded and named. On a phone the name column is narrow and wraps, so at 320 px at least one whole period column is readable beside it, and a focused cell is never hidden under the sticky column or header.
   _active · enforced by test · F-COMPARE_
-  - Related: R-COMPARE-070, R-COMPARE-174, D-297
-  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/categories-view.tsx
-- **R-COMPARE-193** The categories view shows its lines only against the periods they belong to: get_category_trend's period_ids must equal get_period_trend's periods for the same count; when they differ (a period was created or merged between the two reads) both are read again, and after three attempts the view reports an error with a retry rather than misaligned figures.
+  - Related: R-COMPARE-070, R-COMPARE-174, D-297, D-405, D-407
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/categories-view.tsx; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **R-COMPARE-193** The categories view shows its lines only against the periods they belong to: get_category_trend's period_ids must equal get_period_trend's periods for the same count; when they differ (a period was created or merged between the two reads) both are read again, three times in all, and then the view reports an error with a retry rather than misaligned figures.
   _active · enforced by test · F-COMPARE_
   - Related: R-COMPARE-070, R-COMPARE-170
-  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-queries.ts
-- **R-COMPARE-194** Side by side, the database chooses the default periods (no id sent); the user picks A and B among every period (older ones on request) and can swap them. The totals (income, spent, result, planned, subscriptions) then each category, in the budget's order or biggest changes first, show A, B and the difference B minus A with its sign, an arrow and its direction in words (never colour alone); a side with nothing is "—", said in words; each period's length is shown.
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-queries.ts; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **R-COMPARE-194** Side by side, the database chooses the default periods (no id sent); the user picks A and B among every period (older ones on request, a chosen old one still shown in its picker) and can swap them. The totals (income, spent, result, planned, subscriptions) then each category, in the budget's order or biggest changes first, show A, B and the difference B minus A with its sign, an arrow and its direction in words (never colour alone); on request each category's planned amount in A and B and its difference; a side with nothing is "—", said in words; each period's length is shown. On a phone each row stacks so the difference is read without scrolling sideways, nine-figure amounts included.
   _active · enforced by test · F-COMPARE_
   - Related: R-COMPARE-071, R-COMPARE-173, D-298
-  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/side-by-side-view.tsx
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/side-by-side-view.tsx; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
 - **R-COMPARE-195** The compare page says so when a comparison needs a second period, when the budget has no categories yet, and when the budget has ended (the range ends at its last period); a read that fails says so with a retry; a read answered catching_up is handled like any other (R-PERIOD-190).
   _active · enforced by test · F-COMPARE_
   - Related: R-COMPARE-171, R-COMPARE-175, R-PERIOD-190
   - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-page.tsx
+- **R-COMPARE-280** Wherever periods are labelled by day and month (chart axes, column headers), the year is written on the first one and wherever it changes, visibly, so no label stands for two years.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-173
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/compare-format.ts
+- **R-COMPARE-281** A difference is written with its sign before the currency in both directions ("+CHF 192.92", "−CHF 192.92"), everywhere a difference is shown; other negative amounts keep the money formatter's form.
+  _active · enforced by test · F-COMPARE_
+  - Related: C-MONEY-003
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/compare-format.ts
+- **R-COMPARE-282** A comparison chart takes the width while its periods fit (24 periods from 1024 px); when they do not, it scrolls inside its own frame: the value axis (with its unit, CHF) stays in view outside the frame, the frame shows whole periods only and opens on the newest, says that earlier periods are to the left, and can be focused (named) and scrolled with the keyboard.
+  _active · enforced by test · F-COMPARE_
+  - Related: D-297, D-406
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/components/chart-frame.tsx
+- **R-COMPARE-283** A period in the address that is not one of the current budget's (another budget's, deleted, or not an id at all) is never sent as such: the comparison falls back to the default periods, says so in words and offers the pickers; choosing another budget drops the choices that named the previous budget's periods and lines.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-PERIOD-281, D-404, Q-252
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/components/side-by-side-view.tsx
+- **R-COMPARE-284** "Compare with…" on a period of the trend puts that period as B and the one before it as A (the first period has none: A is left to pick), so a period is never compared with itself.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-071
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/components/trend-view.tsx
 
 ### Import
 
@@ -4083,7 +4103,7 @@ Source: owner-request: database developer decision for step 4, within the coordi
 
 ### D-190 Charts: shadcn chart (Recharts), theme colours, lazy route (accepted)
 
-Charts use shadcn's chart component on Recharts. Series colours are the theme tokens --chart-1 to --chart-5, set for light and dark to a categorical palette validated for colour-vision deficiencies (the first three also all together); identity is never colour alone (marks have shapes, a legend and a table). The page that draws a chart is its own lazily loaded route, so Recharts never reaches the first load. A debt's chart is a step line of the balance on a time axis (dates spaced by days, no time zone), its value axis scaled to the balances so a few payments show (zero drawn when in range).
+Charts use shadcn's chart component on Recharts. Series colours are the theme tokens --chart-1 to --chart-5, set for light and dark to the palette of D-405 (every pair validated for colour-vision deficiencies, each at least 3:1 on the card); identity is never colour alone (lines have their own mark and dash, there is a legend and a table). The page that draws a chart is its own lazily loaded route, so Recharts never reaches the first load. A debt's chart is a step line of the balance on a time axis (dates spaced by days, no time zone), its value axis scaled to the balances so a few payments show (zero drawn when in range).
 
 **Why:** Step 5 needs more charts; shadcn's component fits the existing UI kit; the production Content-Security-Policy allows the inline style element it writes (style-src 'unsafe-inline') and no script.
 
@@ -4091,9 +4111,9 @@ Charts use shadcn's chart component on Recharts. Series colours are the theme to
 
 - A hand-drawn SVG chart (no library): step 5 would redo it.
 
-Related: R-DEBT-122, C-CSP-001
+Related: R-DEBT-122, C-CSP-001, D-405
 
-Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16
+Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
 
 ### D-191 The client adds up no debt amounts (superseded by D-216)
 
@@ -5042,6 +5062,66 @@ Related: R-DEBT-151
 
 Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
 
+### D-404 A shared comparison link opens in the viewer's current budget (accepted)
+
+The address holds the view and its choices but not the budget: a link opens in the current budget of whoever opens it. Period ids that are not that budget's fall back to the defaults, said in words; switching budget in the sidebar drops period and line choices.
+
+**Why:** The budget is chosen in the sidebar for every page; putting it in one page's address would make that page behave unlike the others. Whether every address should name its budget is left open (Q-252).
+
+**Rejected:**
+
+- Keeping a stale period id and showing an error that a retry cannot fix.
+- The budget id in this page's address only.
+
+Related: R-COMPARE-283, Q-252
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-405 Chart palette re-derived: all pairs apart under every colour-vision deficiency (accepted)
+
+The five chart tokens are, light: #3c5296, #d06002, #0da3a8, #a668f9, #812f52 (each at least 3:1 on the white card); dark: #2265db, #df692a, #14a185, #a77fd4, #a9348d (at least 3:1 on the dark card). Chosen by a search in OKLCH and checked over all pairs (not only neighbours) by two measures: the dataviz validator (OKLab: light worst 12.0 protan/deutan, 14.4 tritan, normal vision 16.4; dark 11.0 and 9.9, normal vision 17.4; target 8, normal-vision floor 15) and the reviewer's (Machado 2009 simulation, CIE76: every pair at least 29.5 light and 22.8 dark under protan, deutan and tritan; floor 20). Lines also carry their slot's mark and dash. D-190's claim that "marks have shapes" was not true of the category chart before this change, and the earlier light tokens were 2.2 to 4.4:1 on the card; D-190 is corrected to point here.
+
+**Why:** Five lines can all cross, so every pair must stay apart, under deuteranopia, protanopia and tritanopia, in both themes; the debt chart uses the same tokens and keeps passing.
+
+**Rejected:**
+
+- Keeping the reference palette's lighter steps with a contrast relief.
+- Colour only, without marks and dashes.
+
+Related: D-190, R-COMPARE-192
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-406 How a comparison chart scrolls (accepted)
+
+Columns need at least 24 px per period, lines 20 px; the frame is divided into as many whole periods as fit and the content is that width times the number of periods, so scrolling to the newest end leaves no period cut at either edge. The value axis is drawn outside the frame on the chart's own ticks, with CHF at its top.
+
+**Why:** At 1280 px with the sidebar, 24 periods at 44 px each overflowed and the scrolled-in axis was out of view; a frame that holds whole periods never shows half of one.
+
+**Rejected:**
+
+- Squeezing every period into the width on a phone (unreadable columns).
+- An axis inside the scrolling content.
+
+Related: R-COMPARE-282
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
+### D-407 The categories table on a phone (accepted)
+
+Below the small breakpoint the sticky name column is 7 rem (112 px) wide and its name wraps to two lines; the average comes after the periods, so the first column beside the name is a whole period. Wider screens keep a 14 rem name column.
+
+**Why:** The 248 px name column left 6 px for figures at 320 px; the table is the chart's text alternative and must be readable there.
+
+**Rejected:**
+
+- Dropping the sticky column on phones (the name scrolls away from its figures).
+- One category at a time on phones (no overview).
+
+Related: R-COMPARE-192
+
+Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -5305,8 +5385,8 @@ Source: owner-request: coordinator, independent review of the step 4 and step 5 
   - Related: R-TRANSACTION-132, R-SUBSCRIPTION-191
   - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
 - **Q-181** Should the database give what the screens still derive from its lists?
-  - Context: Four derivations without money remain in the client (C-LOGIC-003, borderline): the period containing a typed date (picked from list_periods' rows, to read a debt's terms for a payment); the nominal day of a typed first charge date (its day number, for the words under the preview); the last period a correction reaches (the period before until_period_id, taken as seq - 1 from the list); and the subscriptions and debts that use a category now (filtered from their lists, for the warning before a removal). The database could give period_id for a date, the preview's nominal day, until_period's predecessor, and category_overview's users.
-  - Related: C-LOGIC-003, R-DEBT-152, R-VERSION-150, R-CATEGORY-120
+  - Context: Four derivations without money remain in the client (C-LOGIC-003, borderline): the period containing a typed date (picked from list_periods' rows, to read a debt's terms for a payment); the nominal day of a typed first charge date (its day number, for the words under the preview); the last period a correction reaches (the period before until_period_id, taken as seq - 1 from the list); and the subscriptions and debts that use a category now (filtered from their lists, for the warning before a removal). The database could give period_id for a date, the preview's nominal day, until_period's predecessor, and category_overview's users. A fifth, from the review of the step 5 screens: "over the plan" in the categories view is decided in the client (spent > planned), which differs from the database only for a category not in force with spending; the database is to give the flag per period.
+  - Related: C-LOGIC-003, R-DEBT-152, R-VERSION-150, R-CATEGORY-120, R-COMPARE-192
   - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
 - **Q-200** How does the Migros Bank account statement print a negative balance (an overdraft)?
   - Context: The sample has no negative balance and docs/import-sources.md says the account statements print no negative numbers. A balance with a sign is refused for now as an unreadable amount, so an overdrawn statement cannot be imported until a sample shows the format.
@@ -5383,6 +5463,10 @@ Source: owner-request: coordinator, independent review of the step 4 and step 5 
 - **Q-251** Should my_budgets say directly whether the budget has ended?
   - Context: D-400: the client combines three answers (end date, caught_up, no current period). A has_ended column would make the rule one read and remove the wait during a catch-up.
   - Related: R-BUDGET-280, D-400
+  - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
+- **Q-252** Should addresses name their budget, so a shared link opens the budget it was made in?
+  - Context: D-404: the current budget is chosen in the sidebar and not in any address; a comparison link opened by a member whose current budget differs falls back to the defaults (R-COMPARE-283). Naming the budget in every address would make shared links exact.
+  - Related: D-404, R-COMPARE-283
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
 
 ## Glossary

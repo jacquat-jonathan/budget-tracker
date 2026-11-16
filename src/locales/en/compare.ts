@@ -24,6 +24,8 @@ export const compareEn = {
   runningLong: 'still running',
   notAveraged:
     'The running period ({{start}} – {{end}}) is shown but never averaged: it is not over yet.',
+  scrollHint:
+    'Showing {{shown}} of {{total}} periods: earlier ones are to the left. Scroll the chart, or select it and use the arrow keys.',
   lengthsDiffer:
     'Periods run from one salary to the next, so their lengths differ ({{min}} to {{max}} days here): amounts are not adjusted for length.',
   averages: {
@@ -58,6 +60,7 @@ export const compareEn = {
     select: 'Select the period {{period}}',
     surplus: 'surplus',
     deficit: 'deficit',
+    balanced: 'balanced',
   },
   few: {
     title: 'Comparisons need two periods',
@@ -107,6 +110,9 @@ export const compareEn = {
     more: 'more',
     less: 'less',
     same: 'no change',
+    unknown:
+      'The link named a period that is not one of this budget’s: the default periods are shown. Choose others above.',
+    plannedDifference: 'planned {{amount}}',
     up: '{{amount}} more',
     down: '{{amount}} less',
     tableLabel: 'Spending per category in the two periods, and the difference',

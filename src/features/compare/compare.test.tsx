@@ -18,14 +18,17 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 /** Three periods of different lengths, the last one running. */
-const P1 = { id: 'p-1', start: '2026-09-25', end: '2026-10-25', days: 31 }
-const P2 = { id: 'p-2', start: '2026-10-26', end: '2026-11-13', days: 19 }
-const P3 = { id: 'p-3', start: '2026-11-14', end: '2026-12-24', days: 41 }
+const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
+const P1 = { id: uuid(1), seq: 1, start: '2026-09-25', end: '2026-10-25', days: 31 }
+const P2 = { id: uuid(2), seq: 2, start: '2026-10-26', end: '2026-11-13', days: 19 }
+const P3 = { id: uuid(3), seq: 3, start: '2026-11-14', end: '2026-12-24', days: 41 }
+/** Not one of this budget's periods (another budget's, or deleted). */
+const ELSEWHERE = uuid(99)
 
 function trendRow(period: typeof P1, overrides: Partial<TrendPeriod> = {}): TrendPeriod {
   return {
     period_id: period.id,
-    seq: Number(period.id.slice(2)),
+    seq: period.seq,
     start_date: period.start,
     end_date: period.end,
     days: period.days,
@@ -104,6 +107,7 @@ const LINES: CategoryLine[] = [
     in_force: [true, false, true],
     planned: [9_000, null, 9_000],
     spent: [4_000, 0, 1_000],
+    transaction_count: [1, 0, 1],
     average_spent: 2_000,
   }),
   line({ category_id: 'c-gifts', name: 'Gifts', display_order: 3, average_spent: 50_000 }),
@@ -220,7 +224,7 @@ function compareDb(
 
 function open(db: MockDb, path: string) {
   mock.current = createSupabaseMock(fakeSession(), db)
-  renderRoutes(routes, path)
+  return renderRoutes(routes, path)
 }
 
 /** Text with the narrow spaces and apostrophes of the formatted amounts made plain. */
@@ -267,6 +271,14 @@ describe('the trend [R-COMPARE-191]', () => {
     expect(plain(rows[0]!)).toContain('41 days')
     expect(within(rows[0]!).getByText('Running')).toBeInTheDocument()
     expect(plain(rows[0]!)).toContain("CHF -12'345.67")
+    expect(rows.map((row) => plain(row.querySelectorAll('td')[3] as HTMLElement))).toEqual([
+      "CHF 21'045.67surplus",
+      "CHF 7'176.10surplus",
+      "CHF 2'223.65surplus",
+    ])
+    // Each row's header is its period; the columns have their scope.
+    expect(within(rows[0]!).getByRole('rowheader')).toHaveTextContent('14.11.2026 – 24.12.2026')
+    expect(within(table).getAllByRole('columnheader')[1]).toHaveTextContent('Income')
     expect(plain(rows[2]!)).toContain("CHF 4'976.35")
     expect(within(rows[2]!).queryByText('Running')).not.toBeInTheDocument()
     const averages = screen.getByTestId('averages')
@@ -296,7 +308,7 @@ describe('the trend [R-COMPARE-191]', () => {
     expect(averages).not.toHaveTextContent('CHF')
   })
 
-  it('offers to open a selected period and to compare it with another', async () => {
+  it('offers to open a selected period and to put it beside the one before it [R-COMPARE-284]', async () => {
     open(compareDb(), '/compare')
     await userEvent.click(
       await screen.findByRole('button', { name: 'Select the period 26.10.2026 – 13.11.2026' }),
@@ -304,12 +316,25 @@ describe('the trend [R-COMPARE-191]', () => {
     const selected = await screen.findByTestId('trend-selected')
     expect(
       within(selected).getByRole('link', { name: 'Open the period 26.10.2026 – 13.11.2026' }),
-    ).toHaveAttribute('href', expect.stringContaining('p-2'))
+    ).toHaveAttribute('href', expect.stringContaining(P2.id))
     expect(
       within(selected).getByRole('link', {
         name: 'Compare the period 26.10.2026 – 13.11.2026 with another',
       }),
-    ).toHaveAttribute('href', '/compare?view=side&a=p-2')
+    ).toHaveAttribute('href', `/compare?view=side&b=${P2.id}`)
+  })
+
+  it('words a result of exactly zero as balanced', async () => {
+    const trend = TREND.map((row) =>
+      row.period_id === P2.id
+        ? { ...row, result: 0, average_result: 0 }
+        : { ...row, average_result: 0 },
+    )
+    open(compareDb({ trend }), '/compare')
+    const table = await screen.findByTestId('trend-table')
+    const row = within(table).getAllByTestId('trend-row')[1]!
+    expect(plain(row.querySelectorAll('td')[3] as HTMLElement)).toBe('CHF 0.00balanced')
+    expect(screen.getByTestId('averages')).toHaveTextContent('balanced')
   })
 
   it('needs two periods', async () => {
@@ -332,7 +357,7 @@ describe('the categories over time [R-COMPARE-192]', () => {
     expect(within(home).getByText('over the plan')).toBeInTheDocument()
     expect(
       within(home).getByRole('link', { name: /Home, 25.09.2026 – 25.10.2026: CHF.2'100.00 spent/ }),
-    ).toHaveAttribute('href', '/transactions?period=p-1&category=c-home')
+    ).toHaveAttribute('href', `/transactions?period=${P1.id}&category=c-home`)
     // A group opens on its subcategories.
     expect(within(table).queryByText('Electricity')).not.toBeInTheDocument()
     await userEvent.click(
@@ -365,7 +390,7 @@ describe('the two reads of the categories agree [R-COMPARE-193]', () => {
     const db = compareDb()
     // A period was created between the two calls: the first lines are a range behind.
     db.rpc.get_category_trend.mockImplementationOnce(() =>
-      LINES.map((item) => ({ ...item, period_ids: ['p-0', 'p-1', 'p-2'] })),
+      LINES.map((item) => ({ ...item, period_ids: [uuid(0), P1.id, P2.id] })),
     )
     open(db, '/compare?view=categories')
     expect(await screen.findByTestId('categories-table')).toBeInTheDocument()
@@ -375,7 +400,7 @@ describe('the two reads of the categories agree [R-COMPARE-193]', () => {
 
   it('reports an error rather than misaligned figures when they keep differing', async () => {
     const db = compareDb({
-      lines: LINES.map((item) => ({ ...item, period_ids: ['p-0', 'p-1', 'p-2'] })),
+      lines: LINES.map((item) => ({ ...item, period_ids: [uuid(0), P1.id, P2.id] })),
     })
     open(db, '/compare?view=categories')
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
@@ -392,6 +417,8 @@ describe('two periods side by side [R-COMPARE-194]', () => {
     const spent = within(totals).getByTestId('total-spent')
     expect(plain(spent)).toContain('CHF 23.90')
     expect(plain(spent)).toContain("+CHF 3'758.28")
+    // A difference's sign stands before the currency both ways (R-COMPARE-281).
+    expect(plain(within(totals).getByTestId('total-result'))).toContain("\u2212CHF 2'258.28")
     expect(within(spent).getByText("CHF 3'758.28 more")).toBeInTheDocument()
     const result = within(totals).getByTestId('total-result')
     expect(within(result).getByText("CHF 2'258.28 less")).toBeInTheDocument()
@@ -413,8 +440,8 @@ describe('two periods side by side [R-COMPARE-194]', () => {
     await waitFor(() =>
       expect(db.rpc.get_period_comparison).toHaveBeenCalledWith({
         p_budget_id: BUDGET_ID,
-        p_period_a_id: 'p-3',
-        p_period_b_id: 'p-2',
+        p_period_a_id: P3.id,
+        p_period_b_id: P2.id,
       }),
     )
   })
@@ -437,5 +464,136 @@ describe('the compare page in its other states [R-COMPARE-195]', () => {
     open(db, '/compare?view=side')
     await userEvent.click(await screen.findByRole('button', { name: 'Try again' }))
     expect(await screen.findByTestId('side-totals')).toBeInTheDocument()
+  })
+})
+
+describe('the categories table, round 4', () => {
+  it('links a cell whose transactions net to zero while the line was not in force', async () => {
+    const lines = LINES.map((item) =>
+      item.category_id === 'c-garden' ? { ...item, transaction_count: [1, 2, 1] } : item,
+    )
+    open(compareDb({ lines }), '/compare?view=categories')
+    const table = await screen.findByTestId('categories-table')
+    const garden = within(table)
+      .getAllByTestId('category-line')
+      .find((row) => row.textContent.includes('Garden'))!
+    expect(within(garden).queryByTestId('cell-not-in-force')).not.toBeInTheDocument()
+    expect(
+      within(garden).getByRole('link', { name: /Garden, 26.10.2026 – 13.11.2026: CHF.0.00 spent/ }),
+    ).toHaveAttribute('href', `/transactions?period=${P2.id}&category=c-garden`)
+  })
+
+  it('keeps opened groups in the address [R-COMPARE-192]', async () => {
+    const { router } = open(compareDb(), '/compare?view=categories')
+    const table = await screen.findByTestId('categories-table')
+    await userEvent.click(
+      within(table).getByRole('button', { name: 'Show the subcategories of Home' }),
+    )
+    await waitFor(() => {
+      expect(router.state.location.search).toContain('open=c-home')
+    })
+  })
+
+  it('counts two quick ticks both [R-COMPARE-192]', async () => {
+    const { router } = open(compareDb(), '/compare?view=categories&lines=-')
+    await screen.findByTestId('categories-table')
+    const food = screen.getByRole('checkbox', { name: 'Draw Food in the chart' })
+    const car = screen.getByRole('checkbox', { name: 'Draw Car in the chart' })
+    // Both clicks land before the address has been read again.
+    food.click()
+    car.click()
+    await waitFor(() => {
+      expect(new URLSearchParams(router.state.location.search).get('lines')).toBe('c-food,c-car')
+    })
+  })
+
+  it('says period lengths differ, and gives each column its days and its year [R-COMPARE-280]', async () => {
+    open(compareDb(), '/compare?view=categories')
+    await screen.findByTestId('categories-table')
+    expect(screen.getByTestId('lengths-differ')).toHaveTextContent('(19 to 41 days here)')
+    const headers = screen.getAllByTestId('period-header')
+    expect(headers.map((header) => header.textContent)).toEqual([
+      expect.stringMatching(/^202625\.0931 days/),
+      expect.stringMatching(/^26\.1019 days/),
+      expect.stringMatching(/^14\.11Running41 days/),
+    ])
+  })
+})
+
+describe('the range reads, at most three [R-COMPARE-193]', () => {
+  it('reads both three times in all before it reports an error', async () => {
+    const db = compareDb({
+      lines: LINES.map((item) => ({ ...item, period_ids: [uuid(0), P1.id, P2.id] })),
+    })
+    open(db, '/compare?view=categories')
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(db.rpc.get_category_trend).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('side by side, round 4', () => {
+  it('shows the planned amounts per category on request [R-COMPARE-194]', async () => {
+    const side = SIDE.map((row) =>
+      row.category_id === 'c-food'
+        ? { ...row, a_planned: 50_000, b_planned: 60_000, planned_difference: 10_000 }
+        : row,
+    )
+    open(compareDb({ side }), '/compare?view=side')
+    await screen.findByTestId('side-totals')
+    expect(screen.queryByTestId('side-planned')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Show what was planned'))
+    const food = screen.getAllByTestId('side-row').find((row) => row.textContent.includes('Food'))!
+    expect(
+      within(food)
+        .getAllByTestId('side-planned')
+        .map((item) => plain(item)),
+    ).toEqual(['of CHF 500.00 planned', 'of CHF 600.00 planned'])
+    expect(plain(within(food).getByTestId('planned-difference'))).toBe('planned +CHF 100.00')
+  })
+
+  it('falls back to the defaults, and says so, for a period that is not this budget’s [R-COMPARE-283]', async () => {
+    const db = compareDb()
+    db.rpc.get_period_comparison.mockImplementation((args) => {
+      if (args.p_period_a_id === ELSEWHERE) rpcError('period_not_found')
+      return SIDE
+    })
+    const { router } = open(db, `/compare?view=side&a=${ELSEWHERE}&b=${P3.id}`)
+    expect(await screen.findByTestId('side-unknown')).toHaveTextContent(
+      'The link named a period that is not one of this budget’s: the default periods are shown.',
+    )
+    expect(await screen.findByTestId('side-totals')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Period A' })).toBeInTheDocument()
+    expect(router.state.location.search).not.toContain(ELSEWHERE)
+    expect(db.rpc.get_period_comparison).toHaveBeenLastCalledWith({ p_budget_id: BUDGET_ID })
+  })
+
+  it('never sends an id that is not a uuid', async () => {
+    const db = compareDb()
+    open(db, '/compare?view=side&a=nonsense')
+    expect(await screen.findByTestId('side-unknown')).toBeInTheDocument()
+    for (const [args] of db.rpc.get_period_comparison.mock.calls) {
+      expect(args).not.toHaveProperty('p_period_a_id', 'nonsense')
+    }
+  })
+
+  it('names its totals table', async () => {
+    open(compareDb(), '/compare?view=side')
+    expect(await screen.findByRole('table', { name: 'Totals' })).toBeInTheDocument()
+  })
+})
+
+describe('the range choice [R-COMPARE-190]', () => {
+  it('is one stop in the tab order, moved with the arrow keys', async () => {
+    const db = compareDb()
+    open(db, '/compare')
+    await screen.findByTestId('trend-view')
+    const radios = screen.getAllByRole('radio')
+    expect(radios.map((radio) => radio.tabIndex)).toEqual([-1, 0, -1])
+    radios[1]!.focus()
+    await userEvent.keyboard('{ArrowRight}')
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: 'Last 24' })).toHaveAttribute('aria-checked', 'true')
+    })
+    expect(document.activeElement).toBe(screen.getByRole('radio', { name: 'Last 24' }))
   })
 })

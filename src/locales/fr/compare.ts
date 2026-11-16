@@ -26,6 +26,8 @@ export const compareFr: Translation['compare'] = {
   runningLong: 'encore en cours',
   notAveraged:
     'La période en cours ({{start}} – {{end}}) est affichée mais jamais comptée dans les moyennes : elle n’est pas terminée.',
+  scrollHint:
+    'Affiche {{shown}} périodes sur {{total}} : les plus anciennes sont à gauche. Faites défiler le graphique, ou sélectionnez-le et utilisez les flèches.',
   lengthsDiffer:
     'Une période va d’un salaire au suivant, leurs durées diffèrent donc (de {{min}} à {{max}} jours ici) : les montants ne sont pas ajustés à la durée.',
   averages: {
@@ -60,6 +62,7 @@ export const compareFr: Translation['compare'] = {
     select: 'Sélectionner la période {{period}}',
     surplus: 'excédent',
     deficit: 'déficit',
+    balanced: 'équilibré',
   },
   few: {
     title: 'Il faut deux périodes pour comparer',
@@ -98,7 +101,7 @@ export const compareFr: Translation['compare'] = {
     a: 'Période A',
     b: 'Période B',
     swap: 'Échanger les périodes',
-    noA: 'C’est la première période du budget : il n’y en a pas d’avant à comparer.',
+    noA: 'C’est la première période du budget : aucune période ne la précède, il n’y a rien à lui comparer.',
     totals: 'Totaux',
     difference: 'Différence (B − A)',
     row: 'Montant',
@@ -109,6 +112,9 @@ export const compareFr: Translation['compare'] = {
     nothingSr: 'rien dans cette période',
     more: 'de plus',
     less: 'de moins',
+    unknown:
+      'Le lien désignait une période qui n’appartient pas à ce budget : les périodes par défaut sont affichées. Choisissez-en d’autres ci-dessus.',
+    plannedDifference: 'prévu {{amount}}',
     same: 'aucun changement',
     up: '{{amount}} de plus',
     down: '{{amount}} de moins',

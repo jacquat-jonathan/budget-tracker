@@ -1,5 +1,5 @@
 import { paths } from '@/app/paths'
-import type { CategoryLine, TrendPeriod } from '@/features/compare/compare-queries'
+import type { CategoryLine } from '@/features/compare/compare-queries'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 
@@ -19,12 +19,46 @@ export function dayMonth(date: string): string {
   return formatCalendarDate(date).slice(0, 5)
 }
 
-/** A difference with its sign always written: "+CHF 12.00", "-CHF 3.50", "CHF 0.00". */
-export function signedMoney(rappen: number): string {
-  return rappen > 0 ? `+${formatMoney(rappen)}` : formatMoney(rappen)
+/** The year of a calendar date, as written ("2026"). */
+function yearOf(date: string): string {
+  return date.slice(0, 4)
 }
 
-/** Axis labels: whole francs (no currency, the title says CHF), grouped like amounts. */
+/**
+ * Short labels for periods in order: day and month, and the year on the first one and on
+ * every one whose year differs from the one before (so "25.11" never stands for two years).
+ */
+// R-COMPARE-280: the year is shown where it changes, on axes and column headers.
+export function periodLabels(
+  periods: readonly { start_date: string }[],
+): { dayMonth: string; year: string | null }[] {
+  return periods.map((period, index) => {
+    const before = index > 0 ? periods[index - 1] : undefined
+    const year = yearOf(period.start_date)
+    return {
+      dayMonth: dayMonth(period.start_date),
+      year: !before || yearOf(before.start_date) !== year ? year : null,
+    }
+  })
+}
+
+/**
+ * A difference with its sign before the currency in both directions: "+CHF 12.00",
+ * "−CHF 3.50" (a minus sign), "CHF 0.00". Other amounts keep the money formatter's form.
+ */
+// R-COMPARE-281: a difference's sign stands before the currency, both ways.
+export function signedMoney(rappen: number): string {
+  if (rappen > 0) return `+${formatMoney(rappen)}`
+  if (rappen < 0) return `−${formatMoney(-rappen)}`
+  return formatMoney(0)
+}
+
+/** What a result is: a surplus, a deficit, or balanced (exactly 0). */
+export function resultWord(result: number): 'surplus' | 'deficit' | 'balanced' {
+  return result > 0 ? 'surplus' : result < 0 ? 'deficit' : 'balanced'
+}
+
+/** Axis labels: whole francs (no currency, the axis says CHF), grouped like amounts. */
 export function axisMoney(rappen: number, decimals: boolean): string {
   const text = formatMoney(rappen, { currency: false })
   return decimals ? text : text.replace(/\.00$/, '')
@@ -39,6 +73,14 @@ export const SLOT_COLORS = [
   'var(--chart-5)',
 ] as const
 export const MAX_LINES = SLOT_COLORS.length
+
+/**
+ * Each slot's own mark and dash, so a line is told by its shape and pattern too, never by
+ * its colour alone (the legend and the tooltip show the same mark).
+ */
+export const SLOT_MARKS = ['circle', 'square', 'triangle', 'diamond', 'cross'] as const
+export type SlotMark = (typeof SLOT_MARKS)[number]
+export const SLOT_DASHES = ['', '6 3', '2 3', '8 3 2 3', '1 2'] as const
 
 /** Lines drawn by default: the top-level ones with the highest average spent. */
 const DEFAULT_LINES = 3
@@ -72,11 +114,44 @@ export function writeSlots(slots: (string | null)[]): string {
   return trimmed.length === 0 ? '-' : trimmed.map((id) => id ?? '').join(',')
 }
 
-/** The x axis's label of a period id: its start, day and month. */
-export function periodTick(periods: TrendPeriod[]) {
-  const byId = new Map(periods.map((period) => [period.period_id, period]))
-  return (id: string) => {
-    const period = byId.get(id)
-    return period ? dayMonth(period.start_date) : ''
+/**
+ * The lines parameter after ticking or unticking one line, computed from the parameter as it
+ * is at that moment (two ticks in quick succession both count). Null: nothing changes (all
+ * five slots are taken).
+ */
+export function toggleSlot(param: string | null, lines: CategoryLine[], id: string) {
+  const next = [...readSlots(param, lines)]
+  const at = next.indexOf(id)
+  if (at >= 0) next[at] = null
+  else {
+    const free = next.indexOf(null)
+    if (free >= 0) next[free] = id
+    else if (next.length < MAX_LINES) next.push(id)
+    else return null
   }
+  return writeSlots(next)
+}
+
+/** The groups opened in a table, kept in the address ("open=a,b"). */
+export function readOpen(param: string | null): ReadonlySet<string> {
+  return new Set((param ?? '').split(',').filter(Boolean))
+}
+
+export function toggleOpen(param: string | null, id: string): string | null {
+  const next = new Set(readOpen(param))
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  return next.size === 0 ? null : [...next].join(',')
+}
+
+/** Lengths that differ by more than this share are said not to be adjusted (D-296). */
+export const LENGTHS_NOTE_RATIO = 1.1
+
+/** The shortest and longest period of a range, when they differ enough to say so. */
+export function lengthsToMention(periods: readonly { days: number }[]) {
+  if (periods.length === 0) return null
+  const days = periods.map((period) => period.days)
+  const min = Math.min(...days)
+  const max = Math.max(...days)
+  return max > min * LENGTHS_NOTE_RATIO ? { min, max } : null
 }

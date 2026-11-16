@@ -138,6 +138,8 @@ export function useCategoryRange(budgetId: string, count: Count): PeriodRead<Cat
         if (attempt >= RANGE_ATTEMPTS) throw new Error('compare: the two reads kept differing')
       }
     },
+    // The attempts above are the only ones: three in all, never three more on an error.
+    { retry: false },
   )
 }
 
