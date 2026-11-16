@@ -517,6 +517,23 @@ export const en = {
     lastPeriod: 'Last period',
     nextExpected: 'Next salary expected on {{date}} (projected).',
     nextExpectedManual: 'Next salary expected on {{date}} (set by hand).',
+    lastPeriodNote: 'The budget’s last period: it ends on {{date}}, and no period starts after it.',
+    manualCurrentHint:
+      'Set by hand: it stays as set when the pay day changes, until you reset it to the projection.',
+    manualPastHint:
+      'Recorded by hand with one of the actions. The mark stays even if the date is later moved back to where it was.',
+    unavailable: {
+      budgetEnds:
+        'Not available: the budget’s end date ({{date}}) leaves no day on which a new period could start.',
+      tooSoon:
+        'Not available yet: a period lasts at least 7 days, so a new one can start on {{date}} at the earliest.',
+      moveStart:
+        'Not available: no day keeps both periods 7 to 92 days long, up to today and within the budget’s end date.',
+    },
+    range: {
+      between: 'From {{min}} to {{max}}.',
+      outside: 'This date cannot be saved: choose a day from {{min}} to {{max}}.',
+    },
     incomeTotal: 'Income',
     actionsFor: 'Actions for the period {{range}}',
     actions: {
@@ -568,6 +585,7 @@ export const en = {
       title: 'What was recorded in this period will apply to the reopened period:',
       nothing: 'Nothing was recorded in this period: only the dates change.',
       failed: 'Could not list what this period holds: {{reason}}',
+      required: 'Saving waits for this list: what it shows is what you confirm.',
       kinds: {
         income: 'Income “{{name}}”',
         other: '“{{name}}”',

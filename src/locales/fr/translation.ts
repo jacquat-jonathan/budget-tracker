@@ -548,6 +548,23 @@ export const fr: Translation = {
     lastPeriod: 'Dernière période',
     nextExpected: 'Prochain salaire attendu le {{date}} (prévision).',
     nextExpectedManual: 'Prochain salaire attendu le {{date}} (fixé à la main).',
+    lastPeriodNote: 'Dernière période du budget : elle se termine le {{date}}, et aucune période ne commence ensuite.',
+    manualCurrentHint:
+      'Fixée à la main : elle reste telle quelle quand le jour de paie change, jusqu’à ce que vous la remettiez sur la prévision.',
+    manualPastHint:
+      'Enregistrée à la main avec l’une des actions. La marque reste même si la date est ensuite ramenée là où elle était.',
+    unavailable: {
+      budgetEnds:
+        'Indisponible : la date de fin du budget ({{date}}) ne laisse aucun jour où une nouvelle période pourrait commencer.',
+      tooSoon:
+        'Pas encore disponible : une période dure au moins 7 jours, une nouvelle peut donc commencer au plus tôt le {{date}}.',
+      moveStart:
+        'Indisponible : aucun jour ne garde les deux périodes entre 7 et 92 jours, jusqu’à aujourd’hui et avant la date de fin du budget.',
+    },
+    range: {
+      between: 'Du {{min}} au {{max}}.',
+      outside: 'Cette date ne peut pas être enregistrée : choisissez un jour du {{min}} au {{max}}.',
+    },
     incomeTotal: 'Revenus',
     actionsFor: 'Actions pour la période du {{range}}',
     actions: {
@@ -599,6 +616,7 @@ export const fr: Translation = {
       title: 'Ce qui a été enregistré dans cette période s’appliquera à la période rouverte :',
       nothing: 'Rien n’a été enregistré dans cette période : seules les dates changent.',
       failed: 'Impossible de lister le contenu de cette période : {{reason}}',
+      required: 'L’enregistrement attend cette liste : c’est elle que vous confirmez.',
       kinds: {
         income: 'Revenu « {{name}} »',
         other: '« {{name}} »',

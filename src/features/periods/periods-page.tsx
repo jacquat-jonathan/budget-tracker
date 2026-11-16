@@ -44,6 +44,15 @@ import {
   type PeriodSummary,
 } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import {
+  earlyRange,
+  earlyUnavailable,
+  inRange,
+  isEmpty,
+  moveStartRange,
+  type DateRange,
+} from '@/features/periods/boundary-ranges'
+import { nextSalary } from '@/features/periods/next-salary'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { addDays, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
@@ -72,7 +81,7 @@ type Action =
   /** `date`: proposed from the prompt after a pay-day correction (R-PERIOD-037). */
   | { kind: 'early'; period: PeriodSummary; date?: string }
   | { kind: 'reopen'; period: PeriodSummary; previous: PeriodSummary }
-  | { kind: 'moveStart'; period: PeriodSummary; previous: PeriodSummary }
+  | { kind: 'moveStart'; period: PeriodSummary; previous: PeriodSummary; date?: string }
 
 interface BoundaryWrite {
   action: Action
@@ -123,16 +132,27 @@ export function PeriodsPage() {
   const current = useCurrentPeriod(budgetId)
   const [action, setAction] = useState<Action | null>(null)
   const write = useBoundaryAction(budgetId)
-  // Arriving from "has this salary already arrived?": open "arrived early" with its date.
+  // Arriving from "has this salary already arrived?" (R-PERIOD-037): open the operation it
+  // offered, with its date.
   const [searchParams, setSearchParams] = useSearchParams()
-  const requested = searchParams.get('record') === 'early' ? searchParams.get('date') : null
+  const record = searchParams.get('record')
+  const requested =
+    record === 'early' || record === 'moveStart' ? { kind: record, date: searchParams.get('date') } : null
   const currentRow = current.data
-  if (requested && currentRow && action === null) {
-    setAction({ kind: 'early', period: currentRow, date: requested })
+  const previousRow =
+    currentRow && periods.data
+      ? periods.data.find((period) => period.seq === currentRow.seq - 1)
+      : undefined
+  const ready = currentRow !== undefined && periods.data !== undefined
+  if (requested && ready && action === null && currentRow) {
+    const date = requested.date ?? undefined
+    if (requested.kind === 'early') setAction({ kind: 'early', period: currentRow, date })
+    else if (previousRow)
+      setAction({ kind: 'moveStart', period: currentRow, previous: previousRow, date })
   }
   useEffect(() => {
-    if (requested && currentRow) setSearchParams({}, { replace: true })
-  }, [requested, currentRow, setSearchParams])
+    if (requested && ready) setSearchParams({}, { replace: true })
+  }, [requested, ready, setSearchParams])
   const close = () => setAction(null)
   const open = (next: Action) => {
     write.reset()
@@ -196,6 +216,11 @@ export function PeriodsPage() {
             const entered = budget.end_date_entered
             const isLast =
               entered !== null && period.start_date <= entered && entered <= period.end_date
+            const next = isCurrent ? nextSalary(period, entered) : null
+            const early = isCurrent ? earlyUnavailable(period, entered) : null
+            const moveStartEmpty = previous
+              ? isEmpty(moveStartRange(period, previous, entered))
+              : true
             return (
               <li
                 key={period.id}
@@ -210,22 +235,29 @@ export function PeriodsPage() {
                     </h2>
                     {isCurrent && <Badge>{t('periods.current')}</Badge>}
                     {previous?.end_is_manual && (
-                      <Badge variant="outline">{t('periods.manualStart')}</Badge>
+                      <Badge variant="outline" title={t('periods.manualPastHint')}>
+                        {t('periods.manualStart')}
+                      </Badge>
                     )}
                     {period.end_is_manual && (
-                      <Badge variant="outline">{t('periods.manualEnd')}</Badge>
+                      <Badge
+                        variant="outline"
+                        title={isCurrent ? t('periods.manualCurrentHint') : t('periods.manualPastHint')}
+                      >
+                        {t('periods.manualEnd')}
+                      </Badge>
                     )}
                     {isLast && <Badge variant="secondary">{t('periods.lastPeriod')}</Badge>}
                   </div>
-                  {isCurrent && (
-                    <p className="text-sm text-muted-foreground">
-                      {period.end_is_manual
-                        ? t('periods.nextExpectedManual', {
-                            date: formatCalendarDate(addDays(period.end_date, 1)),
-                          })
-                        : t('periods.nextExpected', {
-                            date: formatCalendarDate(addDays(period.end_date, 1)),
-                          })}
+                  {next && (
+                    <p className="text-sm text-muted-foreground" data-testid="next-salary">
+                      {next.kind === 'lastPeriod'
+                        ? t('periods.lastPeriodNote', { date: formatCalendarDate(next.endDate) })
+                        : next.kind === 'expected' && next.manual
+                          ? t('periods.nextExpectedManual', { date: formatCalendarDate(next.date) })
+                          : next.kind === 'expected'
+                            ? t('periods.nextExpected', { date: formatCalendarDate(next.date) })
+                            : null}
                     </p>
                   )}
                 </div>
@@ -255,10 +287,24 @@ export function PeriodsPage() {
                           </DropdownMenuItem>
                         )}
                         {isCurrent && (
-                          <DropdownMenuItem onSelect={() => open({ kind: 'early', period })}>
+                          <DropdownMenuItem
+                            disabled={early !== null}
+                            onSelect={() => open({ kind: 'early', period })}
+                          >
                             <SkipForwardIcon />
                             {t('periods.actions.early')}
                           </DropdownMenuItem>
+                        )}
+                        {early && (
+                          <p className="px-2 pb-1.5 pl-8 text-xs text-muted-foreground">
+                            {early.reason === 'budgetEnds'
+                              ? t('periods.unavailable.budgetEnds', {
+                                  date: formatCalendarDate(early.endDateEntered),
+                                })
+                              : t('periods.unavailable.tooSoon', {
+                                  date: formatCalendarDate(early.earliest),
+                                })}
+                          </p>
                         )}
                         {isCurrent && previous && (
                           <DropdownMenuItem
@@ -270,11 +316,17 @@ export function PeriodsPage() {
                         )}
                         {previous && (
                           <DropdownMenuItem
+                            disabled={moveStartEmpty}
                             onSelect={() => open({ kind: 'moveStart', period, previous })}
                           >
                             <CalendarClockIcon />
                             {t('periods.actions.moveStart')}
                           </DropdownMenuItem>
+                        )}
+                        {previous && moveStartEmpty && (
+                          <p className="px-2 pb-1.5 pl-8 text-xs text-muted-foreground">
+                            {t('periods.unavailable.moveStart')}
+                          </p>
                         )}
                         {isCurrent && period.end_is_manual && (
                           <>
@@ -359,21 +411,31 @@ function BoundaryForm({
   const hasField = action.kind !== 'resetExpected'
   const optional = action.kind === 'reopen'
 
+  const { budget } = useCurrentBudget()
+  // R-PERIOD-054: the dates the database can accept, for "arrived early" and "moved start".
+  const range: DateRange | null =
+    action.kind === 'early'
+      ? earlyRange(period, budget.end_date_entered)
+      : action.kind === 'moveStart'
+        ? moveStartRange(period, action.previous, budget.end_date_entered)
+        : null
   const defaultDate =
     action.kind === 'expected'
       ? addDays(period.end_date, 1)
       : action.kind === 'early'
-        ? (action.date ?? today)
+        ? (action.date ?? range?.max ?? today)
         : action.kind === 'moveStart'
-          ? period.start_date
+          ? (action.date ?? period.start_date)
           : ''
   const form = useForm<DateInput, unknown, DateValues>({
     resolver: zodResolver(optional || !hasField ? optionalDate : requiredDate),
     defaultValues: { date: defaultDate },
   })
   const date = useWatch({ control: form.control, name: 'date' })
-  const valid = isCalendarDate(date)
-  const { budgetId } = useCurrentBudget()
+  const typed = isCalendarDate(date)
+  const outside = typed && range !== null && !inRange(date, range)
+  const valid = typed && !outside
+  const budgetId = budget.id
   const reopenPreview = useReopenPreview(budgetId, action.kind === 'reopen')
 
   /** The resulting dates, worded from the user's point of view, and how to undo. */
@@ -438,8 +500,19 @@ function BoundaryForm({
             name="date"
             label={t(`periods.dialogs.${action.kind}.field`)}
             autoFocus
-            description={t(`periods.dialogs.${action.kind}.range`, { today: fmt(today) })}
+            description={
+              range
+                ? t('periods.range.between', { min: fmt(range.min), max: fmt(range.max) })
+                : t(`periods.dialogs.${action.kind}.range`, { today: fmt(today) })
+            }
           />
+        )}
+        {outside && range && (
+          <Alert data-testid="boundary-outside">
+            <AlertDescription>
+              {t('periods.range.outside', { min: fmt(range.min), max: fmt(range.max) })}
+            </AlertDescription>
+          </Alert>
         )}
         {action.kind === 'reopen' && <ReopenPreview preview={reopenPreview} />}
         {preview.result && (
@@ -457,7 +530,12 @@ function BoundaryForm({
           </Button>
           <Button
             type="submit"
-            disabled={mutation.isPending || (action.kind === 'reopen' && reopenPreview.isPending)}
+            disabled={
+              mutation.isPending ||
+              outside ||
+              // R-PERIOD-053: a reopen is confirmed only with its list in front of the user.
+              (action.kind === 'reopen' && !reopenPreview.isSuccess)
+            }
           >
             {mutation.isPending
               ? t('common.saving')
@@ -512,9 +590,20 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
   const errorMessage = useErrorMessage()
   if (preview.isError) {
     return (
-      <Alert>
+      <Alert variant="destructive" data-testid="reopen-preview-failed">
         <AlertDescription>
-          {t('periods.reopen.failed', { reason: errorMessage(preview.error) })}
+          <p>{t('periods.reopen.failed', { reason: errorMessage(preview.error) })}</p>
+          <p>{t('periods.reopen.required')}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            disabled={preview.isFetching}
+            onClick={() => void preview.refetch()}
+          >
+            {t('states.retry')}
+          </Button>
         </AlertDescription>
       </Alert>
     )
