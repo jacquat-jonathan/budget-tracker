@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-516 rules (508 active, 0 planned), 24 conventions, 283 decisions, 47 open questions. 0 rules and conventions are marked **TEST PENDING**.
+534 rules (526 active, 0 planned), 24 conventions, 300 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -282,6 +282,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PLATFORM_
   - Related: C-MONEY-003, D-402
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/lib/i18n.ts
+- **R-APP-340** A call with a client request id checks membership before the id, the catch-up gate and the budget lock: a signed-in outsider or a removed member gets budget_not_found for every budget and client id; a replay answers a current member only rows of the budget it names, and nothing for a record removed since.
+  _active · enforced by test · F-PLATFORM_
+  - Related: D-461, R-APP-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261121100000_client_requests.sql
 
 ### Accounts and sign-in
 
@@ -426,15 +430,15 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-316, R-SECURITY-003
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-SECURITY-250** Every name and description goes through one cleaner: control, bidirectional and zero-width characters are removed, other white space becomes one space, and the result is trimmed; markup and formulas stay text (the screens escape, an export neutralises).
+- **R-SECURITY-250** Every name and description goes through one cleaner: control, bidirectional and zero-width characters are removed (a joiner between two visible characters stays, R-SECURITY-341), other white space becomes one space, and the result is trimmed; markup and formulas stay text (the screens escape, an export neutralises).
   _active · enforced by test · F-IMPORT_
   - Related: D-376
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-SECURITY-251** A token's answer never depends on the budget's content beyond two coarse states (the budget is full; it is far behind): every argument is checked before anything of the budget, and a token cannot name the "to categorise" category.
+- **R-SECURITY-251** A token's answer never depends on the budget's content beyond coarse states (room for fewer than 250 transactions, D-451; far behind; the import storage of the day used up, D-452; its budget's lock held for more than a second, D-453): every argument is checked before anything of the budget, and a token cannot name the "to categorise" category.
   _active · enforced by test · F-IMPORT_
   - Related: D-371, R-IMPORT-076
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-SECURITY-252** Every call with a valid token counts toward its limits whatever its outcome; the check and the count are one step under the token's own lock, over windows rolling over the last 60 minutes and the last 24 hours.
+- **R-SECURITY-252** Every call with a valid token that does work counts toward its limits, whatever its outcome (cancelled included); a busy answer (token_busy, imports_busy) does no work and does not count; the check and the count are one step under the token's own lock, over windows of whole minutes (R-SECURITY-342).
   _active · enforced by test · F-IMPORT_
   - Related: D-370
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
@@ -446,6 +450,30 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-370
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-340** A token call never waits for another token call: the same token busy answers token_busy, every slot for token work taken answers imports_busy, both at once, doing no work and counting nothing; a working call takes at most 250 rows, waits at most a second for its budget (budget_busy), and counts even when cancelled (call_cancelled).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-453, R-SECURITY-252
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-341** The cleaner keeps a zero-width joiner or non-joiner between two characters that are not white space and removes it elsewhere; it removes interlinear annotation marks and the language tag; a text with nothing visible left is empty.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-454, R-SECURITY-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-342** A token call counts toward the hour for at least 60 and at most 61 minutes and toward the day for at least 24 hours and at most 24 hours and 1 minute.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-463, R-SECURITY-252
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-343** A token adds chunks only to a batch it created; any other existing batch id answers import_batch_conflict, a chunk already recorded included.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-464
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-344** The token call checks its batch id, chunk and statement dates itself: a malformed one answers invalid_batch, invalid_chunk or invalid_date, never a raw cast error.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-465
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-SECURITY-345** A token call is refused with transaction_limit_reached whenever the budget has room for fewer than 250 transactions, whatever rows it sends; a member is told how many rows would fit.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-451, R-SECURITY-251
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Money
 
@@ -1270,6 +1298,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-CATEGORY-200, R-CATEGORY-250, D-447
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/categories/category-queries.ts
+- **R-CATEGORY-340** An imported transaction waiting in "to categorise" can be edited while it keeps that category.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-460, R-CATEGORY-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Transactions
 
@@ -2054,7 +2086,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-311, R-CATEGORY-110
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-IMPORT-208** An import is sent as a batch of up to 100 chunks of up to 500 rows under an id the caller generates; a chunk sent again records nothing and answers as the first time; a chunk the transaction limit cannot hold is refused whole, saying how many rows would fit.
+- **R-IMPORT-208** An import is sent as a batch of up to 100 chunks of up to 500 rows (250 by a token) under an id the caller generates; a chunk sent again records nothing and answers as the first time; a chunk the transaction limit cannot hold is refused whole, saying how many rows would fit.
   _active · enforced by test · F-IMPORT_
   - Related: D-310, R-APP-170
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
@@ -2062,7 +2094,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-118, D-312
   - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
-- **R-IMPORT-250** What is stored of a row that was not imported is bounded: its known keys within their limits, and only the names of unknown keys; a call whose rows exceed 2 MB is refused whole (the API gateway's body limit is the outer bound).
+- **R-IMPORT-250** What is stored of a row that was not imported is bounded: its known keys within their limits, and only the names of unknown keys; a call whose rows exceed 2 MB is refused whole when the function starts; the request body itself is read and parsed before the function runs, bounded only by the gateway (Q-280).
   _active · enforced by test · F-IMPORT_
   - Related: D-378
   - Source: owner-request: coordinator review of the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
@@ -2142,6 +2174,46 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-074, D-446
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/settings/import-tokens.tsx
+- **R-IMPORT-340** A statement previewed part by part with preview_import_part answers, for each part, the rows and counts the write of the same parts in the same order then gives (absent changes by others), with the totals of each part and of the statement so far: rows by action, and the rows to import by kind, count and amount.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-455, R-IMPORT-252
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-341** A budget's import storage is bounded: in a rolling 24 hours at most 20 000 rows submitted, 50 new batches (import_limit_reached) and 20 tokens created, deleted ones included (token_limit_reached); kept at most 2 000 batches (empty ones go first), the newest 20 000 skipped rows and the newest 50 chunk answers of at most 7 days (an older chunk sent again answers chunk_expired).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-452, R-IMPORT-250
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-342** The merchant key does bounded work: the text is cut to 200 characters first and a text still changing after 10 steps keeps that cut text as its key, which stays idempotent.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-453, R-IMPORT-255
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-343** The duplicate lookup by content reads by index, as the transaction is now and as first imported; values as first imported exist on imported transactions only.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-462, R-IMPORT-254
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-344** A valid skipped row is kept as the preview showed it (free text cleaned), so importing it anyway imports that row and the same statement line imported again is its duplicate by bank id.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-466, R-IMPORT-073
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-345** Only a choice the member sent for a flagged row is remembered, never a default; an own transfer without description or merchant is remembered under the key own_transfer.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-456, R-IMPORT-092
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-346** A member can forget a remembered choice; the default applies again.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-458
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-347** A rule's preview answers the fragment as stored, the rule already covering it and how many waiting transactions the rule would move, as the rule then does.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-457, R-IMPORT-201
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-348** One batch can be read by its id, as the list gives it, by members of its budget only.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-459
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-349** The import script reads a quote inside an unquoted CSV field as an ordinary character; only a quote at the start of a field opens a quoted field.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-006
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: scripts/import/import.mjs
 
 ### Accounts and planned transfers (money flow)
 
@@ -5248,7 +5320,7 @@ Source: owner-request: database developer decision for step 7, within the coordi
 
 ### D-370 Import tokens (revised) (accepted)
 
-A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 tokens that can still be used a budget; a revoked or expired one can be deleted, and those kept are pruned to the newest 20 and 365 days. import_with_token is the only function callable without a session, by POST only (a GET is refused with read_only_call before the token is looked at). An unknown, expired or revoked token, or one whose creator left, was removed or deleted their account, gets invalid_token after one index lookup, before any lock or catch-up. Every call with a valid token counts, whatever its outcome: 60 calls and 5000 rows within any 60 minutes, 300 calls and 20 000 rows within any 24 hours, checked and counted in one step under the token's lock; a refusal after the count is answered in the error column, not raised. The batch records the token, never the caller. Batches, skipped rows and remembered choices are read through paged functions only.
+A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 tokens that can still be used a budget; a revoked or expired one can be deleted, and those kept are pruned to the newest 20 and 365 days. import_with_token is the only function callable without a session, by POST only (a GET is refused with read_only_call before the token is looked at). An unknown, expired or revoked token, or one whose creator left, was removed or deleted their account, gets invalid_token after one index lookup, before any lock or catch-up. A call never waits for another token call: the same token busy, or every slot for token work taken, answers token_busy or imports_busy at once, doing nothing and counting nothing (D-453). Every call that does work counts, whatever its outcome, cancelled included: 60 calls and 5000 rows within any 60 minutes, 300 calls and 20 000 rows within any 24 hours (by whole minutes: a call counts 60 to 61 minutes and 24 hours to 24 hours and 1 minute, D-463), checked and counted in one step under the token's lock; a refusal after the count is answered in the error column, not raised. A token call takes at most 250 rows. The batch records the token, never the caller. Batches, skipped rows and remembered choices are read through paged functions only.
 
 **Why:** The step 6 review: a refused call must cost the attacker too, parallel calls must not pass the limit together, fixed hourly windows let twice the limit through at the boundary, tokens must not pile up, and a token in a URL ends up in logs.
 
@@ -5263,7 +5335,7 @@ Source: owner-request: coordinator review of the step 6 database (import), 2026-
 
 ### D-371 What a token is told (accepted)
 
-A token's answer does not depend on the budget's content: every argument is checked before anything of the budget, "to categorise" is created under its fixed name (the token cannot name it), and a token is never told how many rows would fit. Two coarse states still reach it, because a script must be able to say why nothing was imported: the budget is full (transaction_limit_reached, refused when the rows it sent do not all fit whatever they would become) and the budget is far behind (catching_up).
+A token's answer does not depend on the budget's content: every argument is checked before anything of the budget, "to categorise" is created under its fixed name (the token cannot name it), and a token is never told how many rows would fit. Coarse states still reach it, because a script must be able to say why nothing was imported: the budget is nearly full (transaction_limit_reached, refused whenever it has room for fewer than 250 transactions, D-451), the budget is far behind (catching_up), its import storage of the day is used up (import_limit_reached, D-452), and its lock was held for more than a second (budget_busy, D-453).
 
 **Why:** Answer to Q-191 and the step 6 review (F1): any budget-dependent difference is an oracle on the budget's transactions.
 
@@ -5351,7 +5423,7 @@ Source: owner-request: coordinator review of the step 6 database (import), 2026-
 
 ### D-378 Refused rows are stored bounded (accepted)
 
-Of a row that was not imported, only its known keys are kept, each within its limit, and only the names of unknown keys; a call whose rows argument exceeds 2 MB is refused whole (invalid_rows) before any row is read; the API gateway's body limit is the outer bound.
+Of a row that was not imported, only its known keys are kept, each within its limit, and only the names of unknown keys; a call whose rows argument exceeds 2 MB is refused whole (invalid_rows) before any row is read; the request body itself is read and parsed before the function runs, so what bounds it there is the gateway (not verified for the hosted project: Q-280).
 
 **Why:** The step 6 review (F3): a stolen token could otherwise store megabytes of arbitrary JSON per call.
 
@@ -6160,6 +6232,229 @@ Related: R-I18N-001, D-442
 
 Source: owner-request: coordinator, follow-up to the step 6 screens at 40a20ed, 2026-11-16
 
+### D-450 Migrations before the first deployment (accepted)
+
+No database has been deployed yet. Until the first deployment, a step's migration file may be corrected in place while that step is still under review; the first deployment freezes every migration file then present, and from then on every change is a new migration.
+
+**Why:** Fix rounds of a step under review would otherwise stack migrations that only repair code nobody has run, and the reviewed file would no longer be the one that runs.
+
+**Rejected:**
+
+- A new migration for every fix from the start: the reviewed code and the code that runs drift apart before anything is deployed.
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
+
+### D-451 What a token learns of the room (accepted)
+
+A token call is refused with transaction_limit_reached whenever the budget has room for fewer transactions than a token call's maximum rows (250), whatever rows it sends and before any planning: a token learns one bit ("nearly full"), never the count. A signed-in member keeps the exact answer (detail {"fits": n}).
+
+**Why:** Counting only the rows sent let a token learn the exact room below 500 by sending 1, 2, 3 rows that can never be imported (the re-review's should-fix 1).
+
+**Rejected:**
+
+- Refusing only when the rows sent do not fit: an exact oracle of the room.
+
+Related: D-371, R-SECURITY-251, R-SECURITY-345
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-452 Import storage per budget is bounded (accepted)
+
+Whatever members and tokens do, a budget's import storage is bounded. Within a rolling 24 hours (members and tokens together): 20 000 rows submitted to a write and 50 new batches (import_limit_reached), 20 tokens created, deleted ones included (token_limit_reached). Kept: 2 000 batches (at the limit, the oldest batches that hold no transaction and no skipped row any more go first; import_limit_reached when none can), the newest 20 000 skipped rows (older ones go; the batch's counts stay), the newest 50 chunk answers and none older than 7 days (a chunk whose answer is forgotten stays recorded, so sending it again answers chunk_expired and never imports it twice), and staged preview parts for a day, at most 100. Measured with incompressible text at every limit: a skipped row takes about 3 kB and a 500-row chunk answer about 380 kB, so a day adds at most about 85 MB and all that is kept beyond the transactions is at most about 110 MB (skipped rows 66 MB, chunk answers 19 MB, staged parts 11 MB, recorded chunks and batches about 15 MB).
+
+**Why:** The re-review stored 39 MB in 7 s through chunks and recycled 30 tokens in 4.4 s: each call was bounded, nothing bounded the total.
+
+**Rejected:**
+
+- Refusing at the kept limits only: a stolen token could block imports for good.
+- Only a time-based pruning: no total bound.
+
+Related: D-378, R-IMPORT-250, R-IMPORT-341
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-453 Token calls never queue (accepted)
+
+A token call never waits for another token call: another call of the same token doing work answers token_busy at once, and when the two slots for token work (all budgets together) are taken the call answers imports_busy at once; neither does any work or counts, and the script waits and sends again. A working call waits at most a second for its budget's lock (budget_busy, counted) and takes at most 250 rows (a member's call 500); with the merchant key's bounded steps and the duplicate lookup by index its database time stays far within the anon statement timeout (measured worst case about 0.3 s on a 45 000-transaction budget). Were it cancelled all the same, it answers call_cancelled and still counts. A visitor with only the publishable key can still make PostgREST read and parse a request body of any size the gateway lets through (Q-280) and receive invalid_token; every other function is refused.
+
+**Why:** A cancelled transaction cannot be counted, and calls of one token waiting on its lock piled up until the API stalled for every budget (re-review M-2).
+
+**Rejected:**
+
+- Counting in a separate committed transaction (dblink): an extension and a connection per call for what bounded work and try-locks already give.
+- Keeping 500 rows a token call: under a 40-loop hammer on a loaded machine one call in 170 hit the statement timeout.
+
+Related: D-370, R-SECURITY-252, R-SECURITY-340
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-454 The cleaner keeps joiners where text needs them (revises D-376) (accepted)
+
+A zero-width joiner or non-joiner stays between two characters that are not white space (an emoji sequence, Persian or Indic text) and goes elsewhere; interlinear annotation marks (U+FFF9 to U+FFFB) and the language tag (U+E0001) go; a text left with nothing visible (only Hangul fillers, blank braille patterns, joiners, variation selectors or tag characters) is empty, so a name made only of them is refused (invalid_name). Tag characters after a flag stay.
+
+**Why:** Removing every joiner broke emoji families and Persian words, while names made of invisible fillers passed as non-empty (re-review, cleaner).
+
+**Rejected:**
+
+- Removing the fillers everywhere: some are real characters of Hangul or braille text.
+
+Related: D-376, R-SECURITY-250, R-SECURITY-341
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-455 A statement previewed in parts (answers Q-270 and Q-274) (accepted)
+
+preview_import_part(p_budget_id, p_batch_id, p_part, p_rows) previews part p_part of a statement before any part is written: it takes into account what the batch's parts before it absorb (duplicates, matches) and the choices they send, as well as the chunks already written, so for a statement up to 100 parts of 500 rows its counts and per-row answers equal what import_transactions then does with the same parts in the same order, absent changes by others. It answers one object: rows (as preview_import), part and statement totals (rows and each action; the rows to import by kind, count and amount), the parts covered, the room and whether the statement fits. Previewing a part again forgets the staged parts from it on. preview_import keeps its shape.
+
+**Why:** The screens compared the write with a per-part preview that could not know what earlier parts absorb; the summary had no amounts because the client never adds them (C-LOGIC-003).
+
+**Rejected:**
+
+- Previewing the whole statement in one call: answers beyond 1000 rows.
+- Changing preview_import's answer: the screens read its rows.
+
+Related: R-IMPORT-252, R-IMPORT-340, Q-270, Q-274
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-456 Remembered choices are the member's own (answers Q-276; revises D-314) (accepted)
+
+Only a choice the member sent with a row (action import or skip, or "import anyway") is remembered; a default the import applied is not. A row's choice_key is the key its choice is remembered under: its merchant key, or own_transfer for an own transfer without description and merchant (no merchant key can contain "_"), so an own transfer's choice is remembered too.
+
+**Why:** The contract called them a member's choices while the import stored every default, and an own transfer without a description had no key at all.
+
+**Rejected:**
+
+- A key per account for own transfers: the row carries no account.
+
+Related: D-314, R-IMPORT-092, R-IMPORT-345, Q-276
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-457 A rule's preview (answers Q-271) (accepted)
+
+preview_merchant_rule(p_budget_id, p_fragment, p_category_id) answers, without writing, the fragment as it would be stored, the existing rule that already covers it (the one the import picks: the longest fragment it contains), whether a rule with that fragment exists, and how many transactions waiting in "to categorise" the rule would move to that category (one implementation with the rule's apply).
+
+**Why:** The screens repeated the "contains" test in the client over at most 200 transactions (C-LOGIC-003).
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-201, R-IMPORT-347, Q-271
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-458 Forget a remembered choice (answers Q-272) (accepted)
+
+forget_import_choice(p_budget_id, p_flag, p_counterparty_key) deletes a remembered choice; the next import of that entry applies the default again. It answers whether one was forgotten.
+
+**Why:** A member could only override a choice at the next import.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-092, R-IMPORT-346, Q-272
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-459 One batch by its id (answers Q-275) (accepted)
+
+get_import_batch(p_batch_id) answers the batch as list_import_batches gives it, to members of its budget (import_batch_not_found otherwise).
+
+**Why:** A summary or a link to one batch had to scan pages.
+
+**Rejected:**
+
+- A p_batch_id argument on list_import_batches: another overload of a paged call.
+
+Related: R-IMPORT-257, R-IMPORT-348, Q-275
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-460 Editing in "to categorise" (answers Q-273) (accepted)
+
+An imported transaction waiting in "to categorise" can be edited (amount, date, description, links) while it keeps that category; update_transaction refuses only moving a transaction into it, and confirming it there.
+
+**Why:** The guard already allowed it; the contract did not say so.
+
+**Rejected:** none recorded.
+
+Related: R-CATEGORY-250, R-CATEGORY-340, Q-273
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-461 Client request ids answer members only (revises D-390) (accepted)
+
+A call with p_client_id checks membership first: before the id is looked at, before the catch-up gate and before the budget lock (and again under the lock). A signed-in outsider or a removed member gets budget_not_found for every budget and every client id; a replay answers a current member only rows of the budget it names; add_income replayed after the income was removed answers no income, like the other calls.
+
+**Why:** A removed member replaying a client id read the budget's current rows for 7 days, and an outsider learned request_reused and catching_up (re-review M-1).
+
+**Rejected:** none recorded.
+
+Related: D-390, R-APP-250, R-APP-340
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261121100000_client_requests.sql
+
+### D-462 The duplicate lookup reads by index (accepted)
+
+A row's duplicate by content is looked up twice, each by index: as the transaction is now (budget, kind, amount, date) and as first imported (budget, original amount and date, imported transactions only); the earlier match wins. The values as first imported belong to imported transactions only (a check constraint).
+
+**Why:** The one-query form could not use an index and scanned the budget for every row: 6 to 7.5 s for a 500-row preview at 45 000 transactions (re-review M-3).
+
+**Rejected:** none recorded.
+
+Related: D-372, R-IMPORT-254, R-IMPORT-343
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-463 Token windows by whole minutes (accepted)
+
+A token's calls and rows are kept by minute; the whole minute a call was made in counts, so a call counts toward the hour for at least 60 and at most 61 minutes, and toward the day for at least 24 hours and at most 24 hours and 1 minute. The limits hold over any 60 minutes and any 24 hours.
+
+**Why:** Counting minutes strictly after now minus an hour let a call drop out after 59 minutes (re-review should-fix 8); one row per minute keeps the bookkeeping bounded.
+
+**Rejected:**
+
+- One row per call: unbounded rows for refused calls.
+
+Related: D-370, R-SECURITY-252, R-SECURITY-342
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-464 A token adds only to its own batches (accepted)
+
+A token adds chunks only to a batch it created; any other existing batch id (a member's, another token's, another budget's) answers import_batch_conflict, also for a chunk already recorded, so a token cannot read another batch's answers.
+
+**Why:** A token knowing a member's batch id could add to it and replay its chunks (re-review should-fix 7).
+
+**Rejected:** none recorded.
+
+Related: D-371, R-SECURITY-343
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-465 The token call takes its arguments as text (accepted)
+
+import_with_token takes the batch id, the chunk and the statement dates as text and checks them itself (invalid_batch, invalid_chunk, invalid_date), so a malformed argument answers its code instead of a raw cast error. What happens before the function runs cannot be caught by it: a body that is not JSON (PGRST102), or nested so deep that parsing exceeds the stack (54001), is answered by PostgREST or the database parser.
+
+**Why:** Raw 22P02 and 22008 errors with a datestyle hint reached anonymous callers (re-review should-fix 6).
+
+**Rejected:** none recorded.
+
+Related: R-SECURITY-344, D-453
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-466 "Import anyway" imports the row previewed (accepted)
+
+A valid row that was skipped is kept as the preview showed it, its free text cleaned (description, merchant, bank transaction id, details), so importing it anyway imports that row and a later import of the same statement line finds it by its bank id. An invalid row is kept as before (bounded, D-378).
+
+**Why:** The kept row was the raw text cut to the limit before cleaning: a padded description or bank id was imported shorter than previewed and no longer matched (re-review should-fix 4).
+
+**Rejected:** none recorded.
+
+Related: D-378, R-IMPORT-073, R-IMPORT-344
+
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -6538,34 +6833,46 @@ Source: owner-request: coordinator, follow-up to the step 6 screens at 40a20ed, 
   - Context: D-404: the current budget is chosen in the sidebar and not in any address; a comparison link opened by a member whose current budget differs falls back to the defaults (R-COMPARE-283). Naming the budget in every address would make shared links exact.
   - Related: D-404, R-COMPARE-283
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16
-- **Q-270** Should preview_import take the rows of the batch's earlier parts that are not written yet, so that a later part's preview accounts for them?
+- **Q-270** (resolved by D-455) Should preview_import take the rows of the batch's earlier parts that are not written yet, so that a later part's preview accounts for them?
   - Context: A part is previewed on its own; a row of part 2 that duplicates or matches the same existing transaction as a row of part 1 is previewed as absorbing it, but at the write part 1 absorbs it first. The screens compare the answers with the preview and say how many rows turned out differently (D-442). Only imports above 500 rows are affected.
   - Related: R-IMPORT-252, R-IMPORT-251
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
-- **Q-271** Should the database preview a merchant rule: whether an existing rule already covers a key, and how many transactions waiting in "to categorise" it would move?
+- **Q-271** (resolved by D-457) Should the database preview a merchant rule: whether an existing rule already covers a key, and how many transactions waiting in "to categorise" it would move?
   - Context: The one-click offer decides "already covered" and counts the others by testing whether the database's keys contain a fragment in the client (D-445), which repeats R-IMPORT-201's "contains" and reads at most 200 waiting transactions; the count after the click is the database's (moved).
   - Related: R-IMPORT-007, R-IMPORT-201, C-LOGIC-003
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
-- **Q-272** Should a member be able to forget a remembered choice for a flagged entry?
+- **Q-272** (resolved by D-458) Should a member be able to forget a remembered choice for a flagged entry?
   - Context: list_import_choices shows them; no call deletes one. The settings card says to choose otherwise at the next import instead.
   - Related: R-IMPORT-092
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
-- **Q-273** Can an imported transaction waiting in "to categorise" be edited (amount, note) while it stays there, or must every update give it a real category?
+- **Q-273** (resolved by D-460) Can an imported transaction waiting in "to categorise" be edited (amount, note) while it stays there, or must every update give it a real category?
   - Context: docs/database.md says update_transaction refuses "to categorise" for a transaction moved into it; it does not say whether one already there may keep it. The form asks for a real category (the conservative reading, D-447). Observed on the local stack: update_transaction with the "to categorise" category unchanged and a new note is accepted, so the database allows it; the contract should say so before the form relaxes.
   - Related: R-CATEGORY-250
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
-- **Q-274** Should the preview give the total amount to import (money out and money in), for the summary above the table?
+- **Q-274** (resolved by D-455) Should the preview give the total amount to import (money out and money in), for the summary above the table?
   - Context: The summary counts rows from the answers; it shows no amount, since the client never adds amounts (C-LOGIC-003). preview_import would have to return per-call totals by action.
   - Related: R-IMPORT-252, C-LOGIC-003
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
-- **Q-275** Should one batch be readable by its id (list_import_batches with p_batch_id)?
+- **Q-275** (resolved by D-459) Should one batch be readable by its id (list_import_batches with p_batch_id)?
   - Context: After an import the summary counts the answers rather than reading the batch's own counts, which the paged list gives only by scanning pages; a link to one batch cannot be opened either.
   - Related: R-IMPORT-257
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
-- **Q-276** How should a choice for an own transfer be remembered, and should the import remember the default of a flagged row the member did not change?
+- **Q-276** (resolved by D-456) How should a choice for an own transfer be remembered, and should the import remember the default of a flagged row the member did not change?
   - Context: toImportBatch sends an own transfer without description and merchant (R-IMPORT-219: the payee is the holder), so its merchant key is empty and a choice for it cannot be remembered (R-IMPORT-092); on the local stack, importing it by choice stored no import_choices row. Conversely, after a first import of the Migros Bank fixture with no action sent, import_choices held a row for every transfer to a person (import) and for the card-bill payment (skip): the database remembers defaults too, which the contract describes as "a member's choice".
   - Related: R-IMPORT-092, R-IMPORT-219, D-314
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
+- **Q-280** What bounds a request body before import_with_token runs on the hosted project, and is anything needed in front of it?
+  - Context: PostgREST reads and parses the whole body before the function runs; locally a 50 MB body with an unknown token was parsed in 1.0 s and 200 MB in 4.1 s, the database growing from 0.33 to 1.77 GiB. The function checks 2 MB only once it runs. To verify at the deployment step: the hosted gateway's body limit; if it is large, a limit in front of the API (docs/deployment.md).
+  - Related: R-IMPORT-250, D-378, D-453
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
+- **Q-281** Should anonymous calls be rate-limited before the database (per address, at the gateway)?
+  - Context: Busy answers cost about 1.5 ms each and count nothing; 40 parallel loops on one token still take connections from the API's pool, and a member of another budget then saw a median of 115 to 206 ms (worst 635 ms) instead of 7 to 9 ms. Only a limit in front of PostgREST can bound that; to check at the deployment step with Q-280.
+  - Related: D-453, R-SECURITY-340
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
+- **Q-282** When a period start moves onto or before a debt's opening and back again, how should the debt's interest come back, and should the later entries follow the history?
+  - Context: D-386 removes the period's interest entry when its start moves to on or before the opening (a trigger in the step 4 migration, private.drop_interest_before_opening) and adds nothing when it moves later again, because interest is computed once, when the period is created. So after a start moves onto the opening day and back, the debt is lower for good by the removed entry (120.00 in the re-review), and the next period's entry keeps the balance it was computed on (debt_interest.balance 1 212 000 while the history's balance before it is now 1 200 000). Options: (a) refuse the move while the period holds an interest entry of a debt opened on or after the new start (a refusal code, shown by preview_move_period_start as it already counts interest_removed): the history stays exact and nothing is lost, at the cost of a restriction; (b) keep the entry but mark it suspended while the start is on or before the opening, and restore it when the start moves after the opening again: the round trip is exact, but while suspended the later entries' balance disagrees by the suspended amount; (c) on any removal, recompute every later entry of that debt from the history: balance always agrees, but amounts the member has seen change, and a move back still loses the entry unless combined with (b). Recommended: (a). Any option changes the step 4 migration's trigger and its preview, which under D-450 is a new migration (or the money-flow rewrite), so it was not fixed in this round.
+  - Related: D-386, D-272, R-DEBT-131
+  - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ## Glossary
 

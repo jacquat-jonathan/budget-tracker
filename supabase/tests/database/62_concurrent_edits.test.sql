@@ -13,6 +13,8 @@ create or replace function pg_temp.conn() returns text language sql as $$
                 host(inet_server_addr()), inet_server_port())
 $$;
 select extensions.dblink_connect(c, pg_temp.conn()) from unnest(array['setup', 'one', 'two']) as c;
+-- a statement that waits without bound fails in seconds instead of hanging the run
+select extensions.dblink_exec(c, 'set statement_timeout = ''60s''') from unnest(array['setup', 'one', 'two']) as c;
 select extensions.dblink_exec('setup', $$delete from auth.users where email like 'edit+%@test.local'$$);
 
 create or replace function pg_temp.mkuser(tag text) returns uuid language plpgsql as $$

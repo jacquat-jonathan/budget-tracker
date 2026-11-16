@@ -69,6 +69,9 @@ select * from extensions.dblink('holder', format('select pg_advisory_xact_lock(h
 select tests.authenticate_as('ann');
 create temp table waited (what text, ms numeric) on commit drop;
 grant insert, select on waited to authenticated;
+-- a regression that waits without bound fails here in seconds instead of hanging the run
+set local lock_timeout = '10s';
+set local statement_timeout = '30s';
 do $$
 declare
   t timestamptz := clock_timestamp();
@@ -76,16 +79,24 @@ begin
   begin
     perform public.ensure_periods(tests.id('far'));
     insert into waited values ('no error', 0);
-  exception when sqlstate 'P0001' then
-    insert into waited values (sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+  exception
+    when sqlstate 'P0001' then
+      insert into waited values (sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+    when lock_not_available or query_canceled then
+      insert into waited values ('waited without bound', extract(epoch from clock_timestamp() - t) * 1000);
   end;
   t := clock_timestamp();
   begin
     perform public.get_period_trend(tests.id('far'));
-  exception when sqlstate 'P0001' then
-    insert into waited values ('read ' || sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+  exception
+    when sqlstate 'P0001' then
+      insert into waited values ('read ' || sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+    when lock_not_available or query_canceled then
+      insert into waited values ('read waited without bound', extract(epoch from clock_timestamp() - t) * 1000);
   end;
 end $$;
+set local lock_timeout = 0;
+set local statement_timeout = 0;
 select is((select what from waited where what not like 'read%'), 'catching_up',
   'R-PERIOD-250: ensure_periods waiting for another session''s lock answers catching_up, not the statement timeout');
 select ok((select ms between 1500 and 6000 from waited where what not like 'read%'), 'R-PERIOD-250: after waiting about two seconds');

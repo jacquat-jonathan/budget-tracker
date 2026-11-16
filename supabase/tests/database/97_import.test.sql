@@ -347,7 +347,7 @@ select throws_ok(format('select public.create_import_token(%L, %L, 366)', tests.
 -- the token imports with default choices, answers counts only
 select tests.authenticate_as_anon();
 select tests.remember('tbatch', gen_random_uuid());
-select is((select row(received, refused, refused_rows)::text from public.import_with_token((select token from tok), tests.id('tbatch'), 1, '[
+select is((select row(received, refused, refused_rows)::text from public.import_with_token((select token from tok), tests.id('tbatch')::text, '1', '[
   {"date": "2026-11-15", "amount": 999, "direction": "debit", "description": "Coop Lausanne"},
   {"date": "2026-11-02", "amount": 1250, "direction": "debit", "description": "Coop Lausanne"},
   {"date": "2026-11-15", "amount": 1.5, "direction": "debit"},
@@ -355,7 +355,7 @@ select is((select row(received, refused, refused_rows)::text from public.import_
   {"date": "2026-11-15", "amount": 4800, "direction": "debit"}]')),
           row(4, 1, '[{"row": 3, "reason": "invalid_amount"}]'::jsonb)::text,
   'R-IMPORT-076 R-IMPORT-006: a token''s answer is counts, and reasons that depend only on the row sent');
-select is((select refused_rows from public.import_with_token((select token from tok), gen_random_uuid(), 1,
+select is((select refused_rows from public.import_with_token((select token from tok), gen_random_uuid()::text, '1',
            '[{"date": "2026-11-15", "amount": 5, "direction": "debit", "action": "import"}]')),
           '[{"row": 1, "reason": "choice_not_allowed"}]'::jsonb, 'R-IMPORT-205: a token imports with the default choices only');
 select tests.authenticate_as('ivy');
@@ -371,9 +371,9 @@ select is((select review_state::text from public.transactions where subscription
 select tests.authenticate_as('ivy');
 select public.revoke_import_token((select token_id from tok));
 select tests.authenticate_as_anon();
-select throws_ok(format('select * from public.import_with_token(%L, %L, 1, %L)', (select token from tok), gen_random_uuid(), '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]'),
+select throws_ok(format('select * from public.import_with_token(%L, %L, ''1'', %L)', (select token from tok), gen_random_uuid(), '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]'),
   'P0001', 'invalid_token', 'R-IMPORT-077: a revoked token is refused');
-select throws_ok(format('select * from public.import_with_token(%L, %L, 1, %L)', 'bti_' || repeat('0', 64), gen_random_uuid(), '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]'),
+select throws_ok(format('select * from public.import_with_token(%L, %L, ''1'', %L)', 'bti_' || repeat('0', 64), gen_random_uuid(), '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]'),
   'P0001', 'invalid_token', 'R-IMPORT-205: an unknown token gets the same refusal');
 select tests.clear_authentication();
 select tests.authenticate_as('ivy');
@@ -382,7 +382,7 @@ grant select on tok2 to anon;
 select tests.clear_authentication();
 update public.import_tokens set expires_at = now() - interval '1 second' where id = (select token_id from tok2);
 select tests.authenticate_as_anon();
-select throws_ok(format('select * from public.import_with_token(%L, %L, 1, %L)', (select token from tok2), gen_random_uuid(), '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]'),
+select throws_ok(format('select * from public.import_with_token(%L, %L, ''1'', %L)', (select token from tok2), gen_random_uuid(), '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]'),
   'P0001', 'invalid_token', 'R-IMPORT-205: so does an expired one');
 -- rate limits
 select tests.authenticate_as('ivy');
@@ -391,7 +391,7 @@ grant select on tok3 to anon;
 select tests.clear_authentication();
 insert into private.import_token_usage (token_id, minute, calls, rows) values ((select token_id from tok3), date_trunc('minute', clock_timestamp()) - interval '30 minutes', 60, 10);
 select tests.authenticate_as_anon();
-select is((select error from public.import_with_token((select token from tok3), gen_random_uuid(), 1, '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]')),
+select is((select error from public.import_with_token((select token from tok3), gen_random_uuid()::text, '1', '[{"date": "2026-11-15", "amount": 5, "direction": "debit"}]')),
   'token_rate_limited', 'R-IMPORT-205: at most 60 calls an hour');
 -- a member removed takes the tokens they created with them
 select tests.authenticate_as('ivy');

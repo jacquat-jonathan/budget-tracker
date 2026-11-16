@@ -21,6 +21,18 @@ project"). Then note two values from the dashboard:
 - **Publishable key**: Project Settings > API Keys, the `sb_publishable_...` key. It is
   meant for the browser; RLS protects the data. Never use the secret key in the app.
 
+**Before the first deployment, check what bounds anonymous calls** (Q-280, Q-281). The import
+token's function (`import_with_token`) is callable with the publishable key alone, and the
+API reads and parses a request body before the function runs: the function refuses rows above
+2 MB only once it runs. Locally nothing bounds the body (200 MB were parsed in 4 s, the
+database growing by 1.4 GiB), and many parallel requests take connections from the API's
+pool (under 40 parallel loops another budget's calls went from 7 to 9 ms to a median of 115
+to 206 ms). Verify the hosted gateway's request body limit and whether it limits requests per
+address. If the body limit is large (more than a few MB) or there is no rate limit, put a
+limit in front of the API (for example a proxy or the platform's network restrictions)
+before relying on tokens. Also: the first deployment freezes every migration file then present;
+from then on every database change is a new migration (D-450).
+
 ### 2. Infomaniak: site folder and SSH access
 
 In the Infomaniak Manager (manager.infomaniak.com), Web Hosting > your hosting:
