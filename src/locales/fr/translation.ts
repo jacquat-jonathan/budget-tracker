@@ -643,6 +643,8 @@ export const fr: Translation = {
     removeEnds:
       'Elle n’est plus prévue à partir de la période en cours (commencée le {{date}}). Les périodes passées la gardent telle quelle.',
     removeEndsNoPeriod: 'Elle n’est plus prévue. Les périodes passées la gardent telle quelle.',
+    removeKeptVoid:
+      'Elle a été ajoutée dans cette période : elle est donc retirée de toutes les prévisions. Comme elle a des transactions, elle est gardée sans montant, et elles continuent de compter dans leurs périodes.',
     removeKeepsTransactions:
       'Ses transactions ne sont jamais supprimées : elles continuent de compter dans les périodes où elles sont datées.',
     removeWithSubs_one: 'Sa sous-catégorie {{names}} est retirée avec elle.',

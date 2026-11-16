@@ -85,6 +85,8 @@ function EndCategoryBody({
   const category = removal.live ?? removal.base ?? opened
   const end = useEndCategory(budgetId)
   const deletes = category.removal_deletes === true
+  // Added in this period but with transactions: kept without a plan, never in force (void).
+  const keptVoid = !deletes && currentPeriod !== null && category.first_seq >= currentPeriod.seq
   const from = currentPeriod ? formatCalendarDate(currentPeriod.start_date) : null
 
   return (
@@ -100,11 +102,13 @@ function EndCategoryBody({
             <p>
               {deletes
                 ? t('categories.removeDeletes')
-                : from
-                  ? t('categories.removeEnds', { date: from })
-                  : t('categories.removeEndsNoPeriod')}
+                : keptVoid
+                  ? t('categories.removeKeptVoid')
+                  : from
+                    ? t('categories.removeEnds', { date: from })
+                    : t('categories.removeEndsNoPeriod')}
             </p>
-            {!deletes && category.has_transactions === true && (
+            {!deletes && !keptVoid && category.has_transactions === true && (
               <p>{t('categories.removeKeepsTransactions')}</p>
             )}
             {subcategories.length > 0 && (

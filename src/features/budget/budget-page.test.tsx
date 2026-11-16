@@ -216,6 +216,18 @@ describe('budget page [R-CATEGORY-050]', () => {
     expect(within(confirm).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
   })
 
+  it('a category added this period with transactions is said to be kept without an amount [R-CATEGORY-052]', async () => {
+    const db = categoriesDb({
+      category_overview: [categoryRow({ id: 'cat-new', name: 'New', first_seq: 2 })],
+    })
+    await openBudget(db)
+    await action('New', 'Remove')
+    const confirm = await screen.findByRole('alertdialog')
+    expect(confirm).toHaveTextContent('It was added in this period')
+    expect(confirm).toHaveTextContent('it is kept without an amount')
+    expect(confirm).not.toHaveTextContent('Past periods keep it')
+  })
+
   it('reorders by sending the siblings in their new order [R-CATEGORY-096]', async () => {
     const { db } = await openBudget()
     await action('Groceries', 'Move up')

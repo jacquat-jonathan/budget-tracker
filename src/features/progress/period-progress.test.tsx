@@ -120,7 +120,9 @@ describe('period progress [R-PROGRESS-050]', () => {
     renderRoutes(routes, '/')
 
     const card = await screen.findByTestId('period-progress')
-    expect(await within(card).findByTestId('progress-period')).toHaveTextContent('23.10.2026 – 24.11.2026')
+    expect(await within(card).findByTestId('progress-period')).toHaveTextContent(
+      '23.10.2026 – 24.11.2026',
+    )
     await within(card).findAllByTestId('progress-row')
     const totals = within(card).getByTestId('progress-totals')
     expect(totals).toHaveTextContent("IncomeCHF 8'850.00")

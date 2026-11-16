@@ -610,6 +610,8 @@ export const en = {
     removeEnds:
       'It is no longer planned from the current period (which started on {{date}}). Past periods keep it as it was.',
     removeEndsNoPeriod: 'It is no longer planned. Past periods keep it as it was.',
+    removeKeptVoid:
+      'It was added in this period, so it is removed from all plans. Because it has transactions, it is kept without an amount, and they keep counting in their periods.',
     removeKeepsTransactions:
       'Its transactions are never deleted: they keep counting in the periods they are dated in.',
     removeWithSubs_one: 'Its subcategory {{names}} goes with it.',
