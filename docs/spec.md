@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-308 rules (218 active, 83 planned), 24 conventions, 121 decisions, 22 open questions. 3 rules and conventions are marked **TEST PENDING**.
+313 rules (223 active, 83 planned), 24 conventions, 122 decisions, 23 open questions. 3 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -255,6 +255,13 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-BUDGET_
   - Related: R-APP-004, D-047
   - Source: code: src/hooks/use-app-mutation.ts
+- **R-APP-006** When a dialog closes (cancelled, dismissed or saved), keyboard focus returns to what opened it; for a dialog opened from a row's menu, to that row's menu button, and to the page's heading when that row is gone.
+  _active · enforced by test · F-SHELL_
+  - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/components/dialog-focus-context.ts
+- **R-APP-007** A write is sent once: submitting the same form again (or clicking again) while its write is in flight sends nothing more, however fast it happens.
+  _active · enforced by test · F-SHELL_
+  - Related: D-047
+  - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/hooks/use-app-mutation.ts
 
 ### Accounts and sign-in
 
@@ -510,6 +517,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-BUDGET_
   - Related: D-086, R-BUDGET-008
   - Source: code: src/features/settings/budget-settings.tsx
+- **R-BUDGET-055** When the budget a user is working in stops being theirs while they use it (deleted by the owner, or they were removed), the app says so by name, names the budget it moved to (or the first-run setup), and says that anything typed there and not saved was discarded, until dismissed; not when they deleted or left it themselves.
+  _active · enforced by test · F-BUDGET_
+  - Related: R-BUDGET-051, R-BUDGET-053
+  - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/budgets/current-budget-provider.tsx
 
 ### Members and roles
 
@@ -686,6 +697,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-PERIOD-036, R-INCOME-054, R-PERIOD-014
   - Source: code: src/features/income/pay-date-preview.ts; code: src/features/income/components/pay-date-preview-notice.tsx
+- **R-INCOME-056** Every place that announces the primary income's next salary (the dashboard, the income card, the periods page, the message after saving, the previews before saving) gives the same date, the day after the current period ends (projected or set by hand), never the schedule's next pay date; in the budget's last period it announces the budget's end instead, and an ended budget announces none. Another income's card shows its own next pay date only while the budget runs and not after its end.
+  _active · enforced by test · F-INCOME_
+  - Related: D-135, R-PERIOD-010, R-INCOME-054, R-INCOME-055, R-BUDGET-008
+  - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/periods/next-salary.ts
 
 ### Pay dates and the weekend rule
 
@@ -866,15 +881,19 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-092
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
-- **R-PERIOD-037** When the primary income's pay day or weekend rule is corrected after that month's salary has already arrived, the current period extends to the following month until the user also records the early pay date; the app prompts for it.
-  _active · enforced by review · F-PERIOD_
-  - Why: Frontend behaviour; the database part is R-PERIOD-029 and R-PERIOD-034.
-  - Related: D-081, R-PERIOD-034
-  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
-- **R-PERIOD-053** Before "this period's salary has not arrived yet" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only.
+- **R-PERIOD-037** When the primary income's pay day or weekend rule is corrected after that month's salary was already due, the current period extends to the following month until the user records what happened; the app asks, offering only the operation that fits and that the database can accept: the early pay date for a new salary (due at least 7 days after the period started), moving the period's start for this period's own salary (due fewer than 7 days after it started), and nothing when neither can be saved.
+  _active · enforced by test · F-PERIOD_
+  - Why: Frontend behaviour; the database part is R-PERIOD-029, R-PERIOD-034 and R-PERIOD-012.
+  - Related: D-081, R-PERIOD-034, R-PERIOD-012, R-PERIOD-054
+  - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; owner-request: coordinator, step 2 browser review fixes, 2026-11-16
+- **R-PERIOD-053** Before "this period's salary has not arrived yet" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only; it cannot be confirmed until that list has been read, and when it cannot be read the dialog says so and offers to read it again.
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-035, R-PERIOD-023, R-VERSION-013
-  - Source: code: src/features/periods/periods-page.tsx
+  - Source: code: src/features/periods/periods-page.tsx; owner-request: coordinator, step 2 browser review fixes, 2026-11-16
+- **R-PERIOD-054** The app offers "the salary arrived early" and "this period's salary actually arrived on another day" only when some date for it can be saved (every period 7 to 92 days long, an arrival today or earlier and not after the end date entered); otherwise the action is shown unavailable with the reason. Its dialog gives the dates that can work, and a date outside them is neither previewed nor sent. The database still decides.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-020, R-PERIOD-034, R-PERIOD-012, R-BUDGET-008
+  - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/periods/boundary-ranges.ts
 
 ### Versioning: edits never rewrite the past
 
@@ -3155,6 +3174,20 @@ Related: R-IMPORT-098, Q-061
 
 Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 
+### D-135 The next salary is announced from the current period (accepted)
+
+For the primary income the app announces the next salary as the day after the current period's end (nextSalary, src/features/periods/next-salary.ts), never income_overview.next_pay_date: the period's end already holds an early salary, a date set by hand and the projection. In the budget's last period the app announces the budget's end, and once the budget has ended nothing. Other incomes keep their own schedule's next pay date.
+
+**Why:** The step 2 browser review found the dashboard and the income card announcing the schedule (10.12) while the Periods page announced the period (11.01) for the salary that had just arrived early.
+
+**Rejected:**
+
+- income_overview.next_pay_date for the primary income: it is the schedule's next pay date on or after today and knows nothing of boundaries.
+
+Related: R-INCOME-056, R-PERIOD-010, D-081
+
+Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -3341,6 +3374,10 @@ Source: owner-request: coordinator decisions on the sample statements for the im
   - Context: The samples cover one debit card, one credit card and one Yuh account of one member. A card bill has one section per card. Step 7 introduces accounts.
   - Related: R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **Q-071** Should a past boundary moved by hand and then moved back to where the projection put it stop being marked "set by hand"?
+  - Context: move_period_start and record_early_pay_date always set periods.end_is_manual = true, also when the date goes back to its original day, and the contract has no way to clear the mark on a past period (set_expected_pay_date resets only the current period's end). The client cannot tell a past boundary that matches the schedule (C-LOGIC-003). The periods page now explains on the badge that the mark stays after moving back. Options: the database clears end_is_manual when a boundary is moved back to its projected date, or the mark is dropped for past periods.
+  - Related: R-PERIOD-012, R-PERIOD-025, R-PERIOD-014
+  - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16
 
 ## Glossary
 
