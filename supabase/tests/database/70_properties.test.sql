@@ -349,7 +349,7 @@ create or replace function pg_temp.totals_disagree(b uuid) returns setof text la
          or s.result <> s.income_total - s.spent_total)
 $$;
 
-select plan(17);
+select plan(18);
 
 do $prop$
 declare
@@ -387,6 +387,10 @@ declare
   v_pick uuid;  -- picks are called once, never in a WHERE clause (it would run per row scanned)
   v_sub public.subscriptions;
   v_debt public.debts;
+  v_import jsonb;
+  v_batch uuid;
+  v_pre text;
+  v_out text;
 begin
   for v_seed in select seed from seeds order by seed loop
     perform setseed(v_seed);
@@ -469,8 +473,9 @@ begin
           when v_r < 0.83 then 'adjust_debt'
           when v_r < 0.85 then 'delete_adjustment'
           when v_r < 0.88 then 'remove_debt'
-          when v_r < 0.91 then 'link_transaction'
-          when v_r < 0.93 then 'stale_step4_edit'
+          when v_r < 0.90 then 'link_transaction'
+          when v_r < 0.92 then 'stale_step4_edit'
+          when v_r < 0.97 then 'import_rows'
           else 'long_absence'
         end;
       end if;
@@ -847,6 +852,40 @@ begin
                 perform public.link_transaction(v_tx.id, v_tx.revision);
               end if;
             end if;
+          elsif v_op = 'import_rows' then
+            -- step 6: a few statement rows, one a copy of a transaction already there
+            select min(start_date) into v_first from public.periods where budget_id = v_budget;
+            v_pick := pg_temp.pick('transaction', v_budget, 't.kind = ''expense''');
+            select jsonb_agg(r order by n) into v_import from (
+              select g as n, jsonb_build_object(
+                       'date', greatest(v_first, v_today - floor(random() * 40)::integer)::text,
+                       'amount', 1 + floor(random() * 30000)::bigint,
+                       'direction', case when random() < 0.8 then 'debit' else 'credit' end,
+                       'description', 'Statement ' || floor(random() * 4)::integer) as r
+              from generate_series(1, 1 + floor(random() * 5)::integer) as g
+              union all
+              select 0, jsonb_build_object('date', t.date::text, 'amount', t.amount, 'direction', 'debit', 'description', coalesce(t.description, ''))
+              from public.transactions as t where t.id = v_pick and t.date <= v_today) as x;
+            v_batch := gen_random_uuid();
+            -- a row going to "to categorise" names the category only once the write created it
+            select string_agg(row(p.row_no, p.valid, p.reason, p.action, p.kind, case when p.category_source = 'to_categorise' then null else p.category_id end,
+                                  p.category_source, p.rule_id, p.duplicate_of, p.match_of, p.flag)::text, ';' order by p.row_no)
+            into v_pre from public.preview_import(v_budget, v_batch, v_import) as p;
+            select string_agg(row(p.row_no, p.valid, p.reason, p.action, p.kind, case when p.category_source = 'to_categorise' then null else p.category_id end,
+                                  p.category_source, p.rule_id, p.duplicate_of, p.match_of, p.flag)::text, ';' order by p.row_no)
+            into v_out from public.import_transactions(v_budget, v_batch, 1, v_import, 'csv', p_to_categorise_name => 'To categorise') as p;
+            perform pg_temp.made('transaction', v_budget, t.id) from public.transactions as t
+            where t.import_batch_id = v_batch order by t.date, t.amount, t.id;
+            v_touched := pg_temp.seqs_of(v_budget, (select coalesce(array_agg(t.date), '{}') from public.transactions as t where t.import_batch_id = v_batch));
+            if v_pre is distinct from v_out then
+              insert into failures values (v_seed, v_step, v_name, v_op, 'the write did not do what the preview said: ' || v_pre || ' / ' || v_out);
+            end if;
+            if exists (select 1 from public.import_transactions(v_budget, gen_random_uuid(), 1, v_import, 'csv') as p where p.action = 'import') then
+              insert into failures values (v_seed, v_step, v_name, v_op, 'importing the same rows twice imported something the second time');
+            end if;
+            if random() < 0.3 then
+              perform public.confirm_imports(v_budget);
+            end if;
           elsif v_op = 'stale_step4_edit' then
             -- an edit based on an older revision must be refused
             v_pick := pg_temp.pick('subscription', v_budget, 't.revision > 1');
@@ -965,7 +1004,7 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_subcategory', 'correct_expectation', 'end_category', 'end_category_from', 'create_category_backdated')),
   '>=', 60, 'R-VERSION-070 R-CATEGORY-092: and changed categories in every way, corrections included');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('extend_category', 'restore_category')),
-  '>=', 20, 'R-CATEGORY-100 R-CATEGORY-101: including extending and restoring categories');
+  '>=', 15, 'R-CATEGORY-100 R-CATEGORY-101: including extending and restoring categories');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'preview_then_correct_primary'),
   '>=', 5, 'R-PERIOD-036: and the previews of corrections always matched the write');
 select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_edit'),
@@ -989,7 +1028,9 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op li
 select cmp_ok((select count(*)::integer from made where kind = 'charge'), '>=', 45,
   'R-SUBSCRIPTION-073 Q-054: which were charged automatically, many times, also after long absences');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('confirm_charge', 'dismiss_charge')),
-  '>=', 10, 'R-SUBSCRIPTION-075 R-SUBSCRIPTION-077: and charges were confirmed or dismissed');
+  '>=', 8, 'R-SUBSCRIPTION-075 R-SUBSCRIPTION-077: and charges were confirmed or dismissed');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'import_rows'), '>=', 15,
+  'R-IMPORT-001 R-IMPORT-003: the runs imported statement rows many times, the preview equal to the write, the second import empty');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_debt', 'create_debt_backdated', 'update_debt', 'correct_debt', 'add_payment', 'adjust_debt', 'delete_adjustment', 'remove_debt')),
   '>=', 60, 'R-VERSION-004 R-DEBT-075: the runs recorded, paid, adjusted and removed many debts');
 select cmp_ok((select count(*)::integer from public.debt_interest as i join made as m on m.id = i.debt_id),

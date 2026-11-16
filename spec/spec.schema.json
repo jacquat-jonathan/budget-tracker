@@ -230,12 +230,12 @@
       ]
     },
     "testPending": {
-      "description": "TEMPORARY. The tests proving this statement live in a suite not yet tagged with ids. spec:check reports each marker as a warning instead of failing. Remove the marker once a test names the id.",
+      "description": "TEMPORARY. The tests proving this statement live in a suite not yet tagged with ids (supabase/tests), or are still being written in src/ by another developer. spec:check reports each marker as a warning instead of failing. Remove the marker once a test names the id.",
       "type": "object",
       "additionalProperties": false,
       "required": ["suite", "note"],
       "properties": {
-        "suite": { "enum": ["supabase/tests"] },
+        "suite": { "enum": ["supabase/tests", "src"] },
         "note": { "$ref": "#/$defs/text" }
       }
     },

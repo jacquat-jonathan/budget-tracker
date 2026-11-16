@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-416 rules (355 active, 54 planned), 24 conventions, 191 decisions, 28 open questions. 0 rules and conventions are marked **TEST PENDING**.
+428 rules (407 active, 14 planned), 24 conventions, 203 decisions, 24 open questions. 12 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -198,20 +198,20 @@ Comparing periods in charts. Browsing a past period and its progress view is par
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
   Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174
 
-### Step 6: Import (statements, CSV and Claude) (planned)
+### Step 6: Import (statements, CSV and Claude) (in-progress)
 
-#### F-IMPORT Import (planned)
+#### F-IMPORT Import (in-progress)
 
 Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.
 
 - **US-IMPORT-001** As a budget member, I want to paste or upload a CSV of transactions, so that I do not type them one by one.
-  Rules: R-IMPORT-001, R-IMPORT-002, R-IMPORT-003, R-IMPORT-004, R-IMPORT-005, R-IMPORT-070, R-IMPORT-071, R-IMPORT-072, R-IMPORT-073, R-IMPORT-080, R-IMPORT-082, R-TRANSACTION-005
+  Rules: R-IMPORT-001, R-IMPORT-002, R-IMPORT-003, R-IMPORT-004, R-IMPORT-005, R-IMPORT-070, R-IMPORT-071, R-IMPORT-072, R-IMPORT-073, R-IMPORT-080, R-IMPORT-082, R-TRANSACTION-005, R-IMPORT-200, R-IMPORT-203, R-IMPORT-204, R-IMPORT-206, R-IMPORT-208, R-IMPORT-209
 - **US-IMPORT-002** As a Claude session, I want to import transactions by running the import script of this repository with an import token, so that a member can delegate the import without giving Claude raw database access.
-  Rules: R-IMPORT-001, R-IMPORT-006, R-IMPORT-076, R-SECURITY-005
+  Rules: R-IMPORT-001, R-IMPORT-006, R-IMPORT-076, R-SECURITY-005, R-IMPORT-205, R-SECURITY-200
 - **US-IMPORT-003** As a budget member, I want imported transactions to be marked to review until I confirm them, categorised from saved merchant rules, and to save a new rule in one click when I categorise one, so that I check them quickly and categorisation improves over time.
-  Rules: R-IMPORT-004, R-IMPORT-007, R-IMPORT-079, R-IMPORT-081
+  Rules: R-IMPORT-004, R-IMPORT-007, R-IMPORT-079, R-IMPORT-081, R-IMPORT-201, R-IMPORT-202, R-IMPORT-207
 - **US-IMPORT-004** As a budget member, I want to create import tokens for one budget in Settings, and revoke them, so that I control what a Claude session can do, and can stop it at any time.
-  Rules: R-IMPORT-074, R-IMPORT-075, R-IMPORT-076, R-IMPORT-077
+  Rules: R-IMPORT-074, R-IMPORT-075, R-IMPORT-076, R-IMPORT-077, R-IMPORT-205
 - **US-IMPORT-005** As a budget member, I want to edit the merchant-to-category rules in Settings, so that I can fix a rule that puts a merchant in the wrong category.
   Rules: R-IMPORT-078
 - **US-IMPORT-006** As a budget member, I want to open a PDF statement of my Migros Bank account, my Migros Bank credit card or my Yuh account in the app, so that its transactions are imported without typing them or mapping columns.
@@ -406,6 +406,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-069
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
+- **R-SECURITY-200** A visitor without a session can call only the token import; every other import function and every import table refuses them.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-316, R-SECURITY-003
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Money
 
@@ -1174,6 +1178,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-CATEGORY-131, R-CATEGORY-120
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/budget/category-users.ts; code: src/features/budget/components/end-category-dialog.tsx
+- **R-CATEGORY-200** The "to categorise" category takes no subcategory and no expectation, can be renamed, and cannot end while it holds transactions.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-312
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Transactions
 
@@ -1193,7 +1201,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Source: domain: Transaction
 - **R-TRANSACTION-005** Transactions are also importable in bulk.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Source: domain: Transaction
 - **R-TRANSACTION-006** A transaction belongs to the period whose date range contains its date; the period is never stored, so it follows the date through every boundary operation.
   _active · enforced by test · F-TRANSACTION_
@@ -1653,80 +1661,80 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 ### Import
 
 - **R-IMPORT-001** There is one import function, in the database, behind every way of importing.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-002** The import function validates rows.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-003** The import function skips duplicates.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: Q-009, D-115
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-004** The import function marks imported transactions "to review".
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-005** The import is reachable from a paste/CSV screen in the app.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Source: domain: Import (including by a Claude session)
 - **R-IMPORT-006** The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: Q-013, D-116
   - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-007** When a member categorises an imported transaction, the app offers, in one click, to always put that merchant in that category.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: Q-014, D-117, Q-057
   - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-IMPORT-070** An imported row is a duplicate when it has the same date, amount and description as an existing transaction of the budget.
-  _planned · enforced by test · F-IMPORT_
-  - Related: D-115, Q-056
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-IMPORT-070** An imported row is a duplicate when an existing transaction of the same kind, whatever its origin (typed, imported or a charge), has the same date, amount and description; each existing transaction absorbs one row, so two identical rows against one existing transaction import one, and rows of one import are never duplicates of each other.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-115, D-313
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 - **R-IMPORT-071** When the file gives a bank transaction id, an imported row is also a duplicate when an existing transaction of the budget has the same bank transaction id.
-  _planned · enforced by test · F-IMPORT_
-  - Related: D-115, Q-056
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+  _active · enforced by test · F-IMPORT_
+  - Related: D-115, D-313
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 - **R-IMPORT-072** The import summary lists the rows skipped as duplicates.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-115
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-073** The user can import a row skipped as a duplicate anyway.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-115, Q-056
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-074** A member creates import tokens in Settings.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-116
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-075** An import token is tied to one budget and imports only into it.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-116
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-076** An import token can only add transactions through the import function; it cannot read anything.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-116, R-SECURITY-005
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-077** An import token can be revoked, after which it is refused.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-116
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-078** Merchant-to-category rules can be edited in Settings.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-117
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-079** An imported transaction whose merchant has a merchant-to-category rule is put in that rule's category.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Why: What "categorisation improves over time" means once rules exist.
   - Related: D-117, Q-057
   - Source: domain: Import (including by a Claude session); owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-080** An imported transaction counts in totals as soon as it is imported, before it is reviewed.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-118
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-081** An imported transaction stays "to review" until a member confirms it.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-118, R-IMPORT-004
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-082** The generic CSV import lets the user map the file's columns to the transaction fields.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: D-119, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-083** The import offers presets for the exports of Migros Bank, Raiffeisen, One, Yuh and Twint.
@@ -1735,85 +1743,125 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: D-119, Q-058, D-126
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-IMPORT-084** The import reads three kinds of PDF statement: the Migros Bank private-account statement, the Migros Bank credit-card bill (Viseca) and the Yuh account statement.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: D-126
   - Source: owner-request: product owner decision on the import sources, with sample statements, 2026-11-16; docs/import-sources.md: Import sources: statement layouts
 - **R-IMPORT-085** The import recognises the kind of a statement from its content, and refuses, with an explanation, a PDF it does not recognise or one without a text layer.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: D-126, R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising the document
 - **R-IMPORT-086** A statement is parsed in the browser; the PDF file is never uploaded or stored, and only the extracted transactions reach the import function.
-  _planned · enforced by review · F-IMPORT_
+  _active · enforced by review · F-IMPORT_
   - Why: No test can prove that a file is never sent; review the import code for any upload of the file or its text.
   - Related: D-127
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-087** Every entry of a statement's transaction table becomes exactly one candidate transaction; opening and closing balances, carried-forward lines, subtotals and totals, the previous bill total, the payment received on a card bill and card headings never do.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What is not a transaction
 - **R-IMPORT-088** A parsed statement must add up to what it prints (column totals, running balances, card and bill totals); otherwise the import is refused with an explanation, and nothing is imported.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Why: A parser that misses or misreads a line on a layout it does not know would otherwise import wrong amounts silently.
   - Related: R-IMPORT-084, R-IMPORT-087
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: What a parser must guarantee
 - **R-IMPORT-089** Statement amounts (thousands separator ', two decimals, a trailing minus for a credit on the card bill) are read exactly into integer rappen, and statement dates (DD.MM.YY or DD.MM.YYYY) into calendar dates without a time zone.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: R-MONEY-002
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Numbers and dates
 - **R-IMPORT-090** The date of an imported transaction is the purchase date when the statement gives one, otherwise the booking date.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: D-128
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-091** A card-bill payment and a transfer between the owner's own accounts are flagged on import and skipped by default; the user can import them anyway.
-  _planned · enforced by test · F-IMPORT_
-  - Related: D-129, Q-063
-  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries
-- **R-IMPORT-092** The import remembers what the user chose for a flagged entry and proposes the same choice for such entries the next time.
-  _planned · enforced by test · F-IMPORT_
-  - Related: D-129, Q-064
-  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
-- **R-IMPORT-093** A salary credit that matches one of the budget's incomes is skipped on import.
-  _planned · enforced by test · F-IMPORT_
-  - Related: D-130, Q-065
-  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+  _active · enforced by test · F-IMPORT_
+  - Related: D-129, D-314
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries; owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-092** The import remembers, per budget, kind of flag and counterparty, what a member chose for a flagged entry (import or skip) and proposes the same choice for such entries the next time.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-129, D-314
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-093** A salary credit is skipped on import: one the source calls a salary, or of the amount of an income in force in the period of its date and dated within five days of that period's start; the member may import it as extra income.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-130, D-317
+  - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 - **R-IMPORT-094** Every other credit is proposed for review, as a refund in a category or as extra income.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-130, Q-066
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-095** A securities purchase is imported as an ordinary transaction for the user to categorise.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-131
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-096** Interest and fee lines of a statement are imported as transactions.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: D-132
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-097** A foreign-currency purchase is imported with the CHF amount billed, fees included, and a description that keeps the original currency and amount.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: D-133
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-098** The statement parsers read the French versions of the three statements.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: D-134, Q-061
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-099** The statement fixtures in the repository contain no real data: they are anonymised outside the repository and pass a leak check against the real statement before they enter the working tree.
-  _planned · enforced by review · F-IMPORT_
+  _active · enforced by review · F-IMPORT_
   - Why: The leak check needs the real statement, which must never enter the repository, so it cannot run in CI.
   - Related: R-IMPORT-100
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-100** Each statement parser produces exactly the expected result of every anonymised fixture of its source (test-fixtures/statements).
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Related: R-IMPORT-084, R-IMPORT-099
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
 - **R-IMPORT-101** A TWINT transaction id or a Yuh reference is kept as the bank transaction id of the imported transaction; a QR payment reference is not, because it repeats from one payment to the next.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_ · **TEST PENDING** (src)
   - Why: The QR reference of a card-bill payment is built from the card account number, so every monthly payment of that card has the same reference.
   - Related: R-IMPORT-071, D-115
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16; docs/import-sources.md: Recognising special entries
 - **R-IMPORT-102** The review of an imported statement shows, for each transaction, the extra data the statement gives: purchase time, value date, card, original currency and amount, exchange rate, fee, merchant category and security.
-  _planned · enforced by test · F-IMPORT_
+  _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-004
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
+- **R-IMPORT-200** An imported expense or refund without a category from the member or a rule goes to the budget's "to categorise" category, created at the first import that needs it; every transaction keeps a category, so every total and comparison still adds up.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-312, R-COMPARE-170
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-201** A merchant rule matches a row when the row's merchant key (from its merchant, else its description: lower case, accents and punctuation removed, the statement's words and a processor prefix dropped) contains the rule's fragment; the longest fragment wins, and a rule applies only where its category is in force.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-311, Q-057
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-202** Creating a rule in one click can move, in the same call, the other transactions to review waiting in "to categorise" whose key contains it; the answer says how many moved; transactions already in a real category stay.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-117, D-311
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-203** A row is a possible match of an existing transaction of the same kind that was not imported, with the same amount and a date within three days; it is skipped by default, and when the match is a charge awaiting confirmation the import confirms it; each existing transaction absorbs one row.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-315, Q-068
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-204** Skipped rows of a batch can be imported anyway, one by one or all at once, through the same import.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-073, D-313
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-205** An import token imports only with the default choices and never confirms a charge; it reads nothing back beyond counts and the reasons of rows refused for their own content; an unknown, expired or revoked token gets one refusal before any lock or catch-up; its calls and rows are limited per hour and per day; a member who leaves the budget revokes the tokens they created.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-116, D-316, R-SECURITY-005
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-206** A member can undo an import batch once: its transactions still to review are deleted, the confirmed ones and the charges it confirmed stay, and it takes no more rows.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-320
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-207** A category's first subcategory moves its merchant rules to "Other"; a category deleted takes its rules with it; an ended category's rules stay and apply where it is in force.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-311, R-CATEGORY-110
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-208** An import is sent as a batch of up to 100 chunks of up to 500 rows under an id the caller generates; a chunk sent again records nothing and answers as the first time; a chunk the transaction limit cannot hold is refused whole, saying how many rows would fit.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-310, R-APP-170
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-209** A transaction to review is confirmed one by one or all at once, never while it is in "to categorise"; the budget says how many are to review and the transactions list can show only them or one batch.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-118, D-312
+  - Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
 ### Accounts and planned transfers (money flow)
 
@@ -4521,6 +4569,158 @@ Related: R-PERIOD-130, D-270
 
 Source: owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
+### D-310 One import, in batches of idempotent chunks (accepted)
+
+private.import_plan decides what each row does and private.import_apply does it; preview_import, import_transactions, import_with_token and import_skipped_anyway all use them. Rows are JSON objects (date, amount in integer rappen, direction, description, merchant, bank_transaction_id, hint, details, and a member's action, kind, category). A batch has an id the caller generates and up to 100 chunks of up to 500 rows (50 000 rows); a chunk sent again answers as the first time and records nothing. A chunk is all or nothing, refused before anything is written when the transaction limit cannot hold it (detail: how many would fit).
+
+**Why:** The write must equal the preview, and a statement larger than one answer (R-APP-170) must survive a lost response without double imports.
+
+**Rejected:**
+
+- A server-generated batch id: a retried first call would open a second batch.
+
+Related: R-IMPORT-001, R-IMPORT-208, Q-090
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-311 The merchant key and merchant rules (accepted)
+
+The database computes a row's merchant key: its merchant field, else its description, lower-cased, accents and punctuation removed, spaces collapsed, the statement's own words (achat, crédit, débit TWINT, paiement, ordre permanent, paiement de salaire) and a processor prefix ("PayUp *", "XYZ*") dropped. A rule holds a fragment and a category and matches a key that contains it; the longest matching fragment wins; a rule whose category is not in force on a row's date does not apply to it. The one-click offer proposes the transaction's whole key; Settings can shorten it. A category's first subcategory moves its rules to Other; deleting a category deletes its rules.
+
+**Why:** Answer to Q-057: one implementation of the key, robust to the bank's cut names, capitals and processor prefixes (docs/import-sources.md).
+
+**Rejected:**
+
+- Exact match on the description: rarely matches again.
+
+Related: Q-057, R-IMPORT-079, R-IMPORT-201, R-IMPORT-207
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-312 Uncategorised imports go to a "to categorise" category (accepted)
+
+Each budget gets, at its first import that needs it, one ordinary top-level category flagged as its "to categorise" place (the name the caller passes; from the first period; created even at the 200 / 500 category limits, within the 900-row bound). Rows without a member's category or an applying rule land there. It is renamable, has no expectation, takes no subcategory, cannot end while it holds transactions, and a transaction in it cannot be confirmed.
+
+**Why:** Every expense and refund keeps a category, so totals, progress and comparison keep adding up; the review has one place to empty.
+
+**Rejected:**
+
+- A null category for imported rows: breaks every per-category sum.
+
+Related: R-IMPORT-200, R-CATEGORY-200, R-IMPORT-209
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-313 Duplicates are counted (accepted)
+
+Rows of one import are never duplicates of each other. A row is compared with every existing transaction of the same kind, whatever its origin: the same bank transaction id, else the same date, amount and description. Each existing transaction absorbs at most one row, so the same statement imported twice imports nothing the second time. Import anyway is per row or for all skipped rows of a batch.
+
+**Why:** Answer to Q-056 (coordinator decision).
+
+**Rejected:** none recorded.
+
+Related: Q-056, R-IMPORT-003, R-IMPORT-070, R-IMPORT-071, R-IMPORT-204
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-314 Flagged entries and remembered choices (accepted)
+
+Card-bill payments and own transfers (from the source's hint) are skipped by default; a transfer to another person, also of the household, is an ordinary expense unless skipped. A member's choice for a flagged row (import or skip) is remembered per budget (not per member), per kind of flag and counterparty key, and proposed next time; a token's import remembers nothing.
+
+**Why:** Answer to Q-063 and Q-064 (coordinator decision).
+
+**Rejected:** none recorded.
+
+Related: Q-063, Q-064, R-IMPORT-091, R-IMPORT-092, D-129
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-315 Reconciliation by possible match (accepted)
+
+A row is a possible match of an existing transaction of the same kind that was not imported (typed, or a charge), with the same amount and a date within three days. Default: skip the row; when the match is a charge awaiting confirmation, the import confirms it and the preview says so; the member can import the row anyway. Each existing transaction absorbs one row. With a token, matches are skipped and left for the member.
+
+**Why:** Answer to Q-068 (coordinator decision).
+
+**Rejected:** none recorded.
+
+Related: Q-068, R-IMPORT-203
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-316 Import tokens (accepted)
+
+A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 active and 100 tokens a budget. import_with_token is the only function callable without a session: an unknown, expired or revoked token gets invalid_token after one index lookup, before any lock or catch-up. A token imports with the default choices only, never confirms a charge, remembers nothing, and its answer is counts and the reasons of rows refused for their own content (budget-dependent outcomes are not told). Per token: 60 calls and 5000 rows an hour, 300 calls and 20 000 rows a day. Revoking takes the budget lock; a member leaving (or removed, or deleted) revokes the tokens they created.
+
+**Why:** D-116 and R-SECURITY-005: a token can only add, cannot read, and a stolen one does bounded, reviewable harm.
+
+**Rejected:**
+
+- Telling the token which rows were duplicates: an oracle on the budget's transactions.
+
+Related: D-116, R-IMPORT-075, R-IMPORT-076, R-IMPORT-077, R-IMPORT-205, R-SECURITY-200
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-317 A salary credit (accepted)
+
+A credit is a salary credit when the source says so (hint salary) or when its amount equals the amount of an income in force in the period of its date and its date is within five days of that period's start. It is skipped by default; imported anyway it is extra income. A different amount than the planned income changes nothing by itself; the preview shows the planned amount beside the row's.
+
+**Why:** Answer to Q-065 (coordinator decision).
+
+**Rejected:** none recorded.
+
+Related: Q-065, R-IMPORT-093, D-130
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-318 A credit reviewed as a refund (accepted)
+
+A credit is a refund by default (in the category a rule or the member gives, else "to categorise"), counted in the period of its date, and may take the category's spending below zero; the member may make it extra income instead.
+
+**Why:** Answer to Q-066 (coordinator decision).
+
+**Rejected:** none recorded.
+
+Related: Q-066, R-IMPORT-094
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-319 What a batch records (accepted)
+
+A batch records its source kind, the statement's date range, its counts (rows, imported, duplicates, flagged, matches, skipped by choice, invalid, charges confirmed), who imported (the member, or the token and its name) and when; never a file name, an account or a card number. Its skipped rows are kept, with why, for the member.
+
+**Why:** Q-070 stays open for accounts (step 7); the review needs to know what each import did.
+
+**Rejected:** none recorded.
+
+Related: Q-070, R-IMPORT-072
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-320 Undoing an import batch (accepted)
+
+A member can undo a batch once: its transactions still to review are deleted, the confirmed ones stay, charges it confirmed stay confirmed, remembered choices stay; the answer says how many of each. An undone batch takes no more chunks.
+
+**Why:** Coordinator decision; a wrong import is removed without touching what was already reviewed.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-206
+
+Source: owner-request: coordinator brief for the step 6 database (import), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-321 Choices of the database developer for the import (accepted)
+
+Beyond the coordinator's defaults: a credit defaults to a refund (not extra income); hint transfer_to_person names a transfer to another person (imported by default, its choice remembered); details may also carry location; a row with an unknown key is refused; a token's answer counts rows refused for the budget's sake as received; "import anyway" drops a row's original kind and category (the review decides); the "to categorise" category is created even at the category limits.
+
+**Why:** Each keeps the token free of reads and the review in one place; the rest follow the sources (docs/import-sources.md).
+
+**Rejected:** none recorded.
+
+Related: D-312, D-314, D-316, D-318
+
+Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -4623,11 +4823,11 @@ Source: owner-request: coordinator, independent re-review of the step 4 database
   - Context: D-113: once per period, one twelfth of the yearly rate is applied to the remaining balance and added to it; when the planned payment does not cover the interest the app says the debt never ends. Periods run salary to salary, not by calendar month (D-080), and the expected end date needs a date for each future interest step.
   - Related: D-113, R-DEBT-073, R-DEBT-074
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-056** Are identical rows within the same file duplicates of each other, are refunds and manually entered transactions compared too, and is "import anyway" chosen per row or for all skipped rows?
+- **Q-056** (resolved by D-313) Are identical rows within the same file duplicates of each other, are refunds and manually entered transactions compared too, and is "import anyway" chosen per row or for all skipped rows?
   - Context: D-115 compares an imported row with existing transactions. Two identical purchases on one day (two coffees) appear as two identical rows in one export; the answer does not say whether the second is skipped.
   - Related: D-115, R-IMPORT-070, R-IMPORT-071, R-IMPORT-073
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **Q-057** What identifies a merchant for a merchant-to-category rule: the whole description, a part of it, or a field of the bank export?
+- **Q-057** (resolved by D-311) What identifies a merchant for a merchant-to-category rule: the whole description, a part of it, or a field of the bank export?
   - Context: D-117 offers "always put this merchant in this category?". Bank descriptions often carry a date, a card number or a location around the merchant name, so an exact match on the description would rarely match again. The sample statements show that the bank cuts merchant names at 24 characters, that one merchant can be printed in different capitals or with different processor prefixes, and that chains add a branch number (docs/import-sources.md). The card bill adds a merchant category line.
   - Related: D-117, R-IMPORT-007, R-IMPORT-079, R-IMPORT-084
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
@@ -4675,19 +4875,19 @@ Source: owner-request: coordinator, independent re-review of the step 4 database
   - Context: A structured export would be sturdier than reading a PDF layout, which the banks can change without notice. The samples provided are PDF only.
   - Related: D-126, R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
-- **Q-063** How is a transfer to another member of the household treated, for example a standing order to a partner at the same address: an expense, a transfer between the household's accounts, or something else?
+- **Q-063** (resolved by D-314) How is a transfer to another member of the household treated, for example a standing order to a partner at the same address: an expense, a transfer between the household's accounts, or something else?
   - Context: The Migros Bank statement shows no IBAN for a payee, so the import recognises an own transfer only by the holder's name and address (D-129). A standing order to another person at the same address looks like any other payment.
   - Related: D-129, R-IMPORT-091
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
-- **Q-064** What exactly is remembered when the user imports or skips a flagged entry: the choice per kind of entry, per counterparty or per account, and for the whole budget or for the member only?
+- **Q-064** (resolved by D-314) What exactly is remembered when the user imports or skips a flagged entry: the choice per kind of entry, per counterparty or per account, and for the whole budget or for the member only?
   - Context: D-129 says the choice is remembered and proposed next time, without saying for what.
   - Related: D-129, R-IMPORT-092
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
-- **Q-065** When does a salary credit match one of the budget's incomes: same amount, same payer, a date near the expected pay date, or a combination; and what happens when the amount differs from the planned income?
+- **Q-065** (resolved by D-317) When does a salary credit match one of the budget's incomes: same amount, same payer, a date near the expected pay date, or a combination; and what happens when the amount differs from the planned income?
   - Context: D-130 skips a salary credit that matches an income. The Migros Bank statement marks it "Paiement de salaire" with the employer's name, but gives no reference to the income.
   - Related: D-130, R-IMPORT-093
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
-- **Q-066** When a credit is reviewed as a refund, in which period and category does it count, and can it reduce a category below zero?
+- **Q-066** (resolved by D-318) When a credit is reviewed as a refund, in which period and category does it count, and can it reduce a category below zero?
   - Context: D-130 proposes other credits as a refund in a category or as extra income. TWINT money received from a person is often a share of a bill paid earlier, possibly in another period.
   - Related: D-130, R-IMPORT-094
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
@@ -4695,7 +4895,7 @@ Source: owner-request: coordinator, independent re-review of the step 4 database
   - Context: D-131 imports them as ordinary transactions until accounts exist. On the Yuh statement a purchase is a debit like any other, with the security, quantity, price and fees on its continuation lines.
   - Related: D-131, R-IMPORT-095
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
-- **Q-068** How is an imported card or bank line reconciled with a transaction already in the budget for the same charge, such as an automatic subscription charge or a manually entered expense?
+- **Q-068** (resolved by D-315) How is an imported card or bank line reconciled with a transaction already in the budget for the same charge, such as an automatic subscription charge or a manually entered expense?
   - Context: R-IMPORT-070 treats a row as a duplicate only when date, amount and description are the same; a statement line has the bank's description and often a different date (D-128), so the same charge would be counted twice.
   - Related: R-IMPORT-070, D-115, Q-056
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
@@ -4779,6 +4979,18 @@ Source: owner-request: coordinator, independent re-review of the step 4 database
   - Context: D-264: my_budgets returns one row per budget the user belongs to. A user owns at most 20, but nothing limits the budgets they are invited to; past 1000 the API would cut the list. No screen pages it.
   - Related: D-264, R-APP-170, R-BUDGET-004
   - Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16
+- **Q-190** Should the "to categorise" category count towards the 200 categories in force?
+  - Context: D-312: it is created even at the limit, then counts like any category, so a budget at 200 must end one before adding its own next category.
+  - Related: D-312, R-CATEGORY-094
+  - Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16
+- **Q-191** Should a token's refusals also hide that the budget is full or far behind?
+  - Context: D-316: transaction_limit_reached and catching_up reach the token, telling it one fact each about the budget; hiding them would leave the script unable to say why nothing was imported.
+  - Related: D-316, R-IMPORT-076
+  - Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16
+- **Q-192** Should a possible match only count when the descriptions also look alike?
+  - Context: D-315: a typed purchase and a different purchase of the same amount within three days are matched, and the row is skipped (listed for the member) until imported anyway.
+  - Related: D-315, R-IMPORT-203
+  - Source: owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16
 
 ## Glossary
 

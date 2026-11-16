@@ -1178,7 +1178,7 @@
       "id": "F-IMPORT",
       "step": 6,
       "title": "Import",
-      "status": "planned",
+      "status": "in-progress",
       "description": "Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.",
       "userStories": [
         {
@@ -1198,7 +1198,13 @@
             "R-IMPORT-073",
             "R-IMPORT-080",
             "R-IMPORT-082",
-            "R-TRANSACTION-005"
+            "R-TRANSACTION-005",
+            "R-IMPORT-200",
+            "R-IMPORT-203",
+            "R-IMPORT-204",
+            "R-IMPORT-206",
+            "R-IMPORT-208",
+            "R-IMPORT-209"
           ]
         },
         {
@@ -1206,21 +1212,36 @@
           "actor": "A-CLAUDE",
           "iWant": "to import transactions by running the import script of this repository with an import token",
           "soThat": "a member can delegate the import without giving Claude raw database access",
-          "rules": ["R-IMPORT-001", "R-IMPORT-006", "R-IMPORT-076", "R-SECURITY-005"]
+          "rules": [
+            "R-IMPORT-001",
+            "R-IMPORT-006",
+            "R-IMPORT-076",
+            "R-SECURITY-005",
+            "R-IMPORT-205",
+            "R-SECURITY-200"
+          ]
         },
         {
           "id": "US-IMPORT-003",
           "actor": "A-MEMBER",
           "iWant": "imported transactions to be marked to review until I confirm them, categorised from saved merchant rules, and to save a new rule in one click when I categorise one",
           "soThat": "I check them quickly and categorisation improves over time",
-          "rules": ["R-IMPORT-004", "R-IMPORT-007", "R-IMPORT-079", "R-IMPORT-081"]
+          "rules": [
+            "R-IMPORT-004",
+            "R-IMPORT-007",
+            "R-IMPORT-079",
+            "R-IMPORT-081",
+            "R-IMPORT-201",
+            "R-IMPORT-202",
+            "R-IMPORT-207"
+          ]
         },
         {
           "id": "US-IMPORT-004",
           "actor": "A-MEMBER",
           "iWant": "to create import tokens for one budget in Settings, and revoke them",
           "soThat": "I control what a Claude session can do, and can stop it at any time",
-          "rules": ["R-IMPORT-074", "R-IMPORT-075", "R-IMPORT-076", "R-IMPORT-077"]
+          "rules": ["R-IMPORT-074", "R-IMPORT-075", "R-IMPORT-076", "R-IMPORT-077", "R-IMPORT-205"]
         },
         {
           "id": "US-IMPORT-005",
@@ -2759,7 +2780,7 @@
       "area": "transaction",
       "statement": "Transactions are also importable in bulk.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "source": ["domain: Transaction"]
     },
@@ -3221,7 +3242,7 @@
       "area": "import",
       "statement": "There is one import function, in the database, behind every way of importing.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "source": ["domain: Import (including by a Claude session)"]
     },
@@ -3230,7 +3251,7 @@
       "area": "import",
       "statement": "The import function validates rows.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "source": ["domain: Import (including by a Claude session)"]
     },
@@ -3239,7 +3260,7 @@
       "area": "import",
       "statement": "The import function skips duplicates.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["Q-009", "D-115"],
       "source": ["domain: Import (including by a Claude session)"]
@@ -3249,7 +3270,7 @@
       "area": "import",
       "statement": "The import function marks imported transactions \"to review\".",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "source": ["domain: Import (including by a Claude session)"]
     },
@@ -3258,16 +3279,20 @@
       "area": "import",
       "statement": "The import is reachable from a paste/CSV screen in the app.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "source": ["domain: Import (including by a Claude session)"]
+      "source": ["domain: Import (including by a Claude session)"],
+      "testPending": {
+        "suite": "src",
+        "note": "The import screens (step 6 screens) test it; the database part is in supabase/tests/database/97_import.test.sql."
+      }
     },
     {
       "id": "R-IMPORT-006",
       "area": "import",
       "statement": "The import is reachable from a script in this repository that a Claude Code session can run, authenticated with an import token.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["Q-013", "D-116"],
       "source": [
@@ -3280,7 +3305,7 @@
       "area": "import",
       "statement": "When a member categorises an imported transaction, the app offers, in one click, to always put that merchant in that category.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["Q-014", "D-117", "Q-057"],
       "source": [
@@ -3291,29 +3316,37 @@
     {
       "id": "R-IMPORT-070",
       "area": "import",
-      "statement": "An imported row is a duplicate when it has the same date, amount and description as an existing transaction of the budget.",
+      "statement": "An imported row is a duplicate when an existing transaction of the same kind, whatever its origin (typed, imported or a charge), has the same date, amount and description; each existing transaction absorbs one row, so two identical rows against one existing transaction import one, and rows of one import are never duplicates of each other.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "related": ["D-115", "Q-056"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "related": ["D-115", "D-313"],
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
     },
     {
       "id": "R-IMPORT-071",
       "area": "import",
       "statement": "When the file gives a bank transaction id, an imported row is also a duplicate when an existing transaction of the budget has the same bank transaction id.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "related": ["D-115", "Q-056"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "related": ["D-115", "D-313"],
+      "source": [
+        "owner-request: product owner decisions on the open questions, 2026-11-16",
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
     },
     {
       "id": "R-IMPORT-072",
       "area": "import",
       "statement": "The import summary lists the rows skipped as duplicates.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-115"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3323,7 +3356,7 @@
       "area": "import",
       "statement": "The user can import a row skipped as a duplicate anyway.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-115", "Q-056"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3333,7 +3366,7 @@
       "area": "import",
       "statement": "A member creates import tokens in Settings.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3343,7 +3376,7 @@
       "area": "import",
       "statement": "An import token is tied to one budget and imports only into it.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3353,7 +3386,7 @@
       "area": "import",
       "statement": "An import token can only add transactions through the import function; it cannot read anything.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116", "R-SECURITY-005"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3363,7 +3396,7 @@
       "area": "import",
       "statement": "An import token can be revoked, after which it is refused.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-116"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3373,7 +3406,7 @@
       "area": "import",
       "statement": "Merchant-to-category rules can be edited in Settings.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-117"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3384,7 +3417,7 @@
       "statement": "An imported transaction whose merchant has a merchant-to-category rule is put in that rule's category.",
       "rationale": "What \"categorisation improves over time\" means once rules exist.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-117", "Q-057"],
       "source": [
@@ -3397,7 +3430,7 @@
       "area": "import",
       "statement": "An imported transaction counts in totals as soon as it is imported, before it is reviewed.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-118"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3407,7 +3440,7 @@
       "area": "import",
       "statement": "An imported transaction stays \"to review\" until a member confirms it.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-118", "R-IMPORT-004"],
       "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
@@ -3417,10 +3450,14 @@
       "area": "import",
       "statement": "The generic CSV import lets the user map the file's columns to the transaction fields.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-119", "D-126"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "testPending": {
+        "suite": "src",
+        "note": "The import screens (step 6 screens) test it; the database part is in supabase/tests/database/97_import.test.sql."
+      }
     },
     {
       "id": "R-IMPORT-083",
@@ -3438,26 +3475,34 @@
       "area": "import",
       "statement": "The import reads three kinds of PDF statement: the Migros Bank private-account statement, the Migros Bank credit-card bill (Viseca) and the Yuh account statement.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-126"],
       "source": [
         "owner-request: product owner decision on the import sources, with sample statements, 2026-11-16",
         "docs/import-sources.md: Import sources: statement layouts"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-085",
       "area": "import",
       "statement": "The import recognises the kind of a statement from its content, and refuses, with an explanation, a PDF it does not recognise or one without a text layer.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-126", "R-IMPORT-084"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
         "docs/import-sources.md: Recognising the document"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-086",
@@ -3465,7 +3510,7 @@
       "statement": "A statement is parsed in the browser; the PDF file is never uploaded or stored, and only the extracted transactions reach the import function.",
       "rationale": "No test can prove that a file is never sent; review the import code for any upload of the file or its text.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "review",
       "related": ["D-127"],
       "source": [
@@ -3477,13 +3522,17 @@
       "area": "import",
       "statement": "Every entry of a statement's transaction table becomes exactly one candidate transaction; opening and closing balances, carried-forward lines, subtotals and totals, the previous bill total, the payment received on a card bill and card headings never do.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-084"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
         "docs/import-sources.md: What is not a transaction"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-088",
@@ -3491,74 +3540,92 @@
       "statement": "A parsed statement must add up to what it prints (column totals, running balances, card and bill totals); otherwise the import is refused with an explanation, and nothing is imported.",
       "rationale": "A parser that misses or misreads a line on a layout it does not know would otherwise import wrong amounts silently.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-084", "R-IMPORT-087"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
         "docs/import-sources.md: What a parser must guarantee"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-089",
       "area": "import",
       "statement": "Statement amounts (thousands separator ', two decimals, a trailing minus for a credit on the card bill) are read exactly into integer rappen, and statement dates (DD.MM.YY or DD.MM.YYYY) into calendar dates without a time zone.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-MONEY-002"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
         "docs/import-sources.md: Numbers and dates"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-090",
       "area": "import",
       "statement": "The date of an imported transaction is the purchase date when the statement gives one, otherwise the booking date.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-128"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-091",
       "area": "import",
       "statement": "A card-bill payment and a transfer between the owner's own accounts are flagged on import and skipped by default; the user can import them anyway.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "related": ["D-129", "Q-063"],
+      "related": ["D-129", "D-314"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
-        "docs/import-sources.md: Recognising special entries"
+        "docs/import-sources.md: Recognising special entries",
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
       ]
     },
     {
       "id": "R-IMPORT-092",
       "area": "import",
-      "statement": "The import remembers what the user chose for a flagged entry and proposes the same choice for such entries the next time.",
+      "statement": "The import remembers, per budget, kind of flag and counterparty, what a member chose for a flagged entry (import or skip) and proposes the same choice for such entries the next time.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "related": ["D-129", "Q-064"],
+      "related": ["D-129", "D-314"],
       "source": [
-        "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
+        "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
       ]
     },
     {
       "id": "R-IMPORT-093",
       "area": "import",
-      "statement": "A salary credit that matches one of the budget's incomes is skipped on import.",
+      "statement": "A salary credit is skipped on import: one the source calls a salary, or of the amount of an income in force in the period of its date and dated within five days of that period's start; the member may import it as extra income.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
-      "related": ["D-130", "Q-065"],
+      "related": ["D-130", "D-317"],
       "source": [
-        "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
+        "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
       ]
     },
     {
@@ -3566,7 +3633,7 @@
       "area": "import",
       "statement": "Every other credit is proposed for review, as a refund in a category or as extra income.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-130", "Q-066"],
       "source": [
@@ -3578,7 +3645,7 @@
       "area": "import",
       "statement": "A securities purchase is imported as an ordinary transaction for the user to categorise.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-131"],
       "source": [
@@ -3590,7 +3657,7 @@
       "area": "import",
       "statement": "Interest and fee lines of a statement are imported as transactions.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-132"],
       "source": [
@@ -3602,24 +3669,32 @@
       "area": "import",
       "statement": "A foreign-currency purchase is imported with the CHF amount billed, fees included, and a description that keeps the original currency and amount.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-133"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-098",
       "area": "import",
       "statement": "The statement parsers read the French versions of the three statements.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["D-134", "Q-061"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-099",
@@ -3627,7 +3702,7 @@
       "statement": "The statement fixtures in the repository contain no real data: they are anonymised outside the repository and pass a leak check against the real statement before they enter the working tree.",
       "rationale": "The leak check needs the real statement, which must never enter the repository, so it cannot run in CI.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "review",
       "related": ["R-IMPORT-100"],
       "source": [
@@ -3639,12 +3714,16 @@
       "area": "import",
       "statement": "Each statement parser produces exactly the expected result of every anonymised fixture of its source (test-fixtures/statements).",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-084", "R-IMPORT-099"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-101",
@@ -3652,20 +3731,24 @@
       "statement": "A TWINT transaction id or a Yuh reference is kept as the bank transaction id of the imported transaction; a QR payment reference is not, because it repeats from one payment to the next.",
       "rationale": "The QR reference of a card-bill payment is built from the card account number, so every monthly payment of that card has the same reference.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-071", "D-115"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16",
         "docs/import-sources.md: Recognising special entries"
-      ]
+      ],
+      "testPending": {
+        "suite": "src",
+        "note": "The statement parsers (pure TypeScript in src/, written in parallel) test it."
+      }
     },
     {
       "id": "R-IMPORT-102",
       "area": "import",
       "statement": "The review of an imported statement shows, for each transaction, the extra data the statement gives: purchase time, value date, card, original currency and amount, exchange rate, fee, merchant category and security.",
       "feature": "F-IMPORT",
-      "status": "planned",
+      "status": "active",
       "enforcement": "test",
       "related": ["R-IMPORT-004"],
       "source": [
@@ -6191,6 +6274,162 @@
       "source": [
         "owner-request: coordinator addendum (screens round 2 findings), 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-200",
+      "area": "import",
+      "statement": "An imported expense or refund without a category from the member or a rule goes to the budget's \"to categorise\" category, created at the first import that needs it; every transaction keeps a category, so every total and comparison still adds up.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-312", "R-COMPARE-170"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-201",
+      "area": "import",
+      "statement": "A merchant rule matches a row when the row's merchant key (from its merchant, else its description: lower case, accents and punctuation removed, the statement's words and a processor prefix dropped) contains the rule's fragment; the longest fragment wins, and a rule applies only where its category is in force.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-311", "Q-057"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-202",
+      "area": "import",
+      "statement": "Creating a rule in one click can move, in the same call, the other transactions to review waiting in \"to categorise\" whose key contains it; the answer says how many moved; transactions already in a real category stay.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-117", "D-311"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-203",
+      "area": "import",
+      "statement": "A row is a possible match of an existing transaction of the same kind that was not imported, with the same amount and a date within three days; it is skipped by default, and when the match is a charge awaiting confirmation the import confirms it; each existing transaction absorbs one row.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-315", "Q-068"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-204",
+      "area": "import",
+      "statement": "Skipped rows of a batch can be imported anyway, one by one or all at once, through the same import.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-073", "D-313"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-205",
+      "area": "import",
+      "statement": "An import token imports only with the default choices and never confirms a charge; it reads nothing back beyond counts and the reasons of rows refused for their own content; an unknown, expired or revoked token gets one refusal before any lock or catch-up; its calls and rows are limited per hour and per day; a member who leaves the budget revokes the tokens they created.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-116", "D-316", "R-SECURITY-005"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-206",
+      "area": "import",
+      "statement": "A member can undo an import batch once: its transactions still to review are deleted, the confirmed ones and the charges it confirmed stay, and it takes no more rows.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-320"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-207",
+      "area": "import",
+      "statement": "A category's first subcategory moves its merchant rules to \"Other\"; a category deleted takes its rules with it; an ended category's rules stay and apply where it is in force.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-311", "R-CATEGORY-110"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-208",
+      "area": "import",
+      "statement": "An import is sent as a batch of up to 100 chunks of up to 500 rows under an id the caller generates; a chunk sent again records nothing and answers as the first time; a chunk the transaction limit cannot hold is refused whole, saying how many rows would fit.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-310", "R-APP-170"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-IMPORT-209",
+      "area": "import",
+      "statement": "A transaction to review is confirmed one by one or all at once, never while it is in \"to categorise\"; the budget says how many are to review and the transactions list can show only them or one batch.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-118", "D-312"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-CATEGORY-200",
+      "area": "category",
+      "statement": "The \"to categorise\" category takes no subcategory and no expectation, can be renamed, and cannot end while it holds transactions.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-312"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "R-SECURITY-200",
+      "area": "security",
+      "statement": "A visitor without a session can call only the token import; every other import function and every import table refuses them.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-316", "R-SECURITY-003"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
       ]
     }
   ],
@@ -8723,6 +8962,171 @@
         "owner-request: coordinator, independent re-review of the step 4 database fixes, 2026-11-16",
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
       ]
+    },
+    {
+      "id": "D-310",
+      "title": "One import, in batches of idempotent chunks",
+      "decision": "private.import_plan decides what each row does and private.import_apply does it; preview_import, import_transactions, import_with_token and import_skipped_anyway all use them. Rows are JSON objects (date, amount in integer rappen, direction, description, merchant, bank_transaction_id, hint, details, and a member's action, kind, category). A batch has an id the caller generates and up to 100 chunks of up to 500 rows (50 000 rows); a chunk sent again answers as the first time and records nothing. A chunk is all or nothing, refused before anything is written when the transaction limit cannot hold it (detail: how many would fit).",
+      "why": "The write must equal the preview, and a statement larger than one answer (R-APP-170) must survive a lost response without double imports.",
+      "rejected": ["A server-generated batch id: a retried first call would open a second batch."],
+      "status": "accepted",
+      "related": ["R-IMPORT-001", "R-IMPORT-208", "Q-090"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-311",
+      "title": "The merchant key and merchant rules",
+      "decision": "The database computes a row's merchant key: its merchant field, else its description, lower-cased, accents and punctuation removed, spaces collapsed, the statement's own words (achat, crédit, débit TWINT, paiement, ordre permanent, paiement de salaire) and a processor prefix (\"PayUp *\", \"XYZ*\") dropped. A rule holds a fragment and a category and matches a key that contains it; the longest matching fragment wins; a rule whose category is not in force on a row's date does not apply to it. The one-click offer proposes the transaction's whole key; Settings can shorten it. A category's first subcategory moves its rules to Other; deleting a category deletes its rules.",
+      "why": "Answer to Q-057: one implementation of the key, robust to the bank's cut names, capitals and processor prefixes (docs/import-sources.md).",
+      "rejected": ["Exact match on the description: rarely matches again."],
+      "status": "accepted",
+      "related": ["Q-057", "R-IMPORT-079", "R-IMPORT-201", "R-IMPORT-207"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-312",
+      "title": "Uncategorised imports go to a \"to categorise\" category",
+      "decision": "Each budget gets, at its first import that needs it, one ordinary top-level category flagged as its \"to categorise\" place (the name the caller passes; from the first period; created even at the 200 / 500 category limits, within the 900-row bound). Rows without a member's category or an applying rule land there. It is renamable, has no expectation, takes no subcategory, cannot end while it holds transactions, and a transaction in it cannot be confirmed.",
+      "why": "Every expense and refund keeps a category, so totals, progress and comparison keep adding up; the review has one place to empty.",
+      "rejected": ["A null category for imported rows: breaks every per-category sum."],
+      "status": "accepted",
+      "related": ["R-IMPORT-200", "R-CATEGORY-200", "R-IMPORT-209"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-313",
+      "title": "Duplicates are counted",
+      "decision": "Rows of one import are never duplicates of each other. A row is compared with every existing transaction of the same kind, whatever its origin: the same bank transaction id, else the same date, amount and description. Each existing transaction absorbs at most one row, so the same statement imported twice imports nothing the second time. Import anyway is per row or for all skipped rows of a batch.",
+      "why": "Answer to Q-056 (coordinator decision).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-056", "R-IMPORT-003", "R-IMPORT-070", "R-IMPORT-071", "R-IMPORT-204"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-314",
+      "title": "Flagged entries and remembered choices",
+      "decision": "Card-bill payments and own transfers (from the source's hint) are skipped by default; a transfer to another person, also of the household, is an ordinary expense unless skipped. A member's choice for a flagged row (import or skip) is remembered per budget (not per member), per kind of flag and counterparty key, and proposed next time; a token's import remembers nothing.",
+      "why": "Answer to Q-063 and Q-064 (coordinator decision).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-063", "Q-064", "R-IMPORT-091", "R-IMPORT-092", "D-129"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-315",
+      "title": "Reconciliation by possible match",
+      "decision": "A row is a possible match of an existing transaction of the same kind that was not imported (typed, or a charge), with the same amount and a date within three days. Default: skip the row; when the match is a charge awaiting confirmation, the import confirms it and the preview says so; the member can import the row anyway. Each existing transaction absorbs one row. With a token, matches are skipped and left for the member.",
+      "why": "Answer to Q-068 (coordinator decision).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-068", "R-IMPORT-203"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-316",
+      "title": "Import tokens",
+      "decision": "A member creates a token for one budget with a name and an expiry (30 days by default, at most a year); the secret (bti_ and 244 random bits) is answered once and only its SHA-256 is stored. At most 10 active and 100 tokens a budget. import_with_token is the only function callable without a session: an unknown, expired or revoked token gets invalid_token after one index lookup, before any lock or catch-up. A token imports with the default choices only, never confirms a charge, remembers nothing, and its answer is counts and the reasons of rows refused for their own content (budget-dependent outcomes are not told). Per token: 60 calls and 5000 rows an hour, 300 calls and 20 000 rows a day. Revoking takes the budget lock; a member leaving (or removed, or deleted) revokes the tokens they created.",
+      "why": "D-116 and R-SECURITY-005: a token can only add, cannot read, and a stolen one does bounded, reviewable harm.",
+      "rejected": [
+        "Telling the token which rows were duplicates: an oracle on the budget's transactions."
+      ],
+      "status": "accepted",
+      "related": [
+        "D-116",
+        "R-IMPORT-075",
+        "R-IMPORT-076",
+        "R-IMPORT-077",
+        "R-IMPORT-205",
+        "R-SECURITY-200"
+      ],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-317",
+      "title": "A salary credit",
+      "decision": "A credit is a salary credit when the source says so (hint salary) or when its amount equals the amount of an income in force in the period of its date and its date is within five days of that period's start. It is skipped by default; imported anyway it is extra income. A different amount than the planned income changes nothing by itself; the preview shows the planned amount beside the row's.",
+      "why": "Answer to Q-065 (coordinator decision).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-065", "R-IMPORT-093", "D-130"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-318",
+      "title": "A credit reviewed as a refund",
+      "decision": "A credit is a refund by default (in the category a rule or the member gives, else \"to categorise\"), counted in the period of its date, and may take the category's spending below zero; the member may make it extra income instead.",
+      "why": "Answer to Q-066 (coordinator decision).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-066", "R-IMPORT-094"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-319",
+      "title": "What a batch records",
+      "decision": "A batch records its source kind, the statement's date range, its counts (rows, imported, duplicates, flagged, matches, skipped by choice, invalid, charges confirmed), who imported (the member, or the token and its name) and when; never a file name, an account or a card number. Its skipped rows are kept, with why, for the member.",
+      "why": "Q-070 stays open for accounts (step 7); the review needs to know what each import did.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-070", "R-IMPORT-072"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-320",
+      "title": "Undoing an import batch",
+      "decision": "A member can undo a batch once: its transactions still to review are deleted, the confirmed ones stay, charges it confirmed stay confirmed, remembered choices stay; the answer says how many of each. An undone batch takes no more chunks.",
+      "why": "Coordinator decision; a wrong import is removed without touching what was already reviewed.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-206"],
+      "source": [
+        "owner-request: coordinator brief for the step 6 database (import), 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
+      "id": "D-321",
+      "title": "Choices of the database developer for the import",
+      "decision": "Beyond the coordinator's defaults: a credit defaults to a refund (not extra income); hint transfer_to_person names a transfer to another person (imported by default, its choice remembered); details may also carry location; a row with an unknown key is refused; a token's answer counts rows refused for the budget's sake as received; \"import anyway\" drops a row's original kind and category (the review decides); the \"to categorise\" category is created even at the category limits.",
+      "why": "Each keeps the token free of reads and the review in one place; the rest follow the sources (docs/import-sources.md).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["D-312", "D-314", "D-316", "D-318"],
+      "source": [
+        "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
     }
   ],
   "conventions": [
@@ -9192,17 +9596,19 @@
       "id": "Q-056",
       "question": "Are identical rows within the same file duplicates of each other, are refunds and manually entered transactions compared too, and is \"import anyway\" chosen per row or for all skipped rows?",
       "context": "D-115 compares an imported row with existing transactions. Two identical purchases on one day (two coffees) appear as two identical rows in one export; the answer does not say whether the second is skipped.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-115", "R-IMPORT-070", "R-IMPORT-071", "R-IMPORT-073"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "resolvedBy": "D-313"
     },
     {
       "id": "Q-057",
       "question": "What identifies a merchant for a merchant-to-category rule: the whole description, a part of it, or a field of the bank export?",
       "context": "D-117 offers \"always put this merchant in this category?\". Bank descriptions often carry a date, a card number or a location around the merchant name, so an exact match on the description would rarely match again. The sample statements show that the bank cuts merchant names at 24 characters, that one merchant can be printed in different capitals or with different processor prefixes, and that chains add a branch number (docs/import-sources.md). The card bill adds a merchant category line.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-117", "R-IMPORT-007", "R-IMPORT-079", "R-IMPORT-084"],
-      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"]
+      "source": ["owner-request: product owner decisions on the open questions, 2026-11-16"],
+      "resolvedBy": "D-311"
     },
     {
       "id": "Q-058",
@@ -9304,41 +9710,45 @@
       "id": "Q-063",
       "question": "How is a transfer to another member of the household treated, for example a standing order to a partner at the same address: an expense, a transfer between the household's accounts, or something else?",
       "context": "The Migros Bank statement shows no IBAN for a payee, so the import recognises an own transfer only by the holder's name and address (D-129). A standing order to another person at the same address looks like any other payment.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-129", "R-IMPORT-091"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-314"
     },
     {
       "id": "Q-064",
       "question": "What exactly is remembered when the user imports or skips a flagged entry: the choice per kind of entry, per counterparty or per account, and for the whole budget or for the member only?",
       "context": "D-129 says the choice is remembered and proposed next time, without saying for what.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-129", "R-IMPORT-092"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-314"
     },
     {
       "id": "Q-065",
       "question": "When does a salary credit match one of the budget's incomes: same amount, same payer, a date near the expected pay date, or a combination; and what happens when the amount differs from the planned income?",
       "context": "D-130 skips a salary credit that matches an income. The Migros Bank statement marks it \"Paiement de salaire\" with the employer's name, but gives no reference to the income.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-130", "R-IMPORT-093"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-317"
     },
     {
       "id": "Q-066",
       "question": "When a credit is reviewed as a refund, in which period and category does it count, and can it reduce a category below zero?",
       "context": "D-130 proposes other credits as a refund in a category or as extra income. TWINT money received from a person is often a share of a bill paid earlier, possibly in another period.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-130", "R-IMPORT-094"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-318"
     },
     {
       "id": "Q-067",
@@ -9354,11 +9764,12 @@
       "id": "Q-068",
       "question": "How is an imported card or bank line reconciled with a transaction already in the budget for the same charge, such as an automatic subscription charge or a manually entered expense?",
       "context": "R-IMPORT-070 treats a row as a duplicate only when date, amount and description are the same; a statement line has the bank's description and often a different date (D-128), so the same charge would be counted twice.",
-      "status": "open",
+      "status": "resolved",
       "related": ["R-IMPORT-070", "D-115", "Q-056"],
       "source": [
         "owner-request: coordinator decisions on the sample statements for the import, 2026-11-16"
-      ]
+      ],
+      "resolvedBy": "D-315"
     },
     {
       "id": "Q-069",
@@ -9543,6 +9954,36 @@
       "related": ["D-264", "R-APP-170", "R-BUDGET-004"],
       "source": [
         "owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-190",
+      "question": "Should the \"to categorise\" category count towards the 200 categories in force?",
+      "context": "D-312: it is created even at the limit, then counts like any category, so a budget at 200 must end one before adding its own next category.",
+      "status": "open",
+      "related": ["D-312", "R-CATEGORY-094"],
+      "source": [
+        "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-191",
+      "question": "Should a token's refusals also hide that the budget is full or far behind?",
+      "context": "D-316: transaction_limit_reached and catching_up reach the token, telling it one fact each about the budget; hiding them would leave the script unable to say why nothing was imported.",
+      "status": "open",
+      "related": ["D-316", "R-IMPORT-076"],
+      "source": [
+        "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16"
+      ]
+    },
+    {
+      "id": "Q-192",
+      "question": "Should a possible match only count when the descriptions also look alike?",
+      "context": "D-315: a typed purchase and a different purchase of the same amount within three days are matched, and the row is skipped (listed for the member) until imported anyway.",
+      "status": "open",
+      "related": ["D-315", "R-IMPORT-203"],
+      "source": [
+        "owner-request: database developer decision for step 6, within the coordinator's brief, 2026-11-16"
       ]
     }
   ]

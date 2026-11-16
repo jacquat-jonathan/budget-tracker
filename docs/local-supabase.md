@@ -152,6 +152,12 @@ run it with `00_helpers.test.sql`.
 and `get_period_progress` (renamed, ended, restored, "Other" and void categories, a reopen, an
 ended budget, catching up, access); the property test also checks them every fourth step.
 
+`97_import.test.sql` covers the import (preview equal to the write, validation, duplicates by
+count, flags, salaries, matches, merchant rules, "to categorise", review, undo, chunks, tokens,
+access); `97b_import_concurrency.test.sql` races two members sending one chunk, an import
+against an undo, against a category's end, and a token import against its revocation (dblink,
+like `98`). The import script is described in `docs/import-script.md`.
+
 `99_step4_review.test.sql` holds the regression tests of the step 4 database review (one
 section per finding: the projection's period ends, catch-up after 13 and 40 years, category
 coverage, the nominal day, opened dates, due charges, previews, and the contract additions).

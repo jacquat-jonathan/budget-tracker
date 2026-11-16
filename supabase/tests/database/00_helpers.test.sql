@@ -526,7 +526,9 @@ as $$
   cross join lateral (values
     (case when t.subscription_id is not null and t.debt_id is not null then 'linked twice' end),
     (case when (t.subscription_id is not null or t.debt_id is not null) and t.kind <> 'expense' then 'linked but not an expense' end),
-    (case when t.review_state <> 'confirmed' and t.charge_date is null then 'awaiting but not a charge' end),
+    (case when t.review_state = 'awaiting_confirmation' and t.charge_date is null then 'awaiting but not a charge' end),
+    (case when t.review_state = 'to_review' and t.import_batch_id is null then 'to review but not imported' end),
+    (case when t.import_batch_id is not null and (t.subscription_id is not null or t.charge_date is not null) then 'imported and a charge' end),
     (case when t.subscription_id is not null and not exists (select 1 from public.subscriptions as s
             where s.id = t.subscription_id and s.budget_id = t.budget_id) then 'subscription of another budget' end),
     (case when t.debt_id is not null and not exists (select 1 from public.debts as d

@@ -29,6 +29,13 @@ create temp table no_arg_preview on commit drop as
 select is((select dates from no_arg_preview),
           (select array_agg(d) from public.preview_update_subscription(tests.id('o_sub'), p_price => 1000, p_count => 3) as d),
   'R-SUBSCRIPTION-133: a preview with no term argument answers the schedule as it stands');
+-- step 6: a batch, a merchant rule and an import token of this budget
+select tests.remember('o_batch', gen_random_uuid());
+select count(*) from public.import_transactions(tests.id('o'), tests.id('o_batch'), 1,
+  '[{"date": "2026-11-16", "amount": 500, "direction": "debit", "description": "Shop"}]', 'csv');
+select tests.remember('o_rule', (select rule_id from public.create_merchant_rule(tests.id('o'), 'shop', tests.id('o_cat'))));
+create temp table o_token on commit drop as select token from public.create_import_token(tests.id('o'), 'Script');
+grant select on o_token to authenticated;
 select tests.clear_authentication();
 select tests.set_today('2066-11-16');
 
@@ -55,7 +62,10 @@ insert into arg_values values
   ('p_kind', 'expense'), ('p_date', '2026-11-16'), ('p_price', '100'), ('p_cadence', 'monthly'),
   ('p_first_charge_date', '2026-12-01'), ('p_principal', '100'), ('p_monthly_payment', '10'), ('p_balance', '50'),
   ('p_pay_day', '25'), ('p_pay_date', '2026-11-10'), ('p_category_ids', '{' || tests.id('o_cat') || '}'),
-  ('p_from_period_id', (select id::text from public.periods where budget_id = tests.id('o') and seq = 1));
+  ('p_from_period_id', (select id::text from public.periods where budget_id = tests.id('o') and seq = 1)),
+  ('p_batch_id', tests.id('o_batch')::text), ('p_chunk', '2'), ('p_source', 'csv'),
+  ('p_rows', '[{"date": "2026-11-16", "amount": 700, "direction": "debit"}]'), ('p_fragment', 'cafe'),
+  ('p_rule_id', tests.id('o_rule')::text), ('p_token', (select token from o_token));
 -- refused for what the arguments say before any catch-up (the owner can neither leave nor be
 -- removed), so they touch no period either
 create temp table refused_first (proname text primary key, outcome text) on commit drop;

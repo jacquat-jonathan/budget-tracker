@@ -296,6 +296,48 @@ check(refused(await rpc(mallory, 'get_period_trend', { p_budget_id: budget }), '
 const anonTrend = await rpc(null, 'get_period_trend', { p_budget_id: budget })
 check(anonTrend.status >= 400, 'an anonymous visitor cannot call the comparison', anonTrend)
 
+// --- step 6: import ----------------------------------------------------------------------
+const importRows = [
+  { date: today, amount: 1250, direction: 'debit', description: 'Smoke import', merchant: 'Smoke Shop', details: { card: '512345******9876' } },
+  { date: today, amount: 300, direction: 'credit', description: 'Smoke refund' },
+]
+const importBatch = crypto.randomUUID()
+const importPreview = await rpc(alice, 'preview_import', { p_budget_id: budget, p_batch_id: importBatch, p_rows: importRows })
+const imported = await rpc(alice, 'import_transactions', {
+  p_budget_id: budget, p_batch_id: importBatch, p_chunk: 1, p_rows: importRows, p_source: 'csv', p_to_categorise_name: 'To categorise',
+})
+check(ok(importPreview) && ok(imported) && imported.body.map((r) => r.action).join() === importPreview.body.map((r) => r.action).join() &&
+  imported.body.every((r) => r.action === 'import' && r.transaction_id),
+  'import_transactions does what preview_import said, row by row', [importPreview, imported])
+const importedAgain = await rpc(alice, 'import_transactions', {
+  p_budget_id: budget, p_batch_id: importBatch, p_chunk: 1, p_rows: importRows, p_source: 'csv',
+})
+check(ok(importedAgain) && JSON.stringify(importedAgain.body) === JSON.stringify(imported.body), 'a chunk sent again answers the same and records nothing', importedAgain)
+const reviewList = await rpc(bob, 'list_transactions', { p_budget_id: budget, p_to_review_only: true })
+check(ok(reviewList) && reviewList.body.length === 2 && reviewList.body.every((r) => r.review_state === 'to_review' && r.import_batch_id === importBatch),
+  'the to-review list shows the imported transactions with their batch', reviewList)
+const tokenMade = await rpc(alice, 'create_import_token', { p_budget_id: budget, p_name: 'Smoke token' })
+check(ok(tokenMade) && /^bti_[0-9a-f]{64}$/.test(tokenMade.body[0]?.token ?? ''), 'create_import_token answers the secret once', tokenMade.status)
+const tokenList = await get(alice, `import_token_list?budget_id=eq.${budget}`)
+check(ok(tokenList) && tokenList.body.length === 1 && !JSON.stringify(tokenList.body).includes(tokenMade.body[0].token),
+  'the token list never shows the secret', tokenList.status)
+const byToken = await rpc(null, 'import_with_token', {
+  p_token: tokenMade.body[0].token, p_batch_id: crypto.randomUUID(), p_chunk: 1,
+  p_rows: [{ date: today, amount: 777, direction: 'debit', description: 'By token' }, { date: today, amount: 1.5, direction: 'debit' }],
+})
+check(ok(byToken) && byToken.body[0]?.received === 1 && byToken.body[0]?.refused === 1 && Object.keys(byToken.body[0]).sort().join() === 'received,refused,refused_rows',
+  'an anonymous call with a token imports, and answers counts only', byToken)
+const badToken = await rpc(null, 'import_with_token', { p_token: 'bti_nope', p_batch_id: crypto.randomUUID(), p_chunk: 1, p_rows: importRows })
+check(refused(badToken, 'invalid_token'), 'an unknown token is refused', badToken)
+const anonPreview = await rpc(null, 'preview_import', { p_budget_id: budget, p_batch_id: importBatch, p_rows: importRows })
+check(anonPreview.status >= 400, 'an anonymous visitor cannot call the member import', anonPreview.status)
+const anonBatches = await get(null, `import_batches?budget_id=eq.${budget}`)
+check(anonBatches.status >= 400 && anonBatches.body?.code === '42501', 'nor read the batches', anonBatches)
+check(refused(await rpc(mallory, 'preview_import', { p_budget_id: budget, p_batch_id: importBatch, p_rows: importRows }), 'budget_not_found'),
+  'a non-member cannot preview an import into the budget')
+const undone = await rpc(alice, 'undo_import_batch', { p_batch_id: importBatch })
+check(ok(undone) && undone.body[0]?.deleted === 2, 'undo_import_batch removes what is still to review', undone)
+
 // --- a budget 40 years behind: every call but the catch-up answers catching_up, quickly ---
 if (db) {
   const aged = (await rpc(alice, 'create_budget', { p_name: 'Aged', p_income_name: 'Salary', p_amount: 650000, p_pay_day: 25 })).body
