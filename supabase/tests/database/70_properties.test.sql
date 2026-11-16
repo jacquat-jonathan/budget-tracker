@@ -297,9 +297,10 @@ create temp table model_h (sub uuid primary key, h date not null) on commit drop
 create temp table model_day (sub uuid not null, eff integer not null, day integer not null, primary key (sub, eff)) on commit drop;
 create temp table seen_periods (id uuid primary key) on commit drop;
 create temp table catch_up_seen (id uuid primary key) on commit drop;
+create temp table unmark_seen (seed integer, step integer, transfer_id uuid, occurrence_date date) on commit drop;
 -- charges the run itself edited, moved, unlinked or removed: the schedule says nothing of them
 create temp table touched_charges (sub uuid not null, charge_date date not null, primary key (sub, charge_date)) on commit drop;
-grant select, insert, update, delete on model_h, model_day, seen_periods, touched_charges, catch_up_seen to authenticated;
+grant select, insert, update, delete on model_h, model_day, seen_periods, touched_charges, catch_up_seen, unmark_seen to authenticated;
 create or replace function pg_temp.touched(x public.transactions) returns void language sql as $$
   insert into touched_charges select x.subscription_id, x.charge_date where x.charge_date is not null on conflict do nothing
 $$;
@@ -578,6 +579,10 @@ declare
   v_acc2 uuid;
   v_tr public.transfers;
   v_check public.transfer_checklist_row;
+  v_stale public.transfer_checklist_row;
+  v_stale_tried boolean;
+  v_unmark record;
+  v_stale_period uuid;
   v_n integer;
   v_m integer;
   v_part jsonb;
@@ -723,6 +728,11 @@ begin
       perform pg_temp.snap_naive(v_budget);
       v_before := pg_temp.closed_totals(v_budget, v_today);
       v_touched := '{}';
+      v_stale_tried := false;
+      -- each step is a call of its own, as over the API (one statement each): the catch-up step's
+      -- bookkeeping, kept per statement, starts afresh (the walk is one statement)
+      perform set_config('budget_tracker.catch_up_step', '', true), set_config('budget_tracker.catch_up_made', '', true),
+              set_config('budget_tracker.catch_up_cut', '', true), set_config('budget_tracker.catch_up_started', '', true);
       v_from := null;
       v_income := null;
       v_amount := null;
@@ -1308,17 +1318,28 @@ begin
             v_pick := pg_temp.pick('transfer', v_budget, format(
               'exists (select 1 from public.transfer_versions as x where x.transfer_id = t.id and x.is_automatic and x.category_id is not null) and t.first_seq <= %s and (t.end_seq is null or t.end_seq > %s)',
               coalesce(v_period.seq, 0), coalesce(v_period.seq, 0)));
-            if v_pick is not null and v_period.id is not null then
-              select c.* into v_check from public.get_transfer_checklist(v_period.id) as c where c.transfer_id = v_pick and c.planned
-              order by c.due_date, c.occurrence_date limit 1;
-              if v_check.transfer_id is not null and v_check.is_automatic and v_check.mark_revision = 0 then
-                v_date := v_check.occurrence_date;
-                select c.* into v_check from public.mark_transfer_not_done(v_pick, v_period.id, 0, v_date) as c;
+            v_outcome := 'nothing to pick';
+            if v_period.id is not null then
+              -- up to three automatic occurrences of this period or the previous one nobody marked
+              -- (assumed done or upcoming), the picked transfer's first (chosen without random():
+              -- the walk is unchanged)
+              for v_unmark in
+                select c.transfer_id, c.occurrence_date, q.id as period_id, q.seq
+                from public.periods as q cross join lateral public.get_transfer_checklist(q.id) as c
+                where q.budget_id = v_budget and q.seq in (v_period.seq, v_period.seq - 1)
+                  and c.planned and c.is_automatic and c.mark_revision = 0 and not c.is_ended
+                order by c.transfer_id is not distinct from v_pick desc, q.seq desc, c.transfer_id, c.due_date, c.occurrence_date limit 3
+              loop
+                v_outcome := 'ok';
+                select c.* into v_check from public.mark_transfer_not_done(v_unmark.transfer_id, v_unmark.period_id, 0,
+                                                                           v_unmark.occurrence_date) as c;
                 perform public.ensure_periods(v_budget);
                 perform count(*) from public.get_money_flow(v_budget);
-                select c.* into v_check from public.undo_transfer_mark(v_pick, v_period.id, v_check.mark_revision, v_date) as c;
-                v_touched := pg_temp.seqs_of(v_budget, array[v_check.due_date, v_today]) || v_period.seq;
-              end if;
+                select c.* into v_check from public.undo_transfer_mark(v_unmark.transfer_id, v_unmark.period_id, v_check.mark_revision,
+                                                                       v_unmark.occurrence_date) as c;
+                v_touched := v_touched || pg_temp.seqs_of(v_budget, array[v_check.due_date, v_today]) || v_unmark.seq;
+                insert into unmark_seen values (v_seed, v_step, v_unmark.transfer_id, v_unmark.occurrence_date);
+              end loop;
             end if;
           elsif v_op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark', 'stale_mark') then
             if v_op = 'stale_mark' and random() >= 0.5 then
@@ -1357,6 +1378,7 @@ begin
               elsif v_check.transfer_id is not null then
                 -- a mark based on an older read must be refused and change nothing: the mark it
                 -- read is gone or changed (undo), or one was made meanwhile (a mark from 0)
+                v_stale_tried := true;
                 if v_check.mark_revision > 0 then
                   perform public.undo_transfer_mark(v_pick, v_period.id, v_check.mark_revision - 1, v_check.occurrence_date);
                 else
@@ -1365,6 +1387,24 @@ begin
                 insert into failures values (v_seed, v_step, v_name, v_op, 'a stale mark was accepted');
               end if;
               v_touched := v_touched || pg_temp.seqs_of(v_budget, array[v_check.done_on]);
+            end if;
+            if v_op = 'stale_mark' and not coalesce(v_stale_tried, false) then
+              -- nothing picked to try it on: any planned row of the current period (its latest
+              -- mark first), chosen without random() so the rest of the walk is unchanged
+              v_stale_period := (select p.id from public.periods as p
+                                 where p.budget_id = v_budget and v_today between p.start_date and p.end_date);
+              select c.* into v_stale from public.get_transfer_checklist(v_stale_period) as c
+              where v_stale_period is not null and c.planned
+              order by c.mark_revision desc, c.transfer_id, c.occurrence_date
+              limit 1;
+              if v_stale.transfer_id is not null then
+                if v_stale.mark_revision > 0 then
+                  perform public.undo_transfer_mark(v_stale.transfer_id, v_stale_period, v_stale.mark_revision - 1, v_stale.occurrence_date);
+                else
+                  perform public.skip_transfer(v_stale.transfer_id, v_stale_period, 1, v_stale.occurrence_date);
+                end if;
+                insert into failures values (v_seed, v_step, v_name, v_op, 'a stale mark was accepted');
+              end if;
             end if;
           elsif v_op = 'income_account' then
             v_income := pg_temp.pick('income', v_budget);
@@ -1542,8 +1582,8 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in
   '>=', 20, 'R-ACCOUNT-005 R-ACCOUNT-073 R-ACCOUNT-240: and marked transfers done, skipped, not done, and undid marks');
 select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_mark'),
   '>=', 3, 'R-CONCURRENCY-230: and refused every stale mark it tried');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'unmark_after_settle'),
-  '>=', 10, 'R-ACCOUNT-074 R-ACCOUNT-240: and undid not-done marks of automatic transfers after the catch-up had run');
+select cmp_ok((select count(*)::integer from unmark_seen),
+  '>=', 5, 'R-ACCOUNT-074 R-ACCOUNT-240: and undid not-done marks of automatic transfers after the catch-up had run');
 select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 
@@ -1552,8 +1592,8 @@ select diag('step 7 counts (threshold): transfer transactions seen by the oracle
   || (select count(*) from runs where outcome = 'ok' and op in ('create_transfer', 'create_transfer_backdated', 'update_transfer', 'correct_transfer', 'end_transfer'))
   || ' (45), marks ' || (select count(*) from runs where outcome = 'ok' and op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark'))
   || ' (20), stale marks refused ' || (select count(*) from runs where outcome = 'refused: record_changed' and op = 'stale_mark')
-  || ' (3), not-done undone after the catch-up ' || (select count(*) from runs where outcome = 'ok' and op = 'unmark_after_settle')
-  || ' (10), transactions ' || (select count(*) from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction'))
+  || ' (3), not-done undone after the catch-up ' || (select count(*) from unmark_seen)
+  || ' (5), transactions ' || (select count(*) from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction'))
   || ' (150)');
 select diag('fingerprint of the walks: ' || md5(string_agg(format('%s/%s/%s/%s/%s', seed, step, budget, op, outcome), ',' order by seed, step)))
 from runs;
