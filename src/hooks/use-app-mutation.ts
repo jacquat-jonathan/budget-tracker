@@ -1,7 +1,7 @@
 import {
   useMutation,
   useQueryClient,
-  type MutateOptions,
+  type UseMutateFunction,
   type QueryKey,
   type UseMutationResult,
 } from '@tanstack/react-query'
@@ -89,12 +89,12 @@ export function useAppMutation<TData, TVariables = void>({
   // button; the same write sent again while in flight is not sent twice.
   const inFlight = useRef(new Map<string, Promise<TData>>())
   const { mutateAsync: send } = mutation
-  const mutateAsync = useCallback(
-    (variables: TVariables, options?: MutateOptions<TData, unknown, TVariables>) => {
-      const key = callKey(variables)
+  const mutateAsync = useCallback<typeof send>(
+    (...args) => {
+      const key = callKey(args[0])
       const pending = inFlight.current.get(key)
       if (pending) return pending
-      const promise = send(variables, options)
+      const promise = send(...args)
       inFlight.current.set(key, promise)
       const settle = () => {
         if (inFlight.current.get(key) === promise) inFlight.current.delete(key)
@@ -104,10 +104,10 @@ export function useAppMutation<TData, TVariables = void>({
     },
     [send],
   )
-  const mutate = useCallback(
-    (variables: TVariables, options?: MutateOptions<TData, unknown, TVariables>) => {
+  const mutate = useCallback<UseMutateFunction<TData, unknown, TVariables>>(
+    (...args) => {
       // Like TanStack's mutate: the outcome is reported through state and callbacks.
-      mutateAsync(variables, options).catch(() => undefined)
+      mutateAsync(...args).catch(() => undefined)
     },
     [mutateAsync],
   )
