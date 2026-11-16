@@ -1514,6 +1514,8 @@ The read model: **one checklist row per occurrence**; **one mark per transfer an
 transaction per mark at most.
 
 - **`create_transfer(p_budget_id, p_name, p_from_account_id, p_to_account_id, p_amount, p_schedule, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = false, p_category_id = null, p_from_period_id = null, p_cadence = null, p_first_date = null, p_client_id = null) -> transfer_overview[]`** (one row)
+  Membership is checked first, before `p_client_id` is looked up: a retry answers only to a
+  current member (anyone else gets `budget_not_found`, whatever the id).
   From the current period, or as a correction from `p_from_period_id` (the earlier periods'
   occurrences then exist too). `'pay_date'` takes `p_offset_days` (default 0) and optionally
   `p_income_id` (an income in force in that period). `'day_of_month'` takes `p_cadence`
