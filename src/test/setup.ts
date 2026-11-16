@@ -37,6 +37,8 @@ Element.prototype.releasePointerCapture = vi.fn()
 
 beforeAll(async () => {
   await i18n.changeLanguage('en')
+  // A file that proves the pages wait for their own strings loads none here (it sets this flag).
+  if ((globalThis as { skipStringPreload?: boolean }).skipStringPreload === true) return
   // Every string group at once: tests call t() and render pieces of pages outside their routes.
   await loadStrings()
 })
