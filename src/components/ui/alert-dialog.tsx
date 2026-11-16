@@ -4,12 +4,19 @@ import * as React from "react"
 import { cn } from "cn"
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui"
 
+import { FocusReturnProvider } from "@/components/dialog-focus"
+import { useFocusReturn } from "@/components/dialog-focus-context"
 import { Button } from "@/components/ui/button"
 
 function AlertDialog({
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+  // R-APP-006: focus returns to whoever opened the dialog (src/components/dialog-focus-context.ts).
+  return (
+    <FocusReturnProvider open={props.open}>
+      <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />
+    </FocusReturnProvider>
+  )
 }
 
 function AlertDialogTrigger({
@@ -47,10 +54,12 @@ function AlertDialogOverlay({
 function AlertDialogContent({
   className,
   size = "default",
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: "default" | "sm"
 }) {
+  const focusReturn = useFocusReturn(onCloseAutoFocus)
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
@@ -62,6 +71,7 @@ function AlertDialogContent({
           className
         )}
         {...props}
+        {...focusReturn}
       />
     </AlertDialogPortal>
   )

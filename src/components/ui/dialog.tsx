@@ -2,6 +2,8 @@ import * as React from "react"
 import { cn } from "cn"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
+import { FocusReturnProvider } from "@/components/dialog-focus"
+import { useFocusReturn } from "@/components/dialog-focus-context"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -9,7 +11,12 @@ import { useTranslation } from "react-i18next"
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+  // R-APP-006: focus returns to whoever opened the dialog (src/components/dialog-focus-context.ts).
+  return (
+    <FocusReturnProvider open={props.open}>
+      <DialogPrimitive.Root data-slot="dialog" {...props} />
+    </FocusReturnProvider>
+  )
 }
 
 function DialogTrigger({
@@ -50,10 +57,12 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const focusReturn = useFocusReturn(onCloseAutoFocus)
   // C-I18N-001: the generated close label, translated.
   const { t } = useTranslation()
   return (
@@ -66,6 +75,7 @@ function DialogContent({
           className
         )}
         {...props}
+        {...focusReturn}
       >
         {children}
         {showCloseButton && (
