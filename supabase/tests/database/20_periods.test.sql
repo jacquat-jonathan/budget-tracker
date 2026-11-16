@@ -56,7 +56,7 @@ select results_eq(
   $$values (1, '2026-08-05'::date, '2026-09-03'::date)$$,
   'R-PERIOD-030: the period from 5 Aug ends before the next pay date (5 Sep is a Saturday: paid Friday 4)'
 );
-select public.update_income_terms(pg_temp.primary_of(tests.id('aug')), 500000, 25, 'nearest');
+select tests.update_income_terms(pg_temp.primary_of(tests.id('aug')), 500000, 25, 'nearest');
 select results_eq(
   format('select * from pg_temp.periods_of(%L)', tests.id('aug')),
   $$values (1, '2026-08-05'::date, '2026-08-24'::date)$$,
@@ -148,7 +148,7 @@ select results_eq(
 
 -- A primary pay-day change mid-period (25 to 5 on 15 Nov, period started 26 Oct).
 select lives_ok(
-  format('select public.update_income_terms(%L, 600000, 5, %L)', pg_temp.primary_of(tests.id('jan')), 'nearest'),
+  format('select tests.update_income_terms(%L, 600000, 5, %L)', pg_temp.primary_of(tests.id('jan')), 'nearest'),
   'R-VERSION-008: pay day 25 to 5 and a new amount on 15 November'
 );
 select results_eq(
@@ -169,7 +169,7 @@ select results_eq(
 
 -- The expected pay date set by hand, kept through a change of terms, then reset.
 select lives_ok(
-  format('select public.set_expected_pay_date(%L, %L)', tests.id('catchup'), '2026-11-27'),
+  format('select tests.set_expected_pay_date(%L, %L)', tests.id('catchup'), '2026-11-27'),
   'R-PERIOD-033 R-PERIOD-013: the salary is expected on the 27th'
 );
 select results_eq(
@@ -177,14 +177,14 @@ select results_eq(
   $$values ('2026-11-26'::date, true)$$,
   'R-PERIOD-033: the current period ends the day before'
 );
-select public.update_income_terms(pg_temp.primary_of(tests.id('catchup')), 500000, 10, 'nearest');
+select tests.update_income_terms(pg_temp.primary_of(tests.id('catchup')), 500000, 10, 'nearest');
 select results_eq(
   format('select end_date, end_is_manual from public.periods where budget_id = %L and seq = 10', tests.id('catchup')),
   $$values ('2026-11-26'::date, true)$$,
   'R-PERIOD-014 R-PERIOD-029: a change of terms leaves the manual end alone'
 );
 select lives_ok(
-  format('select public.set_expected_pay_date(%L)', tests.id('catchup')),
+  format('select tests.set_expected_pay_date(%L)', tests.id('catchup')),
   'R-PERIOD-025 R-PERIOD-033: resetting the expected pay date'
 );
 select results_eq(
@@ -193,19 +193,19 @@ select results_eq(
   'R-PERIOD-030: re-projects it from the terms in force, after today (10 Dec)'
 );
 select throws_ok(
-  format('select public.set_expected_pay_date(%L, %L)', tests.id('catchup'), '2026-11-15'),
+  format('select tests.set_expected_pay_date(%L, %L)', tests.id('catchup'), '2026-11-15'),
   'P0001', 'invalid_boundary', 'R-PERIOD-033: the expected pay date must be after today');
 select throws_ok(
-  format('select public.set_expected_pay_date(%L, %L)', tests.id('catchup'), '2027-02-01'),
+  format('select tests.set_expected_pay_date(%L, %L)', tests.id('catchup'), '2027-02-01'),
   'P0001', 'invalid_boundary', 'R-PERIOD-020: no period longer than 92 days');
 select throws_ok(
-  format('select public.set_expected_pay_date(%L, %L)', tests.id('catchup'), 'infinity'),
+  format('select tests.set_expected_pay_date(%L, %L)', tests.id('catchup'), 'infinity'),
   'P0001', 'invalid_boundary', 'R-PERIOD-020: an infinite date is refused with the contract error');
 
 -- Moving the boundary between two existing periods, and back.
 select tests.remember('catchup_p4', (select id from public.periods where budget_id = tests.id('catchup') and seq = 4));
 select lives_ok(
-  format('select public.move_period_start(%L, %L)', tests.id('catchup_p4'), '2026-04-22'),
+  format('select tests.move_period_start(%L, %L)', tests.id('catchup_p4'), '2026-04-22'),
   'R-PERIOD-012: April''s salary came on the 22nd'
 );
 select results_eq(
@@ -214,7 +214,7 @@ select results_eq(
   'R-PERIOD-012: moves the end of period 3 and the start of period 4 together'
 );
 select lives_ok(
-  format('select public.move_period_start(%L, %L)', tests.id('catchup_p4'), '2026-04-24'),
+  format('select tests.move_period_start(%L, %L)', tests.id('catchup_p4'), '2026-04-24'),
   'R-PERIOD-025: moving it back'
 );
 select results_eq(
@@ -223,21 +223,21 @@ select results_eq(
   'R-PERIOD-025: restores both periods'
 );
 select throws_ok(
-  format('select public.move_period_start(%L, %L)', tests.id('catchup_p4'), '2026-03-30'),
+  format('select tests.move_period_start(%L, %L)', tests.id('catchup_p4'), '2026-03-30'),
   'P0001', 'invalid_boundary', 'R-PERIOD-020: no period shorter than 7 days');
 select throws_ok(
-  format('select public.move_period_start(%L, %L)',
+  format('select tests.move_period_start(%L, %L)',
          (select id from public.periods where budget_id = tests.id('catchup') and seq = 10), '2026-11-16'),
   'P0001', 'invalid_boundary', 'R-PERIOD-022: no period may start after today');
 select throws_ok(
-  format('select public.move_period_start(%L, %L)',
+  format('select tests.move_period_start(%L, %L)',
          (select id from public.periods where budget_id = tests.id('catchup') and seq = 1), '2026-01-20'),
   'P0001', 'invalid_boundary', 'R-PERIOD-012: the first period has no boundary before it');
 
 -- Switching the primary income.
 select tests.remember('current_second', public.add_income(tests.id('current'), 'Second job', 100000, 10));
 select lives_ok(
-  format('select public.set_primary_income(%L)', tests.id('current_second')),
+  format('select tests.set_primary_income(%L)', tests.id('current_second')),
   'R-INCOME-008: switching the primary to an income paid on the 10th'
 );
 select results_eq(
@@ -254,20 +254,20 @@ select is(
 -- End date, then terms change: the end shown follows by itself.
 select tests.remember('ended', public.create_budget('Ended', 'Salary', 500000, 25));
 select results_eq(
-  format('select end_date_entered, end_date from public.set_budget_end_date(%L, %L)', tests.id('ended'), '2027-02-10'),
+  format('select end_date_entered, end_date from tests.set_budget_end_date(%L, %L)', tests.id('ended'), '2027-02-10'),
   $$values ('2027-02-10'::date, '2027-02-24'::date)$$,
   'R-BUDGET-008: the end shown is the end of the period containing the date entered'
 );
 select throws_ok(
-  format('select public.set_budget_end_date(%L, %L)', tests.id('ended'), '2026-10-01'),
+  format('select tests.set_budget_end_date(%L, %L)', tests.id('ended'), '2026-10-01'),
   'P0001', 'end_date_before_last_period', 'R-BUDGET-008: an end date before the latest period starts is rejected');
 select throws_ok(
-  format('select public.set_budget_end_date(%L, %L)', tests.id('ended'), '2036-12-01'),
+  format('select tests.set_budget_end_date(%L, %L)', tests.id('ended'), '2036-12-01'),
   'P0001', 'invalid_end_date', 'R-BUDGET-013: an end date more than ten years ahead is rejected');
 select throws_ok(
-  format('select public.set_budget_end_date(%L, %L)', tests.id('ended'), 'infinity'),
+  format('select tests.set_budget_end_date(%L, %L)', tests.id('ended'), 'infinity'),
   'P0001', 'invalid_end_date', 'R-BUDGET-013: an infinite end date is rejected with the contract error');
-select public.update_income_terms(pg_temp.primary_of(tests.id('ended')), 500000, 10, 'nearest');
+select tests.update_income_terms(pg_temp.primary_of(tests.id('ended')), 500000, 10, 'nearest');
 select is(
   (select end_date from public.my_budgets where id = tests.id('ended')),
   '2027-03-09'::date,
@@ -297,20 +297,20 @@ set constraints all deferred;
 select pg_temp.day('2026-11-25');
 select is(public.ensure_periods(tests.id('late')), 1, 'R-PERIOD-009: on pay day the next period starts');
 select tests.remember('late_partner', public.add_income(tests.id('late'), 'Partner', 300000, 25));
-select public.set_primary_income(tests.id('late_partner'));
-select public.update_income_terms(tests.id('late_partner'), 350000, 25, 'nearest');
+select tests.set_primary_income(tests.id('late_partner'));
+select tests.update_income_terms(tests.id('late_partner'), 350000, 25, 'nearest');
 select tests.remember('late_old', (select id from public.incomes where budget_id = tests.id('late') and name = 'Salary'));
-select public.update_income_terms(tests.id('late_old'), 550000, 25, 'nearest');
+select tests.update_income_terms(tests.id('late_old'), 550000, 25, 'nearest');
 
 -- ===========================================================================
 -- 26 November 2026: the salary has not arrived; pay-day change the day after pay day
 -- ===========================================================================
 select pg_temp.day('2026-11-26');
 select throws_ok(
-  format('select public.reopen_previous_period(%L, %L)', tests.id('late'), '2026-11-26'),
+  format('select tests.reopen_previous_period(%L, %L)', tests.id('late'), '2026-11-26'),
   'P0001', 'invalid_boundary', 'R-PERIOD-023: the reopened period must end today or later (the salary is not here yet)');
 select lives_ok(
-  format('select public.reopen_previous_period(%L, %L)', tests.id('late'), '2026-11-27'),
+  format('select tests.reopen_previous_period(%L, %L)', tests.id('late'), '2026-11-27'),
   'R-PERIOD-023: the salary will come on the 27th: November''s period is merged back into October''s'
 );
 select results_eq(
@@ -332,7 +332,7 @@ select is_empty(format('select * from tests.period_violations(%L)', tests.id('la
   'R-VERSION-011: nothing is keyed beyond the latest period');
 
 select is(public.ensure_periods(tests.id('payday')), 1, 'R-PERIOD-009: November''s period exists');
-select public.update_income_terms(pg_temp.primary_of(tests.id('payday')), 500000, 27, 'nearest');
+select tests.update_income_terms(pg_temp.primary_of(tests.id('payday')), 500000, 27, 'nearest');
 select results_eq(
   format('select * from pg_temp.periods_of(%L)', tests.id('payday')),
   $$values (1, '2026-10-26'::date, '2026-11-24'::date), (2, '2026-11-25'::date, '2026-12-27'::date)$$,
@@ -340,7 +340,7 @@ select results_eq(
 );
 
 select lives_ok(
-  format('select public.update_income_terms(%L, 500000, 1, %L)', pg_temp.primary_of(tests.id('m31')), 'nearest'),
+  format('select tests.update_income_terms(%L, 500000, 1, %L)', pg_temp.primary_of(tests.id('m31')), 'nearest'),
   'R-PERIOD-030: pay day 31 to 1 on 25-26 Nov'
 );
 select results_eq(
@@ -388,7 +388,7 @@ select results_eq(
 select pg_temp.day('2026-12-20');
 select public.ensure_periods(tests.id('early_advance'));
 select lives_ok(
-  format('select public.set_expected_pay_date(%L, %L)', tests.id('early_advance'), '2026-12-23'),
+  format('select tests.set_expected_pay_date(%L, %L)', tests.id('early_advance'), '2026-12-23'),
   'R-PERIOD-033: the December salary is expected two days early, on the 23rd'
 );
 
@@ -404,10 +404,10 @@ select results_eq(
 );
 select public.ensure_periods(tests.id('early'));
 select throws_ok(
-  format('select public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-24'),
+  format('select tests.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-24'),
   'P0001', 'invalid_boundary', 'R-PERIOD-034: an early salary cannot be dated after today');
 select results_eq(
-  format('select seq, start_date, end_date from public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
+  format('select seq, start_date, end_date from tests.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
   $$values (3, '2026-12-23'::date, '2027-01-24'::date)$$,
   'R-PERIOD-034: the salary arrived today, two days early: the next period starts today'
 );
@@ -417,10 +417,10 @@ select results_eq(
   'R-PERIOD-018 R-INCOME-011: from 25 Nov to 24 Jan the salary counts once per period, twice in all'
 );
 select throws_ok(
-  format('select public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
+  format('select tests.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
   'P0001', 'invalid_boundary', 'R-PERIOD-020: closing the period that started today would leave it empty');
 select lives_ok(
-  format('select public.reopen_previous_period(%L)', tests.id('early')),
+  format('select tests.reopen_previous_period(%L)', tests.id('early')),
   'R-PERIOD-025: undo: reopen the previous period'
 );
 select results_eq(
@@ -429,7 +429,7 @@ select results_eq(
   'R-PERIOD-025 R-PERIOD-023: back to the scheduled end, before the 25th'
 );
 select results_eq(
-  format('select seq, start_date from public.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
+  format('select seq, start_date from tests.record_early_pay_date(%L, %L)', tests.id('early'), '2026-12-23'),
   $$values (3, '2026-12-23'::date)$$,
   'R-PERIOD-025: and redo'
 );
@@ -440,9 +440,9 @@ select results_eq(
 select pg_temp.day('2026-12-25');
 select is(public.ensure_periods(tests.id('stuck_a')), 2, 'R-PERIOD-009: the period rolls on 25 Dec');
 select pg_temp.day('2026-12-26');
-select public.update_income_terms(pg_temp.primary_of(tests.id('stuck_a')), 500000, 10, 'nearest');
+select tests.update_income_terms(pg_temp.primary_of(tests.id('stuck_a')), 500000, 10, 'nearest');
 select lives_ok(
-  format('select public.reopen_previous_period(%L, %L)', tests.id('stuck_a'), '2026-12-27'),
+  format('select tests.reopen_previous_period(%L, %L)', tests.id('stuck_a'), '2026-12-27'),
   'R-PERIOD-023: pay day changed to the 10th, and the salary will come on the 27th'
 );
 select pg_temp.day('2026-12-28');
@@ -477,7 +477,7 @@ select results_eq(
   'R-BUDGET-008: the period containing the end date is current'
 );
 select lives_ok(
-  format('select public.set_expected_pay_date(%L, %L)', tests.id('with_end'), '2027-02-27'),
+  format('select tests.set_expected_pay_date(%L, %L)', tests.id('with_end'), '2027-02-27'),
   'R-BUDGET-015 R-PERIOD-013: its end is adjusted by hand in one call'
 );
 select is((select end_date from public.my_budgets where id = tests.id('with_end')), '2027-02-26'::date,
@@ -490,7 +490,7 @@ select pg_temp.day('2027-02-24');
 select tests.remember('stuck_b', public.create_budget('Stuck B', 'Salary', 500000, 25));
 select pg_temp.day('2027-02-26');
 select lives_ok(
-  format('select public.update_income_terms(%L, 500000, 5, %L, %L)', pg_temp.primary_of(tests.id('stuck_b')), 'previous',
+  format('select tests.update_income_terms(%L, 500000, 5, %L, %L)', pg_temp.primary_of(tests.id('stuck_b')), 'previous',
          (select id from public.periods where budget_id = tests.id('stuck_b') and seq = 1)),
   'R-PERIOD-032 R-VERSION-010: a correction from the first period two days after the next salary'
 );
@@ -517,18 +517,18 @@ select is((select end_date from public.my_budgets where id = tests.id('ended')),
   'R-BUDGET-008: the end shown is that period''s end');
 select is_empty(format('select 1 from public.get_current_period(%L)', tests.id('ended')),
   'R-BUDGET-007: an ended budget has no current period');
-select throws_ok(format('select public.set_expected_pay_date(%L, %L)', tests.id('ended'), '2027-06-10'),
+select throws_ok(format('select tests.set_expected_pay_date(%L, %L)', tests.id('ended'), '2027-06-10'),
   'P0001', 'budget_ended', 'R-PERIOD-033: an ended budget has no current period to change');
 select throws_ok(
-  format('select public.update_income_terms(%L, 1, 25, %L)', pg_temp.primary_of(tests.id('ended')), 'nearest'),
+  format('select tests.update_income_terms(%L, 1, 25, %L)', pg_temp.primary_of(tests.id('ended')), 'nearest'),
   'P0001', 'budget_ended', 'R-VERSION-001: nor terms to change from "now"');
 select lives_ok(
-  format('select public.update_income_terms(%L, 1, 25, %L, %L)', pg_temp.primary_of(tests.id('ended')), 'nearest',
+  format('select tests.update_income_terms(%L, 1, 25, %L, %L)', pg_temp.primary_of(tests.id('ended')), 'nearest',
          (select id from public.periods where budget_id = tests.id('ended') and seq = 4)),
   'R-VERSION-010 R-PERIOD-031: a correction of an ended budget works and leaves it consistent'
 );
 select is(
-  (select count(*)::integer from public.set_budget_end_date(tests.id('ended'), null)),
+  (select count(*)::integer from tests.set_budget_end_date(tests.id('ended'), null)),
   1, 'R-BUDGET-005: clearing the end date'
 );
 select cmp_ok(

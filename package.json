@@ -18,6 +18,7 @@
     "db:reset": "npx supabase db reset",
     "db:test": "npx supabase test db",
     "db:types": "npx supabase gen types typescript > src/lib/database.types.ts",
+    "db:smoke": "node scripts/db/smoke-http.mjs",
     "spec:check": "node scripts/spec/check.mjs",
     "spec:render": "node scripts/spec/render.mjs"
   },

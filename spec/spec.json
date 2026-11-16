@@ -782,7 +782,8 @@
             "R-VERSION-006",
             "R-INCOME-051",
             "R-INCOME-054",
-            "R-INCOME-055"
+            "R-INCOME-055",
+            "R-INCOME-100"
           ]
         },
         {
@@ -840,7 +841,8 @@
             "R-PERIOD-014",
             "R-PERIOD-020",
             "R-PERIOD-051",
-            "R-PERIOD-053"
+            "R-PERIOD-053",
+            "R-PERIOD-100"
           ]
         },
         {
@@ -874,7 +876,8 @@
             "R-CATEGORY-094",
             "R-CATEGORY-096",
             "R-CATEGORY-050",
-            "R-CATEGORY-051"
+            "R-CATEGORY-051",
+            "R-CATEGORY-102"
           ]
         },
         {
@@ -903,21 +906,38 @@
           "actor": "A-MEMBER",
           "iWant": "to delete a category I no longer need",
           "soThat": "it leaves the budget from now on while past periods keep it",
-          "rules": ["R-CATEGORY-072", "R-CATEGORY-073", "R-CATEGORY-095", "R-CATEGORY-052"]
+          "rules": [
+            "R-CATEGORY-072",
+            "R-CATEGORY-073",
+            "R-CATEGORY-095",
+            "R-CATEGORY-052",
+            "R-CATEGORY-101"
+          ]
         },
         {
           "id": "US-CATEGORY-005",
           "actor": "A-MEMBER",
           "iWant": "to change a category's expectation from now on, or explicitly correct it from an earlier period",
           "soThat": "past periods stay as they were unless I fix a mistake on purpose",
-          "rules": ["R-VERSION-002", "R-VERSION-070", "R-CATEGORY-053"]
+          "rules": [
+            "R-VERSION-002",
+            "R-VERSION-070",
+            "R-CATEGORY-053",
+            "R-CATEGORY-100",
+            "R-CATEGORY-101"
+          ]
         },
         {
           "id": "US-CATEGORY-006",
           "actor": "A-MEMBER",
           "iWant": "my save to be refused, with a message to reload, when another member changed the same thing in the meantime",
           "soThat": "I never silently overwrite their change",
-          "rules": ["R-CONCURRENCY-070", "R-CONCURRENCY-090", "R-CONCURRENCY-091"]
+          "rules": [
+            "R-CONCURRENCY-070",
+            "R-CONCURRENCY-090",
+            "R-CONCURRENCY-091",
+            "R-CONCURRENCY-100"
+          ]
         }
       ]
     },
@@ -957,7 +977,8 @@
             "R-TRANSACTION-008",
             "R-TRANSACTION-091",
             "R-TRANSACTION-093",
-            "R-TRANSACTION-050"
+            "R-TRANSACTION-050",
+            "R-TRANSACTION-100"
           ]
         },
         {
@@ -4330,11 +4351,11 @@
     {
       "id": "R-PERIOD-036",
       "area": "period",
-      "statement": "Before saving, a member can see what the current period's end and expected next pay date would become under proposed terms or a proposed primary income, computed exactly as the write does.",
+      "statement": "Before saving, a member can see what the current period's end and expected next pay date would become under proposed terms (a correction from an earlier period included) or a proposed primary income: the preview takes the write's arguments and is computed exactly as the write does, and the write can be refused when its result no longer matches the preview.",
       "feature": "F-PERIOD",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-092"],
+      "related": ["D-092", "D-157"],
       "source": [
         "owner-request: coordinator decision on the third step 2 database review, 2026-11-16",
         "docs/database.md: RPCs"
@@ -4429,8 +4450,8 @@
       "id": "R-CATEGORY-094",
       "area": "category",
       "feature": "F-CATEGORY",
-      "statement": "A budget has at most 200 categories and subcategories in force and 2000 in all; an expectation amount, per month or per year, is from 0 to CHF 10 million.",
-      "related": ["D-148"],
+      "statement": "A budget has at most 200 categories and subcategories in force and 500 in all (void rows, kept only for their transactions, not counted); an expectation amount, per month or per year, is from 0 to CHF 10 million.",
+      "related": ["D-148", "D-153"],
       "source": [
         "owner-request: project coordinator brief for the step 3 database, 2026-11-16",
         "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
@@ -4442,7 +4463,7 @@
       "id": "R-CATEGORY-095",
       "area": "category",
       "feature": "F-CATEGORY",
-      "statement": "Ending a category ends its subcategories with it; a category or subcategory with transactions that would never be in force is kept as a void row, so its transactions still count where they are dated.",
+      "statement": "Ending a category ends its subcategories with it, within its own validity; a category or subcategory with transactions that would never be in force is kept as a void row, so its transactions still count where they are dated.",
       "related": ["R-CATEGORY-072", "R-VERSION-014", "D-147"],
       "source": [
         "owner-request: project coordinator brief for the step 3 database, 2026-11-16",
@@ -4521,8 +4542,8 @@
       "id": "R-CONCURRENCY-090",
       "area": "concurrency",
       "feature": "F-CATEGORY",
-      "statement": "Every editable record has a revision that changes with every change to it; every edit or removal sends the revision the client read and is refused with record_changed when it differs. Step 2's edit RPCs take it as an optional argument for one release.",
-      "related": ["D-142", "R-CONCURRENCY-070", "D-006"],
+      "statement": "Every editable record has a revision that changes with every change to it; every edit or removal sends the revision the client read and is refused with record_changed when it differs. There are no direct writes.",
+      "related": ["D-142", "R-CONCURRENCY-070", "D-006", "D-150"],
       "source": [
         "owner-request: project coordinator brief for the step 3 database, 2026-11-16",
         "code: supabase/migrations/20261116120000_categories_transactions_progress.sql",
@@ -4602,8 +4623,8 @@
       "id": "R-TRANSACTION-094",
       "area": "transaction",
       "feature": "F-TRANSACTION",
-      "statement": "A transaction amount is from 1 rappen to CHF 10 million, a description at most 500 characters, and a budget holds at most 200 000 transactions.",
-      "related": ["D-148"],
+      "statement": "A transaction amount is from 1 rappen to CHF 10 million, a description at most 500 characters, and a budget holds at most 50 000 transactions.",
+      "related": ["D-148", "D-153"],
       "source": [
         "owner-request: project coordinator brief for the step 3 database, 2026-11-16",
         "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
@@ -4733,6 +4754,110 @@
       "source": [
         "owner-request: coordinator, step 2 browser review fixes, 2026-11-16",
         "code: src/features/periods/boundary-ranges.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CONCURRENCY-100",
+      "area": "concurrency",
+      "feature": "F-CATEGORY",
+      "statement": "A boundary operation names the period the client saw (its id and revision) and is refused with record_changed when that period changed or is gone, so a second click, a retry or another member's concurrent action never applies the operation twice.",
+      "related": ["D-151", "R-CONCURRENCY-070", "R-PERIOD-023", "R-PERIOD-034"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CATEGORY-100",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "An existing category can be made to count from an earlier period, as an explicit correction, with its earliest expectation there unless another amount is given; a subcategory never before its group.",
+      "related": ["D-154", "Q-082", "R-VERSION-070"],
+      "source": [
+        "owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults)",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CATEGORY-101",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "An ended category can be restored: from the current period, expecting nothing in the periods between its end and now, or, as an explicit correction, from the period it ended, as if it had never ended; a subcategory needs its group in force.",
+      "related": ["D-154", "Q-082", "R-CATEGORY-072"],
+      "source": [
+        "owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults)",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CATEGORY-102",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "Reading and changing a budget's categories and transactions costs what that budget holds, never what other budgets hold.",
+      "related": ["D-153"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-TRANSACTION-100",
+      "area": "transaction",
+      "feature": "F-TRANSACTION",
+      "statement": "A transaction may always keep the category it already has while it stays in the same period; the category must be in force in the period of its date only when the category or the period changes.",
+      "related": ["D-159", "R-TRANSACTION-091", "R-CATEGORY-095"],
+      "source": [
+        "owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults)",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-100",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "A boundary moved to where the schedule puts it (the previous period's projected end) is not marked as set by hand, and a past boundary can be moved back to the schedule without giving a date.",
+      "related": ["D-152", "Q-071", "R-PERIOD-014", "R-PERIOD-025"],
+      "source": [
+        "owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults)",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-INCOME-100",
+      "area": "income",
+      "feature": "F-INCOME",
+      "statement": "An income's name and terms are edited in one call, which returns the new revision; terms not given keep their value.",
+      "related": ["D-150", "R-CONCURRENCY-090"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-VERSION-100",
+      "area": "version",
+      "feature": "F-INCOME",
+      "statement": "Registering a table for merges is refused unless a validity table's checks on first_seq and end_seq accept a void row and a version table has a foreign key from its entity column to its entity table.",
+      "related": ["D-155", "D-091", "R-VERSION-014"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
       ]
     }
   ],
@@ -6061,7 +6186,7 @@
         "Comparing updated_at timestamps: two writes in one transaction share a timestamp.",
         "Requiring the revision on step 2 RPCs at once: the deployed client would fail until the frontend ships."
       ],
-      "status": "accepted",
+      "status": "superseded",
       "id": "D-142",
       "title": "Concurrent edits: one revision per record",
       "decision": "Every editable record (budget, income, category, transaction, and every later one) has an integer revision, raised by a trigger whenever its row changes and explicitly when a dependent row changes (an income's terms, a category's expectation). Every edit or removal RPC takes p_expected_revision and refuses with record_changed when it differs; the write RPCs take the budget lock first, so a second save waits for the first and then sees the new revision. Step 3 RPCs require it (invalid_revision when missing). Step 2's update_income_terms, remove_income and set_budget_end_date take it as an optional last argument, and the direct renames of budgets and incomes stay, so the previous release keeps working (D-006); new rename_budget and rename_income RPCs check it. A later release makes it required and revokes the direct renames. Reordering categories is not a revision change; a reorder is refused instead when the set of siblings changed.",
@@ -6071,7 +6196,8 @@
         "owner-request: project coordinator brief for the step 3 database, 2026-11-16",
         "code: supabase/migrations/20261116120000_categories_transactions_progress.sql",
         "docs/database.md: Concurrent edits"
-      ]
+      ],
+      "supersededBy": "D-150"
     },
     {
       "rejected": [
@@ -6145,7 +6271,7 @@
     },
     {
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "id": "D-148",
       "title": "Limits for categories and transactions",
       "decision": "Per budget at most 200 categories and subcategories in force and 2000 in all, and 200 000 transactions. Expectation amounts from 0 to 1 000 000 000 rappen as entered (per month or per year); transaction amounts from 1 to 1 000 000 000 rappen; descriptions at most 500 characters; a page of the transaction list at most 200 rows. Defined in one place in the step 3 migration.",
@@ -6154,7 +6280,8 @@
       "source": [
         "owner-request: project coordinator brief for the step 3 database, 2026-11-16",
         "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
-      ]
+      ],
+      "supersededBy": "D-153"
     },
     {
       "rejected": [
@@ -6327,6 +6454,142 @@
       "status": "accepted",
       "related": ["D-104", "R-PROGRESS-050", "R-COMPARE-001"],
       "source": ["owner-request: coordinator brief for the step 3 screens, 2026-11-16"]
+    },
+    {
+      "rejected": [
+        "Keeping the optional argument for one release (D-142): no release to stay compatible with."
+      ],
+      "status": "accepted",
+      "id": "D-150",
+      "title": "Revisions are required; no direct writes",
+      "decision": "Nothing is deployed, so every edit and removal RPC requires p_expected_revision (invalid_revision when missing), including step 2's set_budget_end_date, remove_income and set_primary_income (the budget's revision, since the primary income is a budget field). The direct renames of budgets and incomes are removed (no update privilege, no policy); renames go through rename_budget and update_income, which edits an income's name and terms in one call and returns its new revision (replacing rename_income and update_income_terms). Ordering categories stays outside the revision (D-142).",
+      "why": "D-142 kept step 2's revision optional and the direct renames for a deployed release; there is none, and a check that a client may skip protects nothing. One income edit saves the two-call sequence that had to thread a revision between calls.",
+      "related": ["D-142", "D-124", "R-CONCURRENCY-090", "R-INCOME-100"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [
+        "An idempotency key per request: it guards retries but not two members acting on what they each saw."
+      ],
+      "status": "accepted",
+      "id": "D-151",
+      "title": "Boundary operations name the period they act on",
+      "decision": "Periods have a revision. set_expected_pay_date, record_early_pay_date and reopen_previous_period take the current period's id and revision as the client read them (period_summaries.revision), and move_period_start the moved period's revision; each is refused with record_changed when that period is no longer current, changed or is gone. A write paired with a preview (update_income, set_primary_income) can send p_previewed_end_date and is refused when the current period would end on another day than the preview showed.",
+      "why": "A reopen called twice, by two members or by a retry after a timeout, merged two periods and lost the merged period's own records (review finding 1).",
+      "related": ["R-CONCURRENCY-100", "R-PERIOD-036", "D-082"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [
+        "Dropping the mark for past periods: it still says the boundary differs from the schedule."
+      ],
+      "status": "accepted",
+      "id": "D-152",
+      "title": "A boundary on the schedule's day is not set by hand",
+      "decision": "move_period_start marks the previous period's end as set by hand only when the boundary is not where the schedule puts it (the previous period's projected end, the day before); moving it back clears the mark. Without a date, move_period_start moves the boundary to the schedule. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.",
+      "why": "Answer to Q-071: moving a boundary and moving it back left both periods marked as set by hand, and nothing could clear the mark on a past period.",
+      "related": ["Q-071", "R-PERIOD-100", "R-PERIOD-014"],
+      "source": [
+        "owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults)",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [],
+      "status": "accepted",
+      "id": "D-153",
+      "title": "Limits (revised); costs depend on the budget's own rows",
+      "decision": "Per budget at most 200 categories and subcategories in force and 500 in all, void rows not counted, and 50 000 transactions; amounts, descriptions and pages as in D-148. Every read and write costs what the budget holds: no query scans another budget's rows (lookups by category are planned for the actual id), and each deferred check of a row checks that row, so a merge or a move to \"Other\" at the limits stays within a few seconds (the hosted statement timeout is 8 s).",
+      "why": "D-148's bounds were far beyond a household and a free-tier database; the categories page scanned every budget's transactions, and a reopen with 2000 categories took 13 s because each row's check scanned the whole budget (review findings 4 and limits).",
+      "related": ["D-148", "R-CATEGORY-094", "R-TRANSACTION-094", "R-CATEGORY-102"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": ["Recreating the category under the same name: two histories for one thing."],
+      "status": "accepted",
+      "id": "D-154",
+      "title": "Count from an earlier period, and restore",
+      "decision": "Two explicit corrections, like the others: extend_category makes a category count from an earlier period (its earliest expectation there unless an amount is given; a subcategory never before its group), and restore_category restores an ended category from the current period, expecting nothing in the periods between its end and now so that their totals do not change, or, as a correction, from the period it ended, as if it had never ended (a subcategory needs its group in force). Both keep the group and subcategory shape and are reported by preview_reopen like any other recorded change. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.",
+      "why": "Answer to Q-082 and review finding 5: a category could not be made to count before its first period, so older transactions (and later the import of older statements) were refused, and an ended category with transactions could neither be restored nor recreated.",
+      "related": ["Q-082", "D-065", "R-CATEGORY-100", "R-CATEGORY-101"],
+      "source": [
+        "owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults)",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [],
+      "status": "accepted",
+      "id": "D-155",
+      "title": "The registry checks what it promises",
+      "decision": "private.check_period_keyed_table also refuses a validity table whose check constraints on first_seq and end_seq alone refuse a void row (each is evaluated for first_seq = end_seq = 1), and a version table with no foreign key from its entity column to its entity table.",
+      "why": "D-091 and the docs said both were checked; the step 2 check accepted either (review).",
+      "related": ["D-091", "R-VERSION-100"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [],
+      "status": "accepted",
+      "id": "D-156",
+      "title": "Client types show what can be null",
+      "decision": "get_period_progress and list_categories_for_date return named row types (public.category_progress_row, public.category_choice), so the generated types mark their fields as nullable; reorder_categories takes p_parent_id last, optional (null: the top level). docs/database.md says which fields are actually never null.",
+      "why": "The generated types claimed amount, cadence and parent_id were never null and required a parent id for the top level (review finding 6).",
+      "related": ["R-PROGRESS-090"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [],
+      "status": "accepted",
+      "id": "D-157",
+      "title": "Previews take the write's arguments",
+      "decision": "preview_expected_pay_date is replaced by preview_update_income (the income and the terms and correction period update_income takes) and preview_set_primary_income (the income), computed with the write's own helpers (private.income_edit_seq, private.income_new_terms, private.reprojected_end), including a correction shadowed by a later version.",
+      "why": "The old preview could not express a correction from an earlier period, and previewed a shadowed correction wrongly (review).",
+      "related": ["D-092", "R-PERIOD-036", "D-151"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [],
+      "status": "accepted",
+      "id": "D-158",
+      "title": "Corrections work in an ended budget",
+      "decision": "An explicit correction names its period and works in an ended budget: create_category with p_from_period_id is accepted there like update_category, end_category, extend_category and add_transaction; only what applies from the current period answers budget_ended.",
+      "why": "create_category refused a correction that the other category RPCs accepted (review).",
+      "related": ["D-065", "R-CATEGORY-093"],
+      "source": [
+        "owner-request: coordinator, step 3 database review, 2026-11-16",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
+    },
+    {
+      "rejected": [],
+      "status": "accepted",
+      "id": "D-159",
+      "title": "A transaction keeps its category in its period",
+      "decision": "A transaction may always keep the category it already has while it stays in the same period; the in-force check applies only when the category or the period changes. Decided by the project coordinator on 2026-11-16.",
+      "why": "A transaction whose category had ended, or had been voided by a reopen, could not be edited at all (review finding 3).",
+      "related": ["R-TRANSACTION-100", "D-144"],
+      "source": [
+        "owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults)",
+        "code: supabase/migrations/20261116120000_categories_transactions_progress.sql"
+      ]
     }
   ],
   "conventions": [
@@ -6858,12 +7121,13 @@
       "source": ["code: supabase/migrations/20261116120000_categories_transactions_progress.sql"]
     },
     {
-      "status": "open",
+      "status": "resolved",
       "id": "Q-082",
       "question": "Should an ended category be restorable (in force again from the current period) instead of being created anew?",
       "context": "Ending is final today (R-CATEGORY-072); a new category with the same name starts a new history, so past periods and the new one show two separate rows.",
       "related": ["R-CATEGORY-072", "D-107"],
-      "source": ["code: supabase/migrations/20261116120000_categories_transactions_progress.sql"]
+      "source": ["code: supabase/migrations/20261116120000_categories_transactions_progress.sql"],
+      "resolvedBy": "D-154"
     },
     {
       "status": "open",
@@ -6985,9 +7249,18 @@
       "id": "Q-071",
       "question": "Should a past boundary moved by hand and then moved back to where the projection put it stop being marked \"set by hand\"?",
       "context": "move_period_start and record_early_pay_date always set periods.end_is_manual = true, also when the date goes back to its original day, and the contract has no way to clear the mark on a past period (set_expected_pay_date resets only the current period's end). The client cannot tell a past boundary that matches the schedule (C-LOGIC-003). The periods page now explains on the badge that the mark stays after moving back. Options: the database clears end_is_manual when a boundary is moved back to its projected date, or the mark is dropped for past periods.",
-      "status": "open",
+      "status": "resolved",
       "related": ["R-PERIOD-012", "R-PERIOD-025", "R-PERIOD-014"],
-      "source": ["owner-request: coordinator, step 2 browser review fixes, 2026-11-16"]
+      "source": ["owner-request: coordinator, step 2 browser review fixes, 2026-11-16"],
+      "resolvedBy": "D-152"
+    },
+    {
+      "id": "Q-090",
+      "status": "open",
+      "question": "Should add_transaction take a client-generated id, so that a double-submitted or retried save records the transaction once?",
+      "context": "The boundary operations name the period they act on (D-151), so a retry is refused; an add has no record to name yet. The review recorded a double-submitted add_transaction as two rows. The screens disable the button while saving, but a retry after a lost response would still record twice.",
+      "related": ["D-151", "R-CONCURRENCY-100", "R-TRANSACTION-095"],
+      "source": ["owner-request: coordinator, step 3 database review, 2026-11-16"]
     }
   ]
 }

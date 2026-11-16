@@ -272,7 +272,7 @@ select is(public.end_category(pg_temp.cat('Gifts'), pg_temp.rev(pg_temp.cat('Gif
 -- ===========================================================================
 select public.create_category(tests.id('b'), n) from unnest(array['A1', 'A2', 'A3']) as n;
 insert into vals values ('a1_rev', pg_temp.rev(pg_temp.cat('A1')));
-select public.reorder_categories(tests.id('b'), null,
+select public.reorder_categories(tests.id('b'),
   array(select id from public.categories where budget_id = tests.id('b') and parent_id is null and end_seq is null
         order by case name when 'A3' then 0 when 'A1' then 1 else 2 end, name));
 select results_eq(
@@ -282,10 +282,10 @@ select results_eq(
 );
 select is(pg_temp.rev(pg_temp.cat('A1'))::bigint, (select v from vals where name = 'a1_rev'), 'R-CATEGORY-096: reordering is not an edit of the category');
 select throws_ok(
-  format('select public.reorder_categories(%L, null, array[%L]::uuid[])', tests.id('b'), pg_temp.cat('A1')),
+  format('select public.reorder_categories(%L, array[%L]::uuid[])', tests.id('b'), pg_temp.cat('A1')),
   'P0001', 'record_changed', 'R-CATEGORY-096: a list that is not exactly the current siblings is refused');
 select throws_ok(
-  format('select public.reorder_categories(%L, null, array[%L, %L]::uuid[] || array(select id from public.categories where budget_id = %L and parent_id is null and end_seq is null))',
+  format('select public.reorder_categories(%L, array[%L, %L]::uuid[] || array(select id from public.categories where budget_id = %L and parent_id is null and end_seq is null))',
          tests.id('b'), pg_temp.cat('A1'), pg_temp.cat('A1'), tests.id('b')),
   'P0001', 'record_changed', 'R-CATEGORY-096: so is one with duplicates');
 

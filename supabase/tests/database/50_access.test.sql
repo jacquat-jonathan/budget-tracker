@@ -40,28 +40,31 @@ insert into relations values
 -- Every RPC, called by carol against budget A, with the error she must get.
 create temp table carol_calls (sql text, message text) on commit drop;
 insert into carol_calls values
-  (format('select public.set_budget_end_date(%L, %L)', tests.id('a'), '2027-01-01'), 'budget_not_found'),
-  (format('select public.set_budget_end_date(%L, null)', tests.id('a')), 'budget_not_found'),
+  (format('select public.set_budget_end_date(%L, 1, %L)', tests.id('a'), '2027-01-01'), 'budget_not_found'),
+  (format('select public.set_budget_end_date(%L, 1)', tests.id('a')), 'budget_not_found'),
   (format('select public.invite_member(%L, %L)', tests.id('a'), tests.get_user_email('carol')), 'budget_not_found'),
   (format('select public.remove_member(%L, %L)', tests.id('a'), tests.get_user_id('bob')), 'budget_not_found'),
   (format('select public.leave_budget(%L)', tests.id('a')), 'budget_not_found'),
   (format('select public.add_income(%L, %L, 1000, 1)', tests.id('a'), 'Mine'), 'budget_not_found'),
   (format('select public.add_income(%L, %L, 1000, 1, %L, %L)', tests.id('a'), 'Mine', 'nearest', tests.get_user_id('carol')), 'budget_not_found'),
   (format('select public.add_income(%L, %L, 1000, 1, %L, null, %L)', tests.id('c'), 'Mine', 'nearest', tests.id('a_period')), 'period_not_found'),
-  (format('select public.update_income_terms(%L, 1, 1, %L)', tests.id('a_income'), 'nearest'), 'income_not_found'),
-  (format('select public.update_income_terms(%L, 1, 1, %L, %L)', tests.id('a_income'), 'nearest', tests.id('a_period')), 'income_not_found'),
-  (format('select public.remove_income(%L, %L)', tests.id('a_bob_income'), tests.id('a_period')), 'income_not_found'),
-  (format('select public.update_income_terms(%L, 1, 1, %L, %L)', tests.id('c_income'), 'nearest', tests.id('a_period')), 'period_not_found'),
-  (format('select public.remove_income(%L, %L)', tests.id('c_second'), tests.id('a_period')), 'period_not_found'),
-  (format('select public.set_primary_income(%L)', tests.id('a_bob_income')), 'income_not_found'),
-  (format('select public.remove_income(%L)', tests.id('a_bob_income')), 'income_not_found'),
+  (format('select public.update_income(%L, 1, p_amount => 1, p_pay_day => 1, p_weekend_rule => %L)', tests.id('a_income'), 'nearest'), 'income_not_found'),
+  (format('select public.update_income(%L, 1, p_amount => 1, p_from_period_id => %L)', tests.id('a_income'), tests.id('a_period')), 'income_not_found'),
+  (format('select public.update_income(%L, 1, %L)', tests.id('a_income'), 'Renamed'), 'income_not_found'),
+  (format('select public.remove_income(%L, 1, %L)', tests.id('a_bob_income'), tests.id('a_period')), 'income_not_found'),
+  (format('select public.update_income(%L, %s, p_amount => 1, p_from_period_id => %L)', tests.id('c_income'), (select revision from public.incomes where id = tests.id('c_income')), tests.id('a_period')), 'period_not_found'),
+  (format('select public.remove_income(%L, %s, %L)', tests.id('c_second'), (select revision from public.incomes where id = tests.id('c_second')), tests.id('a_period')), 'period_not_found'),
+  (format('select public.set_primary_income(%L, 1)', tests.id('a_bob_income')), 'income_not_found'),
+  (format('select public.preview_set_primary_income(%L)', tests.id('a_bob_income')), 'income_not_found'),
+  (format('select public.preview_update_income(%L, p_pay_day => 1)', tests.id('a_income')), 'income_not_found'),
+  (format('select public.remove_income(%L, 1)', tests.id('a_bob_income')), 'income_not_found'),
   (format('select public.ensure_periods(%L)', tests.id('a')), 'budget_not_found'),
   (format('select public.get_current_period(%L)', tests.id('a')), 'budget_not_found'),
-  (format('select public.move_period_start(%L, %L)', tests.id('a_period2'), '2026-11-01'), 'period_not_found'),
-  (format('select public.set_expected_pay_date(%L, %L)', tests.id('a'), '2026-11-30'), 'budget_not_found'),
-  (format('select public.set_expected_pay_date(%L)', tests.id('a')), 'budget_not_found'),
-  (format('select public.record_early_pay_date(%L, %L)', tests.id('a'), '2026-11-14'), 'budget_not_found'),
-  (format('select public.reopen_previous_period(%L)', tests.id('a')), 'budget_not_found'),
+  (format('select public.move_period_start(%L, 1, %L)', tests.id('a_period2'), '2026-11-01'), 'period_not_found'),
+  (format('select public.set_expected_pay_date(%L, %L, 1, %L)', tests.id('a'), tests.id('a_period2'), '2026-11-30'), 'budget_not_found'),
+  (format('select public.set_expected_pay_date(%L, %L, 1)', tests.id('a'), tests.id('a_period2')), 'budget_not_found'),
+  (format('select public.record_early_pay_date(%L, %L, 1, %L)', tests.id('a'), tests.id('a_period2'), '2026-11-14'), 'budget_not_found'),
+  (format('select public.reopen_previous_period(%L, %L, 1)', tests.id('a'), tests.id('a_period2')), 'budget_not_found'),
   (format('select public.accept_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
   (format('select public.decline_invitation(%L)', tests.id('a_inv_dave')), 'invitation_not_found'),
   (format('select public.delete_budget(%L)', tests.id('a')), 'budget_not_found'),
@@ -69,7 +72,10 @@ insert into carol_calls values
   -- hostile arguments
   ('select public.ensure_periods(null)', 'budget_not_found'),
   ('select public.move_period_start(null, null)', 'period_not_found'),
-  ('select public.reopen_previous_period(null)', 'budget_not_found'),
+  -- the boundary operations name the period the client saw (R-CONCURRENCY-100)
+  (format('select public.set_expected_pay_date(%L, null, null)', tests.id('c')), 'invalid_revision'),
+  (format('select public.reopen_previous_period(%L, %L, 1)', tests.id('c'), tests.id('a_period2')), 'record_changed'),
+  ('select public.reopen_previous_period(null, null, null)', 'budget_not_found'),
   ('select public.accept_invitation(null)', 'invitation_not_found'),
   ($$select public.create_budget(null, 'x', 1, 1)$$, 'invalid_name'),
   ($$select public.create_budget('x', 'x', null, 1)$$, 'invalid_amount'),
@@ -79,10 +85,10 @@ insert into carol_calls values
   ($$select public.create_budget(repeat('x', 101), 'x', 1, 1)$$, 'invalid_name'),
   ($$select public.get_start_months(32)$$, 'invalid_pay_day'),
   ($$select public.get_start_months(1, null)$$, 'invalid_weekend_rule'),
-  (format('select public.set_expected_pay_date(%L, %L)', tests.id('c'), 'infinity'), 'invalid_boundary'),
-  (format('select public.record_early_pay_date(%L, %L)', tests.id('c'), '-infinity'), 'invalid_boundary'),
-  (format('select public.reopen_previous_period(%L)', tests.id('c')), 'invalid_boundary'),
-  (format('select public.set_budget_end_date(%L, %L)', tests.id('c'), '-infinity'), 'invalid_end_date');
+  (format('select public.set_expected_pay_date(%L, %L, %s, %L)', tests.id('c'), tests.id('c_period'), (select revision from public.periods where id = tests.id('c_period')), 'infinity'), 'invalid_boundary'),
+  (format('select public.record_early_pay_date(%L, %L, %s, %L)', tests.id('c'), tests.id('c_period'), (select revision from public.periods where id = tests.id('c_period')), '-infinity'), 'invalid_boundary'),
+  (format('select public.reopen_previous_period(%L, %L, %s)', tests.id('c'), tests.id('c_period'), (select revision from public.periods where id = tests.id('c_period'))), 'invalid_boundary'),
+  (format('select public.set_budget_end_date(%L, %s, %L)', tests.id('c'), (select revision from public.budgets where id = tests.id('c')), '-infinity'), 'invalid_end_date');
 
 -- Direct writes carol must not be able to make at all (no privilege).
 create temp table carol_denied (sql text) on commit drop;
@@ -118,7 +124,7 @@ insert into anon_calls values
   (format('select public.delete_budget(%L)', tests.id('a'))),
   (format('select public.cancel_invitation(%L)', tests.id('a_inv_dave'))),
   ($$select public.create_budget('x', 'x', 1, 1)$$),
-  (format('select public.set_budget_end_date(%L, null)', tests.id('a'))),
+  (format('select public.set_budget_end_date(%L, 1)', tests.id('a'))),
   (format('select public.invite_member(%L, %L)', tests.id('a'), 'x@test.local')),
   ('select public.list_my_invitations()'),
   (format('select public.accept_invitation(%L)', tests.id('a_inv_dave'))),
@@ -126,15 +132,18 @@ insert into anon_calls values
   (format('select public.remove_member(%L, %L)', tests.id('a'), tests.get_user_id('bob'))),
   (format('select public.leave_budget(%L)', tests.id('a'))),
   (format('select public.add_income(%L, %L, 1, 1)', tests.id('a'), 'x')),
-  (format('select public.update_income_terms(%L, 1, 1, %L)', tests.id('a_income'), 'nearest')),
-  (format('select public.set_primary_income(%L)', tests.id('a_income'))),
-  (format('select public.remove_income(%L)', tests.id('a_bob_income'))),
+  (format('select public.update_income(%L, 1, p_amount => 1)', tests.id('a_income'))),
+  (format('select public.preview_update_income(%L)', tests.id('a_income'))),
+  (format('select public.preview_set_primary_income(%L)', tests.id('a_income'))),
+  (format('select public.rename_budget(%L, %L, 1)', tests.id('a'), 'x')),
+  (format('select public.set_primary_income(%L, 1)', tests.id('a_income'))),
+  (format('select public.remove_income(%L, 1)', tests.id('a_bob_income'))),
   (format('select public.ensure_periods(%L)', tests.id('a'))),
   (format('select public.get_current_period(%L)', tests.id('a'))),
-  (format('select public.move_period_start(%L, %L)', tests.id('a_period2'), '2026-11-01')),
-  (format('select public.set_expected_pay_date(%L)', tests.id('a'))),
-  (format('select public.record_early_pay_date(%L, %L)', tests.id('a'), '2026-11-14')),
-  (format('select public.reopen_previous_period(%L)', tests.id('a')));
+  (format('select public.move_period_start(%L, 1, %L)', tests.id('a_period2'), '2026-11-01')),
+  (format('select public.set_expected_pay_date(%L, %L, 1)', tests.id('a'), tests.id('a_period2'))),
+  (format('select public.record_early_pay_date(%L, %L, 1, %L)', tests.id('a'), tests.id('a_period2'), '2026-11-14')),
+  (format('select public.reopen_previous_period(%L, %L, 1)', tests.id('a'), tests.id('a_period2')));
 
 grant select on relations, carol_calls, carol_denied, anon_calls to anon, authenticated;
 
@@ -143,7 +152,7 @@ select plan(
   + (select count(*)::integer from carol_calls)
   + (select count(*)::integer from carol_denied)
   + (select count(*)::integer from anon_calls)
-  + 11
+  + 13
 );
 
 -- ---------------------------------------------------------------------------
@@ -160,9 +169,11 @@ select throws_ok(sql, 'P0001', message, 'R-SECURITY-002 R-SECURITY-004: non-memb
 
 select throws_ok(sql, '42501', null, 'R-SECURITY-001 R-SECURITY-002: non-member, no privilege: ' || sql) from carol_denied;
 
--- Writes that are granted but filtered by RLS change nothing.
-update public.budgets set name = 'Hacked' where id = tests.id('a');
-update public.incomes set name = 'Hacked' where budget_id = tests.id('a');
+-- No direct renames any more (D-150): nobody can rename directly, members included.
+select throws_ok(format($$update public.budgets set name = 'Hacked' where id = %L$$, tests.id('a')),
+  '42501', null, 'R-SECURITY-002 R-CONCURRENCY-090: a non-member cannot rename budget A directly');
+select throws_ok(format($$update public.incomes set name = 'Hacked' where budget_id = %L$$, tests.id('a')),
+  '42501', null, 'R-SECURITY-002 R-CONCURRENCY-090: nor its incomes');
 
 select tests.clear_authentication();
 select is(

@@ -99,7 +99,16 @@ select * from tests.period_violations(<budget id>);  -- independent period invar
 select * from tests.naive_totals(<period id>);  -- a period's totals recomputed from the rows
 select tests.remember('budget', public.create_budget(...));  -- name an id ...
 select tests.id('budget');                    -- ... and use it under any role
+select tests.reopen_previous_period(<budget id>);  -- step 2's argument lists for the RPCs
+                                              -- that now name a revision or a period
 ```
+
+The `tests.*` callers with step 2's argument lists (`set_expected_pay_date`,
+`record_early_pay_date`, `reopen_previous_period`, `move_period_start`,
+`update_income_terms`, `remove_income`, `set_primary_income`, `set_budget_end_date`,
+`preview_expected_pay_date`) read, as the caller, the revision or current period a client
+would have read and then call the RPC. Use them in tests about behaviour; test the
+concurrency guard itself by calling the RPCs directly (`62`, `86`, `88`).
 
 Deferred constraint triggers (period contiguity, one primary income, ...) only fire at
 commit, and tests roll back, so assert them with
@@ -110,9 +119,14 @@ commit, and tests roll back, so assert them with
 `70_properties.test.sql` runs random sequences of every public operation (step 2's and,
 for half the steps, the category and transaction ones) for eight fixed seeds (220 steps
 each, about 40 seconds) and checks the invariants after each step, including every
-period's totals against `tests.naive_totals` and its progress rows. To run it
-longer, add seeds or raise the step count in the `seeds` / `prop_config` tables at the top
-of the file (do not commit that), then run it with `00_helpers.test.sql`.
+period's totals against `tests.naive_totals` and its progress rows. A seed walks the same
+way on any database: every pick comes from the run's own rows in creation order
+(`pg_temp.pick`), never from a scan whose order depends on what else the database holds, and
+a pick is never called inside a `where` clause (it would run once per row scanned). A failure
+names its seed and step; to replay it, keep only that seed in `seeds`. The `fingerprint`
+diagnostic changes exactly when a walk changes. To run it longer, add seeds or raise the step
+count in the `seeds` / `prop_config` tables at the top of the file (do not commit that), then
+run it with `00_helpers.test.sql`.
 
 `60_concurrency.test.sql` and `62_concurrent_edits.test.sql` are the exceptions to the
 rollback rule: each opens extra connections with `dblink` (local credentials
@@ -131,6 +145,17 @@ security and performance linter); run it yourself after a schema change.
 
 To run one file, run the helpers too:
 `npx supabase test db supabase/tests/database/00_helpers.test.sql supabase/tests/database/profiles.test.sql`.
+
+## Smoke test over the API
+
+The pgTAP suite calls the functions in SQL; `npm run db:smoke` (`scripts/db/smoke-http.mjs`)
+calls them as the browser does, through PostgREST and Auth: sign-up, the main step 2 and
+step 3 RPCs and views, the error contract (`P0001` and its message), what an anonymous
+visitor and a non-member get, and two members racing the same reopen. It needs the whole
+stack (`npm run db:start`, not `supabase db start`) and reads the URL and publishable key
+from `npx supabase status`, or from `SUPABASE_URL` and `SUPABASE_ANON_KEY`. It creates
+throwaway users (`@smoke.test`) that `npm run db:reset` removes. CI does not run it (its
+database job starts the database only); run it before handing over a contract change.
 
 ## Regenerate TypeScript types
 

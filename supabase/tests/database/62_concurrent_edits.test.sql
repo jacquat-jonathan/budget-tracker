@@ -4,7 +4,7 @@
 -- connections with dblink, commits throwaway users and budgets, and deletes them at the end
 -- (and at the start, should an earlier run have failed half-way).
 begin;
-select plan(21);
+select plan(26);
 
 create extension if not exists dblink with schema extensions;
 
@@ -158,8 +158,8 @@ select is(
 
 select is(
   pg_temp.race(
-    format($$select public.update_income_terms(%L, 510000, 25, 'nearest', null, 1)::text$$, pg_temp.id('income')),
-    format($$select public.update_income_terms(%L, 520000, 25, 'nearest', null, 1)::text$$, pg_temp.id('income'))),
+    format('select public.update_income(%L, 1, p_amount => 510000)::text', pg_temp.id('income')),
+    format('select public.update_income(%L, 1, p_amount => 520000)::text', pg_temp.id('income'))),
   'waited, then error: record_changed',
   'R-CONCURRENCY-070: two members change the same income: the second is refused'
 );
@@ -167,8 +167,8 @@ select is(pg_temp.read(format('select amount::text from public.income_overview w
   'R-CONCURRENCY-070: the first change of terms is kept');
 select is(
   pg_temp.race(
-    format('select public.rename_income(%L, %L, 2)::text', pg_temp.id('income'), 'Pay'),
-    format('select public.rename_income(%L, %L, 2)::text', pg_temp.id('income'), 'Wage')),
+    format('select public.update_income(%L, 2, %L)::text', pg_temp.id('income'), 'Pay'),
+    format('select public.update_income(%L, 2, %L)::text', pg_temp.id('income'), 'Wage')),
   'waited, then error: record_changed',
   'R-CONCURRENCY-070: two members rename the same income: the second is refused'
 );
@@ -182,14 +182,60 @@ select is(
 select is(pg_temp.read(format('select name from public.budgets where id = %L', pg_temp.id('budget'))), 'Ours',
   'R-CONCURRENCY-070: the first name is kept');
 
--- Without the revision (step 2 callers of the previous release) the last write still wins.
+-- ===========================================================================
+-- Boundary operations name the period the client saw (review finding 1)
+-- ===========================================================================
+-- The current period, as the client read it: 'id,revision'.
+create or replace function pg_temp.current_seen() returns text language sql as $$
+  select pg_temp.read(format($q$select id || ',' || revision from public.periods
+                             where budget_id = %L and private.today() between start_date and end_date$q$, pg_temp.id('budget')))
+$$;
+create or replace function pg_temp.period_count() returns text language sql as $$
+  select pg_temp.read(format('select count(*)::text from public.periods where budget_id = %L', pg_temp.id('budget')))
+$$;
+create temp table seen (what text primary key, v text) on commit drop;
+insert into seen values ('current', pg_temp.current_seen()), ('count', pg_temp.period_count());
+select pg_temp.act_as('one', pg_temp.id('alice'));
+select pg_temp.act_as('two', pg_temp.id('bob'));
 select is(
   pg_temp.race(
-    format($$select public.update_income_terms(%L, 530000, 25, 'nearest')::text$$, pg_temp.id('income')),
-    format($$select public.update_income_terms(%L, 540000, 25, 'nearest')::text$$, pg_temp.id('income'))),
-  'waited, then ',
-  'R-CONCURRENCY-090: a step 2 caller that sends no revision is not checked (until it is required, D-142)'
+    format('select seq::text from public.reopen_previous_period(%L, %L, %s)', pg_temp.id('budget'),
+           split_part((select v from seen where what = 'current'), ',', 1), split_part((select v from seen where what = 'current'), ',', 2)),
+    format('select seq::text from public.reopen_previous_period(%L, %L, %s)', pg_temp.id('budget'),
+           split_part((select v from seen where what = 'current'), ',', 1), split_part((select v from seen where what = 'current'), ',', 2))),
+  'waited, then error: record_changed',
+  'R-CONCURRENCY-100 R-PERIOD-023: two members reopen the same period at once: the second waits, then is refused'
 );
+select is(pg_temp.period_count(), ((select v from seen where what = 'count')::integer - 1)::text,
+  'R-CONCURRENCY-100 R-VERSION-005: exactly one period was merged, not two');
+update seen set v = pg_temp.current_seen() where what = 'current';
+update seen set v = pg_temp.period_count() where what = 'count';
+select pg_temp.act_as('two', pg_temp.id('alice'));
+select is(
+  pg_temp.race(
+    format('select seq::text from public.record_early_pay_date(%L, %L, %s, private.today())', pg_temp.id('budget'),
+           split_part((select v from seen where what = 'current'), ',', 1), split_part((select v from seen where what = 'current'), ',', 2)),
+    format('select seq::text from public.record_early_pay_date(%L, %L, %s, private.today())', pg_temp.id('budget'),
+           split_part((select v from seen where what = 'current'), ',', 1), split_part((select v from seen where what = 'current'), ',', 2))),
+  'waited, then error: record_changed',
+  'R-CONCURRENCY-100 R-PERIOD-034: a retried "the salary arrived early" is refused instead of closing a second period'
+);
+select is(pg_temp.period_count(), ((select v from seen where what = 'count')::integer + 1)::text,
+  'R-CONCURRENCY-100: exactly one period was started');
+update seen set v = pg_temp.current_seen() where what = 'current';
+select pg_temp.act_as('two', pg_temp.id('bob'));
+select is(
+  pg_temp.race(
+    format('select seq::text from public.set_expected_pay_date(%L, %L, %s, private.today() + 20)', pg_temp.id('budget'),
+           split_part((select v from seen where what = 'current'), ',', 1), split_part((select v from seen where what = 'current'), ',', 2)),
+    format('select seq::text from public.set_expected_pay_date(%L, %L, %s, private.today() + 25)', pg_temp.id('budget'),
+           split_part((select v from seen where what = 'current'), ',', 1), split_part((select v from seen where what = 'current'), ',', 2))),
+  'waited, then error: record_changed',
+  'R-CONCURRENCY-100 R-PERIOD-013: two members set the expected pay date at once: the second is refused'
+);
+select is(
+  pg_temp.read(format('select (end_date - private.today())::text from public.periods where budget_id = %L and private.today() between start_date and end_date', pg_temp.id('budget'))),
+  '19', 'R-CONCURRENCY-070: the first expected date is kept');
 
 -- ===========================================================================
 -- Step 3 writes racing each other get contract errors

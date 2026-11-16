@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-320 rules (230 active, 83 planned), 24 conventions, 124 decisions, 23 open questions. 0 rules and conventions are marked **TEST PENDING**.
+328 rules (238 active, 83 planned), 24 conventions, 134 decisions, 22 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -103,7 +103,7 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 - **US-INCOME-001** As a budget member, I want to add my income with its amount, pay day and weekend rule, so that it counts in the budget's monthly total.
   Rules: R-INCOME-002, R-INCOME-003, R-INCOME-004, R-INCOME-005, R-INCOME-010, R-INCOME-011, R-INCOME-013, R-INCOME-014, R-MONEY-002, R-PAYDATE-001, R-PAYDATE-002, R-PAYDATE-003, R-PAYDATE-004, R-PAYDATE-005, R-PAYDATE-006, R-PAYDATE-007, R-INCOME-050
 - **US-INCOME-002** As a budget member, I want to change an income's terms when my salary changes, so that the change applies from now on and past periods stay as they were.
-  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-054, R-INCOME-055
+  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-054, R-INCOME-055, R-INCOME-100
 - **US-INCOME-003** As a budget member, I want to make another income the primary one, so that periods follow the salary that really sets our rhythm.
   Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008, R-INCOME-054, R-INCOME-055
 - **US-INCOME-004** As a budget member, I want to remove an income, so that it stops counting without rewriting past periods.
@@ -116,7 +116,7 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 - **US-PERIOD-001** As a budget member, I want periods to run from pay day to pay day of the primary income, so that the salary is always day one of the period.
   Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018, R-PERIOD-050, R-PERIOD-052
 - **US-PERIOD-002** As a budget member, I want to move a period boundary when the salary arrived on another day, so that public holidays do not put transactions in the wrong period.
-  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051, R-PERIOD-053
+  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051, R-PERIOD-053, R-PERIOD-100
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
   Rules: R-PERIOD-007, R-PERIOD-011, R-VERSION-007, R-VERSION-008
 
@@ -127,17 +127,17 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 Two-level categories with monthly or yearly expectations, and the amount left to assign.
 
 - **US-CATEGORY-001** As a budget member, I want to split the budget into categories and subcategories with a monthly expectation each, so that I know how much I plan to spend on what.
-  Rules: R-CATEGORY-001, R-CATEGORY-002, R-VERSION-002, R-CATEGORY-090, R-CATEGORY-092, R-CATEGORY-093, R-CATEGORY-094, R-CATEGORY-096, R-CATEGORY-050, R-CATEGORY-051
+  Rules: R-CATEGORY-001, R-CATEGORY-002, R-VERSION-002, R-CATEGORY-090, R-CATEGORY-092, R-CATEGORY-093, R-CATEGORY-094, R-CATEGORY-096, R-CATEGORY-050, R-CATEGORY-051, R-CATEGORY-102
 - **US-CATEGORY-002** As a budget member, I want to enter a yearly amount for a yearly cost, so that it is spread as one twelfth per month.
   Rules: R-CATEGORY-003, R-CATEGORY-004, R-CATEGORY-005, R-CATEGORY-070, R-CATEGORY-091, R-CATEGORY-050
 - **US-CATEGORY-003** As a budget member, I want to see the amount left to assign in a period, negative when I have assigned more than the income, so that every franc of the budget has a purpose.
   Rules: R-CATEGORY-006, R-CATEGORY-071, R-CATEGORY-050
 - **US-CATEGORY-004** As a budget member, I want to delete a category I no longer need, so that it leaves the budget from now on while past periods keep it.
-  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095, R-CATEGORY-052
+  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095, R-CATEGORY-052, R-CATEGORY-101
 - **US-CATEGORY-005** As a budget member, I want to change a category's expectation from now on, or explicitly correct it from an earlier period, so that past periods stay as they were unless I fix a mistake on purpose.
-  Rules: R-VERSION-002, R-VERSION-070, R-CATEGORY-053
+  Rules: R-VERSION-002, R-VERSION-070, R-CATEGORY-053, R-CATEGORY-100, R-CATEGORY-101
 - **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
-  Rules: R-CONCURRENCY-070, R-CONCURRENCY-090, R-CONCURRENCY-091
+  Rules: R-CONCURRENCY-070, R-CONCURRENCY-090, R-CONCURRENCY-091, R-CONCURRENCY-100
 
 #### F-TRANSACTION Transactions (in-progress)
 
@@ -146,7 +146,7 @@ Manual transactions, landing in the period that contains their date.
 - **US-TRANSACTION-001** As a budget member, I want to record a transaction with an amount, a date and a category, so that spending is tracked against the budget.
   Rules: R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-004, R-TRANSACTION-006, R-TRANSACTION-072, R-TRANSACTION-073, R-TRANSACTION-090, R-TRANSACTION-094, R-TRANSACTION-095, R-TRANSACTION-050, R-TRANSACTION-051
 - **US-TRANSACTION-002** As a budget member, I want to add, edit or delete a transaction in a past period, so that late receipts still land in the right period.
-  Rules: R-TRANSACTION-007, R-TRANSACTION-008, R-TRANSACTION-091, R-TRANSACTION-093, R-TRANSACTION-050
+  Rules: R-TRANSACTION-007, R-TRANSACTION-008, R-TRANSACTION-091, R-TRANSACTION-093, R-TRANSACTION-050, R-TRANSACTION-100
 - **US-TRANSACTION-003** As a budget member, I want to record money coming back as a refund, so that it reduces what was spent in its category.
   Rules: R-TRANSACTION-070, R-TRANSACTION-071, R-TRANSACTION-092, R-TRANSACTION-050
 
@@ -701,6 +701,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-135, R-PERIOD-010, R-INCOME-054, R-INCOME-055, R-BUDGET-008
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/periods/next-salary.ts
+- **R-INCOME-100** An income's name and terms are edited in one call, which returns the new revision; terms not given keep their value.
+  _active · enforced by test · F-INCOME_
+  - Related: D-150, R-CONCURRENCY-090
+  - Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ### Pay dates and the weekend rule
 
@@ -877,9 +881,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-092
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
-- **R-PERIOD-036** Before saving, a member can see what the current period's end and expected next pay date would become under proposed terms or a proposed primary income, computed exactly as the write does.
+- **R-PERIOD-036** Before saving, a member can see what the current period's end and expected next pay date would become under proposed terms (a correction from an earlier period included) or a proposed primary income: the preview takes the write's arguments and is computed exactly as the write does, and the write can be refused when its result no longer matches the preview.
   _active · enforced by test · F-PERIOD_
-  - Related: D-092
+  - Related: D-092, D-157
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
 - **R-PERIOD-037** When the primary income's pay day or weekend rule is corrected after that month's salary was already due, the current period extends to the following month until the user records what happened; the app asks, offering only the operation that fits and that the database can accept: the early pay date for a new salary (due at least 7 days after the period started), moving the period's start for this period's own salary (due fewer than 7 days after it started), and nothing when neither can be saved.
   _active · enforced by test · F-PERIOD_
@@ -894,6 +898,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-020, R-PERIOD-034, R-PERIOD-012, R-BUDGET-008
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16; code: src/features/periods/boundary-ranges.ts
+- **R-PERIOD-100** A boundary moved to where the schedule puts it (the previous period's projected end) is not marked as set by hand, and a past boundary can be moved back to the schedule without giving a date.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-152, Q-071, R-PERIOD-014, R-PERIOD-025
+  - Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ### Versioning: edits never rewrite the past
 
@@ -957,6 +965,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: D-091
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-VERSION-100** Registering a table for merges is refused unless a validity table's checks on first_seq and end_seq accept a void row and a version table has a foreign key from its entity column to its entity table.
+  _active · enforced by test · F-INCOME_
+  - Related: D-155, D-091, R-VERSION-014
+  - Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ### Categories and subcategories
 
@@ -1019,11 +1031,11 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Why: Back-dating lets transactions be entered for the periods before the categories were set up (R-PERIOD-016).
   - Related: D-065, R-TRANSACTION-091
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
-- **R-CATEGORY-094** A budget has at most 200 categories and subcategories in force and 2000 in all; an expectation amount, per month or per year, is from 0 to CHF 10 million.
+- **R-CATEGORY-094** A budget has at most 200 categories and subcategories in force and 500 in all (void rows, kept only for their transactions, not counted); an expectation amount, per month or per year, is from 0 to CHF 10 million.
   _active · enforced by test · F-CATEGORY_
-  - Related: D-148
+  - Related: D-148, D-153
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
-- **R-CATEGORY-095** Ending a category ends its subcategories with it; a category or subcategory with transactions that would never be in force is kept as a void row, so its transactions still count where they are dated.
+- **R-CATEGORY-095** Ending a category ends its subcategories with it, within its own validity; a category or subcategory with transactions that would never be in force is kept as a void row, so its transactions still count where they are dated.
   _active · enforced by test · F-CATEGORY_
   - Related: R-CATEGORY-072, R-VERSION-014, D-147
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
@@ -1047,6 +1059,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: R-VERSION-002, R-VERSION-070, R-INCOME-051
   - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/category-form-dialog.tsx
+- **R-CATEGORY-100** An existing category can be made to count from an earlier period, as an explicit correction, with its earliest expectation there unless another amount is given; a subcategory never before its group.
+  _active · enforced by test · F-CATEGORY_
+  - Related: D-154, Q-082, R-VERSION-070
+  - Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-101** An ended category can be restored: from the current period, expecting nothing in the periods between its end and now, or, as an explicit correction, from the period it ended, as if it had never ended; a subcategory needs its group in force.
+  _active · enforced by test · F-CATEGORY_
+  - Related: D-154, Q-082, R-CATEGORY-072
+  - Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-102** Reading and changing a budget's categories and transactions costs what that budget holds, never what other budgets hold.
+  _active · enforced by test · F-CATEGORY_
+  - Related: D-153
+  - Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ### Transactions
 
@@ -1112,9 +1136,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: D-145, R-TRANSACTION-006, R-PERIOD-012, R-PERIOD-023, R-PERIOD-034
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
-- **R-TRANSACTION-094** A transaction amount is from 1 rappen to CHF 10 million, a description at most 500 characters, and a budget holds at most 200 000 transactions.
+- **R-TRANSACTION-094** A transaction amount is from 1 rappen to CHF 10 million, a description at most 500 characters, and a budget holds at most 50 000 transactions.
   _active · enforced by test · F-TRANSACTION_
-  - Related: D-148
+  - Related: D-148, D-153
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 - **R-TRANSACTION-095** Each transaction keeps who recorded it; the list is read in pages of at most 200, newest first in a stable order, by a cursor, and can be filtered by dates, category and kind.
   _active · enforced by test · F-TRANSACTION_
@@ -1128,6 +1152,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: R-TRANSACTION-095, D-149
   - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/transactions-page.tsx; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
+- **R-TRANSACTION-100** A transaction may always keep the category it already has while it stays in the same period; the category must be in force in the period of its date only when the category or the period changes.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-159, R-TRANSACTION-091, R-CATEGORY-095
+  - Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ### Period progress and result
 
@@ -1504,14 +1532,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Why: Applies to every editable record. Built with step 3, for the editable records of step 2 (starting with incomes) as well as for those of step 3; every later feature follows it (D-124).
   - Related: D-124, Q-018, D-045, R-CONCURRENCY-090, D-142
   - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-CONCURRENCY-090** Every editable record has a revision that changes with every change to it; every edit or removal sends the revision the client read and is refused with record_changed when it differs. Step 2's edit RPCs take it as an optional argument for one release.
+- **R-CONCURRENCY-090** Every editable record has a revision that changes with every change to it; every edit or removal sends the revision the client read and is refused with record_changed when it differs. There are no direct writes.
   _active · enforced by test · F-CATEGORY_
-  - Related: D-142, R-CONCURRENCY-070, D-006
+  - Related: D-142, R-CONCURRENCY-070, D-006, D-150
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Concurrent edits
 - **R-CONCURRENCY-091** An edit form or removal confirmation reads its record by id, never from a list, and saves over the version it opened. When another member changes a field it shows (the save is refused, or a later read shows it), it says so with their values field by field: with nothing typed it takes their version; with something typed it keeps what was typed and lets the user load their version or keep theirs, and keeping theirs saves only the fields they edited. A change to fields it does not show (the user's own save in another form, another member's change elsewhere) is taken silently. A record deleted meanwhile is said to be gone and cannot be saved.
   _active · enforced by test · F-CATEGORY_
   - Related: R-CONCURRENCY-070, D-142, D-136
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: src/hooks/use-edit-base.ts; owner-request: coordinator, step 3 screens review fixes, 2026-11-16
+- **R-CONCURRENCY-100** A boundary operation names the period the client saw (its id and revision) and is refused with record_changed when that period changed or is gone, so a second click, a retry or another member's concurrent action never applies the operation twice.
+  _active · enforced by test · F-CATEGORY_
+  - Related: D-151, R-CONCURRENCY-070, R-PERIOD-023, R-PERIOD-034
+  - Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
 ## Conventions
 
@@ -2964,7 +2996,7 @@ Related: Q-051, D-102, R-CATEGORY-090, R-CATEGORY-092, R-TRANSACTION-072
 
 Source: owner-request: project coordinator decisions on the step 3 open questions, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
-### D-142 Concurrent edits: one revision per record (accepted)
+### D-142 Concurrent edits: one revision per record (superseded by D-150)
 
 Every editable record (budget, income, category, transaction, and every later one) has an integer revision, raised by a trigger whenever its row changes and explicitly when a dependent row changes (an income's terms, a category's expectation). Every edit or removal RPC takes p_expected_revision and refuses with record_changed when it differs; the write RPCs take the budget lock first, so a second save waits for the first and then sees the new revision. Step 3 RPCs require it (invalid_revision when missing). Step 2's update_income_terms, remove_income and set_budget_end_date take it as an optional last argument, and the direct renames of budgets and incomes stay, so the previous release keeps working (D-006); new rename_budget and rename_income RPCs check it. A later release makes it required and revokes the direct renames. Reordering categories is not a revision change; a reorder is refused instead when the set of siblings changed.
 
@@ -3047,7 +3079,7 @@ Related: R-PROGRESS-091, R-PROGRESS-092, R-CATEGORY-095, Q-080
 
 Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
 
-### D-148 Limits for categories and transactions (accepted)
+### D-148 Limits for categories and transactions (superseded by D-153)
 
 Per budget at most 200 categories and subcategories in force and 2000 in all, and 200 000 transactions. Expectation amounts from 0 to 1 000 000 000 rappen as entered (per month or per year); transaction amounts from 1 to 1 000 000 000 rappen; descriptions at most 500 characters; a page of the transaction list at most 200 rows. Defined in one place in the step 3 migration.
 
@@ -3247,6 +3279,134 @@ Related: D-104, R-PROGRESS-050, R-COMPARE-001
 
 Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16
 
+### D-150 Revisions are required; no direct writes (accepted)
+
+Nothing is deployed, so every edit and removal RPC requires p_expected_revision (invalid_revision when missing), including step 2's set_budget_end_date, remove_income and set_primary_income (the budget's revision, since the primary income is a budget field). The direct renames of budgets and incomes are removed (no update privilege, no policy); renames go through rename_budget and update_income, which edits an income's name and terms in one call and returns its new revision (replacing rename_income and update_income_terms). Ordering categories stays outside the revision (D-142).
+
+**Why:** D-142 kept step 2's revision optional and the direct renames for a deployed release; there is none, and a check that a client may skip protects nothing. One income edit saves the two-call sequence that had to thread a revision between calls.
+
+**Rejected:**
+
+- Keeping the optional argument for one release (D-142): no release to stay compatible with.
+
+Related: D-142, D-124, R-CONCURRENCY-090, R-INCOME-100
+
+Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-151 Boundary operations name the period they act on (accepted)
+
+Periods have a revision. set_expected_pay_date, record_early_pay_date and reopen_previous_period take the current period's id and revision as the client read them (period_summaries.revision), and move_period_start the moved period's revision; each is refused with record_changed when that period is no longer current, changed or is gone. A write paired with a preview (update_income, set_primary_income) can send p_previewed_end_date and is refused when the current period would end on another day than the preview showed.
+
+**Why:** A reopen called twice, by two members or by a retry after a timeout, merged two periods and lost the merged period's own records (review finding 1).
+
+**Rejected:**
+
+- An idempotency key per request: it guards retries but not two members acting on what they each saw.
+
+Related: R-CONCURRENCY-100, R-PERIOD-036, D-082
+
+Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-152 A boundary on the schedule's day is not set by hand (accepted)
+
+move_period_start marks the previous period's end as set by hand only when the boundary is not where the schedule puts it (the previous period's projected end, the day before); moving it back clears the mark. Without a date, move_period_start moves the boundary to the schedule. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to Q-071: moving a boundary and moving it back left both periods marked as set by hand, and nothing could clear the mark on a past period.
+
+**Rejected:**
+
+- Dropping the mark for past periods: it still says the boundary differs from the schedule.
+
+Related: Q-071, R-PERIOD-100, R-PERIOD-014
+
+Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-153 Limits (revised); costs depend on the budget's own rows (accepted)
+
+Per budget at most 200 categories and subcategories in force and 500 in all, void rows not counted, and 50 000 transactions; amounts, descriptions and pages as in D-148. Every read and write costs what the budget holds: no query scans another budget's rows (lookups by category are planned for the actual id), and each deferred check of a row checks that row, so a merge or a move to "Other" at the limits stays within a few seconds (the hosted statement timeout is 8 s).
+
+**Why:** D-148's bounds were far beyond a household and a free-tier database; the categories page scanned every budget's transactions, and a reopen with 2000 categories took 13 s because each row's check scanned the whole budget (review findings 4 and limits).
+
+**Rejected:** none recorded.
+
+Related: D-148, R-CATEGORY-094, R-TRANSACTION-094, R-CATEGORY-102
+
+Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-154 Count from an earlier period, and restore (accepted)
+
+Two explicit corrections, like the others: extend_category makes a category count from an earlier period (its earliest expectation there unless an amount is given; a subcategory never before its group), and restore_category restores an ended category from the current period, expecting nothing in the periods between its end and now so that their totals do not change, or, as a correction, from the period it ended, as if it had never ended (a subcategory needs its group in force). Both keep the group and subcategory shape and are reported by preview_reopen like any other recorded change. Decided by the project coordinator on 2026-11-16, on the product owner's instruction to proceed on the coordinator's defaults.
+
+**Why:** Answer to Q-082 and review finding 5: a category could not be made to count before its first period, so older transactions (and later the import of older statements) were refused, and an ended category with transactions could neither be restored nor recreated.
+
+**Rejected:**
+
+- Recreating the category under the same name: two histories for one thing.
+
+Related: Q-082, D-065, R-CATEGORY-100, R-CATEGORY-101
+
+Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-155 The registry checks what it promises (accepted)
+
+private.check_period_keyed_table also refuses a validity table whose check constraints on first_seq and end_seq alone refuse a void row (each is evaluated for first_seq = end_seq = 1), and a version table with no foreign key from its entity column to its entity table.
+
+**Why:** D-091 and the docs said both were checked; the step 2 check accepted either (review).
+
+**Rejected:** none recorded.
+
+Related: D-091, R-VERSION-100
+
+Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-156 Client types show what can be null (accepted)
+
+get_period_progress and list_categories_for_date return named row types (public.category_progress_row, public.category_choice), so the generated types mark their fields as nullable; reorder_categories takes p_parent_id last, optional (null: the top level). docs/database.md says which fields are actually never null.
+
+**Why:** The generated types claimed amount, cadence and parent_id were never null and required a parent id for the top level (review finding 6).
+
+**Rejected:** none recorded.
+
+Related: R-PROGRESS-090
+
+Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-157 Previews take the write's arguments (accepted)
+
+preview_expected_pay_date is replaced by preview_update_income (the income and the terms and correction period update_income takes) and preview_set_primary_income (the income), computed with the write's own helpers (private.income_edit_seq, private.income_new_terms, private.reprojected_end), including a correction shadowed by a later version.
+
+**Why:** The old preview could not express a correction from an earlier period, and previewed a shadowed correction wrongly (review).
+
+**Rejected:** none recorded.
+
+Related: D-092, R-PERIOD-036, D-151
+
+Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-158 Corrections work in an ended budget (accepted)
+
+An explicit correction names its period and works in an ended budget: create_category with p_from_period_id is accepted there like update_category, end_category, extend_category and add_transaction; only what applies from the current period answers budget_ended.
+
+**Why:** create_category refused a correction that the other category RPCs accepted (review).
+
+**Rejected:** none recorded.
+
+Related: D-065, R-CATEGORY-093
+
+Source: owner-request: coordinator, step 3 database review, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
+### D-159 A transaction keeps its category in its period (accepted)
+
+A transaction may always keep the category it already has while it stays in the same period; the in-force check applies only when the category or the period changes. Decided by the project coordinator on 2026-11-16.
+
+**Why:** A transaction whose category had ended, or had been voided by a reopen, could not be edited at all (review finding 3).
+
+**Rejected:** none recorded.
+
+Related: R-TRANSACTION-100, D-144
+
+Source: owner-request: project coordinator decision on the step 3 database review, 2026-11-16 (the product owner asked to proceed on the coordinator's defaults); code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -3381,7 +3541,7 @@ Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16
   - Context: D-141: a category stays a group once it had a subcategory, so an empty group expects nothing and takes no transaction until a subcategory is added.
   - Related: D-141, R-CATEGORY-090
   - Source: code: supabase/migrations/20261116120000_categories_transactions_progress.sql
-- **Q-082** Should an ended category be restorable (in force again from the current period) instead of being created anew?
+- **Q-082** (resolved by D-154) Should an ended category be restorable (in force again from the current period) instead of being created anew?
   - Context: Ending is final today (R-CATEGORY-072); a new category with the same name starts a new history, so past periods and the new one show two separate rows.
   - Related: R-CATEGORY-072, D-107
   - Source: code: supabase/migrations/20261116120000_categories_transactions_progress.sql
@@ -3433,10 +3593,14 @@ Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16
   - Context: The samples cover one debit card, one credit card and one Yuh account of one member. A card bill has one section per card. Step 7 introduces accounts.
   - Related: R-IMPORT-084
   - Source: owner-request: coordinator decisions on the sample statements for the import, 2026-11-16
-- **Q-071** Should a past boundary moved by hand and then moved back to where the projection put it stop being marked "set by hand"?
+- **Q-071** (resolved by D-152) Should a past boundary moved by hand and then moved back to where the projection put it stop being marked "set by hand"?
   - Context: move_period_start and record_early_pay_date always set periods.end_is_manual = true, also when the date goes back to its original day, and the contract has no way to clear the mark on a past period (set_expected_pay_date resets only the current period's end). The client cannot tell a past boundary that matches the schedule (C-LOGIC-003). The periods page now explains on the badge that the mark stays after moving back. Options: the database clears end_is_manual when a boundary is moved back to its projected date, or the mark is dropped for past periods.
   - Related: R-PERIOD-012, R-PERIOD-025, R-PERIOD-014
   - Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16
+- **Q-090** Should add_transaction take a client-generated id, so that a double-submitted or retried save records the transaction once?
+  - Context: The boundary operations name the period they act on (D-151), so a retry is refused; an add has no record to name yet. The review recorded a double-submitted add_transaction as two rows. The screens disable the button while saving, but a retry after a lost response would still record twice.
+  - Related: D-151, R-CONCURRENCY-100, R-TRANSACTION-095
+  - Source: owner-request: coordinator, step 3 database review, 2026-11-16
 
 ## Glossary
 

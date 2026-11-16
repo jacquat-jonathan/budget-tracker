@@ -48,7 +48,7 @@ select results_eq(
 -- Edits in the current period
 -- ---------------------------------------------------------------------------
 select lives_ok(
-  format('select public.update_income_terms(%L, 600000, 25, %L)', tests.id('primary'), 'nearest'),
+  format('select tests.update_income_terms(%L, 600000, 25, %L)', tests.id('primary'), 'nearest'),
   'R-MEMBER-001 R-INCOME-050: a member edits another member''s income (the primary) in the current period'
 );
 select results_eq(
@@ -57,7 +57,7 @@ select results_eq(
   'R-VERSION-001 R-VERSION-005: only the current period reads the new amount; past totals are unchanged'
 );
 select lives_ok(
-  format('select public.update_income_terms(%L, 650000, 25, %L)', tests.id('primary'), 'nearest'),
+  format('select tests.update_income_terms(%L, 650000, 25, %L)', tests.id('primary'), 'nearest'),
   'R-VERSION-006: a second edit in the same period'
 );
 select results_eq(
@@ -113,7 +113,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- Removing incomes from the current period
 -- ---------------------------------------------------------------------------
-select is(public.remove_income(tests.id('bob_past')), 'ended', 'R-INCOME-012 R-INCOME-050: an income that counted in the past is ended (here one member removes another member''s income)');
+select is(tests.remove_income(tests.id('bob_past')), 'ended', 'R-INCOME-012 R-INCOME-050: an income that counted in the past is ended (here one member removes another member''s income)');
 select results_eq(
   format('select first_seq, end_seq, is_active, next_pay_date from public.income_overview where id = %L', tests.id('bob_past')),
   $$values (4, 10, false, null::date)$$,
@@ -127,18 +127,18 @@ select results_eq(
     from generate_series(1, 10) as s$$,
   'R-INCOME-012 R-VERSION-005: past periods keep counting it; the current one no longer does'
 );
-select is(public.remove_income(tests.id('for_bob')), 'deleted', 'R-INCOME-012: an income added in the current period is deleted');
+select is(tests.remove_income(tests.id('for_bob')), 'deleted', 'R-INCOME-012: an income added in the current period is deleted');
 select is_empty(format('select 1 from public.incomes where id = %L', tests.id('for_bob')), 'R-INCOME-012: and is gone');
 select throws_ok(
-  format('select public.remove_income(%L)', tests.id('primary')),
+  format('select tests.remove_income(%L)', tests.id('primary')),
   'P0001', 'income_is_primary',
   'R-INCOME-009: the primary income cannot be removed (so the last income cannot either)'
 );
-select throws_ok(format('select public.remove_income(%L)', tests.id('bob_past')),
+select throws_ok(format('select tests.remove_income(%L)', tests.id('bob_past')),
   'P0001', 'income_ended', 'R-INCOME-012: an ended income cannot be removed again from now');
-select throws_ok(format('select public.update_income_terms(%L, 1000, 1, %L)', tests.id('bob_past'), 'nearest'),
+select throws_ok(format('select tests.update_income_terms(%L, 1000, 1, %L)', tests.id('bob_past'), 'nearest'),
   'P0001', 'income_ended', 'R-INCOME-012: nor edited from now');
-select throws_ok(format('select public.set_primary_income(%L)', tests.id('bob_past')),
+select throws_ok(format('select tests.set_primary_income(%L)', tests.id('bob_past')),
   'P0001', 'income_ended', 'R-INCOME-008 R-INCOME-017: nor made primary (only an income in force now can be)');
 
 -- ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ select throws_ok(format('select public.set_primary_income(%L)', tests.id('bob_pa
 -- ---------------------------------------------------------------------------
 select tests.remember('typo', public.add_income(tests.id('b'), 'Typo', 9000000, 25, 'nearest', null, tests.id('p1')));
 select lives_ok(
-  format('select public.update_income_terms(%L, 90000, 25, %L, %L)', tests.id('typo'), 'nearest', tests.id('p1')),
+  format('select tests.update_income_terms(%L, 90000, 25, %L, %L)', tests.id('typo'), 'nearest', tests.id('p1')),
   'R-VERSION-010: a back-dated typo is corrected from the period it started in'
 );
 select results_eq(
@@ -155,11 +155,11 @@ select results_eq(
   'R-VERSION-010: every period now reads the corrected amount'
 );
 select throws_ok(
-  format('select public.update_income_terms(%L, 1000, 1, %L, %L)', tests.id('bob_now'), 'nearest', tests.id('p4')),
+  format('select tests.update_income_terms(%L, 1000, 1, %L, %L)', tests.id('bob_now'), 'nearest', tests.id('p4')),
   'P0001', 'invalid_period',
   'R-VERSION-010: a correction cannot start before the income does'
 );
-select is(public.remove_income(tests.id('typo'), tests.id('p1')), 'deleted',
+select is(tests.remove_income(tests.id('typo'), tests.id('p1')), 'deleted',
   'R-INCOME-015: removing an income from the period it started in deletes it');
 select results_eq(
   format('select seq, income_total from pg_temp.totals(%L) where seq in (1, 8)', tests.id('b')),
@@ -167,7 +167,7 @@ select results_eq(
   'R-INCOME-015: and it is gone from every period'
 );
 select tests.remember('side', public.add_income(tests.id('b'), 'Side job', 30000, 1, 'nearest', null, tests.id('p4')));
-select is(public.remove_income(tests.id('side'), tests.id('p8')), 'ended',
+select is(tests.remove_income(tests.id('side'), tests.id('p8')), 'ended',
   'R-INCOME-015: removing it from a later past period ends it there');
 select results_eq(
   format('select seq, income_total from pg_temp.totals(%L) where seq in (7, 8)', tests.id('b')),
@@ -175,7 +175,7 @@ select results_eq(
   'R-INCOME-015: it counts up to the period before'
 );
 select lives_ok(
-  format('select public.update_income_terms(%L, 40000, 1, %L, %L)', tests.id('side'), 'nearest', tests.id('p4')),
+  format('select tests.update_income_terms(%L, 40000, 1, %L, %L)', tests.id('side'), 'nearest', tests.id('p4')),
   'R-VERSION-010: an ended income''s past can still be corrected'
 );
 select is(
@@ -189,10 +189,10 @@ select is(
 -- ---------------------------------------------------------------------------
 select tests.remember('m7', public.create_budget('M7', 'Salary', 500000, 25, 'nearest', '2026-07-01'));
 select tests.remember('m7_primary', (select primary_income_id from public.budgets where id = tests.id('m7')));
-select public.update_income_terms(tests.id('m7_primary'), 510000, 25, 'nearest',
+select tests.update_income_terms(tests.id('m7_primary'), 510000, 25, 'nearest',
   (select id from public.periods where budget_id = tests.id('m7') and seq = 2));
-select public.update_income_terms(tests.id('m7_primary'), 520000, 25, 'nearest');  -- now: period 4
-select public.update_income_terms(tests.id('m7_primary'), 505000, 25, 'nearest',
+select tests.update_income_terms(tests.id('m7_primary'), 520000, 25, 'nearest');  -- now: period 4
+select tests.update_income_terms(tests.id('m7_primary'), 505000, 25, 'nearest',
   (select id from public.periods where budget_id = tests.id('m7') and seq = 1));
 select results_eq(
   format('select * from pg_temp.totals(%L)', tests.id('m7')),
@@ -209,17 +209,17 @@ select tests.set_today('2026-11-25');
 select tests.authenticate_as('alice');
 select public.ensure_periods(tests.id('m6'));                                    -- the 25 Nov period starts
 select tests.remember('m6_primary', (select primary_income_id from public.budgets where id = tests.id('m6')));
-select public.update_income_terms(tests.id('m6_primary'), 600000, 25, 'nearest');  -- keyed to period 2
+select tests.update_income_terms(tests.id('m6_primary'), 600000, 25, 'nearest');  -- keyed to period 2
 select tests.clear_authentication();
 select tests.set_today('2026-11-26');
 select tests.authenticate_as('alice');
-select public.reopen_previous_period(tests.id('m6'));                            -- the salary is late
+select tests.reopen_previous_period(tests.id('m6'));                            -- the salary is late
 select results_eq(
   format('select amount, terms_from_seq from public.income_overview where id = %L', tests.id('m6_primary')),
   $$values (600000::bigint, 1)$$,
   'R-VERSION-011: the edit made in the merged period is re-keyed to the reopened one and in force now'
 );
-select public.update_income_terms(tests.id('m6_primary'), 700000, 25, 'nearest');
+select tests.update_income_terms(tests.id('m6_primary'), 700000, 25, 'nearest');
 select results_eq(
   format('select effective_from_seq, amount from public.income_versions where income_id = %L order by 1', tests.id('m6_primary')),
   $$values (1, 700000::bigint)$$,
@@ -228,7 +228,7 @@ select results_eq(
 select tests.clear_authentication();
 select tests.set_today('2026-11-27');
 select tests.authenticate_as('alice');
-select public.record_early_pay_date(tests.id('m6'), '2026-11-27');
+select tests.record_early_pay_date(tests.id('m6'), '2026-11-27');
 select results_eq(
   format('select * from pg_temp.totals(%L)', tests.id('m6')),
   $$values (1, 700000::bigint), (2, 700000::bigint)$$,
@@ -243,7 +243,7 @@ select tests.set_today('2026-12-10');
 select tests.authenticate_as('alice');
 select is(public.ensure_periods(tests.id('b')), 1, 'R-PERIOD-009: December starts period 11 (November''s)');
 select lives_ok(
-  format('select public.update_income_terms(%L, 700000, 25, %L)', tests.id('primary'), 'nearest'),
+  format('select tests.update_income_terms(%L, 700000, 25, %L)', tests.id('primary'), 'nearest'),
   'R-VERSION-001: editing the primary in period 11'
 );
 select results_eq(
@@ -260,25 +260,26 @@ select is(
 -- ---------------------------------------------------------------------------
 -- Validation and bounds
 -- ---------------------------------------------------------------------------
-select throws_ok(format('select public.update_income_terms(%L, 0, 25, %L)', tests.id('primary'), 'nearest'),
+select throws_ok(format('select tests.update_income_terms(%L, 0, 25, %L)', tests.id('primary'), 'nearest'),
   'P0001', 'invalid_amount', 'R-INCOME-014: an amount of 0 is rejected');
-select throws_ok(format('select public.update_income_terms(%L, 1000000001, 25, %L)', tests.id('primary'), 'nearest'),
+select throws_ok(format('select tests.update_income_terms(%L, 1000000001, 25, %L)', tests.id('primary'), 'nearest'),
   'P0001', 'invalid_amount', 'R-INCOME-014: an amount above CHF 10 million is rejected');
-select lives_ok(format('select public.update_income_terms(%L, 1000000000, 25, %L)', tests.id('primary'), 'nearest'),
+select lives_ok(format('select tests.update_income_terms(%L, 1000000000, 25, %L)', tests.id('primary'), 'nearest'),
   'R-INCOME-014: CHF 10 million is accepted');
-select throws_ok(format('select public.update_income_terms(%L, 1000, 0, %L)', tests.id('primary'), 'nearest'),
+select throws_ok(format('select tests.update_income_terms(%L, 1000, 0, %L)', tests.id('primary'), 'nearest'),
   'P0001', 'invalid_pay_day', 'R-INCOME-004: a pay day of 0 is rejected');
-select throws_ok(format('select public.update_income_terms(%L, 1000, 25, null)', tests.id('primary')),
+select throws_ok(format('select public.add_income(%L, %L, 1000, 25, null)', tests.id('b'), 'No rule'),
   'P0001', 'invalid_weekend_rule', 'R-PAYDATE-007: a missing weekend rule is rejected');
 select throws_ok(format('select public.add_income(%L, %L, 1000, 25)', tests.id('b'), '   '),
   'P0001', 'invalid_name', 'R-INCOME-004: a blank name is rejected');
 select throws_ok(
-  format('update public.incomes set name = %L where id = %L', ' padded ', tests.id('primary')),
-  '23514', null, 'R-MEMBER-001: a direct rename must be trimmed'
+  format('update public.incomes set name = %L where id = %L', 'Direct', tests.id('primary')),
+  '42501', null, 'R-CONCURRENCY-090: there is no direct rename: it would bypass the revision'
 );
 select lives_ok(
-  format('update public.incomes set name = %L where id = %L', 'Alice main job', tests.id('primary')),
-  'R-MEMBER-001: a member renames an income directly'
+  format('select public.update_income(%L, %s, %L)', tests.id('primary'),
+         (select revision from public.incomes where id = tests.id('primary')), '  Alice main job  '),
+  'R-MEMBER-001: a member renames an income (trimmed)'
 );
 
 -- Limits: 50 incomes in force; ended ones do not count, but there are at most 500 rows.
@@ -293,7 +294,7 @@ select throws_ok(format('select public.add_income(%L, %L, 100, 1)', tests.id('b'
 select lives_ok(
   format($q$do $d$ declare r record; begin
            for r in select id from public.incomes where budget_id = %L and name like 'Filler %%' loop
-             perform public.remove_income(r.id); end loop; end $d$$q$, tests.id('b')),
+             perform tests.remove_income(r.id); end loop; end $d$$q$, tests.id('b')),
   'R-INCOME-013: ending the fillers'
 );
 select lives_ok(format('select public.add_income(%L, %L, 400000, 25)', tests.id('b'), 'Partner'),

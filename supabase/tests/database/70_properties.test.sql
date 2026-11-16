@@ -4,6 +4,11 @@
 -- category and transaction operations to the sequences.
 --
 -- Deterministic: a fixed list of seeds; each seed runs on fresh budgets with its own user.
+-- Every pick is made from the run's own rows in the order the run created them (pg_temp.pick),
+-- never from a scan whose order depends on the database, so a seed walks the same way on any
+-- database. A failure names its seed and step: to replay one, keep only that seed in `seeds`
+-- (setseed runs again at the seed's start, so the walk is the same). The `fingerprint`
+-- diagnostic at the end changes when, and only when, a walk changes.
 -- To run it longer locally, raise the seed list or tests.prop_steps below and run
 --   npx supabase test db supabase/tests/database/00_helpers.test.sql supabase/tests/database/70_properties.test.sql
 --
@@ -30,6 +35,7 @@ insert into prop_config values (220);
 
 create temp table runs (seed double precision, step integer, budget text, op text, outcome text) on commit drop;
 create temp table failures (seed double precision, step integer, budget text, op text, problem text) on commit drop;
+grant insert on failures to authenticated;
 create temp table documented_codes (code text primary key) on commit drop;
 insert into documented_codes values
   ('budget_not_found'), ('income_not_found'), ('period_not_found'), ('member_not_found'),
@@ -49,6 +55,62 @@ insert into documented_codes values
 
 create or replace function pg_temp.primary_of(b uuid) returns uuid language sql as $$
   select primary_income_id from public.budgets where id = b
+$$;
+-- Every row the run created, in creation order (incomes, categories, transactions).
+create temp table made (ord bigserial primary key, kind text not null, budget uuid not null, id uuid not null unique) on commit drop;
+grant select, insert on made to authenticated;
+grant usage on sequence made_ord_seq to authenticated;
+create or replace function pg_temp.made(k text, b uuid, i uuid) returns void language sql as $$
+  insert into made (kind, budget, id) values (k, b, i) on conflict (id) do nothing
+$$;
+-- Record the categories of a budget the run has not seen yet (an "Other" made with a
+-- subcategory), in a deterministic order: by name, then by when the RPC made them.
+create or replace function pg_temp.made_categories(b uuid) returns void language sql as $$
+  insert into made (kind, budget, id)
+  select 'category', b, c.id from public.categories as c
+  where c.budget_id = b and not exists (select 1 from made as m where m.id = c.id)
+  order by c.name, c.created_at
+$$;
+-- A random existing row of kind k in budget b satisfying cond (SQL on the table, alias t),
+-- chosen from the run's rows in creation order, so the pick depends only on the seed.
+create or replace function pg_temp.pick(k text, b uuid, cond text default 'true') returns uuid language plpgsql as $$
+declare
+  v_ids uuid[];
+begin
+  execute format('select array_agg(m.id order by m.ord) from made as m join %s as t on t.id = m.id where m.kind = $1 and m.budget = $2 and (%s)',
+                 case k when 'income' then 'public.incomes' when 'category' then 'public.categories' else 'public.transactions' end, cond)
+    into v_ids using k, b;
+  if v_ids is null then
+    return null;
+  end if;
+  return v_ids[1 + floor(random() * cardinality(v_ids))::integer];
+end;
+$$;
+-- A random period of budget b, by seq.
+create or replace function pg_temp.pick_period(b uuid) returns public.periods language plpgsql as $$
+declare
+  v_n integer := (select count(*) from public.periods where budget_id = b);
+  v public.periods;
+begin
+  select p.* into v from public.periods as p where p.budget_id = b order by p.seq offset floor(random() * v_n)::integer limit 1;
+  return v;
+end;
+$$;
+-- A deterministic shuffle of an array already in a deterministic order.
+create or replace function pg_temp.shuffle(a uuid[]) returns uuid[] language plpgsql as $$
+declare
+  j integer;
+  t uuid;
+begin
+  if a is null then
+    return a;
+  end if;
+  for i in reverse cardinality(a)..2 loop
+    j := 1 + floor(random() * i)::integer;
+    t := a[i]; a[i] := a[j]; a[j] := t;
+  end loop;
+  return a;
+end;
 $$;
 -- The periods containing some dates (excluded from the closed-totals check).
 create or replace function pg_temp.seqs_of(b uuid, ds date[]) returns integer[] language sql as $$
@@ -76,7 +138,7 @@ create or replace function pg_temp.totals_disagree(b uuid) returns setof text la
          or s.result <> s.income_total - s.spent_total)
 $$;
 
-select plan(10);
+select plan(12);
 
 do $prop$
 declare
@@ -111,6 +173,7 @@ declare
   v_date date;
   v_first date;
   v_kind public.transaction_kind;
+  v_pick uuid;  -- picks are called once, never in a WHERE clause (it would run per row scanned)
 begin
   for v_seed in select seed from seeds order by seed loop
     perform setseed(v_seed);
@@ -121,6 +184,8 @@ begin
     perform tests.remember(v_user || 'b1', public.create_budget('Twenty-fifth', 'Salary', 500000, 25, 'nearest', '2025-09-01'));
     perform tests.remember(v_user || 'b2', public.create_budget('Month end', 'Salary', 600000, 31, 'next'));
     perform tests.remember(v_user || 'b3', public.create_budget('First', 'Salary', 400000, 1, 'previous', '2025-12-01'));
+    perform pg_temp.made('income', tests.id(v_user || n), pg_temp.primary_of(tests.id(v_user || n)))
+    from unnest(array['b1', 'b2', 'b3']) as n;
     perform tests.clear_authentication();
 
     for v_step in 1..v_steps loop
@@ -148,7 +213,8 @@ begin
         when v_r < 0.83 then 'reopen_previous_period'
         when v_r < 0.91 then 'move_period_start'
         when v_r < 0.96 then 'ensure'
-        else 'current'
+        when v_r < 0.98 then 'current'
+        else 'preview_then_correct_primary'
       end;
       else
         v_op := case
@@ -164,7 +230,9 @@ begin
           when v_r < 0.80 then 'update_transaction'
           when v_r < 0.86 then 'delete_transaction'
           when v_r < 0.90 then 'stale_edit'
-          when v_r < 0.94 then 'reorder_categories'
+          when v_r < 0.92 then 'reorder_categories'
+          when v_r < 0.95 then 'extend_category'
+          when v_r < 0.98 then 'restore_category'
           else 'reopen_previous_period'
         end;
       end if;
@@ -181,59 +249,69 @@ begin
           perform tests.set_today(v_today + 1 + floor(random() * 12)::integer);
         else
           perform tests.authenticate_as(v_user);
-          select p.* into v_period from public.periods as p
-          where p.budget_id = v_budget order by random() limit 1;
+          v_period := pg_temp.pick_period(v_budget);
           if v_op = 'update_terms' then
-            select id into v_income from public.incomes
-            where budget_id = v_budget and end_seq is null order by random() limit 1;
+            v_income := pg_temp.pick('income', v_budget, 't.end_seq is null');
             v_amount := 100000 + floor(random() * 800000)::bigint;
-            perform public.update_income_terms(v_income, v_amount, 1 + floor(random() * 31)::integer,
+            perform tests.update_income_terms(v_income, v_amount, 1 + floor(random() * 31)::integer,
               (array['nearest', 'previous', 'next', 'none'])[1 + floor(random() * 4)::integer]::public.weekend_rule);
           elsif v_op = 'preview_then_update_primary' then
             v_pay_day := 1 + floor(random() * 31)::integer;
             v_rule := (array['nearest', 'previous', 'next', 'none'])[1 + floor(random() * 4)::integer]::public.weekend_rule;
-            select end_date into v_preview_end from public.preview_expected_pay_date(v_budget, v_pay_day, v_rule);
-            perform public.update_income_terms(pg_temp.primary_of(v_budget), 500000, v_pay_day, v_rule);
+            select end_date into v_preview_end from tests.preview_expected_pay_date(v_budget, v_pay_day, v_rule);
+            perform tests.update_income_terms(pg_temp.primary_of(v_budget), 500000, v_pay_day, v_rule);
             if v_preview_end is distinct from (select end_date from public.periods
                                                 where budget_id = v_budget and private.today() between start_date and end_date) then
               insert into failures values (v_seed, v_step, v_name, v_op, 'preview and write disagree');
             end if;
-          elsif v_op = 'correct_terms' then
-            select id into v_income from public.incomes where budget_id = v_budget order by random() limit 1;
+          elsif v_op = 'preview_then_correct_primary' then
+            -- a correction of the primary's terms from a past period: preview, then the write
+            v_pay_day := 1 + floor(random() * 31)::integer;
             v_from := v_period.seq;
-            perform public.update_income_terms(v_income, 100000 + floor(random() * 800000)::bigint,
+            select end_date into v_preview_end
+            from public.preview_update_income(pg_temp.primary_of(v_budget), null, v_pay_day, null, v_period.id);
+            perform public.update_income(pg_temp.primary_of(v_budget),
+              (select revision from public.incomes where id = pg_temp.primary_of(v_budget)),
+              p_pay_day => v_pay_day, p_from_period_id => v_period.id);
+            if v_preview_end is distinct from (select end_date from public.periods
+                                                where budget_id = v_budget and private.today() between start_date and end_date) then
+              insert into failures values (v_seed, v_step, v_name, v_op, 'preview and correction disagree');
+            end if;
+          elsif v_op = 'correct_terms' then
+            v_income := pg_temp.pick('income', v_budget);
+            v_from := v_period.seq;
+            perform tests.update_income_terms(v_income, 100000 + floor(random() * 800000)::bigint,
               1 + floor(random() * 31)::integer, 'nearest', v_period.id);
           elsif v_op = 'add_income' then
-            perform public.add_income(v_budget, 'Extra', 1000 + floor(random() * 300000)::bigint,
-                                      1 + floor(random() * 31)::integer);
+            perform pg_temp.made('income', v_budget, public.add_income(v_budget, 'Extra', 1000 + floor(random() * 300000)::bigint,
+                                      1 + floor(random() * 31)::integer));
           elsif v_op = 'add_income_backdated' then
             v_from := v_period.seq;
-            perform public.add_income(v_budget, 'Back-dated', 1000 + floor(random() * 300000)::bigint,
-                                      1 + floor(random() * 31)::integer, 'nearest', null, v_period.id);
+            perform pg_temp.made('income', v_budget, public.add_income(v_budget, 'Back-dated', 1000 + floor(random() * 300000)::bigint,
+                                      1 + floor(random() * 31)::integer, 'nearest', null, v_period.id));
           elsif v_op in ('remove_income', 'remove_income_from') then
-            select i.id into v_income from public.incomes as i join public.budgets as b on b.id = i.budget_id
-            where i.budget_id = v_budget and i.id <> b.primary_income_id order by random() limit 1;
+            v_income := pg_temp.pick('income', v_budget, format('t.id <> %L', pg_temp.primary_of(v_budget)));
             if v_income is not null then
               if v_op = 'remove_income' then
-                perform public.remove_income(v_income);
+                perform tests.remove_income(v_income);
               else
                 v_from := v_period.seq;
-                perform public.remove_income(v_income, v_period.id);
+                perform tests.remove_income(v_income, v_period.id);
               end if;
             end if;
           elsif v_op = 'set_primary' then
-            select id into v_income from public.incomes where budget_id = v_budget order by random() limit 1;
-            perform public.set_primary_income(v_income);
+            v_income := pg_temp.pick('income', v_budget);
+            perform tests.set_primary_income(v_income);
           elsif v_op = 'set_end_date' then
-            perform public.set_budget_end_date(v_budget, v_today + floor(random() * 200)::integer - 20);
+            perform tests.set_budget_end_date(v_budget, v_today + floor(random() * 200)::integer - 20);
           elsif v_op = 'clear_end_date' then
-            perform public.set_budget_end_date(v_budget, null);
+            perform tests.set_budget_end_date(v_budget, null);
           elsif v_op = 'set_expected_pay_date' then
-            perform public.set_expected_pay_date(v_budget, v_today + floor(random() * 45)::integer - 3);
+            perform tests.set_expected_pay_date(v_budget, v_today + floor(random() * 45)::integer - 3);
           elsif v_op = 'reset_expected_pay_date' then
-            perform public.set_expected_pay_date(v_budget);
+            perform tests.set_expected_pay_date(v_budget);
           elsif v_op = 'record_early_pay_date' then
-            perform public.record_early_pay_date(v_budget, v_today - floor(random() * 10)::integer + 1);
+            perform tests.record_early_pay_date(v_budget, v_today - floor(random() * 10)::integer + 1);
           elsif v_op = 'reopen_previous_period' then
             -- The reopen catches up first, so the period it touches is the one before the
             -- latest after catching up (a budget not caught up this step may lack one).
@@ -243,7 +321,7 @@ begin
             -- the terms in force now, for each income in force now
             select coalesce(jsonb_object_agg(id, amount), '{}') into v_terms_before
             from public.income_overview where budget_id = v_budget and is_active;
-            perform public.reopen_previous_period(v_budget,
+            perform tests.reopen_previous_period(v_budget,
               case when random() < 0.5 then null else v_today + floor(random() * 15)::integer end);
             select coalesce(jsonb_object_agg(id, amount), '{}') into v_terms_after
             from public.income_overview where budget_id = v_budget and is_active;
@@ -253,25 +331,24 @@ begin
             end if;
           elsif v_op = 'move_period_start' then
             v_touched := array[v_period.seq - 1, v_period.seq];
-            perform public.move_period_start(v_period.id, v_period.start_date + floor(random() * 21)::integer - 10);
+            perform tests.move_period_start(v_period.id, v_period.start_date + floor(random() * 21)::integer - 10);
           elsif v_op in ('create_category', 'create_category_backdated') then
             if v_op = 'create_category_backdated' then
               v_from := v_period.seq;
             end if;
-            perform public.create_category(v_budget, 'Cat ' || v_step, p_amount => floor(random() * 300000)::bigint,
+            perform pg_temp.made('category', v_budget, (select c.id from public.create_category(v_budget, 'Cat ' || v_step, p_amount => floor(random() * 300000)::bigint,
               p_cadence => (array['monthly', 'yearly'])[1 + floor(random() * 2)::integer]::public.expectation_cadence,
-              p_from_period_id => case when v_from is not null then v_period.id end);
+              p_from_period_id => case when v_from is not null then v_period.id end) as c));
           elsif v_op = 'create_subcategory' then
-            select id into v_category from public.categories
-            where budget_id = v_budget and parent_id is null order by random() limit 1;
+            v_category := pg_temp.pick('category', v_budget, 't.parent_id is null');
             if random() < 0.3 then
               v_from := v_period.seq;
             end if;
-            perform public.create_category(v_budget, 'Sub ' || v_step, v_category, floor(random() * 100000)::bigint,
-              'monthly', case when v_from is not null then v_period.id end, 'Other');
+            perform pg_temp.made('category', v_budget, (select c.id from public.create_category(v_budget, 'Sub ' || v_step, v_category, floor(random() * 100000)::bigint,
+              'monthly', case when v_from is not null then v_period.id end, 'Other') as c));
+            perform pg_temp.made_categories(v_budget);
           elsif v_op in ('update_expectation', 'correct_expectation') then
-            select id into v_category from public.categories
-            where budget_id = v_budget and not is_group order by random() limit 1;
+            v_category := pg_temp.pick('category', v_budget, 'not t.is_group');
             v_amount := floor(random() * 500000)::bigint;
             if v_op = 'correct_expectation' then
               v_from := v_period.seq;
@@ -280,10 +357,10 @@ begin
               p_amount => v_amount, p_cadence => (array['monthly', 'yearly'])[1 + floor(random() * 2)::integer]::public.expectation_cadence,
               p_from_period_id => case when v_from is not null then v_period.id end);
           elsif v_op = 'rename_category' then
-            select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+            v_category := pg_temp.pick('category', v_budget);
             perform public.update_category(v_category, (select revision from public.categories where id = v_category), 'Renamed ' || v_step);
           elsif v_op in ('end_category', 'end_category_from') then
-            select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+            v_category := pg_temp.pick('category', v_budget);
             if v_op = 'end_category_from' then
               v_from := v_period.seq;
             end if;
@@ -298,48 +375,68 @@ begin
             if v_kind <> 'extra_income' then
               if random() < 0.85 then
                 begin
-                  select category_id into v_category from public.list_categories_for_date(v_budget, v_date) order by random() limit 1;
+                  v_category := pg_temp.pick('category', v_budget,
+                    format('t.id in (select category_id from public.list_categories_for_date(%L, %L))', v_budget, v_date));
                 exception when sqlstate 'P0001' then
                   v_category := null;
                 end;
               end if;
               if v_category is null then
-                select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+                v_category := pg_temp.pick('category', v_budget);
               end if;
             end if;
             v_amount := 1 + floor(random() * 200000)::bigint;
             if v_op = 'add_transaction' then
               v_touched := pg_temp.seqs_of(v_budget, array[v_date]);
-              perform public.add_transaction(v_budget, v_kind, v_amount, v_date, v_category, 'Step ' || v_step);
+              perform pg_temp.made('transaction', v_budget,
+                (select l.id from public.add_transaction(v_budget, v_kind, v_amount, v_date, v_category, 'Step ' || v_step) as l));
             else
-              select * into v_tx from public.transactions where budget_id = v_budget order by random() limit 1;
+              v_pick := pg_temp.pick('transaction', v_budget);
+              select * into v_tx from public.transactions where id = v_pick;
               if v_tx.id is not null then
                 v_touched := pg_temp.seqs_of(v_budget, array[v_date, v_tx.date]);
                 perform public.update_transaction(v_tx.id, v_tx.revision, v_kind, v_amount, v_date, v_category);
               end if;
             end if;
           elsif v_op = 'delete_transaction' then
-            select * into v_tx from public.transactions where budget_id = v_budget order by random() limit 1;
+            v_pick := pg_temp.pick('transaction', v_budget);
+            select * into v_tx from public.transactions where id = v_pick;
             if v_tx.id is not null then
               v_touched := pg_temp.seqs_of(v_budget, array[v_tx.date]);
               perform public.delete_transaction(v_tx.id, v_tx.revision);
             end if;
           elsif v_op = 'stale_edit' then
             -- an edit based on an older revision must be refused and change nothing
-            select * into v_tx from public.transactions where budget_id = v_budget and revision > 1 order by random() limit 1;
+            v_pick := pg_temp.pick('transaction', v_budget, 't.revision > 1');
+            select * into v_tx from public.transactions where id = v_pick;
             if v_tx.id is not null then
               perform public.update_transaction(v_tx.id, v_tx.revision - 1, v_tx.kind, v_tx.amount + 1, v_tx.date, v_tx.category_id);
               insert into failures values (v_seed, v_step, v_name, v_op, 'a stale transaction edit was accepted');
             else
-              select id into v_category from public.categories where budget_id = v_budget order by random() limit 1;
+              v_category := pg_temp.pick('category', v_budget);
               if v_category is not null then
                 perform public.update_category(v_category, (select revision from public.categories where id = v_category) - 1, 'Stale');
                 insert into failures values (v_seed, v_step, v_name, v_op, 'a stale category edit was accepted');
               end if;
             end if;
+          elsif v_op = 'extend_category' then
+            v_category := pg_temp.pick('category', v_budget);
+            v_from := v_period.seq;
+            perform public.extend_category(v_category, (select revision from public.categories where id = v_category), v_period.id);
+          elsif v_op = 'restore_category' then
+            -- from now (closed periods must not change), or as a correction from its end
+            v_category := pg_temp.pick('category', v_budget, 't.end_seq is not null');
+            if v_category is not null and random() < 0.4 then
+              v_from := (select end_seq from public.categories where id = v_category);
+              perform public.restore_category(v_category, (select revision from public.categories where id = v_category),
+                (select id from public.periods where budget_id = v_budget and seq = v_from));
+            elsif v_category is not null then
+              perform public.restore_category(v_category, (select revision from public.categories where id = v_category));
+            end if;
           elsif v_op = 'reorder_categories' then
-            perform public.reorder_categories(v_budget, null,
-              array(select id from public.categories where budget_id = v_budget and parent_id is null and end_seq is null order by random()));
+            perform public.reorder_categories(v_budget,
+              pg_temp.shuffle(array(select m.id from made as m join public.categories as c on c.id = m.id
+                                    where m.budget = v_budget and c.parent_id is null and c.end_seq is null order by m.ord)));
           elsif v_op = 'ensure' then
             perform public.ensure_periods(v_budget);
           else
@@ -433,6 +530,10 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in
   '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_subcategory', 'correct_expectation', 'end_category', 'end_category_from', 'create_category_backdated')),
   '>=', 60, 'R-VERSION-070 R-CATEGORY-092: and changed categories in every way, corrections included');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('extend_category', 'restore_category')),
+  '>=', 20, 'R-CATEGORY-100 R-CATEGORY-101: including extending and restoring categories');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'preview_then_correct_primary'),
+  '>=', 5, 'R-PERIOD-036: and the previews of corrections always matched the write');
 select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_edit'),
   '>=', 10, 'R-CONCURRENCY-070: and refused every stale edit it tried');
 select cmp_ok(
@@ -452,6 +553,8 @@ select cmp_ok((select count(*)::integer from runs where op = 'preview_then_updat
 select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 
+select diag('fingerprint of the walks: ' || md5(string_agg(format('%s/%s/%s/%s/%s', seed, step, budget, op, outcome), ',' order by seed, step)))
+from runs;
 select diag(op || ' / ' || split_part(outcome, ':', 1) || coalesce(':' || nullif(split_part(outcome, ':', 2), ''), '') || ' x' || count(*))
 from runs group by op, outcome order by op, count(*) desc;
 

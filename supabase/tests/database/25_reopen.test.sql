@@ -33,37 +33,38 @@ select tests.remember('fin', public.create_budget('Final', 'Salary', 500000, 25,
 
 -- The expected-pay-date preview uses the logic of the write.
 select results_eq(
-  format('select end_date, expected_pay_date, end_is_manual from public.preview_expected_pay_date(%L, 5)', tests.id('prev')),
+  format('select end_date, expected_pay_date, end_is_manual from tests.preview_expected_pay_date(%L, 5)', tests.id('prev')),
   $$values ('2026-12-03'::date, '2026-12-04'::date, false)$$,
   'R-PERIOD-036: pay day 5 would end the current period on 3 Dec (5 Dec is a Saturday: paid Friday 4)'
 );
-select public.update_income_terms(pg_temp.primary_of(tests.id('prev')), 500000, 5, 'nearest');
+select tests.update_income_terms(pg_temp.primary_of(tests.id('prev')), 500000, 5, 'nearest');
 select is((select end_date from public.periods where budget_id = tests.id('prev') and seq = 1), '2026-12-03'::date,
   'R-PERIOD-036: and the write does exactly that');
 select tests.remember('prev_other', public.add_income(tests.id('prev'), 'Other', 100000, 10));
 select results_eq(
-  format('select end_date, expected_pay_date from public.preview_expected_pay_date(%L, p_income_id => %L)',
+  format('select end_date, expected_pay_date from tests.preview_expected_pay_date(%L, p_income_id => %L)',
          tests.id('prev'), tests.id('prev_other')),
   $$values ('2026-12-09'::date, '2026-12-10'::date)$$,
   'R-PERIOD-036: switching the primary to the income paid on the 10th would end it on 9 Dec'
 );
-select public.set_primary_income(tests.id('prev_other'));
+select tests.set_primary_income(tests.id('prev_other'));
 select is((select end_date from public.periods where budget_id = tests.id('prev') and seq = 1), '2026-12-09'::date,
   'R-PERIOD-036: and the switch does exactly that');
-select public.set_expected_pay_date(tests.id('prev'), '2026-12-20');
+select tests.set_expected_pay_date(tests.id('prev'), '2026-12-20');
 select results_eq(
-  format('select end_date, expected_pay_date, end_is_manual from public.preview_expected_pay_date(%L, 25)', tests.id('prev')),
+  format('select end_date, expected_pay_date, end_is_manual from tests.preview_expected_pay_date(%L, 25)', tests.id('prev')),
   $$values ('2026-12-19'::date, '2026-12-20'::date, true)$$,
   'R-PERIOD-036 R-PERIOD-014: an end set by hand would not change'
 );
 select throws_ok(
-  format('select public.preview_expected_pay_date(%L, p_income_id => %L)', tests.id('prev'), pg_temp.primary_of(tests.id('tie'))),
-  'P0001', 'income_not_found', 'R-SECURITY-004: an income of another budget is not found');
-select throws_ok(format('select public.preview_expected_pay_date(%L, 32)', tests.id('prev')),
+  format('select public.preview_set_primary_income(%L)', gen_random_uuid()),
+  'P0001', 'income_not_found', 'R-SECURITY-004: an income that does not exist is not found');
+select throws_ok(format('select tests.preview_expected_pay_date(%L, 32)', tests.id('prev')),
   'P0001', 'invalid_pay_day', 'R-PERIOD-036: invalid terms are refused');
+select tests.remember('prev_primary', pg_temp.primary_of(tests.id('prev')));
 select tests.authenticate_as('mallory');
-select throws_ok(format('select public.preview_expected_pay_date(%L)', tests.id('prev')),
-  'P0001', 'budget_not_found', 'R-SECURITY-002: a non-member cannot preview');
+select throws_ok(format('select public.preview_update_income(%L, p_pay_day => 1)', tests.id('prev_primary')),
+  'P0001', 'income_not_found', 'R-SECURITY-002: a non-member cannot preview');
 select throws_ok(format('select public.preview_reopen(%L)', tests.id('prev')),
   'P0001', 'budget_not_found', 'R-SECURITY-002: nor preview a reopen');
 select tests.authenticate_as('alice');
@@ -109,13 +110,13 @@ insert into public.tst_refs (item_id) values ('00000000-0000-0000-0000-000000000
 select tests.authenticate_as('alice');
 
 -- tie: a raise in the new period, then a correction of the previous period written later
-select public.update_income_terms(pg_temp.income(tests.id('tie'), 'Salary'), 600000, 25, 'nearest');
-select public.update_income_terms(pg_temp.income(tests.id('tie'), 'Salary'), 510000, 25, 'nearest',
+select tests.update_income_terms(pg_temp.income(tests.id('tie'), 'Salary'), 600000, 25, 'nearest');
+select tests.update_income_terms(pg_temp.income(tests.id('tie'), 'Salary'), 510000, 25, 'nearest',
   (select id from public.periods where budget_id = tests.id('tie') and seq = 1));
 -- chain: a new primary, and the old income removed
 select tests.remember('chain_new', public.add_income(tests.id('chain'), 'New', 700000, 25));
-select public.set_primary_income(tests.id('chain_new'));
-select public.remove_income(pg_temp.income(tests.id('chain'), 'Salary'));
+select tests.set_primary_income(tests.id('chain_new'));
+select tests.remove_income(pg_temp.income(tests.id('chain'), 'Salary'));
 select results_eq(
   format('select record_kind, record_name, change, replaces_previous from public.preview_reopen(%L) order by record_name, change', tests.id('chain')),
   $$values ('income', 'New', 'added', false), ('income', 'New', 'made_primary', false), ('income', 'Salary', 'ended', false)$$,
@@ -131,7 +132,7 @@ select results_eq(
   $$values ('Salary', 'terms_changed', true)$$,
   'R-PERIOD-035: the preview says the raise would replace the previous period''s terms'
 );
-select lives_ok(format('select public.reopen_previous_period(%L, %L)', tests.id('tie'), '2026-11-28'),
+select lives_ok(format('select tests.reopen_previous_period(%L, %L)', tests.id('tie'), '2026-11-28'),
   'R-PERIOD-023: reopening with the date the salary is expected');
 select results_eq(
   format('select end_date, end_is_manual from public.periods where budget_id = %L and seq = 1', tests.id('tie')),
@@ -149,7 +150,7 @@ select results_eq(
   'R-VERSION-013 R-VERSION-011: one version, nothing beyond the latest period'
 );
 
-select lives_ok(format('select public.reopen_previous_period(%L)', tests.id('chain')), 'R-PERIOD-023: first reopen of the chain');
+select lives_ok(format('select tests.reopen_previous_period(%L)', tests.id('chain')), 'R-PERIOD-023: first reopen of the chain');
 select results_eq(
   format('select name, is_primary, is_active, first_seq, end_seq from public.income_overview where budget_id = %L order by name', tests.id('chain')),
   $$values ('New', true, true, 2, null::integer), ('Salary', false, false, 1, 2)$$,
@@ -160,7 +161,7 @@ select results_eq(
   $$values ('New', 'added'), ('New', 'made_primary'), ('Salary', 'removed')$$,
   'R-PERIOD-035: before the second reopen the preview says the old income would be removed altogether'
 );
-select lives_ok(format('select public.reopen_previous_period(%L)', tests.id('chain')), 'R-PERIOD-023: second reopen of the chain');
+select lives_ok(format('select tests.reopen_previous_period(%L)', tests.id('chain')), 'R-PERIOD-023: second reopen of the chain');
 select results_eq(
   format('select seq, start_date, end_date, income_total from public.period_summaries where budget_id = %L', tests.id('chain')),
   $$values (1, '2026-09-25'::date, '2026-12-24'::date, 700000::bigint)$$,
@@ -174,7 +175,7 @@ select results_eq(
   $$values ('item', 'Groceries', 'removed')$$,
   'R-PERIOD-035 R-VERSION-014: the preview covers every registered table'
 );
-select lives_ok(format('select public.reopen_previous_period(%L)', tests.id('clamp')), 'R-PERIOD-023: clamp, first reopen');
+select lives_ok(format('select tests.reopen_previous_period(%L)', tests.id('clamp')), 'R-PERIOD-023: clamp, first reopen');
 select tests.clear_authentication();
 select results_eq(
   $$select first_seq, end_seq from public.tst_items where id = '00000000-0000-0000-0000-0000000000a1'$$,
@@ -195,10 +196,10 @@ select results_eq(
   $$values (2, '2026-11-25'::date, '2026-12-24'::date, true)$$,
   'R-BUDGET-008: the period containing the end date (1 Dec) is the last and is current'
 );
-select throws_ok(format('select public.record_early_pay_date(%L, %L)', tests.id('fin'), '2026-12-05'),
+select throws_ok(format('select tests.record_early_pay_date(%L, %L)', tests.id('fin'), '2026-12-05'),
   'P0001', 'invalid_boundary', 'R-PERIOD-034 R-BUDGET-007: an early salary after the end date would start a period after it: refused');
 select throws_ok(
-  format('select public.move_period_start(%L, %L)', (select id from public.periods where budget_id = tests.id('fin') and seq = 2), '2026-12-05'),
+  format('select tests.move_period_start(%L, %L)', (select id from public.periods where budget_id = tests.id('fin') and seq = 2), '2026-12-05'),
   'P0001', 'invalid_boundary', 'R-PERIOD-012 R-BUDGET-007: moving the last start past the end date is a contract error');
 
 -- ===========================================================================
@@ -207,7 +208,7 @@ select throws_ok(
 select pg_temp.day('2026-12-25');
 select is(public.ensure_periods(tests.id('clamp')), 1, 'R-PERIOD-009: the next salary starts a period');
 select pg_temp.day('2026-12-26');
-select lives_ok(format('select public.reopen_previous_period(%L)', tests.id('clamp')), 'R-PERIOD-023: clamp, second reopen');
+select lives_ok(format('select tests.reopen_previous_period(%L)', tests.id('clamp')), 'R-PERIOD-023: clamp, second reopen');
 select results_eq(
   format('select start_date, end_date from public.periods where budget_id = %L', tests.id('clamp')),
   $$values ('2026-10-26'::date, '2027-01-24'::date)$$,
@@ -215,11 +216,11 @@ select results_eq(
 );
 select pg_temp.day('2027-01-20');
 select results_eq(
-  format('select end_date from public.preview_expected_pay_date(%L, 20)', tests.id('clamp')),
+  format('select end_date from tests.preview_expected_pay_date(%L, 20)', tests.id('clamp')),
   $$values ('2027-01-25'::date)$$,
   'R-PERIOD-036 R-PERIOD-020: pay day 20 would put the next salary on 19 Feb, so the end is clamped to 92 days'
 );
-select public.update_income_terms(pg_temp.primary_of(tests.id('clamp')), 500000, 20, 'nearest');
+select tests.update_income_terms(pg_temp.primary_of(tests.id('clamp')), 500000, 20, 'nearest');
 select is((select end_date from public.periods where budget_id = tests.id('clamp')), '2027-01-25'::date,
   'R-PERIOD-020 R-PERIOD-029: the re-projection is clamped to 92 days');
 

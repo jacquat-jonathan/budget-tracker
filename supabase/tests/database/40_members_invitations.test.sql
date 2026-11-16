@@ -162,7 +162,7 @@ select throws_ok(format('select public.invite_member(%L, %L)', tests.id('b'), 'x
   'P0001', 'not_owner', 'R-MEMBER-004: a member cannot invite');
 select throws_ok(format('select public.remove_member(%L, %L)', tests.id('b'), tests.get_user_id('alice')),
   'P0001', 'not_owner', 'R-MEMBER-004: a member cannot remove members');
-select throws_ok(format('select public.set_budget_end_date(%L, %L)', tests.id('b'), '2027-01-01'),
+select throws_ok(format('select tests.set_budget_end_date(%L, %L)', tests.id('b'), '2027-01-01'),
   'P0001', 'not_owner', 'R-MEMBER-003: a member cannot set the end date');
 select throws_ok(format('select public.delete_budget(%L)', tests.id('b')),
   'P0001', 'not_owner', 'R-MEMBER-002 R-BUDGET-018: a member cannot delete the budget, and is told why');
@@ -174,7 +174,7 @@ select throws_ok(
 select throws_ok(
   format('insert into public.budget_members (budget_id, user_id) values (%L, %L)', tests.id('b'), tests.get_user_id('carol')),
   '42501', null, 'R-MEMBER-004: a member cannot add members directly');
-update public.budgets set name = 'Our home' where id = tests.id('b');
+select public.rename_budget(tests.id('b'), 'Our home', (select revision from public.budgets where id = tests.id('b')));
 select is((select name from public.budgets where id = tests.id('b')), 'Our home',
   'R-BUDGET-009 R-MEMBER-001: a member can rename the budget');
 
@@ -193,13 +193,13 @@ select throws_ok(format('select public.remove_member(%L, %L)', tests.id('b'), te
 select throws_ok(format('select public.remove_member(%L, %L)', tests.id('b'), tests.get_user_id('carol')),
   'P0001', 'member_not_found', 'R-MEMBER-004: removing a non-member');
 
-select public.set_primary_income(tests.id('bob_past'));
+select tests.set_primary_income(tests.id('bob_past'));
 select throws_ok(format('select public.remove_member(%L, %L)', tests.id('b'), tests.get_user_id('bob')),
   'P0001', 'member_has_primary_income', 'R-MEMBER-009: a member with the primary income cannot be removed');
 select tests.authenticate_as('bob');
 select throws_ok(format('select public.leave_budget(%L)', tests.id('b')),
   'P0001', 'member_has_primary_income', 'R-MEMBER-009: nor leave');
-select public.set_primary_income((select id from public.incomes where budget_id = tests.id('b') and user_id = tests.get_user_id('alice')));
+select tests.set_primary_income((select id from public.incomes where budget_id = tests.id('b') and user_id = tests.get_user_id('alice')));
 
 select lives_ok(format('select public.leave_budget(%L)', tests.id('b')), 'R-MEMBER-005: a member leaves');
 select is_empty(format('select 1 from public.budgets where id = %L', tests.id('b')),
@@ -272,7 +272,7 @@ select throws_ok($$select public.create_budget('One too many', 'Salary', 1000, 1
 -- ---------------------------------------------------------------------------
 select tests.authenticate_as('dave');
 select tests.remember('over', public.create_budget('Over', 'Dave salary', 500000, 25, 'nearest', '2026-09-01'));
-select public.set_budget_end_date(tests.id('over'), '2026-11-01');   -- final month: October
+select tests.set_budget_end_date(tests.id('over'), '2026-11-01');   -- final month: October
 select tests.remember('inv_bob2', public.invite_member(tests.id('over'), tests.get_user_email('bob')));
 select tests.authenticate_as('bob');
 select public.accept_invitation(tests.id('inv_bob2'));
@@ -296,7 +296,7 @@ select results_eq(
 select is((select is_active from public.income_overview where id = tests.id('bob_over')), false,
   'R-MEMBER-011: the removed member''s income is no longer active');
 select is(
-  (select count(*)::integer from public.set_budget_end_date(tests.id('over'), null)), 1,
+  (select count(*)::integer from tests.set_budget_end_date(tests.id('over'), null)), 1,
   'R-MEMBER-011: the owner clears the end date and the budget resumes'
 );
 select results_eq(
