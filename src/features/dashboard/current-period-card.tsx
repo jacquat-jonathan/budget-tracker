@@ -35,7 +35,7 @@ export function CurrentPeriodCard() {
       <ErrorState
         className="md:col-span-2"
         error={current.error}
-        onRetry={() => void current.refetch()}
+        onRetry={current.refetch}
       />
     )
   }

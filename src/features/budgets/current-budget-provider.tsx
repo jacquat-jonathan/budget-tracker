@@ -38,9 +38,10 @@ export function CurrentBudgetProvider({ budgets, children }: CurrentBudgetProvid
   // R-BUDGET-051: the budget shown is the one remembered, also when it was a fallback, so
   // a rename by someone else (which changes the order by name) never moves me elsewhere.
   const currentId = current?.id
+  if (currentId && currentId !== wanted) setChoice({ userId, budgetId: currentId })
   useEffect(() => {
-    if (currentId && currentId !== wanted) selectBudget(currentId)
-  }, [currentId, wanted, selectBudget])
+    if (currentId) storeBudget(userId, currentId)
+  }, [userId, currentId])
 
   useEnsurePeriodsFor(current?.id)
 

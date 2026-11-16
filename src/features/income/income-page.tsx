@@ -86,7 +86,7 @@ export function IncomePage() {
         {header}
         <ErrorState
           error={failed.error}
-          onRetry={() => queries.forEach((query) => void query.refetch())}
+          onRetry={() => queries.forEach((query) => { void query.refetch() })}
         />
       </div>
     )
