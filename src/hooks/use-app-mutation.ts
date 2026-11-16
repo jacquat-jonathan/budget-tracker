@@ -35,8 +35,8 @@ export interface AppMutationOptions<TData, TVariables> {
 /** Identifies a call by its variables, to recognise the same write sent twice. */
 function callKey(variables: unknown): string {
   try {
-    // JSON.stringify(undefined) is undefined, typed as a string: String() covers it.
-    return String(JSON.stringify(variables))
+    // A void write (undefined) has one key; JSON.stringify would give undefined for it.
+    return variables === undefined ? 'undefined' : JSON.stringify(variables)
   } catch {
     // Not serialisable: treat every such call as the same write.
     return '<unserialisable>'
