@@ -283,7 +283,8 @@ export const fr: Translation = {
     title: 'Quelqu’un d’autre a modifié cet élément pendant que vous l’aviez ouvert',
     theirVersion: 'Sa version :',
     edit: 'Ce que vous avez saisi est toujours là. Chargez sa version pour repartir de celle-ci, ou gardez la vôtre : l’enregistrement ne modifiera alors que les champs que vous avez changés.',
-    updatedTitle: 'Quelqu’un d’autre a modifié cet élément ; le formulaire affiche maintenant sa version :',
+    updatedTitle:
+      'Quelqu’un d’autre a modifié cet élément ; le formulaire affiche maintenant sa version :',
     goneTitle: 'Quelqu’un d’autre a supprimé cet élément',
     gone: 'Il n’existe plus et ne peut donc pas être enregistré. Fermez cette fenêtre.',
     none: 'aucune',
@@ -595,7 +596,8 @@ export const fr: Translation = {
     ended:
       '« {{name}} » retirée à partir de la période en cours. Les périodes passées la conservent.',
     endedKeptVoid: '« {{name}} » retirée. Ses transactions sont gardées et comptent toujours.',
-    endedFromEarlier: '« {{name}} » retirée à partir de la période choisie. Les périodes précédentes la gardent.',
+    endedFromEarlier:
+      '« {{name}} » retirée à partir de la période choisie. Les périodes précédentes la gardent.',
     removeEarlierLabel: 'La retirer à partir d’une période antérieure',
     removeEarlier: 'Retirer à partir de cette période',
     removeFromEarlier:

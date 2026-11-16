@@ -271,6 +271,27 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     expect(screen.queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
   })
 
+  it('a save refused only for a field the form does not show is sent again by itself [R-CONCURRENCY-091]', async () => {
+    const { db } = await openSettings(true)
+    // Another member switched the primary income: the budget's revision moved, its name did not.
+    db.rpc.rename_budget.mockImplementationOnce(() => {
+      db.tables.my_budgets = [budgetRow({ revision: 5 })]
+      rpcError('record_changed')
+    })
+    const name = screen.getByLabelText('Budget name')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Our home')
+    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    await waitFor(() => {
+      expect(db.rpc.rename_budget).toHaveBeenLastCalledWith({
+        p_budget_id: BUDGET_ID,
+        p_name: 'Our home',
+        p_expected_revision: 5,
+      })
+    })
+    expect(screen.queryByTestId('changed-elsewhere')).not.toBeInTheDocument()
+  })
+
   it('sets and clears the end date, showing the date entered and the last day [R-BUDGET-054]', async () => {
     const { db } = await openSettings(true)
     // 10.04.2027 lies in the period that ends on 24.04.2027: the budget's last day.

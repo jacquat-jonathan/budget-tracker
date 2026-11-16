@@ -178,7 +178,11 @@ function IncomeForm({
     },
   })
   const mutation = income ? edit : add
-  const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset())
+  const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset(), {
+    error: edit.error,
+    sent: edit.variables?.revision,
+    submit: () => void onSubmit(),
+  })
 
   const onSubmit = form.handleSubmit((values) => {
     const terms = {

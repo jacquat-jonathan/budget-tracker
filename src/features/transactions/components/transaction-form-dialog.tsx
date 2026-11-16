@@ -185,7 +185,11 @@ function TransactionForm({
   const add = useAddTransaction(budgetId)
   const update = useUpdateTransaction(budgetId, { onDone: close })
   const mutation = transaction ? update : add
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    error: update.error,
+    sent: update.variables?.revision,
+    submit: () => void submit(false)(),
+  })
   /** The fast path: what was just saved, while the next one is typed. */
   const [lastSaved, setLastSaved] = useState<{ amount: number; count: number } | null>(null)
   // Ready for the next receipt: back to the amount once the form shows the cleared values.

@@ -94,7 +94,11 @@ function RenameForm() {
     resolver: zodResolver(renameSchema),
     defaultValues: valuesOf(budget),
   })
-  const sync = useConcurrentForm(form, base, valuesOf, () => rename.reset())
+  const sync = useConcurrentForm(form, base, valuesOf, () => rename.reset(), {
+    error: rename.error,
+    sent: rename.variables?.revision,
+    submit: () => void onSubmit(),
+  })
 
   const onSubmit = form.handleSubmit(({ name }) =>
     rename.mutateAsync({ name, revision: (base.base ?? budget).revision }).then(
@@ -155,7 +159,11 @@ function EndDateForm() {
     resolver: zodResolver(endDateSchema),
     defaultValues: valuesOf(budget),
   })
-  const sync = useConcurrentForm(form, base, valuesOf, () => setEndDate.reset())
+  const sync = useConcurrentForm(form, base, valuesOf, () => setEndDate.reset(), {
+    error: setEndDate.error,
+    sent: setEndDate.variables?.revision,
+    submit: () => void onSubmit(),
+  })
 
   const save = (endDate: string | null) =>
     setEndDate.mutateAsync({ endDate, revision: (base.base ?? budget).revision }).then(
