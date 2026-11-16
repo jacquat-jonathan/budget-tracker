@@ -31,6 +31,9 @@
 --     entry without its period and at most one per debt and period, every debt's remaining
 --     amount and every period's committed total equal a naive recomputation from the rows;
 --     every subscription and debt has a category in force in every period it is in force;
+--   * step 5 (every fourth step, after the step's catch-up): the trend equals
+--     period_summaries, each period's category lines add up to its spent total and equal its
+--     progress rows, and the side by side equals both;
 --   * step 4, independent models (S5 of the step 4 review): the charges created since the last
 --     check are exactly the scheduled dates of a naive schedule (the nominal day the run asked
 --     for, tracked by the run), at the price and category of the terms in force in their period,
@@ -242,6 +245,54 @@ create or replace function pg_temp.projection_oracle(b uuid) returns setof text 
     and (o.payoff::text is distinct from n.status or o.payments_left is distinct from n.payments_left
          or (n.walked and o.expected_end_date is distinct from n.end_date))
 $$;
+-- Step 5: the comparison reads against the views they are built on, as a member, right after
+-- the step's own catch-up (so they create nothing and the walk does not change): the trend is
+-- period_summaries, every period's top-level category lines add up to its spent total, every
+-- line is the progress row of its period, and the side by side is both of those.
+create or replace function pg_temp.compare_oracle(b uuid) returns setof text language plpgsql as $$
+declare
+  v_last integer := private.reading_seq(b);
+begin
+  if exists (
+    select 1 from public.get_period_trend(b, 24) as t
+    full join (select s.* from public.period_summaries as s where s.budget_id = b and s.seq > v_last - 24 and s.seq <= v_last) as s
+      on s.id = t.period_id
+    where t.period_id is null or s.id is null or t.spent_total <> s.spent_total or t.income_total <> s.income_total
+       or t.result <> s.result or t.expected_total <> s.expected_total or t.committed_total <> s.committed_total) then
+    return next 'compare: the trend differs from period_summaries';
+  end if;
+  create temp table if not exists oracle_ct as select * from public.get_category_trend(b, 24) limit 0;
+  delete from oracle_ct;
+  insert into oracle_ct select * from public.get_category_trend(b, 24);
+  return query
+    select format('compare: period %s lines add up to %s, spent %s', s.seq, x.total, s.spent_total)
+    from public.period_summaries as s
+    cross join lateral (select coalesce(sum(c.spent), 0) as total from oracle_ct as c where c.period_id = s.id and c.parent_id is null) as x
+    where s.budget_id = b and s.seq > v_last - 24 and s.seq <= v_last and x.total <> s.spent_total;
+  return query
+    select format('compare: period %s, category %s differs from its progress row', p.seq, g.name)
+    from public.periods as p
+    cross join lateral public.get_period_progress(p.id) as g
+    left join oracle_ct as c on c.category_id = g.category_id and c.period_id = p.id
+    where p.budget_id = b and p.seq > v_last - 24 and p.seq <= v_last
+      and (c.category_id is null or c.spent <> g.spent or c.in_force <> g.in_force or c.committed <> g.committed
+           or c.planned is distinct from case when g.in_force then g.expected end);
+  return query
+    select format('compare: side %s of the comparison differs from %s', k.side, k.what)
+    from (
+      select 'B' as side, 'period_summaries' as what
+      from public.get_period_comparison(b) as q join public.period_summaries as s on s.id = q.b_period_id
+      where q.kind = 'total' and (q.b_spent <> s.spent_total or q.b_income <> s.income_total or q.b_result <> s.result)
+      union all
+      select 'B', 'get_period_progress'
+      from public.get_period_comparison(b) as q
+      cross join lateral public.get_period_progress(q.b_period_id) as g
+      where q.kind = 'total' and not exists (
+        select 1 from public.get_period_comparison(b) as r
+        where r.category_id = g.category_id and r.b_spent = g.spent and r.b_in_force = g.in_force)
+    ) as k;
+end;
+$$;
 -- A random period of budget b, by seq.
 create or replace function pg_temp.pick_period(b uuid) returns public.periods language plpgsql as $$
 declare
@@ -423,6 +474,11 @@ begin
       -- The member opens the budget first: charges a long absence left due are created now.
       perform tests.authenticate_as(v_user);
       perform public.ensure_periods(v_budget);
+      if v_step % 4 = 0 then
+        for v_problem in select pg_temp.compare_oracle(v_budget) loop
+          insert into failures values (v_seed, v_step, v_name, 'compare', v_problem);
+        end loop;
+      end if;
       perform tests.clear_authentication();
       perform pg_temp.made_charges(v_budget);
       v_before := pg_temp.closed_totals(v_budget, v_today);
@@ -898,7 +954,7 @@ $prop$;
 
 select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
-  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
+  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130 R-COMPARE-002 R-COMPARE-070 R-COMPARE-071 R-COMPARE-170: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
 );
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
   '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');

@@ -1104,6 +1104,11 @@ isOneToOne: false
               "amount": number,"cadence": Database["public"]['Enums']["expectation_cadence"],"in_force": boolean,"period_id": string,"terms_from_period_id": string,"until_period_id": string
             }[]
                            },
+"get_category_trend":
+{ Args: { "p_budget_id": string,"p_count"?: number }; Returns: {
+              "average_spent": number,"category_id": string,"committed": number,"completed_count": number,"days": number,"display_order": number,"end_date": string,"in_force": boolean,"is_completed": boolean,"is_current": boolean,"is_group": boolean,"name": string,"parent_id": string,"period_id": string,"planned": number,"seq": number,"spent": number,"start_date": string,"transaction_count": number
+            }[]
+                           },
 "get_current_period":
 { Args: { "p_budget_id": string }; Returns: {
               "budget_id": string,
@@ -1148,6 +1153,11 @@ isOneToOne: false
               "amount": number,"in_force": boolean,"pay_day": number,"period_id": string,"terms_from_period_id": string,"until_period_id": string,"weekend_rule": Database["public"]['Enums']["weekend_rule"]
             }[]
                            },
+"get_period_comparison":
+{ Args: { "p_budget_id": string,"p_period_a_id"?: string,"p_period_b_id"?: string }; Returns: {
+              "a_committed": number,"a_days": number,"a_end_date": string,"a_in_force": boolean,"a_income": number,"a_period_id": string,"a_planned": number,"a_result": number,"a_spent": number,"a_start_date": string,"a_transaction_count": number,"b_committed": number,"b_days": number,"b_end_date": string,"b_in_force": boolean,"b_income": number,"b_period_id": string,"b_planned": number,"b_result": number,"b_spent": number,"b_start_date": string,"b_transaction_count": number,"category_id": string,"committed_difference": number,"display_order": number,"income_difference": number,"is_group": boolean,"kind": string,"name": string,"parent_id": string,"planned_difference": number,"result_difference": number,"spent_difference": number
+            }[]
+                           },
 "get_period_progress":
 { Args: { "p_period_id": string }; Returns: Database["public"]['CompositeTypes']["category_progress_row"][]
                           SetofOptions: {
@@ -1156,6 +1166,11 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"get_period_trend":
+{ Args: { "p_budget_id": string,"p_count"?: number }; Returns: {
+              "average_income": number,"average_result": number,"average_spent": number,"committed_total": number,"completed_count": number,"days": number,"end_date": string,"expected_total": number,"extra_income_total": number,"income_total": number,"is_completed": boolean,"is_current": boolean,"period_id": string,"result": number,"salary_total": number,"seq": number,"spent_total": number,"start_date": string
+            }[]
+                           },
 "get_start_months":
 { Args: { "p_pay_day": number,"p_weekend_rule"?: Database["public"]['Enums']["weekend_rule"] }; Returns: {
               "is_default": boolean,"month": string,"start_date": string,"today": string

@@ -252,6 +252,23 @@ check(budgetRow.caught_up === true && budgetRow.charges_awaiting === 0, 'my_budg
 const confirmedAll = await rpc(bob, 'confirm_subscription_charges', { p_budget_id: budget })
 check(ok(confirmedAll) && confirmedAll.body === 0, 'confirm_subscription_charges confirms what awaits (nothing here)', confirmedAll)
 
+// --- step 5: period comparison --------------------------------------------------------
+const trend = await rpc(bob, 'get_period_trend', { p_budget_id: budget, p_count: 6 })
+const summaries = (await get(alice, `period_summaries?budget_id=eq.${budget}&order=seq`)).body
+check(ok(trend) && trend.body.length === Math.min(6, summaries.length) && trend.body.at(-1).is_current === true &&
+  trend.body.every((row) => row.spent_total === summaries.find((s) => s.id === row.period_id)?.spent_total),
+  'get_period_trend gives the last periods with their period_summaries figures', trend)
+const lines = await rpc(bob, 'get_category_trend', { p_budget_id: budget, p_count: 6 })
+check(ok(lines) && trend.body.every((period) =>
+  lines.body.filter((row) => row.period_id === period.period_id && row.parent_id === null).reduce((sum, row) => sum + row.spent, 0) === period.spent_total),
+  'get_category_trend: the top-level lines of each period add up to its spent total', lines)
+const sideBySide = await rpc(bob, 'get_period_comparison', { p_budget_id: budget })
+check(ok(sideBySide) && sideBySide.body[0]?.kind === 'total' && sideBySide.body[0].b_period_id === trend.body.at(-1).period_id,
+  'get_period_comparison starts with the totals, B the current period by default', sideBySide)
+check(refused(await rpc(mallory, 'get_period_trend', { p_budget_id: budget }), 'budget_not_found'), 'a non-member gets no trend')
+const anonTrend = await rpc(null, 'get_period_trend', { p_budget_id: budget })
+check(anonTrend.status >= 400, 'an anonymous visitor cannot call the comparison', anonTrend)
+
 // --- access ---------------------------------------------------------------------------
 const anonRead = await get(null, `transaction_list?budget_id=eq.${budget}`)
 check(anonRead.status >= 400 && anonRead.body?.code === '42501', 'an anonymous visitor cannot read transactions (no privilege)', anonRead)

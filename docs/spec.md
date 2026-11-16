@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-390 rules (326 active, 57 planned), 24 conventions, 175 decisions, 27 open questions. 0 rules and conventions are marked **TEST PENDING**.
+397 rules (336 active, 54 planned), 24 conventions, 179 decisions, 29 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -185,18 +185,18 @@ Debts with planned payments, their evolution and expected end date.
 - **US-DEBT-003** As a budget member, I want to adjust a debt's balance by hand, so that it matches my bank statement.
   Rules: R-DEBT-075, R-DEBT-122
 
-### Step 5: Period comparison charts (planned)
+### Step 5: Period comparison charts (in-progress)
 
-#### F-COMPARE Period comparison (planned)
+#### F-COMPARE Period comparison (in-progress)
 
 Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).
 
 - **US-COMPARE-001** As a budget member, I want to compare the income, spending and result of the last 12 periods in a chart, so that I see how our spending evolves.
-  Rules: R-COMPARE-002
+  Rules: R-COMPARE-002, R-COMPARE-171, R-COMPARE-172, R-COMPARE-173
 - **US-COMPARE-002** As a budget member, I want to see the spending per category across periods, so that I see which categories grow or shrink.
-  Rules: R-COMPARE-070
+  Rules: R-COMPARE-070, R-COMPARE-170, R-COMPARE-174
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
-  Rules: R-COMPARE-071
+  Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174
 
 ### Step 6: Import (statements, CSV and Claude) (planned)
 
@@ -1537,18 +1537,46 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Why: Built with step 3 (D-104); the id keeps its original area.
   - Related: Q-010, D-104
   - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-COMPARE-002** A chart shows the income total, the total spent and the result of each of the last 12 periods.
-  _planned · enforced by test · F-COMPARE_
-  - Related: D-114
-  - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-COMPARE-070** A chart shows the spending per category across periods.
-  _planned · enforced by test · F-COMPARE_
-  - Related: D-114
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
-- **R-COMPARE-071** The user can show two periods side by side.
-  _planned · enforced by test · F-COMPARE_
-  - Related: D-114
-  - Source: owner-request: product owner decisions on the open questions, 2026-11-16
+- **R-COMPARE-002** For each of the last periods (12 by default; 6, 12 or 24 to choose), up to the current one, the comparison shows the income total, the total spent, the result and the planned total, the current period marked as still running; the figures are those of the period's own totals.
+  _active · enforced by test · F-COMPARE_
+  - Related: D-114, D-260
+  - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-070** For the same periods, the comparison shows the spending and the planned amount per category: groups and ordinary categories at the top level, a group's subcategories below it; each category is one line across the periods, and in each period its figures are those of that period's progress view.
+  _active · enforced by test · F-COMPARE_
+  - Related: D-114, D-260
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-071** The user can show any two periods of the budget side by side (by default the current one and the one before): per category the spending and the planned amount in each and the difference in spending, B minus A, and the same for the totals (income, spent, result, committed).
+  _active · enforced by test · F-COMPARE_
+  - Related: D-114, D-260
+  - Source: owner-request: product owner decisions on the open questions, 2026-11-16; owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-170** In every period of a comparison, the top-level category lines add up exactly to the period's total spent (expenses minus refunds; extra income is not spending), and so do the subcategory and ordinary category lines; every expense or refund has a category, so no spending is left outside the lines.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-PROGRESS-002, D-262
+  - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-171** A comparison covers the last 1 to 24 periods up to the current one, or up to the last one once the budget has ended, oldest first; a budget with fewer periods gives all it has; a period merged by a reopen is no longer one of them.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-PERIOD-130, D-263
+  - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-172** Averages per period (income, spent, result, and spent per category) are taken over the completed periods of the range only, to the rappen with halves rounded away from zero, and are empty (not zero) when no period of the range is completed.
+  _active · enforced by test · F-COMPARE_
+  - Related: D-261, Q-160
+  - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-173** Each period of a comparison gives its start, its end and its number of days; amounts are never scaled to the period's length.
+  _active · enforced by test · F-COMPARE_
+  - Related: Q-080, R-PERIOD-020
+  - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-174** A category is one line across periods by its identity, under its current name and in its current place, also when it was renamed, ended, restored, emptied into "Other" or left void by a reopen; where it was not in force it plans nothing (empty, not zero) but still counts what was spent on it; in two periods side by side, a period where the category has nothing at all is empty, not zero.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-CATEGORY-095, D-262
+  - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-175** The comparison reads catch the budget up like opening it does and write nothing else; while a very long absence is still being caught up they answer that it is (catching_up) instead of a shortened range.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-PERIOD-130, R-SECURITY-006
+  - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-176** Only members of a budget can read its comparison; another user and an anonymous visitor get nothing.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-SECURITY-002, C-DBTEST-002, C-DBTEST-003
+  - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
 
 ### Import
 
@@ -4197,6 +4225,62 @@ Related: Q-131, D-214, R-SUBSCRIPTION-136, R-DEBT-138, R-SUBSCRIPTION-141
 
 Source: owner-request: coordinator addendum to the step 4 database review (screens asks), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
+### D-260 Three reads, one per view, built on the progress code (accepted)
+
+get_period_trend (one row per period), get_category_trend (one row per category line and period) and get_period_comparison (a 'total' row, then one row per category) answer each comparison view in one call. Their figures are read from period_summaries and private.category_progress, the code behind get_period_progress, so they cannot disagree with the progress view. Averages, differences, lengths and the range's flags are columns, repeated where a view needs them on every row.
+
+**Why:** One implementation of every figure (C-LOGIC-001), nothing for the client to compute (C-LOGIC-003), and typed rows the generated types describe.
+
+**Rejected:**
+
+- JSON documents: untyped for the client.
+- Separate calls for the totals and the averages: more than one call per view.
+
+Related: R-COMPARE-002, R-COMPARE-070, R-COMPARE-071, C-LOGIC-001, C-LOGIC-003
+
+Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+
+### D-261 Averages over the completed periods, rounded half away from zero (accepted)
+
+An average is the sum over the completed periods of the range divided by their number, rounded to the rappen with halves away from zero (also for a negative result); null when none is completed. The average result is the average of the results, so it can differ by a rappen from the average income minus the average spent. A category's average spent divides by every completed period of the range, including those where it was not in force (they count what was spent, usually nothing).
+
+**Why:** The running period is incomplete and would pull averages down; one rounding rule for all averages; a category's average is comparable with the trend's.
+
+**Rejected:**
+
+- Averaging a category only over the periods it was in force (Q-160).
+- Banker's rounding: unusual for amounts shown to people.
+
+Related: R-COMPARE-172, Q-160
+
+Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+
+### D-262 Empty versus zero in the comparison (accepted)
+
+planned is empty when the category is not in force in the period (the progress view's expected 0 means nothing planned because it does not exist then). In the trend, a period without a progress row for a line is not in force, spent 0, committed 0. Side by side, a period where the category has no progress row is empty on every figure; the differences count an empty side as nothing spent or committed, and planned_difference is empty unless both plan something. There is no uncategorised line: an expense or refund always has a category.
+
+**Why:** The brief asks that "not in force" and "nothing spent" stay distinct; the difference must stay a number so the lines add up to the totals' difference.
+
+**Rejected:** none recorded.
+
+Related: R-COMPARE-174, R-COMPARE-170
+
+Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+
+### D-263 Range of 1 to 24 periods; catching up first (accepted)
+
+p_count accepts 1 to 24 (12 by default; the screens offer 6, 12 and 24), invalid_limit otherwise. The range ends at the current period, or at the last one once the budget has ended. The reads catch up like get_current_period; when a very long absence is not yet caught up they raise catching_up (the bounded catch-up of that call is not kept, the client calls ensure_periods until it returns 0, as my_budgets.caught_up says).
+
+**Why:** 24 periods at the limits answer within the time budget; a range that silently stopped years before today would mislead.
+
+**Rejected:**
+
+- Answering the periods that exist so far: a trend that ends years ago without saying so.
+
+Related: R-COMPARE-171, R-COMPARE-175, D-201
+
+Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -4435,6 +4519,14 @@ Source: owner-request: coordinator addendum to the step 4 database review (scree
   - Context: D-201: after more than ten years away, reading a budget takes several ensure_periods calls (120 periods each); my_budgets.caught_up is false meanwhile and get_current_period answers no row.
   - Related: D-201, R-PERIOD-130
   - Source: owner-request: coordinator review of the step 4 database, 2026-11-16
+- **Q-160** Should a category's average spent count only the periods where it was in force?
+  - Context: D-261: it divides by every completed period of the range, so a category added three periods ago averages over all twelve and looks smaller than its usual spending. Counting only periods in force would make the per-category averages not add up to the trend's average spent.
+  - Related: D-261, R-COMPARE-172
+  - Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16
+- **Q-161** Should the current, still running period be compared by default, or the last completed one?
+  - Context: R-COMPARE-071 (coordinator decision): B defaults to the current period and A to the one before, so early in a period B shows little spending against a whole period A.
+  - Related: R-COMPARE-071
+  - Source: owner-request: database developer decision for step 5, within the coordinator's brief, 2026-11-16
 
 ## Glossary
 

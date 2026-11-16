@@ -148,6 +148,10 @@ diagnostic changes exactly when a walk changes. To run it longer, add seeds or r
 count in the `seeds` / `prop_config` tables at the top of the file (do not commit that), then
 run it with `00_helpers.test.sql`.
 
+`91_period_comparison.test.sql` checks the step 5 comparison reads against `period_summaries`
+and `get_period_progress` (renamed, ended, restored, "Other" and void categories, a reopen, an
+ended budget, catching up, access); the property test also checks them every fourth step.
+
 `99_step4_review.test.sql` holds the regression tests of the step 4 database review (one
 section per finding: the projection's period ends, catch-up after 13 and 40 years, category
 coverage, the nominal day, opened dates, due charges, previews, and the contract additions).

@@ -868,6 +868,104 @@ Refused with `budget_ended`: the same writes without `p_from_period_id` (they ac
 current period), and `preview_create_subscription` without `p_from_period_id`. No charge or
 interest is created after the budget's last period.
 
+### Period comparison
+
+Three reads, one per view (D-260). Every figure comes from the database, from the same code
+as `period_summaries` and `get_period_progress`, so the comparison always agrees with the
+progress view; the client only draws. All are for members (`budget_not_found` for anyone
+else, also before any argument error); each catches the budget up like `get_current_period`
+(no lock and no write when nothing is due) and writes nothing else. After a very long absence
+not yet caught up (`my_budgets.caught_up` false) they answer `catching_up`: call
+`ensure_periods` until it returns 0, then read again. Key their queries by budget id (and
+`p_count`, or the two period ids). (R-COMPARE-175, R-COMPARE-176, D-263)
+
+**The range** (R-COMPARE-171): `p_count` periods (1 to 24, default 12; the screens offer 6,
+12 and 24; otherwise `invalid_limit`) ending at the current period, or at the last period once
+the budget has ended, oldest first. A budget with fewer periods gives all it has. A period
+merged by a reopen is gone; its spending is in the reopened one. Periods are 7 to 92 days
+long: each row gives `start_date`, `end_date` (inclusive) and `days`; amounts are never scaled
+(Q-080). (R-COMPARE-173)
+
+**Averages** (R-COMPARE-172, D-261): over the **completed** periods of the range only
+(`end_date` before today; the running period is never averaged), to the rappen with halves
+rounded away from zero (-2.5 → -3). `completed_count` says how many; with none, every average
+is **null** (show "no completed period yet"), never 0. `average_result` is the average of the
+results: it may differ by one rappen from `average_income - average_spent`.
+
+**`get_period_trend(p_budget_id, p_count = 12) -> {...}[]`** (one row per period of the
+range, by `seq`) (R-COMPARE-002)
+
+| Column | Meaning |
+| --- | --- |
+| `period_id`, `seq`, `start_date`, `end_date`, `days` | the period |
+| `is_current` | the period containing today: still running (mark it) |
+| `is_completed` | it ended before today (an ended budget: every period) |
+| `income_total`, `salary_total`, `extra_income_total`, `spent_total`, `expected_total` (the planned total), `committed_total`, `result` | exactly that period's `period_summaries` row |
+| `completed_count`, `average_income`, `average_spent`, `average_result` | the range's averages, the same on every row (null when `completed_count` is 0) |
+
+**`get_category_trend(p_budget_id, p_count = 12) -> {...}[]`** (one row per category line and
+period of the same range; ordered by `display_order`, then `seq`) (R-COMPARE-070, R-COMPARE-170,
+R-COMPARE-174)
+
+A **line** is a category (group, subcategory or ordinary category) that has a row in
+`get_period_progress` of at least one period of the range; it has a row in **every** period of
+the range. It is the category's id, under its **current** `name` and place (`parent_id`,
+`display_order`), whatever happened to it meanwhile: renamed, ended, restored, emptied into
+"Other" by its first subcategory, or left void by a removal or a reopen. Show the top level
+(`parent_id` null: groups and ordinary categories) and open a group (`is_group`) on its
+subcategories (`parent_id` = the group).
+
+| Column | Meaning |
+| --- | --- |
+| `category_id`, `parent_id`, `name`, `is_group`, `display_order` | the line (the same on all its rows) |
+| `period_id`, `seq`, `start_date`, `end_date`, `days`, `is_current`, `is_completed` | the period of this row |
+| `in_force` | the category is in force in that period |
+| `planned` | the monthly share of its expectation then (a group: its subcategories'); **null when not in force** (not 0) |
+| `spent` | expenses minus refunds dated in the period (may be negative); 0 when nothing; also counted where it was not in force |
+| `committed` | the subscriptions' monthly costs on it then, inside `planned` |
+| `transaction_count` | its transactions in the period |
+| `completed_count`, `average_spent` | the line's average spent over the completed periods of the range (every completed period counts, also those where it was not in force: Q-160); null when none is completed |
+
+**Adds up, exactly**: in each period the `spent` of the top-level lines add up to the trend's
+`spent_total`, and so do the lines with `is_group` false. There is no "uncategorised" line:
+every expense and refund has a category, and extra income is income, never spending (as in
+`period_summaries` and `get_period_progress`). (R-COMPARE-170, D-262)
+
+**`get_period_comparison(p_budget_id, p_period_a_id = null, p_period_b_id = null) -> {...}[]`**
+(R-COMPARE-071, R-COMPARE-174)
+
+Any two periods of the budget, in either order. Defaults: B is the current period (the last
+one once the budget has ended), A the one before B; when B is the first period, side A is
+empty (`a_period_id` and every `a_*` null). The first row has `kind = 'total'`; then one row
+per category with a progress row in A or in B (`kind = 'category'`), by `display_order`. Every
+row repeats `a_period_id`, `a_start_date`, `a_end_date`, `a_days` and the same for B.
+
+| Column | `kind = 'total'` | `kind = 'category'` |
+| --- | --- | --- |
+| `category_id`, `parent_id`, `name`, `is_group`, `display_order` | null | the category (current name) |
+| `a_in_force`, `b_in_force` | the side exists | in force in that period |
+| `a_planned`, `b_planned` | `expected_total` | its planned amount; null when not in force there or when the side has nothing on it |
+| `planned_difference` | B minus A (null without A) | B minus A; null unless both sides plan something |
+| `a_spent`, `b_spent` | `spent_total` | spent; **null when that period has nothing on the category** (not in force and nothing spent or committed) |
+| `spent_difference` | B minus A | B minus A, an empty side counting as nothing spent (never null) |
+| `a_committed`, `b_committed`, `committed_difference` | `committed_total`, B minus A | likewise |
+| `a_transaction_count`, `b_transaction_count` | the period's transactions on categories | the category's |
+| `a_income`, `b_income`, `income_difference`, `a_result`, `b_result`, `result_difference` | `income_total`, `result`, B minus A | null |
+
+The totals are the periods' `period_summaries` rows and each side's categories its
+`get_period_progress` rows; the top-level `spent_difference` values add up to the total's.
+Errors: `budget_not_found`, `period_not_found` (an id that is not a period of this budget),
+`catching_up`.
+
+**Nulls**: the generated types mark every column of these three functions as non-null; the
+columns this section says may be null (`planned`, the averages, every `a_*` and `b_*` figure
+of a side with nothing, the category columns of the total row, the income and result columns
+of category rows, `planned_difference`) are nullable: type them as such in the client.
+
+Measured locally at the limits (63 periods, 200 categories, 50 000 transactions, 50
+subscriptions and 50 debts in force): `get_period_trend` 24 periods 46 ms, `get_category_trend`
+24 periods (4800 rows) 97 ms, `get_period_comparison` 19 to 25 ms (medians).
+
 ## Concurrent edits
 
 One mechanism for every editable record, now and in later steps (R-CONCURRENCY-070,
