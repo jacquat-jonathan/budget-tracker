@@ -87,11 +87,14 @@ export function dbErrorCode(error: unknown): DbErrorCode | null {
   return null
 }
 
+const NETWORK_MESSAGE = /failed to fetch|networkerror|load failed|network request failed/i
+
 function isNetworkError(error: unknown): boolean {
-  if (error instanceof TypeError) return true
+  // A failed fetch is a TypeError with one of these messages, depending on the browser;
+  // any other TypeError is a bug in the client and must not read as "cannot reach the server".
+  // supabase-js wraps it in an error whose message names the TypeError.
   const message = asErrorLike(error)?.message
-  // supabase-js reports a failed fetch as an error whose message names the TypeError.
-  return typeof message === 'string' && /failed to fetch|networkerror|load failed/i.test(message)
+  return typeof message === 'string' && NETWORK_MESSAGE.test(message)
 }
 
 /**

@@ -7,7 +7,7 @@ import { z } from 'zod'
 
 import { MoneyField } from '@/components/form/money-field'
 import { SelectField, type SelectOption } from '@/components/form/select-field'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -29,17 +29,17 @@ import { useAuth } from '@/features/auth/auth-context'
 import { TextField } from '@/features/auth/components/text-field'
 import {
   memberName,
-  usePayDate,
   type BudgetMember,
   type IncomeOverview,
   type PeriodSummary,
-  type WeekendRule,
 } from '@/features/budgets/budget-queries'
-import { monthLabel, monthOf } from '@/features/budgets/start-months'
+import { monthLabel } from '@/features/budgets/start-months'
 import { PayDayField, WeekendRuleField } from '@/features/income/components/income-term-fields'
+import { TermsEffectNotice } from '@/features/income/components/terms-effect-notice'
+import { useTermsEffect } from '@/features/income/terms-effect'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
-import { addMonths, formatCalendarDate } from '@/lib/date'
+import { formatCalendarDate } from '@/lib/date'
 import { currentLanguage } from '@/lib/i18n'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
 
@@ -129,10 +129,11 @@ function IncomeForm({
   const correctable = income
     ? periods.filter((period) => !period.is_current && period.seq >= income.first_seq)
     : []
-  const closesNow = useClosesCurrentPeriod({
-    enabled: income?.is_primary === true,
-    changed:
-      income !== undefined && (payDay !== income.pay_day || weekendRule !== income.weekend_rule),
+  // R-INCOME-052: say what new primary terms do to the current period before saving.
+  const effect = useTermsEffect({
+    enabled:
+      income?.is_primary === true &&
+      (payDay !== income.pay_day || weekendRule !== income.weekend_rule),
     currentPeriod,
     payDay,
     weekendRule,
@@ -227,18 +228,7 @@ function IncomeForm({
             }}
           />
         )}
-        {closesNow && (
-          <Alert variant="destructive" data-testid="closes-current-period">
-            <TriangleAlertIcon aria-hidden />
-            <AlertTitle>{t('income.closesNowTitle')}</AlertTitle>
-            <AlertDescription>
-              {t('income.closesNow', {
-                month: monthOf(closesNow.month, language),
-                date: formatCalendarDate(closesNow.payDate),
-              })}
-            </AlertDescription>
-          </Alert>
-        )}
+        <TermsEffectNotice effect={effect} />
         <Alert>
           <InfoIcon aria-hidden />
           <AlertDescription>
@@ -258,7 +248,7 @@ function IncomeForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button type="submit" disabled={mutation.isPending || effect.kind === 'checking'}>
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
@@ -310,29 +300,4 @@ function CorrectionFields({
       )}
     </div>
   )
-}
-
-/**
- * For the primary income: would these terms close the current period at once? That is the
- * case when the next month's pay date under the new terms is already today or past. The pay
- * date comes from the database (pay_date) and so does today; nothing is computed here.
- */
-function useClosesCurrentPeriod({
-  enabled,
-  changed,
-  currentPeriod,
-  payDay,
-  weekendRule,
-}: {
-  enabled: boolean
-  changed: boolean
-  currentPeriod: PeriodSummary | null
-  payDay: number
-  weekendRule: WeekendRule
-}): { month: string; payDate: string } | null {
-  const nextMonth = currentPeriod ? addMonths(currentPeriod.month, 1) : null
-  const payDate = usePayDate(nextMonth, payDay, weekendRule, enabled && changed)
-  const today = currentPeriod?.today
-  if (!enabled || !changed || !nextMonth || !payDate.data || !today) return null
-  return payDate.data <= today ? { month: nextMonth, payDate: payDate.data } : null
 }

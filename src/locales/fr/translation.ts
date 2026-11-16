@@ -392,6 +392,20 @@ export const fr: Translation = {
       'Il cesse de compter à partir de la période choisie, ce qui modifie des totaux passés.',
     correctionAppliesFrom:
       'Les nouvelles conditions s’appliquent dès la période choisie : les totaux de cette période et des suivantes changent.',
+    primaryTitle: 'Faire de « {{name}} » le revenu principal ?',
+    primaryDescription:
+      'Les périodes suivent alors le jour de paie de ce revenu, dès la période en cours. Les périodes passées restent telles quelles.',
+    effect: {
+      checking: 'Vérification de l’effet sur la période en cours…',
+      unknown:
+        'Impossible de vérifier l’effet sur la période en cours. Si sa date de paie du mois prochain est déjà passée, la période en cours se termine à l’enregistrement.',
+      moves: 'La période en cours se terminera le {{end}}, veille de la paie {{month}} ({{date}}).',
+      manual:
+        'La fin de la période en cours a été fixée à la main ({{end}}). Elle est conservée si elle se trouve à 14 jours au plus de la paie {{month}} ({{date}}) ; sinon, elle passe à la veille de cette date.',
+      manualCloses:
+        'La fin de la période en cours a été fixée à la main ({{end}}). Elle est conservée si elle se trouve à 14 jours au plus de la paie {{month}} ({{date}}) ; sinon, comme cette date est déjà passée, la période en cours se termine à l’enregistrement.',
+      undo: 'Revenir à l’ancien revenu principal ne la rouvre pas. Pour annuler, utilisez « Le salaire {{month}} n’est pas encore arrivé » dans la page Périodes.',
+    },
     closesNowTitle: 'Enregistrer clôt la période en cours maintenant',
     closesNow:
       'Avec ce jour de paie, le salaire {{month}} est dû le {{date}}, date déjà passée : la période en cours se termine et celle {{month}} commence ce jour-là.',
@@ -496,6 +510,7 @@ export const fr: Translation = {
       nextEarly: 'Le salaire {{month}} est arrivé en avance',
       resetStart: 'Rétablir le début selon le calendrier',
       resetEnd: 'Rétablir la fin selon le calendrier',
+      finalEnd: 'Modifier le dernier jour du budget',
     },
     dialogDescription:
       'Quand un salaire n’arrive pas le jour habituel, par exemple à cause d’un jour férié. Chaque période commence le jour où arrive son salaire.',
@@ -503,9 +518,12 @@ export const fr: Translation = {
     fields: {
       arrivedOn: 'Jour d’arrivée du salaire {{month}}',
       expectedOn: 'Jour où le salaire {{month}} est désormais attendu',
+      lastDay: 'Dernier jour du budget',
     },
     fourteenDays: 'Au plus 14 jours avant ou après la date prévue.',
     preview: {
+      final: 'Le budget se terminera le {{end}}.',
+      finalPast: 'Le budget se terminera le {{end}} : il n’aura alors plus de période en cours.',
       moved:
         'La période {{previous}} se terminera le {{end}}, et celle {{month}} commencera le {{start}}.',
       notYet:
@@ -524,6 +542,8 @@ export const fr: Translation = {
       'La période en cours se termine de nouveau la veille du prochain salaire prévu, et suit le calendrier désormais.',
     resetComesBack:
       'Une période close en avance est rouverte, et une période retirée parce que son salaire n’était pas arrivé revient une fois cette date passée.',
+    resetRemovesLatest:
+      'Son salaire est prévu le {{date}} : la période {{month}} est retirée jusque-là, et la période précédente redevient la période en cours.',
     resetDone: 'La limite suit de nouveau le calendrier.',
     endedDescription:
       'Sa dernière période s’est terminée le {{date}} ; aucune nouvelle période n’est créée.',

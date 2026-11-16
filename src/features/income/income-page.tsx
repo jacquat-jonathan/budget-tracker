@@ -35,6 +35,7 @@ import {
 } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { IncomeFormDialog } from '@/features/income/components/income-form-dialog'
+import { MakePrimaryDialog } from '@/features/income/components/make-primary-dialog'
 import { RemoveIncomeDialog } from '@/features/income/components/remove-income-dialog'
 import { useRemoveIncome, useSetPrimaryIncome } from '@/features/income/income-mutations'
 import { formatCalendarDate } from '@/lib/date'
@@ -45,6 +46,7 @@ type DialogState =
   | { kind: 'add' }
   | { kind: 'edit'; income: IncomeOverview }
   | { kind: 'remove'; income: IncomeOverview }
+  | { kind: 'primary'; income: IncomeOverview }
 
 export function IncomePage() {
   const { t } = useTranslation()
@@ -55,6 +57,7 @@ export function IncomePage() {
   const periods = usePeriods(budgetId)
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const remove = useRemoveIncome(budgetId)
+  const makePrimary = useSetPrimaryIncome(budgetId)
 
   const queries = [incomes, members, current]
   const failed = queries.find((query) => query.isError)
@@ -137,6 +140,10 @@ export function IncomePage() {
                 remove.reset()
                 setDialog({ kind: 'remove', income })
               }}
+              onMakePrimary={() => {
+                makePrimary.reset()
+                setDialog({ kind: 'primary', income })
+              }}
             />
           ))}
         </ul>
@@ -160,6 +167,12 @@ export function IncomePage() {
         income={dialog.kind === 'remove' ? dialog.income : null}
         periods={periods.data ?? []}
         mutation={remove}
+        onClose={() => setDialog({ kind: 'closed' })}
+      />
+      <MakePrimaryDialog
+        income={dialog.kind === 'primary' ? dialog.income : null}
+        currentPeriod={currentPeriod}
+        mutation={makePrimary}
         onClose={() => setDialog({ kind: 'closed' })}
       />
     </div>
@@ -190,17 +203,17 @@ function IncomeCard({
   ended,
   onEdit,
   onRemove,
+  onMakePrimary,
 }: {
   income: IncomeOverview
   members: BudgetMember[]
   ended: boolean
   onEdit: () => void
   onRemove: () => void
+  onMakePrimary: () => void
 }) {
   const { t } = useTranslation()
-  const { budgetId } = useCurrentBudget()
   const ownerLabel = useOwnerLabel()
-  const makePrimary = useSetPrimaryIncome(budgetId)
   const primary = income.is_primary === true
 
   return (
@@ -255,10 +268,7 @@ function IncomeCard({
                 <PencilIcon />
                 {t('income.edit')}
               </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={primary || makePrimary.isPending}
-                onSelect={() => makePrimary.mutate(income)}
-              >
+              <DropdownMenuItem disabled={primary || ended} onSelect={onMakePrimary}>
                 <StarIcon />
                 {t('income.makePrimary')}
               </DropdownMenuItem>

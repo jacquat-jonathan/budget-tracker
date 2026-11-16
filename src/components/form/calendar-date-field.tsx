@@ -60,7 +60,8 @@ export function CalendarDateField<TValues extends FieldValues, TOut extends Fiel
         id={id}
         ref={inputRef}
         name={fieldName}
-        inputMode="numeric"
+        // Phone keypads with a separator offer "," or "." depending on the locale.
+        inputMode="decimal"
         autoComplete="off"
         autoFocus={autoFocus}
         placeholder={t('fields.datePlaceholder')}
@@ -72,7 +73,9 @@ export function CalendarDateField<TValues extends FieldValues, TOut extends Fiel
           const next = event.target.value
           setText(next)
           const trimmed = next.trim()
-          const parsed = trimmed === '' ? '' : (parseDate(trimmed) ?? trimmed)
+          // Typed on a phone, the separator may be a comma, a slash or a dash.
+          const parsed =
+            trimmed === '' ? '' : (parseDate(trimmed.replace(/[,/-]/g, '.')) ?? trimmed)
           emitted.current = parsed
           onChange(parsed)
         }}

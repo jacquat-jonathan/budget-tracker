@@ -396,10 +396,10 @@ function SalaryDateForm({
     action.kind === 'final'
       ? period.end_date
       : action.kind === 'next'
-      ? addDays(period.end_date, 1)
-      : action.late
-        ? addDays(today, 1)
-        : period.start_date
+        ? addDays(period.end_date, 1)
+        : action.late
+          ? addDays(today, 1)
+          : period.start_date
   const form = useForm<SalaryDateValues>({
     resolver: zodResolver(salaryDateSchema),
     defaultValues: { date: defaultDate },
@@ -447,10 +447,10 @@ function SalaryDateForm({
     action.kind === 'final'
       ? t('periods.fields.lastDay')
       : action.kind === 'next'
-      ? t('periods.fields.arrivedOn', { month: of(addMonths(period.month, 1)) })
-      : action.late
-        ? t('periods.fields.expectedOn', { month: of(period.month) })
-        : t('periods.fields.arrivedOn', { month: of(period.month) })
+        ? t('periods.fields.arrivedOn', { month: of(addMonths(period.month, 1)) })
+        : action.late
+          ? t('periods.fields.expectedOn', { month: of(period.month) })
+          : t('periods.fields.arrivedOn', { month: of(period.month) })
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
