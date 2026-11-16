@@ -136,23 +136,23 @@ export function PeriodsPage() {
   // offered, with its date.
   const [searchParams, setSearchParams] = useSearchParams()
   const record = searchParams.get('record')
-  const requested =
-    record === 'early' || record === 'moveStart' ? { kind: record, date: searchParams.get('date') } : null
+  const requestedDate = searchParams.get('date')
+  const requestedKind = record === 'early' || record === 'moveStart' ? record : null
   const currentRow = current.data
   const previousRow =
     currentRow && periods.data
       ? periods.data.find((period) => period.seq === currentRow.seq - 1)
       : undefined
   const ready = currentRow !== undefined && periods.data !== undefined
-  if (requested && ready && action === null && currentRow) {
-    const date = requested.date ?? undefined
-    if (requested.kind === 'early') setAction({ kind: 'early', period: currentRow, date })
+  if (requestedKind && ready && action === null && currentRow) {
+    const date = requestedDate ?? undefined
+    if (requestedKind === 'early') setAction({ kind: 'early', period: currentRow, date })
     else if (previousRow)
       setAction({ kind: 'moveStart', period: currentRow, previous: previousRow, date })
   }
   useEffect(() => {
-    if (requested && ready) setSearchParams({}, { replace: true })
-  }, [requested, ready, setSearchParams])
+    if (requestedKind && ready) setSearchParams({}, { replace: true })
+  }, [requestedKind, ready, setSearchParams])
   const close = () => setAction(null)
   const open = (next: Action) => {
     write.reset()
@@ -433,7 +433,8 @@ function BoundaryForm({
   })
   const date = useWatch({ control: form.control, name: 'date' })
   const typed = isCalendarDate(date)
-  const outside = typed && range !== null && !inRange(date, range)
+  const outsideRange = typed && range !== null && !inRange(date, range) ? range : null
+  const outside = outsideRange !== null
   const valid = typed && !outside
   const budgetId = budget.id
   const reopenPreview = useReopenPreview(budgetId, action.kind === 'reopen')
@@ -507,10 +508,13 @@ function BoundaryForm({
             }
           />
         )}
-        {outside && range && (
+        {outsideRange && (
           <Alert data-testid="boundary-outside">
             <AlertDescription>
-              {t('periods.range.outside', { min: fmt(range.min), max: fmt(range.max) })}
+              {t('periods.range.outside', {
+                min: fmt(outsideRange.min),
+                max: fmt(outsideRange.max),
+              })}
             </AlertDescription>
           </Alert>
         )}

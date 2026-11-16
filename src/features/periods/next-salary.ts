@@ -37,7 +37,7 @@ export function nextSalary(
   return {
     kind: 'expected',
     date: addDays(period.end_date, 1),
-    manual: period.end_is_manual === true,
+    manual: period.end_is_manual,
   }
 }
 
