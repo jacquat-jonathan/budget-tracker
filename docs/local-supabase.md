@@ -104,7 +104,7 @@ commit, and tests roll back, so assert them with
 `select lives_ok('set constraints all immediate', '...')` followed by
 `set constraints all deferred;`. The client contract the tests protect is in
 `docs/database.md`. Name the spec rule id a test proves in its description
-(`'R-PERIOD-021: ...'`); `npm run spec:check` checks every test-enforced rule has one.
+(`'R-PERIOD-030: ...'`); `npm run spec:check` checks every test-enforced rule has one.
 `70_properties.test.sql` runs a seeded random sequence of operations and checks the
 invariants after each.
 

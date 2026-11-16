@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-200 rules (158 active, 42 planned), 24 conventions, 63 decisions, 16 open questions. 0 rules and conventions are marked **TEST PENDING**.
+210 rules (164 active, 42 planned), 24 conventions, 72 decisions, 16 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -324,12 +324,13 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-PROFILE-002** A user can change only their own display name, and no other column of their profile.
   _active · enforced by test · F-PROFILE_
   - Source: code: supabase/migrations/20261115151317_create_profiles.sql
-- **R-PROFILE-003** A user can read their own profile and the profiles of people who share a budget with them, and no others.
+- **R-PROFILE-003** A user can read their own profile and the profiles of people who share a budget with them now, and no others.
   _active · enforced by test · F-MEMBERS_
+  - Related: D-088
   - Source: docs/database.md: Reading
-- **R-PROFILE-004** Members can read the profile of anyone who has an income in their budget, so a former member's income keeps its owner's name.
+- **R-PROFILE-004** A former member's income keeps its owner's display name; members who never shared the budget with them cannot read their profile or email.
   _active · enforced by test · F-PROFILE_
-  - Related: D-074
+  - Related: D-074, D-088
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PROFILE-005** A profile's email is the account's email and follows it when it changes; the user cannot change it on the profile.
   _active · enforced by test · F-PROFILE_
@@ -418,9 +419,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-BUDGET-007** An end date only stops period generation.
   _active · enforced by test · F-BUDGET_
   - Source: domain: Budget
-- **R-BUDGET-008** A budget's end date is the end of its final month's period: always a normal period boundary.
+- **R-BUDGET-008** A budget's end is the end date the owner entered: no period starts after it, and the period containing it is the last one and ends at its normal end, which is the end shown.
   _active · enforced by test · F-BUDGET_
-  - Related: D-032, D-067
+  - Related: D-032, D-067, D-086
   - Source: domain: Budget
 - **R-BUDGET-009** Budgets can be created, modified and deleted.
   _active · enforced by test · F-BUDGET_
@@ -450,13 +451,13 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-BUDGET-052** Deleting a budget asks the owner to type the budget's name first.
   _active · enforced by test · F-BUDGET_
   - Source: code: src/features/settings/budget-settings.tsx
-- **R-BUDGET-014** When the terms change after an end date is set, the final period still ends on a normal boundary of its month, never a stub carrying a full month's income.
+- **R-BUDGET-014** The end shown for a budget follows later changes of the terms by itself; the last period is never a stub.
   _active · enforced by test · F-BUDGET_
-  - Related: D-067
+  - Related: D-067, D-086
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
-- **R-BUDGET-015** The final boundary of a budget with an end date can be adjusted by hand in one call, and the end date follows it.
+- **R-BUDGET-015** The end of the last period of a budget with an end date can be set by hand in one call, like the current period's end, and the end shown follows it.
   _active · enforced by test · F-BUDGET_
-  - Related: D-067
+  - Related: D-067, D-086
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-BUDGET-016** Deleting the owner's account deletes their budgets, for every member.
   _active · enforced by test · F-BUDGET_
@@ -555,6 +556,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MEMBERS_
   - Related: D-069
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
+- **R-INVITE-011** Accepting, declining, cancelling and re-sending an invitation never deadlock with each other.
+  _active · enforced by test · F-MEMBERS_
+  - Related: D-087
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
 
 ### Incomes
 
@@ -629,6 +634,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-INCOME-052, R-INCOME-008, R-PERIOD-026
   - Source: code: src/features/income/components/make-primary-dialog.tsx
+- **R-INCOME-017** Only an income in force in the current period can become the primary income.
+  _active · enforced by test · F-INCOME_
+  - Related: R-INCOME-008
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
 
 ### Pay dates and the weekend rule
 
@@ -660,9 +669,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Why: Example with a nominal 25th: if 25 January is a Saturday, the period starts Friday 24 January.
   - Source: domain: Period
-- **R-PERIOD-002** A period ends the day before the next period starts: by default, the day before the actual pay date of the primary income for the next month.
+- **R-PERIOD-002** A period ends the day before the next period starts; by default, the day before the next pay date given by the projection rule (R-PERIOD-030).
   _active · enforced by test · F-PERIOD_
-  - Related: D-060
+  - Related: D-060, D-081
   - Source: domain: Period
 - **R-PERIOD-003** The salary (the primary income) is always day one of its period.
   _active · enforced by test · F-PERIOD_
@@ -685,23 +694,23 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-PERIOD-009** Periods are created on demand.
   _active · enforced by test · F-PERIOD_
   - Source: domain: Period
-- **R-PERIOD-010** The current period's end date is a projection: the day before the actual pay date of the primary income for the next month, under the terms in force for the next period.
+- **R-PERIOD-010** The current period's end date is a projection: the day before the next pay date given by the projection rule, unless set by hand.
   _active · enforced by test · F-PERIOD_
-  - Related: D-060
+  - Related: D-060, D-081
   - Source: domain: Period
-- **R-PERIOD-011** The current period's projected end is recomputed when the primary income's terms change or another income becomes primary, unless the user has set it by hand (see R-PERIOD-026).
+- **R-PERIOD-011** When the primary income's terms change or another income becomes primary, the current period's end is re-projected unless it was set by hand, and never to a date before today.
   _active · enforced by test · F-PERIOD_
-  - Related: R-PERIOD-026
+  - Related: D-080, R-PERIOD-026, R-PERIOD-029
   - Source: domain: Period
-- **R-PERIOD-012** The user can move the boundary between two consecutive periods to match when the salary really arrived, overriding the scheduled pay date; each period keeps its month.
+- **R-PERIOD-012** The user can move the boundary between two existing periods to a date up to today, to match when a salary really arrived; moving it back undoes it.
   _active · enforced by test · F-PERIOD_
   - Why: Public holidays.
-  - Related: D-061
+  - Related: D-061, D-082
   - Source: domain: Period; domain: Income
-- **R-PERIOD-013** The user can move the end of the current period, including the final period of a budget with an end date, in one call.
+- **R-PERIOD-013** The user can set the date the next salary is expected (after today): the current period, including the final period of a budget with an end date, ends the day before.
   _active · enforced by test · F-PERIOD_
   - Why: Public holidays.
-  - Related: D-061
+  - Related: D-061, D-082
   - Source: domain: Period
 - **R-PERIOD-014** A manual boundary is never overwritten by recomputation.
   _active · enforced by test · F-PERIOD_
@@ -724,38 +733,41 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-029
   - Source: docs/database.md: RPCs
-- **R-PERIOD-020** A boundary set by hand lies within 14 days of the scheduled pay date of the salary that starts the next period, never leaves a period empty and never swallows the next period.
+- **R-PERIOD-020** Every period is 7 to 92 days long; boundary operations that would break this are refused.
   _active · enforced by test · F-PERIOD_
-  - Related: D-029, D-061, D-066
+  - Related: D-029, D-061, D-066, D-080, D-085
   - Source: docs/database.md: RPCs
 - **R-PERIOD-050** When a budget is opened, the app asks the database to create its missing periods (ensure_periods) and refreshes what depends on them when any were created.
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-009
   - Source: docs/database.md: Reading; code: src/features/budgets/current-budget-provider.tsx
 - **R-PERIOD-021** There is one period per calendar month: each period belongs to one month and starts on that month's salary, consecutive periods have consecutive months, and no month has two periods, so a month's salary never counts twice.
-  _active · enforced by test · F-PERIOD_
-  - Related: D-060
+  _retired · enforced by test · F-PERIOD_
+  - Retired: Periods are no longer tied to calendar months (D-080): a period runs from salary to salary.
+  - Related: D-060, D-080
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PERIOD-022** No period ever starts after today.
   _active · enforced by test · F-PERIOD_
   - Related: D-062
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
-- **R-PERIOD-023** Moving the boundary before the latest period to today or later means the salary has not arrived yet: the latest period is removed and the previous one is current again, with that end.
+- **R-PERIOD-023** When the salary that started the latest period has not arrived yet, the latest period is merged into the previous one, which is current again and ends before the expected date (after today) or at its projection.
   _active · enforced by test · F-PERIOD_
-  - Related: D-062
+  - Related: D-062, D-082
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PERIOD-024** A boundary that is not the one before the latest period cannot move to today or later.
-  _active · enforced by review · F-PERIOD_
+  _retired · enforced by review · F-PERIOD_
   - Why: With the 14-day rule (R-PERIOD-020) no such move can be requested; the database still refuses it (boundary_after_today) as a defence.
-  - Related: D-062
+  - Retired: The boundary operations of D-082 replace the position-dependent move; no operation can move an earlier boundary to after today (R-PERIOD-012, R-PERIOD-022).
+  - Related: D-062, D-082
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
-- **R-PERIOD-025** Every manual boundary operation has an inverse: a boundary can be moved back or reset to the schedule, which also reopens a period closed early or brings back a period removed for a late salary.
+- **R-PERIOD-025** Every boundary operation has an inverse: an expected pay date is reset to the projection, an early close is undone by reopening the previous period (and the reverse), and a moved boundary is moved back.
   _active · enforced by test · F-PERIOD_
-  - Related: D-063
+  - Related: D-063, D-082
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PERIOD-026** When the primary income's terms change or another income becomes primary, a manual end of the current period is kept while it lies within 14 days of the new schedule, and is reset to the schedule otherwise.
-  _active · enforced by test · F-PERIOD_
-  - Related: D-073
+  _retired · enforced by test · F-PERIOD_
+  - Retired: A change of terms never touches a manual end (R-PERIOD-014, D-080); the 14-day rule is gone.
+  - Related: D-073, D-080
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-PERIOD-027** The database gives the valid months to start a budget from, with the date each first period would start, so the client never computes them.
   _active · enforced by test · F-PERIOD_
@@ -773,6 +785,30 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-050, R-PERIOD-028
   - Source: code: src/features/budgets/budget-queries.ts
+- **R-PERIOD-029** A change of terms (an edit, a correction, switching the primary income) never moves a stored boundary; its only effect on periods is to re-project the current period's end when it was not set by hand.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-080
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-030** The next pay date after a period is the first actual pay date of the primary income, under the terms in force, at least 15 days after the period's start (and, when re-projecting after a change of terms, after today).
+  _active · enforced by test · F-PERIOD_
+  - Related: D-081
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-031** A budget can never get stuck: creating the missing periods always succeeds, each starting the day after the previous one ends, until one contains today or the budget's end is reached.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-080
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-032** Every write first creates the missing periods up to today, then acts.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-082
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-033** The expected next pay date set by hand can be reset to the projection.
+  _active · enforced by test · F-PERIOD_
+  - Related: D-082
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-034** When the salary arrives early, the current period closes and the next one starts on the day it arrived (today or earlier).
+  _active · enforced by test · F-PERIOD_
+  - Related: D-082
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
 
 ### Versioning: edits never rewrite the past
 
@@ -794,21 +830,31 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-VERSION-006** Several edits within the same period overwrite that period's version rather than piling up.
   _active · enforced by test · F-INCOME_
   - Source: domain: Versioning: edits never rewrite the past
-- **R-VERSION-007** A change to the primary income's pay day or weekend rule does not move the start of the current period, which has already happened.
+- **R-VERSION-007** A change to the primary income's pay day or weekend rule does not move the start of the current period, or any other stored boundary.
   _active · enforced by test · F-PERIOD_
+  - Related: D-080
   - Source: domain: Versioning: edits never rewrite the past
-- **R-VERSION-008** A change to the primary income's pay day or weekend rule applies from the next month's pay date.
+- **R-VERSION-008** A change to the primary income's pay day or weekend rule applies from the next pay date after today: the current period's end is re-projected to the day before it.
   _active · enforced by test · F-PERIOD_
-  - Related: D-060
+  - Related: D-060, D-081
   - Source: domain: Versioning: edits never rewrite the past
 - **R-VERSION-009** Writing a version for a period discards the versions keyed to later periods, so terms just saved hold from that period on and are never shadowed.
-  _active · enforced by test · F-INCOME_
-  - Related: D-064
+  _retired · enforced by test · F-INCOME_
+  - Retired: Nothing is keyed beyond the latest period any more (R-VERSION-011, D-083), so there are no later versions to discard.
+  - Related: D-064, D-083
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
 - **R-VERSION-010** An income's terms can be corrected from an earlier period of the income, as an explicit correction; normal edits never change past periods.
   _active · enforced by test · F-INCOME_
-  - Related: D-065
+  - Related: D-065, D-084
   - Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs
+- **R-VERSION-011** Nothing is keyed beyond the latest period: when the latest period is merged into the previous one, everything keyed to it is re-keyed to the previous period, the later write winning, so a change made now is in force now.
+  _active · enforced by test · F-INCOME_
+  - Related: D-083
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-VERSION-012** A correction from an earlier period applies from that period until the next existing change; later versions are left alone.
+  _active · enforced by test · F-INCOME_
+  - Related: D-084
+  - Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs
 
 ### Categories and subcategories
 
@@ -1679,7 +1725,7 @@ Related: Q-016, R-PERIOD-017, C-LOGIC-003
 
 Source: code: src/features/dashboard/period-progress.ts
 
-### D-060 One period per calendar month (accepted)
+### D-060 One period per calendar month (superseded by D-080)
 
 Each period belongs to one calendar month (periods.month) and starts on that month's salary (anchor_date, the scheduled actual pay date). Consecutive periods have consecutive months. A period's projected end is the day before the actual pay date of the next month's nominal pay day under the terms in force for the next period. A mid-period change of the primary's pay day or weekend rule therefore applies to the next month's pay date.
 
@@ -1693,7 +1739,7 @@ Related: R-PERIOD-021, R-PERIOD-002, R-PERIOD-010, R-VERSION-008
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-061 A manual boundary lies within 14 days of its salary (accepted)
+### D-061 A manual boundary lies within 14 days of its salary (superseded by D-080)
 
 A boundary set by hand must leave the next period starting within 14 days of the scheduled pay date of its month. This bound replaces the 70-day period length limit as the abuse limit.
 
@@ -1707,7 +1753,7 @@ Related: R-PERIOD-020, R-PERIOD-012, R-PERIOD-013
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-062 No period starts after today (accepted)
+### D-062 No period starts after today (superseded by D-080)
 
 Periods exist only up to the one containing today. Moving the boundary before the latest period to today or later means the salary has not arrived yet: the latest period is removed and the previous one is current again with that end. Moving any earlier boundary to today or later is refused.
 
@@ -1719,7 +1765,7 @@ Related: R-PERIOD-022, R-PERIOD-023, R-PERIOD-024
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-063 Every manual boundary operation has an inverse (accepted)
+### D-063 Every manual boundary operation has an inverse (superseded by D-082)
 
 move_period_boundary(period, null) resets the boundary after a period to the schedule; any move can be moved back. Closing a period early is undone by moving or resetting that boundary, which removes the period started early if its salary is still to come.
 
@@ -1731,7 +1777,7 @@ Related: R-PERIOD-025
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-064 Writing a version discards later versions (accepted)
+### D-064 Writing a version discards later versions (superseded by D-083)
 
 Writing a version for period s deletes the versions of the same entity keyed to later periods, through one generic trigger (private.discard_later_versions) that every versioned table (incomes now; categories, subscriptions and debts later) uses.
 
@@ -1755,7 +1801,7 @@ Related: R-VERSION-010, R-INCOME-015
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-066 Limits (revised) (accepted)
+### D-066 Limits (revised) (superseded by D-085)
 
 At most 20 owned budgets per user, 20 members per budget, 20 pending (unexpired) invitations per budget, 50 incomes in force and 500 incomes in all per budget. Income amounts from 1 to 1 000 000 000 rappen. A budget starts at most 60 months back; an end date at most ten years ahead. A manual boundary lies within 14 days of its salary (D-061). The limits are defined in one place in the migration.
 
@@ -1767,7 +1813,7 @@ Related: R-BUDGET-012, R-BUDGET-013, R-MEMBER-010, R-INVITE-006, R-INCOME-013, R
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-067 The end date is a final month (accepted)
+### D-067 The end date is a final month (superseded by D-086)
 
 A budget stores its final month (end_month). Setting an end date picks the month whose period contains it; the end date shown is that period's end (projected while it does not exist), so it follows later changes of the terms and is always a normal boundary. The final boundary is adjusted like any other, in one call. An end date that would delete existing periods is refused.
 
@@ -1839,7 +1885,7 @@ Related: R-BUDGET-018, R-MEMBER-002, R-MEMBER-004
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-073 A manual end survives a terms change only within 14 days (accepted)
+### D-073 A manual end survives a terms change only within 14 days (superseded by D-080)
 
 When the primary's terms change or the primary is switched, a manual end of the current period is kept while it lies within 14 days of the new schedule, and reset to the schedule otherwise.
 
@@ -1853,7 +1899,7 @@ Related: R-PERIOD-026, R-PERIOD-014
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
-### D-074 Profiles carry the email and stay readable for income labels (accepted)
+### D-074 Profiles carry the email and stay readable for income labels (superseded by D-088)
 
 profiles.email mirrors the account email (trigger on auth.users). Members can read the profiles of co-members and of anyone with an income in their budgets.
 
@@ -1864,6 +1910,118 @@ profiles.email mirrors the account email (trigger on auth.users). Members can re
 Related: R-PROFILE-004, R-PROFILE-005
 
 Source: owner-request: coordinator decisions on the step 2 database review, 2026-11-15; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-080 Periods are salary to salary; stored periods are facts (accepted)
+
+A period runs from one salary to the day before the next. Stored periods are facts: only the boundary operations move a stored boundary. The schedule (the primary income's pay day and weekend rule) only predicts the next pay date. Structural invariants only, none depending on terms: contiguous, non-overlapping, none starting after today or after the budget's end date, each 7 to 92 days long.
+
+**Why:** The month anchor and the 14-day rule (D-060, D-061) tied stored periods to the terms currently in force: budgets got stuck (every period call failing) and real pay-day changes, such as from the 5th to the 25th within one month, could not be represented.
+
+**Rejected:**
+
+- One period per calendar month within 14 days of its scheduled salary (D-060, D-061): see why.
+
+Related: R-PERIOD-020, R-PERIOD-022, R-PERIOD-029, R-PERIOD-031
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-081 The projection rule (accepted)
+
+The next pay date after a period is the first actual pay date, under the primary income's terms in force, at least 15 days after the period's start; the projected end is the day before. When re-projecting because terms changed, the next pay date must also be after today, so the current period stays current. One pure function (private.next_salary_date).
+
+**Why:** Periods generated this way are never shorter than 15 days, an early salary never creates a stub, and a change of terms never closes a period retroactively.
+
+**Rejected:** none recorded.
+
+Related: R-PERIOD-002, R-PERIOD-010, R-PERIOD-030, R-VERSION-008
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-082 Boundary operations, each with an inverse (accepted)
+
+Four operations: set_expected_pay_date (the current period's end, after today; null resets it to the projection); record_early_pay_date (the salary arrived early: the next period starts on a date up to today); reopen_previous_period (the salary has not arrived yet: the latest period is merged into the previous one, which ends before a future date or at its projection; the inverse of an early close); move_period_start (moves the boundary between two existing periods to a date up to today; undone by moving it back). Every write RPC catches the periods up to today first. The length bounds are the abuse limit.
+
+**Why:** Each real-life case has one clear operation, and each has an inverse.
+
+**Rejected:**
+
+- One move_period_boundary operation whose meaning depended on the period's position: hard to use and to undo.
+
+Related: R-PERIOD-012, R-PERIOD-013, R-PERIOD-023, R-PERIOD-025, R-PERIOD-032, R-PERIOD-033, R-PERIOD-034
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-083 Merging the latest period re-keys what was keyed to it (accepted)
+
+When the latest period is merged into the previous one, everything keyed to it (income versions, incomes starting or ending there, and so the primary switch) is re-keyed to the previous period, the later write winning. Nothing is ever keyed beyond the latest period (constraint trigger). One shared mechanism: private.rekey_period over the registry private.period_keyed_tables, which later versioned tables (categories, subscriptions, debts) join.
+
+**Why:** A change made "now" must always be in force now; the discard-later-versions mechanism (D-064) is no longer needed.
+
+**Rejected:** none recorded.
+
+Related: R-VERSION-011
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-084 A correction applies until the next change (accepted)
+
+A correction from period K writes the version at K and leaves later versions alone: it applies from K until the next existing change.
+
+**Why:** Correcting one early period rewrote every later period (review finding 3).
+
+**Rejected:** none recorded.
+
+Related: R-VERSION-010, R-VERSION-012, D-065
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-085 Limits (revised again) (accepted)
+
+At most 20 owned budgets per user, 20 members per budget, 20 pending (unexpired) invitations per budget, 50 incomes in force and 500 incomes in all per budget. Income amounts from 1 to 1 000 000 000 rappen. A budget starts at most 60 months back; an end date at most ten years ahead. A period is 7 to 92 days long (generated periods at least 15 by construction). The limits are defined in one place in the migration.
+
+**Why:** The 14-day rule is gone (D-080); the length bounds are the abuse limit for boundary operations.
+
+**Rejected:** none recorded.
+
+Related: R-BUDGET-012, R-BUDGET-013, R-MEMBER-010, R-INVITE-006, R-INCOME-013, R-INCOME-016, R-INCOME-014, R-PERIOD-019, R-PERIOD-020
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-086 The budget end is the date entered (accepted)
+
+The budget stores the end date the owner entered. No period starts after it; the period containing it is the last and ends at its normal projected end. The end shown (my_budgets.end_date) is that period's end and follows later term changes by itself; it can be adjusted like the current period's end.
+
+**Why:** A stored final month tied the end to the calendar-month model (D-067).
+
+**Rejected:** none recorded.
+
+Related: R-BUDGET-008, R-BUDGET-014, R-BUDGET-015
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-087 One lock order (accepted)
+
+Every RPC takes the budget's advisory lock before any row lock; accept_invitation, decline_invitation and cancel_invitation included.
+
+**Why:** accept_invitation locked the invitation row before the budget while invite_member did the opposite, which deadlocked (review finding 4).
+
+**Rejected:** none recorded.
+
+Related: R-INVITE-011, D-069
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
+
+### D-088 A former member keeps only their name (accepted)
+
+Members read the profiles (name and email) of people who share a budget with them now. A former member's income keeps its owner's display name through income_overview.user_display_name only.
+
+**Why:** A later joiner could read the email of a former member they never shared the budget with (review finding 5).
+
+**Rejected:** none recorded.
+
+Related: R-PROFILE-003, R-PROFILE-004
+
+Source: owner-request: coordinator decision on the second step 2 database review, 2026-11-16; docs/database.md: RPCs; code: supabase/migrations/20261115220913_budgets_members_incomes_periods.sql
 
 ## Open questions
 

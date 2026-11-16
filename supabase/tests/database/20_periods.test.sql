@@ -154,7 +154,7 @@ select lives_ok(
 select results_eq(
   format('select * from pg_temp.periods_of(%L) where seq >= 9', tests.id('jan')),
   $$values (9, '2026-09-25'::date, '2026-10-25'::date), (10, '2026-10-26'::date, '2026-12-03'::date)$$,
-  'R-PERIOD-029 R-VERSION-007 R-VERSION-008: the current period stays current and ends before the next pay date after today (5 Dec is a Saturday: Friday 4)'
+  'R-PERIOD-011 R-PERIOD-029 R-VERSION-007 R-VERSION-008: the current period stays current and ends before the next pay date after today (5 Dec is a Saturday: Friday 4)'
 );
 select results_eq(
   format('select * from pg_temp.periods_of(%L) where seq < 10', tests.id('jan')),

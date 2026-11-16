@@ -139,7 +139,7 @@ select throws_ok(format('select public.remove_income(%L)', tests.id('bob_past'))
 select throws_ok(format('select public.update_income_terms(%L, 1000, 1, %L)', tests.id('bob_past'), 'nearest'),
   'P0001', 'income_ended', 'R-INCOME-012: nor edited from now');
 select throws_ok(format('select public.set_primary_income(%L)', tests.id('bob_past')),
-  'P0001', 'income_ended', 'R-INCOME-008: nor made primary');
+  'P0001', 'income_ended', 'R-INCOME-008 R-INCOME-017: nor made primary (only an income in force now can be)');
 
 -- ---------------------------------------------------------------------------
 -- Explicit corrections of the past
