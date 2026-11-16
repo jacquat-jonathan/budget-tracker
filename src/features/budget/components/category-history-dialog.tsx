@@ -155,7 +155,9 @@ function HistoryForm({
   const extend = useExtendCategory(budgetId, { onDone: close })
   const restore = useRestoreCategory(budgetId, { onDone: close })
   const mutation = mode === 'extend' ? extend : restore
-  const sync = useConcurrentForm(form, edit, valuesOf, () => mutation.reset())
+  const sync = useConcurrentForm(form, edit, valuesOf, () => mutation.reset(), {
+    controls: ['fromPeriodId'],
+  })
   const chosen = periods.find((period) => period.id === fromPeriodId)
 
   // Someone else restored it first: there is nothing left to restore.
@@ -195,6 +197,7 @@ function HistoryForm({
           gone={edit.gone}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           error={mutation.error}

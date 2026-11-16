@@ -202,7 +202,8 @@ function Totals({ period }: { period: PeriodSummary }) {
   const left = period.left_to_assign ?? 0
   return (
     <dl
-      className="grid grid-cols-2 gap-x-4 gap-y-5 @xl/progress:grid-cols-4"
+      // One column on a phone, two from 28rem, four from 56rem: eight-figure amounts never meet.
+      className="grid grid-cols-1 gap-x-4 gap-y-5 @md/progress:grid-cols-2 @4xl/progress:grid-cols-4"
       data-testid="progress-totals"
     >
       <MoneyStat label={t('progress.income')} amount={period.income_total ?? 0} />
@@ -214,9 +215,15 @@ function Totals({ period }: { period: PeriodSummary }) {
             {/* R-PROGRESS-120: right under the planned figure it is part of, saying so. */}
             {(period.committed_total ?? 0) > 0 && (
               <span className="block" data-testid="progress-committed">
-                {t('progress.plannedIncludes', {
-                  amount: formatMoney(period.committed_total ?? 0),
-                })}
+                {/* More committed than planned: said so, not "includes". */}
+                {(period.committed_total ?? 0) > (period.expected_total ?? 0)
+                  ? t('progress.committedExceeds', {
+                      committed: formatMoney(period.committed_total ?? 0),
+                      planned: formatMoney(period.expected_total ?? 0),
+                    })
+                  : t('progress.plannedIncludes', {
+                      amount: formatMoney(period.committed_total ?? 0),
+                    })}
               </span>
             )}
             <span className="block">

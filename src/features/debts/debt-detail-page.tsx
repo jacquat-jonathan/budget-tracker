@@ -474,7 +474,10 @@ function HistoryTable({
                 {formatMoney(entry.amount)}
               </TableCell>
               <TableCell className="text-right font-medium tabular-nums">
-                {formatMoney(entry.balance)}
+                {/* Below zero it is overpaid: said so, never a negative "remaining". */}
+                {entry.balance < 0
+                  ? t('debts.overpaidAmount', { amount: formatMoney(-entry.balance) })
+                  : formatMoney(entry.balance)}
               </TableCell>
               <TableCell className="pr-0 text-right">
                 {entry.kind === 'payment' && entry.period_id && (

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import type { FieldView } from '@/hooks/use-edit-base'
+import { dbErrorKey } from '@/lib/db-errors'
 
 function Changes({ changes }: { changes: FieldView[] }) {
   return (
@@ -133,6 +134,7 @@ export function ConcurrentNotices({
   onKeepMine,
   error,
   message,
+  recovered = false,
 }: {
   gone: boolean
   /** Gone because another member ended it, not deleted. */
@@ -144,15 +146,26 @@ export function ConcurrentNotices({
   onKeepMine: () => void
   error: unknown
   message: (error: unknown) => string
+  /** The save's answer was lost but the record holds what was sent: it was saved. */
+  recovered?: boolean
 }) {
+  const { t } = useTranslation()
+  // A lost answer is never "someone else": saved (recovered), or not saved (the connection).
+  const say = (failure: unknown) =>
+    dbErrorKey(failure) === 'errors.network' ? t('errors.networkSave') : message(failure)
   return (
     <>
+      {recovered && (
+        <Alert data-testid="saved-after-loss" role="status">
+          <AlertDescription>{t('concurrent.savedAfterLoss')}</AlertDescription>
+        </Alert>
+      )}
       {gone && <GoneElsewhere ended={ended} endedText={endedText} />}
       {!gone && pending && (
         <ChangedElsewhere changes={pending} onUseTheirs={onUseTheirs} onKeepMine={onKeepMine} />
       )}
       {!gone && !pending && updated && updated.length > 0 && <UpdatedElsewhere changes={updated} />}
-      <SaveError error={error} hidden={gone || pending !== null} message={message} />
+      <SaveError error={error} hidden={gone || pending !== null || recovered} message={say} />
     </>
   )
 }

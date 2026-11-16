@@ -99,7 +99,7 @@ export function CurrentPeriodCard() {
             </div>
             <Progress value={percent} aria-label={t('dashboard.period.dayOf', { day, total })} />
           </div>
-          <dl className="grid grid-cols-1 gap-4 @md/period:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 @lg/period:grid-cols-2">
             <div className="flex flex-col gap-1">
               <dt className="text-sm text-muted-foreground">{t('dashboard.period.incomeTotal')}</dt>
               <dd className="text-2xl font-semibold tabular-nums">

@@ -52,17 +52,22 @@ export function ChargesToConfirmCard() {
     const card = cardRef.current
     if (card && document.activeElement && card.contains(document.activeElement)) return
     answeredIndex.current = null
-    if (!card) {
-      // The last one answered: the card is gone; focus goes to the page's heading.
-      const heading = document.querySelector<HTMLElement>('main h1')
-      heading?.setAttribute('tabindex', '-1')
-      heading?.focus()
-      return
-    }
-    const rows = card.querySelectorAll<HTMLElement>('[data-testid="charge-to-confirm"]')
-    const next = rows[Math.min(index, rows.length - 1)]
-    const target = next?.querySelector<HTMLElement>('button') ?? card.querySelector('h2')
-    target?.focus()
+    // After a confirmation dialog has closed (it gives the focus back to a button that is
+    // gone): the next charge, else the page's heading once none is left (R-SUBSCRIPTION-191).
+    const timer = window.setTimeout(() => {
+      const now = cardRef.current
+      if (!now) {
+        const heading = document.querySelector<HTMLElement>('main h1')
+        heading?.setAttribute('tabindex', '-1')
+        heading?.focus()
+        return
+      }
+      const rows = now.querySelectorAll<HTMLElement>('[data-testid="charge-to-confirm"]')
+      const next = rows[Math.min(index, rows.length - 1)]
+      const target = next?.querySelector<HTMLElement>('button') ?? now.querySelector('h2')
+      target?.focus()
+    }, 60)
+    return () => window.clearTimeout(timer)
   }, [ids])
 
   if (charges.isError) {

@@ -10,7 +10,7 @@ import {
   Trash2Icon,
   XIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
@@ -18,6 +18,7 @@ import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
 import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-periods'
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { ChargeAnswers } from '@/features/subscriptions/components/charge-answers'
 import { useAnswerCharge } from '@/features/subscriptions/subscription-mutations'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -288,6 +289,8 @@ export function TransactionsPage() {
       ) : (
         <TransactionList
           rows={rows}
+          budgetId={budgetId}
+          inlineAnswers={awaitingOnly}
           onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
           onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
           onAnswer={(transaction, answer) => {
@@ -401,21 +404,36 @@ function LinkFilters({
   onRemove: (key: string) => void
 }) {
   const { t } = useTranslation()
+  const listRef = useRef<HTMLUListElement>(null)
   return (
     <ul
-      className="flex flex-wrap gap-2"
+      ref={listRef}
+      className="flex max-w-full min-w-0 flex-wrap gap-2"
       aria-label={t('charges.linkFilters')}
       data-testid="link-filters"
     >
-      {filters.map((filter) => (
-        <li key={filter.key}>
-          <Badge variant="secondary" className="h-8 max-w-full gap-1 pr-1 pl-3 text-sm">
-            <span className="truncate">{filter.label}</span>
+      {filters.map((filter, index) => (
+        <li key={filter.key} className="max-w-full min-w-0">
+          {/* A long name is cut, never wider than the page (it is in the label in full). */}
+          <Badge
+            variant="secondary"
+            className="h-8 max-w-full min-w-0 justify-start gap-1 overflow-hidden pr-1 pl-3 text-sm"
+            title={filter.label}
+          >
+            <span className="min-w-0 truncate">{filter.label}</span>
             <Button
               variant="ghost"
               size="icon-xs"
               className="rounded-full"
-              onClick={() => onRemove(filter.key)}
+              onClick={() => {
+                onRemove(filter.key)
+                // Focus stays in the filters: the next chip, else the period filter.
+                window.setTimeout(() => {
+                  const buttons = listRef.current?.querySelectorAll<HTMLElement>('button')
+                  const next = buttons?.[Math.min(index, buttons.length - 1)]
+                  ;(next ?? document.getElementById('filter-period'))?.focus()
+                })
+              }}
               aria-label={t('charges.removeFilter', { what: filter.label })}
             >
               <XIcon />
@@ -568,16 +586,46 @@ function weekday(date: string, language: string): string {
 /** Transactions grouped by day, newest first. */
 function TransactionList({
   rows,
+  budgetId,
+  inlineAnswers,
   onEdit,
   onDelete,
   onAnswer,
 }: {
   rows: Transaction[]
+  budgetId: string
+  /** The charges awaiting confirmation: the two answers on each row. */
+  inlineAnswers: boolean
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
 }) {
   const { t, i18n } = useTranslation()
+  // R-SUBSCRIPTION-191: after an answer the focus goes to the row now at that place, else to
+  // the filters, never to the page's body.
+  const listRef = useRef<HTMLDivElement>(null)
+  const answered = useRef<number | null>(null)
+  const ids = rows.map((row) => row.id).join(',')
+  useEffect(() => {
+    const index = answered.current
+    if (index === null) return
+    answered.current = null
+    const timer = window.setTimeout(() => {
+      const items = listRef.current?.querySelectorAll<HTMLElement>(
+        '[data-testid="transaction-row"]',
+      )
+      const next = items?.[Math.min(index, items.length - 1)]
+      const target =
+        next?.querySelector<HTMLElement>('[data-answer] button, button') ??
+        document.getElementById('filter-period')
+      target?.focus()
+    }, 60)
+    return () => window.clearTimeout(timer)
+  }, [ids])
+  const answer = (transaction: Transaction, kind: 'confirm' | 'dismiss') => {
+    answered.current = rows.indexOf(transaction)
+    onAnswer(transaction, kind)
+  }
   const days: { date: string; items: Transaction[] }[] = []
   for (const row of rows) {
     const last = days.at(-1)
@@ -585,7 +633,7 @@ function TransactionList({
     else days.push({ date: row.date, items: [row] })
   }
   return (
-    <div className="flex flex-col gap-4" data-testid="transaction-list">
+    <div ref={listRef} className="flex flex-col gap-4" data-testid="transaction-list">
       {days.map((day) => (
         <section key={day.date} aria-label={formatCalendarDate(day.date)}>
           <h2 className="mb-1.5 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -603,7 +651,12 @@ function TransactionList({
                 frozen={row.debt_ended === true}
                 onEdit={onEdit}
                 onDelete={onDelete}
-                onAnswer={onAnswer}
+                onAnswer={answer}
+                budgetId={budgetId}
+                inlineAnswers={inlineAnswers}
+                onAnswered={() => {
+                  answered.current = rows.indexOf(row)
+                }}
               />
             ))}
           </ul>
@@ -663,6 +716,9 @@ function TransactionRow({
   onEdit,
   onDelete,
   onAnswer,
+  budgetId,
+  inlineAnswers = false,
+  onAnswered,
 }: {
   row: Transaction
   /** A payment of an ended debt: it can be looked at, not changed or deleted. */
@@ -670,6 +726,10 @@ function TransactionRow({
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer?: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
+  budgetId?: string
+  /** The charges awaiting confirmation: both answers on the row itself. */
+  inlineAnswers?: boolean
+  onAnswered?: () => void
 }) {
   const { t } = useTranslation()
   const linkNote = useLinkNote()
@@ -710,6 +770,11 @@ function TransactionRow({
             .filter((part) => part !== null)
             .flatMap((part, index) => (index === 0 ? [part] : [' · ', part]))}
         </span>
+        {inlineAnswers && budgetId && row.review_state === 'awaiting_confirmation' && (
+          <div className="mt-1.5" data-answer>
+            <ChargeAnswers budgetId={budgetId} charge={row} size="xs" onAnswer={onAnswered} />
+          </div>
+        )}
       </div>
       <span
         className={cn('shrink-0 text-right font-medium tabular-nums', incoming && 'text-positive')}

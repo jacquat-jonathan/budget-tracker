@@ -10,7 +10,7 @@ import {
 } from '@/features/debts/debt-chart-data'
 import type { HistoryEntry, HistoryKind } from '@/features/debts/debt-queries'
 import { formatCalendarDate, fromCalendarDayNumber } from '@/lib/date'
-import { formatMoney } from '@/lib/money'
+import { formatCount, formatMoney } from '@/lib/money'
 
 const config = {
   balance: { label: 'balance', color: 'var(--chart-1)' },
@@ -145,9 +145,14 @@ export function DebtChart({
         role="img"
         aria-label={
           cappedAt === null
-            ? t('debts.chart.label', { count: entries.length, amount: formatMoney(last.balance) })
+            ? last.balance < 0
+              ? t('debts.chart.labelOverpaid', {
+                  count: entries.length,
+                  amount: formatMoney(-last.balance),
+                })
+              : t('debts.chart.label', { count: entries.length, amount: formatMoney(last.balance) })
             : t('debts.chart.labelCapped', {
-                count: entries.length,
+                shown: formatCount(entries.length),
                 date: formatCalendarDate(last.date),
               })
         }
@@ -253,7 +258,7 @@ export function DebtChart({
         {cappedAt !== null && (
           <p className="text-xs font-medium" data-testid="debt-chart-capped">
             {t('debts.chart.capped', {
-              count: cappedAt,
+              shown: formatCount(cappedAt),
               date: formatCalendarDate(last.date),
             })}
           </p>

@@ -6,6 +6,7 @@ import { unwrap, usePeriodDependentQuery, type PeriodRead } from '@/features/bud
 import { useRecord } from '@/features/budgets/record-queries'
 import type { Database, Tables } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
+import { isUuid } from '@/lib/uuid'
 
 type DebtRead = Tables<'debt_overview'>
 export type Payoff = Database['public']['Enums']['debt_payoff']
@@ -205,6 +206,8 @@ export function useDebtHistory(
 ) {
   const { newestFirst, pageSize } = order
   return useInfiniteQuery({
+    // An id that is not a uuid is no debt: nothing is asked (the page says so).
+    enabled: isUuid(debtId),
     queryKey: [
       ...budgetKeys.debtHistory(budgetId, debtId),
       newestFirst ? 'newest' : 'oldest',

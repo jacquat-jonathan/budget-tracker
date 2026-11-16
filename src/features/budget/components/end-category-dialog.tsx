@@ -132,7 +132,9 @@ function EndCategoryBody({
             ? t('categories.inUse.cannotTitle', { name: category.name })
             : deletes
               ? t('categories.removeDeleteTitle', { name: category.name })
-              : t('categories.removeEndTitle', { name: category.name })}
+              : correct
+                ? t('categories.removeEarlierTitle', { name: category.name })
+                : t('categories.removeEndTitle', { name: category.name })}
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="end-category-outcome">

@@ -83,6 +83,8 @@ export function useEditBase<T extends { revision: number }>(
     },
     /** This form saved the record, which now has `revision`. */
     savedAs: (revision: number) => setOwn(revision),
+    /** Every field this form shows of a record, as it shows them. */
+    describe,
   }
 }
 

@@ -158,7 +158,9 @@ function TransactionForm({
   const describe = (record: Transaction) => [
     ...views.transaction(record),
     {
+      // The debt a payment is for: the form's debtId (M1: never kept as "mine" by default).
       key: 'debt',
+      fields: ['debtId'],
       label: t('transactions.fields.debt'),
       value: record.debt_name ?? t('concurrent.none'),
     },
@@ -229,6 +231,15 @@ function TransactionForm({
       form.setValue('categoryId', termsCategory, { shouldDirty: true })
     }
   }, [chosenDebt, datePeriod, termsCategory, form])
+  // A payment waits for its debt's terms on the date (its category follows them): no save
+  // before they are known, and none when the debt was not in force then; both buttons alike.
+  const termsPending =
+    chosenDebt !== null &&
+    !frozen &&
+    datePeriod !== null &&
+    (debtTerms.isFetching || termsCategory === null || categoryId !== termsCategory)
+  const blocked =
+    frozen || termsPending || (chosenDebt !== null && debtTerms.data?.inForce === false)
   // R-DEBT-150: no payment before the day the debt was opened.
   const debtFloor = chosenDebt && !frozen ? chosenDebt.opened_on : null
   const isExtra = kind === 'extra_income'
@@ -333,6 +344,7 @@ function TransactionForm({
           gone={edit.gone}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           error={mutation.error}
@@ -518,7 +530,7 @@ function TransactionForm({
             <Button
               type="button"
               variant="secondary"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || blocked}
               onClick={() => void submit(true)()}
             >
               {t('transactions.saveAndAdd')}
@@ -526,13 +538,7 @@ function TransactionForm({
           )}
           <Button
             type="submit"
-            disabled={
-              mutation.isPending ||
-              sync.pending !== null ||
-              edit.gone ||
-              frozen ||
-              (chosenDebt !== null && debtTerms.data?.inForce === false)
-            }
+            disabled={mutation.isPending || sync.pending !== null || edit.gone || blocked}
           >
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>

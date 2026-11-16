@@ -113,6 +113,7 @@ function RenameForm() {
           gone={false}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           error={rename.error}
@@ -186,6 +187,7 @@ function EndDateForm() {
           gone={false}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           error={setEndDate.error}

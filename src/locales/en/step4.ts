@@ -24,6 +24,8 @@ export const subscriptionsEn = {
     firstChargeHelp:
       'The schedule repeats on this day of the month (the month’s last day when it is shorter). Only dates from the period it counts from are charged.',
     nextCharge: 'New next charge date (optional)',
+    nextChargeHelpCorrection:
+      'Leave empty to keep the schedule of the period you correct. A date you enter becomes its next charge; the later ones follow from it.',
     nextChargeHelp:
       'Leave empty to keep the schedule. A date after today becomes the next charge; the later ones follow from it.',
     from: 'First period it counts in',
@@ -50,6 +52,8 @@ export const subscriptionsEn = {
     'The new terms apply from the period you chose until the next change already recorded.',
   editAppliesFrom:
     'New terms apply from the current period (from {{date}}); past periods keep theirs. Charges already recorded do not change.',
+  addAppliesFromEnded:
+    'It counts from the period you choose: its charges since then are created at once, to confirm.',
   addAppliesFrom:
     'It counts from the start of the current period: a charge date already passed in this period is recorded at once, for you to confirm.',
   preview: {
@@ -172,10 +176,10 @@ export const chargesEn = {
     'The {{count}} charges awaiting, dated from {{from}} to {{to}}, are confirmed: they all went through. Any that did not, answer one by one instead.',
   confirmAllAction_one: 'Confirm it',
   confirmAllAction_other: 'Confirm all {{count}}',
-  confirmedAll_one: '1 charge confirmed.',
+  confirmedAll_one: '{{count}} charge confirmed.',
   confirmedAll_other: '{{count}} charges confirmed.',
   confirmedAllOther_one:
-    '1 charge confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
+    '{{count}} charge confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
   confirmedAllOther_other:
     '{{count}} charges confirmed, not {{stated}}: another member answered some meanwhile, or new ones came.',
 }
@@ -332,6 +336,10 @@ export const debtsEn = {
     label_one: 'Remaining amount over time, 1 event; now {{amount}}. The table below lists it.',
     label_other:
       'Remaining amount over time, {{count}} events; now {{amount}}. The table below lists them.',
+    labelOverpaid_one:
+      'Remaining amount over time, 1 event; now overpaid by {{amount}}. The table below lists it.',
+    labelOverpaid_other:
+      'Remaining amount over time, {{count}} events; now overpaid by {{amount}}. The table below lists them.',
     onlyOpened:
       'Only the opening so far: {{amount}} owed since {{date}}. The chart appears with the first payment or interest.',
     nothing: 'Nothing recorded yet.',
@@ -339,9 +347,9 @@ export const debtsEn = {
     marksNote:
       'With this many events, only balance adjustments are marked; point at the line for every event of a date, or read the history below.',
     labelCapped:
-      'Remaining amount over time, the first {{count, number}} events, up to {{date}}. The table below lists them.',
+      'Remaining amount over time, the first {{shown}} events, up to {{date}}. The table below lists them.',
     capped:
-      'The chart shows the first {{count, number}} events, up to {{date}}: the history is longer. The table below goes on to the latest.',
+      'The chart shows the first {{shown}} events, up to {{date}}: the history is longer. The table below goes on to the latest.',
   },
   history: {
     title: 'History',

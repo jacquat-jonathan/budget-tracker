@@ -53,38 +53,40 @@ function debtsDb() {
     // What is still owed in all is the database's figure, never added up on the page.
     debt_totals: [{ budget_id: BUDGET_ID, remaining_total: 1_234_500, owing_count: 2 }],
   })
-  db.rpc.get_debt_history.mockImplementation((args) => withOrder(args, [
-    {
-      entry_id: DEBT_ID,
-      kind: 'opened',
-      date: '2026-10-23',
-      amount: 1_200_000,
-      balance: 1_200_000,
-      period_id: 'period-2',
-      description: null,
-      created_at: '2026-10-23T10:00:00+00:00',
-    },
-    {
-      entry_id: 'tx-pay',
-      kind: 'payment',
-      date: '2026-11-02',
-      amount: -50_000,
-      balance: 1_150_000,
-      period_id: 'period-2',
-      description: null,
-      created_at: '2026-11-02T10:00:00+00:00',
-    },
-    {
-      entry_id: 'adj-1',
-      kind: 'adjustment',
-      date: '2026-11-10',
-      amount: -2_500,
-      balance: 1_147_500,
-      period_id: 'period-2',
-      description: 'Statement',
-      created_at: '2026-11-10T10:00:00+00:00',
-    },
-  ]))
+  db.rpc.get_debt_history.mockImplementation((args) =>
+    withOrder(args, [
+      {
+        entry_id: DEBT_ID,
+        kind: 'opened',
+        date: '2026-10-23',
+        amount: 1_200_000,
+        balance: 1_200_000,
+        period_id: 'period-2',
+        description: null,
+        created_at: '2026-10-23T10:00:00+00:00',
+      },
+      {
+        entry_id: 'tx-pay',
+        kind: 'payment',
+        date: '2026-11-02',
+        amount: -50_000,
+        balance: 1_150_000,
+        period_id: 'period-2',
+        description: null,
+        created_at: '2026-11-02T10:00:00+00:00',
+      },
+      {
+        entry_id: 'adj-1',
+        kind: 'adjustment',
+        date: '2026-11-10',
+        amount: -2_500,
+        balance: 1_147_500,
+        period_id: 'period-2',
+        description: 'Statement',
+        created_at: '2026-11-10T10:00:00+00:00',
+      },
+    ]),
+  )
   return db
 }
 

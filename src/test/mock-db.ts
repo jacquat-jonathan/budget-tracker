@@ -223,6 +223,9 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         .filter((row) => typeof args.p_from_date !== 'string' || row.date >= args.p_from_date)
         .filter((row) => typeof args.p_to_date !== 'string' || row.date <= args.p_to_date)
         .filter((row) => !args.p_kind || row.kind === args.p_kind)
+        .filter((row) => !args.p_awaiting_only || row.review_state === 'awaiting_confirmation')
+        .filter((row) => !args.p_debt_id || row.debt_id === args.p_debt_id)
+        .filter((row) => !args.p_subscription_id || row.subscription_id === args.p_subscription_id)
         .filter(
           (row) =>
             !args.p_category_id ||
@@ -240,7 +243,12 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     create_subscription: handler(() => []),
     update_subscription: handler(() => []),
     end_subscription: handler(() => 'ended'),
-    confirm_subscription_charge: handler(() => []),
+    confirm_subscription_charge: handler((args) => {
+      db.tables.transaction_list = db.tables.transaction_list.map((row) =>
+        row.id === args.p_transaction_id ? { ...row, review_state: 'confirmed' as const } : row,
+      )
+      return []
+    }),
     dismiss_subscription_charge: handler(() => null),
     list_charges_awaiting_confirmation: handler((args) =>
       db.tables.transaction_list.filter(

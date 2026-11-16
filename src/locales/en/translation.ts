@@ -205,6 +205,8 @@ export const en = {
     forbidden: 'You are not allowed to do this.',
     invalidValue: 'One of the values is not accepted. Check the form and try again.',
     network: 'Cannot reach the server. Check your connection and try again.',
+    networkSave:
+      'The connection failed: nothing was saved. What you entered is still here: check your connection and save again.',
     generic: 'Something went wrong. Please try again.',
     db: {
       not_authenticated: 'Your session has ended. Sign in again.',
@@ -306,6 +308,8 @@ export const en = {
     },
   },
   concurrent: {
+    savedAfterLoss:
+      'Saved. The answer was lost on the way, but your change is recorded: the form now shows it.',
     title: 'Someone else changed this while you had it open',
     theirVersion: 'Their version:',
     edit: 'What you typed is still here. Load their version to start again from it, or keep yours: saving then changes only the fields you edited.',
@@ -470,6 +474,8 @@ export const en = {
     },
   },
   income: {
+    endMovedMeanwhile:
+      'Nothing was saved: the current period’s end moved meanwhile (for example, an expected pay date was set by hand). The preview below shows the new end: check it, then save again.',
     add: 'Add income',
     addTitle: 'Add an income',
     addDescription: 'A monthly income that counts in the budget’s total.',
@@ -711,6 +717,7 @@ export const en = {
       'This changes past periods: what they expected, and so their results, are recomputed from the period you choose until the next change already recorded.',
     removeDeleteTitle: 'Delete “{{name}}”?',
     removeEndTitle: 'Remove “{{name}}” from now on?',
+    removeEarlierTitle: 'Remove “{{name}}” from an earlier period?',
     removeDeletes:
       'It has never been planned in a past period and has no transactions, so it is deleted completely.',
     removeEnds:
@@ -870,6 +877,8 @@ export const en = {
     empty: 'Nothing planned or spent in this period',
     emptyHelp: 'Plan your spending in categories on the Budget page, then record transactions.',
     toBudget: 'Go to the budget',
+    committedExceeds:
+      'Subscriptions alone come to {{committed}}, more than the {{planned}} planned.',
     plannedIncludes: 'Includes {{amount}} for subscriptions',
     rowPlannedIncludes: 'The {{expected}} planned include {{amount}} for subscriptions',
     includes: 'incl. {{amount}} for subscriptions',

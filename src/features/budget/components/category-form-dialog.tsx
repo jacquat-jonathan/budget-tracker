@@ -136,7 +136,13 @@ function CategoryForm({
   const create = useCreateCategory(budgetId, { onDone: close })
   const update = useUpdateCategory(budgetId, { onDone: close })
   const mutation = category ? update : create
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    // A group has no amount of its own: the fields are not its terms.
+    controls: isGroup
+      ? ['correct', 'fromPeriodId', 'amount', 'cadence']
+      : ['correct', 'fromPeriodId'],
+    current: () => (correcting ? startValues : null),
+  })
 
   // Periods are identified by their dates; a subcategory never before its group.
   const periodLabel = (period: PeriodSummary) =>
@@ -159,12 +165,15 @@ function CategoryForm({
   // Not in force in that period: nothing to correct there, nothing to save.
   const notInForce = correcting && termsAt.data?.inForce === false
   const base = category ? (correcting ? periodTerms : category) : null
+  // The terms the form starts from: now, or the chosen period's (read from the database).
+  const startValues =
+    base && category && !isGroup
+      ? { amount: base.amount ?? 0, cadence: base.cadence ?? 'monthly' }
+      : null
   useStartFrom(
     form,
     correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
-    base && category && !isGroup
-      ? { amount: base.amount ?? 0, cadence: base.cadence ?? 'monthly' }
-      : null,
+    startValues,
   )
 
   const onSubmit = form.handleSubmit((values) => {
@@ -212,6 +221,7 @@ function CategoryForm({
           ended={live !== null && live !== undefined}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           // The first subcategory has its own notice above: the refused save needs no other.

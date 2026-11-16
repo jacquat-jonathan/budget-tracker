@@ -215,6 +215,8 @@ export const fr: Translation = {
     forbidden: 'Vous n’avez pas le droit de faire cela.',
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+    networkSave:
+      'La connexion a échoué : rien n’a été enregistré. Vos saisies sont toujours là : vérifiez votre connexion et enregistrez de nouveau.',
     generic: 'Une erreur s’est produite. Veuillez réessayer.',
     db: {
       not_authenticated: 'Votre session a expiré. Reconnectez-vous.',
@@ -320,6 +322,8 @@ export const fr: Translation = {
     },
   },
   concurrent: {
+    savedAfterLoss:
+      'Enregistré. La réponse s’est perdue en route, mais votre modification est enregistrée : le formulaire l’affiche.',
     title: 'Quelqu’un d’autre a modifié cet élément pendant que vous l’aviez ouvert',
     theirVersion: 'Sa version :',
     edit: 'Ce que vous avez saisi est toujours là. Chargez sa version pour repartir de celle-ci, ou gardez la vôtre : l’enregistrement ne modifiera alors que les champs que vous avez changés.',
@@ -492,6 +496,8 @@ export const fr: Translation = {
     },
   },
   income: {
+    endMovedMeanwhile:
+      'Rien n’a été enregistré : la fin de la période en cours a changé entre-temps (par exemple, une date de paie attendue a été fixée à la main). L’aperçu ci-dessous montre la nouvelle fin : vérifiez-la, puis enregistrez de nouveau.',
     add: 'Ajouter un revenu',
     addTitle: 'Ajouter un revenu',
     addDescription: 'Un revenu mensuel qui compte dans le total du budget.',
@@ -749,6 +755,7 @@ export const fr: Translation = {
       'Cela modifie des périodes passées : ce qu’elles prévoyaient, et donc leurs résultats, est recalculé à partir de la période choisie jusqu’au prochain changement déjà enregistré.',
     removeDeleteTitle: 'Supprimer « {{name}} » ?',
     removeEndTitle: 'Retirer « {{name}} » à partir de maintenant ?',
+    removeEarlierTitle: 'Retirer « {{name}} » dès une période antérieure ?',
     removeDeletes:
       'Elle n’a jamais été prévue dans une période passée et n’a aucune transaction : elle est donc supprimée entièrement.',
     removeEnds:
@@ -912,6 +919,8 @@ export const fr: Translation = {
     emptyHelp:
       'Prévoyez vos dépenses par catégorie sur la page Budget, puis enregistrez vos transactions.',
     toBudget: 'Aller au budget',
+    committedExceeds:
+      'Les abonnements à eux seuls font {{committed}}, plus que les {{planned}} prévus.',
     plannedIncludes: 'Dont {{amount}} pour des abonnements',
     rowPlannedIncludes: 'Les {{expected}} prévus comprennent {{amount}} d’abonnements',
     includes: 'dont {{amount}} d’abonnements',

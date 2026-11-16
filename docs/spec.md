@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-423 rules (362 active, 54 planned), 24 conventions, 195 decisions, 28 open questions. 0 rules and conventions are marked **TEST PENDING**.
+426 rules (365 active, 54 planned), 24 conventions, 196 decisions, 30 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1483,6 +1483,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-180, D-271
   - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/subscriptions/subscriptions-page.tsx
+- **R-SUBSCRIPTION-191** After a charge is answered (it went through, or it did not after its confirmation), from the dashboard card or the transactions filtered to those awaiting, the focus goes to the charge now in its place, else to a named place (the page's heading, the period filter), never to the page's body; the filtered list offers both answers on each row; removing a link filter moves the focus to the next filter or the period filter.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-SUBSCRIPTION-142, R-TRANSACTION-150
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/features/subscriptions/components/charges-to-confirm-card.tsx; code: src/features/transactions/transactions-page.tsx
 
 ### Debts
 
@@ -1925,6 +1929,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-CONCURRENCY-091, D-160, R-VERSION-140
   - Source: owner-request: coordinator, step 4 screens review round 2, 2026-11-16; code: src/features/income/components/income-form-dialog.tsx; code: src/features/budget/components/category-form-dialog.tsx; code: src/features/budgets/terms-at.ts
+- **R-CONCURRENCY-190** "Keep mine" keeps exactly the fields (or D-160 groups) the user changed in this form, measured against what the form showed when they changed them, and takes every other field from what the database says now for what is being edited: the record's current values for an edit from now; for a correction, the chosen period's terms read again (a change another member made from now never enters the correction). "Load their version" uses the same "now". Every form field belongs to a view or is a declared control (the correction switch, its period, whose income it is): a field in neither fails the form's tests. Changing a correction's period keeps the values the user typed in fields they changed.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-091, D-160, R-VERSION-140, D-294
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/hooks/use-concurrent-form.ts; code: src/features/budgets/terms-at.ts
+- **R-CONCURRENCY-191** A save whose answer is lost (network) is never reported as someone else's change: when the record read again holds what the form sent, the form says it was saved; when it does not, it says the connection failed and nothing was saved, and what was typed stays.
+  _active · enforced by test · F-SUBSCRIPTION_
+  - Related: R-CONCURRENCY-091, R-CONCURRENCY-190
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16; code: src/hooks/use-concurrent-form.ts; code: src/components/changed-elsewhere.tsx
 
 ## Conventions
 
@@ -4601,6 +4613,20 @@ Related: Q-140, R-DEBT-151
 
 Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
+### D-294 Typed values survive a change of correction period (accepted)
+
+When the user picks another correction period, the fields they changed keep what they typed; the others take the new period's terms (the rule of "Keep mine").
+
+**Why:** Replacing typed values without notice loses work; saying what was replaced is noisier than keeping it.
+
+**Rejected:**
+
+- Saying what was replaced and replacing it anyway.
+
+Related: R-CONCURRENCY-190
+
+Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -4859,6 +4885,14 @@ Source: owner-request: coordinator, step 4 screens adapted to the database re-re
   - Context: D-264: my_budgets returns one row per budget the user belongs to. A user owns at most 20, but nothing limits the budgets they are invited to; past 1000 the API would cut the list. No screen pages it.
   - Related: D-264, R-APP-170, R-BUDGET-004
   - Source: owner-request: coordinator finding on the step 5 database (API row limit), 2026-11-16
+- **Q-180** Should list_transactions list the charges awaiting confirmation oldest first?
+  - Context: The dashboard shows the oldest awaiting charges first (list_charges_awaiting_confirmation, at most 200, no paging); the transactions list filtered to them (p_awaiting_only) pages newest first only, so the two orders differ and the oldest of hundreds are pages away. An oldest-first order for that filter, with its cursor, would let the list match the card.
+  - Related: R-TRANSACTION-132, R-SUBSCRIPTION-191
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
+- **Q-181** Should the database give what the screens still derive from its lists?
+  - Context: Four derivations without money remain in the client (C-LOGIC-003, borderline): the period containing a typed date (picked from list_periods' rows, to read a debt's terms for a payment); the nominal day of a typed first charge date (its day number, for the words under the preview); the last period a correction reaches (the period before until_period_id, taken as seq - 1 from the list); and the subscriptions and debts that use a category now (filtered from their lists, for the warning before a removal). The database could give period_id for a date, the preview's nominal day, until_period's predecessor, and category_overview's users.
+  - Related: C-LOGIC-003, R-DEBT-152, R-VERSION-150, R-CATEGORY-120
+  - Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
 
 ## Glossary
 

@@ -142,7 +142,10 @@ function DebtForm({
   })
   const update = useUpdateDebt(budgetId, { onDone: close })
   const mutation = debt ? update : create
-  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset())
+  const sync = useConcurrentForm(form, edit, valuesOf, () => update.reset(), {
+    controls: ['correct', 'fromPeriodId'],
+    current: () => (correcting ? startValues : null),
+  })
 
   const label = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
@@ -179,16 +182,19 @@ function DebtForm({
   // Not in force in that period: nothing to correct there, nothing to save.
   const notInForce = correcting && termsAt.data?.inForce === false
   const base = debt ? (correcting ? periodTerms : debt) : null
-  useStartFrom(
-    form,
-    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
+  // The terms the form starts from: now, or the chosen period's (read from the database).
+  const startValues =
     base && debt
       ? {
           rate: base.interest_rate !== 0 ? formatInterestRate(base.interest_rate) : '',
           monthlyPayment: base.monthly_payment,
           categoryId: base.category_id,
         }
-      : null,
+      : null
+  useStartFrom(
+    form,
+    correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
+    startValues,
   )
   // A new debt's category is one in force in its first period; an edited one's, from now on
   // or from the period corrected.
@@ -250,6 +256,7 @@ function DebtForm({
           gone={edit.gone}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           error={mutation.error}

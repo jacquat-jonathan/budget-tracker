@@ -115,10 +115,19 @@ export function useStartFrom<TIn extends FieldValues, TOut extends FieldValues>(
   useEffect(() => {
     if (values === null || applied.current === key) return
     applied.current = key
+    // What the user typed stays (the same rule as "Keep mine", R-CONCURRENCY-190): a field
+    // they changed keeps its value over the new period's; the others start from it.
+    const dirty = form.formState.dirtyFields as Record<string, unknown>
+    const typed = form.getValues() as Record<string, unknown>
     for (const [name, value] of Object.entries(values)) {
       form.resetField(name as Path<TIn>, {
         defaultValue: value as PathValue<TIn, Path<TIn>>,
       })
+      if (dirty[name] && !Object.is(typed[name], value)) {
+        form.setValue(name as Path<TIn>, typed[name] as PathValue<TIn, Path<TIn>>, {
+          shouldDirty: true,
+        })
+      }
     }
   }, [form, key, values])
 }

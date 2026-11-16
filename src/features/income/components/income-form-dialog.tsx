@@ -51,7 +51,7 @@ import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useConcurrentForm } from '@/hooks/use-concurrent-form'
-import { useEditBase } from '@/hooks/use-edit-base'
+import { isRecordChanged, useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { dbErrorCode } from '@/lib/db-errors'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
@@ -193,12 +193,15 @@ function IncomeForm({
   // Not in force in that period: nothing to correct there, nothing to save.
   const notInForce = correcting && termsAt.data?.inForce === false
   const base = income ? (correcting ? periodTerms : income) : null
+  // The terms the form starts from: now, or the chosen period's (read from the database).
+  const startValues =
+    base && income
+      ? { amount: base.amount, payDay: base.pay_day, weekendRule: base.weekend_rule }
+      : null
   useStartFrom(
     form,
     correcting ? `period-${fromPeriod.id}-${termsAt.data?.termsFromPeriodId ?? ''}` : 'now',
-    base && income
-      ? { amount: base.amount, payDay: base.pay_day, weekendRule: base.weekend_rule }
-      : null,
+    startValues,
   )
 
   const add = useAddIncome(budgetId, { onDone: close })
@@ -210,7 +213,11 @@ function IncomeForm({
     },
   })
   const mutation = income ? edit : add
-  const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset())
+  const sync = useConcurrentForm(form, editBase, valuesOf, () => edit.reset(), {
+    // Whose income it is is chosen when it is added, not edited here.
+    controls: ['correct', 'fromPeriodId', 'userId'],
+    current: () => (correcting ? startValues : null),
+  })
 
   const onSubmit = form.handleSubmit((values) => {
     const terms = {
@@ -262,10 +269,17 @@ function IncomeForm({
           gone={editBase.gone}
           pending={sync.pending}
           updated={sync.updated}
+          recovered={sync.recovered}
           onUseTheirs={sync.useTheirs}
           onKeepMine={sync.keepMine}
           error={mutation.error}
-          message={errorMessage}
+          // A refusal for the period's end having moved meanwhile (an expected pay date set by
+          // hand) names that cause rather than "something not shown".
+          message={(error) =>
+            primaryTermsChanged && isRecordChanged(error)
+              ? t('income.endMovedMeanwhile')
+              : errorMessage(error)
+          }
         />
         <TextField
           control={form.control}
