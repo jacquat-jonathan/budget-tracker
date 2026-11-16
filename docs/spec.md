@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-534 rules (526 active, 0 planned), 24 conventions, 300 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
+535 rules (527 active, 0 planned), 24 conventions, 301 decisions, 42 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1753,6 +1753,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: R-DEBT-122, R-DEBT-135, D-290
   - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/debts/debt-detail-page.tsx
+- **R-DEBT-340** A period's start cannot move to on or before the opening of a debt that has an interest entry in that period (interest_before_opening, also in the preview); no interest entry is ever removed by a moved start.
+  _active · enforced by test · F-DEBT_
+  - Related: D-467, R-DEBT-131
+  - Source: owner-request: coordinator follow-up to the step 6 database fix round 2 (5f57c5a), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ### Browsing and comparing periods
 
@@ -5523,9 +5527,9 @@ Related: Q-162, R-MEMBER-250, R-APP-170
 
 Source: owner-request: coordinator review of the step 5 database and the step 4 re-review fixes, 2026-11-16; code: supabase/migrations
 
-### D-386 Interest and moved boundaries (accepted)
+### D-386 Interest and moved boundaries (revised) (accepted)
 
-D-272 holds as a statement about the stored data after any change of a period's boundaries: a period's interest entry exists only for a debt opened before the period's start. When a start moves to on or before a debt's opening, that debt's entry in the period is removed (a trigger on the period's start, so every boundary operation is covered); preview_move_period_start says how many go (interest_removed, for the scheduled start or a given p_start_date). The other way, a start moved later so that a debt is now opened before the start of a period without an entry, adds nothing: interest is computed once, when the period is created, on the balance before its start, and computing it afterwards would charge a period that began, as recorded, before the debt existed, on a balance that already includes later rows.
+D-272 holds as a statement about the stored data after any change of a period's boundaries: a period's interest entry exists only for a debt opened before the period's start. A start may not move to on or before the opening of a debt that has an interest entry in that period: the change is refused with interest_before_opening and nothing is removed (D-467; a trigger on the period's start, so every boundary operation is covered); preview_move_period_start gives that refusal, and its interest_removed is always 0. The other way, a start moved later so that a debt is now opened before the start of a period without an entry, adds nothing: interest is computed once, when the period is created, on the balance before its start, and computing it afterwards would charge a period that began, as recorded, before the debt existed, on a balance that already includes later rows.
 
 **Why:** The step 5 review (M1): a moved start put a period's interest before the debt's opening, so the history began with interest.
 
@@ -6234,7 +6238,7 @@ Source: owner-request: coordinator, follow-up to the step 6 screens at 40a20ed, 
 
 ### D-450 Migrations before the first deployment (accepted)
 
-No database has been deployed yet. Until the first deployment, a step's migration file may be corrected in place while that step is still under review; the first deployment freezes every migration file then present, and from then on every change is a new migration.
+No database has been deployed yet. Until the first deployment, any migration file may be corrected in place, whichever step it belongs to; the first deployment freezes every migration file then present, and from then on every change is a new migration.
 
 **Why:** Fix rounds of a step under review would otherwise stack migrations that only repair code nobody has run, and the reviewed file would no longer be the one that runs.
 
@@ -6242,7 +6246,7 @@ No database has been deployed yet. Until the first deployment, a step's migratio
 
 - A new migration for every fix from the start: the reviewed code and the code that runs drift apart before anything is deployed.
 
-Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; owner-request: coordinator follow-up to the step 6 database fix round 2 (5f57c5a), 2026-11-16
 
 ### D-451 What a token learns of the room (accepted)
 
@@ -6454,6 +6458,21 @@ A valid row that was skipped is kept as the preview showed it, its free text cle
 Related: D-378, R-IMPORT-073, R-IMPORT-344
 
 Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+
+### D-467 A moved start never removes interest (answers Q-282) (accepted)
+
+move_period_start, and any other change of a period's start, is refused with interest_before_opening while the new start would be on or before the opening of a debt that has an interest entry in that period; preview_move_period_start refuses the same way. Nothing is removed, so a start moved and moved back loses nothing, and debt_interest.balance always agrees with the history.
+
+**Why:** Removing the entry made a round trip lose the interest for good and left the next entry computed on a balance the history no longer shows (Q-282).
+
+**Rejected:**
+
+- Suspending the entry and restoring it: the later entries disagree with the history while it is suspended.
+- Recomputing every later entry: amounts the member has seen change, and a move back still loses the entry.
+
+Related: D-386, D-272, R-DEBT-131, R-DEBT-340, Q-282
+
+Source: owner-request: coordinator follow-up to the step 6 database fix round 2 (5f57c5a), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
 
 ## Open questions
 
@@ -6869,7 +6888,7 @@ Source: owner-request: coordinator brief for the step 6 database fix round 2 (re
   - Context: Busy answers cost about 1.5 ms each and count nothing; 40 parallel loops on one token still take connections from the API's pool, and a member of another budget then saw a median of 115 to 206 ms (worst 635 ms) instead of 7 to 9 ms. Only a limit in front of PostgREST can bound that; to check at the deployment step with Q-280.
   - Related: D-453, R-SECURITY-340
   - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16
-- **Q-282** When a period start moves onto or before a debt's opening and back again, how should the debt's interest come back, and should the later entries follow the history?
+- **Q-282** (resolved by D-467) When a period start moves onto or before a debt's opening and back again, how should the debt's interest come back, and should the later entries follow the history?
   - Context: D-386 removes the period's interest entry when its start moves to on or before the opening (a trigger in the step 4 migration, private.drop_interest_before_opening) and adds nothing when it moves later again, because interest is computed once, when the period is created. So after a start moves onto the opening day and back, the debt is lower for good by the removed entry (120.00 in the re-review), and the next period's entry keeps the balance it was computed on (debt_interest.balance 1 212 000 while the history's balance before it is now 1 200 000). Options: (a) refuse the move while the period holds an interest entry of a debt opened on or after the new start (a refusal code, shown by preview_move_period_start as it already counts interest_removed): the history stays exact and nothing is lost, at the cost of a restriction; (b) keep the entry but mark it suspended while the start is on or before the opening, and restore it when the start moves after the opening again: the round trip is exact, but while suspended the later entries' balance disagrees by the suspended amount; (c) on any removal, recompute every later entry of that debt from the history: balance always agrees, but amounts the member has seen change, and a move back still loses the entry unless combined with (b). Recommended: (a). Any option changes the step 4 migration's trigger and its preview, which under D-450 is a new migration (or the money-flow rewrite), so it was not fixed in this round.
   - Related: D-386, D-272, R-DEBT-131
   - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql

@@ -446,9 +446,10 @@ created: D-386, R-DEBT-131). Errors also: `period_not_found`. Inverse: move it b
 (one row) Member. What `move_period_start` to `p_start_date` (default: the scheduled start)
 would do now: `scheduled_start` (the start the schedule gives), and whether the move would be
 accepted (`accepted`; when not, `refusal` is the code the write would answer, or
-`'already_on_schedule'` when the period already starts there); `interest_removed`: how many
-debts lose their interest entry of the period, because the new start is on or before their
-opening (D-386; show it like the reopen preview's `'interest_removed'`). Computed with the write's own checks; like every read it first does
+`'already_on_schedule'` when the period already starts there). A start on or before the
+opening of a debt that has an interest entry in the period is refused,
+`'interest_before_opening'`, by the write and by this preview (R-DEBT-340, D-467): a moved
+start never removes interest. `interest_removed` is always 0 (kept for the answer's shape). Computed with the write's own checks; like every read it first does
 the catch-up step (and answers `catching_up` when the budget is still behind), and changes
 nothing else. Errors: `period_not_found`, `catching_up`. (R-PERIOD-133, Q-091)
 
@@ -1860,7 +1861,8 @@ Stable messages added by the second fix round of step 6 (D-451 to D-466). They a
 apart from the table above, until the screens know them (`src/lib/db-errors.ts` and both
 locales): until then a member who meets `import_limit_reached` or `chunk_expired` sees the
 generic message. The other four reach only the import script (`import_with_token`'s `error`
-column). Move them into the table above when the screens add them.
+column). `interest_before_opening` (D-467) is a refusal of `move_period_start` and its preview's
+`refusal`. Move them into the table above when the screens add them.
 
 | Message | Meaning |
 | --- | --- |
@@ -1869,6 +1871,7 @@ column). Move them into the table above when the screens add them.
 | `call_cancelled` | the token import was cancelled (statement timeout): nothing written, counted; send again |
 | `import_limit_reached` | the budget's import storage is used up: 20 000 rows or 50 new batches within 24 hours, or 2 000 batches kept that all still hold something |
 | `chunk_expired` | that chunk was recorded but its answer is no longer kept: it is not imported again (list the batch's rows instead) |
+| `interest_before_opening` | the period's start cannot move to on or before the opening of a debt that has interest in that period (`move_period_start`, and the preview's `refusal`) |
 
 ## For later tables
 
