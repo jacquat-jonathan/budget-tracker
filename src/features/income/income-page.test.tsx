@@ -209,6 +209,124 @@ describe('income page', () => {
     })
   })
 
+  it('shows the expected next pay date before saving a new pay day [R-INCOME-055]', async () => {
+    const db = await openIncomePage()
+    db.rpc.preview_expected_pay_date.mockImplementation((args) => [
+      {
+        period_id: 'period-2',
+        end_date: args.p_pay_day === 28 ? '2026-11-27' : '2026-11-24',
+        expected_pay_date: args.p_pay_day === 28 ? '2026-11-28' : '2026-11-25',
+        end_is_manual: false,
+      },
+    ])
+    db.rpc.pay_date.mockImplementation(() => '2026-11-27')
+
+    await userEvent.click(
+      within(card('Salary')).getByRole('button', { name: 'Actions for Salary' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).queryByTestId('pay-date-preview')).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Pay day' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Day 28' }))
+
+    expect(await within(dialog).findByTestId('pay-date-preview')).toHaveTextContent(
+      'The next salary would then be expected on 28.11.2026: the current period would end on 27.11.2026.',
+    )
+    expect(db.rpc.preview_expected_pay_date).toHaveBeenLastCalledWith({
+      p_budget_id: BUDGET_ID,
+      p_pay_day: 28,
+      p_weekend_rule: 'nearest',
+    })
+  })
+
+  it('says that an end set by hand stays as set [R-INCOME-055] [R-PERIOD-014]', async () => {
+    const db = await openIncomePage()
+    db.rpc.preview_expected_pay_date.mockImplementation(() => [
+      {
+        period_id: 'period-2',
+        end_date: '2026-11-20',
+        expected_pay_date: '2026-11-21',
+        end_is_manual: true,
+      },
+    ])
+    db.rpc.pay_date.mockImplementation(() => '2026-11-27')
+
+    await userEvent.click(
+      within(card('Salary')).getByRole('button', { name: 'Actions for Salary' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Pay day' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Day 28' }))
+    expect(await within(dialog).findByTestId('pay-date-preview')).toHaveTextContent(
+      'The current period’s end was set by hand and stays as set: 20.11.2026.',
+    )
+  })
+
+  it('after a pay-day correction whose salary is already due, asks whether it arrived [R-PERIOD-037]', async () => {
+    const db = await openIncomePage()
+    // Under pay day 10, November's salary was due on 10.11 (since the period began, before
+    // the database's today 15.11): the projection skips to December.
+    db.rpc.pay_date.mockImplementation((args) =>
+      args.p_pay_day === 10 ? '2026-11-10' : '2026-11-25',
+    )
+    db.rpc.preview_expected_pay_date.mockImplementation(() => [
+      {
+        period_id: 'period-2',
+        end_date: '2026-12-09',
+        expected_pay_date: '2026-12-10',
+        end_is_manual: false,
+      },
+    ])
+
+    await userEvent.click(
+      within(card('Salary')).getByRole('button', { name: 'Actions for Salary' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Pay day' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Day 10' }))
+    expect(await within(dialog).findByTestId('pay-date-preview')).toHaveTextContent(
+      'this month’s salary was due on 10.11.2026',
+    )
+    expect(db.rpc.pay_date).toHaveBeenCalledWith({
+      p_year: 2026,
+      p_month: 11,
+      p_pay_day: 10,
+      p_weekend_rule: 'nearest',
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    const prompt = await screen.findByRole('alertdialog', {
+      name: 'Has this salary already arrived?',
+    })
+    await userEvent.click(within(prompt).getByRole('button', { name: 'Record the pay date' }))
+    // Straight to "The salary arrived early", with that date.
+    const early = await screen.findByRole('dialog', { name: 'The salary arrived early' })
+    expect(within(early).getByLabelText('Day the salary arrived')).toHaveValue('10.11.2026')
+  })
+
+  it('does not ask when the salary under the new pay day is still to come [R-PERIOD-037]', async () => {
+    const db = await openIncomePage()
+    db.rpc.pay_date.mockImplementation(() => '2026-11-27')
+
+    await userEvent.click(
+      within(card('Salary')).getByRole('button', { name: 'Actions for Salary' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Pay day' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Day 28' }))
+    await within(dialog).findByTestId('pay-date-preview')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText('Has this salary already arrived?')).not.toBeInTheDocument()
+  })
+
   it('renaming only updates the name, without a new version of the terms', async () => {
     const db = await openIncomePage()
     db.tables.incomes = [
@@ -258,10 +376,20 @@ describe('income page', () => {
       within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
     )
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Make primary' }))
+    const confirm = await screen.findByRole('alertdialog')
+    // Before confirming: the expected next pay date, from the database [R-INCOME-055].
+    expect(await within(confirm).findByTestId('pay-date-preview')).toHaveTextContent(
+      'The next salary would then be expected on 25.11.2026: the current period would end on 24.11.2026.',
+    )
+    expect(db.rpc.preview_expected_pay_date).toHaveBeenCalledWith({
+      p_budget_id: BUDGET_ID,
+      p_income_id: 'income-2',
+    })
+    expect(db.rpc.set_primary_income).not.toHaveBeenCalled()
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Make primary' }))
     await waitFor(() => {
       expect(db.rpc.set_primary_income).toHaveBeenCalledWith({ p_income_id: 'income-2' })
     })
-    // The next pay date the database now expects, read back: never computed here.
     expect(
       await screen.findByText(
         '“Part-time job” is now the primary income. The next salary is now expected on 25.11.2026.',
@@ -346,6 +474,11 @@ describe('income page', () => {
       within(card('Part-time job')).getByRole('button', { name: 'Actions pour Part-time job' }),
     )
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Définir comme principal' }))
+    await userEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Définir comme principal',
+      }),
+    )
 
     expect(
       await screen.findByText('Ce revenu a pris fin et ne peut plus être modifié.'),

@@ -120,20 +120,84 @@ describe('periods page [R-PERIOD-051]', () => {
     const { db, rows } = await openPeriods()
 
     const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
-    expect(dialog).toHaveTextContent(
-      'What was recorded in this period (income changes, incomes added or ended, a primary switch) moves to the reopened period.',
+    expect(await within(dialog).findByTestId('reopen-preview')).toHaveTextContent(
+      'Nothing was recorded in this period: only the dates change.',
     )
     const preview = within(dialog).getByTestId('boundary-preview')
     expect(preview).toHaveTextContent(
       'The previous period (from 25.09.2026) is current again until its projected end',
     )
-    expect(preview).toHaveTextContent('To undo: use “The salary arrived early” with 23.10.2026.')
+    expect(preview).toHaveTextContent(
+      'To undo the dates: use “The salary arrived early” with 23.10.2026.',
+    )
     // Without a date: the projection.
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.reopen_previous_period).toHaveBeenCalledWith({
         p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
       })
+    })
+  })
+
+  it('lists what the reopen would move before it is confirmed [R-PERIOD-053]', async () => {
+    const { db, rows } = await openPeriods()
+    db.rpc.preview_reopen.mockImplementation(() => [
+      {
+        record_kind: 'income',
+        record_id: 'i1',
+        record_name: 'Salary',
+        change: 'terms_changed',
+        replaces_previous: true,
+      },
+      {
+        record_kind: 'income',
+        record_id: 'i2',
+        record_name: 'Bonus',
+        change: 'added',
+        replaces_previous: false,
+      },
+      {
+        record_kind: 'income',
+        record_id: 'i3',
+        record_name: 'Side job',
+        change: 'removed',
+        replaces_previous: false,
+      },
+      {
+        record_kind: 'income',
+        record_id: 'i4',
+        record_name: 'Part-time',
+        change: 'made_primary',
+        replaces_previous: false,
+      },
+      // Kinds and changes added by later steps are still shown.
+      {
+        record_kind: 'category',
+        record_id: 'c1',
+        record_name: 'Groceries',
+        change: 'renamed',
+        replaces_previous: true,
+      },
+    ])
+
+    const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
+    const preview = await within(dialog).findByTestId('reopen-preview')
+    expect(preview).toHaveTextContent(
+      'Income “Salary”: its new terms will apply to the reopened period. It replaces what the reopened period had for it.',
+    )
+    expect(preview).toHaveTextContent(
+      'Income “Bonus”: added in this period, it will count from the reopened period.',
+    )
+    expect(preview).toHaveTextContent(
+      'Income “Side job”: it will disappear: it would never be in force.',
+    )
+    expect(preview).toHaveTextContent(
+      'Income “Part-time”: it becomes the primary income from the reopened period.',
+    )
+    expect(preview).toHaveTextContent('“Groceries”: this change will move to the reopened period.')
+    expect(preview).toHaveTextContent('restores the dates only, not these changes')
+    expect(db.rpc.preview_reopen).toHaveBeenCalledWith({
+      p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
     })
   })
 

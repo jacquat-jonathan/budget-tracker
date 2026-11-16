@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-269 rules (170 active, 93 planned), 24 conventions, 102 decisions, 12 open questions. 0 rules and conventions are marked **TEST PENDING**.
+271 rules (172 active, 93 planned), 24 conventions, 102 decisions, 12 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -103,9 +103,9 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 - **US-INCOME-001** As a budget member, I want to add my income with its amount, pay day and weekend rule, so that it counts in the budget's monthly total.
   Rules: R-INCOME-002, R-INCOME-003, R-INCOME-004, R-INCOME-005, R-INCOME-010, R-INCOME-011, R-INCOME-013, R-INCOME-014, R-MONEY-002, R-PAYDATE-001, R-PAYDATE-002, R-PAYDATE-003, R-PAYDATE-004, R-PAYDATE-005, R-PAYDATE-006, R-PAYDATE-007, R-INCOME-050
 - **US-INCOME-002** As a budget member, I want to change an income's terms when my salary changes, so that the change applies from now on and past periods stay as they were.
-  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-054
+  Rules: R-VERSION-001, R-VERSION-005, R-VERSION-006, R-INCOME-051, R-INCOME-054, R-INCOME-055
 - **US-INCOME-003** As a budget member, I want to make another income the primary one, so that periods follow the salary that really sets our rhythm.
-  Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008, R-INCOME-054
+  Rules: R-INCOME-006, R-INCOME-007, R-INCOME-008, R-INCOME-054, R-INCOME-055
 - **US-INCOME-004** As a budget member, I want to remove an income, so that it stops counting without rewriting past periods.
   Rules: R-INCOME-001, R-INCOME-009, R-INCOME-012, R-INCOME-051
 
@@ -116,7 +116,7 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 - **US-PERIOD-001** As a budget member, I want periods to run from pay day to pay day of the primary income, so that the salary is always day one of the period.
   Rules: R-PERIOD-001, R-PERIOD-002, R-PERIOD-003, R-PERIOD-004, R-PERIOD-005, R-PERIOD-006, R-PERIOD-008, R-PERIOD-009, R-PERIOD-010, R-PERIOD-017, R-PERIOD-018, R-PERIOD-050, R-PERIOD-052
 - **US-PERIOD-002** As a budget member, I want to move a period boundary when the salary arrived on another day, so that public holidays do not put transactions in the wrong period.
-  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051
+  Rules: R-PERIOD-012, R-PERIOD-013, R-PERIOD-014, R-PERIOD-020, R-PERIOD-051, R-PERIOD-053
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
   Rules: R-PERIOD-007, R-PERIOD-011, R-VERSION-007, R-VERSION-008
 
@@ -678,6 +678,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-INCOME_
   - Related: R-PERIOD-029, R-PERIOD-030
   - Source: code: src/features/income/income-mutations.ts
+- **R-INCOME-055** Before new pay terms of the primary income are saved, and before another income is made primary, the app shows the expected next pay date that would result, from the database's preview; an end set by hand is said to stay as set.
+  _active · enforced by test · F-INCOME_
+  - Related: R-PERIOD-036, R-INCOME-054, R-PERIOD-014
+  - Source: code: src/features/income/pay-date-preview.ts; code: src/features/income/components/pay-date-preview-notice.tsx
 
 ### Pay dates and the weekend rule
 
@@ -862,6 +866,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Why: Frontend behaviour; the database part is R-PERIOD-029 and R-PERIOD-034.
   - Related: D-081, R-PERIOD-034
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs
+- **R-PERIOD-053** Before "this period's salary has not arrived yet" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-035, R-PERIOD-023, R-VERSION-013
+  - Source: code: src/features/periods/periods-page.tsx
 
 ### Versioning: edits never rewrite the past
 

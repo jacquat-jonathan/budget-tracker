@@ -780,7 +780,8 @@
             "R-VERSION-005",
             "R-VERSION-006",
             "R-INCOME-051",
-            "R-INCOME-054"
+            "R-INCOME-054",
+            "R-INCOME-055"
           ]
         },
         {
@@ -788,7 +789,7 @@
           "actor": "A-MEMBER",
           "iWant": "to make another income the primary one",
           "soThat": "periods follow the salary that really sets our rhythm",
-          "rules": ["R-INCOME-006", "R-INCOME-007", "R-INCOME-008", "R-INCOME-054"]
+          "rules": ["R-INCOME-006", "R-INCOME-007", "R-INCOME-008", "R-INCOME-054", "R-INCOME-055"]
         },
         {
           "id": "US-INCOME-004",
@@ -832,7 +833,14 @@
           "actor": "A-MEMBER",
           "iWant": "to move a period boundary when the salary arrived on another day",
           "soThat": "public holidays do not put transactions in the wrong period",
-          "rules": ["R-PERIOD-012", "R-PERIOD-013", "R-PERIOD-014", "R-PERIOD-020", "R-PERIOD-051"]
+          "rules": [
+            "R-PERIOD-012",
+            "R-PERIOD-013",
+            "R-PERIOD-014",
+            "R-PERIOD-020",
+            "R-PERIOD-051",
+            "R-PERIOD-053"
+          ]
         },
         {
           "id": "US-PERIOD-003",
@@ -3897,6 +3905,19 @@
       "source": ["code: src/features/income/income-mutations.ts"]
     },
     {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-INCOME-055",
+      "area": "income",
+      "feature": "F-INCOME",
+      "statement": "Before new pay terms of the primary income are saved, and before another income is made primary, the app shows the expected next pay date that would result, from the database's preview; an end set by hand is said to stay as set.",
+      "related": ["R-PERIOD-036", "R-INCOME-054", "R-PERIOD-014"],
+      "source": [
+        "code: src/features/income/pay-date-preview.ts",
+        "code: src/features/income/components/pay-date-preview-notice.tsx"
+      ]
+    },
+    {
       "id": "R-INVITE-011",
       "area": "invite",
       "statement": "Accepting, declining, cancelling and re-sending an invitation never deadlock with each other.",
@@ -3987,6 +4008,16 @@
         "owner-request: coordinator decision on the third step 2 database review, 2026-11-16",
         "docs/database.md: RPCs"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-053",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "Before \"this period's salary has not arrived yet\" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only.",
+      "related": ["R-PERIOD-035", "R-PERIOD-023", "R-VERSION-013"],
+      "source": ["code: src/features/periods/periods-page.tsx"]
     }
   ],
   "decisions": [
