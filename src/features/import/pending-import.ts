@@ -17,26 +17,47 @@ export interface PendingImport {
 
 const key = (budgetId: string) => `budget-tracker-import-pending:${budgetId}`
 
+const SOURCES = ['migros_account', 'migros_card', 'yuh', 'csv']
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** A timestamp formatTimestamp accepts (with time and zone) that is a real moment. */
+function isTimestamp(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(value) &&
+    !Number.isNaN(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value.slice(0, 10)
+  )
+}
+
+const count = (value: unknown) =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100
+
 export function readPendingImport(budgetId: string): PendingImport | null {
   try {
     const raw = localStorage.getItem(key(budgetId))
     if (!raw) return null
-    const value = JSON.parse(raw) as Partial<PendingImport>
+    const value = JSON.parse(raw) as Partial<Record<keyof PendingImport, unknown>> | null
+    // A note changed by hand (or by an older version) is ignored, never shown half-read.
     if (
+      !value ||
       typeof value.batchId !== 'string' ||
+      !UUID.test(value.batchId) ||
       typeof value.fingerprint !== 'string' ||
-      typeof value.parts !== 'number' ||
-      typeof value.confirmedParts !== 'number'
+      !count(value.parts) ||
+      !count(value.confirmedParts) ||
+      Number(value.confirmedParts) > Number(value.parts)
     ) {
       return null
     }
     return {
       batchId: value.batchId,
       fingerprint: value.fingerprint,
-      source: typeof value.source === 'string' ? value.source : '',
-      parts: value.parts,
-      confirmedParts: value.confirmedParts,
-      startedAt: typeof value.startedAt === 'string' ? value.startedAt : '',
+      source:
+        typeof value.source === 'string' && SOURCES.includes(value.source) ? value.source : '',
+      parts: Number(value.parts),
+      confirmedParts: Number(value.confirmedParts),
+      startedAt: isTimestamp(value.startedAt) ? value.startedAt : '',
     }
   } catch {
     return null

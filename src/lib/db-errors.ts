@@ -135,6 +135,7 @@ export type DbErrorKey =
   | 'errors.forbidden'
   | 'errors.invalidValue'
   | 'errors.network'
+  | 'errors.busy'
   | 'errors.generic'
 
 /** Codes meaning "this row is gone or not yours (any more)". */
@@ -185,6 +186,14 @@ export function dbErrorCode(error: unknown): DbErrorCode | null {
   return null
 }
 
+/**
+ * The database gave up on a statement that ran too long (PostgreSQL 57014, the statement
+ * timeout; HTTP 500): it changed nothing, and the same call can be sent again.
+ */
+export function isBusyError(error: unknown): boolean {
+  return asErrorLike(error)?.code === '57014'
+}
+
 const NETWORK_MESSAGE = /failed to fetch|networkerror|load failed|network request failed/i
 
 function isNetworkError(error: unknown): boolean {
@@ -212,6 +221,7 @@ export function dbErrorKey(
   const like = asErrorLike(error)
   if (like?.code === '42501') return 'errors.forbidden'
   if (like?.code === '23514') return 'errors.invalidValue'
+  if (isBusyError(error)) return 'errors.busy'
   if (isNetworkError(error)) return 'errors.network'
   return 'errors.generic'
 }

@@ -5,7 +5,8 @@ import { routes } from '@/app/routes'
 import { parseStatementText } from '@/features/import/statements/parse-statement'
 import { toImportBatch } from '@/features/import/statements/import-rows'
 import type { StatementReadResult } from '@/features/import/statements/types'
-import { BUDGET_ID, categoriesDb } from '@/test/budget-fixtures'
+import type { Tables } from '@/lib/database.types'
+import { BUDGET_ID, categoriesDb, transactionRow } from '@/test/budget-fixtures'
 import { plannedRow, rpcError, type MockDb } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { FIXTURE_NAMES, loadFixture, type FixtureName } from '@/test/statement-fixtures'
@@ -366,51 +367,159 @@ describe('an interrupted import [R-IMPORT-323]', () => {
   )
 })
 
-describe('after the import [R-IMPORT-072] [R-IMPORT-073] [R-IMPORT-206]', () => {
-  it('lists the rows not imported, imports them anyway, and undoes the import with what stayed', async () => {
+describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206]', () => {
+  function skippedRow(
+    id: string,
+    rowNo: number,
+    batchId: string,
+    row: Record<string, unknown>,
+    extra: Partial<Tables<'import_skipped_rows'>>,
+  ): Tables<'import_skipped_rows'> {
+    return {
+      id,
+      batch_id: batchId,
+      budget_id: BUDGET_ID,
+      chunk: 1,
+      row_no: rowNo,
+      reason: 'duplicate',
+      detail: null,
+      duplicate_of: null,
+      match_of: null,
+      row_data: row as never,
+      imported_transaction_id: null,
+      imported_at: null,
+      created_at: '2026-11-15T10:00:00+00:00',
+      ...extra,
+    }
+  }
+
+  /** Four rows: one imported, a duplicate, a salary already planned, a confirmed charge. */
+  function afterDb() {
     const db = categoriesDb()
+    db.tables.transaction_list.push(
+      transactionRow({ id: 'tx-charge', subscription_id: 'sub-1', subscription_name: 'Laser' }),
+    )
     db.rpc.import_transactions.mockImplementation((args) => {
       const rows = args.p_rows as Record<string, unknown>[]
+      const batchId = String(args.p_batch_id)
       db.tables.import_skipped_rows = [
+        skippedRow('skipped-1', 2, batchId, rows[1] ?? {}, { duplicate_of: 'tx-1' }),
+        skippedRow('skipped-2', 3, batchId, rows[2] ?? {}, { reason: 'flagged', detail: 'salary' }),
+        skippedRow('skipped-3', 4, batchId, rows[3] ?? {}, {
+          reason: 'matched',
+          match_of: 'tx-charge',
+        }),
+      ]
+      db.tables.import_batch_list = [
         {
-          id: 'skipped-1',
-          batch_id: String(args.p_batch_id),
+          id: batchId,
           budget_id: BUDGET_ID,
-          chunk: 1,
-          row_no: 2,
-          reason: 'duplicate',
-          detail: null,
-          duplicate_of: 'tx-1',
-          match_of: null,
-          row_data: rows[1] as never,
-          imported_transaction_id: null,
-          imported_at: null,
+          source: 'csv',
+          statement_from: null,
+          statement_to: null,
+          created_by: null,
+          created_by_name: 'Alex',
+          token_id: null,
+          token_name: null,
           created_at: '2026-11-15T10:00:00+00:00',
+          chunk_count: 1,
+          row_count: 4,
+          imported_count: 1,
+          duplicate_count: 1,
+          flagged_count: 1,
+          matched_count: 1,
+          chosen_skip_count: 0,
+          invalid_count: 0,
+          charges_confirmed_count: 1,
+          to_review_count: 1,
+          undone_at: null,
+          undone_by: null,
         },
       ]
       return rows.map((row, index) => ({
         ...plannedRow(row, index + 1),
         chunk: 1,
-        action: index === 1 ? 'skip_duplicate' : 'import',
+        action: ['import', 'skip_duplicate', 'skip_flagged', 'confirm_match'][index] ?? 'import',
       }))
     })
-    db.rpc.import_skipped_anyway.mockImplementation(() => [
-      { ...plannedRow({ date: '2026-10-02', amount: 200, direction: 'debit' }, 2), chunk: 1 },
-    ])
+    // Imported anyway: the rows say so, and the batch counts them to review.
+    db.rpc.import_skipped_anyway.mockImplementation((args) => {
+      const ids = args.p_skipped_row_ids as string[]
+      for (const row of db.tables.import_skipped_rows)
+        if (ids.includes(row.id)) row.imported_transaction_id = `tx-${row.id}`
+      const batch = db.tables.import_batch_list[0]
+      if (batch) batch.to_review_count = (batch.to_review_count ?? 0) + ids.length
+      return ids.map((_, index) => ({
+        ...plannedRow({ date: '2026-10-02', amount: 200, direction: 'debit' }, index + 2),
+        chunk: 1,
+      }))
+    })
     db.rpc.undo_import_batch.mockImplementation(() => [
-      { deleted: 1, kept_confirmed: 0, kept_linked: 0, charges_confirmed: 0 },
+      { deleted: 4, kept_confirmed: 0, kept_linked: 0, charges_confirmed: 1 },
     ])
+    return db
+  }
+
+  it('asks before importing all skipped rows anyway: how many, of which kinds, and that they count twice', async () => {
+    const db = afterDb()
     open(db)
-    await chooseCsv(csvOf(2))
-    await userEvent.click(screen.getByRole('button', { name: 'Check 2 rows' }))
+    await chooseCsv(csvOf(4))
+    await userEvent.click(screen.getByRole('button', { name: 'Check 4 rows' }))
     await userEvent.click(await importButtonReady())
     const result = await screen.findByTestId('import-result')
     expect(result).toHaveTextContent('1 transaction imported')
     expect(result).toHaveTextContent('1 skipped as a duplicate')
     const skipped = await screen.findByTestId('skipped-rows')
-    const row = await within(skipped).findByTestId('skipped-row')
+    // The row that confirmed the charge says so, not "already entered".
+    expect(
+      await within(skipped).findByText(/it confirmed a subscription charge/),
+    ).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Import all skipped rows anyway' }))
+    let dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Import 3 skipped rows anyway?')
+    const kinds = await within(dialog).findByTestId('anyway-kinds')
+    expect(kinds).toHaveTextContent('1 salary already planned as income')
+    expect(kinds).toHaveTextContent('1 subscription charge the import already confirmed')
+    expect(kinds).toHaveTextContent('1 already in the budget (a duplicate)')
+    expect(dialog).toHaveTextContent('they will count twice in your totals')
+    // Cancelled: nothing is sent.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(db.rpc.import_skipped_anyway).not.toHaveBeenCalled()
+
+    // One row that confirmed a charge asks too.
+    const rows = within(skipped).getAllByTestId('skipped-row')
+    await userEvent.click(
+      within(rows[2] as HTMLElement).getByRole('button', { name: /Import anyway/ }),
+    )
+    dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Import 1 skipped row anyway?')
+    expect(dialog).toHaveTextContent('1 subscription charge the import already confirmed')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Import all skipped rows anyway' }))
+    dialog = await screen.findByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import 3 rows anyway' }))
+    await waitFor(() =>
+      expect(db.rpc.import_skipped_anyway).toHaveBeenCalledWith({
+        p_batch_id: db.rpc.import_transactions.mock.calls[0]?.[0].p_batch_id,
+        p_skipped_row_ids: ['skipped-1', 'skipped-2', 'skipped-3'],
+      }),
+    )
+    expect(await screen.findByTestId('anyway-done')).toHaveTextContent('3 rows imported anyway.')
+  })
+
+  it('follows what happens after it: counts after "import anyway", the undo’s numbers, the undo itself', async () => {
+    const db = afterDb()
+    open(db)
+    await chooseCsv(csvOf(4))
+    await userEvent.click(screen.getByRole('button', { name: 'Check 4 rows' }))
+    await userEvent.click(await importButtonReady())
+    const skipped = await screen.findByTestId('skipped-rows')
+    const row = (await within(skipped).findAllByTestId('skipped-row'))[0] as HTMLElement
     expect(row).toHaveTextContent('Shop 2')
     expect(row).toHaveTextContent('Already in the budget')
+    // A duplicate is imported anyway in one click; the focus goes to its new state.
     await userEvent.click(within(row).getByRole('button', { name: /Import anyway/ }))
     await waitFor(() =>
       expect(db.rpc.import_skipped_anyway).toHaveBeenCalledWith({
@@ -418,24 +527,30 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-073] [R-IMPORT-206]', () => 
         p_skipped_row_ids: ['skipped-1'],
       }),
     )
-    expect(await screen.findByTestId('anyway-done')).toHaveTextContent('1 row imported anyway.')
-    await userEvent.click(screen.getByRole('button', { name: 'Import all skipped rows anyway' }))
-    await waitFor(() =>
-      expect(db.rpc.import_skipped_anyway).toHaveBeenLastCalledWith({
-        p_batch_id: expect.any(String) as unknown,
-      }),
-    )
+    const result = screen.getByTestId('import-result')
+    await waitFor(() => expect(result).toHaveTextContent('2 transactions imported'))
+    expect(result).toHaveTextContent('Of them, 1 imported anyway afterwards.')
+    await waitFor(() => expect(within(row).getByText('Imported anyway')).toHaveFocus())
 
     await userEvent.click(screen.getByRole('button', { name: 'Undo this import' }))
     const dialog = await screen.findByRole('alertdialog')
+    // The batch's own count: the row imported anyway is in it.
+    await waitFor(() =>
+      expect(within(dialog).getByTestId('undo-to-review')).toHaveTextContent(
+        '(2 are still to review)',
+      ),
+    )
     expect(dialog).toHaveTextContent(
       'Kept: the ones already confirmed, the ones linked to a subscription or a debt',
     )
     await userEvent.click(within(dialog).getByRole('button', { name: 'Undo the import' }))
     expect(await screen.findByTestId('undo-done')).toHaveTextContent(
-      'Import undone: 1 deleted, 0 kept as confirmed, 0 kept as linked, 0 charges stay confirmed.',
+      'Import undone: 4 deleted, 0 kept as confirmed, 0 kept as linked, 1 charges stay confirmed.',
     )
+    expect(result).toHaveTextContent('This import was undone')
+    expect(result).not.toHaveTextContent('They count in your totals now')
     expect(screen.queryByRole('button', { name: /Import anyway/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Review the imported/ })).not.toBeInTheDocument()
   })
 })
 

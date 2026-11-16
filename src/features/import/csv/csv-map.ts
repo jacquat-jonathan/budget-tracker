@@ -43,7 +43,8 @@ export interface CsvMapping {
   /** Two columns: money out and money in. */
   debit: number | null
   credit: number | null
-  decimal: DecimalMark
+  /** The decimal mark; null until the amounts settle it or the member chooses (never assumed). */
+  decimal: DecimalMark | null
   description: number | null
   merchant: number | null
   bankId: number | null
@@ -181,17 +182,111 @@ export function parseCsvAmount(text: string, decimal: DecimalMark): AmountRead {
   return { ok: true, rappen: negative ? -rappen : rappen }
 }
 
-/** The decimal mark the amount cells use, when they say it unambiguously. */
-export function detectDecimal(values: readonly string[]): DecimalMark | null {
-  let comma = false
-  let point = false
-  for (const raw of values) {
-    const value = raw.replace(/[\s\u00a0\u202f'’ʼ]/g, '').replace(/-$/, '')
-    if (/,\d{1,2}$/.test(value)) comma = true
-    else if (/\.\d{1,2}$/.test(value)) point = true
+/** What one amount cell says about the decimal mark. */
+export type DecimalSays = DecimalMark | 'either' | 'ambiguous' | 'unreadable'
+
+/** The cell without spaces, apostrophes, "CHF", a sign or brackets: digits and marks only. */
+function amountBody(text: string): string {
+  let value = text
+    .replace(/[\s  '’ʼ]/g, '')
+    .replace(/^chf/i, '')
+    .replace(/chf$/i, '')
+  if (/^\(.*\)$/.test(value)) value = value.slice(1, -1)
+  return value.replace(/^[-+−]/, '').replace(/[-−]$/, '')
+}
+
+/**
+ * What a cell says about the decimal mark: a point or a comma when it can only be read one way
+ * (12.50, 1,234.50, 1.234.567); "either" when it reads the same both ways (-350, 1'234);
+ * "ambiguous" when its only mark is followed by exactly three digits (1.200 is 1'200 or 1.20).
+ */
+export function decimalSays(text: string): DecimalSays {
+  const value = amountBody(text)
+  if (!/^[\d.,]+$/.test(value) || !/\d/.test(value)) return 'unreadable'
+  const points = value.split('.').length - 1
+  const commas = value.split(',').length - 1
+  if (points === 0 && commas === 0) return 'either'
+  if (points > 0 && commas > 0) {
+    // Both marks: the last one separates the decimals.
+    const mark: DecimalMark = value.lastIndexOf('.') > value.lastIndexOf(',') ? '.' : ','
+    return parseCsvAmount(text, mark).ok ? mark : 'unreadable'
   }
-  if (comma === point) return null
-  return comma ? ',' : '.'
+  const mark: DecimalMark = points > 0 ? '.' : ','
+  const other: DecimalMark = mark === '.' ? ',' : '.'
+  // The same mark more than once groups thousands: the decimals take the other one.
+  if (points > 1 || commas > 1) return parseCsvAmount(text, other).ok ? other : 'unreadable'
+  const [whole = '', fraction = ''] = value.split(mark)
+  if (fraction.length === 3 && /^[1-9]\d{0,2}$/.test(whole)) return 'ambiguous'
+  return mark
+}
+
+export interface DecimalEvidence {
+  /**
+   * settled: the amounts say which mark; none: every amount reads the same either way;
+   * undecided: some amounts read differently with each mark and none settles it (the member
+   * must choose); contradictory: some lines say a point and others a comma.
+   */
+  state: 'settled' | 'none' | 'undecided' | 'contradictory'
+  mark: DecimalMark | null
+  /** The cells (with their line) that show each reading, and those that could be either. */
+  point: { line: number; text: string }[]
+  comma: { line: number; text: string }[]
+  ambiguous: { line: number; text: string }[]
+}
+
+/** What the amount cells of the file, taken together, say about the decimal mark. */
+export function decimalEvidence(cells: readonly { line: number; text: string }[]): DecimalEvidence {
+  const evidence: DecimalEvidence = {
+    state: 'none',
+    mark: null,
+    point: [],
+    comma: [],
+    ambiguous: [],
+  }
+  for (const cell of cells) {
+    if (cell.text.trim() === '') continue
+    const says = decimalSays(cell.text)
+    if (says === '.') evidence.point.push(cell)
+    else if (says === ',') evidence.comma.push(cell)
+    else if (says === 'ambiguous') evidence.ambiguous.push(cell)
+  }
+  if (evidence.point.length > 0 && evidence.comma.length > 0) evidence.state = 'contradictory'
+  else if (evidence.point.length > 0 || evidence.comma.length > 0) {
+    evidence.state = 'settled'
+    evidence.mark = evidence.point.length > 0 ? '.' : ','
+  } else if (evidence.ambiguous.length > 0) evidence.state = 'undecided'
+  return evidence
+}
+
+/** The amount cells of the mapped columns, with their line. */
+export function amountCells(
+  records: readonly CsvRecord[],
+  mapping: Pick<CsvMapping, 'amountMode' | 'amount' | 'debit' | 'credit'>,
+): { line: number; text: string }[] {
+  const columns =
+    mapping.amountMode === 'split' ? [mapping.debit, mapping.credit] : [mapping.amount]
+  return records.flatMap((record) =>
+    columns.flatMap((column) =>
+      column === null ? [] : [{ line: record.line, text: record.cells[column] ?? '' }],
+    ),
+  )
+}
+
+/**
+ * The decimal mark to read the amounts with: the member's choice made here, else what the
+ * amounts settle, else (when every amount reads the same either way) a point, which changes no
+ * value; null when it must be asked, and always when the lines contradict each other.
+ */
+// R-IMPORT-324: the decimal mark is read from the amounts or asked, never assumed.
+export function decimalToUse(
+  evidence: DecimalEvidence,
+  chosen: DecimalMark | null,
+): DecimalMark | null {
+  if (evidence.state === 'contradictory') return null
+  if (chosen !== null) return chosen
+  if (evidence.state === 'settled') return evidence.mark
+  if (evidence.state === 'none') return '.'
+  return null
 }
 
 // --- Columns ---------------------------------------------------------------------------------
@@ -218,8 +313,50 @@ const GUESSES: { key: keyof CsvMapping; pattern: RegExp }[] = [
   { key: 'bankId', pattern: /(transaction ?id|r[ée]f[ée]rence|reference|referenz)/i },
 ]
 
-/** A first mapping from the header's names, for the user to check: nothing is sent unseen. */
+const isDateCell = (text: string) =>
+  text.trim() !== '' && DATE_FORMATS.some((format) => parseCsvDate(text, format) !== null)
+const isAmountCell = (text: string) =>
+  /\d/.test(text) && decimalSays(text) !== 'unreadable' && !isDateCell(text)
+
+/**
+ * Whether a first line is plainly data rather than column names: one cell is a date and
+ * another an amount.
+ */
+export function looksLikeData(cells: readonly string[]): boolean {
+  const date = cells.findIndex(isDateCell)
+  return date >= 0 && cells.some((cell, index) => index !== date && isAmountCell(cell))
+}
+
+/**
+ * A first mapping from the header's names, for the user to check: nothing is sent unseen. A
+ * first line that is plainly data is taken as a row (the mapper says so), the date and the
+ * amount then found by their content.
+ */
 export function guessMapping(header: readonly string[], sample: readonly CsvRecord[]): CsvMapping {
+  if (looksLikeData(header)) {
+    const date = header.findIndex(isDateCell)
+    const amount = header.findIndex((cell, index) => index !== date && isAmountCell(cell))
+    const description = header.findIndex(
+      (cell, index) => index !== date && index !== amount && /\p{L}/u.test(cell),
+    )
+    const formats = dateFormatsFor(
+      [header, ...sample.map((record) => record.cells)].map((cells) => cells[date] ?? ''),
+    )
+    return {
+      hasHeader: false,
+      date,
+      dateFormat: formats.length === 1 ? (formats[0] ?? null) : null,
+      amountMode: 'signed',
+      amount: amount >= 0 ? amount : null,
+      negativeMeans: 'debit',
+      debit: null,
+      credit: null,
+      decimal: null,
+      description: description >= 0 ? description : null,
+      merchant: null,
+      bankId: null,
+    }
+  }
   const taken = new Set<number>()
   const find = (key: keyof CsvMapping): number | null => {
     const pattern = GUESSES.find((guess) => guess.key === key)?.pattern
@@ -234,10 +371,6 @@ export function guessMapping(header: readonly string[], sample: readonly CsvReco
   const credit = find('credit')
   const amount = find('amount')
   const split = debit !== null && credit !== null
-  const amountColumns = split ? [debit, credit] : [amount]
-  const amountValues = sample.flatMap((record) =>
-    amountColumns.map((column) => (column === null ? '' : (record.cells[column] ?? ''))),
-  )
   const dateValues = sample.map((record) => (date === null ? '' : (record.cells[date] ?? '')))
   const formats = dateFormatsFor(dateValues)
   return {
@@ -249,7 +382,8 @@ export function guessMapping(header: readonly string[], sample: readonly CsvReco
     negativeMeans: 'debit',
     debit: split ? debit : null,
     credit: split ? credit : null,
-    decimal: detectDecimal(amountValues) ?? '.',
+    // Never assumed: the mapper reads it from the whole file's amounts, or asks.
+    decimal: null,
     description: find('description'),
     merchant: find('merchant'),
     bankId: find('bankId'),
@@ -265,7 +399,7 @@ function fit(text: string, max: number): { text: string; truncated: boolean } {
 
 /** Whether the mapping names everything a row needs. */
 export function mappingComplete(mapping: CsvMapping): boolean {
-  if (mapping.date === null || mapping.dateFormat === null) return false
+  if (mapping.date === null || mapping.dateFormat === null || mapping.decimal === null) return false
   return mapping.amountMode === 'signed'
     ? mapping.amount !== null
     : mapping.debit !== null && mapping.credit !== null
@@ -275,6 +409,7 @@ export function mappingComplete(mapping: CsvMapping): boolean {
 export function mapRecords(records: readonly CsvRecord[], mapping: CsvMapping): MappedCsv {
   const out: MappedCsv = { rows: [], problems: [] }
   if (!mappingComplete(mapping)) return out
+  const decimal = mapping.decimal ?? '.'
   const body = mapping.hasHeader ? records.slice(1) : records
   for (const record of body) {
     const cell = (column: number | null) => (column === null ? '' : (record.cells[column] ?? ''))
@@ -303,7 +438,7 @@ export function mapRecords(records: readonly CsvRecord[], mapping: CsvMapping): 
         out.problems.push({ line: record.line, problem: 'amount-missing' })
         continue
       }
-      const read = parseCsvAmount(text, mapping.decimal)
+      const read = parseCsvAmount(text, decimal)
       if (!read.ok) {
         out.problems.push({ line: record.line, problem: read.problem })
         continue
@@ -314,8 +449,8 @@ export function mapRecords(records: readonly CsvRecord[], mapping: CsvMapping): 
     } else {
       const debitText = cell(mapping.debit).trim()
       const creditText = cell(mapping.credit).trim()
-      const debit = debitText === '' ? null : parseCsvAmount(debitText, mapping.decimal)
-      const credit = creditText === '' ? null : parseCsvAmount(creditText, mapping.decimal)
+      const debit = debitText === '' ? null : parseCsvAmount(debitText, decimal)
+      const credit = creditText === '' ? null : parseCsvAmount(creditText, decimal)
       const failed = [debit, credit].find((read) => read !== null && !read.ok)
       if (failed?.ok === false) {
         out.problems.push({ line: record.line, problem: failed.problem })

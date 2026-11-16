@@ -224,6 +224,7 @@ const core: Omit<Translation, LazyKey> = {
   errors: {
     forbidden: 'Vous n’avez pas le droit de faire cela.',
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
+    busy: 'Le budget est occupé et a mis trop de temps à répondre : rien n’a été changé. Réessayez dans un moment.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
     networkAdd:
       'La connexion a été coupée avant la réponse. Ce que vous avez saisi est toujours là : enregistrez à nouveau une fois connecté. Sans risque : ce sera enregistré une seule fois, même si le premier enregistrement a abouti.',

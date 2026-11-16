@@ -216,6 +216,7 @@ const core = {
   errors: {
     forbidden: 'You are not allowed to do this.',
     invalidValue: 'One of the values is not accepted. Check the form and try again.',
+    busy: 'The budget is busy and took too long to answer: nothing was changed. Try again in a moment.',
     network: 'Cannot reach the server. Check your connection and try again.',
     networkAdd:
       'The connection failed before the answer came back. What you entered is still here: save again once you are connected. It is safe: it will be recorded only once, even if the first save went through.',

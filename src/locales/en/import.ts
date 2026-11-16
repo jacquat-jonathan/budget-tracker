@@ -27,6 +27,10 @@ export const importEn = {
     notPdf: 'This is not a PDF file. For a CSV, use “A CSV file” below.',
     notCsv: 'This file does not look like CSV text. For a PDF statement, use “A PDF statement”.',
     readFailed: 'The file could not be read on this device. Choose it again.',
+    csvBinary:
+      'This file does not hold text: it is not a CSV export. Nothing was read or sent. Export the statement as CSV and choose that file.',
+    csvUndecodable:
+      'This file says it is Unicode text but part of it cannot be decoded: it may be damaged. Nothing was read or sent. Export it again.',
   },
   reading: {
     title: 'Reading the statement on this device…',
@@ -165,6 +169,12 @@ export const importEn = {
     separators: { ';': 'Semicolon (;)', ',': 'Comma (,)', '\t': 'Tab' },
     separatorUnknown: 'The separator could not be recognised: choose it.',
     hasHeader: 'The first line holds the column names',
+    firstLineData:
+      'The first line holds a date and an amount, so it is read as a row, not as column names. Tick the box above if it does hold the names.',
+    cleaned_one:
+      'Line {{lines}} held an invisible control character (such as a NUL). It was removed on this device before anything is sent.',
+    cleaned_other:
+      'Lines {{lines}} held invisible control characters (such as a NUL). They were removed on this device before anything is sent.',
     column: 'Column {{n}}',
     columnNamed: 'Column {{n}}: {{name}}',
     none: 'None',
@@ -186,6 +196,13 @@ export const importEn = {
     decimal: 'Decimals after',
     decimalPoint: "a point (1'234.50)",
     decimalComma: 'a comma (1 234,50)',
+    decimalLine: 'line {{line}} “{{text}}”',
+    decimalFromPoint: 'Read from the amounts: decimals after a point ({{lines}}).',
+    decimalFromComma: 'Read from the amounts: decimals after a comma ({{lines}}).',
+    decimalUndecided:
+      'The amounts do not say which mark separates the decimals: {{lines}} could be thousands or decimals (1.200 is 1’200 or 1.20). Choose it: nothing is assumed.',
+    decimalContradictory:
+      'The amounts contradict each other: some use a point for decimals ({{point}}), others a comma ({{comma}}). This file cannot be read safely: check it, or export it again.',
     description: 'Description',
     merchant: 'Merchant (optional)',
     bankId: 'Bank reference (optional)',
@@ -215,6 +232,10 @@ export const importEn = {
     },
     unclosedQuote:
       'A quoted cell that starts on line {{line}} is never closed: nothing from that line on is read. Check the file.',
+    tooMany_one:
+      'This file has {{count}} rows: one import takes at most {{max}}. Nothing was sent. Split the file into parts of at most {{max}} rows and import each.',
+    tooMany_other:
+      'This file has {{count}} rows: one import takes at most {{max}}. Nothing was sent. Split the file into parts of at most {{max}} rows and import each.',
     noRows: 'No row of this file can be imported with this mapping.',
     continue_one: 'Check {{count}} row',
     continue_other: 'Check {{count}} rows',
@@ -225,6 +246,8 @@ export const importEn = {
     help: 'This is what your budget will do with each row. Change what you want: each change is checked again by the budget.',
     checking: 'Checking…',
     checkFailed: 'The rows could not be checked: {{reason}}',
+    checkBusy:
+      'The budget is busy and took too long to check these rows (nothing was changed). It was asked again; check again in a moment.',
     retry: 'Check again',
     counts: {
       import_one: '{{count}} to import',
@@ -256,6 +279,15 @@ export const importEn = {
     money: { debit: 'money out', credit: 'money in' },
     select: 'Select {{row}}',
     selectAll: 'Select all rows shown',
+    selectAllCount_one: 'Select the {{count}} row this filter shows',
+    selectAllCount_other: 'Select all {{count}} rows this filter shows',
+    skipToImport: 'Skip the rows: go to the Import button',
+    recorded_one:
+      'Part {{count}} was already recorded by the interrupted import: its rows are locked. Sent again, it records nothing; the result says what became of them.',
+    recorded_other:
+      'Parts 1 to {{count}} were already recorded by the interrupted import: their rows are locked. Sent again, they record nothing; the result says what became of them.',
+    recordedRow:
+      'Already recorded in part {{part}} by the interrupted import: it cannot be changed now.',
     selected_one: '{{count}} row selected',
     selected_other: '{{count}} rows selected',
     bulk: {
@@ -386,6 +418,10 @@ export const importEn = {
     resent_other:
       'Answers were lost on the way: parts were sent again ({{count}} times). Each is recorded once.',
     keepOpen: 'Keep this page open until it is done.',
+    busy_one:
+      'The budget was busy and did not answer in time: part {{part}} was sent again ({{count}} time). It is recorded once.',
+    busy_other:
+      'The budget was busy and did not answer in time: part {{part}} was sent again ({{count}} times). It is recorded once.',
     leaveWarning: 'The import is still being sent. Leave anyway?',
     stopped: {
       title: 'The import stopped',
@@ -397,9 +433,10 @@ export const importEn = {
         "Part {{part}} was refused: the budget holds 50'000 transactions, the most it can. Nothing of that part was written.",
       network:
         'Part {{part}} could not be sent: the connection keeps failing. Check it and continue: what was already recorded is not recorded twice.',
+      busy: 'Part {{part}} could not be recorded: the budget stayed busy and did not answer in time. Nothing of that part was written. Continue in a moment: what was already recorded is not recorded twice.',
       other: 'Part {{part}} was refused: {{reason}}',
-      before_one: 'The {{count}} part before it is imported.',
-      before_other: 'The {{count}} parts before it are imported.',
+      before_one: 'The part before it is recorded.',
+      before_other: 'The {{count}} parts before it are recorded.',
       continue: 'Continue the import',
       finish: 'See what was imported',
     },
@@ -417,6 +454,17 @@ export const importEn = {
     imported_one: '{{count}} transaction imported',
     imported_other: '{{count}} transactions imported',
     importedHelp: 'They count in your totals now and wait for your review.',
+    anyway_one: 'Of them, {{count}} imported anyway afterwards.',
+    anyway_other: 'Of them, {{count}} imported anyway afterwards.',
+    undoneTitle: 'This import was undone',
+    undoneHelp:
+      'Its transactions still to review and linked to nothing were deleted: they no longer count in your totals. What stayed is said below.',
+    differedWhy:
+      'This happens when the same transactions were matched meanwhile: by an earlier part of this import, by another import (yours or another member’s), or by a change in the budget.',
+    differedSkipped_one: '{{count}} of them was not imported: it is listed below.',
+    differedSkipped_other: '{{count}} of them were not imported: they are listed below.',
+    differedImported_one: '{{count}} of them was imported although the check said to skip it.',
+    differedImported_other: '{{count}} of them were imported although the check said to skip them.',
     skipped: {
       skip_duplicate_one: '{{count}} skipped as a duplicate',
       skip_duplicate_other: '{{count}} skipped as duplicates',
@@ -431,10 +479,8 @@ export const importEn = {
     },
     charges_one: '{{count}} subscription charge confirmed by the statement',
     charges_other: '{{count}} subscription charges confirmed by the statement',
-    differed_one:
-      '{{count}} row turned out differently than the check said (an earlier part had already matched the same transaction): it is listed below.',
-    differed_other:
-      '{{count}} rows turned out differently than the check said (an earlier part had already matched the same transactions): they are listed below.',
+    differed_one: '{{count}} row turned out differently than the check said.',
+    differed_other: '{{count}} rows turned out differently than the check said.',
     review: 'Review the imported transactions',
     another: 'Import another file',
   },
@@ -454,12 +500,61 @@ export const importEn = {
     importAllAnyway: 'Import all skipped rows anyway',
     importedAnywayDone_one: '{{count}} row imported anyway.',
     importedAnywayDone_other: '{{count}} rows imported anyway.',
+    anywayFailed: 'The rows could not be imported anyway. Try again.',
+    kinds: {
+      salary: 'Skipped: a salary already planned as income',
+      card_bill_payment: 'Skipped: a card bill payment',
+      own_transfer: 'Skipped: a transfer between your own accounts',
+      transfer_to_person: 'Skipped: a transfer to a person',
+      flagged: 'Skipped: flagged',
+      charge: 'Not imported: it confirmed a subscription charge already in the budget',
+      typed: 'Skipped: already entered by hand',
+      matched: 'Skipped: already entered',
+      duplicate: 'Already in the budget',
+      chosen: 'Skipped by you',
+    },
+    ask: {
+      title_one: 'Import {{count}} skipped row anyway?',
+      title_other: 'Import {{count}} skipped rows anyway?',
+      body_one: 'This row was skipped for a reason:',
+      body_other: 'These rows were skipped for a reason:',
+      kinds: {
+        salary_one: '{{count}} salary already planned as income (added as extra income)',
+        salary_other: '{{count}} salaries already planned as income (added as extra income)',
+        card_bill_payment_one:
+          '{{count}} card bill payment (its purchases come with the card bill)',
+        card_bill_payment_other:
+          '{{count}} card bill payments (their purchases come with the card bill)',
+        own_transfer_one: '{{count}} transfer between your own accounts',
+        own_transfer_other: '{{count}} transfers between your own accounts',
+        transfer_to_person_one: '{{count}} transfer to a person',
+        transfer_to_person_other: '{{count}} transfers to a person',
+        flagged_one: '{{count}} flagged row',
+        flagged_other: '{{count}} flagged rows',
+        charge_one: '{{count}} subscription charge the import already confirmed',
+        charge_other: '{{count}} subscription charges the import already confirmed',
+        typed_one: '{{count}} already entered by hand',
+        typed_other: '{{count}} already entered by hand',
+        matched_one: '{{count}} that matched a transaction already in the budget',
+        matched_other: '{{count}} that matched transactions already in the budget',
+        duplicate_one: '{{count}} already in the budget (a duplicate)',
+        duplicate_other: '{{count}} already in the budget (duplicates)',
+        chosen_one: '{{count}} you chose to skip',
+        chosen_other: '{{count}} you chose to skip',
+      },
+      twice_one: 'If it is what the import thought, it will count twice in your totals.',
+      twice_other: 'If they are what the import thought, they will count twice in your totals.',
+      confirm_one: 'Import it anyway',
+      confirm_other: 'Import {{count}} rows anyway',
+    },
     more: 'Show more rows',
     row: '{{date}}, {{amount}} {{direction}}',
   },
   undo: {
     action: 'Undo this import',
     title: 'Undo this import?',
+    bodyUnknown:
+      'The transactions of this import that are still to review and linked to nothing are deleted.',
     body_one:
       'The transactions of this import that are still to review and linked to nothing are deleted ({{count}} is still to review).',
     body_other:

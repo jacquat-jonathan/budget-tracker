@@ -32,6 +32,8 @@ interface ConfirmDialogProps {
   destructive?: boolean
   /** The user must type this text (e.g. the budget's name) before confirming. */
   typeToConfirm?: string
+  /** Not ready to confirm yet (what it would do is still being read). */
+  disabled?: boolean
 }
 
 /** Confirmation for an action with consequences, with its pending state and error inline. */
@@ -47,6 +49,7 @@ export function ConfirmDialog({
   errorMessages,
   destructive = false,
   typeToConfirm,
+  disabled = false,
 }: ConfirmDialogProps) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage(errorMessages)
@@ -91,7 +94,7 @@ export function ConfirmDialog({
           <AlertDialogCancel disabled={pending}>{t('common.cancel')}</AlertDialogCancel>
           <Button
             variant={destructive ? 'destructive' : 'default'}
-            disabled={pending || !confirmed}
+            disabled={pending || disabled || !confirmed}
             onClick={onConfirm}
           >
             {pending ? t('common.saving') : confirmLabel}
