@@ -228,12 +228,11 @@ export const fr: Translation = {
         'Choisissez un mois dont le jour de paie est déjà passé, au plus 60 mois en arrière.',
       invalid_end_date: 'La date de fin peut être au plus dans dix ans.',
       invalid_boundary:
-        'Cette date ne convient pas : un salaire peut être au plus à 14 jours de sa date prévue, et une période ne peut être ni vide ni empiéter sur la suivante.',
+        'Cette date ne convient pas : chaque période doit durer de 7 à 92 jours, et la date doit se trouver dans la plage indiquée sous le champ.',
       invalid_period:
         'Ce revenu n’existait pas encore pendant cette période. Choisissez-en une plus récente.',
       end_date_before_last_period:
         'Cette date de fin précède des périodes qui existent déjà. Choisissez une date plus tardive.',
-      boundary_after_today: 'Cette limite ne peut pas être déplacée à aujourd’hui ou plus tard.',
       income_is_primary: 'C’est le revenu principal. Désignez d’abord un autre revenu principal.',
       income_ended: 'Ce revenu a pris fin et ne peut plus être modifié.',
       income_not_in_force:
@@ -390,25 +389,6 @@ export const fr: Translation = {
     removeDescription: 'Il cesse de compter dans le budget dès la période en cours.',
     removeFromEarlier:
       'Il cesse de compter à partir de la période choisie, ce qui modifie des totaux passés.',
-    correctionAppliesFrom:
-      'Les nouvelles conditions s’appliquent dès la période choisie : les totaux de cette période et des suivantes changent.',
-    primaryTitle: 'Faire de « {{name}} » le revenu principal ?',
-    primaryDescription:
-      'Les périodes suivent alors le jour de paie de ce revenu, dès la période en cours. Les périodes passées restent telles quelles.',
-    effect: {
-      checking: 'Vérification de l’effet sur la période en cours…',
-      unknown:
-        'Impossible de vérifier l’effet sur la période en cours. Si sa date de paie du mois prochain est déjà passée, la période en cours se termine à l’enregistrement.',
-      moves: 'La période en cours se terminera le {{end}}, veille de la paie {{month}} ({{date}}).',
-      manual:
-        'La fin de la période en cours a été fixée à la main ({{end}}). Elle est conservée si elle se trouve à 14 jours au plus de la paie {{month}} ({{date}}) ; sinon, elle passe à la veille de cette date.',
-      manualCloses:
-        'La fin de la période en cours a été fixée à la main ({{end}}). Elle est conservée si elle se trouve à 14 jours au plus de la paie {{month}} ({{date}}) ; sinon, comme cette date est déjà passée, la période en cours se termine à l’enregistrement.',
-      undo: 'Revenir à l’ancien revenu principal ne la rouvre pas. Pour annuler, utilisez « Le salaire {{month}} n’est pas encore arrivé » dans la page Périodes.',
-    },
-    closesNowTitle: 'Enregistrer clôt la période en cours maintenant',
-    closesNow:
-      'Avec ce jour de paie, le salaire {{month}} est dû le {{date}}, date déjà passée : la période en cours se termine et celle {{month}} commence ce jour-là.',
     correction: {
       label: 'Corriger une période passée',
       removeLabel: 'Le supprimer depuis une période passée',
@@ -416,8 +396,16 @@ export const fr: Translation = {
       from: 'Appliquer dès',
       removeFrom: 'Supprimer dès',
       warning:
-        'Cela modifie des périodes passées : leurs totaux de revenus sont recalculés dès la période choisie.',
+        'Cela modifie des périodes passées : leurs totaux de revenus sont recalculés dès la période choisie jusqu’au prochain changement déjà enregistré.',
     },
+    correctionAppliesFrom:
+      'Les nouvelles conditions s’appliquent dès la période choisie jusqu’au prochain changement déjà enregistré : les totaux de ces périodes changent.',
+    editPrimaryNote:
+      'C’est le revenu principal : aucune période déjà commencée ne bouge. Seule la fin prévue de la période en cours suit la nouvelle date de paie (sauf si vous l’avez fixée à la main), jamais avant aujourd’hui.',
+    savedNextExpected:
+      'Revenu « {{name}} » enregistré. Le prochain salaire est désormais attendu le {{date}}.',
+    madePrimaryNextExpected:
+      '« {{name}} » est maintenant le revenu principal. Le prochain salaire est désormais attendu le {{date}}.',
     removeHistory:
       'S’il a déjà compté dans une période passée, il y est conservé et prend simplement fin ; sinon, il est effacé.',
     removedEnded: '« {{name}} » a pris fin. Les périodes passées le comptent toujours.',
@@ -445,8 +433,6 @@ export const fr: Translation = {
       'Les nouvelles conditions s’appliquent dès la période en cours, commencée le {{date}}. Les périodes passées gardent leurs conditions.',
     editAppliesFromNoPeriod:
       'Les nouvelles conditions s’appliquent dès la période en cours. Les périodes passées gardent les leurs.',
-    editPrimaryNote:
-      'C’est le revenu principal : la période en cours garde son début, et sa fin passe à la veille de la prochaine paie (sauf si vous l’avez fixée à la main).',
     owner: {
       deletedAccount: 'Compte supprimé',
       formerMember: 'Ancien membre',
@@ -466,7 +452,7 @@ export const fr: Translation = {
         'La plupart des employeurs paient un jour ouvrable. Choisissez ce que fait le vôtre.',
       from: 'Compte à partir de',
       fromCurrent: 'La période en cours',
-      fromPeriod: '{{month}} (du {{start}} au {{end}})',
+      fromPeriod: '{{start}} – {{end}}',
       fromHelp:
         'Choisissez une période plus ancienne si ce revenu était déjà versé à ce moment-là.',
     },
@@ -495,56 +481,87 @@ export const fr: Translation = {
   },
   periods: {
     description:
-      'Une période par mois : chacune commence le jour du salaire de ce mois et se termine la veille du suivant.',
+      'Chaque période va d’un salaire à la veille du suivant. Les périodes passées restent telles quelles.',
     empty: 'Aucune période pour l’instant',
     current: 'En cours',
     manualStart: 'Début fixé à la main',
     manualEnd: 'Fin fixée à la main',
-    budgetEnd: 'Dernier mois',
-    projectedEnd: 'se termine la veille du prochain salaire prévu',
+    lastPeriod: 'Dernière période',
+    nextExpected: 'Prochain salaire attendu le {{date}} (prévision).',
+    nextExpectedManual: 'Prochain salaire attendu le {{date}} (fixé à la main).',
     incomeTotal: 'Revenus',
-    actionsFor: 'Actions pour {{month}}',
+    actionsFor: 'Actions pour la période du {{range}}',
     actions: {
-      arrived: 'Le salaire {{month}} est arrivé un autre jour',
-      notYet: 'Le salaire {{month}} n’est pas encore arrivé',
-      nextEarly: 'Le salaire {{month}} est arrivé en avance',
-      resetStart: 'Rétablir le début selon le calendrier',
-      resetEnd: 'Rétablir la fin selon le calendrier',
-      finalEnd: 'Modifier le dernier jour du budget',
+      expected: 'Le prochain salaire est attendu un autre jour',
+      early: 'Le salaire est arrivé en avance',
+      notYet: 'Le salaire de cette période n’est pas encore arrivé',
+      moveStart: 'Le salaire de cette période est en fait arrivé un autre jour',
+      resetExpected: 'Revenir à la date prévue',
     },
-    dialogDescription:
-      'Quand un salaire n’arrive pas le jour habituel, par exemple à cause d’un jour férié. Chaque période commence le jour où arrive son salaire.',
-    scheduledOn: 'Le salaire {{month}} est prévu le {{date}}.',
-    fields: {
-      arrivedOn: 'Jour d’arrivée du salaire {{month}}',
-      expectedOn: 'Jour où le salaire {{month}} est désormais attendu',
-      lastDay: 'Dernier jour du budget',
+    dialogs: {
+      expected: {
+        title: 'Quand le prochain salaire est-il attendu ?',
+        description:
+          'Par exemple quand un jour férié décale la paie. La période en cours se termine la veille.',
+        field: 'Prochain salaire attendu le',
+        range: 'Après aujourd’hui ({{today}}).',
+      },
+      resetExpected: {
+        title: 'Revenir à la date prévue ?',
+        description:
+          'La période en cours se termine de nouveau la veille de la prochaine paie prévue d’après le revenu principal.',
+        field: 'Date',
+        range: 'Aucune date n’est nécessaire.',
+      },
+      early: {
+        title: 'Le salaire est arrivé en avance',
+        description:
+          'La période en cours se termine et une nouvelle commence le jour où le salaire est arrivé.',
+        field: 'Jour d’arrivée du salaire',
+        range: 'Aujourd’hui ({{today}}) ou avant.',
+      },
+      reopen: {
+        title: 'Le salaire de cette période n’est pas encore arrivé',
+        description:
+          'Cette période est fusionnée avec la précédente, qui redevient la période en cours jusqu’à l’arrivée du salaire.',
+        field: 'Salaire désormais attendu le (facultatif)',
+        range: 'Après aujourd’hui ({{today}}) ; laissez vide pour la date prévue.',
+      },
+      moveStart: {
+        title: 'Le salaire de cette période est arrivé un autre jour',
+        description:
+          'Déplace la limite entre cette période et la précédente au jour où le salaire est réellement arrivé.',
+        field: 'Jour d’arrivée du salaire',
+        range: 'Aujourd’hui ({{today}}) ou avant.',
+      },
     },
-    fourteenDays: 'Au plus 14 jours avant ou après la date prévue.',
+    thisPeriod: 'Cette période : du {{start}} au {{end}}.',
+    reopenMoves:
+      'Ce qui a été enregistré dans cette période (changements de revenus, revenus ajoutés ou terminés, changement de revenu principal) passe à la période rouverte.',
     preview: {
-      final: 'Le budget se terminera le {{end}}.',
-      finalPast: 'Le budget se terminera le {{end}} : il n’aura alors plus de période en cours.',
-      moved:
-        'La période {{previous}} se terminera le {{end}}, et celle {{month}} commencera le {{start}}.',
-      notYet:
-        'La période {{month}} est retirée pour l’instant, et celle {{previous}} redevient la période en cours jusqu’au {{end}}. Elle reviendra à l’arrivée du salaire.',
-      closes:
-        'Cette période se terminera le {{end}}, et la période {{next}} commencera le {{start}}.',
-      endsEarlier:
-        'Cette période se terminera le {{end}} : le salaire {{next}} est attendu le {{start}}.',
+      expected:
+        'Cette période se terminera le {{end}} ; la suivante commencera à l’arrivée du salaire le {{date}}.',
+      resetExpected: 'La fin de cette période suivra de nouveau la date de paie prévue.',
+      early:
+        'Cette période se terminera le {{end}}, et une nouvelle période commencera le {{start}}.',
+      reopenUntil:
+        'La période précédente (dès le {{start}}) redevient la période en cours et se terminera le {{end}} ; cette période disparaît.',
+      reopenProjected:
+        'La période précédente (dès le {{start}}) redevient la période en cours jusqu’à sa fin prévue ; cette période disparaît.',
+      moveStart:
+        'La période précédente se terminera le {{end}}, et celle-ci commencera le {{start}}.',
+    },
+    undo: {
+      expected: 'Pour annuler : indiquez une autre date, ou revenez à la date prévue.',
+      resetExpected: 'Pour annuler : indiquez de nouveau la date attendue.',
+      early:
+        'Pour annuler : sur la nouvelle période, utilisez « Le salaire de cette période n’est pas encore arrivé ».',
+      reopen: 'Pour annuler : utilisez « Le salaire est arrivé en avance » avec le {{date}}.',
+      moveStart: 'Pour annuler : remettez-la au {{date}}.',
     },
     saved: 'Périodes mises à jour.',
-    reset: 'Rétablir selon le calendrier',
-    resetTitle: 'Rétablir cette limite selon le calendrier ?',
-    resetDescription:
-      'La période {{month}} recommence à sa date de paie prévue, le {{date}}, et la période précédente se termine la veille.',
-    resetDescriptionLatest:
-      'La période en cours se termine de nouveau la veille du prochain salaire prévu, et suit le calendrier désormais.',
-    resetComesBack:
-      'Une période close en avance est rouverte, et une période retirée parce que son salaire n’était pas arrivé revient une fois cette date passée.',
-    resetRemovesLatest:
-      'Son salaire est prévu le {{date}} : la période {{month}} est retirée jusque-là, et la période précédente redevient la période en cours.',
-    resetDone: 'La limite suit de nouveau le calendrier.',
+    reset: 'Revenir',
+    resetDone: 'La date attendue suit de nouveau la prévision.',
     endedDescription:
       'Sa dernière période s’est terminée le {{date}} ; aucune nouvelle période n’est créée.',
   },
@@ -555,7 +572,8 @@ export const fr: Translation = {
       rename: 'Renommer',
       renamed: 'Budget renommé.',
       endDate: 'Date de fin',
-      endsWith: 'Le budget se termine avec la période {{month}}, le {{date}}.',
+      endsWith:
+        'Date saisie : {{entered}}. Le budget se termine avec la période qui contient cette date ; son dernier jour est donc le {{date}}.',
       noEndDate: 'Pas de date de fin : le budget continue indéfiniment.',
       endDateHelp:
         'Le budget se termine avec la période qui contient cette date ; son dernier jour est la veille du salaire suivant. Laissez vide et enregistrez, ou supprimez-la, pour un budget sans fin.',

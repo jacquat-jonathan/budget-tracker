@@ -29,7 +29,6 @@ export const DB_ERROR_CODES = [
   'invalid_boundary',
   'invalid_period',
   'end_date_before_last_period',
-  'boundary_after_today',
   'income_is_primary',
   'income_ended',
   'income_not_in_force',

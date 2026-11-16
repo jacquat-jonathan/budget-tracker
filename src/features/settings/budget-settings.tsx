@@ -8,7 +8,7 @@ import { z } from 'zod'
 
 import { paths } from '@/app/paths'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { CalendarDate, CalendarDateField } from '@/components/form/calendar-date-field'
+import { CalendarDateField } from '@/components/form/calendar-date-field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,11 +20,9 @@ import {
   useSetBudgetEndDate,
 } from '@/features/budgets/budget-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
-import { monthOf } from '@/features/budgets/start-months'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
-import { currentLanguage } from '@/lib/i18n'
 
 /** "Only the owner can …": shown instead of an owner-only control for a plain member. */
 export function OwnerOnlyNote({ children }: { children: string }) {
@@ -54,16 +52,17 @@ export function BudgetSettings() {
         <FieldSeparator />
         {/* R-MEMBER-050: owner-only, with the reason for a member. */}
         {isOwner ? (
-          <EndDateForm key={`end-${budget.id}-${budget.end_date ?? ''}`} />
+          <EndDateForm key={`end-${budget.id}-${budget.end_date_entered ?? ''}`} />
         ) : (
           <div className="flex flex-col gap-2">
             <h3 className="font-medium">{t('settings.budget.endDate')}</h3>
             <p className="text-sm">
-              {budget.end_date ? (
-                <CalendarDate value={budget.end_date} />
-              ) : (
-                t('settings.budget.noEndDate')
-              )}
+              {budget.end_date_entered && budget.end_date
+                ? t('settings.budget.endsWith', {
+                    entered: formatCalendarDate(budget.end_date_entered),
+                    date: formatCalendarDate(budget.end_date),
+                  })
+                : t('settings.budget.noEndDate')}
             </p>
             <OwnerOnlyNote>{t('settings.budget.endDateOwnerOnly')}</OwnerOnlyNote>
           </div>
@@ -129,7 +128,7 @@ function EndDateForm() {
   const setEndDate = useSetBudgetEndDate(budgetId)
   const form = useForm<z.input<typeof endDateSchema>, unknown, z.output<typeof endDateSchema>>({
     resolver: zodResolver(endDateSchema),
-    defaultValues: { endDate: budget.end_date ?? '' },
+    defaultValues: { endDate: budget.end_date_entered ?? '' },
   })
 
   const onSubmit = form.handleSubmit(({ endDate }) =>
@@ -142,9 +141,10 @@ function EndDateForm() {
         <div className="flex flex-col gap-1">
           <h3 className="font-medium">{t('settings.budget.endDate')}</h3>
           <p className="text-sm text-muted-foreground">
-            {budget.end_date && budget.end_month
+            {/* R-BUDGET-054: the date entered, and the last day that results from it. */}
+            {budget.end_date_entered && budget.end_date
               ? t('settings.budget.endsWith', {
-                  month: monthOf(budget.end_month, currentLanguage()),
+                  entered: formatCalendarDate(budget.end_date_entered),
                   date: formatCalendarDate(budget.end_date),
                 })
               : t('settings.budget.noEndDate')}
@@ -165,7 +165,7 @@ function EndDateForm() {
           <Button type="submit" disabled={setEndDate.isPending}>
             {setEndDate.isPending ? t('common.saving') : t('settings.budget.saveEndDate')}
           </Button>
-          {budget.end_date && (
+          {budget.end_date_entered && (
             <Button
               type="button"
               variant="outline"

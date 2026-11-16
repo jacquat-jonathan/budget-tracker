@@ -33,14 +33,10 @@ import {
   type IncomeOverview,
   type PeriodSummary,
 } from '@/features/budgets/budget-queries'
-import { monthLabel } from '@/features/budgets/start-months'
 import { PayDayField, WeekendRuleField } from '@/features/income/components/income-term-fields'
-import { TermsEffectNotice } from '@/features/income/components/terms-effect-notice'
-import { useTermsEffect } from '@/features/income/terms-effect'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
-import { currentLanguage } from '@/lib/i18n'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
 
 const incomeSchema = z.object({
@@ -114,14 +110,10 @@ function IncomeForm({
       correct: false,
     },
   })
-  const [payDay, weekendRule, correct] = useWatch({
-    control: form.control,
-    name: ['payDay', 'weekendRule', 'correct'],
-  })
-  const language = currentLanguage()
+  const correct = useWatch({ control: form.control, name: 'correct' })
+  // Periods are identified by their dates.
   const periodLabel = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
-      month: monthLabel(period.month, language),
       start: formatCalendarDate(period.start_date),
       end: formatCalendarDate(period.end_date),
     })
@@ -129,15 +121,6 @@ function IncomeForm({
   const correctable = income
     ? periods.filter((period) => !period.is_current && period.seq >= income.first_seq)
     : []
-  // R-INCOME-052: say what new primary terms do to the current period before saving.
-  const effect = useTermsEffect({
-    enabled:
-      income?.is_primary === true &&
-      (payDay !== income.pay_day || weekendRule !== income.weekend_rule),
-    currentPeriod,
-    payDay,
-    weekendRule,
-  })
 
   const add = useAddIncome(budgetId, { onDone: close })
   const edit = useEditIncome(budgetId, income, { onDone: close })
@@ -228,7 +211,6 @@ function IncomeForm({
             }}
           />
         )}
-        <TermsEffectNotice effect={effect} />
         <Alert>
           <InfoIcon aria-hidden />
           <AlertDescription>
@@ -248,7 +230,7 @@ function IncomeForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending || effect.kind === 'checking'}>
+          <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>

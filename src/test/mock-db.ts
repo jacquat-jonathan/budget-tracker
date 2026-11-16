@@ -119,7 +119,10 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     invite_member: handler(() => 'new-invitation-id'),
     leave_budget: handler(() => null),
     list_my_invitations: handler(() => []),
-    move_period_boundary: handler(() => null),
+    move_period_start: handler(() => null),
+    record_early_pay_date: handler(() => []),
+    reopen_previous_period: handler(() => []),
+    set_expected_pay_date: handler(() => []),
     pay_date: handler(() => rpcError('not_mocked')),
     remove_income: handler(() => 'ended'),
     remove_member: handler(() => null),
@@ -127,10 +130,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
       const budget = db.tables.my_budgets.find((row) => row.id === args.p_budget_id)
       if (!budget) rpcError('budget_not_found')
       const endDate = typeof args.p_end_date === 'string' ? args.p_end_date : null
-      Object.assign(budget, {
-        end_date: endDate,
-        end_month: endDate ? `${endDate.slice(0, 7)}-01` : null,
-      })
+      Object.assign(budget, { end_date: endDate, end_date_entered: endDate })
       return [{ ...budget }]
     }),
     set_primary_income: handler(() => null),

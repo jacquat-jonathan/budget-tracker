@@ -35,7 +35,6 @@ import {
 } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { IncomeFormDialog } from '@/features/income/components/income-form-dialog'
-import { MakePrimaryDialog } from '@/features/income/components/make-primary-dialog'
 import { RemoveIncomeDialog } from '@/features/income/components/remove-income-dialog'
 import { useRemoveIncome, useSetPrimaryIncome } from '@/features/income/income-mutations'
 import { formatCalendarDate } from '@/lib/date'
@@ -46,7 +45,6 @@ type DialogState =
   | { kind: 'add' }
   | { kind: 'edit'; income: IncomeOverview }
   | { kind: 'remove'; income: IncomeOverview }
-  | { kind: 'primary'; income: IncomeOverview }
 
 export function IncomePage() {
   const { t } = useTranslation()
@@ -144,10 +142,8 @@ export function IncomePage() {
                 remove.reset()
                 setDialog({ kind: 'remove', income })
               }}
-              onMakePrimary={() => {
-                makePrimary.reset()
-                setDialog({ kind: 'primary', income })
-              }}
+              onMakePrimary={() => makePrimary.mutate(income)}
+              makingPrimary={makePrimary.isPending}
             />
           ))}
         </ul>
@@ -171,12 +167,6 @@ export function IncomePage() {
         income={dialog.kind === 'remove' ? dialog.income : null}
         periods={periods.data ?? []}
         mutation={remove}
-        onClose={() => setDialog({ kind: 'closed' })}
-      />
-      <MakePrimaryDialog
-        income={dialog.kind === 'primary' ? dialog.income : null}
-        currentPeriod={currentPeriod}
-        mutation={makePrimary}
         onClose={() => setDialog({ kind: 'closed' })}
       />
     </div>
@@ -208,6 +198,7 @@ function IncomeCard({
   onEdit,
   onRemove,
   onMakePrimary,
+  makingPrimary,
 }: {
   income: IncomeOverview
   members: BudgetMember[]
@@ -215,6 +206,7 @@ function IncomeCard({
   onEdit: () => void
   onRemove: () => void
   onMakePrimary: () => void
+  makingPrimary: boolean
 }) {
   const { t } = useTranslation()
   const ownerLabel = useOwnerLabel()
@@ -272,7 +264,10 @@ function IncomeCard({
                 <PencilIcon />
                 {t('income.edit')}
               </DropdownMenuItem>
-              <DropdownMenuItem disabled={primary || ended} onSelect={onMakePrimary}>
+              <DropdownMenuItem
+                disabled={primary || ended || makingPrimary}
+                onSelect={onMakePrimary}
+              >
                 <StarIcon />
                 {t('income.makePrimary')}
               </DropdownMenuItem>

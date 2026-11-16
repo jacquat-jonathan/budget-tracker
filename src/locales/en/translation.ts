@@ -215,11 +215,10 @@ export const en = {
       invalid_start_month: 'Choose a month whose pay day has already come, at most 60 months back.',
       invalid_end_date: 'The end date can be at most ten years from now.',
       invalid_boundary:
-        'This date does not work: a salary can be at most 14 days from its scheduled date, and a period can be neither empty nor run over the next one.',
+        'This date does not work: every period must be 7 to 92 days long, and the date must be in the range shown under the field.',
       invalid_period: 'This income did not exist yet in that period. Choose a later one.',
       end_date_before_last_period:
         'This end date is before periods that already exist. Choose a later date.',
-      boundary_after_today: 'This boundary cannot move to today or later.',
       income_is_primary: 'This is the primary income. Make another income primary first.',
       income_ended: 'This income has ended and can no longer be changed.',
       income_not_in_force:
@@ -368,26 +367,6 @@ export const en = {
     removeTitle: 'Remove “{{name}}”?',
     removeDescription: 'It stops counting in the budget from the current period.',
     removeFromEarlier: 'It stops counting from the period you choose, which changes past totals.',
-    correctionAppliesFrom:
-      'The new terms apply from the period you chose: the totals of that period and the ones after it change.',
-    primaryTitle: 'Make “{{name}}” the primary income?',
-    primaryDescription:
-      'Periods then follow this income’s pay day, from the current period on. Past periods stay as they are.',
-    effect: {
-      checking: 'Checking what this does to the current period…',
-      unknown:
-        'Could not check what this does to the current period. If its pay date for next month has already come, the current period closes when you save.',
-      moves:
-        'The current period will end on {{end}}, the day before the {{month}} pay date ({{date}}).',
-      manual:
-        'The current period’s end was set by hand ({{end}}). It is kept if it lies within 14 days of the {{month}} pay date ({{date}}); otherwise it moves to the day before that date.',
-      manualCloses:
-        'The current period’s end was set by hand ({{end}}). It is kept if it lies within 14 days of the {{month}} pay date ({{date}}); otherwise, since that date has already come, the current period closes when you save.',
-      undo: 'Switching back does not reopen it. To undo, use “The {{month}} salary has not arrived yet” on the Periods page.',
-    },
-    closesNowTitle: 'Saving closes the current period now',
-    closesNow:
-      'With this pay day, the {{month}} salary is due on {{date}}, which has already come: the current period closes and the {{month}} period starts on that day.',
     correction: {
       label: 'Correct an earlier period',
       removeLabel: 'Remove it from an earlier period',
@@ -395,8 +374,15 @@ export const en = {
       from: 'Apply from',
       removeFrom: 'Remove from',
       warning:
-        'This changes past periods: their income totals are recomputed from the period you choose.',
+        'This changes past periods: their income totals are recomputed from the period you choose until the next change already recorded.',
     },
+    correctionAppliesFrom:
+      'The new terms apply from the period you chose until the next change already recorded: the totals of those periods change.',
+    editPrimaryNote:
+      'This is the primary income: no period that has started moves. Only the current period’s expected end follows the new pay date (unless you set it by hand), never before today.',
+    savedNextExpected: 'Income “{{name}}” saved. The next salary is now expected on {{date}}.',
+    madePrimaryNextExpected:
+      '“{{name}}” is now the primary income. The next salary is now expected on {{date}}.',
     removeHistory:
       'If it already counted in a past period, it is kept there and only ended; otherwise it is deleted.',
     removedEnded: '“{{name}}” ended. Past periods still count it.',
@@ -422,8 +408,6 @@ export const en = {
     editAppliesFrom:
       'New terms apply from the current period, which started on {{date}}. Past periods keep the terms they had.',
     editAppliesFromNoPeriod: 'New terms apply from the current period. Past periods keep theirs.',
-    editPrimaryNote:
-      'This is the primary income: the current period keeps its start, and its end moves to the day before the next pay date (unless you set it by hand).',
     owner: {
       deletedAccount: 'Deleted account',
       formerMember: 'Former member',
@@ -442,7 +426,7 @@ export const en = {
       weekendRuleHelp: 'Most employers pay on a working day. Choose what yours does.',
       from: 'Counts from',
       fromCurrent: 'The current period',
-      fromPeriod: '{{month}} ({{start}} – {{end}})',
+      fromPeriod: '{{start}} – {{end}}',
       fromHelp: 'Choose an earlier period if this income was already coming in then.',
     },
     weekendRule: {
@@ -470,53 +454,84 @@ export const en = {
   },
   periods: {
     description:
-      'One period per month: each starts on that month’s salary and ends the day before the next one.',
+      'Each period runs from one salary to the day before the next. Periods that have happened stay as they were.',
     empty: 'No periods yet',
     current: 'Current',
     manualStart: 'Start set by hand',
     manualEnd: 'End set by hand',
-    budgetEnd: 'Final month',
-    projectedEnd: 'ends the day before the next salary is due',
+    lastPeriod: 'Last period',
+    nextExpected: 'Next salary expected on {{date}} (projected).',
+    nextExpectedManual: 'Next salary expected on {{date}} (set by hand).',
     incomeTotal: 'Income',
-    actionsFor: 'Actions for {{month}}',
+    actionsFor: 'Actions for the period {{range}}',
     actions: {
-      arrived: 'The {{month}} salary arrived on another day',
-      notYet: 'The {{month}} salary has not arrived yet',
-      nextEarly: 'The {{month}} salary arrived early',
-      resetStart: 'Reset the start to the schedule',
-      resetEnd: 'Reset the end to the schedule',
-      finalEnd: 'Change the budget’s last day',
+      expected: 'The next salary is expected on another day',
+      early: 'The salary arrived early',
+      notYet: 'This period’s salary has not arrived yet',
+      moveStart: 'This period’s salary actually arrived on another day',
+      resetExpected: 'Reset the expected date to the projection',
     },
-    dialogDescription:
-      'For when a salary does not come on its usual day, for example because of a public holiday. Each period starts on the day its salary arrives.',
-    scheduledOn: 'The {{month}} salary is scheduled for {{date}}.',
-    fields: {
-      arrivedOn: 'Day the {{month}} salary arrived',
-      expectedOn: 'Day the {{month}} salary is now expected',
-      lastDay: 'Last day of the budget',
+    dialogs: {
+      expected: {
+        title: 'When is the next salary expected?',
+        description:
+          'For example when a public holiday moves the pay day. The current period ends the day before.',
+        field: 'Next salary expected on',
+        range: 'After today ({{today}}).',
+      },
+      resetExpected: {
+        title: 'Reset the expected date?',
+        description:
+          'The current period ends again the day before the next pay date projected from the primary income.',
+        field: 'Date',
+        range: 'No date is needed.',
+      },
+      early: {
+        title: 'The salary arrived early',
+        description:
+          'The current period closes and a new one starts on the day the salary arrived.',
+        field: 'Day the salary arrived',
+        range: 'Today ({{today}}) or earlier.',
+      },
+      reopen: {
+        title: 'This period’s salary has not arrived yet',
+        description:
+          'This period is merged into the previous one, which is current again until the salary arrives.',
+        field: 'Salary now expected on (optional)',
+        range: 'After today ({{today}}); leave empty to use the projected date.',
+      },
+      moveStart: {
+        title: 'This period’s salary arrived on another day',
+        description:
+          'Moves the boundary between this period and the previous one to the day the salary really arrived.',
+        field: 'Day the salary arrived',
+        range: 'Today ({{today}}) or earlier.',
+      },
     },
-    fourteenDays: 'At most 14 days before or after its scheduled date.',
+    thisPeriod: 'This period: {{start}} – {{end}}.',
+    reopenMoves:
+      'What was recorded in this period (income changes, incomes added or ended, a primary switch) moves to the reopened period.',
     preview: {
-      final: 'The budget will end on {{end}}.',
-      finalPast: 'The budget will end on {{end}}: it then has no current period.',
-      moved: '{{previous}} will end on {{end}}, and {{month}} will start on {{start}}.',
-      notYet:
-        'The {{month}} period will be removed for now, and {{previous}} is current again until {{end}}. It comes back once the salary arrives.',
-      closes: 'This period will close on {{end}}, and the {{next}} period starts on {{start}}.',
-      endsEarlier: 'This period will end on {{end}}: the {{next}} salary is expected on {{start}}.',
+      expected:
+        'This period will end on {{end}}; the next one starts when the salary arrives on {{date}}.',
+      resetExpected: 'The end of this period will follow the projected pay date again.',
+      early: 'This period will end on {{end}}, and a new period starts on {{start}}.',
+      reopenUntil:
+        'The previous period (from {{start}}) is current again and will end on {{end}}; this period disappears.',
+      reopenProjected:
+        'The previous period (from {{start}}) is current again until its projected end; this period disappears.',
+      moveStart: 'The previous period will end on {{end}}, and this one starts on {{start}}.',
+    },
+    undo: {
+      expected: 'To undo: set another date, or reset it to the projection.',
+      resetExpected: 'To undo: set the expected date again.',
+      early: 'To undo: on the new period, use “This period’s salary has not arrived yet”.',
+      reopen: 'To undo: use “The salary arrived early” with {{date}}.',
+      moveStart: 'To undo: move it back to {{date}}.',
     },
     saved: 'Periods updated.',
-    reset: 'Reset to the schedule',
-    resetTitle: 'Reset this boundary to the schedule?',
-    resetDescription:
-      'The {{month}} period starts again on its scheduled pay date, {{date}}, and the period before it ends the day before.',
-    resetDescriptionLatest:
-      'The current period ends again the day before the next salary is due, and follows the schedule from now on.',
-    resetComesBack:
-      'A period closed early is reopened, and a period removed because its salary had not arrived comes back once that date has passed.',
-    resetRemovesLatest:
-      'Its salary is scheduled for {{date}}, so the period {{month}} is removed until then, and the previous period is current again.',
-    resetDone: 'The boundary follows the schedule again.',
+    reset: 'Reset',
+    resetDone: 'The expected date follows the projection again.',
     endedDescription: 'Its last period ended on {{date}}; no new periods are created.',
   },
   settings: {
@@ -526,7 +541,8 @@ export const en = {
       rename: 'Rename',
       renamed: 'Budget renamed.',
       endDate: 'End date',
-      endsWith: 'The budget ends with the {{month}} period, on {{date}}.',
+      endsWith:
+        'Entered: {{entered}}. The budget ends with the period that contains this date, so its last day is {{date}}.',
       noEndDate: 'No end date: the budget runs indefinitely.',
       endDateHelp:
         'The budget ends with the period that contains this date; its last day is the day before the next salary. Leave empty and save, or clear it, to run indefinitely.',

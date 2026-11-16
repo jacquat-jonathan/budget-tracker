@@ -13,7 +13,6 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
-import { ConfirmDialog } from '@/components/confirm-dialog'
 import { CalendarDate, CalendarDateField } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -43,78 +42,88 @@ import {
   type PeriodSummary,
 } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
-import { monthInSentence, monthLabel, monthOf } from '@/features/budgets/start-months'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
-import { addDays, addMonths, formatCalendarDate, isCalendarDate } from '@/lib/date'
-import { calendarDateSchema } from '@/lib/form-schemas'
-import { currentLanguage } from '@/lib/i18n'
+import { addDays, formatCalendarDate, isCalendarDate } from '@/lib/date'
+import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
 import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
 
 /**
- * Periods: one per calendar month, each starting on that month's salary.
- * Boundaries are changed as what happened to a salary, never as a raw end date:
+ * Periods run from one salary to the day before the next; stored periods are facts and are
+ * identified by their dates. The four boundary operations of the contract are offered as
+ * what happened to a salary, each with a preview of the resulting dates and how to undo it:
  *
- * - "The <month> salary arrived on another day": the boundary before that month's period.
- * - "The <month> salary has not arrived yet" (latest period only): that boundary moves to
- *   after today, so the latest period is removed and the previous one is current again.
- * - "The <next month> salary arrived early" (latest period): closes the current period;
- *   the next month's period starts (or, for a date still to come, ends this one earlier).
- * - "Reset to the schedule" on any boundary set by hand: the inverse of each of the above.
+ * - "The next salary is expected on …" (and reset to the projection): set_expected_pay_date.
+ * - "The salary arrived early": record_early_pay_date, the current period closes.
+ * - "This period's salary has not arrived yet": reopen_previous_period, the latest period
+ *   is merged into the previous one.
+ * - "This period's salary actually arrived on …": move_period_start.
  *
- * Each dialog previews the resulting dates. The database applies the rules (14 days from
- * the scheduled pay date, no empty period) and its "today" comes with the period rows.
+ * The database applies the rules (a period is 7 to 92 days, dates in range); the client
+ * only previews dates the user typed.
  */
 
 type Action =
-  | { kind: 'arrived'; period: PeriodSummary; previous: PeriodSummary; late: boolean }
-  | { kind: 'next'; period: PeriodSummary }
-  /** The final month of a budget with an end date: its end is the budget's last day. */
-  | { kind: 'final'; period: PeriodSummary }
-  | { kind: 'reset'; boundaryOf: PeriodSummary; next: PeriodSummary | undefined }
+  | { kind: 'expected'; period: PeriodSummary }
+  | { kind: 'resetExpected'; period: PeriodSummary }
+  | { kind: 'early'; period: PeriodSummary }
+  | { kind: 'reopen'; period: PeriodSummary; previous: PeriodSummary }
+  | { kind: 'moveStart'; period: PeriodSummary; previous: PeriodSummary }
 
-interface Move {
-  /** The period whose last day changes (the boundary after it). */
-  periodId: string
-  /** The new last day; null resets the boundary to the schedule. */
-  newEnd: string | null
+interface BoundaryWrite {
+  action: Action
+  /** The date the user gave; null to reset (expected) or use the projection (reopen). */
+  date: string | null
 }
 
-function useMoveBoundary(budgetId: string) {
+function useBoundaryAction(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<null, Move>({
+  return useAppMutation<null, BoundaryWrite>({
     errorDisplay: 'inline',
-    mutationFn: async ({ periodId, newEnd }) => {
-      unwrap(
-        await supabase.rpc('move_period_boundary', {
-          p_period_id: periodId,
-          ...(newEnd ? { p_new_end: newEnd } : {}),
-        }),
-      )
+    mutationFn: async ({ action, date }) => {
+      const pay = date ? { p_pay_date: date } : {}
+      if (action.kind === 'expected' || action.kind === 'resetExpected') {
+        unwrap(await supabase.rpc('set_expected_pay_date', { p_budget_id: budgetId, ...pay }))
+      } else if (action.kind === 'early') {
+        unwrap(
+          await supabase.rpc('record_early_pay_date', {
+            p_budget_id: budgetId,
+            p_pay_date: date ?? '',
+          }),
+        )
+      } else if (action.kind === 'reopen') {
+        unwrap(await supabase.rpc('reopen_previous_period', { p_budget_id: budgetId, ...pay }))
+      } else {
+        unwrap(
+          await supabase.rpc('move_period_start', {
+            p_period_id: action.period.id,
+            p_start_date: date ?? '',
+          }),
+        )
+      }
       return null
     },
-    success: (_data, { newEnd }) => (newEnd ? t('periods.saved') : t('periods.resetDone')),
-    // Moving a boundary can remove or add a period and changes the current one.
+    success: (_data, { action }) =>
+      action.kind === 'resetExpected' ? t('periods.resetDone') : t('periods.saved'),
+    // A boundary operation can add, merge or change periods and the current one.
     invalidate: () => [budgetKeys.budget(budgetId)],
   })
 }
 
-// R-PERIOD-051: salary-based actions with a preview, and a reset for every manual boundary.
+// R-PERIOD-051: salary-phrased actions, each with a preview and how to undo it.
 export function PeriodsPage() {
   const { t } = useTranslation()
-  const language = currentLanguage()
   const { budgetId, budget } = useCurrentBudget()
   const periods = usePeriods(budgetId)
   // Whether the budget has ended is the database's answer, not the absence of a row.
   const current = useCurrentPeriod(budgetId)
   const [action, setAction] = useState<Action | null>(null)
-  const move = useMoveBoundary(budgetId)
+  const write = useBoundaryAction(budgetId)
   const close = () => setAction(null)
   const open = (next: Action) => {
-    move.reset()
+    write.reset()
     setAction(next)
   }
-  const month = (period: PeriodSummary) => monthLabel(period.month, language)
 
   const header = <PageHeader title={t('nav.periods')} description={t('periods.description')} />
 
@@ -144,6 +153,8 @@ export function PeriodsPage() {
 
   const list = periods.data
   const ended = current.data === null
+  const range = (period: PeriodSummary) =>
+    `${formatCalendarDate(period.start_date)} – ${formatCalendarDate(period.end_date)}`
 
   return (
     <div className="flex flex-col gap-6">
@@ -165,11 +176,12 @@ export function PeriodsPage() {
       ) : (
         <ol className="flex flex-col divide-y rounded-xl border" aria-label={t('nav.periods')}>
           {list.map((period, index) => {
-            // Newest first: the previous period is the next row, the following one the row before.
+            // Newest first: the previous period is the next row.
             const previous = list[index + 1]
-            const following = list[index - 1]
-            const latest = index === 0
-            const isFinal = budget.end_month !== null && period.month === budget.end_month
+            const isCurrent = period.is_current === true
+            const entered = budget.end_date_entered
+            const isLast =
+              entered !== null && period.start_date <= entered && entered <= period.end_date
             return (
               <li
                 key={period.id}
@@ -178,23 +190,30 @@ export function PeriodsPage() {
               >
                 <div className="flex min-w-0 flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-medium capitalize">{month(period)}</h2>
-                    {period.is_current && <Badge>{t('periods.current')}</Badge>}
+                    <h2 className="font-medium tabular-nums">
+                      <CalendarDate value={period.start_date} /> –{' '}
+                      <CalendarDate value={period.end_date} />
+                    </h2>
+                    {isCurrent && <Badge>{t('periods.current')}</Badge>}
                     {previous?.end_is_manual && (
                       <Badge variant="outline">{t('periods.manualStart')}</Badge>
                     )}
                     {period.end_is_manual && (
                       <Badge variant="outline">{t('periods.manualEnd')}</Badge>
                     )}
-                    {isFinal && <Badge variant="secondary">{t('periods.budgetEnd')}</Badge>}
+                    {isLast && <Badge variant="secondary">{t('periods.lastPeriod')}</Badge>}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    <CalendarDate value={period.start_date} /> –{' '}
-                    <CalendarDate value={period.end_date} />
-                    {period.is_current &&
-                      !period.end_is_manual &&
-                      ` · ${t('periods.projectedEnd')}`}
-                  </p>
+                  {isCurrent && (
+                    <p className="text-sm text-muted-foreground">
+                      {period.end_is_manual
+                        ? t('periods.nextExpectedManual', {
+                            date: formatCalendarDate(addDays(period.end_date, 1)),
+                          })
+                        : t('periods.nextExpected', {
+                            date: formatCalendarDate(addDays(period.end_date, 1)),
+                          })}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center justify-between gap-4 sm:justify-end">
                   <div className="sm:text-right">
@@ -203,74 +222,60 @@ export function PeriodsPage() {
                       {formatMoney(period.income_total ?? 0)}
                     </p>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon-sm"
-                        aria-label={t('periods.actionsFor', {
-                          month: monthInSentence(period.month, language),
-                        })}
-                      >
-                        <EllipsisVerticalIcon />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="max-w-80 min-w-64">
-                      {previous && (
-                        <DropdownMenuItem
-                          onSelect={() => open({ kind: 'arrived', period, previous, late: false })}
+                  {(isCurrent || previous) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          aria-label={t('periods.actionsFor', { range: range(period) })}
                         >
-                          <CalendarClockIcon />
-                          {t('periods.actions.arrived', { month: monthOf(period.month, language) })}
-                        </DropdownMenuItem>
-                      )}
-                      {latest && previous && period.is_current && (
-                        <DropdownMenuItem
-                          onSelect={() => open({ kind: 'arrived', period, previous, late: true })}
-                        >
-                          <HourglassIcon />
-                          {t('periods.actions.notYet', { month: monthOf(period.month, language) })}
-                        </DropdownMenuItem>
-                      )}
-                      {latest && isFinal && (
-                        <DropdownMenuItem onSelect={() => open({ kind: 'final', period })}>
-                          <CalendarClockIcon />
-                          {t('periods.actions.finalEnd')}
-                        </DropdownMenuItem>
-                      )}
-                      {latest && !isFinal && (
-                        <DropdownMenuItem onSelect={() => open({ kind: 'next', period })}>
-                          <SkipForwardIcon />
-                          {t('periods.actions.nextEarly', {
-                            month: monthOf(addMonths(period.month, 1), language),
-                          })}
-                        </DropdownMenuItem>
-                      )}
-                      {(period.end_is_manual || previous?.end_is_manual) && (
-                        <DropdownMenuSeparator />
-                      )}
-                      {previous?.end_is_manual && (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            open({ kind: 'reset', boundaryOf: previous, next: period })
-                          }
-                        >
-                          <RotateCcwIcon />
-                          {t('periods.actions.resetStart')}
-                        </DropdownMenuItem>
-                      )}
-                      {period.end_is_manual && (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            open({ kind: 'reset', boundaryOf: period, next: following })
-                          }
-                        >
-                          <RotateCcwIcon />
-                          {t('periods.actions.resetEnd')}
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          <EllipsisVerticalIcon />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-w-80 min-w-64">
+                        {isCurrent && (
+                          <DropdownMenuItem onSelect={() => open({ kind: 'expected', period })}>
+                            <CalendarClockIcon />
+                            {t('periods.actions.expected')}
+                          </DropdownMenuItem>
+                        )}
+                        {isCurrent && (
+                          <DropdownMenuItem onSelect={() => open({ kind: 'early', period })}>
+                            <SkipForwardIcon />
+                            {t('periods.actions.early')}
+                          </DropdownMenuItem>
+                        )}
+                        {isCurrent && previous && (
+                          <DropdownMenuItem
+                            onSelect={() => open({ kind: 'reopen', period, previous })}
+                          >
+                            <HourglassIcon />
+                            {t('periods.actions.notYet')}
+                          </DropdownMenuItem>
+                        )}
+                        {previous && (
+                          <DropdownMenuItem
+                            onSelect={() => open({ kind: 'moveStart', period, previous })}
+                          >
+                            <CalendarClockIcon />
+                            {t('periods.actions.moveStart')}
+                          </DropdownMenuItem>
+                        )}
+                        {isCurrent && period.end_is_manual && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onSelect={() => open({ kind: 'resetExpected', period })}
+                            >
+                              <RotateCcwIcon />
+                              {t('periods.actions.resetExpected')}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </li>
             )
@@ -278,85 +283,26 @@ export function PeriodsPage() {
         </ol>
       )}
 
-      <SalaryDateDialog
-        action={action && action.kind !== 'reset' ? action : null}
-        mutation={move}
-        onClose={close}
-      />
-      <ConfirmDialog
-        open={action?.kind === 'reset'}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) close()
-        }}
-        title={t('periods.resetTitle')}
-        description={
-          action?.kind === 'reset' ? (
-            <>
-              <p>
-                {action.next
-                  ? t('periods.resetDescription', {
-                      month: monthOf(action.next.month, language),
-                      date: formatCalendarDate(action.next.anchor_date),
-                    })
-                  : t('periods.resetDescriptionLatest')}
-              </p>
-              {/* Resetting an early start of the latest period whose scheduled salary is
-                  still to come removes that period until then. */}
-              {action.next?.is_current &&
-              action.next.today !== null &&
-              action.next.anchor_date > action.next.today ? (
-                <p>
-                  {t('periods.resetRemovesLatest', {
-                    month: monthOf(action.next.month, language),
-                    date: formatCalendarDate(action.next.anchor_date),
-                  })}
-                </p>
-              ) : (
-                <p>{t('periods.resetComesBack')}</p>
-              )}
-            </>
-          ) : null
-        }
-        confirmLabel={t('periods.reset')}
-        pending={move.isPending}
-        error={move.error}
-        onConfirm={() => {
-          if (action?.kind !== 'reset') return
-          move.mutate({ periodId: action.boundaryOf.id, newEnd: null }, { onSuccess: close })
-        }}
-      />
+      <BoundaryDialog action={action} mutation={write} onClose={close} />
     </div>
   )
 }
 
-const salaryDateSchema = z.object({ date: calendarDateSchema })
-type SalaryDateValues = z.infer<typeof salaryDateSchema>
-type SalaryAction = Extract<Action, { kind: 'arrived' | 'next' | 'final' }>
+const requiredDate = z.object({ date: calendarDateSchema })
+const optionalDate = z.object({ date: optionalCalendarDateSchema })
+type DateInput = z.input<typeof optionalDate>
+type DateValues = z.output<typeof optionalDate>
 
-function SalaryDateDialog({
+function BoundaryDialog({
   action,
   mutation,
   onClose,
 }: {
-  action: SalaryAction | null
-  mutation: ReturnType<typeof useMoveBoundary>
+  action: Action | null
+  mutation: ReturnType<typeof useBoundaryAction>
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const language = currentLanguage()
-  let title = ''
-  if (action?.kind === 'arrived') {
-    title = action.late
-      ? t('periods.actions.notYet', { month: monthOf(action.period.month, language) })
-      : t('periods.actions.arrived', { month: monthOf(action.period.month, language) })
-  } else if (action?.kind === 'final') {
-    title = t('periods.actions.finalEnd')
-  } else if (action) {
-    title = t('periods.actions.nextEarly', {
-      month: monthOf(addMonths(action.period.month, 1), language),
-    })
-  }
-
   return (
     <Dialog
       open={action !== null}
@@ -364,92 +310,100 @@ function SalaryDateDialog({
         if (!isOpen) onClose()
       }}
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{t('periods.dialogDescription')}</DialogDescription>
-        </DialogHeader>
-        {action && <SalaryDateForm action={action} mutation={mutation} onClose={onClose} />}
+      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
+        {action && (
+          <>
+            <DialogHeader>
+              <DialogTitle>{t(`periods.dialogs.${action.kind}.title`)}</DialogTitle>
+              <DialogDescription>
+                {t(`periods.dialogs.${action.kind}.description`)}
+              </DialogDescription>
+            </DialogHeader>
+            <BoundaryForm action={action} mutation={mutation} onClose={onClose} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
 }
 
-function SalaryDateForm({
+function BoundaryForm({
   action,
   mutation,
   onClose,
 }: {
-  action: SalaryAction
-  mutation: ReturnType<typeof useMoveBoundary>
+  action: Action
+  mutation: ReturnType<typeof useBoundaryAction>
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const language = currentLanguage()
   const errorMessage = useErrorMessage()
   const { period } = action
   const today = period.today ?? period.end_date
-  const of = (value: string) => monthOf(value, language)
+  const fmt = formatCalendarDate
+  // Reset takes no date; reopening may take one (otherwise the projection).
+  const hasField = action.kind !== 'resetExpected'
+  const optional = action.kind === 'reopen'
 
   const defaultDate =
-    action.kind === 'final'
-      ? period.end_date
-      : action.kind === 'next'
-        ? addDays(period.end_date, 1)
-        : action.late
-          ? addDays(today, 1)
-          : period.start_date
-  const form = useForm<SalaryDateValues>({
-    resolver: zodResolver(salaryDateSchema),
+    action.kind === 'expected'
+      ? addDays(period.end_date, 1)
+      : action.kind === 'early'
+        ? today
+        : action.kind === 'moveStart'
+          ? period.start_date
+          : ''
+  const form = useForm<DateInput, unknown, DateValues>({
+    resolver: zodResolver(optional || !hasField ? optionalDate : requiredDate),
     defaultValues: { date: defaultDate },
   })
   const date = useWatch({ control: form.control, name: 'date' })
+  const valid = isCalendarDate(date)
 
-  /** What the periods will look like once saved, worded from the user's point of view. */
-  const preview = (() => {
-    if (!isCalendarDate(date)) return null
-    if (action.kind === 'final') {
-      // The final month has no next period: its end is the budget's last day.
-      return date < today
-        ? t('periods.preview.finalPast', { end: formatCalendarDate(date) })
-        : t('periods.preview.final', { end: formatCalendarDate(date) })
+  /** The resulting dates, worded from the user's point of view, and how to undo. */
+  const preview: { result: string | null; undo: string } = (() => {
+    switch (action.kind) {
+      case 'expected':
+        return {
+          result: valid
+            ? t('periods.preview.expected', { end: fmt(addDays(date, -1)), date: fmt(date) })
+            : null,
+          undo: t('periods.undo.expected'),
+        }
+      case 'resetExpected':
+        return { result: t('periods.preview.resetExpected'), undo: t('periods.undo.resetExpected') }
+      case 'early':
+        return {
+          result: valid
+            ? t('periods.preview.early', { end: fmt(addDays(date, -1)), start: fmt(date) })
+            : null,
+          undo: t('periods.undo.early'),
+        }
+      case 'reopen':
+        return {
+          result: valid
+            ? t('periods.preview.reopenUntil', {
+                start: fmt(action.previous.start_date),
+                end: fmt(addDays(date, -1)),
+              })
+            : t('periods.preview.reopenProjected', { start: fmt(action.previous.start_date) }),
+          undo: t('periods.undo.reopen', { date: fmt(period.start_date) }),
+        }
+      case 'moveStart':
+        return {
+          result: valid
+            ? t('periods.preview.moveStart', { end: fmt(addDays(date, -1)), start: fmt(date) })
+            : null,
+          undo: t('periods.undo.moveStart', { date: fmt(period.start_date) }),
+        }
     }
-    const end = formatCalendarDate(addDays(date, -1))
-    const start = formatCalendarDate(date)
-    if (action.kind === 'next') {
-      const next = of(addMonths(period.month, 1))
-      return date <= today
-        ? t('periods.preview.closes', { end, next, start })
-        : t('periods.preview.endsEarlier', { end, next, start })
-    }
-    const thisMonth = of(period.month)
-    const previousMonth = of(action.previous.month)
-    return action.period.is_current && date > today
-      ? t('periods.preview.notYet', { month: thisMonth, previous: previousMonth, end })
-      : t('periods.preview.moved', { previous: previousMonth, end, month: thisMonth, start })
   })()
 
   const onSubmit = form.handleSubmit((values) =>
     mutation
-      .mutateAsync(
-        {
-          periodId: action.kind === 'arrived' ? action.previous.id : period.id,
-          // The field holds the day the salary arrived, except for the final month's last day.
-          newEnd: action.kind === 'final' ? values.date : addDays(values.date, -1),
-        },
-        { onSuccess: onClose },
-      )
+      .mutateAsync({ action, date: hasField ? values.date : null }, { onSuccess: onClose })
       .catch(() => undefined),
   )
-
-  const fieldLabel =
-    action.kind === 'final'
-      ? t('periods.fields.lastDay')
-      : action.kind === 'next'
-        ? t('periods.fields.arrivedOn', { month: of(addMonths(period.month, 1)) })
-        : action.late
-          ? t('periods.fields.expectedOn', { month: of(period.month) })
-          : t('periods.fields.arrivedOn', { month: of(period.month) })
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
@@ -459,25 +413,28 @@ function SalaryDateForm({
             <AlertDescription>{errorMessage(mutation.error)}</AlertDescription>
           </Alert>
         )}
-        {action.kind === 'arrived' && (
-          <p className="text-sm">
-            {t('periods.scheduledOn', {
-              month: of(period.month),
-              date: formatCalendarDate(period.anchor_date),
-            })}
-          </p>
+        <p className="text-sm">
+          {t('periods.thisPeriod', { start: fmt(period.start_date), end: fmt(period.end_date) })}
+        </p>
+        {hasField && (
+          <CalendarDateField
+            control={form.control}
+            name="date"
+            label={t(`periods.dialogs.${action.kind}.field`)}
+            autoFocus
+            description={t(`periods.dialogs.${action.kind}.range`, { today: fmt(today) })}
+          />
         )}
-        <CalendarDateField
-          control={form.control}
-          name="date"
-          label={fieldLabel}
-          autoFocus
-          description={action.kind === 'final' ? undefined : t('periods.fourteenDays')}
-        />
-        {preview && (
+        {action.kind === 'reopen' && (
+          <p className="text-sm text-muted-foreground">{t('periods.reopenMoves')}</p>
+        )}
+        {preview.result && (
           <Alert data-testid="boundary-preview">
             <CalendarRangeIcon aria-hidden />
-            <AlertDescription>{preview}</AlertDescription>
+            <AlertDescription>
+              <p>{preview.result}</p>
+              <p className="text-muted-foreground">{preview.undo}</p>
+            </AlertDescription>
           </Alert>
         )}
         <DialogFooter>
@@ -485,7 +442,11 @@ function SalaryDateForm({
             {t('common.cancel')}
           </Button>
           <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? t('common.saving') : t('common.save')}
+            {mutation.isPending
+              ? t('common.saving')
+              : action.kind === 'resetExpected'
+                ? t('periods.reset')
+                : t('common.save')}
           </Button>
         </DialogFooter>
       </FieldGroup>

@@ -23,11 +23,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { IncomeOverview, PeriodSummary } from '@/features/budgets/budget-queries'
-import { monthLabel } from '@/features/budgets/start-months'
 import type { useRemoveIncome } from '@/features/income/income-mutations'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
-import { currentLanguage } from '@/lib/i18n'
 
 /**
  * Remove an income: from the current period by default, or, as an explicit correction, from
@@ -82,7 +80,6 @@ function RemoveIncomeForm({
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
-  const language = currentLanguage()
   const id = useId()
   const correctable = periods.filter(
     (period) => !period.is_current && period.seq >= income.first_seq,
@@ -129,7 +126,6 @@ function RemoveIncomeForm({
                     {correctable.map((period) => (
                       <SelectItem key={period.id} value={period.id}>
                         {t('income.fields.fromPeriod', {
-                          month: monthLabel(period.month, language),
                           start: formatCalendarDate(period.start_date),
                           end: formatCalendarDate(period.end_date),
                         })}

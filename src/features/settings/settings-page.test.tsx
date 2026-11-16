@@ -28,7 +28,7 @@ const budgetsTableRow = {
   name: 'Household',
   owner_id: DEFAULT_USER_ID,
   primary_income_id: 'income-1',
-  end_month: null,
+  end_date: null,
   created_at: '2026-10-01T10:00:00+00:00',
   updated_at: '2026-10-01T10:00:00+00:00',
 }
@@ -236,17 +236,17 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     })
   })
 
-  it('sets and clears the end date, showing the date the database stored', async () => {
+  it('sets and clears the end date, showing the date entered and the last day [R-BUDGET-054]', async () => {
     const { db } = await openSettings(true)
-    // The budget ends with its April period, which ends the day before May's salary.
+    // 10.04.2027 lies in the period that ends on 24.04.2027: the budget's last day.
     db.rpc.set_budget_end_date.mockImplementationOnce(() => {
-      db.tables.my_budgets = [budgetRow({ end_month: '2027-04-01', end_date: '2027-05-24' })]
+      db.tables.my_budgets = [budgetRow({ end_date_entered: '2027-04-10', end_date: '2027-04-24' })]
       return db.tables.my_budgets
     })
 
     await userEvent.type(screen.getByLabelText('End date (optional)'), '10.04.2027')
     await userEvent.click(screen.getByRole('button', { name: 'Save end date' }))
-    expect(await screen.findByText('The budget now ends on 24.05.2027.')).toBeInTheDocument()
+    expect(await screen.findByText('The budget now ends on 24.04.2027.')).toBeInTheDocument()
     expect(db.rpc.set_budget_end_date).toHaveBeenCalledWith({
       p_budget_id: BUDGET_ID,
       p_end_date: '2027-04-10',
@@ -258,7 +258,9 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     })
     await waitFor(() => {
       expect(
-        screen.getByText('The budget ends with the April 2027 period, on 24.05.2027.'),
+        screen.getByText(
+          'Entered: 10.04.2027. The budget ends with the period that contains this date, so its last day is 24.04.2027.',
+        ),
       ).toBeInTheDocument()
     })
     await userEvent.click(screen.getByRole('button', { name: 'Run indefinitely' }))

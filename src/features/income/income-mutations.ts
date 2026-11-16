@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, type IncomeOverview, type WeekendRule } from '@/features/budgets/budget-queries'
 import { useAppMutation } from '@/hooks/use-app-mutation'
+import { addDays, formatCalendarDate } from '@/lib/date'
 import { DbError } from '@/lib/db-errors'
 import { supabase } from '@/lib/supabase'
 
@@ -55,6 +56,17 @@ export interface EditIncomeInput extends IncomeTerms {
 }
 
 /**
+ * R-INCOME-054: after the primary income's terms change, the next pay date the database now
+ * expects (the current period's end, re-projected unless set by hand, plus one day). Read
+ * back from the database: the client does not project it. Null when the budget has ended.
+ */
+async function nextExpectedPayDate(budgetId: string): Promise<string | null> {
+  const rows = unwrap(await supabase.rpc('get_current_period', { p_budget_id: budgetId }))
+  const current = rows[0]
+  return current ? addDays(current.end_date, 1) : null
+}
+
+/**
  * Edit an income: new terms through update_income_terms (a new version from the current
  * period, or from an earlier one as a correction), a new name through a direct update.
  * Terms go first, so a refused change of terms leaves the income as it was.
@@ -65,7 +77,7 @@ export function useEditIncome(
   options: { onDone: () => void },
 ) {
   const { t } = useTranslation()
-  return useAppMutation<null, EditIncomeInput>({
+  return useAppMutation<string | null, EditIncomeInput>({
     errorDisplay: 'inline',
     mutationFn: async (input) => {
       if (!income) throw new DbError('income_not_found')
@@ -95,9 +107,12 @@ export function useEditIncome(
         )
         if (rows.length === 0) throw new DbError('income_not_found')
       }
-      return null
+      return income.is_primary && termsChanged ? nextExpectedPayDate(budgetId) : null
     },
-    success: (_data, input) => t('income.saved', { name: input.name }),
+    success: (next, input) =>
+      next
+        ? t('income.savedNextExpected', { name: input.name, date: formatCalendarDate(next) })
+        : t('income.saved', { name: input.name }),
     onSuccess: () => options.onDone(),
     invalidate: () => affected(budgetId),
   })
@@ -105,13 +120,15 @@ export function useEditIncome(
 
 export function useSetPrimaryIncome(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<null, IncomeOverview>({
-    errorDisplay: 'inline',
+  return useAppMutation<string | null, IncomeOverview>({
     mutationFn: async (income) => {
       unwrap(await supabase.rpc('set_primary_income', { p_income_id: income.id }))
-      return null
+      return nextExpectedPayDate(budgetId)
     },
-    success: (_data, income) => t('income.madePrimary', { name: income.name }),
+    success: (next, income) =>
+      next
+        ? t('income.madePrimaryNextExpected', { name: income.name, date: formatCalendarDate(next) })
+        : t('income.madePrimary', { name: income.name }),
     invalidate: () => [...affected(budgetId), budgetKeys.list],
   })
 }
