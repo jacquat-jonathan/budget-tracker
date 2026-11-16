@@ -1000,8 +1000,8 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  update public.transfer_versions set income_gone = true where income_id = old.id;
   perform private.transfers_recheck(old.budget_id, null, old.id, private.seq_start(old.budget_id, old.first_seq));
+  update public.transfer_versions set income_gone = true, income_id = null where income_id = old.id;
   return old;
 end;
 $$;
