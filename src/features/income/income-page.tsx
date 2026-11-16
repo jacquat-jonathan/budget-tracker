@@ -112,6 +112,9 @@ export function IncomePage() {
 
   const memberList = members.data
   const currentPeriod = current.data
+  const incomeList = incomes.data
+  const live = (income: IncomeOverview | undefined) =>
+    income ? (incomeList.find((item) => item.id === income.id) ?? null) : undefined
   const active = incomes.data.filter((income) => income.is_active)
   const endedIncomes = incomes.data.filter((income) => !income.is_active)
   // The primary income's next salary is the current period's, as everywhere else.
@@ -175,6 +178,7 @@ export function IncomePage() {
           if (!open) setDialog({ kind: 'closed' })
         }}
         income={dialog.kind === 'edit' ? dialog.income : undefined}
+        liveIncome={live(dialog.kind === 'edit' ? dialog.income : undefined)}
         members={memberList}
         periods={periods.data ?? []}
         currentPeriod={currentPeriod}
@@ -196,6 +200,7 @@ export function IncomePage() {
       />
       <RemoveIncomeDialog
         income={dialog.kind === 'remove' ? dialog.income : null}
+        liveIncome={live(dialog.kind === 'remove' ? dialog.income : undefined)}
         periods={periods.data ?? []}
         mutation={remove}
         onClose={() => setDialog({ kind: 'closed' })}

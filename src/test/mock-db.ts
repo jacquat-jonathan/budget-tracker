@@ -177,11 +177,49 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     update_category: handler(() => []),
     reorder_categories: handler(() => null),
     end_category: handler(() => 'ended'),
-    list_categories_for_date: handler(() => []),
+    // The leaves in force now, top level by sort_order (dates are not modelled here).
+    list_categories_for_date: handler(() =>
+      db.tables.category_overview
+        .filter((category) => !category.is_group && category.is_active)
+        .map((category, index) => {
+          const parent = db.tables.category_overview.find((row) => row.id === category.parent_id)
+          return {
+            category_id: category.id,
+            parent_id: category.parent_id,
+            name: category.name,
+            parent_name: parent?.name ?? null,
+            display_order: index,
+          }
+        }),
+    ),
     add_transaction: handler(() => []),
     update_transaction: handler(() => []),
     delete_transaction: handler(() => null),
-    list_transactions: handler(() => []),
+    // The contract's order (date, created_at, id, all descending), filters and cursor.
+    list_transactions: handler((args) => {
+      const key = (row: { date: string; created_at: string; id: string }) =>
+        `${row.date}|${row.created_at}|${row.id}`
+      const before =
+        typeof args.p_before_date === 'string'
+          ? `${args.p_before_date}|${String(args.p_before_created_at)}|${String(args.p_before_id)}`
+          : null
+      const children = (id: unknown) =>
+        db.tables.category_overview.filter((row) => row.parent_id === id).map((row) => row.id)
+      return db.tables.transaction_list
+        .filter((row) => row.budget_id === args.p_budget_id)
+        .filter((row) => typeof args.p_from_date !== 'string' || row.date >= args.p_from_date)
+        .filter((row) => typeof args.p_to_date !== 'string' || row.date <= args.p_to_date)
+        .filter((row) => !args.p_kind || row.kind === args.p_kind)
+        .filter(
+          (row) =>
+            !args.p_category_id ||
+            row.category_id === args.p_category_id ||
+            children(args.p_category_id).includes(row.category_id ?? ''),
+        )
+        .sort((a, b) => (key(a) < key(b) ? 1 : -1))
+        .filter((row) => before === null || key(row) < before)
+        .slice(0, typeof args.p_limit === 'number' ? args.p_limit : 50)
+    }),
     get_period_progress: handler(() => []),
   }
 

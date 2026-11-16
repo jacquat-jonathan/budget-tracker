@@ -140,7 +140,11 @@ describe('settings as a plain member [R-MEMBER-050]', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
 
     await waitFor(() => {
-      expect(db.tables.budgets[0]?.name).toBe('Our flat')
+      expect(db.rpc.rename_budget).toHaveBeenCalledWith({
+        p_budget_id: BUDGET_ID,
+        p_name: 'Our flat',
+        p_expected_revision: 1,
+      })
     })
     expect(await screen.findByText('Budget renamed.')).toBeInTheDocument()
   })
@@ -251,6 +255,7 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     expect(await screen.findByText('The budget now ends on 24.04.2027.')).toBeInTheDocument()
     expect(db.rpc.set_budget_end_date).toHaveBeenCalledWith({
       p_budget_id: BUDGET_ID,
+      p_expected_revision: 1,
       p_end_date: '2027-04-10',
     })
 
@@ -267,8 +272,11 @@ describe('settings as the owner [R-MEMBER-050]', () => {
     })
     await userEvent.click(screen.getByRole('button', { name: 'Run indefinitely' }))
     expect(await screen.findByText('The budget now runs indefinitely.')).toBeInTheDocument()
-    // Clearing omits the argument.
-    expect(db.rpc.set_budget_end_date).toHaveBeenLastCalledWith({ p_budget_id: BUDGET_ID })
+    // Clearing omits the date.
+    expect(db.rpc.set_budget_end_date).toHaveBeenLastCalledWith({
+      p_budget_id: BUDGET_ID,
+      p_expected_revision: 1,
+    })
   })
 
   it('deletes the budget only once its name is typed, with no lost-access notice [R-BUDGET-052] [R-BUDGET-055]', async () => {

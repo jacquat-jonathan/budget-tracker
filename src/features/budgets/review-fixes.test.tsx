@@ -237,13 +237,9 @@ describe('a refused write refreshes what it acted on [R-APP-005]', () => {
     })
   })
 
-  it('a rename that fails after new terms were saved still shows the new terms', async () => {
+  it('new terms refused after the rename was saved still show the new name', async () => {
     const db = householdDb()
-    db.tables.incomes = []
-    db.rpc.update_income_terms.mockImplementation(() => {
-      db.tables.income_overview[0] = { ...db.tables.income_overview[0]!, amount: 700_000 }
-      return null
-    })
+    db.rpc.update_income_terms.mockImplementation(() => rpcError('income_not_found'))
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/income')
 
@@ -258,7 +254,7 @@ describe('a refused write refreshes what it acted on [R-APP-005]', () => {
 
     expect(await within(dialog).findByText('This income no longer exists.')).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getAllByText("CHF 7'000.00").length).toBeGreaterThan(0)
+      expect(screen.getByRole('heading', { name: 'Wages', hidden: true })).toBeInTheDocument()
     })
   })
 })

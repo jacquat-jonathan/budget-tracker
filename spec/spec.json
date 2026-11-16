@@ -872,7 +872,9 @@
             "R-CATEGORY-092",
             "R-CATEGORY-093",
             "R-CATEGORY-094",
-            "R-CATEGORY-096"
+            "R-CATEGORY-096",
+            "R-CATEGORY-050",
+            "R-CATEGORY-051"
           ]
         },
         {
@@ -885,7 +887,8 @@
             "R-CATEGORY-004",
             "R-CATEGORY-005",
             "R-CATEGORY-070",
-            "R-CATEGORY-091"
+            "R-CATEGORY-091",
+            "R-CATEGORY-050"
           ]
         },
         {
@@ -893,21 +896,21 @@
           "actor": "A-MEMBER",
           "iWant": "to see the amount left to assign in a period, negative when I have assigned more than the income",
           "soThat": "every franc of the budget has a purpose",
-          "rules": ["R-CATEGORY-006", "R-CATEGORY-071"]
+          "rules": ["R-CATEGORY-006", "R-CATEGORY-071", "R-CATEGORY-050"]
         },
         {
           "id": "US-CATEGORY-004",
           "actor": "A-MEMBER",
           "iWant": "to delete a category I no longer need",
           "soThat": "it leaves the budget from now on while past periods keep it",
-          "rules": ["R-CATEGORY-072", "R-CATEGORY-073", "R-CATEGORY-095"]
+          "rules": ["R-CATEGORY-072", "R-CATEGORY-073", "R-CATEGORY-095", "R-CATEGORY-052"]
         },
         {
           "id": "US-CATEGORY-005",
           "actor": "A-MEMBER",
           "iWant": "to change a category's expectation from now on, or explicitly correct it from an earlier period",
           "soThat": "past periods stay as they were unless I fix a mistake on purpose",
-          "rules": ["R-VERSION-002", "R-VERSION-070"]
+          "rules": ["R-VERSION-002", "R-VERSION-070", "R-CATEGORY-053"]
         },
         {
           "id": "US-CATEGORY-006",
@@ -939,7 +942,9 @@
             "R-TRANSACTION-073",
             "R-TRANSACTION-090",
             "R-TRANSACTION-094",
-            "R-TRANSACTION-095"
+            "R-TRANSACTION-095",
+            "R-TRANSACTION-050",
+            "R-TRANSACTION-051"
           ]
         },
         {
@@ -951,7 +956,8 @@
             "R-TRANSACTION-007",
             "R-TRANSACTION-008",
             "R-TRANSACTION-091",
-            "R-TRANSACTION-093"
+            "R-TRANSACTION-093",
+            "R-TRANSACTION-050"
           ]
         },
         {
@@ -959,7 +965,12 @@
           "actor": "A-MEMBER",
           "iWant": "to record money coming back as a refund",
           "soThat": "it reduces what was spent in its category",
-          "rules": ["R-TRANSACTION-070", "R-TRANSACTION-071", "R-TRANSACTION-092"]
+          "rules": [
+            "R-TRANSACTION-070",
+            "R-TRANSACTION-071",
+            "R-TRANSACTION-092",
+            "R-TRANSACTION-050"
+          ]
         }
       ]
     },
@@ -975,21 +986,21 @@
           "actor": "A-MEMBER",
           "iWant": "to see how the current period is going against the expectations, with overspent categories shown as such",
           "soThat": "I can adjust before the period ends",
-          "rules": ["R-PROGRESS-001", "R-PROGRESS-071", "R-PROGRESS-091"]
+          "rules": ["R-PROGRESS-001", "R-PROGRESS-071", "R-PROGRESS-091", "R-PROGRESS-050"]
         },
         {
           "id": "US-PROGRESS-002",
           "actor": "A-MEMBER",
           "iWant": "to see a period's surplus or deficit, and each category's result",
           "soThat": "I know how the period went",
-          "rules": ["R-PROGRESS-002", "R-PROGRESS-070", "R-PROGRESS-092"]
+          "rules": ["R-PROGRESS-002", "R-PROGRESS-070", "R-PROGRESS-092", "R-PROGRESS-050"]
         },
         {
           "id": "US-PROGRESS-003",
           "actor": "A-MEMBER",
           "iWant": "to browse past periods and see the progress view of each",
           "soThat": "I can look back at how any period went",
-          "rules": ["R-COMPARE-001", "R-PROGRESS-090"]
+          "rules": ["R-COMPARE-001", "R-PROGRESS-090", "R-PROGRESS-050"]
         }
       ]
     },
@@ -2674,11 +2685,7 @@
       "feature": "F-TRANSACTION",
       "status": "active",
       "enforcement": "test",
-      "source": ["domain: Transaction"],
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Frontend: the transaction form of the step 3 screens. The database side is R-TRANSACTION-001 and its tagged tests."
-      }
+      "source": ["domain: Transaction"]
     },
     {
       "id": "R-TRANSACTION-005",
@@ -3057,11 +3064,7 @@
       "source": [
         "domain: Period",
         "owner-request: product owner decisions on the open questions, 2026-11-16"
-      ],
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Frontend: browsing periods in the step 3 screens. The database side (the progress of any period) is R-PROGRESS-090, tagged."
-      }
+      ]
     },
     {
       "id": "R-COMPARE-002",
@@ -4462,6 +4465,58 @@
     {
       "status": "active",
       "enforcement": "test",
+      "id": "R-CATEGORY-050",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "The budget page lists the categories in force now in their order, each with its amount per month as the database gives it (a yearly amount also as entered), a group with its subcategories and their total, and the current period's income, total planned and amount left to assign, a negative amount shown as assigned beyond the income; removed categories are listed apart.",
+      "related": ["R-CATEGORY-006", "R-CATEGORY-071", "R-CATEGORY-005", "C-LOGIC-003"],
+      "source": [
+        "owner-request: coordinator brief for the step 3 screens, 2026-11-16",
+        "code: src/features/budget/budget-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CATEGORY-051",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "Before the first subcategory of a category is saved, the app says that the category becomes a group and, when it has an amount or transactions, that they move to a new subcategory \"Other\"; the translated name of \"Other\" is always sent with a new subcategory.",
+      "related": ["R-CATEGORY-092", "R-CATEGORY-090", "D-141"],
+      "source": [
+        "owner-request: coordinator brief for the step 3 screens, 2026-11-16",
+        "code: src/features/budget/components/category-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CATEGORY-052",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "Before a category is removed, the app says which of the two will happen, from the database's own answer: deleted (it never counted and has no transactions), or no longer planned from the current period with past periods keeping it and its transactions kept; and that its subcategories go with it.",
+      "related": ["R-CATEGORY-072", "R-CATEGORY-073", "R-CATEGORY-095"],
+      "source": [
+        "owner-request: coordinator brief for the step 3 screens, 2026-11-16",
+        "code: src/features/budget/components/end-category-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-CATEGORY-053",
+      "area": "category",
+      "feature": "F-CATEGORY",
+      "statement": "A new amount is said to apply from the current period; correcting an earlier period is offered only as an explicit option, off by default, with a warning that past periods change; a group's amount is not editable (it is the total of its subcategories).",
+      "related": ["R-VERSION-002", "R-VERSION-070", "R-INCOME-051"],
+      "source": [
+        "owner-request: coordinator brief for the step 3 screens, 2026-11-16",
+        "code: src/features/budget/components/category-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
       "id": "R-CONCURRENCY-090",
       "area": "concurrency",
       "feature": "F-CATEGORY",
@@ -4479,13 +4534,12 @@
       "id": "R-CONCURRENCY-091",
       "area": "concurrency",
       "feature": "F-CATEGORY",
-      "statement": "When a save is refused because the record changed, the app says another member changed it and reloads it, without losing what the user typed.",
-      "related": ["R-CONCURRENCY-070", "D-142"],
-      "source": ["owner-request: project coordinator brief for the step 3 database, 2026-11-16"],
-      "testPending": {
-        "suite": "supabase/tests",
-        "note": "Frontend: the step 3 screens and the step 2 forms map record_changed. The database side is R-CONCURRENCY-070, tagged."
-      }
+      "statement": "When a save or removal is refused because the record changed, or the record changes while it is open, the app says another member changed it and reads it again, keeps what the user typed, and lets them load the other version or keep theirs, so the next save replaces the other version knowingly; a form never sends a revision read after it was opened.",
+      "related": ["R-CONCURRENCY-070", "D-142", "D-136"],
+      "source": [
+        "owner-request: project coordinator brief for the step 3 database, 2026-11-16",
+        "code: src/hooks/use-edit-base.ts"
+      ]
     },
     {
       "status": "active",
@@ -4570,6 +4624,37 @@
     {
       "status": "active",
       "enforcement": "test",
+      "id": "R-TRANSACTION-050",
+      "area": "transaction",
+      "feature": "F-TRANSACTION",
+      "statement": "The transaction form records an expense, a refund or an extra income (no category); its date is limited to what the database accepts (the first period's start to today, not after an ended budget's last day) and today by default; its category choices are read from the database for the date and read again whenever the date changes; \"save and add another\" keeps the kind, date and category for the next receipt.",
+      "related": [
+        "R-TRANSACTION-090",
+        "R-TRANSACTION-091",
+        "R-TRANSACTION-092",
+        "R-TRANSACTION-004"
+      ],
+      "source": [
+        "owner-request: coordinator brief for the step 3 screens, 2026-11-16",
+        "code: src/features/transactions/components/transaction-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-TRANSACTION-051",
+      "area": "transaction",
+      "feature": "F-TRANSACTION",
+      "statement": "The transactions page lists transactions newest first, grouped by day, a page at a time through the database's cursor, filtered by period (the current one by default), category (a group with its subcategories) and kind, the filters kept in the address.",
+      "related": ["R-TRANSACTION-095", "D-149"],
+      "source": [
+        "owner-request: coordinator brief for the step 3 screens, 2026-11-16",
+        "code: src/features/transactions/transactions-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
       "id": "R-PROGRESS-090",
       "area": "progress",
       "feature": "F-PROGRESS",
@@ -4609,10 +4694,23 @@
     {
       "status": "active",
       "enforcement": "test",
+      "id": "R-PROGRESS-050",
+      "area": "progress",
+      "feature": "F-PROGRESS",
+      "statement": "The dashboard shows the progress of one period, the current one by default (the last once the budget has ended): its income, planned, spent and result as a surplus or a deficit, and per category and subcategory what was planned, spent and is left, overspending marked by the database's flag; earlier and later periods are browsed in place, the Periods page links each period to its progress, and each category leads to its transactions in that period.",
+      "related": ["R-PROGRESS-090", "R-PROGRESS-071", "R-PROGRESS-002", "R-COMPARE-001", "D-137"],
+      "source": [
+        "owner-request: coordinator brief for the step 3 screens, 2026-11-16",
+        "code: src/features/progress/period-progress-card.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
       "id": "R-PERIOD-053",
       "area": "period",
       "feature": "F-PERIOD",
-      "statement": "Before \"this period's salary has not arrived yet\" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only; it cannot be confirmed until that list has been read, and when it cannot be read the dialog says so and offers to read it again.",
+      "statement": "Before \"this period's salary has not arrived yet\" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed (incomes, and categories in their own words) and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only; it cannot be confirmed until that list has been read, and when it cannot be read the dialog says so and offers to read it again.",
       "related": ["R-PERIOD-035", "R-PERIOD-023", "R-VERSION-013"],
       "source": [
         "code: src/features/periods/periods-page.tsx",
@@ -6196,6 +6294,29 @@
       "status": "accepted",
       "related": ["R-INCOME-056", "R-PERIOD-010", "D-081"],
       "source": ["owner-request: coordinator, step 2 browser review fixes, 2026-11-16"]
+    },
+    {
+      "id": "D-136",
+      "title": "A concurrent change is shown in the form, not as a reload",
+      "decision": "Every edit form and removal confirmation keeps the record as it was when it opened (useEditBase) and sends that revision. When the database refuses with record_changed, or a later read shows another member's change while it is open, the form keeps what was typed, says someone else changed it, and offers \"Load their version\" (the form is refilled) or \"Keep mine\" (the next save sends the new revision and replaces theirs); Save waits for that choice. A removal asks to look again and confirm. Built once (src/hooks/use-edit-base.ts, src/components/changed-elsewhere.tsx) for incomes, the budget's name and end date, categories and transactions.",
+      "why": "D-124 asks to refuse the second save and reload; reloading the whole form would lose what the user typed, and silently retrying with the new revision would overwrite the other member's change.",
+      "rejected": [
+        "Reloading the form with the other version, discarding what was typed.",
+        "Retrying automatically with the latest revision."
+      ],
+      "status": "accepted",
+      "related": ["D-124", "D-142", "R-CONCURRENCY-091"],
+      "source": ["owner-request: coordinator brief for the step 3 screens, 2026-11-16"]
+    },
+    {
+      "id": "D-137",
+      "title": "Period progress lives on the dashboard",
+      "decision": "The progress view of a period is one component on the dashboard, below the current period, showing the current period by default and any other through ?period=<id> with previous / next buttons. The Periods page links each period there, and each category row links to the transactions page filtered by that period and category. Every figure is the database's (period_summaries, get_period_progress); only the length of a row's bar is computed in the client, for display.",
+      "why": "One implementation for the current and past periods (D-104), where people look first; the Periods page stays about boundaries.",
+      "rejected": ["A separate progress page per period: a second place showing the same figures."],
+      "status": "accepted",
+      "related": ["D-104", "R-PROGRESS-050", "R-COMPARE-001"],
+      "source": ["owner-request: coordinator brief for the step 3 screens, 2026-11-16"]
     }
   ],
   "conventions": [

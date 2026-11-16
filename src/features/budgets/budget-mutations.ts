@@ -5,7 +5,6 @@ import { unwrap, type MyBudget, type WeekendRule } from '@/features/budgets/budg
 import { useBudgets } from '@/features/budgets/current-budget-context'
 import { useAppMutation } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
-import { DbError } from '@/lib/db-errors'
 import { supabase } from '@/lib/supabase'
 
 export interface CreateBudgetInput {
@@ -42,18 +41,19 @@ export function useCreateBudget(options: { onCreated: (budgetId: string) => void
   })
 }
 
-/** Rename a budget: a direct update of budgets.name (members). */
+/** Rename a budget (members), sending the revision the form was opened with. */
 export function useRenameBudget(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<null, string>({
+  return useAppMutation<number, { name: string; revision: number }>({
     errorDisplay: 'inline',
-    mutationFn: async (name) => {
-      const rows = unwrap(
-        await supabase.from('budgets').update({ name }).eq('id', budgetId).select('id'),
-      )
-      if (rows.length === 0) throw new DbError('budget_not_found')
-      return null
-    },
+    mutationFn: async ({ name, revision }) =>
+      unwrap(
+        await supabase.rpc('rename_budget', {
+          p_budget_id: budgetId,
+          p_name: name,
+          p_expected_revision: revision,
+        }),
+      ),
     success: () => t('settings.budget.renamed'),
     invalidate: () => [budgetKeys.list],
   })
@@ -66,12 +66,13 @@ export function useRenameBudget(budgetId: string) {
  */
 export function useSetBudgetEndDate(budgetId: string) {
   const { t } = useTranslation()
-  return useAppMutation<MyBudget | null, string | null>({
+  return useAppMutation<MyBudget | null, { endDate: string | null; revision: number }>({
     errorDisplay: 'inline',
-    mutationFn: async (endDate) => {
+    mutationFn: async ({ endDate, revision }) => {
       const rows = unwrap(
         await supabase.rpc('set_budget_end_date', {
           p_budget_id: budgetId,
+          p_expected_revision: revision,
           ...(endDate ? { p_end_date: endDate } : {}),
         }),
       )

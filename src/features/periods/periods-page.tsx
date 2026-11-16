@@ -5,6 +5,7 @@ import {
   CalendarRangeIcon,
   EllipsisVerticalIcon,
   HourglassIcon,
+  PieChartIcon,
   RotateCcwIcon,
   SkipForwardIcon,
 } from 'lucide-react'
@@ -12,7 +13,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { z } from 'zod'
 
 import { CalendarDate, CalendarDateField } from '@/components/form/calendar-date-field'
@@ -53,6 +54,7 @@ import {
   type DateRange,
 } from '@/features/periods/boundary-ranges'
 import { nextSalary } from '@/features/periods/next-salary'
+import { progressPath } from '@/features/progress/progress-path'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { addDays, formatCalendarDate, isCalendarDate } from '@/lib/date'
 import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
@@ -242,7 +244,9 @@ export function PeriodsPage() {
                     {period.end_is_manual && (
                       <Badge
                         variant="outline"
-                        title={isCurrent ? t('periods.manualCurrentHint') : t('periods.manualPastHint')}
+                        title={
+                          isCurrent ? t('periods.manualCurrentHint') : t('periods.manualPastHint')
+                        }
                       >
                         {t('periods.manualEnd')}
                       </Badge>
@@ -268,6 +272,15 @@ export function PeriodsPage() {
                       {formatMoney(period.income_total ?? 0)}
                     </p>
                   </div>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link
+                      to={progressPath(period.id)}
+                      aria-label={t('periods.progressFor', { range: range(period) })}
+                    >
+                      <PieChartIcon />
+                      <span className="hidden sm:inline">{t('periods.progress')}</span>
+                    </Link>
+                  </Button>
                   {(isCurrent || previous) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -380,7 +393,9 @@ function BoundaryDialog({
         {action && (
           <>
             <DialogHeader>
-              <DialogTitle className="pr-8">{t(`periods.dialogs.${action.kind}.title`)}</DialogTitle>
+              <DialogTitle className="pr-8">
+                {t(`periods.dialogs.${action.kind}.title`)}
+              </DialogTitle>
               <DialogDescription>
                 {t(`periods.dialogs.${action.kind}.description`)}
               </DialogDescription>
@@ -586,8 +601,10 @@ function useReopenPreview(budgetId: string, enabled: boolean) {
   })
 }
 
-const KNOWN_KINDS = ['income'] as const
+const KNOWN_KINDS = ['income', 'category'] as const
 const KNOWN_CHANGES = ['added', 'ended', 'removed', 'terms_changed', 'made_primary'] as const
+/** A category's changes have their own words (its expectation, "in use" rather than "count"). */
+const CATEGORY_CHANGES = ['added', 'ended', 'removed', 'terms_changed'] as const
 
 function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPreview> }) {
   const { t } = useTranslation()
@@ -631,9 +648,15 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
                 name: item.record_name,
               })
             : t('periods.reopen.kinds.other', { name: item.record_name })
-          const change = (KNOWN_CHANGES as readonly string[]).includes(item.change)
-            ? t(`periods.reopen.changes.${item.change as (typeof KNOWN_CHANGES)[number]}`)
-            : t('periods.reopen.changes.other')
+          const change =
+            item.record_kind === 'category' &&
+            (CATEGORY_CHANGES as readonly string[]).includes(item.change)
+              ? t(
+                  `periods.reopen.categoryChanges.${item.change as (typeof CATEGORY_CHANGES)[number]}`,
+                )
+              : (KNOWN_CHANGES as readonly string[]).includes(item.change)
+                ? t(`periods.reopen.changes.${item.change as (typeof KNOWN_CHANGES)[number]}`)
+                : t('periods.reopen.changes.other')
           return (
             <li key={`${item.record_kind}-${item.record_id}-${item.change}`}>
               {t('periods.reopen.item', { kind, change })}

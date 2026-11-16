@@ -43,7 +43,9 @@ import {
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
+import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
 
@@ -67,6 +69,8 @@ interface IncomeFormDialogProps {
   onOpenChange: (open: boolean) => void
   /** The income to edit; a new income when absent. */
   income?: IncomeOverview
+  /** The same income as read now (null once gone), to notice a change by someone else. */
+  liveIncome?: IncomeOverview | null
   members: BudgetMember[]
   periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
@@ -83,7 +87,9 @@ export function IncomeFormDialog(props: IncomeFormDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="pr-8">{income ? t('income.editTitle') : t('income.addTitle')}</DialogTitle>
+          <DialogTitle className="pr-8">
+            {income ? t('income.editTitle') : t('income.addTitle')}
+          </DialogTitle>
           <DialogDescription>
             {income ? t('income.editDescription') : t('income.addDescription')}
           </DialogDescription>
@@ -97,7 +103,8 @@ export function IncomeFormDialog(props: IncomeFormDialogProps) {
 function IncomeForm({
   budgetId,
   onOpenChange,
-  income,
+  income: opened,
+  liveIncome,
   members,
   periods,
   currentPeriod,
@@ -108,19 +115,25 @@ function IncomeForm({
   const { budget } = useCurrentBudget()
   const errorMessage = useErrorMessage()
   const close = () => onOpenChange(false)
+  // R-CONCURRENCY-091: the version the form was opened on is the one saved over.
+  const editBase = useEditBase(
+    opened ? (liveIncome === undefined ? opened : liveIncome) : undefined,
+  )
+  const income = opened ? (editBase.base ?? opened) : undefined
 
+  const valuesOf = (from: IncomeOverview | undefined): IncomeInput => ({
+    name: from?.name ?? '',
+    amount: from?.amount ?? null,
+    payDay: from?.pay_day ?? 25,
+    weekendRule: from?.weekend_rule ?? 'nearest',
+    // R-INCOME-002: any member's income; mine by default.
+    userId: from?.user_id ?? user?.id ?? '',
+    fromPeriodId: '',
+    correct: false,
+  })
   const form = useForm<IncomeInput, unknown, IncomeValues>({
     resolver: zodResolver(incomeSchema),
-    defaultValues: {
-      name: income?.name ?? '',
-      amount: income?.amount ?? null,
-      payDay: income?.pay_day ?? 25,
-      weekendRule: income?.weekend_rule ?? 'nearest',
-      // R-INCOME-002: any member's income; mine by default.
-      userId: income?.user_id ?? user?.id ?? '',
-      fromPeriodId: '',
-      correct: false,
-    },
+    defaultValues: valuesOf(income),
   })
   const [correct, payDay, weekendRule] = useWatch({
     control: form.control,
@@ -176,6 +189,8 @@ function IncomeForm({
     const done = income
       ? edit.mutateAsync({
           ...terms,
+          revision: income.revision,
+          onRenamed: editBase.savedAs,
           fromPeriodId: values.correct ? values.fromPeriodId || null : null,
         })
       : add.mutateAsync({
@@ -204,11 +219,21 @@ function IncomeForm({
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FieldGroup>
-        {mutation.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{errorMessage(mutation.error)}</AlertDescription>
-          </Alert>
+        {editBase.changed && editBase.live && (
+          <ChangedElsewhere
+            onUseTheirs={() => {
+              const theirs = editBase.live
+              editBase.adopt()
+              edit.reset()
+              if (theirs) form.reset(valuesOf(theirs))
+            }}
+            onKeepMine={() => {
+              editBase.adopt()
+              edit.reset()
+            }}
+          />
         )}
+        <SaveError error={mutation.error} changed={editBase.changed} message={errorMessage} />
         <TextField
           control={form.control}
           name="name"
@@ -277,7 +302,7 @@ function IncomeForm({
           <Button type="button" variant="outline" onClick={close}>
             {t('common.cancel')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button type="submit" disabled={mutation.isPending || editBase.changed}>
             {mutation.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>

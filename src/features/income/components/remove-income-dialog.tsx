@@ -24,7 +24,9 @@ import {
 } from '@/components/ui/select'
 import type { IncomeOverview, PeriodSummary } from '@/features/budgets/budget-queries'
 import type { useRemoveIncome } from '@/features/income/income-mutations'
+import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 
 /**
@@ -33,11 +35,14 @@ import { formatCalendarDate } from '@/lib/date'
  */
 export function RemoveIncomeDialog({
   income,
+  liveIncome,
   periods,
   mutation,
   onClose,
 }: {
   income: IncomeOverview | null
+  /** The same income as read now (null once gone). */
+  liveIncome: IncomeOverview | null | undefined
   periods: PeriodSummary[]
   mutation: ReturnType<typeof useRemoveIncome>
   onClose: () => void
@@ -54,6 +59,7 @@ export function RemoveIncomeDialog({
         {income && (
           <RemoveIncomeForm
             income={income}
+            liveIncome={liveIncome}
             periods={periods}
             mutation={mutation}
             onClose={onClose}
@@ -67,12 +73,14 @@ export function RemoveIncomeDialog({
 
 function RemoveIncomeForm({
   income,
+  liveIncome,
   periods,
   mutation,
   onClose,
   title,
 }: {
   income: IncomeOverview
+  liveIncome: IncomeOverview | null | undefined
   periods: PeriodSummary[]
   mutation: ReturnType<typeof useRemoveIncome>
   onClose: () => void
@@ -81,6 +89,7 @@ function RemoveIncomeForm({
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
   const id = useId()
+  const removal = useEditBase(liveIncome === undefined ? income : liveIncome)
   const correctable = periods.filter(
     (period) => !period.is_current && period.seq >= income.first_seq,
   )
@@ -142,19 +151,28 @@ function RemoveIncomeForm({
           )}
         </div>
       )}
-      {mutation.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{errorMessage(mutation.error)}</AlertDescription>
-        </Alert>
+      {removal.changed && (
+        <ChangedElsewhere
+          kind="remove"
+          onKeepMine={() => {
+            removal.adopt()
+            mutation.reset()
+          }}
+        />
       )}
+      <SaveError error={mutation.error} changed={removal.changed} message={errorMessage} />
       <AlertDialogFooter>
         <AlertDialogCancel disabled={mutation.isPending}>{t('common.cancel')}</AlertDialogCancel>
         <Button
           variant="destructive"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || removal.changed}
           onClick={() =>
             mutation.mutate(
-              { income, fromPeriodId: correct ? fromPeriodId || null : null },
+              {
+                income,
+                revision: (removal.base ?? income).revision,
+                fromPeriodId: correct ? fromPeriodId || null : null,
+              },
               { onSuccess: onClose },
             )
           }

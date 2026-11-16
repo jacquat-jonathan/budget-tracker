@@ -1,0 +1,134 @@
+import { useTranslation } from 'react-i18next'
+
+import { budgetKeys } from '@/features/budgets/budget-keys'
+import { unwrap } from '@/features/budgets/budget-queries'
+import type { Cadence, Category } from '@/features/categories/category-queries'
+import { useAppMutation } from '@/hooks/use-app-mutation'
+import { supabase } from '@/lib/supabase'
+
+// A category change moves the totals, the amount left to assign and every progress view:
+// refetch everything of the budget.
+const affected = (budgetId: string) => [budgetKeys.budget(budgetId)]
+
+export interface CreateCategoryInput {
+  name: string
+  /** A subcategory of this top-level category; a top-level category when null. */
+  parentId: string | null
+  amount: number
+  cadence: Cadence
+  /** An earlier period it counts from (an explicit choice); the current one when null. */
+  fromPeriodId: string | null
+}
+
+export function useCreateCategory(budgetId: string, options: { onDone: () => void }) {
+  const { t } = useTranslation()
+  return useAppMutation<string, CreateCategoryInput>({
+    errorDisplay: 'inline',
+    mutationFn: async (input) => {
+      const rows = unwrap(
+        await supabase.rpc('create_category', {
+          p_budget_id: budgetId,
+          p_name: input.name,
+          p_amount: input.amount,
+          p_cadence: input.cadence,
+          ...(input.parentId
+            ? // R-CATEGORY-092: the translated "Other", always sent with a subcategory; the
+              // database uses it only when the parent's amount or transactions must move.
+              { p_parent_id: input.parentId, p_other_name: t('categories.otherName') }
+            : {}),
+          ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
+        }),
+      )
+      return rows[0]?.id ?? ''
+    },
+    success: (_id, input) => t('categories.created', { name: input.name }),
+    onSuccess: () => options.onDone(),
+    invalidate: () => affected(budgetId),
+  })
+}
+
+export interface UpdateCategoryInput {
+  category: Category
+  /** The revision when the form was opened (useEditBase). */
+  revision: number
+  name: string
+  /** Omitted for a group, which has no expectation. */
+  amount: number | null
+  cadence: Cadence | null
+  /** An explicit correction from an earlier period; the current period when null. */
+  fromPeriodId: string | null
+}
+
+/**
+ * Rename and/or change the expectation, in one call. Only what changed is sent; a correction
+ * always sends the expectation, so it can re-apply today's amount to earlier periods.
+ * Returns false when there was nothing to save.
+ */
+export function useUpdateCategory(budgetId: string, options: { onDone: () => void }) {
+  const { t } = useTranslation()
+  return useAppMutation<boolean, UpdateCategoryInput>({
+    errorDisplay: 'inline',
+    mutationFn: async ({ category, revision, name, amount, cadence, fromPeriodId }) => {
+      const renamed = name !== category.name
+      const correcting = fromPeriodId !== null && !category.is_group
+      const amountChanged = amount !== null && (correcting || amount !== category.amount)
+      const cadenceChanged = cadence !== null && (correcting || cadence !== category.cadence)
+      if (!renamed && !amountChanged && !cadenceChanged) return false
+      unwrap(
+        await supabase.rpc('update_category', {
+          p_category_id: category.id,
+          p_expected_revision: revision,
+          ...(renamed ? { p_name: name } : {}),
+          ...(amountChanged ? { p_amount: amount } : {}),
+          ...(cadenceChanged ? { p_cadence: cadence } : {}),
+          ...(correcting ? { p_from_period_id: fromPeriodId } : {}),
+        }),
+      )
+      return true
+    },
+    success: (saved, input) => (saved ? t('categories.saved', { name: input.name }) : ''),
+    onSuccess: () => options.onDone(),
+    invalidate: () => affected(budgetId),
+  })
+}
+
+export function useReorderCategories(budgetId: string) {
+  return useAppMutation<null, { parentId: string | null; ids: string[] }>({
+    mutationFn: async ({ parentId, ids }) => {
+      unwrap(
+        await supabase.rpc('reorder_categories', {
+          p_budget_id: budgetId,
+          // The generated type says string, but the contract takes null for the top level.
+          p_parent_id: parentId as string,
+          p_category_ids: ids,
+        }),
+      )
+      return null
+    },
+    invalidate: () => [budgetKeys.categories(budgetId)],
+  })
+}
+
+export interface EndCategoryInput {
+  category: Category
+  revision: number
+}
+
+export function useEndCategory(budgetId: string) {
+  const { t } = useTranslation()
+  return useAppMutation<string, EndCategoryInput>({
+    errorDisplay: 'inline',
+    mutationFn: async ({ category, revision }) =>
+      unwrap(
+        await supabase.rpc('end_category', {
+          p_category_id: category.id,
+          p_expected_revision: revision,
+        }),
+      ),
+    success: (outcome, { category }) =>
+      outcome === 'deleted'
+        ? t('categories.deleted', { name: category.name })
+        : t('categories.ended', { name: category.name }),
+    invalidate: () => affected(budgetId),
+  })
+}

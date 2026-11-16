@@ -50,6 +50,10 @@ export function useAddIncome(budgetId: string, options: { onDone: () => void }) 
 }
 
 export interface EditIncomeInput extends IncomeTerms {
+  /** The income's revision when the form was opened (useEditBase). */
+  revision: number
+  /** Told the new revision once the rename is saved, should the terms then be refused. */
+  onRenamed?: (revision: number) => void
   /**
    * An explicit correction: the terms apply from this earlier period on, changing past
    * totals. Null for the normal edit, from the current period.
@@ -73,13 +77,14 @@ async function nextExpectedPayDate(
 }
 
 /**
- * Edit an income: new terms through update_income_terms (a new version from the current
- * period, or from an earlier one as a correction), a new name through a direct update.
- * Terms go first, so a refused change of terms leaves the income as it was.
+ * Edit an income, sending the revision the form was opened with (D-142): a new name through
+ * rename_income, then new terms through update_income_terms with the revision the rename
+ * returned (docs/database.md). Either refuses with record_changed when another member
+ * changed the income meanwhile.
  */
 export function useEditIncome(
   budgetId: string,
-  income: IncomeOverview | undefined,
+  income: IncomeOverview | null | undefined,
   options: { onDone: () => void },
 ) {
   const { t } = useTranslation()
@@ -92,6 +97,17 @@ export function useEditIncome(
         input.amount !== income.amount ||
         input.payDay !== income.pay_day ||
         input.weekendRule !== income.weekend_rule
+      let revision = input.revision
+      if (input.name !== income.name) {
+        revision = unwrap(
+          await supabase.rpc('rename_income', {
+            p_income_id: income.id,
+            p_name: input.name,
+            p_expected_revision: revision,
+          }),
+        )
+        input.onRenamed?.(revision)
+      }
       // A correction is always sent: it can also re-apply today's terms to earlier periods.
       if (termsChanged || input.fromPeriodId) {
         unwrap(
@@ -100,19 +116,10 @@ export function useEditIncome(
             p_amount: input.amount,
             p_pay_day: input.payDay,
             p_weekend_rule: input.weekendRule,
+            p_expected_revision: revision,
             ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
           }),
         )
-      }
-      if (input.name !== income.name) {
-        const rows = unwrap(
-          await supabase
-            .from('incomes')
-            .update({ name: input.name })
-            .eq('id', income.id)
-            .select('id'),
-        )
-        if (rows.length === 0) throw new DbError('income_not_found')
       }
       return income.is_primary && termsChanged
         ? nextExpectedPayDate(budgetId, budget.end_date_entered)
@@ -146,6 +153,8 @@ export function useSetPrimaryIncome(budgetId: string) {
 
 export interface RemoveIncomeInput {
   income: IncomeOverview
+  /** The revision when the confirmation was opened. */
+  revision: number
   /** An explicit correction: removed from this earlier period on. */
   fromPeriodId: string | null
 }
@@ -154,10 +163,11 @@ export function useRemoveIncome(budgetId: string) {
   const { t } = useTranslation()
   return useAppMutation<string, RemoveIncomeInput>({
     errorDisplay: 'inline',
-    mutationFn: async ({ income, fromPeriodId }) =>
+    mutationFn: async ({ income, revision, fromPeriodId }) =>
       unwrap(
         await supabase.rpc('remove_income', {
           p_income_id: income.id,
+          p_expected_revision: revision,
           ...(fromPeriodId ? { p_from_period_id: fromPeriodId } : {}),
         }),
       ),

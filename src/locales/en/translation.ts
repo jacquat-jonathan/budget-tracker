@@ -84,6 +84,10 @@ export const en = {
     amountTooLarge: 'The amount can be at most CHF 10’000’000.',
     dateRequired: 'Enter a date.',
     dateInvalid: 'Enter a date as dd.mm.yyyy, for example 25.01.2027.',
+    amountNegative: 'The amount cannot be negative.',
+    dateOutsidePeriods: 'Choose a date within the range shown under the field.',
+    descriptionTooLong: 'Use at most 500 characters.',
+    categoryRequired: 'Choose a category.',
   },
   auth: {
     signIn: {
@@ -232,7 +236,8 @@ export const en = {
         'This budget already has the most incomes it can hold (50 in force, or 500 in all).',
       record_changed:
         'Someone else changed this in the meantime. What you see has been refreshed: check it, then make your change again.',
-      invalid_revision: 'This change could not be checked against the latest version. Reload and try again.',
+      invalid_revision:
+        'This change could not be checked against the latest version. Reload and try again.',
       category_not_found: 'This category no longer exists.',
       transaction_not_found: 'This transaction no longer exists.',
       invalid_cadence: 'Choose per month or per year.',
@@ -251,11 +256,22 @@ export const en = {
       category_not_in_force:
         'This category was not in use in the period of this date. Choose another category or another date.',
       category_ended: 'This category has ended (for that period).',
-      other_name_required: 'A name is needed for the subcategory that takes what the category held.',
+      other_name_required:
+        'A name is needed for the subcategory that takes what the category held.',
       category_limit_reached:
         'This budget already has the most categories it can hold (200 in use, or 2000 in all).',
-      transaction_limit_reached: 'This budget already holds 200 000 transactions, the most it can hold.',
+      transaction_limit_reached:
+        'This budget already holds 200 000 transactions, the most it can hold.',
     },
+  },
+  concurrent: {
+    title: 'Someone else changed this while you had it open',
+    edit: 'What you typed is still here. Load their version to start again from it, or keep yours: saving then replaces their change.',
+    remove:
+      'It has changed since you opened this. Look at it again, then confirm if you still want to.',
+    useTheirs: 'Load their version',
+    keepMine: 'Keep mine',
+    confirmAgain: 'I have looked, continue',
   },
   confirm: {
     typeToConfirm: 'Type “{{text}}” to confirm',
@@ -515,6 +531,205 @@ export const en = {
       },
     },
   },
+  categories: {
+    add: 'Add category',
+    addFirst: 'Add your first category',
+    addTitle: 'Add a category',
+    addSubTitle: 'Add a subcategory to “{{name}}”',
+    addDescription: 'A category of spending, with the amount you plan for it.',
+    editTitle: 'Edit category',
+    editSubTitle: 'Edit subcategory',
+    editDescription: 'Change its name or the amount you plan for it.',
+    created: 'Category “{{name}}” added.',
+    saved: 'Category “{{name}}” saved.',
+    deleted: '“{{name}}” deleted.',
+    ended: '“{{name}}” removed from the current period. Past periods keep it.',
+    edit: 'Edit',
+    addSub: 'Add a subcategory',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    remove: 'Remove',
+    delete: 'Delete',
+    end: 'Remove from now on',
+    actionsFor: 'Actions for {{name}}',
+    listLabel: 'Categories',
+    columns: {
+      category: 'Category',
+      perMonth: 'Per month',
+    },
+    group: 'Group',
+    groupNote: 'Total of its subcategories',
+    yearlyNote: '{{amount}} a year',
+    path: '{{parent}} › {{name}}',
+    otherName: 'Other',
+    empty: 'No categories yet',
+    emptyDescription:
+      'Split your income into categories such as rent, groceries or insurance, each with the amount you plan to spend per month.',
+    emptyGroup: 'No subcategories any more: add one to plan and record spending here.',
+    endedBudget: 'There is no current period: categories can no longer be added or changed.',
+    endedTitle: 'Removed categories',
+    endedHelp: 'They are no longer planned, but past periods keep them and their transactions.',
+    endedLabel: 'Removed',
+    lastCounted: 'Last planned in the period ending {{date}}',
+    groupHasNoAmount:
+      'This category has subcategories: its amount is the total of theirs. Change the amounts on the subcategories.',
+    firstSub: {
+      becomesGroup:
+        '“{{name}}” will become a group of subcategories: it no longer has an amount of its own, and its amount becomes the total of its subcategories.',
+      moves:
+        '“{{name}}” will become a group of subcategories. What it holds now (its amount, {{amount}} a month, and its transactions) moves to a new subcategory “{{other}}”, so no period’s totals change.',
+    },
+    fields: {
+      name: 'Name',
+      namePlaceholder: 'Groceries',
+      subNamePlaceholder: 'Health insurance',
+      cadence: 'Amount entered',
+      amountMonthly: 'Amount per month',
+      amountYearly: 'Amount per year',
+      yearlyHelp:
+        'A yearly amount counts one twelfth in each period, rounded to the rappen. The budget shows it per month once saved.',
+      from: 'Planned from',
+      fromHelp: 'Choose an earlier period to record past spending in this category.',
+    },
+    cadence: {
+      monthly: 'Per month',
+      yearly: 'Per year',
+    },
+    addAppliesFrom:
+      'It is planned from the current period, unless you choose an earlier one. Past periods are otherwise unchanged.',
+    editAppliesFrom:
+      'A new amount applies from the current period, which started on {{date}}. Past periods keep the amount they had.',
+    correctionAppliesFrom:
+      'The amount applies from the period you chose until the next change already recorded: the plans of those periods change.',
+    correctionWarning:
+      'This changes past periods: what they expected, and so their results, are recomputed from the period you choose until the next change already recorded.',
+    removeDeleteTitle: 'Delete “{{name}}”?',
+    removeEndTitle: 'Remove “{{name}}” from now on?',
+    removeDeletes:
+      'It has never been planned in a past period and has no transactions, so it is deleted completely.',
+    removeEnds:
+      'It is no longer planned from the current period (which started on {{date}}). Past periods keep it as it was.',
+    removeEndsNoPeriod: 'It is no longer planned. Past periods keep it as it was.',
+    removeKeepsTransactions:
+      'Its transactions are never deleted: they keep counting in the periods they are dated in.',
+    removeWithSubs_one: 'Its subcategory {{names}} goes with it.',
+    removeWithSubs_other: 'Its {{count}} subcategories go with it: {{names}}.',
+    totals: {
+      period: 'Current period: {{start}} – {{end}}',
+      income: 'Income',
+      expected: 'Planned',
+      left: 'Left to assign',
+      overAssigned: 'Assigned beyond the income',
+      overAssignedHint:
+        'You plan more than the income. This is allowed: lower some amounts if you want it to fit.',
+    },
+  },
+  transactions: {
+    add: 'Add transaction',
+    addTitle: 'Add a transaction',
+    addDescription: 'An expense, a refund, or money coming in besides the salaries.',
+    editTitle: 'Edit transaction',
+    editDescription: 'Change what was recorded. It moves to the period of its date.',
+    added: {
+      expense: 'Expense of {{amount}} recorded.',
+      refund: 'Refund of {{amount}} recorded.',
+      extra_income: 'Extra income of {{amount}} recorded.',
+    },
+    saved: 'Transaction saved.',
+    deleted: 'Transaction deleted.',
+    savedInARow_one: 'Saved ({{amount}}). Enter the next one, or close when you are done.',
+    savedInARow_other:
+      '{{count}} saved, the last one {{amount}}. Enter the next one, or close when you are done.',
+    saveAndAdd: 'Save and add another',
+    done: 'Done',
+    edit: 'Edit',
+    delete: 'Delete',
+    deleteTitle: 'Delete this transaction?',
+    deleteDescription: 'The transaction of {{amount}} on {{date}} is deleted for every member.',
+    actionsFor: 'Actions for {{what}}, {{amount}} on {{date}}',
+    recordedBy: 'by {{name}}',
+    loadMore: 'Show older transactions',
+    count_one: '{{count}} transaction shown',
+    count_other: '{{count}} transactions shown',
+    empty: 'No transactions in this period yet',
+    emptyHelp: 'Record what you spend as it happens: it is counted against its category at once.',
+    emptyFiltered: 'No transactions match these filters',
+    emptyFilteredHelp: 'Choose another period, category or kind.',
+    endedBudget:
+      'The budget has ended: transactions can still be recorded and corrected in its periods, up to its last day.',
+    kind: {
+      expense: 'Expense',
+      refund: 'Refund',
+      extra_income: 'Extra income',
+    },
+    kindPlural: {
+      expense: 'Expenses',
+      refund: 'Refunds',
+      extra_income: 'Extra incomes',
+    },
+    kindHelp: {
+      expense: 'Money spent: it counts against its category.',
+      refund: 'Money coming back for a purchase: it reduces what was spent in its category.',
+      extra_income:
+        'Money coming in besides the salaries (a gift, a sale): it adds to the period’s income, in no category.',
+    },
+    fields: {
+      kind: 'Kind',
+      amount: 'Amount',
+      date: 'Date',
+      dateRange: 'From {{min}} to {{max}} (today at the latest).',
+      category: 'Category',
+      chooseCategory: 'Choose a category',
+      noCategories: 'No category on this date',
+      noCategoriesHelp:
+        'No category was planned in the period of this date. Add one on the Budget page, or choose another date.',
+      description: 'Note (optional)',
+      descriptionPlaceholder: 'Migros, pharmacy, train ticket…',
+    },
+    filters: {
+      label: 'Filter the transactions',
+      period: 'Period',
+      allPeriods: 'All periods',
+      currentPeriod: '{{range}} (current)',
+      category: 'Category',
+      allCategories: 'All categories',
+      wholeGroup: 'All of “{{name}}”',
+      ended: '{{name}} (removed)',
+      kind: 'Kind',
+      allKinds: 'All kinds',
+    },
+  },
+  progress: {
+    title: 'Period progress',
+    browse: 'Choose the period',
+    older: 'Previous period',
+    newer: 'Next period',
+    backToCurrent: 'Back to the current period',
+    income: 'Income',
+    expected: 'Planned',
+    spent: 'Spent',
+    surplus: 'Surplus',
+    deficit: 'Deficit',
+    leftToAssign: '{{amount}} left to assign',
+    overAssigned: '{{amount}} more than the income',
+    listLabel: 'Progress per category',
+    columns: {
+      category: 'Category',
+      expected: 'Planned',
+      spent: 'Spent',
+      result: 'Left',
+    },
+    overspent: 'Overspent',
+    notInForce: 'Not planned',
+    notInForceHint:
+      'Not planned in this period (removed, or not yet created), but it has transactions dated in it: they count.',
+    spentOf: '{{spent}} spent of {{expected}}',
+    spentOfOver: '{{spent}} spent of {{expected}}: over',
+    seeTransactions: 'See the transactions of {{name}} in this period',
+    empty: 'Nothing planned or spent in this period',
+    emptyHelp: 'Plan your spending in categories on the Budget page, then record transactions.',
+    toBudget: 'Go to the budget',
+  },
   periods: {
     description:
       'Each period runs from one salary to the day before the next. Periods that have happened stay as they were.',
@@ -596,6 +811,7 @@ export const en = {
       required: 'Saving waits for this list: what it shows is what you confirm.',
       kinds: {
         income: 'Income “{{name}}”',
+        category: 'Category “{{name}}”',
         other: '“{{name}}”',
       },
       changes: {
@@ -605,6 +821,13 @@ export const en = {
         terms_changed: 'its new terms will apply to the reopened period.',
         made_primary: 'it becomes the primary income from the reopened period.',
         other: 'this change will move to the reopened period.',
+      },
+      categoryChanges: {
+        added: 'added in this period, it will be planned from the reopened period.',
+        ended: 'its removal will apply from the reopened period.',
+        removed:
+          'it will disappear: it would never be planned. If it has transactions, it is kept without an amount and they keep counting in the reopened period.',
+        terms_changed: 'its new amount will apply to the reopened period.',
       },
       item: '{{kind}}: {{change}}',
       replaces: 'It replaces what the reopened period had for it.',
@@ -632,6 +855,8 @@ export const en = {
     saved: 'Periods updated.',
     reset: 'Reset',
     resetDone: 'The expected date follows the projection again.',
+    progress: 'Progress',
+    progressFor: 'See the progress of the period {{range}}',
     endedDescription: 'Its last period ended on {{date}}; no new periods are created.',
   },
   settings: {

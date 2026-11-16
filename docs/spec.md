@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-313 rules (223 active, 83 planned), 24 conventions, 122 decisions, 23 open questions. 3 rules and conventions are marked **TEST PENDING**.
+320 rules (230 active, 83 planned), 24 conventions, 124 decisions, 23 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -127,15 +127,15 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 Two-level categories with monthly or yearly expectations, and the amount left to assign.
 
 - **US-CATEGORY-001** As a budget member, I want to split the budget into categories and subcategories with a monthly expectation each, so that I know how much I plan to spend on what.
-  Rules: R-CATEGORY-001, R-CATEGORY-002, R-VERSION-002, R-CATEGORY-090, R-CATEGORY-092, R-CATEGORY-093, R-CATEGORY-094, R-CATEGORY-096
+  Rules: R-CATEGORY-001, R-CATEGORY-002, R-VERSION-002, R-CATEGORY-090, R-CATEGORY-092, R-CATEGORY-093, R-CATEGORY-094, R-CATEGORY-096, R-CATEGORY-050, R-CATEGORY-051
 - **US-CATEGORY-002** As a budget member, I want to enter a yearly amount for a yearly cost, so that it is spread as one twelfth per month.
-  Rules: R-CATEGORY-003, R-CATEGORY-004, R-CATEGORY-005, R-CATEGORY-070, R-CATEGORY-091
+  Rules: R-CATEGORY-003, R-CATEGORY-004, R-CATEGORY-005, R-CATEGORY-070, R-CATEGORY-091, R-CATEGORY-050
 - **US-CATEGORY-003** As a budget member, I want to see the amount left to assign in a period, negative when I have assigned more than the income, so that every franc of the budget has a purpose.
-  Rules: R-CATEGORY-006, R-CATEGORY-071
+  Rules: R-CATEGORY-006, R-CATEGORY-071, R-CATEGORY-050
 - **US-CATEGORY-004** As a budget member, I want to delete a category I no longer need, so that it leaves the budget from now on while past periods keep it.
-  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095
+  Rules: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095, R-CATEGORY-052
 - **US-CATEGORY-005** As a budget member, I want to change a category's expectation from now on, or explicitly correct it from an earlier period, so that past periods stay as they were unless I fix a mistake on purpose.
-  Rules: R-VERSION-002, R-VERSION-070
+  Rules: R-VERSION-002, R-VERSION-070, R-CATEGORY-053
 - **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
   Rules: R-CONCURRENCY-070, R-CONCURRENCY-090, R-CONCURRENCY-091
 
@@ -144,22 +144,22 @@ Two-level categories with monthly or yearly expectations, and the amount left to
 Manual transactions, landing in the period that contains their date.
 
 - **US-TRANSACTION-001** As a budget member, I want to record a transaction with an amount, a date and a category, so that spending is tracked against the budget.
-  Rules: R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-004, R-TRANSACTION-006, R-TRANSACTION-072, R-TRANSACTION-073, R-TRANSACTION-090, R-TRANSACTION-094, R-TRANSACTION-095
+  Rules: R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-004, R-TRANSACTION-006, R-TRANSACTION-072, R-TRANSACTION-073, R-TRANSACTION-090, R-TRANSACTION-094, R-TRANSACTION-095, R-TRANSACTION-050, R-TRANSACTION-051
 - **US-TRANSACTION-002** As a budget member, I want to add, edit or delete a transaction in a past period, so that late receipts still land in the right period.
-  Rules: R-TRANSACTION-007, R-TRANSACTION-008, R-TRANSACTION-091, R-TRANSACTION-093
+  Rules: R-TRANSACTION-007, R-TRANSACTION-008, R-TRANSACTION-091, R-TRANSACTION-093, R-TRANSACTION-050
 - **US-TRANSACTION-003** As a budget member, I want to record money coming back as a refund, so that it reduces what was spent in its category.
-  Rules: R-TRANSACTION-070, R-TRANSACTION-071, R-TRANSACTION-092
+  Rules: R-TRANSACTION-070, R-TRANSACTION-071, R-TRANSACTION-092, R-TRANSACTION-050
 
 #### F-PROGRESS Period progress view (in-progress)
 
 Each period, the current one and past ones, tracked against its expectations, with its result.
 
 - **US-PROGRESS-001** As a budget member, I want to see how the current period is going against the expectations, with overspent categories shown as such, so that I can adjust before the period ends.
-  Rules: R-PROGRESS-001, R-PROGRESS-071, R-PROGRESS-091
+  Rules: R-PROGRESS-001, R-PROGRESS-071, R-PROGRESS-091, R-PROGRESS-050
 - **US-PROGRESS-002** As a budget member, I want to see a period's surplus or deficit, and each category's result, so that I know how the period went.
-  Rules: R-PROGRESS-002, R-PROGRESS-070, R-PROGRESS-092
+  Rules: R-PROGRESS-002, R-PROGRESS-070, R-PROGRESS-092, R-PROGRESS-050
 - **US-PROGRESS-003** As a budget member, I want to browse past periods and see the progress view of each, so that I can look back at how any period went.
-  Rules: R-COMPARE-001, R-PROGRESS-090
+  Rules: R-COMPARE-001, R-PROGRESS-090, R-PROGRESS-050
 
 ### Step 4: Subscriptions and debts (planned)
 
@@ -886,7 +886,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Why: Frontend behaviour; the database part is R-PERIOD-029, R-PERIOD-034 and R-PERIOD-012.
   - Related: D-081, R-PERIOD-034, R-PERIOD-012, R-PERIOD-054
   - Source: owner-request: coordinator decision on the third step 2 database review, 2026-11-16; docs/database.md: RPCs; owner-request: coordinator, step 2 browser review fixes, 2026-11-16
-- **R-PERIOD-053** Before "this period's salary has not arrived yet" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only; it cannot be confirmed until that list has been read, and when it cannot be read the dialog says so and offers to read it again.
+- **R-PERIOD-053** Before "this period's salary has not arrived yet" is confirmed, the app lists, from the database's preview, each thing recorded in the period being removed (incomes, and categories in their own words) and what will happen to it (applies to the reopened period, replaces what that period had, or disappears), says when nothing was recorded, and says that recording the salary again later restores the dates only; it cannot be confirmed until that list has been read, and when it cannot be read the dialog says so and offers to read it again.
   _active · enforced by test · F-PERIOD_
   - Related: R-PERIOD-035, R-PERIOD-023, R-VERSION-013
   - Source: code: src/features/periods/periods-page.tsx; owner-request: coordinator, step 2 browser review fixes, 2026-11-16
@@ -1031,6 +1031,22 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: Q-084
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-CATEGORY-050** The budget page lists the categories in force now in their order, each with its amount per month as the database gives it (a yearly amount also as entered), a group with its subcategories and their total, and the current period's income, total planned and amount left to assign, a negative amount shown as assigned beyond the income; removed categories are listed apart.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CATEGORY-006, R-CATEGORY-071, R-CATEGORY-005, C-LOGIC-003
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/budget-page.tsx
+- **R-CATEGORY-051** Before the first subcategory of a category is saved, the app says that the category becomes a group and, when it has an amount or transactions, that they move to a new subcategory "Other"; the translated name of "Other" is always sent with a new subcategory.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CATEGORY-092, R-CATEGORY-090, D-141
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/category-form-dialog.tsx
+- **R-CATEGORY-052** Before a category is removed, the app says which of the two will happen, from the database's own answer: deleted (it never counted and has no transactions), or no longer planned from the current period with past periods keeping it and its transactions kept; and that its subcategories go with it.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-095
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/end-category-dialog.tsx
+- **R-CATEGORY-053** A new amount is said to apply from the current period; correcting an earlier period is offered only as an explicit option, off by default, with a warning that past periods change; a group's amount is not editable (it is the total of its subcategories).
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-VERSION-002, R-VERSION-070, R-INCOME-051
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/budget/components/category-form-dialog.tsx
 
 ### Transactions
 
@@ -1047,7 +1063,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: Q-005, D-111
   - Source: domain: Transaction; owner-request: product owner decisions on the open questions, 2026-11-16
 - **R-TRANSACTION-004** Transactions are created manually in the UI.
-  _active · enforced by test · F-TRANSACTION_ · **TEST PENDING** (supabase/tests)
+  _active · enforced by test · F-TRANSACTION_
   - Source: domain: Transaction
 - **R-TRANSACTION-005** Transactions are also importable in bulk.
   _planned · enforced by test · F-IMPORT_
@@ -1104,6 +1120,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: D-149, D-088
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Transactions
+- **R-TRANSACTION-050** The transaction form records an expense, a refund or an extra income (no category); its date is limited to what the database accepts (the first period's start to today, not after an ended budget's last day) and today by default; its category choices are read from the database for the date and read again whenever the date changes; "save and add another" keeps the kind, date and category for the next receipt.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: R-TRANSACTION-090, R-TRANSACTION-091, R-TRANSACTION-092, R-TRANSACTION-004
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/components/transaction-form-dialog.tsx
+- **R-TRANSACTION-051** The transactions page lists transactions newest first, grouped by day, a page at a time through the database's cursor, filtered by period (the current one by default), category (a group with its subcategories) and kind, the filters kept in the address.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: R-TRANSACTION-095, D-149
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/transactions/transactions-page.tsx
 
 ### Period progress and result
 
@@ -1135,6 +1159,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PROGRESS_
   - Related: C-LOGIC-001, R-CATEGORY-091
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql
+- **R-PROGRESS-050** The dashboard shows the progress of one period, the current one by default (the last once the budget has ended): its income, planned, spent and result as a surplus or a deficit, and per category and subcategory what was planned, spent and is left, overspending marked by the database's flag; earlier and later periods are browsed in place, the Periods page links each period to its progress, and each category leads to its transactions in that period.
+  _active · enforced by test · F-PROGRESS_
+  - Related: R-PROGRESS-090, R-PROGRESS-071, R-PROGRESS-002, R-COMPARE-001, D-137
+  - Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16; code: src/features/progress/period-progress-card.tsx
 
 ### Subscriptions
 
@@ -1236,7 +1264,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 ### Browsing and comparing periods
 
 - **R-COMPARE-001** Users can browse past periods and see the progress view of each.
-  _active · enforced by test · F-PROGRESS_ · **TEST PENDING** (supabase/tests)
+  _active · enforced by test · F-PROGRESS_
   - Why: Built with step 3 (D-104); the id keeps its original area.
   - Related: Q-010, D-104
   - Source: domain: Period; owner-request: product owner decisions on the open questions, 2026-11-16
@@ -1480,10 +1508,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-CATEGORY_
   - Related: D-142, R-CONCURRENCY-070, D-006
   - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: supabase/migrations/20261116120000_categories_transactions_progress.sql; docs/database.md: Concurrent edits
-- **R-CONCURRENCY-091** When a save is refused because the record changed, the app says another member changed it and reloads it, without losing what the user typed.
-  _active · enforced by test · F-CATEGORY_ · **TEST PENDING** (supabase/tests)
-  - Related: R-CONCURRENCY-070, D-142
-  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16
+- **R-CONCURRENCY-091** When a save or removal is refused because the record changed, or the record changes while it is open, the app says another member changed it and reads it again, keeps what the user typed, and lets them load the other version or keep theirs, so the next save replaces the other version knowingly; a form never sends a revision read after it was opened.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-CONCURRENCY-070, D-142, D-136
+  - Source: owner-request: project coordinator brief for the step 3 database, 2026-11-16; code: src/hooks/use-edit-base.ts
 
 ## Conventions
 
@@ -3187,6 +3215,35 @@ For the primary income the app announces the next salary as the day after the cu
 Related: R-INCOME-056, R-PERIOD-010, D-081
 
 Source: owner-request: coordinator, step 2 browser review fixes, 2026-11-16
+
+### D-136 A concurrent change is shown in the form, not as a reload (accepted)
+
+Every edit form and removal confirmation keeps the record as it was when it opened (useEditBase) and sends that revision. When the database refuses with record_changed, or a later read shows another member's change while it is open, the form keeps what was typed, says someone else changed it, and offers "Load their version" (the form is refilled) or "Keep mine" (the next save sends the new revision and replaces theirs); Save waits for that choice. A removal asks to look again and confirm. Built once (src/hooks/use-edit-base.ts, src/components/changed-elsewhere.tsx) for incomes, the budget's name and end date, categories and transactions.
+
+**Why:** D-124 asks to refuse the second save and reload; reloading the whole form would lose what the user typed, and silently retrying with the new revision would overwrite the other member's change.
+
+**Rejected:**
+
+- Reloading the form with the other version, discarding what was typed.
+- Retrying automatically with the latest revision.
+
+Related: D-124, D-142, R-CONCURRENCY-091
+
+Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16
+
+### D-137 Period progress lives on the dashboard (accepted)
+
+The progress view of a period is one component on the dashboard, below the current period, showing the current period by default and any other through ?period=<id> with previous / next buttons. The Periods page links each period there, and each category row links to the transactions page filtered by that period and category. Every figure is the database's (period_summaries, get_period_progress); only the length of a row's bar is computed in the client, for display.
+
+**Why:** One implementation for the current and past periods (D-104), where people look first; the Periods page stays about boundaries.
+
+**Rejected:**
+
+- A separate progress page per period: a second place showing the same figures.
+
+Related: D-104, R-PROGRESS-050, R-COMPARE-001
+
+Source: owner-request: coordinator brief for the step 3 screens, 2026-11-16
 
 ## Open questions
 

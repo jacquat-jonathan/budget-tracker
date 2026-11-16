@@ -176,6 +176,7 @@ describe('income page', () => {
         p_amount: 225_000,
         p_pay_day: 31,
         p_weekend_rule: 'next',
+        p_expected_revision: 1,
       })
     })
   })
@@ -204,6 +205,7 @@ describe('income page', () => {
         p_amount: 210_000,
         p_pay_day: 31,
         p_weekend_rule: 'next',
+        p_expected_revision: 1,
         p_from_period_id: 'period-1',
       })
     })
@@ -327,22 +329,8 @@ describe('income page', () => {
     expect(screen.queryByText('Has this salary already arrived?')).not.toBeInTheDocument()
   })
 
-  it('renaming only updates the name, without a new version of the terms', async () => {
+  it('renaming only renames, with the revision it was opened on, without new terms [R-CONCURRENCY-090]', async () => {
     const db = await openIncomePage()
-    db.tables.incomes = [
-      {
-        id: 'income-2',
-        budget_id: BUDGET_ID,
-        user_id: OTHER_USER_ID,
-        name: 'Part-time job',
-        first_seq: 1,
-        end_seq: null,
-        ended_after_last: false,
-        revision: 1,
-        created_at: '2026-10-01T10:00:00+00:00',
-        updated_at: '2026-10-01T10:00:00+00:00',
-      },
-    ]
     await userEvent.click(
       within(card('Part-time job')).getByRole('button', { name: 'Actions for Part-time job' }),
     )
@@ -353,7 +341,11 @@ describe('income page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() => {
-      expect(db.tables.incomes[0]?.name).toBe('Evening job')
+      expect(db.rpc.rename_income).toHaveBeenCalledWith({
+        p_income_id: 'income-2',
+        p_name: 'Evening job',
+        p_expected_revision: 1,
+      })
     })
     expect(db.rpc.update_income_terms).not.toHaveBeenCalled()
   })
@@ -439,7 +431,10 @@ describe('income page', () => {
     expect(
       await screen.findByText('“Part-time job” ended. Past periods still count it.'),
     ).toBeInTheDocument()
-    expect(db.rpc.remove_income).toHaveBeenCalledWith({ p_income_id: 'income-2' })
+    expect(db.rpc.remove_income).toHaveBeenCalledWith({
+      p_income_id: 'income-2',
+      p_expected_revision: 1,
+    })
   })
 
   it('removes an income from an earlier period only when asked, with a warning [R-INCOME-051] [R-INCOME-015]', async () => {
@@ -461,6 +456,7 @@ describe('income page', () => {
     await waitFor(() => {
       expect(db.rpc.remove_income).toHaveBeenCalledWith({
         p_income_id: 'income-2',
+        p_expected_revision: 1,
         p_from_period_id: 'period-1',
       })
     })

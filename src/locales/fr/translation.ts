@@ -93,6 +93,10 @@ export const fr: Translation = {
     amountTooLarge: 'Le montant ne peut pas dépasser CHF 10’000’000.',
     dateRequired: 'Saisissez une date.',
     dateInvalid: 'Saisissez une date au format jj.mm.aaaa, par exemple 25.01.2027.',
+    amountNegative: 'Le montant ne peut pas être négatif.',
+    dateOutsidePeriods: 'Choisissez une date dans la plage indiquée sous le champ.',
+    descriptionTooLong: 'Utilisez au plus 500 caractères.',
+    categoryRequired: 'Choisissez une catégorie.',
   },
   auth: {
     signIn: {
@@ -275,6 +279,15 @@ export const fr: Translation = {
         'Ce budget compte déjà le maximum de revenus autorisé (50 en vigueur, ou 500 au total).',
     },
   },
+  concurrent: {
+    title: 'Quelqu’un d’autre a modifié cet élément pendant que vous l’aviez ouvert',
+    edit: 'Ce que vous avez saisi est toujours là. Chargez sa version pour repartir de celle-ci, ou gardez la vôtre : l’enregistrer remplacera alors sa modification.',
+    remove:
+      'Cet élément a changé depuis que vous avez ouvert cette fenêtre. Vérifiez-le, puis confirmez si vous le souhaitez toujours.',
+    useTheirs: 'Charger sa version',
+    keepMine: 'Garder la mienne',
+    confirmAgain: 'J’ai vérifié, continuer',
+  },
   confirm: {
     typeToConfirm: 'Saisissez « {{text}} » pour confirmer',
   },
@@ -401,7 +414,8 @@ export const fr: Translation = {
       nextPayDayOf: '{{name}}',
       nextPayDayOfManual: '{{name}}, date fixée à la main',
       budgetEnds: 'Fin du budget',
-      lastPeriodHelp: 'C’est la dernière période du budget : aucune nouvelle période ne commence ensuite.',
+      lastPeriodHelp:
+        'C’est la dernière période du budget : aucune nouvelle période ne commence ensuite.',
     },
     ended: {
       title: 'Ce budget est terminé',
@@ -546,6 +560,213 @@ export const fr: Translation = {
       },
     },
   },
+  categories: {
+    add: 'Ajouter une catégorie',
+    addFirst: 'Ajouter votre première catégorie',
+    addTitle: 'Ajouter une catégorie',
+    addSubTitle: 'Ajouter une sous-catégorie à « {{name}} »',
+    addDescription: 'Une catégorie de dépenses, avec le montant que vous prévoyez pour elle.',
+    editTitle: 'Modifier la catégorie',
+    editSubTitle: 'Modifier la sous-catégorie',
+    editDescription: 'Changez son nom ou le montant que vous prévoyez pour elle.',
+    created: 'Catégorie « {{name}} » ajoutée.',
+    saved: 'Catégorie « {{name}} » enregistrée.',
+    deleted: '« {{name}} » supprimée.',
+    ended:
+      '« {{name}} » retirée à partir de la période en cours. Les périodes passées la conservent.',
+    edit: 'Modifier',
+    addSub: 'Ajouter une sous-catégorie',
+    moveUp: 'Monter',
+    moveDown: 'Descendre',
+    remove: 'Retirer',
+    delete: 'Supprimer',
+    end: 'Retirer à partir de maintenant',
+    actionsFor: 'Actions pour {{name}}',
+    listLabel: 'Catégories',
+    columns: {
+      category: 'Catégorie',
+      perMonth: 'Par mois',
+    },
+    group: 'Groupe',
+    groupNote: 'Total de ses sous-catégories',
+    yearlyNote: '{{amount}} par an',
+    path: '{{parent}} › {{name}}',
+    otherName: 'Autres',
+    empty: 'Aucune catégorie pour l’instant',
+    emptyDescription:
+      'Répartissez vos revenus en catégories, comme le loyer, les courses ou les assurances, chacune avec le montant que vous prévoyez de dépenser par mois.',
+    emptyGroup:
+      'Plus aucune sous-catégorie : ajoutez-en une pour y prévoir et y enregistrer des dépenses.',
+    endedBudget:
+      'Il n’y a pas de période en cours : les catégories ne peuvent plus être ajoutées ni modifiées.',
+    endedTitle: 'Catégories retirées',
+    endedHelp:
+      'Elles ne sont plus prévues, mais les périodes passées les conservent avec leurs transactions.',
+    endedLabel: 'Retirée',
+    lastCounted: 'Prévue pour la dernière fois dans la période se terminant le {{date}}',
+    groupHasNoAmount:
+      'Cette catégorie a des sous-catégories : son montant est le total des leurs. Modifiez les montants des sous-catégories.',
+    firstSub: {
+      becomesGroup:
+        '« {{name}} » deviendra un groupe de sous-catégories : elle n’aura plus de montant propre, et son montant sera le total de ses sous-catégories.',
+      moves:
+        '« {{name}} » deviendra un groupe de sous-catégories. Ce qu’elle contient maintenant (son montant, {{amount}} par mois, et ses transactions) passe dans une nouvelle sous-catégorie « {{other}} », de sorte qu’aucun total de période ne change.',
+    },
+    fields: {
+      name: 'Nom',
+      namePlaceholder: 'Courses',
+      subNamePlaceholder: 'Assurance maladie',
+      cadence: 'Montant saisi',
+      amountMonthly: 'Montant par mois',
+      amountYearly: 'Montant par an',
+      yearlyHelp:
+        'Un montant annuel compte pour un douzième dans chaque période, arrondi au centime. Le budget l’affiche par mois une fois enregistré.',
+      from: 'Prévue à partir de',
+      fromHelp: 'Choisissez une période antérieure pour y enregistrer des dépenses passées.',
+    },
+    cadence: {
+      monthly: 'Par mois',
+      yearly: 'Par an',
+    },
+    addAppliesFrom:
+      'Elle est prévue à partir de la période en cours, sauf si vous en choisissez une antérieure. Les périodes passées ne changent pas autrement.',
+    editAppliesFrom:
+      'Un nouveau montant s’applique à partir de la période en cours, commencée le {{date}}. Les périodes passées gardent le montant qu’elles avaient.',
+    correctionAppliesFrom:
+      'Le montant s’applique à partir de la période choisie jusqu’au prochain changement déjà enregistré : les prévisions de ces périodes changent.',
+    correctionWarning:
+      'Cela modifie des périodes passées : ce qu’elles prévoyaient, et donc leurs résultats, est recalculé à partir de la période choisie jusqu’au prochain changement déjà enregistré.',
+    removeDeleteTitle: 'Supprimer « {{name}} » ?',
+    removeEndTitle: 'Retirer « {{name}} » à partir de maintenant ?',
+    removeDeletes:
+      'Elle n’a jamais été prévue dans une période passée et n’a aucune transaction : elle est donc supprimée entièrement.',
+    removeEnds:
+      'Elle n’est plus prévue à partir de la période en cours (commencée le {{date}}). Les périodes passées la gardent telle quelle.',
+    removeEndsNoPeriod: 'Elle n’est plus prévue. Les périodes passées la gardent telle quelle.',
+    removeKeepsTransactions:
+      'Ses transactions ne sont jamais supprimées : elles continuent de compter dans les périodes où elles sont datées.',
+    removeWithSubs_one: 'Sa sous-catégorie {{names}} est retirée avec elle.',
+    removeWithSubs_other: 'Ses {{count}} sous-catégories sont retirées avec elle : {{names}}.',
+    totals: {
+      period: 'Période en cours : {{start}} – {{end}}',
+      income: 'Revenus',
+      expected: 'Prévu',
+      left: 'Reste à répartir',
+      overAssigned: 'Réparti au-delà des revenus',
+      overAssignedHint:
+        'Vous prévoyez plus que vos revenus. C’est permis : baissez certains montants si vous voulez que cela tienne.',
+    },
+  },
+  transactions: {
+    add: 'Ajouter une transaction',
+    addTitle: 'Ajouter une transaction',
+    addDescription: 'Une dépense, un remboursement, ou de l’argent qui entre en plus des salaires.',
+    editTitle: 'Modifier la transaction',
+    editDescription: 'Corrigez ce qui a été enregistré. Elle passe dans la période de sa date.',
+    added: {
+      expense: 'Dépense de {{amount}} enregistrée.',
+      refund: 'Remboursement de {{amount}} enregistré.',
+      extra_income: 'Revenu supplémentaire de {{amount}} enregistré.',
+    },
+    saved: 'Transaction enregistrée.',
+    deleted: 'Transaction supprimée.',
+    savedInARow_one:
+      'Enregistrée ({{amount}}). Saisissez la suivante, ou fermez quand vous avez terminé.',
+    savedInARow_other:
+      '{{count}} enregistrées, la dernière de {{amount}}. Saisissez la suivante, ou fermez quand vous avez terminé.',
+    saveAndAdd: 'Enregistrer et en ajouter une autre',
+    done: 'Terminé',
+    edit: 'Modifier',
+    delete: 'Supprimer',
+    deleteTitle: 'Supprimer cette transaction ?',
+    deleteDescription:
+      'La transaction de {{amount}} du {{date}} est supprimée pour tous les membres.',
+    actionsFor: 'Actions pour {{what}}, {{amount}} le {{date}}',
+    recordedBy: 'par {{name}}',
+    loadMore: 'Afficher les transactions plus anciennes',
+    count_one: '{{count}} transaction affichée',
+    count_other: '{{count}} transactions affichées',
+    empty: 'Aucune transaction dans cette période pour l’instant',
+    emptyHelp:
+      'Enregistrez vos dépenses au fur et à mesure : elles sont aussitôt comptées dans leur catégorie.',
+    emptyFiltered: 'Aucune transaction ne correspond à ces filtres',
+    emptyFilteredHelp: 'Choisissez une autre période, catégorie ou un autre type.',
+    endedBudget:
+      'Le budget est terminé : les transactions peuvent encore être enregistrées et corrigées dans ses périodes, jusqu’à son dernier jour.',
+    kind: {
+      expense: 'Dépense',
+      refund: 'Remboursement',
+      extra_income: 'Revenu supplémentaire',
+    },
+    kindPlural: {
+      expense: 'Dépenses',
+      refund: 'Remboursements',
+      extra_income: 'Revenus supplémentaires',
+    },
+    kindHelp: {
+      expense: 'De l’argent dépensé : il compte dans sa catégorie.',
+      refund: 'De l’argent rendu pour un achat : il réduit ce qui a été dépensé dans sa catégorie.',
+      extra_income:
+        'De l’argent qui entre en plus des salaires (un cadeau, une vente) : il s’ajoute aux revenus de la période, sans catégorie.',
+    },
+    fields: {
+      kind: 'Type',
+      amount: 'Montant',
+      date: 'Date',
+      dateRange: 'Du {{min}} au {{max}} (aujourd’hui au plus tard).',
+      category: 'Catégorie',
+      chooseCategory: 'Choisissez une catégorie',
+      noCategories: 'Aucune catégorie à cette date',
+      noCategoriesHelp:
+        'Aucune catégorie n’était prévue dans la période de cette date. Ajoutez-en une sur la page Budget, ou choisissez une autre date.',
+      description: 'Note (facultative)',
+      descriptionPlaceholder: 'Migros, pharmacie, billet de train…',
+    },
+    filters: {
+      label: 'Filtrer les transactions',
+      period: 'Période',
+      allPeriods: 'Toutes les périodes',
+      currentPeriod: '{{range}} (en cours)',
+      category: 'Catégorie',
+      allCategories: 'Toutes les catégories',
+      wholeGroup: 'Tout « {{name}} »',
+      ended: '{{name}} (retirée)',
+      kind: 'Type',
+      allKinds: 'Tous les types',
+    },
+  },
+  progress: {
+    title: 'Avancement de la période',
+    browse: 'Choisir la période',
+    older: 'Période précédente',
+    newer: 'Période suivante',
+    backToCurrent: 'Revenir à la période en cours',
+    income: 'Revenus',
+    expected: 'Prévu',
+    spent: 'Dépensé',
+    surplus: 'Excédent',
+    deficit: 'Déficit',
+    leftToAssign: '{{amount}} restent à répartir',
+    overAssigned: '{{amount}} de plus que les revenus',
+    listLabel: 'Avancement par catégorie',
+    columns: {
+      category: 'Catégorie',
+      expected: 'Prévu',
+      spent: 'Dépensé',
+      result: 'Reste',
+    },
+    overspent: 'Dépassé',
+    notInForce: 'Non prévue',
+    notInForceHint:
+      'Non prévue dans cette période (retirée, ou pas encore créée), mais des transactions y sont datées : elles comptent.',
+    spentOf: '{{spent}} dépensés sur {{expected}}',
+    spentOfOver: '{{spent}} dépensés sur {{expected}} : dépassé',
+    seeTransactions: 'Voir les transactions de {{name}} dans cette période',
+    empty: 'Rien de prévu ni de dépensé dans cette période',
+    emptyHelp:
+      'Prévoyez vos dépenses par catégorie sur la page Budget, puis enregistrez vos transactions.',
+    toBudget: 'Aller au budget',
+  },
   periods: {
     description:
       'Chaque période va d’un salaire à la veille du suivant. Les périodes passées restent telles quelles.',
@@ -556,7 +777,8 @@ export const fr: Translation = {
     lastPeriod: 'Dernière période',
     nextExpected: 'Prochain salaire attendu le {{date}} (prévision).',
     nextExpectedManual: 'Prochain salaire attendu le {{date}} (fixé à la main).',
-    lastPeriodNote: 'Dernière période du budget : elle se termine le {{date}}, et aucune période ne commence ensuite.',
+    lastPeriodNote:
+      'Dernière période du budget : elle se termine le {{date}}, et aucune période ne commence ensuite.',
     manualCurrentHint:
       'Fixée à la main : elle reste telle quelle quand le jour de paie change, jusqu’à ce que vous la remettiez sur la prévision.',
     manualPastHint:
@@ -571,7 +793,8 @@ export const fr: Translation = {
     },
     range: {
       between: 'Du {{min}} au {{max}}.',
-      outside: 'Cette date ne peut pas être enregistrée : choisissez un jour du {{min}} au {{max}}.',
+      outside:
+        'Cette date ne peut pas être enregistrée : choisissez un jour du {{min}} au {{max}}.',
     },
     incomeTotal: 'Revenus',
     actionsFor: 'Actions pour la période du {{range}}',
@@ -627,6 +850,7 @@ export const fr: Translation = {
       required: 'L’enregistrement attend cette liste : c’est elle que vous confirmez.',
       kinds: {
         income: 'Revenu « {{name}} »',
+        category: 'Catégorie « {{name}} »',
         other: '« {{name}} »',
       },
       changes: {
@@ -636,6 +860,13 @@ export const fr: Translation = {
         terms_changed: 'ses nouvelles conditions s’appliqueront à la période rouverte.',
         made_primary: 'il devient le revenu principal dès la période rouverte.',
         other: 'ce changement passera à la période rouverte.',
+      },
+      categoryChanges: {
+        added: 'ajoutée dans cette période, elle sera prévue à partir de la période rouverte.',
+        ended: 'son retrait s’appliquera à partir de la période rouverte.',
+        removed:
+          'elle disparaîtra : elle ne serait jamais prévue. Si elle a des transactions, elle est gardée sans montant et elles continuent de compter dans la période rouverte.',
+        terms_changed: 'son nouveau montant s’appliquera à la période rouverte.',
       },
       item: '{{kind}} : {{change}}',
       replaces: 'Il remplace ce que la période rouverte avait pour lui.',
@@ -667,6 +898,8 @@ export const fr: Translation = {
     saved: 'Périodes mises à jour.',
     reset: 'Revenir',
     resetDone: 'La date attendue suit de nouveau la prévision.',
+    progress: 'Avancement',
+    progressFor: 'Voir l’avancement de la période du {{range}}',
     endedDescription:
       'Sa dernière période s’est terminée le {{date}} ; aucune nouvelle période n’est créée.',
   },

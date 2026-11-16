@@ -1,5 +1,560 @@
-import { PlaceholderPage } from '@/components/placeholder-page'
+import {
+  ArrowLeftRightIcon,
+  CalendarOffIcon,
+  EllipsisVerticalIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 
+import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
+import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useCurrentPeriod, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
+import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { isVoid, useCategories, type Category } from '@/features/categories/category-queries'
+import {
+  TransactionFormDialog,
+  type DateRange,
+} from '@/features/transactions/components/transaction-form-dialog'
+import { useDeleteTransaction } from '@/features/transactions/transaction-mutations'
+import {
+  TRANSACTION_KINDS,
+  useTransactions,
+  type Transaction,
+  type TransactionKind,
+} from '@/features/transactions/transaction-queries'
+import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useEditBase } from '@/hooks/use-edit-base'
+import { calendarMonth, formatCalendarDate } from '@/lib/date'
+import { formatMoney } from '@/lib/money'
+import { cn } from '@/lib/utils'
+
+type DialogState =
+  | { kind: 'closed' }
+  | { kind: 'add' }
+  | { kind: 'edit'; transaction: Transaction }
+  | { kind: 'delete'; transaction: Transaction }
+
+const ALL = 'all'
+
+/**
+ * Transactions, newest first, a page at a time (R-TRANSACTION-095), filtered by period (the
+ * current one by default), category and kind; the filters live in the address so a link
+ * (from the progress view) opens a filtered list. Adding is the main action of the app, with
+ * a fast path for several receipts in a row.
+ */
+// R-TRANSACTION-051: newest first, by the database's cursor, filters in the address.
 export function TransactionsPage() {
-  return <PlaceholderPage nav="transactions" />
+  const { t } = useTranslation()
+  const { budgetId } = useCurrentBudget()
+  const periods = usePeriods(budgetId)
+  const current = useCurrentPeriod(budgetId)
+  const categories = useCategories(budgetId)
+  const [params, setParams] = useSearchParams()
+  const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
+  const close = () => setDialog({ kind: 'closed' })
+
+  const periodList = periods.data
+  // The current period by default; once the budget has ended, its last period.
+  const periodParam = params.get('period')
+  const defaultPeriod = current.data ?? periodList?.[0] ?? null
+  const period =
+    periodParam === ALL
+      ? null
+      : (periodList?.find((item) => item.id === periodParam) ?? defaultPeriod)
+  const categoryId = params.get('category')
+  const kindParam = params.get('kind')
+  const kind = (TRANSACTION_KINDS as readonly string[]).includes(kindParam ?? '')
+    ? (kindParam as TransactionKind)
+    : null
+  const filters = {
+    from: period?.start_date ?? null,
+    to: period?.end_date ?? null,
+    categoryId,
+    kind,
+  }
+  const ready = periodList !== undefined && current.data !== undefined
+  const list = useTransactions(budgetId, filters)
+  const setFilter = (key: string, value: string | null) => {
+    const next = new URLSearchParams(params)
+    if (value === null) next.delete(key)
+    else next.set(key, value)
+    setParams(next, { replace: true })
+  }
+
+  // R-TRANSACTION-090: from the first period's start to today, not after an ended budget's end.
+  const today = current.data?.today ?? periodList?.[0]?.today ?? null
+  const range = useMemo<DateRange | null>(() => {
+    if (!periodList || periodList.length === 0 || !today) return null
+    const first = periodList.at(-1)
+    const last = periodList[0]
+    if (!first || !last) return null
+    return { min: first.start_date, max: today < last.end_date ? today : last.end_date }
+  }, [periodList, today])
+
+  const header = (
+    <PageHeader
+      title={t('nav.transactions')}
+      description={t('pages.transactions.description')}
+      action={
+        <Button onClick={() => setDialog({ kind: 'add' })} disabled={!range}>
+          <PlusIcon />
+          {t('transactions.add')}
+        </Button>
+      }
+    />
+  )
+
+  const failed = [periods, current, categories].find((query) => query.isError)
+  if (failed) {
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <ErrorState
+          error={failed.error}
+          onRetry={() => {
+            periods.refetch()
+            current.refetch()
+            categories.refetch()
+          }}
+        />
+      </div>
+    )
+  }
+
+  const rows = list.data?.pages.flat() ?? []
+  const filtered = periodParam !== null || categoryId !== null || kind !== null
+  const live = (transaction: Transaction | undefined) =>
+    transaction ? (rows.find((row) => row.id === transaction.id) ?? null) : undefined
+
+  return (
+    <div className="flex flex-col gap-6">
+      {header}
+      {ready && current.data === null && (
+        <Alert>
+          <CalendarOffIcon aria-hidden />
+          <AlertTitle>{t('budgetEnded.title')}</AlertTitle>
+          <AlertDescription>{t('transactions.endedBudget')}</AlertDescription>
+        </Alert>
+      )}
+      <Filters
+        periods={periodList ?? []}
+        period={period}
+        allPeriods={periodParam === ALL}
+        categories={categories.data ?? []}
+        categoryId={categoryId}
+        kind={kind}
+        onPeriod={(value) => setFilter('period', value)}
+        onCategory={(value) => setFilter('category', value)}
+        onKind={(value) => setFilter('kind', value)}
+      />
+      {!ready || list.isPending ? (
+        <LoadingState rows={5} />
+      ) : list.isError ? (
+        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={ArrowLeftRightIcon}
+          title={filtered ? t('transactions.emptyFiltered') : t('transactions.empty')}
+          description={filtered ? t('transactions.emptyFilteredHelp') : t('transactions.emptyHelp')}
+          action={
+            range && (
+              <Button onClick={() => setDialog({ kind: 'add' })}>
+                <PlusIcon />
+                {t('transactions.add')}
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <TransactionList
+          rows={rows}
+          onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
+          onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
+        />
+      )}
+      {list.hasNextPage && (
+        <Button
+          variant="outline"
+          className="self-center"
+          disabled={list.isFetchingNextPage}
+          onClick={() => void list.fetchNextPage()}
+        >
+          {list.isFetchingNextPage ? t('common.loading') : t('transactions.loadMore')}
+        </Button>
+      )}
+
+      {range && today && (
+        <TransactionFormDialog
+          budgetId={budgetId}
+          open={dialog.kind === 'add' || dialog.kind === 'edit'}
+          onOpenChange={(open) => {
+            if (!open) close()
+          }}
+          transaction={dialog.kind === 'edit' ? dialog.transaction : undefined}
+          liveTransaction={live(dialog.kind === 'edit' ? dialog.transaction : undefined)}
+          range={range}
+          today={today}
+        />
+      )}
+      <DeleteTransactionDialog
+        budgetId={budgetId}
+        transaction={dialog.kind === 'delete' ? dialog.transaction : null}
+        liveTransaction={live(dialog.kind === 'delete' ? dialog.transaction : undefined)}
+        onClose={close}
+      />
+    </div>
+  )
+}
+
+function Filters({
+  periods,
+  period,
+  allPeriods,
+  categories,
+  categoryId,
+  kind,
+  onPeriod,
+  onCategory,
+  onKind,
+}: {
+  periods: PeriodSummary[]
+  period: PeriodSummary | null
+  allPeriods: boolean
+  categories: Category[]
+  categoryId: string | null
+  kind: TransactionKind | null
+  onPeriod: (value: string | null) => void
+  onCategory: (value: string | null) => void
+  onKind: (value: string | null) => void
+}) {
+  const { t } = useTranslation()
+  const tops = categories.filter((category) => category.parent_id === null && !isVoid(category))
+  const label = (item: PeriodSummary) =>
+    t('income.fields.fromPeriod', {
+      start: formatCalendarDate(item.start_date),
+      end: formatCalendarDate(item.end_date),
+    })
+  return (
+    <div
+      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+      role="group"
+      aria-label={t('transactions.filters.label')}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filter-period">{t('transactions.filters.period')}</Label>
+        <Select
+          value={allPeriods ? ALL : (period?.id ?? ALL)}
+          onValueChange={(value) => onPeriod(value)}
+        >
+          <SelectTrigger id="filter-period" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" className="max-h-80">
+            <SelectItem value={ALL}>{t('transactions.filters.allPeriods')}</SelectItem>
+            <SelectSeparator />
+            {periods.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.is_current
+                  ? t('transactions.filters.currentPeriod', { range: label(item) })
+                  : label(item)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filter-category">{t('transactions.filters.category')}</Label>
+        <Select
+          value={categoryId ?? ALL}
+          onValueChange={(value) => onCategory(value === ALL ? null : value)}
+        >
+          <SelectTrigger id="filter-category" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" className="max-h-80">
+            <SelectItem value={ALL}>{t('transactions.filters.allCategories')}</SelectItem>
+            <SelectSeparator />
+            {tops.map((top) => {
+              const subs = categories.filter((item) => item.parent_id === top.id && !isVoid(item))
+              const endedNote = (item: Category) =>
+                item.is_active === true
+                  ? item.name
+                  : t('transactions.filters.ended', { name: item.name })
+              return top.is_group ? (
+                <SelectGroup key={top.id}>
+                  <SelectLabel>{top.name}</SelectLabel>
+                  <SelectItem value={top.id} className="pl-5">
+                    {t('transactions.filters.wholeGroup', { name: top.name })}
+                  </SelectItem>
+                  {subs.map((sub) => (
+                    <SelectItem key={sub.id} value={sub.id} className="pl-5">
+                      {endedNote(sub)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ) : (
+                <SelectItem key={top.id} value={top.id}>
+                  {endedNote(top)}
+                </SelectItem>
+              )
+            })}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filter-kind">{t('transactions.filters.kind')}</Label>
+        <Select value={kind ?? ALL} onValueChange={(value) => onKind(value === ALL ? null : value)}>
+          <SelectTrigger id="filter-kind" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value={ALL}>{t('transactions.filters.allKinds')}</SelectItem>
+            {TRANSACTION_KINDS.map((value) => (
+              <SelectItem key={value} value={value}>
+                {t(`transactions.kindPlural.${value}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
+}
+
+/** A calendar date's weekday, read from the string, in the UI language (no time zone). */
+function weekday(date: string, language: string): string {
+  const { year, month } = calendarMonth(date)
+  const day = Number(date.slice(8, 10))
+  return new Intl.DateTimeFormat(language, { weekday: 'long', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, month - 1, day)),
+  )
+}
+
+/** Transactions grouped by day, newest first. */
+function TransactionList({
+  rows,
+  onEdit,
+  onDelete,
+}: {
+  rows: Transaction[]
+  onEdit: (transaction: Transaction) => void
+  onDelete: (transaction: Transaction) => void
+}) {
+  const { t, i18n } = useTranslation()
+  const days: { date: string; items: Transaction[] }[] = []
+  for (const row of rows) {
+    const last = days.at(-1)
+    if (last?.date === row.date) last.items.push(row)
+    else days.push({ date: row.date, items: [row] })
+  }
+  return (
+    <div className="flex flex-col gap-4" data-testid="transaction-list">
+      {days.map((day) => (
+        <section key={day.date} aria-label={formatCalendarDate(day.date)}>
+          <h2 className="mb-1.5 px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            <span className="capitalize">{weekday(day.date, i18n.language)}</span>{' '}
+            <time dateTime={day.date} className="tabular-nums">
+              {formatCalendarDate(day.date)}
+            </time>
+          </h2>
+          <ul className="flex flex-col divide-y rounded-xl border bg-card">
+            {day.items.map((row) => (
+              <TransactionRow key={row.id} row={row} onEdit={onEdit} onDelete={onDelete} />
+            ))}
+          </ul>
+        </section>
+      ))}
+      <span className="sr-only">{t('transactions.count', { count: rows.length })}</span>
+    </div>
+  )
+}
+
+function TransactionRow({
+  row,
+  onEdit,
+  onDelete,
+}: {
+  row: Transaction
+  onEdit: (transaction: Transaction) => void
+  onDelete: (transaction: Transaction) => void
+}) {
+  const { t } = useTranslation()
+  const incoming = row.kind !== 'expense'
+  const what =
+    row.kind === 'extra_income'
+      ? t('transactions.kind.extra_income')
+      : row.parent_category_name
+        ? t('categories.path', { parent: row.parent_category_name, name: row.category_name ?? '' })
+        : (row.category_name ?? '')
+  return (
+    <li className="flex items-center gap-3 px-3 py-2.5 sm:px-4" data-testid="transaction-row">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-medium">{row.description || what}</span>
+          {row.kind === 'refund' && (
+            <Badge variant="secondary">{t('transactions.kind.refund')}</Badge>
+          )}
+        </div>
+        <span className="truncate text-xs text-muted-foreground">
+          {row.description ? what : null}
+          {row.description && row.recorded_by_name ? ' · ' : null}
+          {row.recorded_by_name
+            ? t('transactions.recordedBy', { name: row.recorded_by_name })
+            : null}
+        </span>
+      </div>
+      <span
+        className={cn('shrink-0 text-right font-medium tabular-nums', incoming && 'text-positive')}
+        data-testid="transaction-amount"
+      >
+        {incoming ? `+${formatMoney(row.amount)}` : formatMoney(row.amount)}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t('transactions.actionsFor', {
+              what: row.description || what,
+              amount: formatMoney(row.amount),
+              date: formatCalendarDate(row.date),
+            })}
+          >
+            <EllipsisVerticalIcon />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => onEdit(row)}>
+            <PencilIcon />
+            {t('transactions.edit')}
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onSelect={() => onDelete(row)}>
+            <Trash2Icon />
+            {t('transactions.delete')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
+  )
+}
+
+function DeleteTransactionDialog({
+  budgetId,
+  transaction,
+  liveTransaction,
+  onClose,
+}: {
+  budgetId: string
+  transaction: Transaction | null
+  liveTransaction: Transaction | null | undefined
+  onClose: () => void
+}) {
+  return (
+    <AlertDialog
+      open={transaction !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <AlertDialogContent>
+        {transaction && (
+          <DeleteTransactionBody
+            budgetId={budgetId}
+            transaction={transaction}
+            liveTransaction={liveTransaction}
+            onClose={onClose}
+          />
+        )}
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function DeleteTransactionBody({
+  budgetId,
+  transaction: opened,
+  liveTransaction,
+  onClose,
+}: {
+  budgetId: string
+  transaction: Transaction
+  liveTransaction: Transaction | null | undefined
+  onClose: () => void
+}) {
+  const { t } = useTranslation()
+  const errorMessage = useErrorMessage()
+  const removal = useEditBase(liveTransaction === undefined ? opened : liveTransaction)
+  const transaction = removal.live ?? removal.base ?? opened
+  const remove = useDeleteTransaction(budgetId)
+  return (
+    <>
+      <AlertDialogHeader>
+        <AlertDialogTitle>{t('transactions.deleteTitle')}</AlertDialogTitle>
+        <AlertDialogDescription>
+          {t('transactions.deleteDescription', {
+            amount: formatMoney(transaction.amount),
+            date: formatCalendarDate(transaction.date),
+          })}
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      {removal.changed && (
+        <ChangedElsewhere
+          kind="remove"
+          onKeepMine={() => {
+            removal.adopt()
+            remove.reset()
+          }}
+        />
+      )}
+      <SaveError error={remove.error} changed={removal.changed} message={errorMessage} />
+      <AlertDialogFooter>
+        <AlertDialogCancel disabled={remove.isPending}>{t('common.cancel')}</AlertDialogCancel>
+        <Button
+          variant="destructive"
+          disabled={remove.isPending || removal.changed}
+          onClick={() =>
+            remove.mutate(
+              { transaction, revision: (removal.base ?? transaction).revision },
+              { onSuccess: onClose },
+            )
+          }
+        >
+          {remove.isPending ? t('common.saving') : t('transactions.delete')}
+        </Button>
+      </AlertDialogFooter>
+    </>
+  )
 }

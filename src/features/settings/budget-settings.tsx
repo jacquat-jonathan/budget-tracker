@@ -9,7 +9,6 @@ import { z } from 'zod'
 import { paths } from '@/app/paths'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { CalendarDateField } from '@/components/form/calendar-date-field'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, FieldSeparator } from '@/components/ui/field'
@@ -20,7 +19,9 @@ import {
   useSetBudgetEndDate,
 } from '@/features/budgets/budget-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { ChangedElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
 
@@ -52,7 +53,7 @@ export function BudgetSettings() {
         <FieldSeparator />
         {/* R-MEMBER-050: owner-only, with the reason for a member. */}
         {isOwner ? (
-          <EndDateForm key={`end-${budget.id}-${budget.end_date_entered ?? ''}`} />
+          <EndDateForm key={`end-${budget.id}`} />
         ) : (
           <div className="flex flex-col gap-2">
             <h3 className="font-medium">{t('settings.budget.endDate')}</h3>
@@ -81,14 +82,18 @@ function RenameForm() {
   const { budget, budgetId } = useCurrentBudget()
   const errorMessage = useErrorMessage()
   const rename = useRenameBudget(budgetId)
+  const base = useEditBase(budget)
   const form = useForm<z.input<typeof renameSchema>, unknown, z.output<typeof renameSchema>>({
     resolver: zodResolver(renameSchema),
     defaultValues: { name: budget.name },
   })
 
   const onSubmit = form.handleSubmit(({ name }) =>
-    rename.mutateAsync(name).then(
-      () => form.reset({ name }),
+    rename.mutateAsync({ name, revision: (base.base ?? budget).revision }).then(
+      (revision) => {
+        base.savedAs(revision)
+        form.reset({ name })
+      },
       () => undefined,
     ),
   )
@@ -96,11 +101,20 @@ function RenameForm() {
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FieldGroup>
-        {rename.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{errorMessage(rename.error)}</AlertDescription>
-          </Alert>
+        {base.changed && (
+          <ChangedElsewhere
+            onUseTheirs={() => {
+              base.adopt()
+              rename.reset()
+              form.reset({ name: budget.name })
+            }}
+            onKeepMine={() => {
+              base.adopt()
+              rename.reset()
+            }}
+          />
         )}
+        <SaveError error={rename.error} changed={base.changed} message={errorMessage} />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           <div className="flex-1">
             <TextField
@@ -110,7 +124,7 @@ function RenameForm() {
               autoComplete="off"
             />
           </div>
-          <Button type="submit" className="sm:mt-6" disabled={rename.isPending}>
+          <Button type="submit" className="sm:mt-6" disabled={rename.isPending || base.changed}>
             {rename.isPending ? t('common.saving') : t('settings.budget.rename')}
           </Button>
         </div>
@@ -126,14 +140,21 @@ function EndDateForm() {
   const { budget, budgetId } = useCurrentBudget()
   const errorMessage = useErrorMessage()
   const setEndDate = useSetBudgetEndDate(budgetId)
+  const base = useEditBase(budget)
   const form = useForm<z.input<typeof endDateSchema>, unknown, z.output<typeof endDateSchema>>({
     resolver: zodResolver(endDateSchema),
     defaultValues: { endDate: budget.end_date_entered ?? '' },
   })
 
-  const onSubmit = form.handleSubmit(({ endDate }) =>
-    setEndDate.mutateAsync(endDate).catch(() => undefined),
-  )
+  const save = (endDate: string | null) =>
+    setEndDate.mutateAsync({ endDate, revision: (base.base ?? budget).revision }).then(
+      (stored) => {
+        if (stored) base.savedAs(stored.revision)
+        form.reset({ endDate: stored?.end_date_entered ?? '' })
+      },
+      () => undefined,
+    )
+  const onSubmit = form.handleSubmit(({ endDate }) => save(endDate))
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
@@ -150,11 +171,20 @@ function EndDateForm() {
               : t('settings.budget.noEndDate')}
           </p>
         </div>
-        {setEndDate.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{errorMessage(setEndDate.error)}</AlertDescription>
-          </Alert>
+        {base.changed && (
+          <ChangedElsewhere
+            onUseTheirs={() => {
+              base.adopt()
+              setEndDate.reset()
+              form.reset({ endDate: budget.end_date_entered ?? '' })
+            }}
+            onKeepMine={() => {
+              base.adopt()
+              setEndDate.reset()
+            }}
+          />
         )}
+        <SaveError error={setEndDate.error} changed={base.changed} message={errorMessage} />
         <CalendarDateField
           control={form.control}
           name="endDate"
@@ -162,15 +192,15 @@ function EndDateForm() {
           description={t('settings.budget.endDateHelp')}
         />
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={setEndDate.isPending}>
+          <Button type="submit" disabled={setEndDate.isPending || base.changed}>
             {setEndDate.isPending ? t('common.saving') : t('settings.budget.saveEndDate')}
           </Button>
           {budget.end_date_entered && (
             <Button
               type="button"
               variant="outline"
-              disabled={setEndDate.isPending}
-              onClick={() => setEndDate.mutate(null)}
+              disabled={setEndDate.isPending || base.changed}
+              onClick={() => void save(null)}
             >
               {t('settings.budget.clearEndDate')}
             </Button>

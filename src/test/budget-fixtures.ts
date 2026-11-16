@@ -107,3 +107,108 @@ export function householdDb(userId = DEFAULT_USER_ID, tables: Partial<MockTables
     ...tables,
   })
 }
+
+export function categoryRow(
+  overrides: Partial<Tables<'category_overview'>> = {},
+): Tables<'category_overview'> {
+  return {
+    id: 'cat-groceries',
+    budget_id: BUDGET_ID,
+    parent_id: null,
+    name: 'Groceries',
+    sort_order: 1,
+    is_group: false,
+    is_active: true,
+    first_seq: 1,
+    end_seq: null,
+    amount: 90_000,
+    cadence: 'monthly',
+    monthly_amount: 90_000,
+    terms_from_seq: 1,
+    has_transactions: true,
+    removal_deletes: false,
+    revision: 1,
+    created_at: '2026-10-01T10:00:00+00:00',
+    updated_at: '2026-10-01T10:00:00+00:00',
+    ...overrides,
+  }
+}
+
+export function transactionRow(
+  overrides: Partial<Tables<'transaction_list'>> = {},
+): Tables<'transaction_list'> {
+  return {
+    id: 'tx-1',
+    budget_id: BUDGET_ID,
+    kind: 'expense',
+    amount: 8_790,
+    date: '2026-11-08',
+    period_id: 'period-2',
+    category_id: 'cat-groceries',
+    category_name: 'Groceries',
+    parent_category_id: null,
+    parent_category_name: null,
+    description: 'Migros',
+    recorded_by: DEFAULT_USER_ID,
+    recorded_by_name: 'Alex',
+    revision: 1,
+    created_at: '2026-11-08T10:00:00+00:00',
+    updated_at: '2026-11-08T10:00:00+00:00',
+    ...overrides,
+  }
+}
+
+/**
+ * The household with categories: Rent, Groceries, Insurance (a group of Health, and Car with
+ * a yearly amount), and Old hobby, ended in the current period.
+ */
+export function categoriesDb(tables: Partial<MockTables> = {}): MockDb {
+  return householdDb(DEFAULT_USER_ID, {
+    category_overview: [
+      categoryRow({
+        id: 'cat-rent',
+        name: 'Rent',
+        sort_order: 0,
+        amount: 210_000,
+        monthly_amount: 210_000,
+      }),
+      categoryRow(),
+      categoryRow({
+        id: 'cat-insurance',
+        name: 'Insurance',
+        sort_order: 2,
+        is_group: true,
+        amount: null,
+        cadence: null,
+        monthly_amount: 56_000,
+        terms_from_seq: null,
+      }),
+      categoryRow({
+        id: 'cat-health',
+        parent_id: 'cat-insurance',
+        name: 'Health',
+        sort_order: 0,
+        amount: 48_000,
+        monthly_amount: 48_000,
+      }),
+      categoryRow({
+        id: 'cat-car',
+        parent_id: 'cat-insurance',
+        name: 'Car',
+        sort_order: 1,
+        amount: 96_000,
+        cadence: 'yearly',
+        monthly_amount: 8_000,
+        has_transactions: false,
+      }),
+      categoryRow({
+        id: 'cat-hobby',
+        name: 'Old hobby',
+        sort_order: 3,
+        is_active: false,
+        end_seq: 2,
+      }),
+    ],
+    ...tables,
+  })
+}

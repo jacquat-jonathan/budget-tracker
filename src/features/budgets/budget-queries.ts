@@ -68,7 +68,7 @@ export interface PeriodRead<T> {
  * what "today" makes of incomes) waits for ensure_periods to have run, is read again after
  * each run, and fails visibly when ensure_periods fails, never as "no current period".
  */
-function usePeriodDependentQuery<T>(
+export function usePeriodDependentQuery<T>(
   budgetId: string,
   queryKey: QueryKey,
   queryFn: () => Promise<T>,

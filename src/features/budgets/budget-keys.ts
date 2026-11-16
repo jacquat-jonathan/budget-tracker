@@ -15,4 +15,10 @@ export const budgetKeys = {
   incomes: (budgetId: string) => ['budget', budgetId, 'incomes'] as const,
   members: (budgetId: string) => ['budget', budgetId, 'members'] as const,
   invitations: (budgetId: string) => ['budget', budgetId, 'invitations'] as const,
+  categories: (budgetId: string) => ['budget', budgetId, 'categories'] as const,
+  categoriesForDate: (budgetId: string, date: string) =>
+    ['budget', budgetId, 'categories-for-date', date] as const,
+  transactions: (budgetId: string) => ['budget', budgetId, 'transactions'] as const,
+  progress: (budgetId: string, periodId: string) =>
+    ['budget', budgetId, 'progress', periodId] as const,
 }
