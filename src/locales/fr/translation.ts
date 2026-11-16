@@ -1,3 +1,4 @@
+import { compareFr } from '@/locales/fr/compare'
 import type { Translation } from '@/locales/en/translation'
 import { catchUpFr, chargesFr, correctionsFr, debtsFr, subscriptionsFr } from '@/locales/fr/step4'
 
@@ -26,6 +27,7 @@ export const fr: Translation = {
     subscriptions: 'Abonnements',
     debts: 'Dettes',
     periods: 'Périodes',
+    compare: 'Comparer',
     moneyFlow: 'Flux financiers',
     income: 'Revenus',
     settings: 'Paramètres',
@@ -43,6 +45,10 @@ export const fr: Translation = {
     },
     periods: {
       description: 'D’un jour de paie au suivant, de la plus récente à la plus ancienne.',
+    },
+    compare: {
+      description:
+        'Comment vos périodes se comparent : la tendance, chaque catégorie au fil du temps, et deux périodes côte à côte.',
     },
     moneyFlow: {
       description: 'La répartition de votre argent entre vos comptes après le jour de paie.',
@@ -1133,6 +1139,7 @@ export const fr: Translation = {
   subscriptions: subscriptionsFr,
   charges: chargesFr,
   debts: debtsFr,
+  compare: compareFr,
   catchUp: catchUpFr,
   ui: {
     close: 'Fermer',

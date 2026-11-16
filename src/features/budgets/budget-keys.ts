@@ -27,6 +27,8 @@ export const budgetKeys = {
   awaitingCharges: (budgetId: string) => ['budget', budgetId, 'awaiting-charges'] as const,
   debts: (budgetId: string) => ['budget', budgetId, 'debts'] as const,
   debtTotals: (budgetId: string) => ['budget', budgetId, 'debt-totals'] as const,
+  /** Period comparison reads (trend, category lines, side by side). */
+  compare: (budgetId: string) => ['budget', budgetId, 'compare'] as const,
   debtHistory: (budgetId: string, debtId: string) =>
     ['budget', budgetId, 'debt-history', debtId] as const,
 }

@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-426 rules (365 active, 54 planned), 24 conventions, 196 decisions, 30 open questions. 0 rules and conventions are marked **TEST PENDING**.
+432 rules (371 active, 54 planned), 24 conventions, 200 decisions, 30 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -192,11 +192,11 @@ Debts with planned payments, their evolution and expected end date.
 Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).
 
 - **US-COMPARE-001** As a budget member, I want to compare the income, spending and result of the last 12 periods in a chart, so that I see how our spending evolves.
-  Rules: R-COMPARE-002, R-COMPARE-171, R-COMPARE-172, R-COMPARE-173
+  Rules: R-COMPARE-002, R-COMPARE-171, R-COMPARE-172, R-COMPARE-173, R-COMPARE-190, R-COMPARE-191, R-COMPARE-195
 - **US-COMPARE-002** As a budget member, I want to see the spending per category across periods, so that I see which categories grow or shrink.
-  Rules: R-COMPARE-070, R-COMPARE-170, R-COMPARE-174
+  Rules: R-COMPARE-070, R-COMPARE-170, R-COMPARE-174, R-COMPARE-192, R-COMPARE-193
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
-  Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174
+  Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174, R-COMPARE-194
 
 ### Step 6: Import (statements, CSV and Claude) (planned)
 
@@ -1681,6 +1681,30 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: R-SECURITY-002, C-DBTEST-002, C-DBTEST-003
   - Source: owner-request: coordinator brief for the step 5 database (period comparison), 2026-11-16; code: supabase/migrations/20261118100000_period_comparison.sql
+- **R-COMPARE-190** The comparison is its own page, "Compare", in the sidebar right after the dashboard, with three views: the trend, the categories over time and two periods side by side. The view and its choices (6, 12 or 24 periods, the selected period, the lines drawn, the planned amounts shown, periods A and B, the order) are in the address, so a link opens the same view; the page loads with its charts only when opened.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-002, R-COMPARE-070, R-COMPARE-071, R-COMPARE-171, D-295
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-page.tsx
+- **R-COMPARE-191** The trend shows, for each period of the range, its dates, its number of days, its income, spending, planned total and result as get_period_trend gives them, in two charts (income and spending as columns with the planned total as a line; the result as columns from zero) and in a table listing every figure. The running period is marked in words and said never to be averaged; the averages say over how many completed periods they are taken, or "no completed period yet" instead of an amount; when period lengths differ by more than a tenth the page says amounts are not adjusted for length. Selecting a period offers to open it and to compare it with another.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-002, R-COMPARE-172, R-COMPARE-173, D-296, D-297
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/trend-view.tsx
+- **R-COMPARE-192** The categories view lists every category line by period as get_category_trend gives it: groups at the top level, opened on their subcategories; each line's average; in each period the spending (a link to that category's transactions in that period), the planned amount on request, spending above the plan marked with a sign and words, and "—", said as not planned, where the category was not in force and nothing was spent (never 0). A chart draws up to five lines the user picks, by default the three top-level lines with the highest average; a line keeps its colour while others are added or removed.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-070, R-COMPARE-174, D-297
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/categories-view.tsx
+- **R-COMPARE-193** The categories view shows its lines only against the periods they belong to: get_category_trend's period_ids must equal get_period_trend's periods for the same count; when they differ (a period was created or merged between the two reads) both are read again, and after three attempts the view reports an error with a retry rather than misaligned figures.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-070, R-COMPARE-170
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-queries.ts
+- **R-COMPARE-194** Side by side, the database chooses the default periods (no id sent); the user picks A and B among every period (older ones on request) and can swap them. The totals (income, spent, result, planned, subscriptions) then each category, in the budget's order or biggest changes first, show A, B and the difference B minus A with its sign, an arrow and its direction in words (never colour alone); a side with nothing is "—", said in words; each period's length is shown.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-071, R-COMPARE-173, D-298
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/components/side-by-side-view.tsx
+- **R-COMPARE-195** The compare page says so when a comparison needs a second period, when the budget has no categories yet, and when the budget has ended (the range ends at its last period); a read that fails says so with a retry; a read answered catching_up is handled like any other (R-PERIOD-190).
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-171, R-COMPARE-175, R-PERIOD-190
+  - Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16; code: src/features/compare/compare-page.tsx
 
 ### Import
 
@@ -4626,6 +4650,66 @@ When the user picks another correction period, the fields they changed keep what
 Related: R-CONCURRENCY-190
 
 Source: owner-request: coordinator, final review of the step 4 screens (addendum C), 2026-11-16
+
+### D-295 Compare is a page of its own after the dashboard (accepted)
+
+The comparison is a sidebar page placed right after the dashboard, with three views reached by links whose choices live in the address; Recharts is loaded only with this page. No dashboard card for step 5.
+
+**Why:** The comparison is read often and for a while; a page of its own keeps the dashboard light and its first load small, and the address makes a view shareable between members.
+
+**Rejected:**
+
+- Tabs inside the periods or progress page.
+- A dashboard card with a small trend (optional in the brief; left out for now).
+
+Related: R-COMPARE-190
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-296 Say lengths differ beyond a tenth (accepted)
+
+The trend says that period lengths differ and amounts are not adjusted only when the longest period of the range is more than 1.1 times the shortest (from the days the database gives); periods of 28 to 31 days do not trigger it.
+
+**Why:** The note matters after an early pay date or a reopened period; under every ordinary range it would be noise.
+
+**Rejected:**
+
+- Always showing the note.
+- Amounts per day (R-COMPARE-173 forbids scaling).
+
+Related: R-COMPARE-173, R-COMPARE-191
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-297 Chart forms of the comparison (accepted)
+
+Income and spending as columns side by side with the planned total as a line on one money axis; the result in a chart of its own, columns from zero (position tells a surplus from a deficit); category lines as a line chart of at most five user-picked lines, each in the hue of its slot. Every chart is one named image whose text alternative is the table under it; on a phone a wide range scrolls inside the chart's own frame, opening on the newest periods.
+
+**Why:** One scale per chart; a slot keeps its colour so identity never moves with rank; five hues is what stays distinguishable.
+
+**Rejected:**
+
+- Two y-axes on one chart.
+- Stacked areas of every category.
+- A chart of every line.
+
+Related: R-COMPARE-191, R-COMPARE-192
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
+
+### D-298 Side by side on a phone (accepted)
+
+Below the small breakpoint each row of the side-by-side tables shows its name, then A and B next to each other, then the difference on a line of its own, each figure labelled; wider screens keep the table.
+
+**Why:** The difference is what the view is for: it must be seen without scrolling sideways, also with eight-figure amounts at 320 px.
+
+**Rejected:**
+
+- A table scrolling sideways on phones.
+
+Related: R-COMPARE-194
+
+Source: owner-request: coordinator, step 4 screens adapted to the database re-review and step 5, 2026-11-16
 
 ## Open questions
 

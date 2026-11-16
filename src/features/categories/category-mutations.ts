@@ -114,7 +114,8 @@ export function useReorderCategories(budgetId: string) {
       )
       return null
     },
-    invalidate: () => [budgetKeys.categories(budgetId)],
+    // The comparison lists categories in the budget's order too.
+    invalidate: () => [budgetKeys.categories(budgetId), budgetKeys.compare(budgetId)],
   })
 }
 

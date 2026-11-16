@@ -6,6 +6,7 @@ export const paths = {
   subscriptions: '/subscriptions',
   debts: '/debts',
   periods: '/periods',
+  compare: '/compare',
   moneyFlow: '/money-flow',
   income: '/income',
   settings: '/settings',

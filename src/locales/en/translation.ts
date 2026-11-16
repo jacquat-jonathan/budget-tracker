@@ -1,3 +1,4 @@
+import { compareEn } from '@/locales/en/compare'
 import { catchUpEn, chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
 
 export const en = {
@@ -24,6 +25,7 @@ export const en = {
     subscriptions: 'Subscriptions',
     debts: 'Debts',
     periods: 'Periods',
+    compare: 'Compare',
     moneyFlow: 'Money flow',
     income: 'Income',
     settings: 'Settings',
@@ -38,6 +40,10 @@ export const en = {
     subscriptions: { description: 'Recurring charges and when the next one is due.' },
     debts: { description: 'What you owe, how it shrinks and when it will be paid off.' },
     periods: { description: 'Pay day to pay day, newest first.' },
+    compare: {
+      description:
+        'How your periods compare: the trend, each category over time, and any two side by side.',
+    },
     moneyFlow: { description: 'How money moves between your accounts after payday.' },
     income: { description: 'The incomes that make up your monthly budget.' },
     settings: { description: 'The budget, the people who share it, and your account.' },
@@ -1083,6 +1089,7 @@ export const en = {
   subscriptions: subscriptionsEn,
   charges: chargesEn,
   debts: debtsEn,
+  compare: compareEn,
   catchUp: catchUpEn,
   ui: {
     close: 'Close',

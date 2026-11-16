@@ -57,6 +57,10 @@ const DebtsPage = lazy(() =>
 const DebtDetailPage = lazy(() =>
   import('@/features/debts/debt-detail-page').then((m) => ({ default: m.DebtDetailPage })),
 )
+// Recharts stays in the Compare page's chunk, out of the first load.
+const ComparePage = lazy(() =>
+  import('@/features/compare/compare-page').then((m) => ({ default: m.ComparePage })),
+)
 const PeriodsPage = lazy(() =>
   import('@/features/periods/periods-page').then((m) => ({ default: m.PeriodsPage })),
 )
@@ -135,6 +139,7 @@ export const routes: RouteObject[] = [
                       { path: paths.debts, element: <DebtsPage />, ...page('debts') },
                       { path: debtRoute, element: <DebtDetailPage />, ...page('debts') },
                       { path: paths.periods, element: <PeriodsPage />, ...page('periods') },
+                      { path: paths.compare, element: <ComparePage />, ...page('compare') },
                       {
                         path: paths.moneyFlow,
                         element: <MoneyFlowPage />,
