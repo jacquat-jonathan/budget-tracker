@@ -8839,6 +8839,19 @@
         "code: src/features/auth/auth-provider.tsx",
         "code: src/features/auth/session-ended.ts"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-DEBT-530",
+      "area": "debt",
+      "feature": "F-DEBT",
+      "statement": "\"Adjust balance\" says before saving what each field does (R-DEBT-075): the amount is \"What you owe now\" and becomes the remaining amount now, whatever the date; the date (\"Record the adjustment on\") only places the adjustment in the history and in its period and does not set the balance on that day, so payments and interest recorded after it still count and the history may show another figure on that date; and the dialog names the remaining amount the difference is taken from.",
+      "related": ["R-DEBT-075"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/debts/components/adjust-balance-dialog.tsx"
+      ]
     }
   ],
   "decisions": [

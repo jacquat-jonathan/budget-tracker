@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-613 rules (602 active, 0 planned), 24 conventions, 381 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+614 rules (603 active, 0 planned), 24 conventions, 381 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1814,6 +1814,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: D-467, R-DEBT-131
   - Source: owner-request: coordinator follow-up to the step 6 database fix round 2 (5f57c5a), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-530** "Adjust balance" says before saving what each field does (R-DEBT-075): the amount is "What you owe now" and becomes the remaining amount now, whatever the date; the date ("Record the adjustment on") only places the adjustment in the history and in its period and does not set the balance on that day, so payments and interest recorded after it still count and the history may show another figure on that date; and the dialog names the remaining amount the difference is taken from.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-075
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/debts/components/adjust-balance-dialog.tsx
 
 ### Browsing and comparing periods
 

@@ -252,6 +252,21 @@ describe('debt detail [R-DEBT-122]', () => {
     expect(db.rpc.get_debt_history).toHaveBeenCalledWith({ p_debt_id: DEBT_ID, p_limit: 1000 })
   })
 
+  it('says before saving that the amount is owed now and the date only places the adjustment [R-DEBT-530]', async () => {
+    mock.current = createSupabaseMock(fakeSession(), debtsDb())
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
+    await screen.findByTestId('debt-history')
+    await userEvent.click(screen.getByRole('button', { name: 'Adjust balance' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('What you owe now')).toHaveAccessibleDescription(
+      /It becomes the remaining amount now, whatever date you give below\./,
+    )
+    expect(within(dialog).getByLabelText('Record the adjustment on')).toHaveAccessibleDescription(
+      /only places the adjustment in the history and in its period\. It does not set the balance on that day: payments and interest recorded after it still count/,
+    )
+    expect(within(dialog).queryByText(/Date of the statement/)).not.toBeInTheDocument()
+  })
+
   it('adjusts the balance to the bank’s figure, saying the difference is what is stored', async () => {
     const db = debtsDb()
     db.rpc.adjust_debt_balance.mockImplementation(() => [debtRow({ revision: 2 })])
@@ -260,8 +275,8 @@ describe('debt detail [R-DEBT-122]', () => {
     await screen.findByTestId('debt-history')
     await userEvent.click(screen.getByRole('button', { name: 'Adjust balance' }))
     const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('stores the difference')
-    await userEvent.type(within(dialog).getByLabelText('Balance on your statement'), "11'400")
+    expect(dialog).toHaveTextContent('records the difference')
+    await userEvent.type(within(dialog).getByLabelText('What you owe now'), "11'400")
     await userEvent.type(within(dialog).getByLabelText('Note (optional)'), 'November')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Adjust' }))
     await waitFor(() => {
@@ -342,8 +357,8 @@ describe('a debt in an ended budget [R-BUDGET-150]', () => {
     await screen.findByTestId('debt-history')
     await userEvent.click(screen.getByRole('button', { name: 'Adjust balance' }))
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByLabelText('Date of the statement')).toHaveValue('15.11.2026')
-    await userEvent.type(within(dialog).getByLabelText('Balance on your statement'), '11000')
+    expect(within(dialog).getByLabelText('Record the adjustment on')).toHaveValue('15.11.2026')
+    await userEvent.type(within(dialog).getByLabelText('What you owe now'), '11000')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Adjust' }))
     await waitFor(() => {
       expect(db.rpc.adjust_debt_balance).toHaveBeenCalledWith({

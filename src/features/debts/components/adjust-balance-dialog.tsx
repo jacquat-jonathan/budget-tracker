@@ -193,7 +193,8 @@ function AdjustForm({
           control={form.control}
           name="date"
           label={t('debts.adjust.date')}
-          description={
+          // R-DEBT-530: what the date does, said before saving.
+          description={`${t('debts.adjust.dateHelp')} ${
             earliest !== range.min
               ? t('debts.adjust.dateRange', {
                   min: formatCalendarDate(earliest),
@@ -203,7 +204,7 @@ function AdjustForm({
                   min: formatCalendarDate(range.min),
                   max: formatCalendarDate(range.max),
                 })
-          }
+          }`}
         />
         <TextField
           control={form.control}
@@ -215,7 +216,9 @@ function AdjustForm({
         />
         <Alert>
           <InfoIcon aria-hidden />
-          <AlertDescription>{t('debts.adjust.difference')}</AlertDescription>
+          <AlertDescription>
+            {t('debts.adjust.difference', { amount: formatMoney(current.remaining) })}
+          </AlertDescription>
         </Alert>
         <DialogFooter className="sticky -bottom-4 z-10 bg-popover">
           <Button type="button" variant="outline" onClick={onClose}>

@@ -247,13 +247,16 @@ export const debtsEn = {
     title: 'Adjust the balance',
     description: 'Make the remaining amount match your bank statement.',
     now: '“{{name}}”: {{amount}} remaining now.',
-    balance: 'Balance on your statement',
-    balanceHelp: 'What the bank says you still owe.',
-    date: 'Date of the statement',
+    balance: 'What you owe now',
+    balanceHelp:
+      'The amount still owed today, as your bank says. It becomes the remaining amount now, whatever date you give below.',
+    date: 'Record the adjustment on',
+    dateHelp:
+      'This date only places the adjustment in the history and in its period. It does not set the balance on that day: payments and interest recorded after it still count, so the history may show another figure on that date.',
     note: 'Note (optional)',
     notePlaceholder: 'Statement of 30 November',
     difference:
-      'The budget stores the difference between this balance and the remaining amount as an adjustment, so payments recorded meanwhile stay counted.',
+      'The budget records the difference between this amount and the {{amount}} remaining now as one adjustment on that date.',
     save: 'Adjust',
     done: 'Balance adjusted to {{amount}}.',
     deleted: 'Adjustment deleted.',

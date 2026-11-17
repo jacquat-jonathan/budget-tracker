@@ -257,13 +257,16 @@ export const debtsFr: Translation['debts'] = {
     title: 'Ajuster le solde',
     description: 'Faites correspondre le montant restant à votre relevé bancaire.',
     now: '« {{name}} » : {{amount}} restant actuellement.',
-    balance: 'Solde sur votre relevé',
-    balanceHelp: 'Ce que la banque indique que vous devez encore.',
-    date: 'Date du relevé',
+    balance: 'Ce que vous devez maintenant',
+    balanceHelp:
+      'Le montant encore dû aujourd’hui, selon votre banque. Il devient le montant restant actuel, quelle que soit la date indiquée ci-dessous.',
+    date: 'Enregistrer l’ajustement le',
+    dateHelp:
+      'Cette date place seulement l’ajustement dans l’historique et dans sa période. Elle ne fixe pas le solde à ce jour-là : les remboursements et les intérêts enregistrés après elle restent comptés, et l’historique peut donc montrer un autre montant à cette date.',
     note: 'Note (facultatif)',
     notePlaceholder: 'Relevé du 30 novembre',
     difference:
-      'Le budget enregistre la différence entre ce solde et le montant restant comme un ajustement : les remboursements enregistrés entre-temps restent comptés.',
+      'Le budget enregistre la différence entre ce montant et les {{amount}} restant actuellement comme un seul ajustement à cette date.',
     save: 'Ajuster',
     done: 'Solde ajusté à {{amount}}.',
     deleted: 'Ajustement supprimé.',
