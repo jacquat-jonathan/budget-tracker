@@ -310,7 +310,9 @@ export function Checklist({
               {t('transfers.checklist.allSettled')}
             </p>
           )}
-          {settled.length > 0 && <SettledRows rows={settled} render={item} />}
+          {settled.length > 0 && (
+            <SettledRows key={period?.id ?? ''} rows={settled} render={item} />
+          )}
         </div>
       )}
       <MarkDoneDialog
