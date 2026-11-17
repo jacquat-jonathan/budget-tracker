@@ -1,5 +1,5 @@
--- Step 7, the fixes after the independent review of 2264e82: a period is never without a key and
--- every occurrence is found by its key (M1, C1, D-490); deleting a budget or a login never fails on
+-- Step 7, the fixes after the independent review of 2264e82: every period has its own occurrence
+-- of a transfer naming no income (M1, C1; by its number since D-610); deleting a budget or a login never fails on
 -- a transfer that named two incomes (M2, C5); moving a period's start moves the catch-up's own
 -- transactions (M3); the shoulds S1 to S6, C3 and the tests the reviewer listed as missing.
 begin;
@@ -36,19 +36,21 @@ create function pg_temp.cur(n text) returns public.periods language sql as $$
   where p.budget_id = tests.id(n) and (select public.get_today()) between p.start_date and p.end_date $$;
 create function pg_temp.period_at(n text, d date) returns uuid language sql as $$
   select id from public.periods where budget_id = tests.id(n) and d between start_date and end_date $$;
--- every period of a budget with its checklist rows of one transfer: key, due date, status, planned
+-- every period of a budget with its checklist rows of one transfer: the occurrence (#number for a
+-- period's own, else its date), due date, status, planned
 create function pg_temp.rows(n text, t uuid) returns table (seq integer, start_date date, rows text) language sql as $$
   select p.seq, p.start_date,
-         coalesce((select string_agg(c.occurrence_date || '/' || coalesce(c.due_date::text, '-') || '/' || c.status
-                                     || case when c.planned then '' else '/unplanned' end, ';' order by c.occurrence_date)
+         coalesce((select string_agg(coalesce(c.occurrence_date::text, '#' || c.occurrence_seq) || '/' || coalesce(c.due_date::text, '-')
+                                     || '/' || c.status || case when c.planned then '' else '/unplanned' end,
+                                     ';' order by c.occurrence_date, c.occurrence_seq)
                    from public.get_transfer_checklist(p.id) as c where c.transfer_id = t), '')
   from public.periods as p where p.budget_id = tests.id(n) order by p.seq $$;
 create function pg_temp.txs(t uuid) returns text language sql as $$
   select coalesce(string_agg(x.date::text, ',' order by x.date), '') from public.transaction_list as x where x.transfer_id = t $$;
 
 -- ===========================================================================
--- M1: a salary 15 days early, then the next one expected on its day: both paydays have their
--- transfer (R-ACCOUNT-307, D-490; the reviewer's F1)
+-- M1: a salary 15 days early, then the next one expected on its day: both periods have their
+-- transfer (R-ACCOUNT-511; the reviewer's F1)
 -- ===========================================================================
 select pg_temp.day('2026-12-15');
 select pg_temp.budget('f1', 30);
@@ -61,33 +63,26 @@ select pg_temp.day('2027-03-02');
 select public.ensure_periods(tests.id('f1'));
 select results_eq(
   $$select start_date, rows from pg_temp.rows('f1', tests.id('f1_t'))$$,
-  $$values ('2026-09-30'::date, '2026-09-30/2026-09-30/done'), ('2026-10-30', '2026-10-30/2026-10-30/done'),
-           ('2026-11-30', '2026-11-30/2026-11-30/done'), ('2026-12-15', '2026-12-30/2026-12-15/done'),
-           ('2027-01-30', '2027-01-30/2027-01-30/done'), ('2027-02-28', '2027-02-28/2027-02-28/done')$$,
-  'R-ACCOUNT-307: the period of the salary expected on 30 January takes that scheduled pay date as its key and has its transfer');
+  $$values ('2026-09-30'::date, '#1/2026-09-30/done'), ('2026-10-30', '#2/2026-10-30/done'),
+           ('2026-11-30', '#3/2026-11-30/done'), ('2026-12-15', '#4/2026-12-15/done'),
+           ('2027-01-30', '#5/2027-01-30/done'), ('2027-02-28', '#6/2027-02-28/done')$$,
+  'R-ACCOUNT-511: the period of the salary expected on 30 January has its own occurrence, like every period');
 select is(pg_temp.txs(tests.id('f1_t')), '2026-09-30,2026-10-30,2026-11-30,2026-12-15,2027-01-30,2027-02-28',
-  'R-ACCOUNT-307: one transaction for each of the six salaries');
--- the derivation depends only on the earlier periods: derived again in order, every key is the same
-select tests.clear_authentication();
-select is((select count(*)::integer from public.periods as p
-           where p.budget_id = tests.id('f1')
-             and p.pay_key is distinct from private.period_pay_key(p.budget_id, p.seq, p.start_date)), 0,
-  'R-ACCOUNT-307: every stored key is the one the derivation gives again (the backfill of existing budgets uses it)');
-select tests.authenticate_as('iris');
--- reopen and redo: the same key, the same mark, one transaction
+  'R-ACCOUNT-511: one transaction for each of the six salaries');
+-- reopen and redo: the same number, the same mark, one transaction
 select pg_temp.day('2027-03-03');
 select public.reopen_previous_period(tests.id('f1'), (pg_temp.cur('f1')).id, (pg_temp.cur('f1')).revision, '2027-03-10');
 select public.record_early_pay_date(tests.id('f1'), (pg_temp.cur('f1')).id, (pg_temp.cur('f1')).revision, '2027-02-28');
 select results_eq(
   $$select start_date, rows from pg_temp.rows('f1', tests.id('f1_t')) where seq >= 5$$,
-  $$values ('2027-01-30'::date, '2027-01-30/2027-01-30/done'), ('2027-02-28', '2027-02-28/2027-02-28/done')$$,
-  'R-ACCOUNT-307: reopened and recorded again, the period has the same key and its one transfer');
+  $$values ('2027-01-30'::date, '#5/2027-01-30/done'), ('2027-02-28', '#6/2027-02-28/done')$$,
+  'R-ACCOUNT-511: reopened and recorded again, the period has the same number and its one transfer');
 select is(pg_temp.txs(tests.id('f1_t')), '2026-09-30,2026-10-30,2026-11-30,2026-12-15,2027-01-30,2027-02-28',
   'R-ACCOUNT-302: still one transaction for each salary');
 
 -- ===========================================================================
 -- M1 with C1: three salaries recorded within three weeks give three transfers, each listed once,
--- found by its key wherever the key lies (R-ACCOUNT-307, R-ACCOUNT-240, D-490; the reviewer's F6)
+-- in its own period (R-ACCOUNT-511, R-ACCOUNT-240; the reviewer's F6)
 -- ===========================================================================
 select pg_temp.day('2026-12-02');
 select pg_temp.budget('f6');
@@ -103,45 +98,45 @@ select pg_temp.day('2026-12-26');
 select public.ensure_periods(tests.id('f6'));
 select results_eq(
   $$select start_date, rows from pg_temp.rows('f6', tests.id('f6_t')) where seq >= 3$$,
-  $$values ('2026-11-25'::date, '2026-11-25/2026-11-25/done'), ('2026-12-02', '2026-12-25/2026-12-02/done'),
-           ('2026-12-09', '2027-01-25/2026-12-09/done'), ('2026-12-16', '2027-02-25/2026-12-16/done')$$,
-  'R-ACCOUNT-307: three salaries in three weeks: three keys, three transfers, each listed once, in its own period');
+  $$values ('2026-11-25'::date, '#3/2026-11-25/done'), ('2026-12-02', '#4/2026-12-02/done'),
+           ('2026-12-09', '#5/2026-12-09/done'), ('2026-12-16', '#6/2026-12-16/done')$$,
+  'R-ACCOUNT-511: three salaries in three weeks: three periods, three transfers, each listed once, in its own period');
 select is(pg_temp.txs(tests.id('f6_t')), '2026-09-25,2026-10-25,2026-11-25,2026-12-02,2026-12-09,2026-12-16',
-  'R-ACCOUNT-307: one transaction for each salary');
+  'R-ACCOUNT-511: one transaction for each salary');
 select is((select count(*)::integer from public.get_transfer_checklist(pg_temp.period_at('f6', '2026-12-25')) as c
            where c.transfer_id = tests.id('f6_t')), 1,
-  'R-ACCOUNT-301: the period containing the earlier keys lists only its own occurrence, not those planned elsewhere');
+  'R-ACCOUNT-301: a period lists only its own occurrence');
 select tests.clear_authentication();
-select is((select count(*)::integer from private.transfer_planned(tests.id('f6_t'), '2026-12-25', 'payday')), 1,
-  'R-ACCOUNT-301: a key two periods away from the one containing it is found as planned');
+select is((select count(*)::integer from private.transfer_planned(tests.id('f6_t'), 'period', null, 4)), 1,
+  'R-ACCOUNT-511: a period''s own occurrence is found by its number');
 select tests.authenticate_as('iris');
 -- deleting the transaction of 2 December: not done, never created again
 select public.delete_transaction(x.id, x.revision) from public.transaction_list as x
 where x.transfer_id = tests.id('f6_t') and x.date = '2026-12-02';
 select public.ensure_periods(tests.id('f6'));
-select is((select mark::text from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_date = '2026-12-25'),
-  'not_done', 'R-ACCOUNT-240: deleting the transaction of an occurrence keyed far away marks it not done');
+select is((select mark::text from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_seq = 4),
+  'not_done', 'R-ACCOUNT-240: deleting the transaction of a period''s own occurrence marks it not done');
 select is(pg_temp.txs(tests.id('f6_t')), '2026-09-25,2026-10-25,2026-11-25,2026-12-09,2026-12-16',
   'R-ACCOUNT-240: and the catch-up does not create it again');
--- undoing that not-done mark, keyed far after its period, brings the transaction back (D-423:
--- the watermark goes back to the period that plans the key)
+-- undoing that not-done mark brings the transaction back (D-423: the watermark goes back to the
+-- period that plans it)
 select is((select count(*)::integer from public.undo_transfer_mark(tests.id('f6_t'), pg_temp.period_at('f6', '2026-12-02'),
-             (select revision from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_date = '2026-12-25'),
-             '2026-12-25')) >= 0, true, 'R-ACCOUNT-240: (the not-done mark is undone)');
+             (select revision from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_seq = 4),
+             p_occurrence_kind => 'period')) >= 0, true, 'R-ACCOUNT-240: (the not-done mark is undone)');
 select is(pg_temp.txs(tests.id('f6_t')), '2026-09-25,2026-10-25,2026-11-25,2026-12-02,2026-12-09,2026-12-16',
-  'R-ACCOUNT-240: undone, the automatic occurrence keyed two periods away has its transaction again');
+  'R-ACCOUNT-240: undone, the automatic occurrence has its transaction again');
 -- ending the transfer from the last period keeps the catch-up's marks still planned as its own
 select is(public.end_transfer(tests.id('f6_t'), (select revision from public.transfers where id = tests.id('f6_t')),
                               pg_temp.period_at('f6', '2026-12-25')), 'ended', 'R-ACCOUNT-234: (ended from the last period)');
-select is((select by_catch_up from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_date = '2027-01-25'),
-  true, 'R-ACCOUNT-234: ending does not freeze a catch-up''s mark still planned in an earlier period, however far its key');
-select is((select by_catch_up from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_date = '2027-02-25'),
+select is((select by_catch_up from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_seq = 5),
+  true, 'R-ACCOUNT-234: ending does not freeze a catch-up''s mark still planned in an earlier period');
+select is((select by_catch_up from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_seq = 6),
   false, 'R-ACCOUNT-234: the mark of the occurrence it removes is kept as recorded');
 
 -- ===========================================================================
--- M1: the key a far earlier period has as its scheduled pay date belongs to that period, also
--- when the transfer later chose an income paid that day (D-420, D-490; the two-period lookback
--- replaced by the key lookup)
+-- M1: several salaries in one month, then the transfer follows an income paid on the 25th: the
+-- periods' own occurrences and the income's dates are different occurrences, never compared
+-- (R-ACCOUNT-510)
 -- ===========================================================================
 select pg_temp.day('2026-12-02');
 select pg_temp.budget('fk');
@@ -155,22 +150,17 @@ select public.record_early_pay_date(tests.id('fk'), (pg_temp.cur('fk')).id, (pg_
 select pg_temp.day('2026-12-23');
 select public.record_early_pay_date(tests.id('fk'), (pg_temp.cur('fk')).id, (pg_temp.cur('fk')).revision, '2026-12-23');
 select tests.remember('fk_p7', (pg_temp.cur('fk')).id);
-select is((select pay_key from public.periods where budget_id = tests.id('fk') and pay_key = '2026-12-25'
-           and seq = (select seq from public.periods where id = tests.id('fk_p7')) - 3), '2026-12-25'::date,
-  'R-ACCOUNT-307: (the 25th of December is the key of the period three before the current one)');
 select tests.remember('fk_inc', public.add_income(tests.id('fk'), 'Partner', 300000, 25, 'none', null, tests.id('fk_p1')));
 select lives_ok(format($$select * from public.update_transfer(%L, %s, p_income_id => %L, p_from_period_id => %L)$$,
                        tests.id('fk_t'), (select revision from public.transfers where id = tests.id('fk_t')), tests.id('fk_inc'),
                        tests.id('fk_p7')), 'R-ACCOUNT-071: (from the current period the transfer follows the partner, paid on the 25th)');
-select is((select count(*)::integer from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
-           where p.budget_id = tests.id('fk') and c.transfer_id = tests.id('fk_t') and c.occurrence_date = '2026-12-25' and c.planned), 2,
-  'R-ACCOUNT-421: key 25 Dec twice: the salary of 2 Dec (keyed 25 Dec, 23 days early: not that payday) and the partner''s own 25 Dec');
 select tests.clear_authentication();
-select is((select string_agg(pl.seq::text || '/' || pl.kind, ',' order by pl.seq) from private.transfer_plan_range(tests.id('fk'), tests.id('fk_t'), 1, 20) as pl
-           where pl.occurrence_date = '2026-12-25'),
-          ((select seq from public.periods where id = tests.id('fk_p7')) - 3)::text || '/payday,'
-            || (select seq from public.periods where id = tests.id('fk_p7'))::text || '/income_payday',
-  'R-ACCOUNT-460: two occurrences with that key, told apart by their kind');
+select is((select string_agg(pl.seq::text || '/' || pl.kind || '/' || coalesce(pl.occurrence_date::text, '#' || pl.occurrence_seq), ','
+                             order by pl.seq)
+           from private.transfer_plan_range(tests.id('fk'), tests.id('fk_t'), 3, 20) as pl),
+          '3/period/#3,4/period/#4,5/period/#5,6/period/#6,7/income_payday/2026-12-25',
+  'R-ACCOUNT-510: each period its own occurrence, then the partner''s 25 December: two kinds, never compared');
+select tests.authenticate_as('iris');
 
 -- ===========================================================================
 -- M2 with C5: a budget whose transfer named two incomes is deleted, also within the transaction
@@ -241,7 +231,7 @@ select is((select count(*)::integer from public.transaction_list as x
            where x.transfer_id = tests.id('m3_t') and x.period_id = pg_temp.period_at('m3', '2026-11-26')), 1,
   'R-ACCOUNT-309: the period before keeps only its own transfer');
 select is((select done_on from public.transfer_occurrences where transfer_id = tests.id('m3_h')
-           and occurrence_date = '2026-11-25'), '2026-11-25'::date,
+           and occurrence_seq = 3), '2026-11-25'::date,
   'R-ACCOUNT-309: a member''s own mark stays where the member put it');
 -- the preview and the write agree on the debts' refusal (R-DEBT-340): nothing to count then
 select pg_temp.day('2026-12-10');
@@ -261,7 +251,8 @@ select is(pg_temp.txs(tests.id('m3_t')), '2026-09-25,2026-10-25,2026-11-27,2026-
   'R-ACCOUNT-309: the refused move moved nothing');
 
 -- ===========================================================================
--- S1: naming the primary income is the same as naming none (R-ACCOUNT-310; the reviewer's F9)
+-- S1 (amended by D-610): naming the income that is the primary one follows that income's
+-- schedule; naming none follows the day each salary came (R-ACCOUNT-511, R-ACCOUNT-512)
 -- ===========================================================================
 select pg_temp.day('2026-11-20');
 select pg_temp.budget('s1');
@@ -277,15 +268,12 @@ select public.reopen_previous_period(tests.id('s1'), (pg_temp.cur('s1')).id, (pg
 select pg_temp.day('2026-12-30');
 select public.ensure_periods(tests.id('s1'));
 select is(pg_temp.txs(tests.id('s1_none')), '2026-09-25,2026-10-25,2026-11-20,2026-12-29',
-  'R-ACCOUNT-310: (no income chosen: one transfer per salary, on the day it came)');
-select is(pg_temp.txs(tests.id('s1_prim')), pg_temp.txs(tests.id('s1_none')),
-  'R-ACCOUNT-310: the primary income chosen gives the same transfers, on the same days');
-select is((select string_agg(rows, '|' order by seq) from pg_temp.rows('s1', tests.id('s1_prim'))),
-          (select string_agg(rows, '|' order by seq) from pg_temp.rows('s1', tests.id('s1_none'))),
-  'R-ACCOUNT-310: and the same checklist rows, none following the primary as a fallback');
+  'R-ACCOUNT-511: no income chosen: one transfer per period, on the day its salary came');
+select is(pg_temp.txs(tests.id('s1_prim')), '2026-09-25,2026-10-25,2026-11-25,2026-12-25',
+  'R-ACCOUNT-512: the primary income chosen: one transfer per scheduled pay date of that income, whenever the salary came');
 select is((select bool_or(c.follows_primary) from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
            where p.budget_id = tests.id('s1') and c.transfer_id = tests.id('s1_prim')), false,
-  'R-ACCOUNT-310: a transfer that chose the primary income never says it follows the primary instead');
+  'R-ACCOUNT-512: a transfer that chose the primary income never says it follows the primary instead');
 
 -- ===========================================================================
 -- S2: ending a chosen income never rewrites what is already recorded (R-ACCOUNT-311, D-492; the
@@ -488,9 +476,9 @@ select tests.remember('st_t2', (select id from public.create_transfer(tests.id('
 select pg_temp.day('2026-11-20');
 select public.set_primary_income(tests.id('st_inc'), (select revision from public.budgets where id = tests.id('st')));
 select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
-  'R-ACCOUNT-310: set_primary_income settles the transfers before it answers');
+  'R-ACCOUNT-512: set_primary_income settles the transfers before it answers');
 select is(pg_temp.txs(tests.id('st_t')), '2026-10-09,2026-11-10',
-  'R-ACCOUNT-428: the transfer that chose the new primary keeps this period''s plan (the partner''s 10 Nov); it follows the primary from the next period');
+  'R-ACCOUNT-512: the transfer that chose the new primary keeps its income''s schedule (the partner''s 10 Nov)');
 select public.set_expected_pay_date(tests.id('st'), (pg_temp.cur('st')).id, (pg_temp.cur('st')).revision, '2026-12-01');
 select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
   'R-ACCOUNT-302: set_expected_pay_date settles the transfers before it answers');
@@ -542,9 +530,8 @@ select is(public.remove_income(tests.id('nd_inc'), (select revision from public.
 select pg_temp.day('2026-11-24');
 select public.ensure_periods(tests.id('nd'));
 select is(pg_temp.txs(tests.id('nd_t')), '2026-10-24', 'R-ACCOUNT-311: an occurrence not yet due when the income ended is not made');
--- a scheduled pay date lying in the period before (a late salary), where the transfer followed a
--- chosen income paid that day: two incomes, two paydays (R-ACCOUNT-421 as amended by D-560: the
--- same payday is one income's salary and its own pay date; it was one occurrence before)
+-- a late salary's period whose transfer followed a chosen income paid on the same day: the
+-- income's 25 November in the period containing it, the late period's own occurrence (R-ACCOUNT-510)
 select pg_temp.day('2026-11-25');
 select pg_temp.budget('lk');
 select tests.remember('lk_inc', public.add_income(tests.id('lk'), 'Partner', 300000, 25, 'none', null, tests.id('lk_p1')));
@@ -556,32 +543,33 @@ select pg_temp.day('2026-11-28');
 select public.record_early_pay_date(tests.id('lk'), (pg_temp.cur('lk')).id, (pg_temp.cur('lk')).revision, '2026-11-28');
 select lives_ok(format($$select * from public.update_transfer(%L, %s, p_clear_income => true, p_from_period_id => %L)$$,
                        tests.id('lk_t'), (select revision from public.transfers where id = tests.id('lk_t')), (pg_temp.cur('lk')).id),
-  'R-ACCOUNT-071: (from the late salary''s period the transfer follows the primary, keyed 25 November)');
+  'R-ACCOUNT-071: (from the late salary''s period the transfer follows the main income)');
 select tests.clear_authentication();
-select is((select string_agg(pl.start_date::text, ',' order by pl.start_date) from private.transfer_plan_range(tests.id('lk'), tests.id('lk_t'), 1, 9) as pl
-           where pl.occurrence_date = '2026-11-25'), '2026-10-25,2026-11-28',
-  'R-ACCOUNT-461: key 25 Nov twice: the partner''s 25 Nov in the period containing it, the late salary of 28 Nov in its own');
+select is((select string_agg(pl.start_date::text || '/' || pl.kind || '/' || coalesce(pl.occurrence_date::text, '#' || pl.occurrence_seq), ','
+                             order by pl.start_date)
+           from private.transfer_plan_range(tests.id('lk'), tests.id('lk_t'), 2, 9) as pl),
+  '2026-10-25/income_payday/2026-10-25,2026-10-25/income_payday/2026-11-25,2026-11-28/period/#3',
+  'R-ACCOUNT-510: the partner''s 25 Nov in the period containing it, the late salary''s period its own occurrence');
 select tests.authenticate_as('iris');
 
--- a primary switch to an income with the same projected end still looks at the transfers that
--- chose it (R-ACCOUNT-310): here the partner, paid on the 25th or the Friday before, was not paid
--- in the current period; as the primary it gives the period's scheduled pay date
+-- a primary switch to an income with the same projected end changes nothing for a transfer that
+-- chose it (R-ACCOUNT-512): the partner, paid on the 25th or the Friday before
 select pg_temp.day('2026-11-16');
 select pg_temp.budget('ps');
 select tests.remember('ps_inc', public.add_income(tests.id('ps'), 'Partner', 300000, 25, 'previous', null, tests.id('ps_p1')));
 select tests.remember('ps_t', (select id from public.create_transfer(tests.id('ps'), 'After the partner', tests.id('ps_main'),
   tests.id('ps_sav'), 1000, 'pay_date', p_income_id => tests.id('ps_inc'), p_is_automatic => true, p_category_id => tests.id('ps_cat'),
   p_from_period_id => tests.id('ps_p1'))));
-select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23', 'R-ACCOUNT-310: (the partner was paid on 25 September and Friday 23 October, both in the first period: none in the current one)');
+select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23', 'R-ACCOUNT-512: (the partner was paid on 25 September and Friday 23 October, both in the first period: none in the current one)');
 select public.set_primary_income(tests.id('ps_inc'), (select revision from public.budgets where id = tests.id('ps')));
 select is((select end_date from public.periods where id = (pg_temp.cur('ps')).id), '2026-11-24'::date,
-  'R-ACCOUNT-310: (the switch keeps the current period''s end)');
+  'R-ACCOUNT-512: (the switch keeps the current period''s end)');
 select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23',
-  'R-ACCOUNT-428: the switch changes nothing the current period planned (no transaction dated 25 Oct appears)');
+  'R-ACCOUNT-512: the switch changes nothing the current period planned (no transaction dated 25 Oct appears)');
 select pg_temp.day('2026-11-26');
 select public.ensure_periods(tests.id('ps'));
 select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23,2026-11-25',
-  'R-ACCOUNT-310: from the next period the transfer that chose the new primary gets its scheduled pay date');
+  'R-ACCOUNT-512: the transfer that chose the new primary goes on with its scheduled pay dates');
 
 -- the step's bound: one statement creates at most 4000 transactions (R-PERIOD-300, D-427)
 select tests.clear_authentication();
