@@ -334,15 +334,18 @@ function TransferCard({
                 </dd>
               </div>
             </dl>
-            <Link
-              to={transactionsOf({ transfer: transfer.id })}
-              className="inline-flex items-center gap-1 self-start text-sm text-primary underline-offset-4 hover:underline"
-              aria-label={t('transfers.itsTransactionsFor', { name: transfer.name })}
-              data-testid="transfer-transactions"
-            >
-              <ListIcon className="size-3.5" aria-hidden />
-              {t('transfers.itsTransactions')}
-            </Link>
+            {/* R-TRANSACTION-480: only a transfer counted as spending records transactions. */}
+            {transfer.category_id && (
+              <Link
+                to={transactionsOf({ transfer: transfer.id })}
+                className="inline-flex items-center gap-1 self-start text-sm text-primary underline-offset-4 hover:underline"
+                aria-label={t('transfers.itsTransactionsFor', { name: transfer.name })}
+                data-testid="transfer-transactions"
+              >
+                <ListIcon className="size-3.5" aria-hidden />
+                {t('transfers.itsTransactions')}
+              </Link>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

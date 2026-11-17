@@ -42,6 +42,7 @@ import {
   type MoneyFlow,
 } from '@/features/money-flow/money-flow-model'
 import { MoneyFlowTable } from '@/features/money-flow/money-flow-table'
+import { useTransfers } from '@/features/transfers/transfer-queries'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
@@ -80,6 +81,12 @@ export function MoneyFlowPage() {
   const { period, setPeriod, unknown } = usePeriodParam(budgetId, periods.data, current.data)
   const olderPeriods = useOlderPeriodsOption(budgetId)
   const flow = useMoneyFlow(budgetId, period?.id ?? null)
+  // Which transfers are counted as spending (linked to a category): only they record
+  // transactions, so only they get a link to them. The read does not say; the list does.
+  const transferList = useTransfers(budgetId)
+  const counted = new Set(
+    (transferList.data ?? []).filter((item) => item.category_id).map((item) => item.id),
+  )
   const [params] = useSearchParams()
   const basis: Basis = params.get('basis') === 'actual' ? 'actual' : 'planned'
 
@@ -223,6 +230,7 @@ export function MoneyFlowPage() {
               basis={basis}
               accountName={accountName}
               periodId={period?.id ?? ''}
+              counted={counted}
             />
           </div>
         </>

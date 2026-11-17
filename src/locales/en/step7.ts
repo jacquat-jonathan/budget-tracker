@@ -96,6 +96,13 @@ export const transfersEn = {
     body: 'It was deleted meanwhile, or the address names another budget’s transfer. Nothing is listed for it.',
     back: 'Show all transactions',
   },
+  filterEmpty: {
+    uncountedTitle: '“{{name}}” records no transactions',
+    uncounted:
+      'This transfer is not counted as spending (it is linked to no category), so marking it done records no transaction. It shows in the checklist and the money flow.',
+    noneTitle: 'No transactions of “{{name}}” here',
+    nonePeriod: 'None was recorded for it in this period. Choose all periods to see the others.',
+  },
   itsTransactions: 'Its transactions',
   itsTransactionsFor: 'Transactions of {{name}}',
   transaction: {

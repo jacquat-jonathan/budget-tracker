@@ -143,13 +143,6 @@ export function editArgs(
 }
 
 /**
- * What can be done with an occurrence, from its state as the checklist gives it (the
- * contract's table): a manual one to do is done or skipped; an automatic one not yet marked by
- * a member can be said not to have happened; any member's mark, or a mark no longer planned,
- * can be undone. Every state has a way out.
- */
-// R-ACCOUNT-005 R-ACCOUNT-240: the marks the contract allows, from every state.
-/**
  * An occurrence on the page: its transfer, its period and its date. The same date can be an
  * occurrence of two periods (R-ACCOUNT-421), so the date alone never names one.
  */
@@ -160,6 +153,13 @@ export function occurrenceKey(
   return `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.occurrence_date ?? ''}`
 }
 
+/**
+ * What can be done with an occurrence, from its state as the checklist gives it (the
+ * contract's table): a manual one to do is done or skipped; an automatic one not yet marked by
+ * a member can be said not to have happened; any member's mark, or a mark no longer planned,
+ * can be undone. Every state has a way out.
+ */
+// R-ACCOUNT-005 R-ACCOUNT-240: the marks the contract allows, from every state.
 export function actionsFor(row: ChecklistRow) {
   const marked = (row.mark_revision ?? 0) > 0
   const assumed = row.assumed === true

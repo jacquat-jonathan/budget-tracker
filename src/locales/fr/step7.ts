@@ -101,6 +101,14 @@ export const transfersFr = {
     body: 'Il a été supprimé entre-temps, ou l’adresse désigne le virement d’un autre budget. Rien n’est listé pour lui.',
     back: 'Afficher toutes les transactions',
   },
+  filterEmpty: {
+    uncountedTitle: '« {{name}} » n’enregistre aucune transaction',
+    uncounted:
+      'Ce virement ne compte pas comme une dépense (il n’est lié à aucune catégorie) : le marquer comme fait n’enregistre aucune transaction. Il figure dans la liste à cocher et dans les flux financiers.',
+    noneTitle: 'Aucune transaction de « {{name}} » ici',
+    nonePeriod:
+      'Aucune n’a été enregistrée pour lui pendant cette période. Choisissez toutes les périodes pour voir les autres.',
+  },
   itsTransactions: 'Ses transactions',
   itsTransactionsFor: 'Transactions de {{name}}',
   transaction: {

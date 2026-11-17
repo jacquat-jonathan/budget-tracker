@@ -658,6 +658,12 @@ function BoundaryForm({
             onRetry={() => void movePreview.refetch()}
           />
         )}
+        {moveTo !== null && movePreview.isError && !previewLoadFailed(movePreview) && (
+          // A named error (catching_up, period_not_found) is said, never a silent Save.
+          <Alert variant="destructive" data-testid="move-preview-error">
+            <AlertDescription>{errorMessage(movePreview.error)}</AlertDescription>
+          </Alert>
+        )}
         {movePreview.data?.accepted === false &&
           movePreview.data.refusal !== 'already_on_schedule' && (
             <Alert variant="destructive" data-testid="move-refused">
@@ -691,7 +697,10 @@ function BoundaryForm({
             <CalendarRangeIcon aria-hidden />
             <AlertDescription>
               <p>{preview.result}</p>
-              <p className="text-muted-foreground">{preview.undo}</p>
+              {/* A move to the start it already has changes nothing: there is nothing to undo. */}
+              {movePreview.data?.refusal !== 'already_on_schedule' && (
+                <p className="text-muted-foreground">{preview.undo}</p>
+              )}
             </AlertDescription>
           </Alert>
         )}
@@ -841,22 +850,22 @@ const CATEGORY_CHANGES = ['added', 'ended', 'removed', 'terms_changed'] as const
 function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPreview> }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
+  // R-APP-440: a preview that failed to load offers to try again; a refusal is the answer.
+  if (previewLoadFailed(preview)) {
+    return (
+      <PreviewLoadFailed
+        error={preview.error}
+        fetching={preview.isFetching}
+        onRetry={() => void preview.refetch()}
+      />
+    )
+  }
   if (preview.isError) {
     return (
-      <Alert variant="destructive" data-testid="reopen-preview-failed">
+      <Alert variant="destructive" data-testid="reopen-preview-refused">
         <AlertDescription>
-          <p>{t('periods.reopen.failed', { reason: errorMessage(preview.error) })}</p>
+          <p>{errorMessage(preview.error)}</p>
           <p>{t('periods.reopen.required')}</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            disabled={preview.isFetching}
-            onClick={() => void preview.refetch()}
-          >
-            {t('states.retry')}
-          </Button>
         </AlertDescription>
       </Alert>
     )

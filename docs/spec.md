@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-592 rules (581 active, 0 planned), 24 conventions, 363 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+594 rules (583 active, 0 planned), 24 conventions, 363 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -297,6 +297,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-APP-480** A page's views kept in the address (the money flow's Planned and Actual, the transfers' checklist and planned transfers) are history entries: Back returns to the other view instead of leaving the page.
   _active · enforced by test · F-SHELL_
   - Related: D-545
+  - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
+- **R-APP-481** When the control that had the focus goes away after an action (a "Try again" whose preview is now shown, a checklist row that disappears after a mark), the focus moves somewhere useful (the form's first field or its confirmation; the next row, else the list's heading), never to the page body or the dialog itself.
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-440, R-APP-441, R-ACCOUNT-446
   - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
 
 ### Accounts and sign-in
@@ -1432,6 +1436,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: D-525, D-548, R-TRANSACTION-150
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-TRANSACTION-480** Only a planned transfer counted as spending (linked to a category) offers a link to its transactions, on the planned transfers and on the money flow; when a transfer filter lists nothing the page says what is true: a transfer linked to no category records no transactions, and one that is with none in the chosen period says none was recorded in it, never "no transactions match these filters".
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-525, D-548, R-TRANSACTION-441
+  - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
 
 ### Period progress and result
 

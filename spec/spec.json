@@ -8563,6 +8563,30 @@
       "source": [
         "owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17"
       ]
+    },
+    {
+      "id": "R-APP-481",
+      "area": "app",
+      "statement": "When the control that had the focus goes away after an action (a \"Try again\" whose preview is now shown, a checklist row that disappears after a mark), the focus moves somewhere useful (the form's first field or its confirmation; the next row, else the list's heading), never to the page body or the dialog itself.",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-APP-440", "R-APP-441", "R-ACCOUNT-446"],
+      "source": [
+        "owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-TRANSACTION-480",
+      "area": "transaction",
+      "statement": "Only a planned transfer counted as spending (linked to a category) offers a link to its transactions, on the planned transfers and on the money flow; when a transfer filter lists nothing the page says what is true: a transfer linked to no category records no transactions, and one that is with none in the chosen period says none was recorded in it, never \"no transactions match these filters\".",
+      "feature": "F-TRANSACTION",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-525", "D-548", "R-TRANSACTION-441"],
+      "source": [
+        "owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17"
+      ]
     }
   ],
   "decisions": [

@@ -148,6 +148,20 @@ describe('moving a period’s start follows the step 7 contract [R-ACCOUNT-309]'
     )
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
     expect(within(dialog).queryByTestId('move-refused')).not.toBeInTheDocument()
+    // Nothing changes, so there is nothing to undo.
+    expect(within(dialog).getByTestId('boundary-preview')).not.toHaveTextContent('To undo')
+  })
+
+  it('[R-APP-440] a named error of the move’s preview is said, not a silently disabled Save', async () => {
+    const db = householdDb()
+    db.rpc.preview_move_period_start.mockImplementation(() => rpcError('period_not_found'))
+    const dialog = await periodAction(db, 'This period’s salary actually arrived on another day')
+    await typeDate(dialog, /Day the salary arrived/, '27.10.2026')
+    expect(await within(dialog).findByTestId('move-preview-error')).toHaveTextContent(
+      'This period no longer exists.',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(dialog).queryByTestId('preview-failed')).not.toBeInTheDocument()
   })
 
   it('Save waits while the preview loads, and when it failed offers to try again [R-APP-440]', async () => {

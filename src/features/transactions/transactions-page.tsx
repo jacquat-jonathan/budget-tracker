@@ -401,6 +401,23 @@ export function TransactionsPage() {
         <LoadingState rows={5} />
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+      ) : rows.length === 0 && transfer ? (
+        // R-TRANSACTION-480: what is true of a transfer that lists nothing, not "no match".
+        <EmptyState
+          icon={ArrowLeftRightIcon}
+          title={
+            transfer.category_id
+              ? t('transfers.filterEmpty.noneTitle', { name: transfer.name })
+              : t('transfers.filterEmpty.uncountedTitle', { name: transfer.name })
+          }
+          description={
+            !transfer.category_id
+              ? t('transfers.filterEmpty.uncounted')
+              : period
+                ? t('transfers.filterEmpty.nonePeriod')
+                : t('transactions.emptyFilteredHelp')
+          }
+        />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={ArrowLeftRightIcon}

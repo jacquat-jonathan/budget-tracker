@@ -22,6 +22,8 @@ beforeAll(async () => {
 
 const PILLAR = '11111111-2222-4333-8444-555555555555'
 const OTHER = '99999999-2222-4333-8444-555555555555'
+const JOINT = '22222222-2222-4333-8444-555555555555'
+const GIFT = '33333333-2222-4333-8444-555555555555'
 
 function filterDb() {
   return categoriesDb({
@@ -37,7 +39,10 @@ function filterDb() {
         from_account_name: 'Main',
         to_account_id: 'acc-pillar',
         to_account_name: 'Pillar 3a',
+        category_id: 'cat-pillar',
       }),
+      transferRow({ id: JOINT, name: 'Joint', category_id: null }),
+      transferRow({ id: GIFT, name: 'Gift', category_id: 'cat-gift' }),
       transferRow({ id: OTHER, budget_id: 'another-budget', name: 'Not ours' }),
     ],
     transaction_list: [
@@ -156,11 +161,62 @@ describe('the transactions of one planned transfer [D-525] [R-TRANSACTION-441]',
     expect(rows.map((row) => row.id)).toEqual(['tx-pillar-nov', 'tx-pillar-oct'])
   })
 
-  it('each planned transfer links to its transactions', async () => {
+  it('[R-TRANSACTION-480] each planned transfer counted as spending links to its transactions; one that is not, not', async () => {
     const db = filterDb()
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/transfers?view=planned')
     const link = await screen.findByRole('link', { name: 'Transactions of Pillar 3a' })
     expect(link).toHaveAttribute('href', `/transactions?period=all&transfer=${PILLAR}`)
+    expect(screen.queryByRole('link', { name: 'Transactions of Joint' })).not.toBeInTheDocument()
+  })
+
+  it('later pages of a transfer’s transactions keep the transfer filter', async () => {
+    const db = filterDb()
+    for (let index = 0; index < 60; index += 1) {
+      const day = String(1 + (index % 20)).padStart(2, '0')
+      db.tables.transaction_list.push(
+        transactionRow({
+          id: `tx-p-${index}`,
+          date: `2026-11-${day}`,
+          amount: 100 + index,
+          description: `Pillar part ${index}`,
+          transfer_id: PILLAR,
+          transfer_name: 'Pillar 3a',
+          created_at: `2026-11-${day}T10:00:${String(index).padStart(2, '0')}+00:00`,
+        }),
+      )
+    }
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, `/transactions?period=all&transfer=${PILLAR}`)
+    await userEvent.click(await screen.findByRole('button', { name: 'Show older transactions' }))
+    await waitFor(() => {
+      expect(db.rpc.list_transactions).toHaveBeenCalledWith(
+        expect.objectContaining({ p_transfer_id: PILLAR, p_before_date: expect.any(String) }),
+      )
+    })
+    for (const [args] of db.rpc.list_transactions.mock.calls) {
+      expect(args).toMatchObject({ p_transfer_id: PILLAR })
+    }
+    expect(await screen.findByText('Pillar October')).toBeVisible()
+    expect(screen.queryByText('Rent November')).not.toBeInTheDocument()
+  })
+})
+
+describe('a transfer’s transactions that list nothing say what is true [R-TRANSACTION-480]', () => {
+  it('a transfer not counted as spending records no transactions, and says so', async () => {
+    mock.current = createSupabaseMock(fakeSession(), filterDb())
+    renderRoutes(routes, `/transactions?period=all&transfer=${JOINT}`)
+    expect(await screen.findByText('“Joint” records no transactions')).toBeVisible()
+    expect(
+      screen.getByText(/This transfer is not counted as spending \(it is linked to no category\)/),
+    ).toBeVisible()
+    expect(screen.queryByText('No transactions match these filters')).not.toBeInTheDocument()
+  })
+
+  it('a transfer counted as spending with none in the period says none was recorded in it', async () => {
+    mock.current = createSupabaseMock(fakeSession(), filterDb())
+    renderRoutes(routes, `/transactions?transfer=${GIFT}`)
+    expect(await screen.findByText('No transactions of “Gift” here')).toBeVisible()
+    expect(screen.getByText(/None was recorded for it in this period/)).toBeVisible()
   })
 })

@@ -152,11 +152,14 @@ export function MoneyFlowTable({
   basis,
   accountName,
   periodId,
+  counted,
 }: {
   flow: MoneyFlow
   basis: Basis
   accountName: (id: string | null) => string
   periodId: string
+  /** The transfers counted as spending (linked to a category): the ones with transactions. */
+  counted: ReadonlySet<string>
 }) {
   const { t } = useTranslation()
   const m = formatMoney
@@ -218,14 +221,17 @@ export function MoneyFlowTable({
                       : 'transfers.mode.manualShort',
                   )}
                 </Note>
-                <Link
-                  to={transactionsOf({ period: periodId, transfer: transfer.id })}
-                  className="mt-0.5 inline-flex items-center gap-1 text-xs font-normal text-primary underline-offset-4 hover:underline"
-                  aria-label={t('transfers.itsTransactionsFor', { name: transfer.name })}
-                >
-                  <ListIcon className="size-3" aria-hidden />
-                  {t('transfers.itsTransactions')}
-                </Link>
+                {/* R-TRANSACTION-480: only a transfer counted as spending has transactions. */}
+                {counted.has(transfer.id) && (
+                  <Link
+                    to={transactionsOf({ period: periodId, transfer: transfer.id })}
+                    className="mt-0.5 inline-flex items-center gap-1 text-xs font-normal text-primary underline-offset-4 hover:underline"
+                    aria-label={t('transfers.itsTransactionsFor', { name: transfer.name })}
+                  >
+                    <ListIcon className="size-3" aria-hidden />
+                    {t('transfers.itsTransactions')}
+                  </Link>
+                )}
               </>
             ),
             cells: [

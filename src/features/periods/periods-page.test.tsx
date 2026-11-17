@@ -293,13 +293,25 @@ describe('periods page [R-PERIOD-051]', () => {
     expect(within(rows[0]!).getByText('Last period')).toBeInTheDocument()
   })
 
-  it('a reopen cannot be confirmed without its list; the list can be retried [R-PERIOD-053]', async () => {
+  it('a reopen refused by name says so and offers no “Try again” [R-PERIOD-053] [R-APP-440]', async () => {
     const { db, rows } = await openPeriods()
-    db.rpc.preview_reopen.mockImplementation(() => rpcError('budget_not_found_x'))
+    db.rpc.preview_reopen.mockImplementation(() => rpcError('period_not_found'))
+    const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
+    const refused = await within(dialog).findByTestId('reopen-preview-refused')
+    expect(refused).toHaveTextContent('This period no longer exists.')
+    expect(within(refused).queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(within(dialog).queryByTestId('preview-failed')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(db.rpc.preview_reopen).toHaveBeenCalledTimes(1)
+  })
+
+  it('a reopen cannot be confirmed without its list; a list that failed to load can be retried [R-PERIOD-053]', async () => {
+    const { db, rows } = await openPeriods()
+    db.rpc.preview_reopen.mockImplementation(() => rpcError('TypeError: Failed to fetch', ''))
 
     const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
-    const failed = await within(dialog).findByTestId('reopen-preview-failed')
-    expect(failed).toHaveTextContent('Could not list what this period holds')
+    const failed = await within(dialog).findByTestId('preview-failed', {}, { timeout: 4000 })
+    expect(failed).toHaveTextContent('The preview could not be loaded')
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
 
     db.rpc.preview_reopen.mockImplementation(() => [])
