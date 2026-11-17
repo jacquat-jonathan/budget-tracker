@@ -50,7 +50,7 @@ select count(*) from public.import_transactions(tests.id('b'), tests.id('ib'), 1
   {"date": "2026-11-12", "amount": 702, "direction": "debit", "description": "Linked transfer"}]', 'csv');
 select count(*) from public.mark_transfer_done(tests.id('tr'), (select id from public.periods where budget_id = tests.id('b') and '2026-11-16' between start_date and end_date), 0);
 select tests.clear_authentication();
-select tests.remember('occ', (select id from public.transfer_occurrences where transfer_id = tests.id('tr') order by period_id limit 1));
+select tests.remember('occ', (select id from public.transfer_occurrences where transfer_id = tests.id('tr') order by occurrence_date limit 1));
 update public.transactions set subscription_id = tests.id('sub'), category_id = tests.id('gym_cat')
 where import_batch_id = tests.id('ib') and description = 'Linked sub';
 -- only the database links a transfer's transaction, at its creation: planted as an import

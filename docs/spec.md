@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-542 rules (532 active, 0 planned), 24 conventions, 314 decisions, 42 open questions. 0 rules and conventions are marked **TEST PENDING**.
+543 rules (533 active, 0 planned), 24 conventions, 315 decisions, 41 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2347,6 +2347,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-430, R-ACCOUNT-237
   - Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-307** A real payday never goes without its pay-date transfer: every period has a scheduled pay date of its own as its key, the next one no period has when the projected one is taken, so several salaries in one month give as many occurrences, the same keys through a reopen and the salary recorded again, and each occurrence is listed once, in the period that plans it, whatever its key.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-420, D-490, R-ACCOUNT-301, R-ACCOUNT-302
+  - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M1 with C1, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 
@@ -6491,7 +6495,7 @@ Source: owner-request: coordinator brief for the step 6 database fix round 2 (re
 
 ### D-420 Occurrences are keyed by date, not by period (accepted)
 
-An occurrence of a planned transfer is identified by a date, its key, never by a period. A fixed-day transfer follows the calendar exactly like a subscription: a cadence (monthly, quarterly or yearly), a first date that sets the phase, and a nominal day clamped to the month's length, its dates computed by the subscriptions' own schedule code; each date is the key and the due date of an occurrence of the period that contains it, so a short period can have none and a long one two, and a yearly payment is one occurrence a year. A pay-date transfer has one occurrence per pay date of its income in the period: for a chosen income in force, each of its actual pay dates in the period (key = that date); otherwise (the primary income, a chosen income not in force or deleted) one occurrence keyed by the period's scheduled pay date. Every period stores the scheduled pay date of the salary that started it (periods.pay_key): the previous period's projected end plus one by the projection rule when the period is created, the first period's start for the first; a reopen deletes the merged period with its key, and recording that salary again creates the same key. A key the budget already has (a salary recorded more than 15 days early, then the next one on its scheduled date) is not given to the later period, which then has no primary pay-date occurrence; a key two periods give a transfer (switching between its chosen income and the primary one) belongs to the earlier period. Marks are stored by transfer and key.
+An occurrence of a planned transfer is identified by a date, its key, never by a period. A fixed-day transfer follows the calendar exactly like a subscription: a cadence (monthly, quarterly or yearly), a first date that sets the phase, and a nominal day clamped to the month's length, its dates computed by the subscriptions' own schedule code; each date is the key and the due date of an occurrence of the period that contains it, so a short period can have none and a long one two, and a yearly payment is one occurrence a year. A pay-date transfer has one occurrence per pay date of its income in the period: for a chosen income in force, each of its actual pay dates in the period (key = that date); otherwise (the primary income, a chosen income not in force or deleted) one occurrence keyed by the period's scheduled pay date. Every period stores the scheduled pay date of the salary that started it (periods.pay_key): the previous period's projected end plus one by the projection rule when the period is created, the first period's start for the first; a reopen deletes the merged period with its key, and recording that salary again creates the same key. A period is never without a key: when that date is already another period's, it takes the next scheduled pay date no period has (D-490); a key two periods give a transfer (switching between its chosen income and the primary one) belongs to the earlier period. Marks are stored by transfer and key.
 
 **Why:** The review (M2, M3): keyed by period, one real transfer could be recorded twice after a reopen, and short and long periods produced transactions the bank never made. A key that does not move with boundaries makes "the same occurrence" well defined across early and late salaries, reopens and boundary moves. A stored scheduled pay date is needed because the primary income's history is not versioned per period (a primary switch would otherwise change every past key).
 
@@ -6501,7 +6505,7 @@ An occurrence of a planned transfer is identified by a date, its key, never by a
 - Computing the scheduled pay date from the current primary income's terms: a primary switch or a pay-day edit would move past keys and orphan marks.
 - Giving a colliding period the next scheduled date: every later period's key would shift by a month.
 
-Related: R-ACCOUNT-300, R-ACCOUNT-301, R-ACCOUNT-302, D-352, Q-220, Q-224
+Related: R-ACCOUNT-300, R-ACCOUNT-301, R-ACCOUNT-302, D-352, Q-220, Q-224, D-490
 
 Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; owner-request: database developer decision for the step 7 occurrence model, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
@@ -6686,6 +6690,21 @@ catch_up_gate also answers catching_up (before the lock, doing nothing) when a s
 Related: D-387, D-427, R-PERIOD-250, R-PERIOD-300
 
 Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-490 A period is never without a key; occurrences are found by their key (accepted)
+
+Every period has a scheduled pay date as its key (periods.pay_key). When the date the projection gives (the previous period's projected end plus one) is already another period's key (a salary recorded 15 or more days early, then the next one; several salaries in one month), the period takes the next scheduled pay date of the primary income's terms no period has. The key depends only on the earlier periods, so a reopen and the salary recorded again give the same key, and the backfill of existing budgets follows the same rule in order. Because a key can then lie a month or more from its period, every lookup of an occurrence goes by the stored key: the periods that can plan a key are the one whose pay_key it is and the one containing the date, wherever they lie (private.transfer_plan_keys). This covers transfer_planned, the checklist's marks planned elsewhere, the catch-up's check of its own marks, the previews' snapshot of marks, deleting a transaction (not done, not deleted) and end_transfer (a mark still planned is not frozen). When both periods give a transfer the same key, it belongs to the earlier one. Answers Q-260.
+
+**Why:** With the earlier rule a real payday lost its pay-date transfer after a salary that came 15 or more days early (one transfer for three salaries recorded in one month), and lookups that searched only the neighbouring periods missed keys two periods away: a mark listed twice, deleting its transaction deleted the mark so the catch-up created the transaction again, and ending a transfer froze a mark still planned.
+
+**Rejected:**
+
+- Keying such a period by its actual start: a key is then not stable across a reopen and the salary recorded on another day.
+- Searching more neighbouring periods: any fixed window can be exceeded by repeated early salaries.
+
+Related: D-420, D-424, D-429, R-ACCOUNT-301, R-ACCOUNT-302, R-ACCOUNT-307, R-ACCOUNT-240, Q-260
+
+Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M1 with C1, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ## Open questions
 
@@ -7105,7 +7124,7 @@ Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2
   - Context: D-386 removes the period's interest entry when its start moves to on or before the opening (a trigger in the step 4 migration, private.drop_interest_before_opening) and adds nothing when it moves later again, because interest is computed once, when the period is created. So after a start moves onto the opening day and back, the debt is lower for good by the removed entry (120.00 in the re-review), and the next period's entry keeps the balance it was computed on (debt_interest.balance 1 212 000 while the history's balance before it is now 1 200 000). Options: (a) refuse the move while the period holds an interest entry of a debt opened on or after the new start (a refusal code, shown by preview_move_period_start as it already counts interest_removed): the history stays exact and nothing is lost, at the cost of a restriction; (b) keep the entry but mark it suspended while the start is on or before the opening, and restore it when the start moves after the opening again: the round trip is exact, but while suspended the later entries' balance disagrees by the suspended amount; (c) on any removal, recompute every later entry of that debt from the history: balance always agrees, but amounts the member has seen change, and a move back still loses the entry unless combined with (b). Recommended: (a). Any option changes the step 4 migration's trigger and its preview, which under D-450 is a new migration (or the money-flow rewrite), so it was not fixed in this round.
   - Related: D-386, D-272, R-DEBT-131
   - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
-- **Q-260** A period created on a scheduled pay date the budget already used (a salary recorded more than 15 days early, then the next one on its scheduled day) has no primary pay-date occurrence. When both salaries are real, should that period's pay-date transfers get an occurrence (for example keyed by its actual start), so a real payday's standing order is not missing from its checklist?
+- **Q-260** (resolved by D-490) A period created on a scheduled pay date the budget already used (a salary recorded more than 15 days early, then the next one on its scheduled day) has no primary pay-date occurrence. When both salaries are real, should that period's pay-date transfers get an occurrence (for example keyed by its actual start), so a real payday's standing order is not missing from its checklist?
   - Context: D-420 gives a key to one period only, so a reopen and the salary recorded again find the same mark. Example: pay day 25, a salary recorded on 9 November for 25 November: that period's "Savings 500" (pay date, automatic) is keyed 25 November and its transaction dated 9 November; the period the schedule then starts on 25 November gets no key, so its checklist has no "Savings" row and the catch-up makes no transaction for it. The next period (25 December) is keyed as usual. If the 25 November salary is real, one standing order is missing from the budget until a member records it as a plain transaction.
   - Related: D-420, R-ACCOUNT-301, R-ACCOUNT-302
   - Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql

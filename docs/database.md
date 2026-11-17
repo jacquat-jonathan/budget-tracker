@@ -1579,21 +1579,25 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
     the period's start (the actual pay date, whatever moved it) plus the offset. An early
     salary on the 20th for the 25th: key the 25th, due the 20th plus the offset; a late one on
     the 28th: key the 25th, due the 28th plus the offset. A reopen and the salary recorded again
-    (on any day) give back the same key. The one exception: a period created on a scheduled pay
-    date the budget already used (a salary recorded more than 15 days early, then the next one
-    on its scheduled day) has no primary pay-date occurrence.
+    (on any day) give back the same key. **A period is never without a key** (D-490): when
+    that scheduled date is already another period's (a salary recorded 15 or more days early,
+    then the next one; several salaries in one month), the period takes the **next scheduled
+    pay date no period has**. Every payday therefore has its pay-date occurrence; three salaries
+    recorded in one month give three. Keys are unique in a budget and derived only from the
+    earlier periods, so they stay the same through a reopen and the salary recorded again. A
+    key can then lie a month or more after its period: it is an identifier to send back in the
+    mark calls, **not a date to show**; show `due_date`.
 
-    **Example of the exception** (pay day 25, no weekend rule; a standing order "Savings, 500,
-    pay date, automatic"). Before: the period 25 Oct to 24 Nov is keyed 25 Oct; its checklist
-    has one "Savings" row, done by the catch-up, transaction 500 on 25 Oct. The salary is
-    recorded on 9 Nov (for 25 Nov, 16 days early). After: 25 Oct to 8 Nov keeps key 25 Oct and
-    its transaction; 9 Nov to 24 Nov is keyed **25 Nov**, due 9 Nov: one "Savings" row, a
-    transaction of 500 on 9 Nov; the period the schedule starts on **25 Nov** gets **no key**
-    (25 Nov is used): its checklist has **no "Savings" row** and the catch-up makes no
-    transaction for it; 25 Dec is keyed as usual. If the household really is paid again on 25
-    Nov, that payday's standing order is **missing** from the checklist and the money flow until
-    a member records it as a plain transaction (open question Q-260). A transfer that follows
-    another income chosen, or a fixed day, is not affected.
+    **Example** (pay day 25, no weekend rule; a standing order "Savings, 500, pay date,
+    automatic"). Before: the period 25 Oct to 24 Nov is keyed 25 Oct; its checklist has one
+    "Savings" row, done by the catch-up, transaction 500 on 25 Oct. The salary is recorded on 9
+    Nov (for 25 Nov, 16 days early). After: 25 Oct to 8 Nov keeps key 25 Oct and its
+    transaction; 9 Nov to 24 Nov is keyed **25 Nov**, due 9 Nov: one "Savings" row, a
+    transaction of 500 on 9 Nov. The period the schedule then starts on **25 Nov** would have
+    25 Nov as its key, which is used, so it is keyed **25 Dec** (the next scheduled pay date no
+    period has): one "Savings" row due 25 Nov, a transaction of 500 on 25 Nov. The period after
+    it is keyed 25 Jan, and so on: each payday its own transfer. A transfer that follows
+    another income chosen, or a fixed day, is keyed by its own dates as below.
   - **Another income chosen** and in force in the period: each of its actual pay dates in the
     period (its terms then, its weekend rule) is a key; a period with none of them has no
     occurrence, a long one can have several.
@@ -1724,7 +1728,7 @@ current or past; catches up first. **One row per occurrence** planned in the per
 mark whose occurrence is **no longer planned** and whose key lies in the period (the first
 period lists earlier keys, the latest later ones), ordered by due date (key for a row with
 none), then name: `transfer_id`, `period_id`, `occurrence_date` (the key: name it in the mark
-calls), `name`, `from_account_id` / `from_account_name`, `to_account_id` / `to_account_name`,
+calls; a pay-date key can lie outside the period, D-490, so show `due_date`), `name`, `from_account_id` / `from_account_name`, `to_account_id` / `to_account_name`,
 `amount` (planned, the terms in force in that period; for an unplanned row, the terms there or
 nearest), `due_date` (null for an unplanned row), `is_automatic`, `category_id` /
 `category_name`, `status`, `is_overdue`, `held_back`, `follows_primary`, `done_on`,

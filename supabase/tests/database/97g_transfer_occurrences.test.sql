@@ -560,7 +560,7 @@ select results_eq(
          tests.id('e3_p2'), tests.id('e3_p3'), tests.id('e3_t')),
   $$values ('2026-10-25,2026-11-25', 0)$$,
   'R-ACCOUNT-301: the 25th of November, the partner''s pay date and the primary''s scheduled one, is one occurrence, of the earlier period');
--- a salary recorded more than 15 days early, then the next on its scheduled day: that key once
+-- a salary recorded 15 or more days early, then the next on its scheduled day: each period its own key (D-490)
 select pg_temp.budget('e4');
 select tests.remember('e4_t', (select id from public.create_transfer(tests.id('e4'), 'Payday', tests.id('e4_main'), tests.id('e4_sav'),
   100, 'pay_date', p_from_period_id => tests.id('e4_p1'))));
@@ -571,8 +571,8 @@ select public.ensure_periods(tests.id('e4'));
 select results_eq(
   format($$select p.start_date, p.pay_key, (select string_agg(c.occurrence_date::text, ',') from public.get_transfer_checklist(p.id) as c where c.transfer_id = %L)
            from public.periods as p where p.budget_id = %L and p.seq >= 3 order by p.seq$$, tests.id('e4_t'), tests.id('e4')),
-  $$values ('2026-11-09'::date, '2026-11-25'::date, '2026-11-25'), ('2026-11-25'::date, null::date, null)$$,
-  'R-ACCOUNT-302: the next period, created on the scheduled day the early salary already took, gets no key and no occurrence');
+  $$values ('2026-11-09'::date, '2026-11-25'::date, '2026-11-25'), ('2026-11-25'::date, '2026-12-25'::date, '2026-12-25')$$,
+  'R-ACCOUNT-307: the next period, created on the scheduled day the early salary already took, takes the next scheduled pay date and has its occurrence');
 -- a due date that moves after today: the catch-up's transaction goes until it is due again
 select pg_temp.budget('e5');
 select tests.remember('e5_inc', public.add_income(tests.id('e5'), 'Partner', 300000, 20, 'none', null, tests.id('e5_p1')));

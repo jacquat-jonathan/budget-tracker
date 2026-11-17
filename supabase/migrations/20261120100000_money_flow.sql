@@ -696,14 +696,16 @@ as $$
                  where i.id = p_income_id and i.first_seq <= p_seq and (i.end_seq is null or p_seq < i.end_seq))
 $$;
 
--- D-420: every period carries the scheduled pay date of the salary that started it (pay_key):
--- the date the schedule gave for it, the previous period's projected end plus one (the
--- projection rule, private.projected_end), whatever day the salary actually came (an early
--- salary, a late one recorded after a reopen, a moved start). The first period's is its start.
--- Fixed when the period is created and never moved: a reopen deletes the merged period with
--- its key, and recording that salary again creates a period with the same key. A key the
--- budget already has (a salary recorded more than 15 days early, then the next one on its
--- scheduled date) is not given twice: that later period has none.
+-- D-420, D-490: every period carries a scheduled pay date of the primary salary as its key
+-- (pay_key): the date the schedule gave for it, the previous period's projected end plus one
+-- (the projection rule, private.projected_end), whatever day the salary actually came (an
+-- early salary, a late one recorded after a reopen, a moved start). The first period's is its
+-- start. A period is never without a key: when that date is already another period's (a salary
+-- recorded 15 or more days early, then the next one; several salaries in one month), the
+-- period takes the next scheduled pay date no period has. Fixed when the period is created and
+-- never moved: a reopen deletes the merged period with its key, and recording that salary
+-- again derives the same key from the same earlier periods. Keys are unique in a budget and
+-- can lie outside their period, so every lookup of an occurrence goes by the stored key.
 alter table public.periods add column pay_key date;
 create unique index periods_pay_key_unique on public.periods (budget_id, pay_key) where pay_key is not null;
 
@@ -716,6 +718,8 @@ as $$
 declare
   v_prev public.periods;
   v_key date;
+  v_terms record;
+  v_n integer := 0;
 begin
   select p.* into v_prev from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq - 1;
   if v_prev.id is null then
@@ -723,10 +727,14 @@ begin
   else
     v_key := private.projected_end(p_budget_id, v_prev.start_date, v_prev.seq) + 1;
   end if;
-  if exists (select 1 from public.periods as p
-             where p.budget_id = p_budget_id and p.pay_key = v_key and p.seq <> p_seq) then
-    return null;
-  end if;
+  select t.pay_day, t.weekend_rule into v_terms
+  from public.budgets as b cross join lateral private.terms_at(b.primary_income_id, p_seq) as t
+  where b.id = p_budget_id;
+  while v_n < 1200 and exists (select 1 from public.periods as p
+                               where p.budget_id = p_budget_id and p.pay_key = v_key and p.seq <> p_seq) loop
+    v_key := private.next_pay_date(v_key + 1, v_terms.pay_day, v_terms.weekend_rule);
+    v_n := v_n + 1;
+  end loop;
   return v_key;
 end;
 $$;
@@ -836,37 +844,63 @@ $$;
 -- * 'pay_date', the chosen income in force in the period: each of its actual pay dates in the
 --   period (key), due that day plus the offset, never after the period's last day.
 -- * 'pay_date', the primary income (no income chosen, the chosen one not in force there, or
---   deleted): one occurrence, keyed by the period's scheduled pay date (pay_key), due on the
---   period's start (the actual pay date) plus the offset, never after the period's last day.
+--   deleted): one occurrence, keyed by the period's scheduled pay date (pay_key, from_pay_key),
+--   due on the period's start (the actual pay date) plus the offset, never after the period's
+--   last day.
 -- Nothing before the transfer's first counted day (p_starts_on).
 create function private.transfer_period_occurrences(
   p_seq integer, p_start date, p_end date, p_pay_key date, p_starts_on date,
   p_schedule public.transfer_schedule, p_cadence public.subscription_cadence, p_anchor date, p_day integer,
   p_offset integer, p_income_id uuid, p_income_gone boolean
 )
-returns table (occurrence_date date, due_date date, follows_primary boolean)
+returns table (occurrence_date date, due_date date, follows_primary boolean, from_pay_key boolean)
 language plpgsql
 stable
 set search_path = ''
 as $$
 begin
   if p_schedule = 'day_of_month' then
-    return query select d, d, false
+    return query select d, d, false, false
                  from private.charge_dates(p_anchor, p_cadence, greatest(p_start, p_starts_on), p_end, p_day) as d;
   elsif p_income_id is not null and private.income_in_force(p_income_id, p_seq) then
-    return query select d, least(d + p_offset, p_end), false
+    return query select d, least(d + p_offset, p_end), false, false
                  from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on), p_end) as d;
   elsif p_pay_key is not null and p_pay_key >= p_starts_on then
-    return query select p_pay_key, least(p_start + p_offset, p_end), p_income_id is not null or coalesce(p_income_gone, false);
+    return query select p_pay_key, least(p_start + p_offset, p_end), p_income_id is not null or coalesce(p_income_gone, false),
+                        true;
   end if;
 end;
 $$;
 
--- The plan: every occurrence of the budget's transfers (or of one) in the periods p_from_seq to
--- p_to_seq, at the terms in force in its period. A key two periods would give (a transfer
--- switching between its chosen income and the primary one) belongs to the earlier period.
-create function private.transfer_plan_range(p_budget_id uuid, p_transfer_id uuid, p_from_seq integer, p_to_seq integer,
-                                           p_manual_only boolean default false)
+-- The keys one transfer's terms give in one period, before any key is given to an earlier
+-- period (no row when the transfer is not in force there).
+create function private.transfer_raw_keys(p_transfer_id uuid, p_seq integer)
+returns table (occurrence_date date, from_pay_key boolean)
+language sql
+stable
+set search_path = ''
+as $$
+  select o.occurrence_date, o.from_pay_key
+  from public.transfers as t
+  join public.periods as p on p.budget_id = t.budget_id and p.seq = p_seq
+  cross join lateral (
+    select x.* from public.transfer_versions as x
+    where x.transfer_id = t.id and x.effective_from_seq <= p.seq
+    order by x.effective_from_seq desc limit 1
+  ) as v
+  cross join lateral private.transfer_period_occurrences(p.seq, p.start_date, p.end_date, p.pay_key, t.starts_on,
+    v.schedule, v.cadence, v.anchor_date, v.day_of_month, v.offset_days, v.income_id, v.income_gone) as o
+  where t.id = p_transfer_id and t.first_seq <= p.seq and (t.end_seq is null or p.seq < t.end_seq)
+$$;
+
+-- The plan: every occurrence of the budget's transfers (or of one) in the periods p_seqs, at the
+-- terms in force in its period. At most two periods can give a transfer the same key: the one
+-- whose scheduled pay date it is (a primary occurrence) and the one containing that date (a
+-- chosen income's pay date or a fixed-day date, after the transfer's terms changed); the key
+-- belongs to the earlier of the two (D-420, D-490). Both are found by the key itself, wherever
+-- they lie, never by searching neighbouring periods.
+create function private.transfer_plan_seqs(p_budget_id uuid, p_transfer_id uuid, p_seqs integer[],
+                                          p_manual_only boolean default false)
 returns table (
   transfer_id uuid, name text, period_id uuid, seq integer, start_date date, end_date date,
   occurrence_date date, due_date date, follows_primary boolean, terms_from_seq integer,
@@ -886,10 +920,9 @@ begin
          k.offset_days, k.day_of_month, k.income_id, k.is_automatic, k.category_id
   from (
     select t.id as transfer_id, t.name, p.id as period_id, p.seq, p.start_date, p.end_date,
-           o.occurrence_date, o.due_date, o.follows_primary, v.effective_from_seq as terms_from_seq,
+           o.occurrence_date, o.due_date, o.follows_primary, o.from_pay_key, v.effective_from_seq as terms_from_seq,
            v.from_account_id, v.to_account_id, v.amount, v.schedule, v.cadence, v.offset_days, v.day_of_month,
-           v.income_id, v.is_automatic, v.category_id,
-           pg_catalog.row_number() over (partition by t.id, o.occurrence_date order by p.seq) as rn
+           v.income_id, v.is_automatic, v.category_id
     from public.periods as p
     join public.transfers as t
       on t.budget_id = p.budget_id and t.first_seq <= p.seq and (t.end_seq is null or p.seq < t.end_seq)
@@ -900,17 +933,66 @@ begin
     ) as v
     cross join lateral private.transfer_period_occurrences(p.seq, p.start_date, p.end_date, p.pay_key, t.starts_on,
       v.schedule, v.cadence, v.anchor_date, v.day_of_month, v.offset_days, v.income_id, v.income_gone) as o
-    where p.budget_id = p_budget_id and p.seq between p_from_seq - 2 and p_to_seq
+    where p.budget_id = p_budget_id and p.seq = any (p_seqs)
       and (p_transfer_id is null or t.id = p_transfer_id)
       and (not p_manual_only or not v.is_automatic)
-      -- the periods before the range only where a key can come from two periods: a transfer
-      -- that chose an income (its pay dates, then the primary's scheduled one)
-      and (p.seq >= p_from_seq
-           or exists (select 1 from public.transfer_versions as y
-                      where y.transfer_id = t.id and (y.income_id is not null or y.income_gone)))
   ) as k
-  where k.rn = 1 and k.seq >= p_from_seq;
+  -- a scheduled pay date before its period's start, which the period containing it gave first
+  where not (k.from_pay_key and k.occurrence_date < k.start_date
+             and exists (select 1 from public.periods as x
+                         where x.budget_id = p_budget_id and x.start_date <= k.occurrence_date
+                           and x.end_date >= k.occurrence_date and x.seq < k.seq
+                           and exists (select 1 from private.transfer_raw_keys(k.transfer_id, x.seq) as r
+                                       where r.occurrence_date = k.occurrence_date and not r.from_pay_key)))
+    -- a date that an earlier period has as its scheduled pay date, and gave first
+    and not (not k.from_pay_key
+             and exists (select 1 from public.periods as y
+                         where y.budget_id = p_budget_id and y.pay_key = k.occurrence_date and y.seq < k.seq
+                           and exists (select 1 from private.transfer_raw_keys(k.transfer_id, y.seq) as r
+                                       where r.occurrence_date = k.occurrence_date and r.from_pay_key)));
 end;
+$$;
+
+-- The plan over the periods p_from_seq to p_to_seq.
+create function private.transfer_plan_range(p_budget_id uuid, p_transfer_id uuid, p_from_seq integer, p_to_seq integer,
+                                           p_manual_only boolean default false)
+returns table (
+  transfer_id uuid, name text, period_id uuid, seq integer, start_date date, end_date date,
+  occurrence_date date, due_date date, follows_primary boolean, terms_from_seq integer,
+  from_account_id uuid, to_account_id uuid, amount bigint, schedule public.transfer_schedule,
+  cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
+  is_automatic boolean, category_id uuid
+)
+language sql
+stable
+set search_path = ''
+as $$
+  select * from private.transfer_plan_seqs(p_budget_id, p_transfer_id,
+    array(select pg_catalog.generate_series(p_from_seq, p_to_seq)), p_manual_only)
+$$;
+
+-- D-490: the planned occurrences with these keys (of one transfer, or of any): only the periods
+-- that can plan a key are computed, the one whose scheduled pay date it is and the one
+-- containing it, however far apart.
+create function private.transfer_plan_keys(p_budget_id uuid, p_transfer_id uuid, p_keys date[])
+returns table (
+  transfer_id uuid, name text, period_id uuid, seq integer, start_date date, end_date date,
+  occurrence_date date, due_date date, follows_primary boolean, terms_from_seq integer,
+  from_account_id uuid, to_account_id uuid, amount bigint, schedule public.transfer_schedule,
+  cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
+  is_automatic boolean, category_id uuid
+)
+language sql
+stable
+set search_path = ''
+as $$
+  select pl.* from private.transfer_plan_seqs(p_budget_id, p_transfer_id,
+    array(select p.seq from public.periods as p
+          where p.budget_id = p_budget_id
+            and (p.pay_key = any (p_keys)
+                 or exists (select 1 from pg_catalog.unnest(p_keys) as k (d) where k.d between p.start_date and p.end_date))))
+    as pl
+  where pl.occurrence_date = any (p_keys)
 $$;
 
 -- The planned occurrence of a transfer with that key, if it is planned (no row otherwise).
@@ -922,21 +1004,13 @@ returns table (
   cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
   is_automatic boolean, category_id uuid
 )
-language plpgsql
+language sql
 stable
 set search_path = ''
 as $$
-declare
-  v_budget_id uuid := (select t.budget_id from public.transfers as t where t.id = p_transfer_id);
-  v_seq integer;
-begin
-  if v_budget_id is null then
-    return;
-  end if;
-  v_seq := private.listing_seq(v_budget_id, p_key);
-  return query select pl.* from private.transfer_plan_range(v_budget_id, p_transfer_id, v_seq - 1, v_seq + 1) as pl
-               where pl.occurrence_date = p_key;
-end;
+  select pl.* from public.transfers as t
+  cross join lateral private.transfer_plan_keys(t.budget_id, t.id, array[p_key]) as pl
+  where t.id = p_transfer_id
 $$;
 
 -- ===========================================================================
@@ -1002,10 +1076,12 @@ begin
       private.seq_start(new.budget_id, least(old.first_seq, new.first_seq,
         coalesce(old.end_seq, new.end_seq, old.first_seq), coalesce(new.end_seq, old.end_seq, old.first_seq)))));
   elsif tg_table_name = 'transfer_occurrences' then
-    -- D-423: every removal of a mark (the occurrence's due date lies at most in the period
-    -- before the one listing its key)
+    -- D-423: every removal of a mark, from the start of the period that can plan its key
+    -- (the one whose scheduled pay date it is, or the one containing it; D-490)
     perform private.transfers_recheck(old.budget_id, old.transfer_id, null,
-      least(private.seq_start(old.budget_id, private.listing_seq(old.budget_id, old.occurrence_date) - 1),
+      least(private.seq_start(old.budget_id, private.listing_seq(old.budget_id, old.occurrence_date)),
+            coalesce((select p.start_date from public.periods as p
+                      where p.budget_id = old.budget_id and p.pay_key = old.occurrence_date), old.occurrence_date),
             coalesce(old.done_on, old.occurrence_date)));
   end if;
   return null;
@@ -1267,8 +1343,6 @@ declare
   v_cut boolean := false;
   t public.transfers;
   v_w date;
-  v_lo date;
-  v_hi date;
   v_seq integer;
   v_to integer;
   v_next date;
@@ -1305,20 +1379,20 @@ begin
       continue;
     end if;
     -- 1. its own marks from the watermark on that no longer hold (the plan changed): only the
-    --    periods those marks lie in are computed
+    --    periods that can plan their keys are computed (D-490)
     if t.needs_check then
-      select pg_catalog.min(least(o.occurrence_date, o.done_on)), pg_catalog.max(greatest(o.occurrence_date, o.done_on))
-      into v_lo, v_hi
+      select pg_catalog.array_agg(o.occurrence_date) into v_keys
       from public.transfer_occurrences as o
       where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w);
-      if v_lo is not null then
+      if v_keys is not null then
+        with planned as materialized (
+          select pl.occurrence_date from private.transfer_plan_keys(p_budget_id, t.id, v_keys) as pl
+          where pl.due_date <= v_upto
+        )
         select pg_catalog.array_agg(o.id) into v_bad
         from public.transfer_occurrences as o
         where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w)
-          and not exists (select 1 from private.transfer_plan_range(p_budget_id, t.id,
-                                                                   private.listing_seq(p_budget_id, v_lo) - 1,
-                                                                   private.listing_seq(p_budget_id, v_hi) + 1) as pl
-                          where pl.occurrence_date = o.occurrence_date and pl.due_date <= v_upto);
+          and o.occurrence_date not in (select p.occurrence_date from planned as p);
         perform private.drop_transfer_marks(v_bad);
       end if;
     end if;
@@ -2147,22 +2221,19 @@ stable
 set search_path = ''
 as $$
 declare
-  v_first date;
-  v_last date;
+  v_keys date[];
   v_result jsonb;
 begin
-  -- whether a member's mark is planned: one plan over the periods its marks fall in (and one on
-  -- each side), not one per mark
-  select min(o.occurrence_date), max(o.occurrence_date) into v_first, v_last
+  -- whether a member's mark is planned: one plan over the periods that can plan its keys
+  -- (D-490), not one per mark
+  select pg_catalog.array_agg(distinct o.occurrence_date) into v_keys
   from public.transfer_occurrences as o
   where o.budget_id = p_budget_id and (p_transfer_id is null or o.transfer_id = p_transfer_id)
     and o.occurrence_date >= p_from and not o.by_catch_up;
   with planned as materialized (
     select distinct pl.transfer_id, pl.occurrence_date
-    from private.transfer_plan_range(p_budget_id, p_transfer_id,
-                                     private.listing_seq(p_budget_id, v_first) - 1,
-                                     private.listing_seq(p_budget_id, v_last) + 1) as pl
-    where v_first is not null
+    from private.transfer_plan_keys(p_budget_id, p_transfer_id, v_keys) as pl
+    where v_keys is not null
   )
   select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
            'id', o.id, 't', o.transfer_id, 'k', o.occurrence_date, 'c', o.by_catch_up,
@@ -2811,11 +2882,12 @@ begin
       and (per.is_last or o.occurrence_date <= per.end_date)
   ),
   around as materialized (
-    -- only for the marks this period does not plan (usually none): planned in a neighbour, or not at all
-    select pl.* from (select distinct d.transfer_id from dated as d
-                      where not exists (select 1 from live as l
-                                        where l.transfer_id = d.transfer_id and l.occurrence_date = d.occurrence_date)) as c
-    cross join lateral private.transfer_plan_range(p_budget_id, c.transfer_id, p_seq - 1, p_seq + 1) as pl
+    -- only for the marks this period does not plan (usually none): planned in another period,
+    -- found by their keys (D-490), or not at all
+    select pl.* from private.transfer_plan_keys(p_budget_id, p_transfer_id,
+      (select pg_catalog.array_agg(distinct d.occurrence_date) from dated as d
+       where not exists (select 1 from live as l
+                         where l.transfer_id = d.transfer_id and l.occurrence_date = d.occurrence_date))) as pl
   ),
   orphan as (
     select o.* from dated as o
@@ -4372,6 +4444,8 @@ grant execute on function
   private.account_holder_name(uuid, uuid),
   private.income_in_force(uuid, integer),
   private.transfer_plan_range(uuid, uuid, integer, integer, boolean),
+  private.transfer_plan_seqs(uuid, uuid, integer[], boolean),
+  private.transfer_raw_keys(uuid, integer),
   private.transfer_period_occurrences(integer, date, date, date, date, public.transfer_schedule,
     public.subscription_cadence, date, integer, integer, uuid, boolean),
   private.income_pay_dates(uuid, integer, date, date),
