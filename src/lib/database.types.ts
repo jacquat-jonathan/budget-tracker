@@ -535,14 +535,14 @@ isOneToOne: false
                   ]
                 },"incomes": {
                   Row: {
-                    "budget_id": string,"created_at": string,"end_seq": number | null,"ended_after_last": boolean,"first_seq": number,"id": string,"name": string,"revision": number,"updated_at": string,"user_id": string | null
+                    "budget_id": string,"created_at": string,"end_seq": number | null,"ended_after_last": boolean,"ended_on": string | null,"first_seq": number,"id": string,"name": string,"revision": number,"updated_at": string,"user_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"ended_after_last"?: boolean,"first_seq": number,"id"?: string,"name": string,"revision"?: number,"updated_at"?: string,"user_id"?: string | null
+                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"ended_after_last"?: boolean,"ended_on"?: string | null,"first_seq": number,"id"?: string,"name": string,"revision"?: number,"updated_at"?: string,"user_id"?: string | null
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"ended_after_last"?: boolean,"first_seq"?: number,"id"?: string,"name"?: string,"revision"?: number,"updated_at"?: string,"user_id"?: string | null
+                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"ended_after_last"?: boolean,"ended_on"?: string | null,"first_seq"?: number,"id"?: string,"name"?: string,"revision"?: number,"updated_at"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -2273,7 +2273,7 @@ isOneToOne: false
             }[]
                            },
 "preview_reopen":
-{ Args: { "p_budget_id": string }; Returns: {
+{ Args: { "p_budget_id": string,"p_pay_date"?: string }; Returns: {
               "change": string,"record_id": string,"record_kind": string,"record_name": string,"replaces_previous": boolean
             }[]
                            },

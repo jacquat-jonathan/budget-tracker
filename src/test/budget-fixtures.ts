@@ -257,7 +257,7 @@ export function transactionRow(
     in_to_categorise: false,
     transfer_id: null,
     transfer_name: null,
-    transfer_period_id: null,
+    transfer_occurrence_date: null,
     ...overrides,
   }
 }
