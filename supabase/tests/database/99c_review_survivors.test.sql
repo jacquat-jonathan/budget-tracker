@@ -125,7 +125,7 @@ select tests.clear_authentication();
 select tests.set_today('2026-11-16');
 
 -- ===========================================================================
--- Interest at a moved start: only that period's entry, from the opening day on (D-386)
+-- Interest at a moved start: refused from the opening day on, only for that period (D-467)
 -- ===========================================================================
 select tests.authenticate_as('wes');
 select tests.remember('ib3', public.create_budget('Interest', 'Salary', 500000, 25, 'nearest', '2026-09-01'));
@@ -137,21 +137,20 @@ select tests.authenticate_as('wes');
 select public.ensure_periods(tests.id('ib3'));
 select tests.remember('p3', (select id from public.periods where budget_id = tests.id('ib3') and start_date = '2026-11-25'));
 select tests.remember('p4', (select id from public.periods where budget_id = tests.id('ib3') and start_date = '2026-12-25'));
-select is((select interest_removed from public.preview_move_period_start(tests.id('p3'), '2026-11-17')), 0,
-  'D-386: the preview of a start after the opening removes no interest');
-select is((select interest_removed from public.preview_move_period_start(tests.id('p3'), '2026-11-16')), 1,
-  'D-386: the preview of a start on the opening day says one entry goes');
+select is((select row(accepted, refusal)::text from public.preview_move_period_start(tests.id('p3'), '2026-11-17')), row(true, null::text)::text,
+  'R-DEBT-340: the preview of a start the day after the opening accepts it');
+select is((select row(accepted, refusal)::text from public.preview_move_period_start(tests.id('p3'), '2026-11-16')), row(false, 'interest_before_opening')::text,
+  'R-DEBT-340: the preview of a start on the opening day refuses it');
 select tests.move_period_start(tests.id('p3'), '2026-11-17');
 select tests.clear_authentication();
 select is((select count(*)::integer from public.debt_interest where debt_id = tests.id('debt') and period_id = tests.id('p3')), 1,
-  'D-386: a start moved to the day after the opening keeps the period''s entry');
+  'R-DEBT-340: a start moved to the day after the opening keeps the period''s entry');
 select tests.authenticate_as('wes');
-select tests.move_period_start(tests.id('p3'), '2026-11-16');
+select throws_ok(format('select tests.move_period_start(%L, %L)', tests.id('p3'), '2026-11-16'), 'P0001', 'interest_before_opening',
+  'R-DEBT-340: a start moved onto the opening day is refused');
 select tests.clear_authentication();
-select is((select count(*)::integer from public.debt_interest where debt_id = tests.id('debt') and period_id = tests.id('p3')), 0,
-  'D-386: a start moved onto the opening day drops the period''s entry');
-select is((select count(*)::integer from public.debt_interest where debt_id = tests.id('debt') and period_id = tests.id('p4')), 1,
-  'D-386: and only that period''s');
+select is((select count(*)::integer from public.debt_interest where debt_id = tests.id('debt') and period_id in (tests.id('p3'), tests.id('p4'))), 2,
+  'R-DEBT-340: nothing is removed, in that period or the next');
 
 -- ===========================================================================
 -- The comparison: a period is completed only after its last day (D-384)

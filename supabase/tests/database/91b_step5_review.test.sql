@@ -4,7 +4,7 @@
 -- average, memberships and invitations bounded, the held charge's preview, and the cases the
 -- earlier tests left open.
 begin;
-select plan(62);
+select plan(63);
 
 create extension if not exists dblink with schema extensions;
 select tests.create_user('ann', 'Ann');
@@ -25,19 +25,21 @@ select tests.authenticate_as('ann');
 select public.ensure_periods(tests.id('m1'));
 select tests.remember('m1_p', (select id from public.periods where budget_id = tests.id('m1') and start_date = '2026-11-25'));
 select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 1, 'setup: the new period has the debt''s interest');
-select is((select row(accepted, interest_removed)::text from public.preview_move_period_start(tests.id('m1_p'), '2026-11-10')),
-          row(true, 1)::text, 'R-DEBT-131: the preview of a move to before the opening says one debt''s interest goes');
-select is((select interest_removed from public.preview_move_period_start(tests.id('m1_p'), '2026-11-20')), 0,
-  'R-DEBT-131: a move that stays after the opening removes none');
-select public.move_period_start(tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-10');
-select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 0,
-  'R-DEBT-131: moved to before the opening, the period has no interest for the debt');
+select is((select row(accepted, refusal, interest_removed)::text from public.preview_move_period_start(tests.id('m1_p'), '2026-11-10')),
+          row(false, 'interest_before_opening', 0)::text, 'R-DEBT-340: the preview of a move to before the opening says it is refused');
+select is((select row(accepted, interest_removed)::text from public.preview_move_period_start(tests.id('m1_p'), '2026-11-20')), row(true, 0)::text,
+  'R-DEBT-340: a move that stays after the opening is accepted');
+select throws_ok(format('select public.move_period_start(%L, %s, %L)', tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-10'),
+  'P0001', 'interest_before_opening', 'R-DEBT-340: a move to before the opening of a debt with interest in the period is refused');
+select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 1,
+  'R-DEBT-340: and the period keeps its interest');
 select is((select kind from public.get_debt_history(tests.id('m1_debt'), 1)), 'opened', 'R-DEBT-131: the history starts with the opening');
 select is_empty(format('select * from tests.step4_violations(%L)', tests.id('m1')), 'R-DEBT-131: and the step 4 invariants hold');
--- the other way: moved later again, nothing is added (interest is computed once, at creation)
+-- a move that stays after the opening, and back: nothing is lost
+select public.move_period_start(tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-20');
 select public.move_period_start(tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-25');
-select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 0,
-  'R-DEBT-131: a start moved back after the opening adds no interest afterwards');
+select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 1,
+  'R-DEBT-340: a start moved and moved back keeps the period''s interest');
 
 -- ===========================================================================
 -- S1: far behind, only ensure_periods and get_current_period work (R-PERIOD-250, D-387)
