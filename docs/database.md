@@ -1582,7 +1582,8 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
 - **A pay date** (`'pay_date'`): one occurrence per pay date of its income in the period, due on
   the actual pay date plus `offset_days`, never after the last day of the period containing that
   pay date.
-  - The **primary income** (no income chosen, or the chosen one not in force there or deleted):
+  - The **primary income** (no income chosen, the primary income itself chosen, R-ACCOUNT-310, or
+    the chosen one not in force there or deleted):
     one occurrence per period. Its key is the period's **scheduled pay date** (the date the
     schedule gave for the salary that started the period, stored on the period), its due date
     the period's start (the actual pay date, whatever moved it) plus the offset. An early

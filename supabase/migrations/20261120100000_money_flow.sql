@@ -837,6 +837,18 @@ begin
 end;
 $$;
 
+-- S1, R-ACCOUNT-310: a chosen income that is the budget's primary income in period p_seq (it
+-- has been since primary_since_seq) is the same as no income chosen there.
+create function private.income_is_primary_at(p_income_id uuid, p_seq integer)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select exists (select 1 from public.incomes as i join public.budgets as b on b.id = i.budget_id
+                 where i.id = p_income_id and b.primary_income_id = i.id and p_seq >= b.primary_since_seq)
+$$;
+
 -- R-ACCOUNT-300 to R-ACCOUNT-303, D-420, D-422: the occurrences of one transfer in one period
 -- under the given terms, each with its key (occurrence_date) and its due date:
 -- * 'day_of_month': the dates of the calendar schedule (the subscriptions' own code,
@@ -863,11 +875,14 @@ begin
   if p_schedule = 'day_of_month' then
     return query select d, d, false, false
                  from private.charge_dates(p_anchor, p_cadence, greatest(p_start, p_starts_on), p_end, p_day) as d;
-  elsif p_income_id is not null and private.income_in_force(p_income_id, p_seq) then
+  elsif p_income_id is not null and private.income_in_force(p_income_id, p_seq)
+        and not private.income_is_primary_at(p_income_id, p_seq) then
     return query select d, least(d + p_offset, p_end), false, false
                  from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on), p_end) as d;
   elsif p_pay_key is not null and p_pay_key >= p_starts_on then
-    return query select p_pay_key, least(p_start + p_offset, p_end), p_income_id is not null or coalesce(p_income_gone, false),
+    return query select p_pay_key, least(p_start + p_offset, p_end),
+                        (p_income_id is not null and not private.income_is_primary_at(p_income_id, p_seq))
+                          or coalesce(p_income_gone, false),
                         true;
   end if;
 end;
@@ -3826,6 +3841,9 @@ begin
   where id = v_income.budget_id and primary_income_id <> v_income.id;
   if found then
     update public.incomes set revision = revision + 1 where id in (v_old, v_income.id);
+    -- R-ACCOUNT-310: a transfer that chose either income follows other dates from now on
+    perform private.transfers_recheck(v_income.budget_id, null, v_old, private.seq_start(v_income.budget_id, v_seq));
+    perform private.transfers_recheck(v_income.budget_id, null, v_income.id, private.seq_start(v_income.budget_id, v_seq));
     perform private.reproject_current_end(v_income.budget_id);
   end if;
   perform private.assert_previewed_end(v_income.budget_id, p_previewed_end_date);
@@ -4459,6 +4477,7 @@ grant execute on function
   private.account_referenced(uuid),
   private.account_holder_name(uuid, uuid),
   private.income_in_force(uuid, integer),
+  private.income_is_primary_at(uuid, integer),
   private.transfer_plan_range(uuid, uuid, integer, integer, boolean),
   private.transfer_plan_seqs(uuid, uuid, integer[], boolean),
   private.transfer_raw_keys(uuid, integer),

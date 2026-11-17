@@ -252,6 +252,33 @@ select throws_ok(format($$select public.move_period_start(%L, %s, '2026-12-10')$
 select is(pg_temp.txs(tests.id('m3_t')), '2026-09-25,2026-10-25,2026-11-27,2026-12-25',
   'R-ACCOUNT-309: the refused move moved nothing');
 
+-- ===========================================================================
+-- S1: naming the primary income is the same as naming none (R-ACCOUNT-310; the reviewer's F9)
+-- ===========================================================================
+select pg_temp.day('2026-11-20');
+select pg_temp.budget('s1');
+select tests.remember('s1_none', (select id from public.create_transfer(tests.id('s1'), 'No income chosen', tests.id('s1_main'),
+  tests.id('s1_sav'), 1000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('s1_cat'), p_from_period_id => tests.id('s1_p1'))));
+select tests.remember('s1_prim', (select id from public.create_transfer(tests.id('s1'), 'Salary chosen', tests.id('s1_main'),
+  tests.id('s1_sav'), 2000, 'pay_date', p_income_id => (select primary_income_id from public.budgets where id = tests.id('s1')),
+  p_is_automatic => true, p_category_id => tests.id('s1_cat'), p_from_period_id => tests.id('s1_p1'))));
+select public.record_early_pay_date(tests.id('s1'), (pg_temp.cur('s1')).id, (pg_temp.cur('s1')).revision, '2026-11-20');
+select pg_temp.day('2026-12-26');
+select public.ensure_periods(tests.id('s1'));
+select public.reopen_previous_period(tests.id('s1'), (pg_temp.cur('s1')).id, (pg_temp.cur('s1')).revision, '2026-12-29');
+select pg_temp.day('2026-12-30');
+select public.ensure_periods(tests.id('s1'));
+select is(pg_temp.txs(tests.id('s1_none')), '2026-09-25,2026-10-25,2026-11-20,2026-12-29',
+  'R-ACCOUNT-310: (no income chosen: one transfer per salary, on the day it came)');
+select is(pg_temp.txs(tests.id('s1_prim')), pg_temp.txs(tests.id('s1_none')),
+  'R-ACCOUNT-310: the primary income chosen gives the same transfers, on the same days');
+select is((select string_agg(rows, '|' order by seq) from pg_temp.rows('s1', tests.id('s1_prim'))),
+          (select string_agg(rows, '|' order by seq) from pg_temp.rows('s1', tests.id('s1_none'))),
+  'R-ACCOUNT-310: and the same checklist rows, none following the primary as a fallback');
+select is((select bool_or(c.follows_primary) from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
+           where p.budget_id = tests.id('s1') and c.transfer_id = tests.id('s1_prim')), false,
+  'R-ACCOUNT-310: a transfer that chose the primary income never says it follows the primary instead');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;
