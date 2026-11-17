@@ -8758,6 +8758,19 @@
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
         "code: src/features/accounts/components/account-form-dialog.tsx"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-530",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "\"This period's salary has not arrived yet\" asks for the day the salary is now expected and never leaves it empty: the field is required, filled in with the next pay day the app announces (the current period's end plus one, R-INCOME-056), says that a salary that is only late needs the day it is now expected, and the dialog's preview says until when the reopened period will run and on which day the salary is then expected. The date is always sent (reopen_previous_period and preview_reopen), so the database's projection, which can lie a month later, is never used from the screen.",
+      "related": ["R-PERIOD-025", "R-ACCOUNT-313", "R-INCOME-056", "D-082", "D-632"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/periods/periods-page.tsx"
+      ]
     }
   ],
   "decisions": [
@@ -13918,6 +13931,21 @@
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]
+    },
+    {
+      "id": "D-632",
+      "title": "The reopen dialog requires the expected pay day; the database's projection stays as it is",
+      "decision": "The screen sent no date when the field was empty, and reopen_previous_period then ends the reopened period at its projection (contract: \"or at its projection when omitted\"); in the walk-through that made the period run to 24.02.2027 with the next pay day 25.02.2027, a month after the salary that had not arrived. The rule is the database's and is left alone; the screen now always names the day (required, filled in with the next pay day the app announces, editable), and its preview says what the period will then run to.",
+      "why": "A person who says the salary has not arrived yet expects it soon; an empty field silently meant \"next month\". Changing what the projection means is a database decision for the owner (Q-365).",
+      "rejected": [
+        "Working around the projection on the client (computing a nearer date from the schedule): pay-date logic lives in the database (C-LOGIC-001, C-LOGIC-003).",
+        "Keeping the field optional with a warning: the surprising default would still be one click away."
+      ],
+      "status": "accepted",
+      "related": ["R-PERIOD-530", "D-082", "Q-365"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
     }
   ],
   "conventions": [
@@ -15277,6 +15305,16 @@
       "related": ["D-563", "D-568", "R-ACCOUNT-462", "R-ACCOUNT-501", "D-601"],
       "source": [
         "owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-365",
+      "question": "When reopen_previous_period is called without p_pay_date, should the reopened period end the day before the pay day that did not arrive is next expected (for example a few days after today), rather than at its projection, the day before the next scheduled pay date after today (a month later)?",
+      "context": "Household walk-through: today 26.01.2027, pay day 25 (nearest), period 4 started 25.01; reopen without a date merged it into period 3, which then ran from 28.12.2026 to 24.02.2027 with \"Next pay day 25.02.2027\". The contract says the reopened period ends \"at its projection when omitted\". The screen no longer omits the date (D-632, R-PERIOD-530), so only other clients (or a later screen) meet this; the database side decides whether the default should change or the parameter become required.",
+      "status": "open",
+      "related": ["D-632", "R-PERIOD-530", "D-082"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]
     }
   ]

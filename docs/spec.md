@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-607 rules (596 active, 0 planned), 24 conventions, 377 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
+608 rules (597 active, 0 planned), 24 conventions, 378 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1083,6 +1083,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-427, R-PERIOD-180
   - Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-PERIOD-530** "This period's salary has not arrived yet" asks for the day the salary is now expected and never leaves it empty: the field is required, filled in with the next pay day the app announces (the current period's end plus one, R-INCOME-056), says that a salary that is only late needs the day it is now expected, and the dialog's preview says until when the reopened period will run and on which day the salary is then expected. The date is always sent (reopen_previous_period and preview_reopen), so the database's projection, which can lie a month later, is never used from the screen.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-025, R-ACCOUNT-313, R-INCOME-056, D-082, D-632
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/periods/periods-page.tsx
 
 ### Versioning: edits never rewrite the past
 
@@ -7806,6 +7810,21 @@ Related: R-ACCOUNT-530, R-ACCOUNT-423
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
+### D-632 The reopen dialog requires the expected pay day; the database's projection stays as it is (accepted)
+
+The screen sent no date when the field was empty, and reopen_previous_period then ends the reopened period at its projection (contract: "or at its projection when omitted"); in the walk-through that made the period run to 24.02.2027 with the next pay day 25.02.2027, a month after the salary that had not arrived. The rule is the database's and is left alone; the screen now always names the day (required, filled in with the next pay day the app announces, editable), and its preview says what the period will then run to.
+
+**Why:** A person who says the salary has not arrived yet expects it soon; an empty field silently meant "next month". Changing what the projection means is a database decision for the owner (Q-365).
+
+**Rejected:**
+
+- Working around the projection on the client (computing a nearer date from the schedule): pay-date logic lives in the database (C-LOGIC-001, C-LOGIC-003).
+- Keeping the field optional with a warning: the surprising default would still be one click away.
+
+Related: R-PERIOD-530, D-082, Q-365
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -8272,6 +8291,10 @@ Source: owner-request: coordinator brief for the final fix round after the house
   - Context: D-563 re-dates the app’s own untouched transactions when a due date moves; the previews count that as one removed and one created. created_at_once names the occurrence created, but nothing names the one removed, and already_recorded is false for a re-dated mark (its id changes), so the screen cannot tell a move from a loss and a new transaction. It says both counts and that a move counts once in each (D-601).
   - Related: D-563, D-568, R-ACCOUNT-462, R-ACCOUNT-501, D-601
   - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+- **Q-365** When reopen_previous_period is called without p_pay_date, should the reopened period end the day before the pay day that did not arrive is next expected (for example a few days after today), rather than at its projection, the day before the next scheduled pay date after today (a month later)?
+  - Context: Household walk-through: today 26.01.2027, pay day 25 (nearest), period 4 started 25.01; reopen without a date merged it into period 3, which then ran from 28.12.2026 to 24.02.2027 with "Next pay day 25.02.2027". The contract says the reopened period ends "at its projection when omitted". The screen no longer omits the date (D-632, R-PERIOD-530), so only other clients (or a later screen) meet this; the database side decides whether the default should change or the parameter become required.
+  - Related: D-632, R-PERIOD-530, D-082
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
 ## Glossary
 

@@ -1128,8 +1128,9 @@ const core: Omit<Translation, LazyKey> = {
         title: 'Le salaire de cette période n’est pas encore arrivé',
         description:
           'Cette période est fusionnée avec la précédente, qui redevient la période en cours jusqu’à l’arrivée du salaire.',
-        field: 'Salaire désormais attendu le (facultatif)',
-        range: 'Après aujourd’hui ({{today}}) ; laissez vide pour la date prévue.',
+        field: 'Salaire désormais attendu le',
+        range:
+          'Après aujourd’hui ({{today}}). Prérempli avec le prochain jour de paie du calendrier : si le salaire est seulement en retard, saisissez le jour où vous l’attendez maintenant.',
       },
       moveStart: {
         title: 'Le salaire de cette période est arrivé un autre jour',
@@ -1196,9 +1197,7 @@ const core: Omit<Translation, LazyKey> = {
       early:
         'Cette période se terminera le {{end}}, et une nouvelle période commencera le {{start}}.',
       reopenUntil:
-        'La période précédente (dès le {{start}}) redevient la période en cours et se terminera le {{end}} ; cette période disparaît.',
-      reopenProjected:
-        'La période précédente (dès le {{start}}) redevient la période en cours jusqu’à sa fin prévue ; cette période disparaît.',
+        'La période précédente (dès le {{start}}) redevient la période en cours et se terminera le {{end}} ; le salaire est alors attendu le {{date}}. Cette période disparaît.',
       moveStart:
         'La période précédente se terminera le {{end}}, et celle-ci commencera le {{start}}.',
       moveSchedule:

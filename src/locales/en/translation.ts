@@ -1084,8 +1084,9 @@ const core = {
         title: 'This period’s salary has not arrived yet',
         description:
           'This period is merged into the previous one, which is current again until the salary arrives.',
-        field: 'Salary now expected on (optional)',
-        range: 'After today ({{today}}); leave empty to use the projected date.',
+        field: 'Salary now expected on',
+        range:
+          'After today ({{today}}). Filled in with the next pay day of the schedule: if the salary is only late, enter the day you now expect it.',
       },
       moveStart: {
         title: 'This period’s salary arrived on another day',
@@ -1151,9 +1152,7 @@ const core = {
       resetExpected: 'The end of this period will follow the projected pay date again.',
       early: 'This period will end on {{end}}, and a new period starts on {{start}}.',
       reopenUntil:
-        'The previous period (from {{start}}) is current again and will end on {{end}}; this period disappears.',
-      reopenProjected:
-        'The previous period (from {{start}}) is current again until its projected end; this period disappears.',
+        'The previous period (from {{start}}) is current again and will end on {{end}}; the salary is then expected on {{date}}. This period disappears.',
       moveStart: 'The previous period will end on {{end}}, and this one starts on {{start}}.',
       moveSchedule:
         'The boundary goes back to the day the schedule gives, and its “set by hand” mark is cleared.',
