@@ -4798,6 +4798,99 @@ grant execute on function
   private.transfer_committed_total(uuid, integer)
 to authenticated;
 
+-- ===========================================================================
+-- Q-300 (D-525): the transactions of one planned transfer, as for a subscription or a debt
+-- ===========================================================================
+-- list_transactions of step 6 with p_transfer_id at the end (transfer_not_found for another
+-- budget's transfer). Here, where transaction_list has transfer_id.
+drop function public.list_transactions(uuid, integer, date, date, uuid, public.transaction_kind, date, timestamptz, uuid, uuid, uuid, boolean, boolean, uuid);
+create function public.list_transactions(
+  p_budget_id uuid,
+  p_limit integer default 50,
+  p_from_date date default null,
+  p_to_date date default null,
+  p_category_id uuid default null,
+  p_kind public.transaction_kind default null,
+  p_before_date date default null,
+  p_before_created_at timestamptz default null,
+  p_before_id uuid default null,
+  p_subscription_id uuid default null,
+  p_debt_id uuid default null,
+  p_awaiting_only boolean default false,
+  p_to_review_only boolean default false,
+  p_import_batch_id uuid default null,
+  p_transfer_id uuid default null
+)
+returns setof public.transaction_list
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_sql text := 'select l.* from public.transaction_list as l where l.budget_id = $1';
+  v_categories uuid[];
+begin
+  perform private.assert_member(p_budget_id);
+  if p_limit is null or p_limit not between 1 and private.limit_page_size() then
+    raise exception 'invalid_limit' using errcode = 'P0001';
+  end if;
+  if pg_catalog.num_nonnulls(p_before_date, p_before_created_at, p_before_id) not in (0, 3) then
+    raise exception 'invalid_cursor' using errcode = 'P0001';
+  end if;
+  if p_category_id is not null then
+    select pg_catalog.array_agg(c.id) into v_categories from public.categories as c
+    where c.budget_id = p_budget_id and (c.id = p_category_id or c.parent_id = p_category_id);
+    if v_categories is null then
+      raise exception 'category_not_found' using errcode = 'P0001';
+    end if;
+    v_sql := v_sql || ' and l.category_id = any ($5)';
+  end if;
+  if p_subscription_id is not null then
+    if not exists (select 1 from public.subscriptions as s where s.id = p_subscription_id and s.budget_id = p_budget_id) then
+      raise exception 'subscription_not_found' using errcode = 'P0001';
+    end if;
+    v_sql := v_sql || ' and l.subscription_id = $10';
+  end if;
+  if p_debt_id is not null then
+    if not exists (select 1 from public.debts as d where d.id = p_debt_id and d.budget_id = p_budget_id) then
+      raise exception 'debt_not_found' using errcode = 'P0001';
+    end if;
+    v_sql := v_sql || ' and l.debt_id = $11';
+  end if;
+  if p_import_batch_id is not null then
+    if not exists (select 1 from public.import_batches as b where b.id = p_import_batch_id and b.budget_id = p_budget_id) then
+      raise exception 'import_batch_not_found' using errcode = 'P0001';
+    end if;
+    v_sql := v_sql || ' and l.import_batch_id = $12';
+  end if;
+  -- Q-300 (D-525): one planned transfer's transactions
+  if p_transfer_id is not null then
+    if not exists (select 1 from public.transfers as t where t.id = p_transfer_id and t.budget_id = p_budget_id) then
+      raise exception 'transfer_not_found' using errcode = 'P0001';
+    end if;
+    v_sql := v_sql || ' and l.transfer_id = $13';
+  end if;
+  if p_from_date is not null then v_sql := v_sql || ' and l.date >= $2'; end if;
+  if p_to_date is not null then v_sql := v_sql || ' and l.date <= $3'; end if;
+  if p_kind is not null then v_sql := v_sql || ' and l.kind = $4'; end if;
+  if coalesce(p_awaiting_only, false) then v_sql := v_sql || ' and l.review_state = ''awaiting_confirmation'''; end if;
+  if coalesce(p_to_review_only, false) then v_sql := v_sql || ' and l.review_state = ''to_review'''; end if;
+  if p_before_id is not null then
+    v_sql := v_sql || ' and (l.date, l.created_at, l.id) < ($6, $7, $8)';
+  end if;
+  v_sql := v_sql || ' order by l.date desc, l.created_at desc, l.id desc limit $9';
+  return query execute v_sql
+    using p_budget_id, p_from_date, p_to_date, p_kind, v_categories,
+          p_before_date, p_before_created_at, p_before_id, p_limit, p_subscription_id, p_debt_id, p_import_batch_id,
+          p_transfer_id;
+end;
+$$;
+revoke all on function public.list_transactions(uuid, integer, date, date, uuid, public.transaction_kind, date, timestamptz,
+  uuid, uuid, uuid, boolean, boolean, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.list_transactions(uuid, integer, date, date, uuid, public.transaction_kind, date, timestamptz,
+  uuid, uuid, uuid, boolean, boolean, uuid, uuid) to authenticated;
+
 grant execute on function
   public.create_account(uuid, text, public.account_kind, text, uuid, uuid),
   public.update_account(uuid, integer, text, public.account_kind, text, uuid, boolean, boolean),

@@ -658,14 +658,16 @@ R-DEBT-134)
 `transaction_not_found`, `record_changed`, `invalid_revision`, `debt_ended` (a payment of an
 ended debt). (R-DEBT-134)
 
-**`list_transactions(p_budget_id, p_limit = 50, p_from_date = null, p_to_date = null, p_category_id = null, p_kind = null, p_before_date = null, p_before_created_at = null, p_before_id = null, p_subscription_id = null, p_debt_id = null, p_awaiting_only = false) -> transaction_list[]`**
+**`list_transactions(p_budget_id, p_limit = 50, p_from_date = null, p_to_date = null, p_category_id = null, p_kind = null, p_before_date = null, p_before_created_at = null, p_before_id = null, p_subscription_id = null, p_debt_id = null, p_awaiting_only = false, p_to_review_only = false, p_import_batch_id = null, p_transfer_id = null) -> transaction_list[]`**
 Member. **The way to list transactions.** One page, newest first, in the stable order
 `date desc, created_at desc, id desc`, at most `p_limit` rows (1 to 200). Filters, all
 optional and combinable: `p_from_date` / `p_to_date` (inclusive; for a period, its
 `start_date` and `end_date`), `p_category_id` (a leaf, or a group with all its
 subcategories), `p_kind`, `p_subscription_id` (its charges and the transactions linked to
 it), `p_debt_id` (its payments), `p_awaiting_only` (the charges awaiting confirmation; each
-of these three reads its own index). **Next page**: pass the last row's `date`, `created_at` and `id`
+of these three reads its own index), `p_to_review_only` and `p_import_batch_id` (step 6),
+`p_transfer_id` (a planned transfer's transactions, D-525 answering Q-300; another budget's
+transfer: `transfer_not_found`). **Next page**: pass the last row's `date`, `created_at` and `id`
 as `p_before_date`, `p_before_created_at`, `p_before_id` (all three, unchanged, with the
 same filters); a page shorter than `p_limit` is the last. Pages stay correct when rows are
 added or edited meanwhile (no offsets). Cost: without filters, or with dates, each page is
@@ -1388,7 +1390,9 @@ same statement still finds. Errors:
 - **`list_import_batches(p_budget_id, p_limit = 50, p_before_created_at = null, p_before_id = null) -> import_batch_list[]`**
   newest first, 1 to 200 a page (cursor: the last row's `created_at` and `id`). Columns:
   `id`, `budget_id`, `source`, `statement_from`, `statement_to`, `created_by` (null for a
-  token's batch), `created_by_name`, `token_id`, `token_name`, `created_at`, `chunk_count`,
+  token's batch), `created_by_name` (the creator's display name while a member of the budget,
+  whether or not they recorded anything; null once they are no longer a member: "a former
+  member"; R-IMPORT-422), `token_id`, `token_name`, `created_at`, `chunk_count`,
   `row_count`, `imported_count`, `duplicate_count`, `flagged_count`, `matched_count`,
   `chosen_skip_count`, `invalid_count` (these add up to `row_count`), `charges_confirmed_count`,
   `to_review_count`, `undone_at`, `undone_by`. Errors: `budget_not_found`, `invalid_limit`,
@@ -1815,7 +1819,13 @@ assumed done, or the catch-up's transaction). `status`:
 | `'more'` | the 1000th row of a period that lists more: `name` is how many more (only with very many unplanned marks; R-APP-170) | |
 
 `done_on` / `amount_moved`: the transaction's date and amount when it has one (an edit of the
-transaction shows here), else what was marked. `held_back`: an automatic linked occurrence due
+transaction shows here), else what was marked. **Assumed done** (`assumed` true, no mark,
+`mark_revision` 0): an automatic occurrence due and not linked to a category has no
+transaction; its row is `'done'` with `done_on` and `amount_moved` null: it counts as done on
+its `due_date`, for the planned `amount` (show those). From that state `undo_transfer_mark`
+answers `nothing_to_undo` (there is no mark) and `mark_transfer_not_done` is allowed (it records
+that the bank did not run it). The same holds for an automatic linked occurrence before the
+catch-up made its transaction (rare: the budget is full, `held_back`). `held_back`: an automatic linked occurrence due
 whose transaction waits for room (the budget holds 50 000 transactions); it is created, dated
 its due date, once there is room. `mark_revision`: the revision of the occurrence's mark, **0
 when nothing is marked**; send it as `p_expected_revision` (R-CONCURRENCY-230): a mark made or

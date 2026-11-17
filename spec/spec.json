@@ -8285,6 +8285,19 @@
       ]
     },
     {
+      "id": "R-IMPORT-422",
+      "area": "import",
+      "statement": "An import batch names its creator (created_by_name) while that person is a member of the budget, whether or not they recorded any transaction, and answers null only once they are no longer a member.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-257", "D-088"],
+      "source": [
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), the screens' asks and the screens reviewer's additions, 2026-11-17",
+        "code: supabase/migrations/20261119100000_import.sql"
+      ]
+    },
+    {
       "id": "R-COMPARE-366",
       "area": "compare",
       "statement": "A comparison chart that scrolls scales its value axis to the periods in view, again whenever it is scrolled, and keeps its first and last period labels inside the chart when a period is narrower than a label.",
@@ -13000,6 +13013,34 @@
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
+    },
+    {
+      "id": "D-525",
+      "title": "The transactions of one planned transfer (answers Q-300)",
+      "decision": "list_transactions takes p_transfer_id (last, optional), like p_subscription_id and p_debt_id: the transactions linked to that transfer's occurrences; another budget's transfer answers transfer_not_found.",
+      "why": "A transfer card could show how many transactions it has but not list them (Q-300).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-300", "R-ACCOUNT-072", "R-APP-170"],
+      "source": [
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), the screens' asks and the screens reviewer's additions, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-526",
+      "title": "An assumed-done occurrence counts as done on its due date",
+      "decision": "A due automatic occurrence without a transaction (not linked to a category, or held back) and without a mark is listed done with assumed true, done_on and amount_moved null and mark_revision 0; it counts as done on its due_date for its planned amount, which the screens show. undo_transfer_mark answers nothing_to_undo there, and mark_transfer_not_done is allowed. The read is not changed to put the due date in done_on, so done_on keeps meaning what was recorded.",
+      "why": "The screens reviewer found the state undocumented: done with no date and no mark (re-check of the screens, addition 2).",
+      "rejected": [
+        "Copying due_date into done_on: done_on would no longer tell what was recorded from what is assumed."
+      ],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-004", "D-353", "D-429"],
+      "source": [
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), the screens' asks and the screens reviewer's additions, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     }
   ],
   "conventions": [
@@ -14284,9 +14325,10 @@
       "id": "Q-300",
       "question": "Can list_transactions filter by planned transfer (p_transfer_id), as it does by subscription and debt?",
       "context": "A transfer linked to a category has transactions (transfer_overview.transaction_count), but the screens cannot list them: there is no filter for them, so the transfer card offers no \"its transactions\" link as subscriptions and debts do.",
-      "status": "open",
+      "status": "resolved",
       "related": ["R-ACCOUNT-072", "R-APP-170"],
-      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
+      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"],
+      "resolvedBy": "D-525"
     },
     {
       "id": "Q-301",

@@ -416,5 +416,49 @@ select results_eq($$select name, amount, spent from public.get_money_flow(tests.
 select is((select count(*)::integer from public.get_money_flow(tests.id('w'))), 10, 'R-ACCOUNT-422: never more rows than the limit');
 rollback to savepoint mf_rows;
 
+-- ===========================================================================
+-- Q-300 (D-525): list_transactions takes a transfer, like a subscription or a debt
+-- ===========================================================================
+select pg_temp.day('2026-11-20');
+select results_eq(format($$select date, amount from public.list_transactions(%L, p_transfer_id => %L)$$, tests.id('w'),
+                         (select id from public.transfers where budget_id = tests.id('w') and name = 'Savings')),
+  $$values ('2026-10-25'::date, 100000::bigint)$$, 'D-525: one planned transfer''s transactions');
+select is(pg_temp.refusal(format($$select * from public.list_transactions(%L, p_transfer_id => %L)$$, tests.id('w'), tests.id('a_t'))),
+  'transfer_not_found', 'D-525: another budget''s transfer is not found');
+
+-- ===========================================================================
+-- An import's creator is named while a member, also without any transaction (R-IMPORT-422)
+-- ===========================================================================
+select tests.remember('n_inv', public.invite_member(tests.id('i'), tests.get_user_email('juno')));
+select pg_temp.day('2026-11-16', 'juno');
+select public.accept_invitation(tests.id('n_inv'));
+select tests.remember('n_b', gen_random_uuid());
+select public.import_transactions(tests.id('i'), tests.id('n_b'), 1, pg_temp.row1(7001), 'csv');
+select public.undo_import_batch(tests.id('n_b'));
+select pg_temp.day('2026-11-16');
+select is((select created_by_name from public.get_import_batch(tests.id('n_b'))), 'Juno',
+  'R-IMPORT-422: a current member whose only import was undone (no transaction recorded) is named');
+select is((select created_by_name from public.list_import_batches(tests.id('i')) where id = tests.id('n_b')), 'Juno',
+  'R-IMPORT-422: in the batch list too');
+select public.remove_member(tests.id('i'), tests.get_user_id('juno'));
+select is((select created_by_name from public.get_import_batch(tests.id('n_b'))), null,
+  'R-IMPORT-422: once no longer a member, null ("a former member")');
+
+-- ===========================================================================
+-- An automatic occurrence not linked to a category, due: done (assumed), no mark; undo has
+-- nothing to undo, "did not happen" is allowed (the contract says so)
+-- ===========================================================================
+select pg_temp.day('2026-11-20');
+select tests.remember('u_t', (select id from public.create_transfer(tests.id('w'), 'Unlinked', tests.id('w_main'), tests.id('w_sav'),
+  5000, 'pay_date', p_is_automatic => true, p_from_period_id => (pg_temp.cur('w')).id)));
+select results_eq(format($$select status, done_on, mark_revision, assumed, due_date from public.get_transfer_checklist(%L) where transfer_id = %L$$,
+                         (pg_temp.cur('w')).id, tests.id('u_t')),
+  $$values ('done', null::date, 0, true, '2026-10-25'::date)$$,
+  'R-ACCOUNT-004: due and unlinked: done, assumed, no mark; it counts as done on its due date');
+select is(pg_temp.refusal(format($$select * from public.undo_transfer_mark(%L, %L, 0)$$, tests.id('u_t'), (pg_temp.cur('w')).id)),
+  'nothing_to_undo', 'R-ACCOUNT-004: undo has nothing to undo');
+select is((select status from public.mark_transfer_not_done(tests.id('u_t'), (pg_temp.cur('w')).id, 0)), 'not_done',
+  'R-ACCOUNT-004: "did not happen" is allowed from that state');
+
 select * from finish();
 rollback;

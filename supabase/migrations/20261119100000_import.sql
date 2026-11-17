@@ -2295,9 +2295,25 @@ $$;
 -- ===========================================================================
 -- Members read batches, skipped rows and remembered choices only through the paged calls
 -- below (no direct select); the views are the calls' row shapes.
+-- R-IMPORT-422: the display name of a current member of the budget (null for anyone else, a
+-- former member included); only for budgets the caller belongs to. A batch's creator need not
+-- have recorded any transaction (an import undone), unlike a transaction's recorder.
+create function private.member_name(p_budget_id uuid, p_user_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.display_name from public.profiles as p
+  where p.id = p_user_id
+    and p_budget_id in (select private.member_budget_ids())
+    and exists (select 1 from public.budget_members as m where m.budget_id = p_budget_id and m.user_id = p_user_id)
+$$;
+
 create view public.import_batch_list with (security_invoker = true) as
   select b.id, b.budget_id, b.source, b.statement_from, b.statement_to, b.created_by,
-         private.recorder_name(b.budget_id, b.created_by) as created_by_name, b.token_id, b.token_name, b.created_at,
+         private.member_name(b.budget_id, b.created_by) as created_by_name, b.token_id, b.token_name, b.created_at,
          b.chunk_count, b.row_count, b.imported_count, b.duplicate_count, b.flagged_count, b.matched_count,
          b.chosen_skip_count, b.invalid_count, b.charges_confirmed_count,
          (select pg_catalog.count(*)::integer from public.transactions as t
@@ -2941,6 +2957,7 @@ $$;
 
 -- Used by the security_invoker view transaction_list.
 grant execute on function private.import_source(uuid) to authenticated;
+grant execute on function private.member_name(uuid, uuid) to authenticated;
 
 grant execute on function
   public.preview_import(uuid, uuid, jsonb),

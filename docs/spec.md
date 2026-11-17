@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-570 rules (559 active, 0 planned), 24 conventions, 349 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
+571 rules (560 active, 0 planned), 24 conventions, 351 decisions, 42 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2279,6 +2279,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: D-457, D-458, R-IMPORT-347
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-422** An import batch names its creator (created_by_name) while that person is a member of the budget, whether or not they recorded any transaction, and answers null only once they are no longer a member.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-257, D-088
+  - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), the screens' asks and the screens reviewer's additions, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
 
 ### Accounts and planned transfers (money flow)
 
@@ -7260,6 +7264,32 @@ Related: Q-301, R-ACCOUNT-422, R-ACCOUNT-423, D-356, D-503
 
 Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 
+### D-525 The transactions of one planned transfer (answers Q-300) (accepted)
+
+list_transactions takes p_transfer_id (last, optional), like p_subscription_id and p_debt_id: the transactions linked to that transfer's occurrences; another budget's transfer answers transfer_not_found.
+
+**Why:** A transfer card could show how many transactions it has but not list them (Q-300).
+
+**Rejected:** none recorded.
+
+Related: Q-300, R-ACCOUNT-072, R-APP-170
+
+Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), the screens' asks and the screens reviewer's additions, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-526 An assumed-done occurrence counts as done on its due date (accepted)
+
+A due automatic occurrence without a transaction (not linked to a category, or held back) and without a mark is listed done with assumed true, done_on and amount_moved null and mark_revision 0; it counts as done on its due_date for its planned amount, which the screens show. undo_transfer_mark answers nothing_to_undo there, and mark_transfer_not_done is allowed. The read is not changed to put the due date in done_on, so done_on keeps meaning what was recorded.
+
+**Why:** The screens reviewer found the state undocumented: done with no date and no mark (re-check of the screens, addition 2).
+
+**Rejected:**
+
+- Copying due_date into done_on: done_on would no longer tell what was recorded from what is assumed.
+
+Related: R-ACCOUNT-004, D-353, D-429
+
+Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), the screens' asks and the screens reviewer's additions, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -7694,7 +7724,7 @@ Source: owner-request: coordinator brief for the last database fix round (re-che
   - Context: The contract says older skipped rows cannot be imported anyway, not whether the call skips such ids silently, answers fewer rows, or refuses. The screens send only listed ids and say so when fewer rows come back (D-484).
   - Related: D-452, D-484, R-IMPORT-368
   - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
-- **Q-300** Can list_transactions filter by planned transfer (p_transfer_id), as it does by subscription and debt?
+- **Q-300** (resolved by D-525) Can list_transactions filter by planned transfer (p_transfer_id), as it does by subscription and debt?
   - Context: A transfer linked to a category has transactions (transfer_overview.transaction_count), but the screens cannot list them: there is no filter for them, so the transfer card offers no "its transactions" link as subscriptions and debts do.
   - Related: R-ACCOUNT-072, R-APP-170
   - Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
