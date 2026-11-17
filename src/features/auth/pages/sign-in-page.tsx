@@ -14,12 +14,15 @@ import { TextField } from '@/features/auth/components/text-field'
 import type { ResendConfirmationState } from '@/features/auth/pages/resend-confirmation-page'
 import { endRecovery } from '@/features/auth/recovery'
 import { signInSchema, type SignInValues } from '@/features/auth/schemas'
+import { hasAnyPendingImport } from '@/features/import/pending-import'
 import { supabase } from '@/lib/supabase'
 
 export function SignInPage() {
   const { t } = useTranslation()
   const location = useLocation()
   const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
+  // An import was being sent when the session ended: what it recorded is kept.
+  const [interrupted] = useState(hasAnyPendingImport)
 
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -63,6 +66,11 @@ export function SignInPage() {
     >
       <form onSubmit={(event) => void onSubmit(event)} noValidate>
         <FieldGroup>
+          {interrupted && (
+            <Alert data-testid="sign-in-import">
+              <AlertDescription>{t('auth.signIn.importInterrupted')}</AlertDescription>
+            </Alert>
+          )}
           {errorKey && (
             <Alert variant="destructive">
               <AlertDescription>

@@ -114,6 +114,8 @@ const core = {
       description: 'Welcome back. Sign in to your budget.',
       submit: 'Sign in',
       forgotPassword: 'Forgot your password?',
+      importInterrupted:
+        'An import was being sent from this device when the session ended. What it had recorded is kept. Sign in and open the same file on the Import page to finish it: nothing is recorded twice.',
       noAccount: 'No account yet?',
       signUpLink: 'Create one',
     },
@@ -443,6 +445,8 @@ const core = {
     descriptionNone:
       'It was deleted, or you were removed from it. Anything you had typed there and not saved was discarded.',
     dismiss: 'Got it',
+    import:
+      'An import into it was under way on this device: {{confirmed}} of its {{parts}} parts were recorded and stay in that budget for its members. You can no longer continue it from here.',
   },
   budgetEnded: {
     title: 'This budget has ended',
@@ -1112,10 +1116,6 @@ const core = {
         'The boundary goes back to the day the schedule gives, and its “set by hand” mark is cleared.',
       moveScheduleTo:
         'This period will start on {{start}}, the day the schedule gives, and the previous one end on {{end}}; the “set by hand” mark is cleared.',
-      interestRemoved_one:
-        'The interest added to 1 debt at this period’s start goes: the new start is on or before the day that debt was opened.',
-      interestRemoved_other:
-        'The interest added to {{count}} debts at this period’s start goes: the new start is on or before the day those debts were opened.',
     },
     undo: {
       expected: 'To undo: set another date, or reset it to the projection.',

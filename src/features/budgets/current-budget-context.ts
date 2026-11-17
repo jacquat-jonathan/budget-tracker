@@ -4,6 +4,7 @@ import type { MyBudget } from '@/features/budgets/budget-queries'
 
 /** The budget I was working in when it stopped being mine (R-BUDGET-055). */
 export interface LostBudget {
+  id: string
   name: string
   /** The budget shown instead; null when none is left. */
   nowIn: string | null

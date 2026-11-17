@@ -319,7 +319,6 @@ export const importEn = {
     noDescription: 'No description',
     money: { debit: 'money out', credit: 'money in' },
     select: 'Select {{row}}',
-    selectAll: 'Select all rows shown',
     selectAllCount_one: 'Select the {{count}} row this filter shows',
     selectAllCount_other: 'Select all {{count}} rows this filter shows',
     skipToImport: 'Skip the rows: go to the Import button',
@@ -700,8 +699,6 @@ export const importEn = {
       alsoMove_one: 'Also move the {{count}} other transaction waiting in “To categorise” for it.',
       alsoMove_other:
         'Also move the {{count}} other transactions waiting in “To categorise” for it.',
-      alsoMoveAtLeast:
-        'Also move the {{count}} or more other transactions waiting in “To categorise” for it.',
       create: 'Always',
       dismiss: 'Not now',
       created: 'Rule saved for “{{key}}”.',

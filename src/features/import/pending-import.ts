@@ -69,6 +69,19 @@ export function readPendingImport(budgetId: string): PendingImport | null {
   }
 }
 
+/** Whether this device holds a note of an interrupted import, for any budget. */
+export function hasAnyPendingImport(): boolean {
+  try {
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const name = localStorage.key(index)
+      if (name?.startsWith(key('')) && readPendingImport(name.slice(key('').length))) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
 export function writePendingImport(budgetId: string, value: PendingImport): void {
   try {
     localStorage.setItem(key(budgetId), JSON.stringify(value))

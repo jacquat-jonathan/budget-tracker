@@ -460,7 +460,9 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
         if (!ids.includes(row.id)) continue
         row.imported_transaction_id = `tx-${row.id}`
         // The batch's counts move from the skip reason to the imported ones.
-        const count = counts[row.reason as keyof typeof counts]
+        const count = (counts as Partial<Record<string, (typeof counts)[keyof typeof counts]>>)[
+          row.reason
+        ]
         if (batch && count) {
           batch[count] -= 1
           batch.imported_count += 1

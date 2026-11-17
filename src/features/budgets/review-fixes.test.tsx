@@ -109,6 +109,38 @@ describe('a page belongs to one budget [R-BUDGET-053]', () => {
   })
 })
 
+describe('an import under way in a budget I lose [R-IMPORT-369]', () => {
+  it('says what it recorded stays there and that it cannot be continued from here', async () => {
+    localStorage.setItem(
+      `budget-tracker-import-pending:${BUDGET_ID}`,
+      JSON.stringify({
+        batchId: '0b7c2b8e-8d40-4c4e-9a43-2f5d4d6c1a10',
+        fingerprint: 'abc',
+        source: 'csv',
+        parts: 3,
+        confirmedParts: 1,
+        startedAt: '2026-11-15T10:00:00Z',
+      }),
+    )
+    const db = householdDb(DEFAULT_USER_ID, {
+      my_budgets: [
+        budgetRow({ name: 'A shared' }),
+        budgetRow({ id: OTHER_BUDGET, name: 'B mine' }),
+      ],
+    })
+    db.tables.period_summaries.push(periodRow({ id: 'b-period', budget_id: OTHER_BUDGET }))
+    mock.current = createSupabaseMock(fakeSession(), db)
+    const { queryClient } = renderRoutes(routes, '/income')
+    await screen.findByRole('button', { name: 'Add income' })
+    db.tables.my_budgets = db.tables.my_budgets.filter((budget) => budget.id !== BUDGET_ID)
+    await act(() => queryClient.invalidateQueries({ queryKey: ['budgets'] }))
+    expect(await screen.findByTestId('budget-lost-import')).toHaveTextContent(
+      'An import into it was under way on this device: 1 of its 3 parts were recorded and stay in that budget for its members. You can no longer continue it from here.',
+    )
+    localStorage.clear()
+  })
+})
+
 describe('the remembered budget [R-BUDGET-051]', () => {
   it('a fallback is remembered once shown, so a rename elsewhere does not move me', async () => {
     const db = householdDb(DEFAULT_USER_ID, {

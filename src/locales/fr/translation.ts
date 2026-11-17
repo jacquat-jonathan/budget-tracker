@@ -120,6 +120,8 @@ const core: Omit<Translation, LazyKey> = {
       description: 'Bon retour parmi nous. Connectez-vous pour accéder à votre budget.',
       submit: 'Se connecter',
       forgotPassword: 'Mot de passe oublié ?',
+      importInterrupted:
+        'Une importation était en cours d’envoi depuis cet appareil quand la session s’est terminée. Ce qu’elle avait enregistré est conservé. Connectez-vous et ouvrez le même fichier sur la page Importer pour la terminer : rien n’est enregistré deux fois.',
       noAccount: 'Pas encore de compte ?',
       signUpLink: 'Créer un compte',
     },
@@ -458,6 +460,8 @@ const core: Omit<Translation, LazyKey> = {
     descriptionNone:
       'Il a été supprimé, ou vous n’en faites plus partie. Ce que vous y aviez saisi sans l’enregistrer a été abandonné.',
     dismiss: 'Compris',
+    import:
+      'Une importation y était en cours depuis cet appareil : {{confirmed}} de ses {{parts}} parties ont été enregistrées et restent dans ce budget pour ses membres. Vous ne pouvez plus la poursuivre d’ici.',
   },
   budgetEnded: {
     title: 'Ce budget est terminé',
@@ -1158,10 +1162,6 @@ const core: Omit<Translation, LazyKey> = {
         'La limite revient au jour que donne le calendrier de paie, et sa marque « fixée à la main » disparaît.',
       moveScheduleTo:
         'Cette période commencera le {{start}}, jour que donne le calendrier de paie, et la précédente se terminera le {{end}} ; la marque « fixée à la main » disparaît.',
-      interestRemoved_one:
-        'Les intérêts ajoutés à 1 dette au début de cette période disparaissent : le nouveau début tombe le jour de l’ouverture de cette dette ou avant.',
-      interestRemoved_other:
-        'Les intérêts ajoutés à {{count}} dettes au début de cette période disparaissent : le nouveau début tombe le jour de leur ouverture ou avant.',
     },
     undo: {
       expected: 'Pour annuler : indiquez une autre date, ou revenez à la date prévue.',

@@ -82,7 +82,7 @@ export function CurrentBudgetProvider({
       !budgets.some((budget) => budget.id === previous.id) &&
       !expectedGone.has(previous.id)
     ) {
-      setLostBudget({ name: previous.name, nowIn: current?.name ?? null })
+      setLostBudget({ id: previous.id, name: previous.name, nowIn: current?.name ?? null })
     }
     if (shown.userId !== userId) setLostBudget(null)
   }

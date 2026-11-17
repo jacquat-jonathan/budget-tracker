@@ -332,7 +332,6 @@ export const importFr: Translation['import'] = {
     noDescription: 'Sans description',
     money: { debit: 'sortie', credit: 'entrée' },
     select: 'Sélectionner {{row}}',
-    selectAll: 'Sélectionner toutes les lignes affichées',
     selectAllCount_one: 'Sélectionner la {{count}} ligne de ce filtre',
     selectAllCount_other: 'Sélectionner les {{count}} lignes de ce filtre',
     skipToImport: 'Passer les lignes : aller au bouton Importer',
@@ -724,8 +723,6 @@ export const importFr: Translation['import'] = {
         'Déplacer aussi l’autre transaction ({{count}}) qui l’attend dans « À catégoriser ».',
       alsoMove_other:
         'Déplacer aussi les {{count}} autres transactions qui l’attendent dans « À catégoriser ».',
-      alsoMoveAtLeast:
-        'Déplacer aussi les {{count}} autres transactions ou plus qui l’attendent dans « À catégoriser ».',
       create: 'Toujours',
       dismiss: 'Pas maintenant',
       created: 'Règle enregistrée pour « {{key}} ».',

@@ -26,6 +26,27 @@ describe('SignInPage', () => {
     await i18n.changeLanguage('en')
   })
 
+  it('says an import interrupted by the end of the session can be finished after signing in [R-IMPORT-369]', () => {
+    localStorage.setItem(
+      'budget-tracker-import-pending:0b7c2b8e-8d40-4c4e-9a43-2f5d4d6c1a11',
+      JSON.stringify({
+        batchId: '0b7c2b8e-8d40-4c4e-9a43-2f5d4d6c1a10',
+        fingerprint: 'abc',
+        source: 'csv',
+        parts: 3,
+        confirmedParts: 1,
+        startedAt: '2026-11-15T10:00:00Z',
+      }),
+    )
+    renderSignIn()
+    expect(screen.getByTestId('sign-in-import')).toHaveTextContent(
+      'An import was being sent from this device when the session ended. What it had recorded is kept. Sign in and open the same file on the Import page to finish it',
+    )
+    localStorage.clear()
+    renderSignIn()
+    expect(screen.getAllByTestId('sign-in-import')).toHaveLength(1)
+  })
+
   it('shows required-field errors and does not call Supabase [R-AUTH-009]', async () => {
     const auth = renderSignIn()
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
