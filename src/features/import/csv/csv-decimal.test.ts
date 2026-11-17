@@ -35,7 +35,7 @@ describe('the decimal mark is read from the amounts or asked, never assumed [R-I
     // One mark followed by three digits: thousands or decimals, both readings possible.
     expect(decimalSays('-1.200')).toBe('ambiguous')
     expect(decimalSays('1,200')).toBe('ambiguous')
-    expect(decimalSays('-2.000')).toBe('ambiguous')
+    expect(decimalSays('-4.000')).toBe('ambiguous')
     // Two decimals, both marks, or one mark twice: one reading only.
     expect(decimalSays("1'234.50")).toBe('.')
     expect(decimalSays('1.234,50')).toBe(',')
@@ -61,21 +61,21 @@ describe('the decimal mark is read from the amounts or asked, never assumed [R-I
   })
 
   it('asks when no amount settles it, and never reads -1.200 as 1.20 meanwhile', () => {
-    const evidence = decimalEvidence(cells('-1.200', '-2.000', '-350'))
+    const evidence = decimalEvidence(cells('-1.200', '-4.000', '-350'))
     expect(evidence.state).toBe('undecided')
     expect(evidence.ambiguous.map(({ line }) => line)).toEqual([2, 3])
     expect(decimalToUse(evidence, null)).toBeNull()
     // The member's choice decides it.
     expect(decimalToUse(evidence, ',')).toBe(',')
     const records = parseCsv(
-      'Date;Amount;Text\n15.03.2026;-1.200;Rent\n16.03.2026;-2.000;Car\n17.03.2026;-350;Fee\n',
+      'Date;Amount;Text\n15.03.2026;-1.200;Rent\n16.03.2026;-4.000;Car\n17.03.2026;-350;Fee\n',
       ';',
     ).records
     expect(guessMapping(['Date', 'Amount', 'Text'], records.slice(1)).decimal).toBeNull()
     // Without a mark the mapping is not complete: no row is mapped, nothing can be sent.
     expect(mapRecords(records, base).rows).toEqual([])
     const mapped = mapRecords(records, { ...base, decimal: ',' })
-    expect(mapped.rows.map(({ row }) => row.amount)).toEqual([120_000, 200_000, 35_000])
+    expect(mapped.rows.map(({ row }) => row.amount)).toEqual([120_000, 400_000, 35_000])
   })
 
   it('needs no choice when every amount reads the same either way', () => {

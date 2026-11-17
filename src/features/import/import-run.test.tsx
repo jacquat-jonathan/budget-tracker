@@ -65,28 +65,28 @@ function csvOf(count: number): string {
 }
 
 describe('the CSV decimal mark is asked when the amounts do not settle it [R-IMPORT-324]', () => {
-  it('asks for -1.200 and -2.000, says it was not decidable, and reads them as chosen', async () => {
+  it('asks for -1.200 and -4.000, says it was not decidable, and reads them as chosen', async () => {
     const db = categoriesDb()
     open(db)
     await chooseCsv(
-      'Date;Amount;Text\n15.03.2026;-1.200;Rent\n16.03.2026;-2.000;Car\n17.03.2026;-350;Fee\n',
+      'Date;Amount;Text\n15.03.2026;-1.200;Rent\n16.03.2026;-4.000;Car\n17.03.2026;-350;Fee\n',
     )
     expect(screen.getByTestId('decimal-note')).toHaveTextContent(
-      'The amounts do not say which mark separates the decimals: line 2 “-1.200”, line 3 “-2.000” could be thousands or decimals',
+      'The amounts do not say which mark separates the decimals: line 2 “-1.200”, line 3 “-4.000” could be thousands or decimals',
     )
     expect(screen.getByRole('button', { name: /Check/ })).toBeDisabled()
     expect(screen.queryByTestId('csv-sample')).not.toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('a comma (1 234,50)'))
     const sample = screen.getByTestId('csv-sample')
     expect(sample).toHaveTextContent("CHF 1'200.00")
-    expect(sample).toHaveTextContent("CHF 2'000.00")
+    expect(sample).toHaveTextContent("CHF 4'000.00")
     await userEvent.click(screen.getByRole('button', { name: 'Check 3 rows' }))
     await importButtonReady()
     expect(
       (db.rpc.preview_import.mock.calls[0]?.[0].p_rows as { amount: number }[]).map(
         (row) => row.amount,
       ),
-    ).toEqual([120_000, 200_000, 35_000])
+    ).toEqual([120_000, 400_000, 35_000])
   })
 
   it('takes the mark one line settles, and refuses lines that contradict each other', async () => {
