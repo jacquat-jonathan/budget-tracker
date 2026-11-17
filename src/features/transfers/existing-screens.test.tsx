@@ -338,6 +338,48 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
 })
 
 describe('a transfer’s transaction in the transactions list [R-ACCOUNT-240]', () => {
+  it('[R-ACCOUNT-558] says which occurrence it was recorded for: its period, a payday’s date or a fixed day', async () => {
+    const tx = (id: string, fields: Parameters<typeof transactionRow>[0]) =>
+      transactionRow({
+        id,
+        description: id,
+        transfer_id: 'tr-savings',
+        transfer_name: 'Savings',
+        recorded_by: null,
+        recorded_by_name: null,
+        ...fields,
+      })
+    const db = categoriesDb({
+      transaction_list: [
+        tx('own', { transfer_occurrence_kind: 'period', transfer_occurrence_seq: 2 }),
+        tx('payday', {
+          transfer_occurrence_kind: 'income_payday',
+          transfer_occurrence_date: '2026-11-10',
+        }),
+        tx('fixed', {
+          transfer_occurrence_kind: 'fixed_day',
+          transfer_occurrence_date: '2026-11-01',
+        }),
+        // A number the page has no period for: only the transfer is named.
+        tx('far', { transfer_occurrence_kind: 'period', transfer_occurrence_seq: 99 }),
+      ],
+    })
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transactions')
+    await screen.findAllByTestId('transaction-row')
+    const row = (name: string) =>
+      screen.getAllByTestId('transaction-row').find((item) => item.textContent.startsWith(name))!
+    await waitFor(() => {
+      expect(row('own')).toHaveTextContent(
+        'Planned transfer “Savings”, for the period 23.10.2026 to 24.11.2026',
+      )
+    })
+    expect(row('payday')).toHaveTextContent(
+      'Planned transfer “Savings”, on its income’s payday, 10.11.2026',
+    )
+    expect(row('fixed')).toHaveTextContent('Planned transfer “Savings”, fixed day 01.11.2026')
+    expect(row('far')).toHaveTextContent(/Planned transfer “Savings”(?!,)/)
+  })
   it('is recognisable, stays an expense of its transfer, and deleting it says the transfer did not happen', async () => {
     const db = categoriesDb({
       transaction_list: [

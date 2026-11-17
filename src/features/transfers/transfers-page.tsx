@@ -218,7 +218,8 @@ export function TransfersPage() {
   )
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    // The width of the other pages: the layout gives it (Budget, Transactions).
+    <div className="flex flex-col gap-6">
       {header}
       {ended && (
         <Alert>
@@ -310,6 +311,7 @@ function TransferCard({
             </p>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:flex sm:gap-x-8 [&>div]:flex [&>div]:flex-col [&>div]:justify-end">
               <div>
+                {/* R-ACCOUNT-559: the first occurrence with no mark, not the next occurrence. */}
                 <dt className="text-muted-foreground">{t('transfers.nextDue')}</dt>
                 <dd className="font-medium" data-testid="next-due">
                   {transfer.next_due_date ? (

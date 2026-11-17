@@ -104,6 +104,14 @@ describe('planned transfers [R-ACCOUNT-002] [R-ACCOUNT-003]', () => {
     expect(within(pillar).getByTestId('next-due')).toHaveTextContent('20.12.2026')
   })
 
+  it('[R-ACCOUNT-559] says its next due date as the next one not yet recorded, never as the next occurrence', async () => {
+    await openPage()
+    const savings = card('Savings')
+    const label = within(savings).getByTestId('next-due').previousElementSibling
+    expect(label).toHaveTextContent('Next due, not yet recorded')
+    expect(savings).toHaveTextContent('On payday (main income)')
+  })
+
   it('without two accounts, says to add them first and asks for nothing else [D-501]', async () => {
     mock.current = createSupabaseMock(fakeSession(), categoriesDb())
     renderRoutes(routes, '/transfers')

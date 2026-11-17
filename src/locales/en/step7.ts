@@ -108,6 +108,7 @@ export const transfersEn = {
   transaction: {
     badge: 'Transfer',
     of: 'Planned transfer “{{name}}”',
+    ofOccurrence: 'Planned transfer “{{name}}”, {{occurrence}}',
     note: 'Recorded for the planned transfer “{{name}}”: its amount, date, category and note can change here; it stays an expense of that transfer.',
     deleteNote:
       'It was recorded for the planned transfer “{{name}}”: deleting it says the transfer did not happen (a standing order is then not done, a manual one to do again).',
@@ -498,6 +499,14 @@ export const moneyFlowEn = {
     },
     setAsideNegative:
       'The savings, pillar, tax and investment accounts send on more than they receive.',
+  },
+  reconcile: {
+    incomes:
+      'The other pages show incomes of {{summary}}: this page’s {{flow}} plus {{extra}} of extra income, which is not part of the plan.',
+    planned:
+      'The other pages show {{summary}} planned: this page’s {{flow}} plus {{transfers}} that transfers put aside.',
+    spent:
+      'The other pages show {{summary}} spent: this page’s {{flow}} plus {{transfers}} that transfers put aside.',
   },
   tier: {
     incomes: 'Incomes',

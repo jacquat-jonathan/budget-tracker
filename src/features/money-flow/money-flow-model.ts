@@ -74,6 +74,23 @@ export interface FlowTotal {
   left: number
   /** Spending rows the read left out (past 1000 rows); the totals still cover them. */
   omitted: number
+  /** The other pages' figures and the two differences, as the read answers them (D-618). */
+  summary: FlowSummary | null
+}
+
+/**
+ * The reconciling line (R-ACCOUNT-520): the period's income, planned and spent as the other
+ * pages show them (period_summaries), the extra income the flow leaves out and what transfers
+ * into set-aside accounts carry, planned and spent. The database guarantees flow + difference =
+ * summary on each side; the page only shows the figures.
+ */
+export interface FlowSummary {
+  incomes: number
+  planned: number
+  spent: number
+  extraIncome: number
+  setAsidePlanned: number
+  setAsideSpent: number
 }
 
 /** get_money_flow's rows, read once: the contract's nulls said as such (D-356). */
@@ -169,6 +186,17 @@ export function readMoneyFlow(rows: readonly Row[]): MoneyFlow {
           actualSpending: n(row.actual_spending),
           left: n(row.left_amount),
           omitted: n(row.spending_rows_omitted),
+          summary:
+            typeof row.summary_income_total === 'number'
+              ? {
+                  incomes: n(row.summary_income_total),
+                  planned: n(row.summary_planned_total),
+                  spent: n(row.summary_spent_total),
+                  extraIncome: n(row.extra_income_left_out),
+                  setAsidePlanned: n(row.set_aside_transfers_planned),
+                  setAsideSpent: n(row.set_aside_transfers_spent),
+                }
+              : null,
         }
         break
     }

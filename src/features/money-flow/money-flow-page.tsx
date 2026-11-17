@@ -2,6 +2,7 @@ import {
   ArrowRightLeftIcon,
   HandCoinsIcon,
   LandmarkIcon,
+  ScaleIcon,
   TriangleAlertIcon,
   WorkflowIcon,
 } from 'lucide-react'
@@ -200,6 +201,7 @@ export function MoneyFlowPage() {
             )}
           </section>
           {total && figures && <Tiles total={total} basis={basis} figures={figures} />}
+          {total && <Reconcile total={total} basis={basis} />}
           <Card>
             <CardContent className="flex min-w-0 flex-col gap-4">
               {data.incomes.length > 0 ? (
@@ -322,6 +324,64 @@ function Tiles({
           testId="tile-rest"
         />
       </dl>
+    </div>
+  )
+}
+
+/**
+ * Why the other pages say other figures, said only where a difference is not zero, with the
+ * read's own figures (R-ACCOUNT-520): the incomes on both bases (the extra income left out),
+ * then the planned or the spent side (what transfers put into set-aside accounts). The page
+ * adds nothing: each sentence names the summary, this page's figure and the difference.
+ */
+// R-ACCOUNT-557: one quiet line per side that differs, the database's figures only.
+function Reconcile({ total, basis }: { total: FlowTotal; basis: Basis }) {
+  const { t } = useTranslation()
+  const summary = total.summary
+  if (!summary) return null
+  const m = (rappen: number) => formatMoney(rappen)
+  const lines = [
+    summary.extraIncome !== 0 && {
+      key: 'incomes',
+      text: t('moneyFlow.reconcile.incomes', {
+        summary: m(summary.incomes),
+        flow: m(total.incomes),
+        extra: m(summary.extraIncome),
+      }),
+    },
+    basis === 'planned' &&
+      summary.setAsidePlanned !== 0 && {
+        key: 'planned',
+        text: t('moneyFlow.reconcile.planned', {
+          summary: m(summary.planned),
+          flow: m(total.plannedSpending),
+          transfers: m(summary.setAsidePlanned),
+        }),
+      },
+    basis === 'actual' &&
+      summary.setAsideSpent !== 0 && {
+        key: 'spent',
+        text: t('moneyFlow.reconcile.spent', {
+          summary: m(summary.spent),
+          flow: m(total.actualSpending),
+          transfers: m(summary.setAsideSpent),
+        }),
+      },
+  ].filter((line): line is { key: string; text: string } => Boolean(line))
+  if (lines.length === 0) return null
+  return (
+    <div
+      className="-mt-3 flex gap-2 px-1 text-xs text-muted-foreground"
+      data-testid="money-flow-reconcile"
+    >
+      <ScaleIcon className="mt-px size-3.5 shrink-0" aria-hidden />
+      <div className="flex min-w-0 flex-col gap-0.5">
+        {lines.map((line) => (
+          <p key={line.key} data-testid={`reconcile-${line.key}`} className="text-pretty">
+            {line.text}
+          </p>
+        ))}
+      </div>
     </div>
   )
 }

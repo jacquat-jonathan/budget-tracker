@@ -80,6 +80,7 @@ import {
   type DateRange,
 } from '@/features/transactions/components/transaction-form-dialog'
 import { useDeleteTransaction } from '@/features/transactions/transaction-mutations'
+import { useTransactionOccurrence } from '@/features/transfers/occurrence-text'
 import {
   TRANSACTION_KINDS,
   useTransactions,
@@ -850,6 +851,9 @@ function LinkBadges({ row }: { row: Transaction }) {
 /** What links a transaction to a debt or a subscription, in words; null when nothing does. */
 function useLinkNote() {
   const { t } = useTranslation()
+  const occurrence = useTransactionOccurrence()
+  // The page's periods (one shared read): a transfer's own period is named by its number.
+  const periods = usePeriods(useCurrentBudget().budgetId).data ?? []
   return (row: Transaction): string | null =>
     row.debt_name
       ? t('transactions.paymentOnNote', { name: row.debt_name })
@@ -857,9 +861,8 @@ function useLinkNote() {
         ? row.charge_date
           ? t('transactions.automaticOf', { name: row.subscription_name })
           : t('transactions.subscriptionOf', { name: row.subscription_name })
-        : row.transfer_name
-          ? t('transfers.transaction.of', { name: row.transfer_name })
-          : null
+        : // R-ACCOUNT-558: a transfer's transaction says which occurrence it was recorded for.
+          occurrence(row, periods)
 }
 
 function TransactionRow({

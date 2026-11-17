@@ -86,7 +86,7 @@ describe('the mock database’s money flow answers as the database does [R-ACCOU
       'spending:Saving and pension',
       'total:null',
     ])
-    for (const row of rows) expect(Object.keys(row)).toHaveLength(31)
+    for (const row of rows) expect(Object.keys(row)).toHaveLength(37)
     const of = (kind: string, name: string | null) =>
       rows.find((row) => row.row_kind === kind && row.name === name)!
     expect(of('account', 'Main')).toMatchObject({
@@ -156,7 +156,15 @@ describe('the mock database’s money flow answers as the database does [R-ACCOU
       left_amount: 550_650,
       spending_rows_omitted: 0,
       is_negative: false,
+      // R-ACCOUNT-520: the contract's reconciling line of this example.
+      summary_income_total: 1_000_000,
+      extra_income_left_out: 0,
+      summary_planned_total: 548_800,
+      set_aside_transfers_planned: 158_800,
+      summary_spent_total: 390_550,
+      set_aside_transfers_spent: 100_000,
     })
+    expect(of('spending', 'Home').summary_spent_total).toBeNull()
   })
 
   it('caps a group’s transfer share at what it expects, and sorts names as the database’s collation', () => {
@@ -944,6 +952,44 @@ describe('labels keep their figures whole [R-ACCOUNT-481]', () => {
       .getAllByTestId('flow-label')
       .find((element) => element.getAttribute('data-node') === 'acc-house')
     expect(holiday?.getAttribute('title')).toMatch(/^Household account/)
+  })
+})
+
+describe('one reconciling line with the other pages [R-ACCOUNT-557] [R-ACCOUNT-520]', () => {
+  it('on the planned basis says the planned difference with the read’s figures, and nothing for incomes without extra income', async () => {
+    await openPage()
+    const line = await screen.findByTestId('money-flow-reconcile')
+    expect(text(within(line).getByTestId('reconcile-planned'))).toBe(
+      `The other pages show ${money(548_800)} planned: this page’s ${money(390_000)} plus ${money(158_800)} that transfers put aside.`,
+    )
+    expect(within(line).queryByTestId('reconcile-incomes')).not.toBeInTheDocument()
+    expect(within(line).queryByTestId('reconcile-spent')).not.toBeInTheDocument()
+  })
+
+  it('on the actual basis says the spent difference, as the dashboard’s figure', async () => {
+    await openPage([workedExamplePlan()], '/money-flow?basis=actual')
+    const line = await screen.findByTestId('money-flow-reconcile')
+    expect(text(within(line).getByTestId('reconcile-spent'))).toBe(
+      `The other pages show ${money(390_550)} spent: this page’s ${money(290_550)} plus ${money(100_000)} that transfers put aside.`,
+    )
+    expect(within(line).queryByTestId('reconcile-planned')).not.toBeInTheDocument()
+  })
+
+  it('says the extra income the flow leaves out on both bases', async () => {
+    const plan = { ...workedExamplePlan(), extraIncome: 25_000 }
+    await openPage([plan])
+    expect(text(await screen.findByTestId('reconcile-incomes'))).toBe(
+      `The other pages show incomes of ${money(1_025_000)}: this page’s ${money(1_000_000)} plus ${money(25_000)} of extra income, which is not part of the plan.`,
+    )
+    await userEvent.click(screen.getByTestId('basis-actual'))
+    expect(await screen.findByTestId('reconcile-spent')).toBeInTheDocument()
+    expect(screen.getByTestId('reconcile-incomes')).toBeInTheDocument()
+  })
+
+  it('says nothing when every difference is zero (a transfer into an everyday account is spending)', async () => {
+    await openPage([cashWalletPlan()])
+    await screen.findByTestId('money-flow-tiles')
+    expect(screen.queryByTestId('money-flow-reconcile')).not.toBeInTheDocument()
   })
 })
 

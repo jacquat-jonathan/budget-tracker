@@ -114,6 +114,7 @@ export const transfersFr = {
   transaction: {
     badge: 'Virement',
     of: 'Virement planifié « {{name}} »',
+    ofOccurrence: 'Virement planifié « {{name}} », {{occurrence}}',
     note: 'Enregistrée pour le virement planifié « {{name}} » : son montant, sa date, sa catégorie et sa note se modifient ici ; elle reste une dépense de ce virement.',
     deleteNote:
       'Elle a été enregistrée pour le virement planifié « {{name}} » : la supprimer indique que le virement n’a pas eu lieu (un ordre permanent n’est alors pas fait, un virement manuel est de nouveau à faire).',
@@ -516,6 +517,14 @@ export const moneyFlowFr = {
     },
     setAsideNegative:
       'Les comptes d’épargne, de pilier, d’impôts et de placement envoient plus qu’ils ne reçoivent.',
+  },
+  reconcile: {
+    incomes:
+      'Les autres pages indiquent {{summary}} de revenus : les {{flow}} de cette page plus {{extra}} de revenus supplémentaires, qui ne font pas partie du plan.',
+    planned:
+      'Les autres pages indiquent {{summary}} prévus : les {{flow}} de cette page plus {{transfers}} que des virements mettent de côté.',
+    spent:
+      'Les autres pages indiquent {{summary}} dépensés : les {{flow}} de cette page plus {{transfers}} que des virements mettent de côté.',
   },
   tier: {
     incomes: 'Revenus',

@@ -8934,6 +8934,42 @@
       "source": [
         "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
       ]
+    },
+    {
+      "id": "R-ACCOUNT-557",
+      "area": "account",
+      "statement": "Near its tiles the money flow says, in one quiet line per side and only where the difference is not zero, why the other pages show other figures, from the total row's own columns: the incomes with the extra income it leaves out (both bases), the planned spending with what transfers put into set-aside accounts (planned basis), the spending with what those transfers' transactions carry (actual basis); nothing is added up by the page.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-ACCOUNT-520", "D-618", "D-653", "R-ACCOUNT-447"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-558",
+      "area": "account",
+      "statement": "A transfer's transaction in the transactions list says which occurrence it was recorded for, from transaction_list's kind and date or number: its period's dates (a number the page has no period for is not said), a payday's or a fixed day's scheduled date.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-ACCOUNT-302", "R-ACCOUNT-552", "D-650"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-559",
+      "area": "account",
+      "statement": "A planned transfer's next due date is labelled as the next one not yet recorded (transfer_overview.next_due_date names no marked occurrence, D-612), so it is not read as its next occurrence when that one is already ticked or recorded.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-ACCOUNT-464", "D-612"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
     }
   ],
   "decisions": [
@@ -14282,6 +14318,21 @@
       "rejected": ["Showing removed minus moved: a figure worked out by the page."],
       "status": "accepted",
       "related": ["D-614", "R-ACCOUNT-554", "R-ACCOUNT-517"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-653",
+      "title": "The money flow's reconciling line: one quiet sentence per side that differs",
+      "decision": "Under the four tiles, in small muted text with a scale icon, one sentence per difference that is not zero: “The other pages show incomes of CHF 10’250.00: this page’s CHF 10’000.00 plus CHF 250.00 of extra income, which is not part of the plan.” (both bases, when extra_income_left_out is not 0); “The other pages show CHF 5’488.00 planned: this page’s CHF 3’900.00 plus CHF 1’588.00 that transfers put aside.” (planned basis, set_aside_transfers_planned); “The other pages show CHF 3’905.50 spent: this page’s CHF 2’905.50 plus CHF 1’000.00 that transfers put aside.” (actual basis, set_aside_transfers_spent). The figures are the total row's summary columns, this page's tile figure (incomes, planned spending, spent) and the difference column: the database guarantees the first is the sum of the other two. “The other pages” rather than one page's name: the dashboard shows the income, the progress, budget and compare pages the planned and spent totals. Nothing is said when all differences are zero.",
+      "why": "The flow and the other pages use the words “Incomes”, “Planned” and “Spent” for different figures (D-618); a household comparing them to the rappen needs the reason where the tiles are, without a table of its own.",
+      "rejected": [
+        "Showing the other pages' figures as more tiles: four tiles already; a fifth and sixth figure would read as more money.",
+        "Always showing the line: noise when nothing differs (no extra income, no transfer into a set-aside account)."
+      ],
+      "status": "accepted",
+      "related": ["D-618", "R-ACCOUNT-557", "R-ACCOUNT-520"],
       "source": [
         "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
       ]
