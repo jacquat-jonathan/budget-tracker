@@ -6,7 +6,7 @@ import { editArgs, type TransferFormValues } from '@/features/transfers/transfer
 import { formatMoney } from '@/lib/money'
 import { categoriesDb, incomeRow } from '@/test/budget-fixtures'
 import { rpcError } from '@/test/mock-db'
-import { accountRow, previewRow, transferRow } from '@/test/mock-transfers'
+import { accountRow, checklistRow, previewRow, transferRow } from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 import { warmPages } from '@/test/warm'
@@ -349,6 +349,136 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
         p_offset_days: 3,
       })
     })
+  })
+
+  it('[R-ACCOUNT-501] an occurrence already recorded says so on its row and that it stays as it is', async () => {
+    const db = transfersDb()
+    // This period's Savings occurrence was recorded (the catch-up's transaction, its mark).
+    db.checklist = [
+      checklistRow({
+        transfer_id: 'tr-savings',
+        name: 'Savings',
+        is_automatic: true,
+        occurrence_date: '2026-11-25',
+        due_date: '2026-11-25',
+        status: 'done',
+        assumed: true,
+        mark_revision: 1,
+      }),
+    ]
+    await openPage(db)
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const amount = within(dialog).getByLabelText('Amount each time')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '1200')
+    const preview = within(dialog).getByTestId('transfer-preview')
+    await waitFor(() => {
+      expect(db.rpc.preview_update_transfer).toHaveBeenLastCalledWith(
+        expect.objectContaining({ p_amount: 120_000 }),
+      )
+    })
+    const recorded = await within(preview).findByTestId('preview-recorded')
+    expect(recorded).toHaveTextContent('already recorded, stays as it is')
+    expect(recorded.closest('[data-testid="preview-occurrence"]')).toHaveTextContent('25.11.2026')
+  })
+
+  it('[R-ACCOUNT-501] a row the database answers not recorded says nothing of the kind', async () => {
+    const db = await openPage()
+    db.rpc.preview_update_transfer.mockImplementation(() => [
+      previewRow({ already_recorded: false }),
+      previewRow({
+        projected: true,
+        period_id: null as unknown as string,
+        due_date: '2026-12-25',
+        occurrence_date: '2026-12-25',
+      }),
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const amount = within(dialog).getByLabelText('Amount each time')
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '1200')
+    const preview = within(dialog).getByTestId('transfer-preview')
+    await waitFor(() => {
+      expect(within(preview).getAllByTestId('preview-occurrence')).toHaveLength(2)
+    })
+    expect(within(preview).queryByTestId('preview-recorded')).not.toBeInTheDocument()
+  })
+
+  it('[R-ACCOUNT-462] removed and recorded at once: says a move counts once in each, nothing lost', async () => {
+    const db = await openPage()
+    db.rpc.preview_update_transfer.mockImplementation((args) => [
+      previewRow({
+        created_at_once: args.p_offset_days !== undefined,
+        created_at_once_count: args.p_offset_days === undefined ? 0 : 1,
+        transactions_removed_count: args.p_offset_days === undefined ? 0 : 1,
+      }),
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const preview = within(dialog).getByTestId('transfer-preview')
+    await waitFor(() => {
+      expect(within(preview).getAllByTestId('preview-occurrence')).toHaveLength(1)
+    })
+    expect(within(preview).queryByTestId('preview-moved-note')).not.toBeInTheDocument()
+    await choose(dialog, 'Day', '3 days after payday')
+    expect(await within(preview).findByTestId('transactions-removed')).toHaveTextContent(
+      'It removes 1 transaction the app recorded by itself: its date is no longer planned, or its due date moves.',
+    )
+    expect(within(preview).getByTestId('created-at-once')).toHaveTextContent(
+      'Saving records 1 transaction at once',
+    )
+    expect(within(preview).getByTestId('preview-moved-note')).toHaveTextContent(
+      'removed and recorded again on its new due date, so it counts once in each: nothing is lost',
+    )
+  })
+
+  it('[R-ACCOUNT-500] two previewed occurrences on one due date say their kind; others do not', async () => {
+    const db = await openPage()
+    db.rpc.preview_update_transfer.mockImplementation(() => [
+      previewRow({ due_date: '2026-11-25', occurrence_kind: 'payday' }),
+      previewRow({ due_date: '2026-11-25', occurrence_kind: 'income_payday' }),
+      previewRow({ due_date: '2026-12-25', occurrence_date: '2026-12-25' }),
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const preview = within(dialog).getByTestId('transfer-preview')
+    await waitFor(() => {
+      expect(within(preview).getAllByTestId('preview-occurrence')).toHaveLength(3)
+    })
+    const rows = within(preview).getAllByTestId('preview-occurrence')
+    expect(rows[0]).toHaveTextContent('25.11.2026 · on the payday that started the period')
+    expect(rows[1]).toHaveTextContent('25.11.2026 · on its chosen income’s payday')
+    expect(within(rows[2]!).queryByTestId('preview-kind')).not.toBeInTheDocument()
+  })
+
+  it('[R-ACCOUNT-500] the mock previews the kind the terms give and whether a mark is kept', () => {
+    const db = transfersDb()
+    db.checklist = [
+      checklistRow({ transfer_id: 'tr-savings', occurrence_date: '2026-11-25', mark_revision: 1 }),
+    ]
+    const [kept] = db.rpc.preview_update_transfer({
+      p_transfer_id: 'tr-savings',
+      p_amount: 120_000,
+    }) as { occurrence_kind: string; already_recorded: boolean }[]
+    expect(kept).toMatchObject({ occurrence_kind: 'payday', already_recorded: true })
+    // Moved to Sam's payday (not the primary): another kind, so not the occurrence recorded.
+    const [moved] = db.rpc.preview_update_transfer({
+      p_transfer_id: 'tr-savings',
+      p_schedule: 'pay_date',
+      p_income_id: 'income-2',
+    }) as { occurrence_kind: string; already_recorded: boolean }[]
+    expect(moved).toMatchObject({ occurrence_kind: 'income_payday', already_recorded: false })
+    const [fixed] = db.rpc.preview_create_transfer({
+      p_schedule: 'day_of_month',
+      p_day_of_month: 5,
+    }) as { occurrence_kind: string; already_recorded: boolean }[]
+    expect(fixed).toMatchObject({ occurrence_kind: 'fixed_day', already_recorded: false })
   })
 
   it('ending says what it removes and that every tick stays [R-ACCOUNT-234]', async () => {

@@ -133,7 +133,8 @@ export const transfersFr = {
     created_other: '{{count}} transactions d’ordres permanents sont enregistrées.',
     movedKeeps:
       'Seul ce que l’application a enregistré d’elle-même, et que personne n’a modifié depuis, passe à sa nouvelle échéance. Une coche, un virement rendu manuel et une transaction modifiée par un membre restent exactement tels quels.',
-    movedNote: 'Une transaction déplacée à sa nouvelle échéance compte une fois de chaque côté.',
+    movedNote:
+      'Une transaction déplacée à une nouvelle échéance compte une fois de chaque côté : elle est retirée puis enregistrée à nouveau à cette date.',
     unplanned_one:
       '{{count}} coche d’un membre n’est plus prévue : elle reste, signalée, jusqu’à son annulation.',
     unplanned_other:
@@ -286,9 +287,12 @@ export const transfersFr = {
     nothingAtOnce: 'Rien n’est enregistré tout de suite.',
     nothingBeforeToday: 'Rien d’antérieur à aujourd’hui n’est enregistré.',
     transactionsRemoved_one:
-      'Il retire {{count}} transaction que l’application avait enregistrée pour une date qui n’est plus prévue.',
+      'Il retire {{count}} transaction que l’application avait enregistrée d’elle-même : sa date n’est plus prévue, ou son échéance change.',
     transactionsRemoved_other:
-      'Il retire {{count}} transactions que l’application avait enregistrées pour des dates qui ne sont plus prévues.',
+      'Il retire {{count}} transactions que l’application avait enregistrées d’elle-même : leurs dates ne sont plus prévues, ou leurs échéances changent.',
+    movedNote:
+      'Une transaction dont l’échéance change est retirée puis enregistrée à nouveau à sa nouvelle échéance : elle compte une fois de chaque côté, rien n’est perdu. L’aperçu ne dit pas lesquelles se déplacent.',
+    alreadyRecorded: 'déjà enregistré, reste tel quel',
     marksUnplanned_one:
       '{{count}} coche d’un membre n’est plus prévue : elle reste dans sa liste, signalée, jusqu’à son annulation.',
     marksUnplanned_other:
@@ -379,6 +383,14 @@ export const transfersFr = {
     },
     changedElsewhere:
       'Quelqu’un a coché ou modifié ce virement entre-temps : la liste montre maintenant où il en est.',
+    listChanged:
+      'La liste de cette période a changé entre-temps : elle est affichée à nouveau telle qu’elle est maintenant. Vérifiez la ligne et réessayez.',
+    kind: {
+      payday: 'au jour de paie qui a ouvert la période',
+      income_payday: 'au jour de paie de son revenu choisi',
+      fixed_day: 'à son jour fixe',
+    },
+    nameWithKind: '{{name}}, {{kind}}',
     markedDone: '« {{name}} » fait : {{amount}}.',
     markedSkipped: '« {{name}} » ignoré pour cette fois.',
     markedNotDone: '« {{name}} » marqué comme non fait.',
@@ -466,8 +478,8 @@ export const moneyFlowFr = {
     spent: 'dépensé {{spent}} sur {{amount}}',
     overPlan: 'On a dépensé plus que prévu.',
     yearly: '{{amount}} par an',
-    viaTransfers: '{{amount}} montrés comme virements',
-    viaTransfersSpent: '{{amount}} déplacés par des virements',
+    viaTransfers: '{{amount}} mis de côté par des virements',
+    viaTransfersSpent: '{{amount}} mis de côté par des virements',
     notPlanned: 'non prévu {{amount}}',
     left: 'restant {{amount}}',
   },
@@ -521,7 +533,7 @@ export const moneyFlowFr = {
     thicker:
       'Les plus petits montants sont dessinés un peu plus épais que leur échelle, pour qu’on les voie.',
     scale:
-      'Les bandes sont aussi larges que les montants, à une même échelle. Un virement trimestriel ou annuel compte sa part mensuelle. La part d’une catégorie prévue en virements apparaît comme virement, pas comme dépense.',
+      'Les bandes sont aussi larges que les montants, à une même échelle. Un virement trimestriel ou annuel compte sa part mensuelle. La part d’une catégorie prévue en virements vers des comptes d’épargne, de pilier, d’impôts ou de placement apparaît comme virement, mise de côté, pas comme dépense ; un virement vers un compte courant, comme un porte-monnaie, compte comme dépense.',
     idle: 'Rien de prévu cette période sur : {{names}}.',
   },
   next: {
@@ -563,6 +575,8 @@ export const moneyFlowFr = {
     planned: 'Prévu',
     spent: 'Dépensé',
     overPlan: 'plus que prévu',
+    groupLeft: 'Restant',
+    overspent: 'plus dépensé que prévu',
     totalSpending: 'Total',
     remains: 'Ce qui reste',
     remainsHelp: 'Sur {{amount}} disponibles',
@@ -577,9 +591,9 @@ export const moneyFlowFr = {
       '{{count}} autres groupes de catégories ne sont pas listés (la lecture s’arrête à 1000 lignes) : les totaux les incluent.',
     spendingHelp: {
       planned:
-        'Prévu : les montants attendus des catégories à leur part mensuelle, moins ce que portent les virements planifiés. Dépensé : les transactions de la période, remboursements déduits, moins celles des virements.',
+        'Prévu : les montants attendus des catégories à leur part mensuelle, moins ce que portent les virements planifiés vers des comptes de mise de côté. Dépensé : les transactions de la période, remboursements déduits, moins celles de ces virements. Un virement vers un compte courant compte comme dépense.',
       actual:
-        'Dépensé : les transactions de la période, remboursements déduits, moins celles des virements. Prévu : les montants attendus des catégories à leur part mensuelle, moins ce que portent les virements planifiés.',
+        'Dépensé : les transactions de la période, remboursements déduits, moins celles des virements vers des comptes de mise de côté. Prévu : les montants attendus des catégories à leur part mensuelle, moins ce que portent ces virements. Restant : la dépense prévue d’un groupe moins ce qu’il a dépensé, en dessous de zéro quand on a dépensé plus. Ce qui reste est le restant de tout le montant disponible.',
     },
   },
 }

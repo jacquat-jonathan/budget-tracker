@@ -616,7 +616,7 @@ const core = {
       'This is the primary income: no period that has started moves. Only the current period’s expected end follows the new pay date (unless you set it by hand), never before today.',
     primaryTitle: 'Make “{{name}}” the primary income?',
     primaryTransfersNote:
-      'Planned transfers on payday follow the new primary income from the next period. In this period nothing about them changes: their dates stay, and what was already recorded or ticked stays as it is.',
+      'Planned transfers on payday: one that names an income keeps happening on each of that income’s paydays, whichever income is the primary. One on “The main income” follows the new primary income from its next payday, which starts the next period. Nothing already recorded or ticked changes.',
     primaryDescription:
       'Periods then follow this income’s pay day. Periods that have started do not move.',
     preview: {

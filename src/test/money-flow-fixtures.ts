@@ -88,6 +88,8 @@ export function workedExamplePlan(periodId = 'period-2'): MoneyFlowPlan {
         cadence: null,
         automatic: true,
         category: 'grp-saving',
+        // Its transaction of 25 Oct was made.
+        spent: 100_000,
       },
       {
         id: 'tr-pillar',
@@ -119,8 +121,47 @@ export function workedExamplePlan(periodId = 'period-2'): MoneyFlowPlan {
         expected: 158_800,
         yearly: 705_600,
         spent: 100_000,
-        transferSpent: 100_000,
       },
+    ],
+  }
+}
+
+/**
+ * The second worked example of docs/database.md ("a linked transfer into an everyday account",
+ * R-ACCOUNT-465): income 6 000.00 into Main; Main (current), Cash (cash), Savings (savings);
+ * "Pocket money" 500.00 on payday, Main -> Cash, automatic, linked to the category Pocket money
+ * (its transaction made); Food planned 800.00, 300.00 spent. Amounts in rappen.
+ */
+export function cashWalletPlan(periodId = 'period-2'): MoneyFlowPlan {
+  return {
+    periodId,
+    incomes: [{ id: 'inc-main', name: 'Salary', amount: 600_000, accountId: 'acc-main' }],
+    accounts: [
+      { id: 'acc-main', name: 'Main', kind: 'current', createdAt: '2026-10-01T08:00:00+00:00' },
+      { id: 'acc-cash', name: 'Cash', kind: 'cash', createdAt: '2026-10-01T08:01:00+00:00' },
+      {
+        id: 'acc-savings',
+        name: 'Savings',
+        kind: 'savings',
+        createdAt: '2026-10-01T08:02:00+00:00',
+      },
+    ],
+    transfers: [
+      {
+        id: 'tr-pocket',
+        name: 'Pocket money',
+        from: 'acc-main',
+        to: 'acc-cash',
+        amount: 50_000,
+        cadence: null,
+        automatic: true,
+        category: 'grp-pocket',
+        spent: 50_000,
+      },
+    ],
+    categories: [
+      { id: 'grp-pocket', name: 'Pocket money', displayOrder: 1, expected: 50_000, spent: 50_000 },
+      { id: 'grp-food', name: 'Food', displayOrder: 2, expected: 80_000, spent: 30_000 },
     ],
   }
 }

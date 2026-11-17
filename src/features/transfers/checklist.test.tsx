@@ -6,7 +6,13 @@ import { actionsFor } from '@/features/transfers/transfer-terms'
 import { formatMoney } from '@/lib/money'
 import { budgetRow, categoriesDb, periodRow } from '@/test/budget-fixtures'
 import { rpcError } from '@/test/mock-db'
-import { accountRow, checklistRow, transferRow } from '@/test/mock-transfers'
+import {
+  accountRow,
+  checklistRow,
+  occurrenceKindOf,
+  transferRow,
+  type ChecklistRow as ChecklistRowType,
+} from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 import { warmPages } from '@/test/warm'
@@ -200,6 +206,7 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
         p_transfer_id: 'tr-joint',
         p_period_id: 'period-2',
         p_occurrence_date: '2026-10-23',
+        p_occurrence_kind: 'payday',
         p_expected_revision: 0,
         p_done_on: '2026-11-15',
         p_amount: 140_000,
@@ -216,6 +223,7 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
         p_transfer_id: 'tr-joint',
         p_period_id: 'period-2',
         p_occurrence_date: '2026-10-23',
+        p_occurrence_kind: 'payday',
         p_expected_revision: 1,
       })
     })
@@ -733,6 +741,307 @@ describe('after a mark whose row goes, the focus goes somewhere sensible [R-APP-
       expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Checklist' }))
     })
     expect(document.activeElement).not.toBe(document.body)
+  })
+})
+
+describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R-ACCOUNT-460]', () => {
+  const text = (element: Element) => element.textContent.replace(/\s/g, ' ')
+  /** A row by its name and, for a twin, the start of the words that say its kind. */
+  const twin = (label: string) => {
+    const [name = '', kind] = label.split(', ')
+    const match = screen
+      .getAllByTestId('checklist-row')
+      .find(
+        (element) =>
+          text(element).startsWith(name) && (kind === undefined || text(element).includes(kind)),
+      )
+    if (!match) throw new Error(`No row for ${label}`)
+    return match
+  }
+  const status = (label: string) => text(within(twin(label)).getByTestId('checklist-status'))
+  const twins = (overrides: Parameters<typeof checklistRow>[0] = {}) => [
+    checklistRow({
+      occurrence_date: '2026-11-20',
+      due_date: '2026-11-20',
+      is_overdue: false,
+      ...overrides,
+    }),
+    checklistRow({
+      occurrence_date: '2026-11-20',
+      due_date: '2026-11-20',
+      is_overdue: false,
+      cadence: 'monthly',
+      ...overrides,
+      occurrence_kind: 'fixed_day',
+    }),
+  ]
+
+  it('says which kind of date each twin is, and nothing on an ordinary row', async () => {
+    const db = checklistDb()
+    db.checklist = [...twins(), checklistRow({ transfer_id: 'tr-other', name: 'Other order' })]
+    await openPage(db)
+    expect(within(twin('Joint account, on the payday')).getByTestId('checklist-kind')).toBeTruthy()
+    expect(twin('Joint account, on the payday')).toHaveTextContent(
+      'on the payday that started the period',
+    )
+    expect(twin('Joint account, on its fixed day')).toHaveTextContent('on its fixed day')
+    expect(within(row('Other order')).queryByTestId('checklist-kind')).not.toBeInTheDocument()
+    // Keys are identifiers only: the twins' shared key is said as their due date, never apart.
+    expect(screen.getAllByTestId('checklist-row')).toHaveLength(3)
+  })
+
+  it('Done and Skip each act on their own twin and send its kind; Undo undoes its own', async () => {
+    const db = checklistDb()
+    db.checklist = twins()
+    await openPage(db)
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Skip “Joint account, on its fixed day” this time' }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.skip_transfer).toHaveBeenCalledWith({
+        p_transfer_id: 'tr-joint',
+        p_period_id: 'period-2',
+        p_occurrence_date: '2026-11-20',
+        p_occurrence_kind: 'fixed_day',
+        p_expected_revision: 0,
+      })
+    })
+    await waitFor(() => {
+      expect(status('Joint account, on its fixed day')).toBe('Skipped by Alex')
+    })
+    expect(status('Joint account, on the payday')).toBe('To do')
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Mark “Joint account, on the payday that started the period” as done',
+      }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    await waitFor(() => {
+      expect(db.rpc.mark_transfer_done).toHaveBeenCalledWith(
+        expect.objectContaining({
+          p_occurrence_date: '2026-11-20',
+          p_occurrence_kind: 'payday',
+          p_expected_revision: 0,
+        }),
+      )
+    })
+    await waitFor(() => {
+      expect(status('Joint account, on the payday')).toBe('Done on 15.11.2026 by Alex')
+    })
+    expect(status('Joint account, on its fixed day')).toBe('Skipped by Alex')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Undo the tick of “Joint account, on its fixed day”' }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.undo_transfer_mark).toHaveBeenLastCalledWith(
+        expect.objectContaining({ p_occurrence_kind: 'fixed_day', p_expected_revision: 1 }),
+      )
+    })
+    await waitFor(() => {
+      expect(status('Joint account, on its fixed day')).toBe('To do')
+    })
+    expect(status('Joint account, on the payday')).toBe('Done on 15.11.2026 by Alex')
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Undo the tick of “Joint account, on the payday that started the period”',
+      }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.undo_transfer_mark).toHaveBeenLastCalledWith(
+        expect.objectContaining({ p_occurrence_kind: 'payday', p_expected_revision: 1 }),
+      )
+    })
+    await waitFor(() => {
+      expect(status('Joint account, on the payday')).toBe('To do')
+    })
+  })
+
+  it('Did not happen on a standing order acts on its own twin and sends its kind', async () => {
+    const db = checklistDb()
+    db.checklist = [
+      checklistRow({
+        transfer_id: 'tr-savings',
+        name: 'Savings',
+        is_automatic: true,
+        status: 'upcoming',
+        occurrence_date: '2026-11-25',
+        due_date: '2026-11-25',
+        is_overdue: false,
+      }),
+      checklistRow({
+        transfer_id: 'tr-savings',
+        name: 'Savings',
+        is_automatic: true,
+        status: 'upcoming',
+        occurrence_date: '2026-11-25',
+        due_date: '2026-11-25',
+        is_overdue: false,
+        occurrence_kind: 'income_payday',
+      }),
+    ]
+    await openPage(db)
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: '“Savings, on its chosen income’s payday” did not happen',
+      }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.mark_transfer_not_done).toHaveBeenCalledWith({
+        p_transfer_id: 'tr-savings',
+        p_period_id: 'period-2',
+        p_occurrence_date: '2026-11-25',
+        p_occurrence_kind: 'income_payday',
+        p_expected_revision: 0,
+      })
+    })
+    await waitFor(() => {
+      expect(status('Savings, on its chosen')).toBe('Did not happen (said by Alex)')
+    })
+    expect(status('Savings, on the payday')).toBe('Standing order: assumed done on its due date')
+  })
+
+  it('two ticks no longer planned with one key: each Undo removes its own', async () => {
+    const db = checklistDb()
+    db.checklist = [
+      checklistRow({
+        transfer_id: 'tr-old',
+        name: 'Old order',
+        occurrence_date: '2026-10-24',
+        due_date: null,
+        planned: false,
+        status: 'done',
+        done_on: '2026-10-24',
+        mark_revision: 2,
+        recorded_by_name: 'Sam',
+      }),
+      checklistRow({
+        transfer_id: 'tr-old',
+        name: 'Old order',
+        occurrence_date: '2026-10-24',
+        due_date: null,
+        planned: false,
+        status: 'skipped',
+        mark_revision: 1,
+        recorded_by_name: 'Sam',
+        cadence: 'monthly',
+      }),
+    ]
+    await openPage(db)
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Undo the tick of “Old order, on its fixed day”' }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.undo_transfer_mark).toHaveBeenCalledWith({
+        p_transfer_id: 'tr-old',
+        p_period_id: 'period-2',
+        p_occurrence_date: '2026-10-24',
+        p_occurrence_kind: 'fixed_day',
+        p_expected_revision: 1,
+      })
+    })
+    await waitFor(() => {
+      expect(screen.getAllByTestId('checklist-row')).toHaveLength(1)
+    })
+    // The one left is the other tick (done by Sam), now alone: its kind need not be said.
+    expect(status('Old order')).toBe('Done on 24.10.2026 by Sam · no longer planned')
+    await userEvent.click(screen.getByRole('button', { name: 'Undo the tick of “Old order”' }))
+    await waitFor(() => {
+      expect(db.rpc.undo_transfer_mark).toHaveBeenLastCalledWith(
+        expect.objectContaining({ p_occurrence_kind: 'payday', p_expected_revision: 2 }),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.queryAllByTestId('checklist-row')).toHaveLength(0)
+    })
+  })
+
+  it('if the database still asks which occurrence, says the list changed and reads it again', async () => {
+    const db = checklistDb()
+    db.checklist = [checklistRow()]
+    db.rpc.skip_transfer.mockImplementation(() => rpcError('occurrence_required'))
+    await openPage(db)
+    const reads = db.rpc.get_transfer_checklist.mock.calls.length
+    await userEvent.click(screen.getByRole('button', { name: 'Skip “Joint account” this time' }))
+    expect(
+      await screen.findByText(/This period’s checklist changed meanwhile: it is shown again/),
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(db.rpc.get_transfer_checklist.mock.calls.length).toBeGreaterThan(reads)
+    })
+    expect(db.rpc.skip_transfer).toHaveBeenCalledTimes(1)
+  })
+
+  it('a Done the database answers with occurrence_required closes its dialog and reads the list again', async () => {
+    const db = checklistDb()
+    db.checklist = [checklistRow()]
+    db.rpc.mark_transfer_done.mockImplementation(() => rpcError('occurrence_required'))
+    await openPage(db)
+    await userEvent.click(screen.getByRole('button', { name: 'Mark “Joint account” as done' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    expect(
+      (await screen.findAllByText(/This period’s checklist changed meanwhile/)).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('the mock refuses as the database: a call that names fewer than the period lists, or no row', () => {
+    const db = checklistDb()
+    db.checklist = twins({ status: 'to_do' })
+    const base = { p_transfer_id: 'tr-joint', p_period_id: 'period-2', p_expected_revision: 0 }
+    expect(() => db.rpc.skip_transfer(base)).toThrow('occurrence_required')
+    expect(() => db.rpc.skip_transfer({ ...base, p_occurrence_date: '2026-11-20' })).toThrow(
+      'occurrence_required',
+    )
+    expect(() =>
+      db.rpc.skip_transfer({
+        ...base,
+        p_occurrence_date: '2026-11-20',
+        p_occurrence_kind: 'income_payday',
+      }),
+    ).toThrow('transfer_not_in_force')
+    const [skipped] = db.rpc.skip_transfer({
+      ...base,
+      p_occurrence_date: '2026-11-20',
+      p_occurrence_kind: 'fixed_day',
+    }) as ChecklistRowType[]
+    expect(skipped).toMatchObject({ occurrence_kind: 'fixed_day', status: 'skipped' })
+    expect(db.checklist[0]).toMatchObject({ occurrence_kind: 'payday', status: 'to_do' })
+    // Only the kind, with one row of that kind there, names it too.
+    expect(() =>
+      db.rpc.undo_transfer_mark({
+        ...base,
+        p_expected_revision: 1,
+        p_occurrence_kind: 'fixed_day',
+      }),
+    ).not.toThrow()
+  })
+
+  it('the mock derives a row’s kind as the database does, not a constant payday', () => {
+    expect(checklistRow().occurrence_kind).toBe('payday')
+    expect(checklistRow({ cadence: 'yearly' }).occurrence_kind).toBe('fixed_day')
+    const incomes = [
+      { id: 'inc-ann', is_primary: true, is_active: true },
+      { id: 'inc-ben', is_primary: false, is_active: true },
+      { id: 'inc-gone', is_primary: false, is_active: false },
+    ]
+    expect(occurrenceKindOf({ schedule: 'day_of_month', income_id: null }, incomes)).toBe(
+      'fixed_day',
+    )
+    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: null }, incomes)).toBe('payday')
+    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ann' }, incomes)).toBe('payday')
+    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ben' }, incomes)).toBe(
+      'income_payday',
+    )
+    // A chosen income no longer in force: it follows the primary's payday.
+    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-gone' }, incomes)).toBe(
+      'payday',
+    )
   })
 })
 

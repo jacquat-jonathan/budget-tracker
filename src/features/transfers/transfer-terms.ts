@@ -143,14 +143,34 @@ export function editArgs(
 }
 
 /**
- * An occurrence on the page: its transfer, its period and its date. The same date can be an
- * occurrence of two periods (R-ACCOUNT-421), so the date alone never names one.
+ * An occurrence on the page: its transfer, its period, its key and its kind. The same key can
+ * be an occurrence of two periods (R-ACCOUNT-421), and one period can list two occurrences of a
+ * transfer with one key that differ by kind (D-560), so the key alone never names one.
  */
-// R-ACCOUNT-446: rows, focus and the rows kept in place are keyed with the period.
+// R-ACCOUNT-500: rows, focus and the rows kept in place are keyed with the period and the kind.
 export function occurrenceKey(
-  row: Pick<ChecklistRow, 'transfer_id' | 'period_id' | 'occurrence_date'>,
+  row: Pick<ChecklistRow, 'transfer_id' | 'period_id' | 'occurrence_date' | 'occurrence_kind'>,
 ): string {
-  return `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.occurrence_date ?? ''}`
+  return `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.occurrence_date ?? ''}|${row.occurrence_kind ?? ''}`
+}
+
+/**
+ * The rows whose kind is said in words: only where two rows of one transfer in one list would
+ * otherwise read the same (the same due date, or both without one); ordinary rows say nothing.
+ */
+export function rowsNeedingKind<
+  T extends { transfer_id?: string | null; period_id?: string | null; due_date: string | null },
+>(rows: readonly T[], key: (row: T) => string): Set<string> {
+  const groups = new Map<string, T[]>()
+  for (const row of rows) {
+    const twin = `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.due_date ?? ''}`
+    groups.set(twin, [...(groups.get(twin) ?? []), row])
+  }
+  const out = new Set<string>()
+  for (const group of groups.values()) {
+    if (group.length > 1) for (const row of group) out.add(key(row))
+  }
+  return out
 }
 
 /**

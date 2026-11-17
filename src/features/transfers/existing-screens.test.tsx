@@ -229,7 +229,7 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     )
   })
 
-  it('[R-ACCOUNT-428] making another income primary says transfers follow it from the next period; this one stays', async () => {
+  it('[R-ACCOUNT-428] [R-ACCOUNT-461] making another income primary says a transfer naming an income keeps its paydays and one on the main income follows the new primary', async () => {
     const db = householdDb(undefined, {
       income_overview: [
         incomeRow(),
@@ -242,9 +242,16 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     await userEvent.click(await screen.findByRole('button', { name: 'Actions for Sam’s salary' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Make primary' }))
     const dialog = await screen.findByRole('alertdialog')
-    expect(await within(dialog).findByTestId('primary-transfers-note')).toHaveTextContent(
-      'Planned transfers on payday follow the new primary income from the next period. In this period nothing about them changes',
+    const note = await within(dialog).findByTestId('primary-transfers-note')
+    expect(note).toHaveTextContent(
+      'one that names an income keeps happening on each of that income’s paydays, whichever income is the primary',
     )
+    expect(note).toHaveTextContent(
+      'One on “The main income” follows the new primary income from its next payday, which starts the next period.',
+    )
+    expect(note).toHaveTextContent('Nothing already recorded or ticked changes.')
+    // What D-562 made untrue is no longer said.
+    expect(note).not.toHaveTextContent('In this period nothing about them changes')
     // Its preview answers 0 / 0 / 0, truthfully: no count is shown.
     await within(dialog).findByTestId('pay-date-preview')
     expect(within(dialog).queryByTestId('transfer-counts')).not.toBeInTheDocument()

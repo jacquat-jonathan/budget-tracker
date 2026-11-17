@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 
 import { PreviewLoadFailed } from '@/components/preview-state'
 import { previewLoadFailed } from '@/lib/preview'
-import type { TransferPreview } from '@/features/transfers/transfer-queries'
+import type { TransferPreview, TransferPreviewRow } from '@/features/transfers/transfer-queries'
+import { rowsNeedingKind } from '@/features/transfers/transfer-terms'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -42,6 +43,8 @@ export function TransferPreviewBox({
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage({ category_to_categorise: 'transfers.errors.toCategorise' })
+  // D-600: a row says its kind only where another row would read the same (one due date).
+  const sayKind = rowsNeedingKind(preview?.rows ?? [], previewKey)
   return (
     <section
       className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-sm"
@@ -74,12 +77,25 @@ export function TransferPreviewBox({
             <ul className="flex flex-col divide-y rounded-md border bg-background">
               {preview.rows.map((row) => (
                 <li
-                  key={`${row.period_id}-${row.occurrence_date}-${row.due_date}`}
+                  key={previewKey(row)}
                   className="flex flex-wrap items-baseline justify-between gap-x-3 px-2.5 py-1.5"
                   data-testid="preview-occurrence"
                 >
                   <span className="tabular-nums">
                     <time dateTime={row.due_date}>{formatCalendarDate(row.due_date)}</time>
+                    {sayKind.has(previewKey(row)) && (
+                      <span className="text-muted-foreground" data-testid="preview-kind">
+                        {' '}
+                        · {t(`transfers.checklist.kind.${row.occurrence_kind}`)}
+                      </span>
+                    )}
+                    {/* R-ACCOUNT-501: an occurrence already recorded stays as it was recorded. */}
+                    {row.already_recorded && (
+                      <span className="text-muted-foreground" data-testid="preview-recorded">
+                        {' '}
+                        · {t('transfers.preview.alreadyRecorded')}
+                      </span>
+                    )}
                     {row.created_at_once && (
                       <span className="text-muted-foreground">
                         {' '}
@@ -119,6 +135,13 @@ export function TransferPreviewBox({
               {t('transfers.preview.transactionsRemoved', { count: preview.transactionsRemoved })}
             </p>
           )}
+          {/* D-601: the preview does not say which removed transaction is made again on a new
+              due date (R-ACCOUNT-462), so a move is said as a possibility, never as a loss. */}
+          {preview.transactionsRemoved > 0 && preview.createdAtOnce > 0 && (
+            <p className="text-muted-foreground" data-testid="preview-moved-note">
+              {t('transfers.preview.movedNote')}
+            </p>
+          )}
           {preview.marksUnplanned > 0 && (
             <p data-testid="marks-unplanned">
               {t('transfers.preview.marksUnplanned', { count: preview.marksUnplanned })}
@@ -128,4 +151,9 @@ export function TransferPreviewBox({
       )}
     </section>
   )
+}
+
+/** A previewed occurrence: its period (none when projected), key, kind and due date. */
+function previewKey(row: TransferPreviewRow): string {
+  return `${(row.period_id as string | null) ?? row.start_date}|${row.occurrence_date}|${row.occurrence_kind}|${row.due_date}`
 }

@@ -4,6 +4,7 @@ import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap } from '@/features/budgets/budget-queries'
 import type {
   ChecklistRow,
+  OccurrenceKind,
   CreateArgs,
   Transfer,
   TransferTermsArgs,
@@ -89,11 +90,13 @@ export function useEndTransfer(budgetId: string) {
   })
 }
 
-/** The occurrence a mark acts on: its period, its key, and the mark's revision read. */
+/** The occurrence a mark acts on: its period, its key and kind, and the mark's revision read. */
 export interface MarkTarget {
   transferId: string
   periodId: string
   occurrenceDate: string
+  /** Null only on a row the database never answers without one (the 'more' row). */
+  occurrenceKind: OccurrenceKind | null
   revision: number
   name: string
   amount: number
@@ -102,12 +105,13 @@ export interface MarkTarget {
   withTransaction?: boolean
 }
 
-/** The mark target of a checklist row: its period, its key, and the mark revision read. */
+/** The mark target of a checklist row: its period, its key and kind, the mark revision read. */
 export function targetOf(row: ChecklistRow): MarkTarget {
   return {
     transferId: row.transfer_id ?? '',
     periodId: row.period_id ?? '',
     occurrenceDate: row.occurrence_date ?? '',
+    occurrenceKind: row.occurrence_kind ?? null,
     revision: row.mark_revision ?? 0,
     name: row.name ?? '',
     amount: row.amount ?? 0,
@@ -116,10 +120,12 @@ export function targetOf(row: ChecklistRow): MarkTarget {
   }
 }
 
+// R-ACCOUNT-500: every mark names the row's period, key and kind (D-560).
 const target = (row: MarkTarget) => ({
   p_transfer_id: row.transferId,
   p_period_id: row.periodId,
   p_occurrence_date: row.occurrenceDate,
+  ...(row.occurrenceKind ? { p_occurrence_kind: row.occurrenceKind } : {}),
   p_expected_revision: row.revision,
 })
 
@@ -137,6 +143,8 @@ export function useMarks(budgetId: string, options: { errorDisplay?: 'toast' | '
     // Ended or changed by another member meanwhile: the checklist shows where it stands.
     transfer_not_in_force: 'transfers.checklist.changedElsewhere',
     transfer_not_found: 'transfers.checklist.changedElsewhere',
+    // The period now lists more rows of it than this one named: the list is read again.
+    occurrence_required: 'transfers.checklist.listChanged',
   } as const
   const common = { errorMessages, invalidate: () => affected(budgetId) }
   const done = useAppMutation<unknown, MarkTarget & { doneOn: string; amountMoved: number }>({
