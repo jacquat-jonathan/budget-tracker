@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-568 rules (557 active, 0 planned), 24 conventions, 348 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
+570 rules (559 active, 0 planned), 24 conventions, 349 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2452,6 +2452,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-521, D-420, D-490, R-ACCOUNT-301
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), must-fix 1, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-422** The money flow of a period ends at spending: one row per top-level category with its planned spending at the monthly share less the share of planned transfers linked to it (given as its own figure), the real yearly amount beside it, and what was actually spent less the transactions of those transfers; a total row answers income, set aside, spendable, planned and actual spending, not planned and left, so that income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; at most 1000 rows, the last spending row adding up the rest.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-524, R-ACCOUNT-006, R-ACCOUNT-304
+  - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-423** In the money flow, what the plan leaves on an everyday account (current, cash, credit card, other) is spendable, and on a savings, third pillar, tax reserve or investment account it is set aside.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-524, R-ACCOUNT-001
+  - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 
@@ -7237,6 +7245,21 @@ Related: D-452, D-484, Q-291, R-IMPORT-368
 
 Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
 
+### D-524 The money flow ends at spending, not at the accounts (answers Q-301) (accepted)
+
+get_money_flow keeps its rows and columns and adds: per account `spendable` (current, cash, credit_card and other are everyday accounts whose remainder is spendable; savings, third_pillar, tax_reserve and investment are set aside); rows of kind 'spending', one per top-level category planned or spent in the period (id, name, expected at the monthly share, transfer_share = the monthly share of planned transfers linked to it, at most expected, amount = expected - transfer_share, yearly_amount, spent = the period's net spending less transfer_spent, the transactions of those transfers, display_order, is_negative when spent exceeds amount); and on the total row set_aside, spendable_amount, planned_spending, not_planned, actual_spending and left_amount. Expenses are not tied to accounts: the screens draw spending out of the pooled spendable remainder. At most 1000 rows: the last spending row adds up the categories beyond the room (id null, name their number).
+
+**Why:** The owner's brief asks the diagram to show where the money goes and what is left; the read stopped at the accounts (Q-301). Leaving out the transfers' category share and their transactions keeps the same francs from showing twice, once as a transfer and once as spending. Every figure is the database's (C-LOGIC-003).
+
+**Rejected:**
+
+- Tying expenses to an account: transactions carry no account and will not.
+- Leaving 'other' accounts out of spendable: an unknown kind is more likely an everyday one, and the screens can still show it.
+
+Related: Q-301, R-ACCOUNT-422, R-ACCOUNT-423, D-356, D-503
+
+Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -7675,10 +7698,14 @@ Source: owner-request: coordinator brief for the last database fix round (re-che
   - Context: A transfer linked to a category has transactions (transfer_overview.transaction_count), but the screens cannot list them: there is no filter for them, so the transfer card offers no "its transactions" link as subscriptions and debts do.
   - Related: R-ACCOUNT-072, R-APP-170
   - Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
-- **Q-301** Should get_money_flow give where the money goes beyond the accounts: spending by category group (planned expectations), and which account it is spent from?
+- **Q-301** (resolved by D-524) Should get_money_flow give where the money goes beyond the accounts: spending by category group (planned expectations), and which account it is spent from?
   - Context: The owner brief asks the diagram to show spending by category group and what is left; the read gives incomes, accounts, transfers and what stays on each account only (and a transfer row does not say the category it counts in). The page shows what it has and says that spending is not part of the plan it draws. Needed: rows of kind spending (category group, planned amount, the account it is taken from or none), or a decision that the flow ends at the accounts.
   - Related: R-ACCOUNT-006, R-ACCOUNT-235, D-356, D-503
   - Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+- **Q-310** How should a quarterly or yearly transfer linked to a category show in the month it runs, where its whole amount is spent against a monthly share planned (7 056.00 spent against 588.00 planned in December)?
+  - Context: The plan counts a quarterly or yearly transfer at its monthly share in every period (D-425); its transaction is the whole amount, in the month it runs. The category then looks heavily overspent that month and under-spent the others; the money flow leaves both out of spending (D-524) but the period progress shows them. Options: (1) leave it; (2) plan the full amount in the month it runs (and nothing in the others); (3) show the yearly progress the way yearly categories do (spent since the start of its year against the year's amount).
+  - Related: D-425, D-524, R-ACCOUNT-304
+  - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17
 
 ## Glossary
 

@@ -1129,6 +1129,20 @@ as $$
                       where m.seq = a.seq and m.row_kind = 'transfer' and m.source_id = a.id) as o
   where a.row_kind = 'account' and (a.inflow <> i.s or a.outflow <> o.s)
   union all
+  -- R-ACCOUNT-422, R-ACCOUNT-423: the totals balance, from the rows (set aside: what stays on
+  -- savings, pillar, tax reserve and investment accounts; spending rows: planned and spent)
+  select format('period %s: total %s = set aside %s + spendable %s; planned %s + %s; spent %s + %s', t.seq, t.amount,
+                t.set_aside, t.spendable_amount, t.planned_spending, t.not_planned, t.actual_spending, t.left_amount)
+  from mf as t
+  where t.row_kind = 'total'
+    and (t.amount <> t.set_aside + t.spendable_amount
+         or t.spendable_amount <> t.planned_spending + t.not_planned
+         or t.spendable_amount <> t.actual_spending + t.left_amount
+         or t.set_aside <> coalesce((select sum(a.stays) from mf as a where a.seq = t.seq and a.row_kind = 'account'
+                                     and a.account_kind::text in ('savings', 'third_pillar', 'tax_reserve', 'investment')), 0)
+         or t.planned_spending <> coalesce((select sum(x.amount) from mf as x where x.seq = t.seq and x.row_kind = 'spending'), 0)
+         or t.actual_spending <> coalesce((select sum(x.spent) from mf as x where x.seq = t.seq and x.row_kind = 'spending'), 0))
+  union all
   select format('period %s: transfer %s at %s, its monthly share is %s', t.seq, t.name, t.amount,
                 case when t.cadence is null or t.cadence = 'monthly' then t.planned_amount
                      when t.cadence = 'quarterly' then (2 * t.planned_amount + 3) / 6

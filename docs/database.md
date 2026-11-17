@@ -1891,26 +1891,85 @@ figure**, never added to the subscriptions' `committed`: `get_period_progress(..
 "CHF 1000 of CHF 1500 planned as a transfer"; the subscriptions' figures and every existing
 total are unchanged. Ended transfers count only where they were in force.
 
-#### The money flow (R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-304, D-356)
+#### The money flow (R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-304, D-356, R-ACCOUNT-422, R-ACCOUNT-423, D-524)
 
-**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence}[]`**
+**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence, spendable, expected, transfer_share, spent, transfer_spent, yearly_amount, display_order, set_aside, spendable_amount, planned_spending, actual_spending, not_planned, left_amount}[]`**
 Member; for a chosen period (default the current one: `budget_ended` when there is none);
-catches up first. From the plan in force in that period only, never from transactions. Rows,
-in this order:
+catches up first. The flow runs **income -> accounts -> spending** (D-524, answers Q-301): the
+incomes, the accounts and the transfers between them come from the plan in force in that
+period only; the spending comes from the categories' plan and, for what was actually spent,
+from the period's transactions. Every figure is the database's: the screen adds and subtracts
+nothing. Rows, in this order (the columns a row does not use are null):
 
 | `row_kind` | One per | Fields |
 | --- | --- | --- |
 | `'income'` | income in force in the period | `id` = `source_id` (the income), `name`, `amount` (its amount then), `target_id` (its account then; **null: the "not assigned" node**), `user_id` |
-| `'not_assigned'` | at most one, only when an income names no account | `inflow` = `stays` (those incomes), `outflow` 0 |
-| `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning) |
+| `'not_assigned'` | at most one, only when an income names no account | `inflow` = `stays` (those incomes), `outflow` 0, `spendable` true |
+| `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning), **`spendable`** (R-ACCOUNT-423: true for the everyday kinds `'current'`, `'cash'`, `'credit_card'` and `'other'`; false for `'savings'`, `'third_pillar'`, `'tax_reserve'` and `'investment'`, whose `stays` is **set aside**) |
 | `'transfer'` | transfer in force in the period | `id`, `name`, `source_id` (from account) -> `target_id` (to account), `amount` (**its monthly share**: what the plan moves per period), `planned_amount` and `cadence` (its real amount and cadence: "CHF 7'056.00 once a year"; `cadence` null for a pay date), `is_automatic` |
-| `'total'` | one | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up |
+| `'spending'` | top-level category (a group, or a category without a group) with something planned or spent in the period, in the categories' display order (`display_order`) | `id` (the category: a **stable key for its colour**), `name`, `expected` (its plan at the monthly share: a yearly expectation counts one twelfth, half up), `transfer_share` (the monthly share of planned transfers linked to it, at most `expected`: **those francs are drawn as transfers**, so they are left out here), **`amount` = `expected` - `transfer_share`** (planned spending), `yearly_amount` (the real amount of its yearly expectations, "CHF 2'400.00 a year"; null when none), **`spent`** (what the period's transactions spent in it, refunds deducted, **less** `transfer_spent`, the transactions of transfers linked to it), `is_negative` (spent more than planned) |
+| `'total'` | one, always last | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up, `set_aside` (the `stays` of the set-aside accounts), `spendable_amount` (= `amount` - `set_aside`), `planned_spending` (the spending rows' `amount`), `not_planned` (= `spendable_amount` - `planned_spending`; **may be negative**: `is_negative`), `actual_spending` (the spending rows' `spent`), `left_amount` (= `spendable_amount` - `actual_spending`; may be negative) |
 
-Everything adds up: the `stays` of the accounts and "not assigned" total the incomes. At most
-about 900 rows (500 incomes, 200 accounts and 200 transfers at the limits). Draw the Sankey from
-`'income'` and `'transfer'` rows (`source_id` -> `target_id`, null target = the
-`'not_assigned'` node). Errors: `budget_not_found`, `period_not_found`, `budget_ended`,
-`catching_up`.
+Everything adds up, and each sum is a field: the `stays` of the accounts and "not assigned"
+total the incomes; **income = `set_aside` + `spendable_amount`**; **`spendable_amount` =
+`planned_spending` + `not_planned`** (the plan) **= `actual_spending` + `left_amount`** (what
+happened). Expenses are not tied to accounts (and will not be): spending is drawn out of the
+pooled spendable remainder, never out of one account.
+
+**Rows: at most 1000** (R-APP-170). Incomes, accounts and transfers in force are bounded by
+their limits (50 each in force in a period); spending rows fill the room left (at most 200
+categories are in force). Should the rows reach 1000, the last spending row stands for the
+rest: `id` null, `name` the number of categories it adds up, its figures their sums, so the
+totals stay whole.
+
+**How the screen draws this.** Column 1: the incomes (`'income'` rows). Column 2 and further:
+the accounts, joined by the `'transfer'` bands (`source_id` -> `target_id`, width `amount`;
+a null target is the `'not_assigned'` node), as before. Last column: the spending. From each
+account with `spendable` true (and from "not assigned") its `stays` flows into one pooled
+"spendable" node of width `spendable_amount`; the accounts with `spendable` false end there
+(their `stays` is "set aside", total `set_aside`). Out of the spendable node: one band per
+`'spending'` row, width `amount` (planned) or `spent` (actual: the screen's toggle), coloured
+by the row's `id`, labelled with `name` and the figure (`yearly_amount` beside it when not
+null), with a warning when `is_negative`; then one band "not planned" (`not_planned`) or
+"left" (`left_amount`), drawn as a warning, not a band, when negative. A row whose
+`transfer_share` is not 0 can say "CHF 1'588.00 shown as transfers" (`transfer_spent` for
+the actual side). Nothing is computed by the screen but geometry.
+
+**Example** (current period 25 Oct to 24 Nov 2026, today 20 Nov). Ann's salary 6 000.00 and
+Ben's salary 4 000.00, both into Main (current). Accounts Main, Savings (savings), Pillar 3a
+(third_pillar). Transfers: "Savings" 1 000.00 on payday, Main -> Savings, automatic, linked to
+the category Savings (its transaction of 25 Oct was made); "Pillar 3a" 7 056.00 once a year on
+20 December, Main -> Pillar 3a, linked to the category Pillar: its monthly share is 588.00.
+Categories (five groups): Home (Rent 2 000.00, Energy 150.00), Food (Groceries 900.00,
+Restaurants 200.00), Transport (Train 300.00), Leisure (Holidays 2 400.00 a year, Hobbies
+150.00), Saving and pension (Savings 1 000.00, Pillar 7 056.00 a year). Spent so far: Rent
+2 000.00, Groceries 640.50, Restaurants 85.00, Train 120.00, Hobbies 60.00 (and the Savings
+transfer's 1 000.00). The read (amounts in francs; the API answers rappen):
+
+| row | figures |
+| --- | --- |
+| income Ann's salary | amount 6 000.00, target Main |
+| income Ben's salary | amount 4 000.00, target Main |
+| account Main | inflow 10 000.00, outflow 1 588.00, stays 8 412.00, spendable true |
+| account Pillar 3a | inflow 588.00, outflow 0, stays 588.00, spendable false |
+| account Savings | inflow 1 000.00, outflow 0, stays 1 000.00, spendable false |
+| transfer Pillar 3a | Main -> Pillar 3a, amount 588.00, planned_amount 7 056.00, cadence yearly |
+| transfer Savings | Main -> Savings, amount 1 000.00, planned_amount 1 000.00, cadence null |
+| spending Home | expected 2 150.00, transfer_share 0, amount 2 150.00, spent 2 000.00 |
+| spending Food | expected 1 100.00, transfer_share 0, amount 1 100.00, spent 725.50 |
+| spending Transport | expected 300.00, transfer_share 0, amount 300.00, spent 120.00 |
+| spending Leisure | expected 350.00, transfer_share 0, amount 350.00, yearly_amount 2 400.00, spent 60.00 |
+| spending Saving and pension | expected 1 588.00, transfer_share 1 588.00, amount 0, yearly_amount 7 056.00, spent 0, transfer_spent 1 000.00 |
+| total | amount 10 000.00, outflow 1 588.00, set_aside 1 588.00, spendable_amount 8 412.00, planned_spending 3 900.00, not_planned 4 512.00, actual_spending 2 905.50, left_amount 5 506.50 |
+
+10 000.00 = 1 588.00 set aside + 8 412.00 spendable; 8 412.00 = 3 900.00 planned + 4 512.00 not
+planned = 2 905.50 spent + 5 506.50 left. (This example is a test: `97j_db_fix3`.)
+
+Errors: `budget_not_found`, `period_not_found`, `budget_ended`, `catching_up`.
+
+A quarterly or yearly transfer linked to a category shows its whole amount **spent** in the
+month it runs (7 056.00 in December) against a monthly share planned (588.00): an open
+question for the owner (Q-310).
 
 **Dashboard** (R-ACCOUNT-241, D-395, D-494): **`get_transfers_to_do(p_budget_id) -> {transfers_to_do, transfers_overdue}[]`**
 (one row; member, else `budget_not_found`; reads only, no catch-up: read it after `my_budgets`

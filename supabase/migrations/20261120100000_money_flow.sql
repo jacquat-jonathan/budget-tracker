@@ -3351,27 +3351,60 @@ begin
 end;
 $$;
 
--- From the plan in force in the period, never from transactions. Typed rows:
+-- From the plan in force in the period, never from transactions, except the spending's actual
+-- amounts. Typed rows, in this order:
 -- * 'income': an income in force, its amount then, target_id its account then (null: the
 --   'not_assigned' node);
--- * 'not_assigned': only when some income names no account; inflow = those incomes;
+-- * 'not_assigned': only when some income names no account; inflow = those incomes (spendable);
 -- * 'account': every account in force; inflow (incomes and transfers in), outflow (transfers
---   out), stays = inflow - outflow (flows of the period, not a balance), is_negative;
+--   out), stays = inflow - outflow (flows of the period, not a balance), is_negative; spendable
+--   (R-ACCOUNT-423): what stays on an everyday account (current, cash, credit_card, other) is
+--   spendable, on a savings, third_pillar, tax_reserve or investment account it is set aside;
 -- * 'transfer': a transfer in force, source_id -> target_id, amount its monthly share then,
 --   planned_amount and cadence its real amount and cadence;
--- * 'total': amount = the incomes added up (= period_summaries.salary_total: salaries only;
---   extra incomes are actual transactions, not plan), outflow = the transfers added up.
+-- * 'spending' (R-ACCOUNT-422, D-524): one per top-level category (a group, or a category
+--   without a group) planned or spent in the period, in the categories' display order: amount =
+--   what is planned for spending at the monthly share (expected) less the share of planned
+--   transfers linked to it (transfer_share, at most expected: those francs are drawn as
+--   transfers), spent = the period's spending less the transactions of transfers
+--   (transfer_spent), yearly_amount = the real amount of its yearly expectations (null: none),
+--   is_negative = spent more than planned. At most limit_money_flow_rows() rows in all: past
+--   that, the last spending row (id null, name the number of categories it stands for) adds
+--   up the rest, so the totals stay whole;
+-- * 'total': amount = inflow = the incomes added up (= period_summaries.salary_total: salaries
+--   only; extra incomes are actual transactions, not plan), outflow = the transfers added up;
+--   set_aside + spendable_amount = income; planned_spending + not_planned = spendable_amount;
+--   actual_spending + left_amount = spendable_amount; is_negative = not_planned < 0.
+create function private.limit_money_flow_rows() returns integer
+language sql immutable set search_path = '' as $$ select 1000 $$;
+
+create function private.account_is_spendable(p_kind public.account_kind)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select p_kind not in ('savings', 'third_pillar', 'tax_reserve', 'investment')
+$$;
+
 create function private.money_flow(p_budget_id uuid, p_seq integer)
 returns table (
   row_kind text, id uuid, name text, source_id uuid, target_id uuid, amount bigint, inflow bigint,
   outflow bigint, stays bigint, is_negative boolean, account_kind public.account_kind, user_id uuid,
-  is_automatic boolean, period_id uuid, planned_amount bigint, cadence public.subscription_cadence
+  is_automatic boolean, period_id uuid, planned_amount bigint, cadence public.subscription_cadence,
+  spendable boolean, expected bigint, transfer_share bigint, spent bigint, transfer_spent bigint,
+  yearly_amount bigint, display_order integer, set_aside bigint, spendable_amount bigint,
+  planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint
 )
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
-  with per as (select p.id from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq),
+#variable_conflict use_column
+begin
+  -- plpgsql: category_progress_row gains transfer_committed further down this file
+  return query
+  with per as (select p.* from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq),
   inc as (
     select i.id, i.name, i.user_id, v.amount, v.account_id
     from public.incomes as i
@@ -3391,34 +3424,109 @@ as $$
     from public.accounts as a
     where a.budget_id = p_budget_id and a.first_seq <= p_seq and (a.end_seq is null or p_seq < a.end_seq)
   ),
+  -- the spending by top-level category (R-ACCOUNT-422)
+  prog as materialized (
+    select g.* from per cross join lateral private.category_progress(p_budget_id, p_seq, per.start_date, per.end_date) as g
+  ),
+  leaf_yearly as (
+    select coalesce(c.parent_id, c.id) as top_id, pg_catalog.sum(e.amount) as yearly_amount
+    from private.expectations_in_force(p_budget_id, p_seq) as e
+    join public.categories as c on c.id = e.category_id
+    where e.cadence = 'yearly'
+    group by 1
+  ),
+  tr_spent as (
+    select coalesce(c.parent_id, c.id) as top_id,
+           pg_catalog.sum(case x.kind when 'expense' then x.amount else -x.amount end) as spent
+    from per
+    join public.transactions as x
+      on x.budget_id = p_budget_id and x.date between per.start_date and per.end_date
+     and x.transfer_occurrence_id is not null and x.kind <> 'extra_income'
+    join public.categories as c on c.id = x.category_id
+    group by 1
+  ),
+  top as (
+    select g.category_id as id, g.name, g.display_order, g.expected,
+           least(coalesce(g.transfer_committed, 0), g.expected) as transfer_share,
+           (g.spent - coalesce(ts.spent, 0))::bigint as spent, coalesce(ts.spent, 0)::bigint as transfer_spent,
+           ly.yearly_amount::bigint as yearly_amount,
+           pg_catalog.row_number() over (order by g.display_order) as n
+    from prog as g
+    left join tr_spent as ts on ts.top_id = g.category_id
+    left join leaf_yearly as ly on ly.top_id = g.category_id
+    where g.parent_id is null and (g.expected <> 0 or g.spent <> 0 or coalesce(g.transfer_committed, 0) <> 0)
+  ),
+  room as (
+    select greatest(private.limit_money_flow_rows()
+                    - (select pg_catalog.count(*) from inc)
+                    - (select case when exists (select 1 from inc where inc.account_id is null) then 1 else 0 end)
+                    - (select pg_catalog.count(*) from acc) - (select pg_catalog.count(*) from tr) - 1, 1) as n
+  ),
+  spend as (
+    select t.id, t.name, t.display_order, t.expected, t.transfer_share, t.spent, t.transfer_spent, t.yearly_amount,
+           t.n as o
+    from top as t
+    where (select pg_catalog.count(*) from top) <= (select room.n from room) or t.n < (select room.n from room)
+    union all
+    select null, (pg_catalog.count(*))::text, pg_catalog.min(t.display_order), pg_catalog.sum(t.expected)::bigint,
+           pg_catalog.sum(t.transfer_share)::bigint, pg_catalog.sum(t.spent)::bigint, pg_catalog.sum(t.transfer_spent)::bigint,
+           pg_catalog.sum(t.yearly_amount)::bigint, (select room.n from room)
+    from top as t
+    where (select pg_catalog.count(*) from top) > (select room.n from room) and t.n >= (select room.n from room)
+    having pg_catalog.count(*) > 0
+  ),
+  sums as (
+    select coalesce((select pg_catalog.sum(inc.amount) from inc), 0)::bigint as income,
+           coalesce((select pg_catalog.sum(acc.inflow - acc.outflow) from acc
+                     where not private.account_is_spendable(acc.kind)), 0)::bigint as set_aside,
+           coalesce((select pg_catalog.sum(s.expected - s.transfer_share) from spend as s), 0)::bigint as planned,
+           coalesce((select pg_catalog.sum(s.spent) from spend as s), 0)::bigint as actual
+  ),
   rows as (
-    select 1 as o, 'income'::text as row_kind, inc.id, inc.name, inc.id as source_id, inc.account_id as target_id,
-           inc.amount, null::bigint as inflow, null::bigint as outflow, null::bigint as stays, null::boolean as is_negative,
-           null::public.account_kind as account_kind, inc.user_id, null::boolean as is_automatic,
-           null::bigint as planned_amount, null::public.subscription_cadence as cadence
+    select 1 as o, 0::bigint as o2, 'income'::text as row_kind, inc.id, inc.name, inc.id as source_id,
+           inc.account_id as target_id, inc.amount, null::bigint as inflow, null::bigint as outflow,
+           null::bigint as stays, null::boolean as is_negative, null::public.account_kind as account_kind,
+           inc.user_id, null::boolean as is_automatic, null::bigint as planned_amount,
+           null::public.subscription_cadence as cadence, null::boolean as spendable, null::bigint as expected,
+           null::bigint as transfer_share, null::bigint as spent, null::bigint as transfer_spent,
+           null::bigint as yearly_amount, null::integer as display_order
     from inc
     union all
-    select 2, 'not_assigned', null, null, null, null, null, pg_catalog.sum(inc.amount)::bigint, 0::bigint,
-           pg_catalog.sum(inc.amount)::bigint, false, null, null, null, null, null
+    select 2, 0, 'not_assigned', null, null, null, null, null, pg_catalog.sum(inc.amount)::bigint, 0::bigint,
+           pg_catalog.sum(inc.amount)::bigint, false, null, null, null, null, null, true, null, null, null, null, null, null
     from inc where inc.account_id is null having pg_catalog.count(*) > 0
     union all
-    select 3, 'account', acc.id, acc.name, null, null, null, acc.inflow::bigint, acc.outflow::bigint,
-           (acc.inflow - acc.outflow)::bigint, acc.inflow < acc.outflow, acc.kind, acc.user_id, null, null, null
+    select 3, 0, 'account', acc.id, acc.name, null, null, null, acc.inflow::bigint, acc.outflow::bigint,
+           (acc.inflow - acc.outflow)::bigint, acc.inflow < acc.outflow, acc.kind, acc.user_id, null, null, null,
+           private.account_is_spendable(acc.kind), null, null, null, null, null, null
     from acc
     union all
-    select 4, 'transfer', tr.transfer_id, tr.name, tr.from_account_id, tr.to_account_id, tr.monthly_amount, null, null,
-           null, null, null, null, tr.is_automatic, tr.amount, tr.cadence
+    select 4, 0, 'transfer', tr.transfer_id, tr.name, tr.from_account_id, tr.to_account_id, tr.monthly_amount, null, null,
+           null, null, null, null, tr.is_automatic, tr.amount, tr.cadence, null, null, null, null, null, null, null
     from tr
     union all
-    select 5, 'total', null, null, null, null,
-           coalesce((select pg_catalog.sum(inc.amount) from inc), 0)::bigint,
-           coalesce((select pg_catalog.sum(inc.amount) from inc), 0)::bigint,
-           coalesce((select pg_catalog.sum(tr.monthly_amount) from tr), 0)::bigint, null, null, null, null, null, null, null
+    select 5, s.o, 'spending', s.id, s.name, null, null, (s.expected - s.transfer_share)::bigint, null, null, null,
+           s.spent > s.expected - s.transfer_share, null, null, null, null, null, null, s.expected, s.transfer_share,
+           s.spent, s.transfer_spent, s.yearly_amount, s.display_order
+    from spend as s
+    union all
+    select 6, 0, 'total', null, null, null, null, sums.income, sums.income,
+           coalesce((select pg_catalog.sum(tr.monthly_amount) from tr), 0)::bigint, null,
+           sums.income - sums.set_aside < sums.planned, null, null, null, null, null, null, null, null, null, null, null, null
+    from sums
   )
   select r.row_kind, r.id, r.name, r.source_id, r.target_id, r.amount, r.inflow, r.outflow, r.stays, r.is_negative,
-         r.account_kind, r.user_id, r.is_automatic, (select per.id from per), r.planned_amount, r.cadence
-  from rows as r
-  order by r.o, r.name, r.id
+         r.account_kind, r.user_id, r.is_automatic, (select per.id from per), r.planned_amount, r.cadence,
+         r.spendable, r.expected, r.transfer_share, r.spent, r.transfer_spent, r.yearly_amount, r.display_order,
+         case when r.row_kind = 'total' then sums.set_aside end,
+         case when r.row_kind = 'total' then sums.income - sums.set_aside end,
+         case when r.row_kind = 'total' then sums.planned end,
+         case when r.row_kind = 'total' then sums.actual end,
+         case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.planned end,
+         case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.actual end
+  from rows as r cross join sums
+  order by r.o, r.o2, r.name, r.id;
+end;
 $$;
 
 -- R-ACCOUNT-006: one call, for a chosen period (default the current one). Catches up first.
@@ -3426,7 +3534,10 @@ create function public.get_money_flow(p_budget_id uuid, p_period_id uuid default
 returns table (
   row_kind text, id uuid, name text, source_id uuid, target_id uuid, amount bigint, inflow bigint,
   outflow bigint, stays bigint, is_negative boolean, account_kind public.account_kind, user_id uuid,
-  is_automatic boolean, period_id uuid, planned_amount bigint, cadence public.subscription_cadence
+  is_automatic boolean, period_id uuid, planned_amount bigint, cadence public.subscription_cadence,
+  spendable boolean, expected bigint, transfer_share bigint, spent bigint, transfer_spent bigint,
+  yearly_amount bigint, display_order integer, set_aside bigint, spendable_amount bigint,
+  planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint
 )
 language plpgsql
 security definer

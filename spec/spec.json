@@ -8170,6 +8170,32 @@
       ]
     },
     {
+      "id": "R-ACCOUNT-422",
+      "area": "account",
+      "statement": "The money flow of a period ends at spending: one row per top-level category with its planned spending at the monthly share less the share of planned transfers linked to it (given as its own figure), the real yearly amount beside it, and what was actually spent less the transactions of those transfers; a total row answers income, set aside, spendable, planned and actual spending, not planned and left, so that income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; at most 1000 rows, the last spending row adding up the rest.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-524", "R-ACCOUNT-006", "R-ACCOUNT-304"],
+      "source": [
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-423",
+      "area": "account",
+      "statement": "In the money flow, what the plan leaves on an everyday account (current, cash, credit card, other) is spendable, and on a savings, third pillar, tax reserve or investment account it is set aside.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-524", "R-ACCOUNT-001"],
+      "source": [
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
       "id": "R-PERIOD-300",
       "area": "period",
       "statement": "One catch-up step creates at most a bounded number of transactions per budget (4000, and about two seconds of work), leaving the rest due, none skipped; a step that stops before creating every one due never answers 0 from ensure_periods.",
@@ -12958,6 +12984,22 @@
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17",
         "code: supabase/migrations/20261119100000_import.sql"
       ]
+    },
+    {
+      "id": "D-524",
+      "title": "The money flow ends at spending, not at the accounts (answers Q-301)",
+      "decision": "get_money_flow keeps its rows and columns and adds: per account `spendable` (current, cash, credit_card and other are everyday accounts whose remainder is spendable; savings, third_pillar, tax_reserve and investment are set aside); rows of kind 'spending', one per top-level category planned or spent in the period (id, name, expected at the monthly share, transfer_share = the monthly share of planned transfers linked to it, at most expected, amount = expected - transfer_share, yearly_amount, spent = the period's net spending less transfer_spent, the transactions of those transfers, display_order, is_negative when spent exceeds amount); and on the total row set_aside, spendable_amount, planned_spending, not_planned, actual_spending and left_amount. Expenses are not tied to accounts: the screens draw spending out of the pooled spendable remainder. At most 1000 rows: the last spending row adds up the categories beyond the room (id null, name their number).",
+      "why": "The owner's brief asks the diagram to show where the money goes and what is left; the read stopped at the accounts (Q-301). Leaving out the transfers' category share and their transactions keeps the same francs from showing twice, once as a transfer and once as spending. Every figure is the database's (C-LOGIC-003).",
+      "rejected": [
+        "Tying expenses to an account: transactions carry no account and will not.",
+        "Leaving 'other' accounts out of spendable: an unknown kind is more likely an everyday one, and the screens can still show it."
+      ],
+      "status": "accepted",
+      "related": ["Q-301", "R-ACCOUNT-422", "R-ACCOUNT-423", "D-356", "D-503"],
+      "source": [
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     }
   ],
   "conventions": [
@@ -14250,9 +14292,20 @@
       "id": "Q-301",
       "question": "Should get_money_flow give where the money goes beyond the accounts: spending by category group (planned expectations), and which account it is spent from?",
       "context": "The owner brief asks the diagram to show spending by category group and what is left; the read gives incomes, accounts, transfers and what stays on each account only (and a transfer row does not say the category it counts in). The page shows what it has and says that spending is not part of the plan it draws. Needed: rows of kind spending (category group, planned amount, the account it is taken from or none), or a decision that the flow ends at the accounts.",
-      "status": "open",
+      "status": "resolved",
       "related": ["R-ACCOUNT-006", "R-ACCOUNT-235", "D-356", "D-503"],
-      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
+      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"],
+      "resolvedBy": "D-524"
+    },
+    {
+      "id": "Q-310",
+      "question": "How should a quarterly or yearly transfer linked to a category show in the month it runs, where its whole amount is spent against a monthly share planned (7 056.00 spent against 588.00 planned in December)?",
+      "context": "The plan counts a quarterly or yearly transfer at its monthly share in every period (D-425); its transaction is the whole amount, in the month it runs. The category then looks heavily overspent that month and under-spent the others; the money flow leaves both out of spending (D-524) but the period progress shows them. Options: (1) leave it; (2) plan the full amount in the month it runs (and nothing in the others); (3) show the yearly progress the way yearly categories do (spent since the start of its year against the year's amount).",
+      "status": "open",
+      "related": ["D-425", "D-524", "R-ACCOUNT-304"],
+      "source": [
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17"
+      ]
     }
   ]
 }

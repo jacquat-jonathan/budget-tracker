@@ -352,5 +352,69 @@ select results_eq(
   $$values ('import', null::text, true), ('not_kept', 'not_kept', false), ('not_kept', 'not_kept', false)$$,
   'D-523: the kept row is imported anyway and each id no longer kept answers a row not_kept');
 
+-- ===========================================================================
+-- Q-301 (D-524): the money flow ends at spending. The contract's worked example, in figures
+-- (R-ACCOUNT-422, R-ACCOUNT-423)
+-- ===========================================================================
+select pg_temp.day('2026-11-20');
+select tests.remember('w', public.create_budget('Worked example', 'Ann''s salary', 600000, 25, 'none', '2026-09-01'));
+select tests.remember('w_p1', (select id from public.periods where budget_id = tests.id('w') and seq = 1));
+create function pg_temp.wcat(n text, parent text, amount bigint, cadence public.expectation_cadence default 'monthly')
+returns void language sql as $$
+  select tests.remember('w_' || n, (select id from public.create_category(tests.id('w'), n,
+    p_parent_id => case when parent is null then null else tests.id('w_' || parent) end, p_amount => amount,
+    p_cadence => cadence, p_from_period_id => tests.id('w_p1')))) $$;
+select tests.remember('w_main', (select id from public.create_account(tests.id('w'), 'Main', 'current', p_from_period_id => tests.id('w_p1'))));
+select tests.remember('w_sav', (select id from public.create_account(tests.id('w'), 'Savings', 'savings', p_from_period_id => tests.id('w_p1'))));
+select tests.remember('w_pil', (select id from public.create_account(tests.id('w'), 'Pillar 3a', 'third_pillar', p_from_period_id => tests.id('w_p1'))));
+select public.update_income((select primary_income_id from public.budgets where id = tests.id('w')),
+  (select revision from public.incomes where id = (select primary_income_id from public.budgets where id = tests.id('w'))),
+  p_account_id => tests.id('w_main'), p_from_period_id => tests.id('w_p1'));
+select public.add_income(tests.id('w'), 'Ben''s salary', 400000, 25, 'none', p_from_period_id => tests.id('w_p1'), p_account_id => tests.id('w_main'));
+select pg_temp.wcat('Home', null, 0); select pg_temp.wcat('Rent', 'Home', 200000); select pg_temp.wcat('Energy', 'Home', 15000);
+select pg_temp.wcat('Food', null, 0); select pg_temp.wcat('Groceries', 'Food', 90000); select pg_temp.wcat('Restaurants', 'Food', 20000);
+select pg_temp.wcat('Transport', null, 0); select pg_temp.wcat('Train', 'Transport', 30000);
+select pg_temp.wcat('Leisure', null, 0); select pg_temp.wcat('Holidays', 'Leisure', 240000, 'yearly'); select pg_temp.wcat('Hobbies', 'Leisure', 15000);
+select pg_temp.wcat('Saving and pension', null, 0); select pg_temp.wcat('Savings', 'Saving and pension', 100000);
+select pg_temp.wcat('Pillar', 'Saving and pension', 705600, 'yearly');
+select public.create_transfer(tests.id('w'), 'Savings', tests.id('w_main'), tests.id('w_sav'), 100000, 'pay_date', p_is_automatic => true,
+  p_category_id => tests.id('w_Savings'), p_from_period_id => (pg_temp.cur('w')).id);
+select public.create_transfer(tests.id('w'), 'Pillar 3a', tests.id('w_main'), tests.id('w_pil'), 705600, 'day_of_month',
+  p_cadence => 'yearly', p_first_date => '2026-12-20', p_is_automatic => true, p_category_id => tests.id('w_Pillar'));
+select public.add_transaction(tests.id('w'), 'expense', 200000, '2026-11-01', tests.id('w_Rent'));
+select public.add_transaction(tests.id('w'), 'expense', 64050, '2026-11-08', tests.id('w_Groceries'));
+select public.add_transaction(tests.id('w'), 'expense', 8500, '2026-11-09', tests.id('w_Restaurants'));
+select public.add_transaction(tests.id('w'), 'expense', 12000, '2026-11-03', tests.id('w_Train'));
+select public.add_transaction(tests.id('w'), 'expense', 6000, '2026-11-12', tests.id('w_Hobbies'));
+create temp table wflow on commit drop as select * from public.get_money_flow(tests.id('w'));
+grant select on wflow to authenticated;
+select results_eq($$select name, amount, expected, transfer_share, spent, transfer_spent, yearly_amount, is_negative
+                     from wflow where row_kind = 'spending' order by display_order$$,
+  $$values ('Home', 215000::bigint, 215000::bigint, 0::bigint, 200000::bigint, 0::bigint, null::bigint, false),
+           ('Food', 110000, 110000, 0, 72550, 0, null, false),
+           ('Transport', 30000, 30000, 0, 12000, 0, null, false),
+           ('Leisure', 35000, 35000, 0, 6000, 0, 240000, false),
+           ('Saving and pension', 0, 158800, 158800, 0, 100000, 705600, false)$$,
+  'R-ACCOUNT-422: one spending row per category group: planned at the monthly share less the transfers'' share, spent less the transfers'' transactions');
+select results_eq($$select name, account_kind::text, stays, spendable from wflow where row_kind = 'account' order by name$$,
+  $$values ('Main', 'current', 841200::bigint, true), ('Pillar 3a', 'third_pillar', 58800, false), ('Savings', 'savings', 100000, false)$$,
+  'R-ACCOUNT-423: what stays on an everyday account is spendable, on a savings or pillar account set aside');
+select results_eq($$select amount, set_aside, spendable_amount, planned_spending, not_planned, actual_spending, left_amount, is_negative
+                     from wflow where row_kind = 'total'$$,
+  $$values (1000000::bigint, 158800::bigint, 841200::bigint, 390000::bigint, 451200::bigint, 290550::bigint, 550650::bigint, false)$$,
+  'R-ACCOUNT-422: the totals balance: income = set aside + spendable = set aside + planned + not planned = set aside + spent + left');
+select is((select count(*)::integer from wflow), 2 + 1 + 3 + 2 + 5, 'R-ACCOUNT-422: incomes, accounts, transfers, spending and the total, nothing else');
+select is((select row_kind from wflow order by row_kind = 'total', 1 limit 1 offset 12), 'total', 'R-ACCOUNT-422: the total stays the last row');
+-- the 1000-row bound: with room for two spending rows, the second adds up the other four
+select tests.clear_authentication();
+savepoint mf_rows;
+create or replace function private.limit_money_flow_rows() returns integer language sql immutable set search_path = '' as $f$ select 10 $f$;
+select pg_temp.day('2026-11-20');
+select results_eq($$select name, amount, spent from public.get_money_flow(tests.id('w')) where row_kind = 'spending' order by display_order$$,
+  $$values ('Home', 215000::bigint, 200000::bigint), ('4', 175000, 90550)$$,
+  'R-ACCOUNT-422: at the row limit the last spending row adds up the rest (its name: how many), so the totals stay whole');
+select is((select count(*)::integer from public.get_money_flow(tests.id('w'))), 10, 'R-ACCOUNT-422: never more rows than the limit');
+rollback to savepoint mf_rows;
+
 select * from finish();
 rollback;
