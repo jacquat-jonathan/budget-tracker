@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-551 rules (541 active, 0 planned), 24 conventions, 318 decisions, 40 open questions. 0 rules and conventions are marked **TEST PENDING**.
+552 rules (542 active, 0 planned), 24 conventions, 319 decisions, 40 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2383,6 +2383,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-420, R-ACCOUNT-300
   - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S5, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-315** Creating a transfer records nothing dated before today unless the member asks for it by naming the period or a first date; then the preview says what is created at once.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-493, D-421, R-ACCOUNT-303
+  - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), C3, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 
@@ -6558,7 +6562,7 @@ Source: owner-request: coordinator brief for the step 7 occurrence model redesig
 
 ### D-421 A transfer's first counted day (accepted)
 
-A transfer counts from the first day of the period it is created in, or corrected from, or that period's scheduled pay date when it is earlier (a salary that came late): transfers.starts_on. Nothing before it is planned, and a done date must lie on or after it (before_transfer_start). It stays a date when a reopen moves the transfer's first period into the reopened one, so that period's own earlier payday is not planned.
+A transfer counts from the first day of the period it is created in, or corrected from, or that period's scheduled pay date when it is earlier (a salary that came late): transfers.starts_on. Nothing before it is planned, and a done date must lie on or after it (before_transfer_start). It stays a date when a reopen moves the transfer's first period into the reopened one, so that period's own earlier payday is not planned. Created with no period named and no first date after the period has started, it counts from the day it was created (D-493).
 
 **Why:** The handover's trap: a transfer created in a merged period had its first period moved into the reopened one, which then had its own occurrence of a payday the transfer never knew (the root of M2).
 
@@ -6566,7 +6570,7 @@ A transfer counts from the first day of the period it is created in, or correcte
 
 - Freezing first_seq through a reopen: the registry merges validity for every record kind alike.
 
-Related: R-ACCOUNT-302, R-ACCOUNT-305, D-420
+Related: R-ACCOUNT-302, R-ACCOUNT-305, D-420, D-493
 
 Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; owner-request: database developer decision for the step 7 occurrence model, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
@@ -6781,6 +6785,20 @@ When the income a pay-date transfer chose ends from the current period (remove_i
 Related: D-426, D-424, R-ACCOUNT-311
 
 Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S2, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-493 Creating a transfer records nothing dated before today unless the member asks (accepted)
+
+create_transfer with neither p_from_period_id nor p_first_date plans nothing before today: a fixed day's first date is the first date with that day on or after today, and a pay-date transfer counts from today (starts_on), so a payday of the current period already past has no occurrence. Naming a period (the current one included) or giving a first date asks for the earlier occurrences: they are planned, the automatic linked ones already due are created at once, and preview_create_transfer counts them (created_at_once).
+
+**Why:** A fixed-day transfer created on 20 November for the 5th recorded a transaction dated 5 November that never happened.
+
+**Rejected:**
+
+- Asking in the form only: the database would still record the past by default for any other client.
+
+Related: D-421, R-ACCOUNT-300, R-ACCOUNT-315
+
+Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), C3, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ## Open questions
 

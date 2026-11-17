@@ -101,8 +101,8 @@ insert into ids values ('m', pg_temp.q('setup', format($$select id::text from pu
   pg_temp.id('cat')))::uuid);
 -- automatic, linked, from the pay date (the period's start): its transaction is made at once
 insert into ids values ('a', pg_temp.q('setup', format($$select id::text from public.create_transfer(%L, 'Standing order', %L, %L, 2000,
-  'pay_date', 0, p_is_automatic => true, p_category_id => %L)$$, pg_temp.id('budget'), pg_temp.id('main'), pg_temp.id('sav'),
-  pg_temp.id('cat')))::uuid);
+  'pay_date', 0, p_is_automatic => true, p_category_id => %L, p_from_period_id => %L)$$, pg_temp.id('budget'), pg_temp.id('main'),
+  pg_temp.id('sav'), pg_temp.id('cat'), pg_temp.id('pc')))::uuid);
 create temp table k (m date, a date) on commit drop;
 insert into k select pg_temp.q('setup', format($$select occurrence_date::text from public.get_transfer_checklist(%L) where transfer_id = %L$$,
                                                pg_temp.id('pc'), pg_temp.id('m')))::date,

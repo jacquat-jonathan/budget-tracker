@@ -51,7 +51,7 @@ select pg_temp.day('2026-11-26');
 select public.ensure_periods(tests.id('m2'));
 select tests.remember('m2_p3', pg_temp.period_at(tests.id('m2'), '2026-11-26'));
 select tests.remember('m2_t', (select id from public.create_transfer(tests.id('m2'), 'New standing order', tests.id('m2_main'),
-  tests.id('m2_sav'), 10000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('m2_cat'))));
+  tests.id('m2_sav'), 10000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('m2_cat'), p_from_period_id => tests.this_period(tests.id('m2')))));
 select results_eq(format($$select * from pg_temp.txs(%L)$$, tests.id('m2_t')),
   $$values ('2026-11-25'::date, '2026-11-25'::date, 10000::bigint)$$,
   'R-ACCOUNT-302: (setup) created on the 26th, its payday of the 25th has its transaction');
@@ -95,7 +95,7 @@ select results_eq(format($$select * from pg_temp.txs(%L)$$, tests.id('m2_t')),
 
 -- a member's done on that payday survives the reopen as the same occurrence
 select tests.remember('m2_manual', (select id from public.create_transfer(tests.id('m2'), 'By hand', tests.id('m2_main'),
-  tests.id('m2_sav'), 5000, 'pay_date', p_offset_days => 1, p_category_id => tests.id('m2_cat'))));
+  tests.id('m2_sav'), 5000, 'pay_date', p_offset_days => 1, p_category_id => tests.id('m2_cat'), p_from_period_id => tests.this_period(tests.id('m2')))));
 select tests.remember('m2_p3c', pg_temp.period_at(tests.id('m2'), '2026-11-28'));
 select tests.remember('m2_mtx', (select transaction_id from public.mark_transfer_done(tests.id('m2_manual'), tests.id('m2_p3c'), 0)));
 select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('m2'), tests.id('m2_p3c'),
@@ -120,7 +120,7 @@ select results_eq(
 -- ===========================================================================
 select pg_temp.budget('m3');
 select tests.remember('m3_t', (select id from public.create_transfer(tests.id('m3'), 'On the 22nd', tests.id('m3_main'),
-  tests.id('m3_sav'), 20000, 'day_of_month', p_day_of_month => 22, p_is_automatic => true, p_category_id => tests.id('m3_cat'))));
+  tests.id('m3_sav'), 20000, 'day_of_month', p_day_of_month => 22, p_is_automatic => true, p_category_id => tests.id('m3_cat'), p_from_period_id => tests.this_period(tests.id('m3')))));
 select pg_temp.day('2026-11-20');
 select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, '2026-11-20')$$, tests.id('m3'), tests.id('m3_p2'),
                        (select revision from public.periods where id = tests.id('m3_p2'))),
@@ -232,7 +232,7 @@ select throws_ok(format($$select * from public.create_transfer(%L, 'X', %L, %L, 
 -- switching a chosen-income transfer to a fixed day
 select tests.remember('y_inc', public.add_income(tests.id('y'), 'Bonus', 100000, 15, 'none', null, tests.id('y_p1')));
 select tests.remember('y_c', (select id from public.create_transfer(tests.id('y'), 'Chosen', tests.id('y_main'), tests.id('y_sav'),
-  1000, 'pay_date', 0, null, tests.id('y_inc'))));
+  1000, 'pay_date', 0, null, tests.id('y_inc'), p_from_period_id => tests.this_period(tests.id('y')))));
 select results_eq(
   format($$select schedule::text, income_id, offset_days, day_of_month, cadence::text, first_date
            from public.update_transfer(%L, 1, p_schedule => 'day_of_month', p_day_of_month => 3)$$, tests.id('y_c')),
@@ -304,7 +304,7 @@ select results_eq(format($$select occurrence_date, date from pg_temp.txs(%L)$$, 
   'R-ACCOUNT-302: as the preview said');
 -- a member's mark on an occurrence the plan no longer has: listed, flagged, undone
 select tests.remember('d_m', (select id from public.create_transfer(tests.id('d'), 'By hand', tests.id('d_main'), tests.id('d_sav'),
-  500, 'day_of_month', p_day_of_month => 10, p_category_id => tests.id('d_cat'))));
+  500, 'day_of_month', p_day_of_month => 10, p_category_id => tests.id('d_cat'), p_from_period_id => tests.this_period(tests.id('d')))));
 select tests.remember('d_mtx', (select transaction_id from public.mark_transfer_done(tests.id('d_m'), tests.id('d_p2'), 0)));
 select results_eq(
   format($$select marks_unplanned_count from public.preview_update_transfer(%L, p_day_of_month => 12, p_count => 1)$$, tests.id('d_m')),
@@ -406,7 +406,7 @@ select results_eq(format($$select occurrence_date, amount from pg_temp.txs(%L)$$
 select pg_temp.budget('i');
 select tests.remember('i_inc', public.add_income(tests.id('i'), 'Short-lived', 100000, 10, 'none'));
 select tests.remember('i_t', (select id from public.create_transfer(tests.id('i'), 'After it', tests.id('i_main'), tests.id('i_sav'),
-  1000, 'pay_date', 1, null, tests.id('i_inc'))));
+  1000, 'pay_date', 1, null, tests.id('i_inc'), p_from_period_id => tests.this_period(tests.id('i')))));
 select is(public.remove_income(tests.id('i_inc'), 1), 'deleted', 'D-426: (the income added and removed in the same period is deleted)');
 select results_eq(
   format($$select income_id, follows_primary from public.transfer_overview where id = %L$$, tests.id('i_t')),
@@ -417,13 +417,13 @@ select results_eq(
   $$values (true, '2026-10-25'::date)$$,
   'D-426: in the checklist too');
 select tests.remember('i_auto', (select id from public.create_transfer(tests.id('i'), 'Automatic', tests.id('i_main'), tests.id('i_sav'),
-  1000, 'day_of_month', p_day_of_month => 1, p_is_automatic => true)));
+  1000, 'day_of_month', p_day_of_month => 1, p_is_automatic => true, p_from_period_id => tests.this_period(tests.id('i')))));
 select results_eq(
   format($$select transfers_to_do, transfers_overdue from public.my_budgets where id = %L$$, tests.id('i')),
   $$values (1, 1)$$,
   'R-ACCOUNT-241: the dashboard counts manual occurrences only (the automatic one is not to do)');
 select tests.remember('i_today', (select id from public.create_transfer(tests.id('i'), 'Today', tests.id('i_main'), tests.id('i_sav'),
-  1000, 'day_of_month', p_day_of_month => 16)));
+  1000, 'day_of_month', p_day_of_month => 16, p_from_period_id => tests.this_period(tests.id('i')))));
 select is((select next_due_date from public.transfer_overview where id = tests.id('i_today')), '2026-11-16'::date,
   'R-ACCOUNT-002: due today is the next due date');
 select lives_ok(format($$select * from public.set_budget_end_date(%L, %s, '2026-11-20')$$, tests.id('i'),
@@ -444,7 +444,7 @@ select throws_ok(format($$select * from public.preview_update_transfer(%L, p_cou
 -- ===========================================================================
 select pg_temp.budget('s');
 select tests.remember('s_t', (select id from public.create_transfer(tests.id('s'), 'Weekly-ish', tests.id('s_main'), tests.id('s_sav'),
-  100, 'day_of_month', p_day_of_month => 2, p_is_automatic => true, p_category_id => tests.id('s_cat'))));
+  100, 'day_of_month', p_day_of_month => 2, p_is_automatic => true, p_category_id => tests.id('s_cat'), p_from_period_id => tests.this_period(tests.id('s')))));
 select tests.clear_authentication();
 create or replace function private.limit_catch_up_transactions() returns integer language sql immutable set search_path = '' as $f$ select 1 $f$;
 select tests.set_today('2027-03-03');
@@ -498,10 +498,10 @@ select results_eq(format($$select occurrence_date from pg_temp.txs(%L)$$, tests.
 select results_eq(
   format($$select transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned
            from public.preview_set_primary_income(%L)$$, tests.id('v_inc')),
-  $$values (0, 0, 0)$$,
-  'R-ACCOUNT-303: a primary switch that moves no occurrence counts none');
+  $$values (1, 1, 0)$$,
+  'R-ACCOUNT-310: a switch of the primary to the income the transfer chose makes it follow the primary from this period: the preview counts the transaction that moves');
 select tests.remember('v_d', (select id from public.create_transfer(tests.id('v'), 'On the 26th', tests.id('v_main'),
-  tests.id('v_sav'), 2000, 'day_of_month', p_day_of_month => 26, p_is_automatic => true, p_category_id => tests.id('v_cat'))));
+  tests.id('v_sav'), 2000, 'day_of_month', p_day_of_month => 26, p_is_automatic => true, p_category_id => tests.id('v_cat'), p_from_period_id => tests.this_period(tests.id('v')))));
 select results_eq(
   format($$select accepted, transfer_transactions_removed, transfer_transactions_created from public.preview_move_period_start(%L, '2026-10-27')$$,
          tests.id('v_p2')),
@@ -536,7 +536,7 @@ select results_eq(
 select pg_temp.budget('e2');
 select tests.remember('e2_inc', public.add_income(tests.id('e2'), 'Partner', 300000, 15, 'none', null, tests.id('e2_p1')));
 select tests.remember('e2_t', (select id from public.create_transfer(tests.id('e2'), 'Late', tests.id('e2_main'), tests.id('e2_sav'),
-  100, 'pay_date', 31, null, tests.id('e2_inc'))));
+  100, 'pay_date', 31, null, tests.id('e2_inc'), p_from_period_id => tests.this_period(tests.id('e2')))));
 select results_eq(
   format($$select occurrence_date, due_date from public.get_transfer_checklist(%L) where transfer_id = %L$$, tests.id('e2_p2'), tests.id('e2_t')),
   $$values ('2026-11-15'::date, '2026-11-24'::date)$$,
@@ -597,7 +597,7 @@ select results_eq(format($$select date from pg_temp.txs(%L) where occurrence_dat
 -- a member's done stays when the transfer is made automatic: not done asks for undo first
 select pg_temp.budget('e6');
 select tests.remember('e6_t', (select id from public.create_transfer(tests.id('e6'), 'By hand', tests.id('e6_main'), tests.id('e6_sav'),
-  100, 'day_of_month', p_day_of_month => 1, p_category_id => tests.id('e6_cat'))));
+  100, 'day_of_month', p_day_of_month => 1, p_category_id => tests.id('e6_cat'), p_from_period_id => tests.this_period(tests.id('e6')))));
 select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('e6_t'), tests.id('e6_p2')), 'R-ACCOUNT-305: (done)');
 select lives_ok(format($$select * from public.update_transfer(%L, 1, p_is_automatic => true)$$, tests.id('e6_t')), 'R-ACCOUNT-305: (made automatic)');
 select throws_ok(format($$select * from public.mark_transfer_not_done(%L, %L, 1)$$, tests.id('e6_t'), tests.id('e6_p2')),
@@ -609,7 +609,7 @@ select lives_ok(format($$select * from public.set_expected_pay_date(%L, %L, %s, 
                        (select revision from public.periods where id = tests.id('e7_p2'))), 'R-ACCOUNT-302: (the salary is expected on the 28th)');
 select pg_temp.day('2026-11-28');
 select public.ensure_periods(tests.id('e7'));
-select tests.remember('e7_t', (select id from public.create_transfer(tests.id('e7'), 'Payday', tests.id('e7_main'), tests.id('e7_sav'), 100, 'pay_date')));
+select tests.remember('e7_t', (select id from public.create_transfer(tests.id('e7'), 'Payday', tests.id('e7_main'), tests.id('e7_sav'), 100, 'pay_date', p_from_period_id => tests.this_period(tests.id('e7')))));
 select results_eq(
   format($$select t.starts_on, c.occurrence_date, c.due_date from public.transfers as t
            cross join lateral public.get_transfer_checklist(%L) as c where t.id = %L and c.transfer_id = t.id$$,
@@ -661,7 +661,7 @@ select is(public.close_account(tests.id('e12_old'), 1), 'ended',
   'R-ACCOUNT-232: an account used only in the past can close; it is ended, not deleted');
 select tests.remember('e12_new', (select id from public.create_account(tests.id('e12'), 'New', 'cash')));
 select tests.remember('e12_v', (select id from public.create_transfer(tests.id('e12'), 'Void', tests.id('e12_main'), tests.id('e12_new'),
-  100, 'day_of_month', p_day_of_month => 1)));
+  100, 'day_of_month', p_day_of_month => 1, p_from_period_id => tests.this_period(tests.id('e12')))));
 select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, tests.id('e12_v'), tests.id('e12_p2')), 'R-ACCOUNT-232: (setup)');
 select is(public.end_transfer(tests.id('e12_v'), 1), 'ended', 'R-ACCOUNT-232: (setup: kept void, its terms naming the account)');
 select is(public.close_account(tests.id('e12_new'), 1), 'ended',
@@ -694,7 +694,7 @@ select pg_temp.day('2026-11-16');
 -- ===========================================================================
 select pg_temp.budget('k');
 select count(*) from (select public.create_transfer(tests.id('k'), 'K' || g, tests.id('k_main'), tests.id('k_sav'), 100 * g,
-  'day_of_month', p_day_of_month => g) from generate_series(1, 3) as g) as x;
+  'day_of_month', p_day_of_month => g, p_from_period_id => tests.this_period(tests.id('k'))) from generate_series(1, 3) as g) as x;
 select tests.clear_authentication();
 create or replace function private.limit_checklist_rows() returns integer language sql immutable set search_path = '' as $f$ select 2 $f$;
 select tests.authenticate_as('gina');
@@ -736,7 +736,7 @@ select tests.authenticate_as('gina2');
 select public.accept_invitation(tests.id('rm_inv'));
 select tests.remember('rm_req', extensions.gen_random_uuid());
 select tests.remember('rm_t', (select id from public.create_transfer(tests.id('rm'), 'Retried', tests.id('rm_main'), tests.id('rm_sav'),
-  100, 'pay_date', p_client_id => tests.id('rm_req'))));
+  100, 'pay_date', p_client_id => tests.id('rm_req'), p_from_period_id => tests.this_period(tests.id('rm')))));
 select tests.remember('rm_areq', extensions.gen_random_uuid());
 select tests.remember('rm_a', (select id from public.create_account(tests.id('rm'), 'Retried account', 'savings',
   p_client_id => tests.id('rm_areq'))));
@@ -756,7 +756,7 @@ select tests.clear_authentication();
 -- ===========================================================================
 select pg_temp.budget('g');
 select tests.remember('g_t', (select id from public.create_transfer(tests.id('g'), 'Rent share', tests.id('g_main'), tests.id('g_sav'),
-  100, 'day_of_month', p_day_of_month => 2, p_is_automatic => true, p_category_id => tests.id('g_cat'))));
+  100, 'day_of_month', p_day_of_month => 2, p_is_automatic => true, p_category_id => tests.id('g_cat'), p_from_period_id => tests.this_period(tests.id('g')))));
 select tests.clear_authentication();
 -- (as postgres: its next transaction due in August and not made, as after a long absence)
 update public.transfers set next_due = '2026-08-01' where id = tests.id('g_t');

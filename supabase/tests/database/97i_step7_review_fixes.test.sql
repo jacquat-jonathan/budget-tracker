@@ -325,7 +325,7 @@ select pg_temp.day('2026-11-22');
 select pg_temp.budget('s3');
 select tests.remember('s3_p2', (pg_temp.cur('s3')).id);
 select tests.remember('s3_t', (select id from public.create_transfer(tests.id('s3'), 'Holiday fund', tests.id('s3_main'),
-  tests.id('s3_sav'), 30000, 'pay_date', p_category_id => tests.id('s3_cat'))));
+  tests.id('s3_sav'), 30000, 'pay_date', p_category_id => tests.id('s3_cat'), p_from_period_id => tests.id('s3_p2'))));
 select is((select status from public.mark_transfer_done(tests.id('s3_t'), tests.id('s3_p2'), 0, p_amount => 31000)), 'done',
   'R-ACCOUNT-312: (a member marks it done, with a transaction)');
 select pg_temp.day('2026-11-26');
@@ -406,6 +406,37 @@ select is((select next_due_date from public.transfer_overview where id = tests.i
   'R-ACCOUNT-314: a yearly transfer four months ahead has its next due date');
 select is((select next_due_date from public.transfer_overview where id = tests.id('s5_q')), '2027-06-30'::date,
   'R-ACCOUNT-314: a quarterly one whose first date is seven months ahead too');
+
+-- ===========================================================================
+-- C3: creating a transfer records nothing dated before today unless the member asks
+-- (R-ACCOUNT-315, D-493)
+-- ===========================================================================
+select pg_temp.day('2026-11-20');
+select pg_temp.budget('c3');
+select tests.remember('c3_d', (select id from public.create_transfer(tests.id('c3'), 'On the 5th', tests.id('c3_main'),
+  tests.id('c3_sav'), 1000, 'day_of_month', p_day_of_month => 5, p_is_automatic => true, p_category_id => tests.id('c3_cat'))));
+select is((select first_date from public.transfer_overview where id = tests.id('c3_d')), '2026-12-05'::date,
+  'R-ACCOUNT-315: a fixed day created on 20 November for the 5th starts on 5 December, not on the 5th already past');
+select is(pg_temp.txs(tests.id('c3_d')), '', 'R-ACCOUNT-315: nothing dated 5 November is recorded');
+select tests.remember('c3_p', (select id from public.create_transfer(tests.id('c3'), 'Payday', tests.id('c3_main'),
+  tests.id('c3_sav'), 1000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('c3_cat'))));
+select is(pg_temp.txs(tests.id('c3_p')), '', 'R-ACCOUNT-315: a pay-date transfer created after this period''s payday records none for it');
+select is((select count(*)::integer from public.get_transfer_checklist((pg_temp.cur('c3')).id) where transfer_id = tests.id('c3_p')), 0,
+  'R-ACCOUNT-315: and this period plans none');
+select pg_temp.day('2026-11-25');
+select public.ensure_periods(tests.id('c3'));
+select is(pg_temp.txs(tests.id('c3_p')), '2026-11-25', 'R-ACCOUNT-315: its first occurrence is the next payday');
+select pg_temp.day('2026-11-26');
+select is((select max(created_at_once_count) from public.preview_create_transfer(tests.id('c3'), tests.id('c3_main'), tests.id('c3_sav'),
+             1000, 'day_of_month', p_is_automatic => true, p_category_id => tests.id('c3_cat'), p_first_date => '2026-11-25')), 1,
+  'R-ACCOUNT-315: an explicit first date in the current period back-fills, and the preview says so');
+select is((select max(created_at_once_count) from public.preview_create_transfer(tests.id('c3'), tests.id('c3_main'), tests.id('c3_sav'),
+             1000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('c3_cat'),
+             p_from_period_id => (pg_temp.cur('c3')).id)), 1,
+  'R-ACCOUNT-315: naming the current period asks for its payday already past, and the preview says so');
+select is((select max(created_at_once_count) from public.preview_create_transfer(tests.id('c3'), tests.id('c3_main'), tests.id('c3_sav'),
+             1000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('c3_cat'))), 0,
+  'R-ACCOUNT-315: with neither, nothing at once');
 
 select tests.clear_authentication();
 select * from finish();

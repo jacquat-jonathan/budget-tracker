@@ -91,10 +91,10 @@ select tests.remember('t_sav', (select id from public.create_transfer(tests.id('
   100000, 'pay_date', 2, null, null, true, tests.id('savings'), tests.id('p1'))));
 -- manual, unlinked, on the 1st, from now
 select tests.remember('t_tax', (select id from public.create_transfer(tests.id('b'), 'Tax', tests.id('main'), tests.id('tax'),
-  30000, 'day_of_month', p_day_of_month => 1)));
+  30000, 'day_of_month', p_day_of_month => 1, p_from_period_id => tests.this_period(tests.id('b')))));
 -- manual, linked to the third pillar, on the 20th, from now
 select tests.remember('t_3a', (select id from public.create_transfer(tests.id('b'), 'Third pillar', tests.id('main'), tests.id('sav'),
-  50000, 'day_of_month', p_day_of_month => 20, p_category_id => tests.id('pillar'))));
+  50000, 'day_of_month', p_day_of_month => 20, p_category_id => tests.id('pillar'), p_from_period_id => tests.this_period(tests.id('b')))));
 select results_eq(
   format($$select from_account_name, to_account_name, amount, schedule::text, offset_days, day_of_month, is_automatic,
                   category_name, first_seq, next_due_date
@@ -116,8 +116,9 @@ select results_eq(
          tests.id('t_sav'), tests.id('t_tax'), tests.id('t_3a')),
   'R-ACCOUNT-301: one occurrence per transfer in force in the period, with its due date');
 select results_eq(
-  format($$select due_date from public.preview_create_transfer(%L, %L, %L, 1000, 'day_of_month', p_day_of_month => 31, p_count => 6)$$,
-         tests.id('b'), tests.id('main'), tests.id('sav')),
+  format($$select due_date from public.preview_create_transfer(%L, %L, %L, 1000, 'day_of_month', p_day_of_month => 31, p_count => 6,
+                                                               p_from_period_id => %L)$$,
+         tests.id('b'), tests.id('main'), tests.id('sav'), tests.id('p2')),
   $$values ('2026-10-31'::date), ('2026-11-30'::date), ('2026-12-31'::date), ('2027-01-31'::date), ('2027-02-28'::date), ('2027-03-31'::date)$$,
   'R-ACCOUNT-070: on a fixed day, the first date with that day on or after the period''s start, clamped to the month''s length, no weekend rule');
 select results_eq(
@@ -184,7 +185,7 @@ select is(public.ensure_periods(tests.id('b')), 0, 'R-ACCOUNT-074: nothing more 
 select is((select count(*)::integer from public.transaction_list where transfer_id = tests.id('t_sav')), 2,
   'R-ACCOUNT-074: never twice');
 select tests.remember('t_auto20', (select id from public.create_transfer(tests.id('b'), 'Pillar standing order', tests.id('main'),
-  tests.id('sav'), 7000, 'day_of_month', p_day_of_month => 20, p_is_automatic => true, p_category_id => tests.id('pillar'))));
+  tests.id('sav'), 7000, 'day_of_month', p_day_of_month => 20, p_is_automatic => true, p_category_id => tests.id('pillar'), p_from_period_id => tests.this_period(tests.id('b')))));
 select results_eq(
   format($$select status, transaction_id from public.get_transfer_checklist(%L) where transfer_id = %L$$, tests.id('p2'), tests.id('t_auto20')),
   $$values ('upcoming', null::uuid)$$,
@@ -211,9 +212,9 @@ select tests.clear_authentication();
 select tests.set_today('2026-11-16');
 select tests.authenticate_as('ann');
 select tests.remember('t_auto18', (select id from public.create_transfer(tests.id('b'), 'Held', tests.id('main'), tests.id('sav'),
-  3000, 'day_of_month', p_day_of_month => 18, p_is_automatic => true, p_category_id => tests.id('pillar'))));
+  3000, 'day_of_month', p_day_of_month => 18, p_is_automatic => true, p_category_id => tests.id('pillar'), p_from_period_id => tests.this_period(tests.id('b')))));
 select tests.remember('t_auto19', (select id from public.create_transfer(tests.id('b'), 'Held too', tests.id('main'), tests.id('sav'),
-  4000, 'day_of_month', p_day_of_month => 19, p_is_automatic => true, p_category_id => tests.id('pillar'))));
+  4000, 'day_of_month', p_day_of_month => 19, p_is_automatic => true, p_category_id => tests.id('pillar'), p_from_period_id => tests.this_period(tests.id('b')))));
 select tests.clear_authentication();
 create temp table n_tx on commit drop as select count(*)::integer as n from public.transactions where budget_id = tests.id('b');
 do $$ begin
@@ -564,7 +565,7 @@ select is((select name from public.get_money_flow(tests.id('b'), tests.id('p1'))
 -- ===========================================================================
 -- Ending a transfer (R-ACCOUNT-234)
 -- ===========================================================================
-select tests.remember('t_new', (select id from public.create_transfer(tests.id('b'), 'New', tests.id('main'), tests.id('sav'), 1000, 'pay_date')));
+select tests.remember('t_new', (select id from public.create_transfer(tests.id('b'), 'New', tests.id('main'), tests.id('sav'), 1000, 'pay_date', p_from_period_id => tests.this_period(tests.id('b')))));
 select results_eq(
   format($$select (select removal_deletes from public.transfer_overview where id = %1$L), (select outcome from public.preview_end_transfer(%1$L)),
                   public.end_transfer(%1$L, 1)$$, tests.id('t_new')),
@@ -684,8 +685,8 @@ select results_eq(
   'R-ACCOUNT-001: an account keeps the member it belongs to after they leave (shown as a former member)');
 select results_eq(
   format($$select due_date, follows_primary from public.get_transfer_checklist(%L) where transfer_id = %L and planned$$, tests.id('p2'), tests.id('t_bob')),
-  $$values ('2026-10-27'::date, true)$$,
-  'R-ACCOUNT-071: once the chosen income has ended, the transfer follows the primary income, and says so');
+  $$values ('2026-11-11'::date, false)$$,
+  'R-ACCOUNT-311: the chosen income ended today: its occurrence already due stays, and no primary one already past appears');
 select is((select follows_primary from public.transfer_overview where id = tests.id('t_bob')), true,
   'R-ACCOUNT-071: the overview says so too');
 

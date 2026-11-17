@@ -27,7 +27,7 @@ select tests.remember('sub', (select id from public.create_subscription(tests.id
 select tests.remember('acc1', (select id from public.create_account(tests.id('b'), 'Main', 'current')));
 select tests.remember('acc2', (select id from public.create_account(tests.id('b'), 'Savings', 'savings')));
 select tests.remember('tr', (select id from public.create_transfer(tests.id('b'), 'Saving', tests.id('acc1'), tests.id('acc2'), 1000, 'day_of_month',
-                                                                   p_day_of_month => 1)));
+                                                                   p_day_of_month => 1, p_from_period_id => tests.this_period(tests.id('b')))));
 
 -- ===========================================================================
 -- A charge awaiting confirmation wins a tie of possible matches (R-IMPORT-261)

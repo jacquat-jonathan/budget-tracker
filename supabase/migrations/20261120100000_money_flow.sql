@@ -2423,6 +2423,8 @@ declare
   v_first date := p_first_date;
   v_starts_on date;
   v_id uuid;
+  v_today date := private.today();
+  v_from_today boolean;
 begin
   perform private.assert_member(p_budget_id);
   v_name := private.clean_name(p_name);
@@ -2432,15 +2434,29 @@ begin
   else
     v_seq := private.current_seq(p_budget_id);
   end if;
+  -- C3, D-493: with no first date and no period named, nothing before today: the first
+  -- occurrence is the next one on or after today (naming the period, even the current one, or a
+  -- first date asks for the earlier ones)
+  v_from_today := p_first_date is null and p_from_period_id is null
+                  and v_seq = (select p.seq from public.periods as p
+                               where p.budget_id = p_budget_id and v_today between p.start_date and p.end_date);
   if p_schedule = 'day_of_month' then
     v_cadence := coalesce(p_cadence, 'monthly');
     v_day := coalesce(p_day_of_month, extract(day from p_first_date)::integer);
-    v_first := coalesce(p_first_date, private.transfer_first_date(p_budget_id, v_seq, v_day));
+    if v_from_today and v_day between 1 and 31 then
+      v_first := private.month_day(private.month_index(v_today), v_day);
+      if v_first < v_today then
+        v_first := private.month_day(private.month_index(v_today) + 1, v_day);
+      end if;
+    else
+      v_first := coalesce(p_first_date, private.transfer_first_date(p_budget_id, v_seq, v_day));
+    end if;
   end if;
   perform private.assert_transfer_terms(p_budget_id, v_seq, null, p_from_account_id, p_to_account_id, p_amount,
     p_schedule, v_offset, v_day, p_income_id, p_is_automatic, p_category_id, v_cadence, v_first);
   perform private.assert_transfer_room(p_budget_id);
-  select least(p.start_date, coalesce(p.pay_key, p.start_date)) into v_starts_on
+  select case when v_from_today and v_today > p.start_date then v_today
+              else least(p.start_date, coalesce(p.pay_key, p.start_date)) end into v_starts_on
   from public.periods as p where p.budget_id = p_budget_id and p.seq = v_seq;
   insert into public.transfers (budget_id, name, first_seq, starts_on, settled_through, needs_check)
   values (p_budget_id, v_name, v_seq, v_starts_on, v_starts_on - 1, true)

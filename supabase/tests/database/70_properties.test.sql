@@ -1223,6 +1223,9 @@ begin
                    case when v_date is not null then (case when v_m >= 8 then 'yearly' else 'quarterly' end)::public.subscription_cadence end,
                    v_date) as t);
             perform pg_temp.made('transfer', v_budget, v_pick);
+            if v_from is null and v_date is null then
+              perform tests.model_made_from_today(v_pick);  -- the model's first counted day (D-493)
+            end if;
             if v_pre is distinct from pg_temp.occurrences_of(v_pick)
                or v_n <> (select count(*) from public.transaction_list where transfer_id = v_pick) then
               insert into failures values (v_seed, v_step, v_name, v_op, 'the transfer created is not what its preview said: '

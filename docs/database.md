@@ -1623,7 +1623,8 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
     correction, `p_from_period_id`), the periods from then on follow the primary income.
 - Nothing before the transfer's **first counted day** (`starts_on`: the start of the period it
   was created in or corrected from, or that period's scheduled pay date when the salary came
-  late; it stays a date through a reopen).
+  late; the day it was created when it was created with no period and no first date after the
+  period's start, D-493; it stays a date through a reopen).
 
 The read model: **one checklist row per occurrence**; **one mark per transfer and key**; one
 transaction per mark at most.
@@ -1636,11 +1637,18 @@ transaction per mark at most.
   `p_income_id` (an income in force in that period). `'day_of_month'` takes `p_cadence`
   (default `'monthly'`; `'monthly'`, `'quarterly'` or `'yearly'`) and `p_first_date` and/or
   `p_day_of_month`: with only the day, the first date is the first date with that day on or
-  after the start of its first period; with only the first date, the day is its day; with both,
+  after today (with `p_from_period_id`, on or after the start of that period); with only the
+  first date, the day is its day; with both,
   the first date must fall on that day (clamped). The first date may lie in the past (it sets
   the phase) or up to ten years ahead. Both accounts (different) and the category (optional, a
-  leaf) must be in force in every period from then on. Its transactions already due (automatic
-  and linked) are created with it (within the catch-up's bound, below). Errors:
+  leaf) must be in force in every period from then on. **Nothing dated before today unless the
+  member asks** (D-493, R-ACCOUNT-315): with neither `p_from_period_id` nor `p_first_date`, the
+  first occurrence is the next one on or after today, for a fixed day and for a pay date (a
+  payday of this period already past is not planned; `starts_on` is today). Naming a period
+  (even the current one) or a first date asks for the earlier occurrences: they are planned and
+  the automatic linked ones already due are created with it (within the catch-up's bound,
+  below), and `preview_create_transfer` says so (`created_at_once`). The form should send
+  `p_from_period_id` or `p_first_date` only when the member chose to record what is already past. Errors:
   `budget_not_found`, `invalid_name`, `invalid_amount` (1 to 1 000 000 000), `invalid_schedule`
   (arguments of the other schedule: a cadence or first date for a pay date, an offset or income
   for a fixed day), `invalid_offset`, `invalid_day`, `invalid_cadence`, `invalid_first_date`,
