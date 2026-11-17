@@ -114,6 +114,8 @@ export const transfersEn = {
       '{{count}} ticks made by members are no longer planned: they stay, flagged, until undone.',
   },
   card: {
+    failedTitle: 'Transfers to make',
+    failed: 'They could not be counted just now. The checklist shows them.',
     title_one: '{{count}} transfer to make',
     title_other: '{{count}} transfers to make',
     description: 'The ones you do yourself, this period and the one before.',
@@ -278,6 +280,10 @@ export const transfersEn = {
     confirm: 'End transfer',
     delete: 'Delete transfer',
   },
+  views: {
+    label: 'Transfers views',
+    planned: 'Planned transfers ({{count}})',
+  },
   checklist: {
     title: 'Checklist',
     help: 'The transfers of a period: tick off the ones you make yourself.',
@@ -285,6 +291,15 @@ export const transfersEn = {
     currentPeriod: 'This period ({{start}} to {{end}})',
     unknownPeriod: 'The period in the link is not one of this budget: here is the current one.',
     empty: 'Nothing is planned in this period.',
+    allSettled: 'Nothing left to do in this period.',
+    settledLabel: 'Done and settled',
+    settled_one: '{{count}} done or settled',
+    settled_other: '{{count}} done or settled',
+    previousOpen_one:
+      '{{count}} transfer is still to do in the period before ({{start}} to {{end}}).',
+    previousOpen_other:
+      '{{count}} transfers are still to do in the period before ({{start}} to {{end}}).',
+    previousOpenLink: 'Open that checklist',
     more_one: '… and {{count}} more tick not listed',
     more_other: '… and {{count}} more ticks not listed',
     due: 'due {{date}}',

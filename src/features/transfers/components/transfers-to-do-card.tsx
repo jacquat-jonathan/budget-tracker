@@ -21,6 +21,35 @@ export function TransfersToDoCard() {
   const status = useBudgetStatus(budgetId)
   const counts = useTransfersToDo(budgetId, status.data?.caught_up === true)
   const toDo = counts.data?.toDo ?? 0
+  if (counts.isError) {
+    // Never silent when the count could not be read: there may be transfers to make.
+    return (
+      <Card role="region" aria-labelledby="transfers-to-do-title" data-testid="transfers-to-do">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRightLeftIcon className="size-4 text-muted-foreground" aria-hidden />
+            <h2 id="transfers-to-do-title">{t('transfers.card.failedTitle')}</h2>
+          </CardTitle>
+          <CardDescription>{t('transfers.card.failed')}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap justify-end gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-disabled={counts.isFetching}
+            onClick={() => {
+              if (!counts.isFetching) void counts.refetch()
+            }}
+          >
+            {t('states.retry')}
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to={paths.transfers}>{t('transfers.card.open')}</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
   if (toDo === 0) return null
   const overdue = counts.data?.overdue ?? 0
   return (

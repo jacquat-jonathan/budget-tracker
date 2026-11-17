@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 
 import { paths } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
@@ -44,6 +44,52 @@ import { isVoidTransfer, useTransfers, type Transfer } from '@/features/transfer
 import { useAmountText, useScheduleText } from '@/features/transfers/transfer-views'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
+import { cn } from '@/lib/utils'
+
+type View = 'checklist' | 'planned'
+
+/**
+ * The page's two views, in the address (`?view=planned`; the checklist by default), so the
+ * planned transfers never sit below a long checklist and a link or the back button returns
+ * to either. The period of the checklist stays in the address beside it.
+ */
+// D-543: the checklist and the planned transfers are two views of the page.
+function ViewTabs({ view, plannedCount }: { view: View; plannedCount: number }) {
+  const { t } = useTranslation()
+  const [params] = useSearchParams()
+  const to = (next: View) => {
+    const after = new URLSearchParams(params)
+    if (next === 'planned') after.set('view', 'planned')
+    else after.delete('view')
+    const search = after.toString()
+    return { search: search ? `?${search}` : '' }
+  }
+  const item = (value: View, label: string) => (
+    <Link
+      to={to(value)}
+      replace
+      aria-current={view === value ? 'page' : undefined}
+      className={cn(
+        'inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:flex-none',
+        view === value
+          ? 'bg-background text-foreground shadow-sm'
+          : 'text-muted-foreground hover:text-foreground',
+      )}
+      data-testid={`view-${value}`}
+    >
+      {label}
+    </Link>
+  )
+  return (
+    <nav
+      aria-label={t('transfers.views.label')}
+      className="flex w-full gap-1 self-start rounded-lg bg-muted p-1 sm:w-auto"
+    >
+      {item('checklist', t('transfers.checklist.title'))}
+      {item('planned', t('transfers.views.planned', { count: plannedCount }))}
+    </nav>
+  )
+}
 
 type DialogState =
   | { kind: 'closed' }
@@ -66,6 +112,8 @@ export function TransfersPage() {
   const ended = useBudgetEnded(budgetId)
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' })
   const close = () => setDialog({ kind: 'closed' })
+  const [params] = useSearchParams()
+  const view: View = params.get('view') === 'planned' ? 'planned' : 'checklist'
 
   const openAccounts = (accounts.data ?? []).filter(
     (account) => account.is_active || (ended && account.end_seq === null),
@@ -112,12 +160,64 @@ export function TransfersPage() {
     )
   }
 
-  const all = transfers.data
+  const all = transfers.data.filter((item) => !isVoidTransfer(item))
   const active = all.filter((item) => item.is_active || (ended && item.end_seq === null))
-  const endedList = all.filter((item) => !active.includes(item) && !isVoidTransfer(item))
+  const endedList = all.filter((item) => !active.includes(item))
+  const needAccounts = (
+    <EmptyState
+      icon={LandmarkIcon}
+      title={t('transfers.needAccounts')}
+      description={t(
+        openAccounts.length === 1 ? 'transfers.needAccountsOne' : 'transfers.needAccountsNone',
+      )}
+      action={
+        <Button asChild>
+          <Link to={paths.accounts}>
+            <LandmarkIcon />
+            {t('transfers.goToAccounts')}
+          </Link>
+        </Button>
+      }
+    />
+  )
+  const planned = (
+    <section className="flex flex-col gap-3" aria-labelledby="planned-transfers">
+      <h2 id="planned-transfers" className="text-lg font-semibold" tabIndex={-1}>
+        {t('transfers.plannedTitle')}
+      </h2>
+      {active.length > 0 ? (
+        <ul className="flex flex-col gap-3" aria-label={t('transfers.plannedTitle')}>
+          {active.map((transfer) => (
+            <TransferCard
+              key={transfer.id}
+              transfer={transfer}
+              today={current.data?.today ?? periods.data?.[0]?.today ?? null}
+              onEdit={() => setDialog({ kind: 'edit', transfer })}
+              onEnd={() => setDialog({ kind: 'end', transfer })}
+            />
+          ))}
+        </ul>
+      ) : openAccounts.length < 2 ? (
+        needAccounts
+      ) : (
+        <EmptyState
+          icon={ArrowRightLeftIcon}
+          title={t('transfers.empty')}
+          description={t('transfers.emptyHelp')}
+          action={
+            <Button onClick={() => setDialog({ kind: 'add' })} disabled={!canAdd}>
+              <PlusIcon />
+              {t('transfers.addFirst')}
+            </Button>
+          }
+        />
+      )}
+      {endedList.length > 0 && <EndedTransfers transfers={endedList} periods={periods.data} />}
+    </section>
+  )
 
   return (
-    <div className="flex max-w-3xl flex-col gap-8">
+    <div className="flex max-w-3xl flex-col gap-6">
       {header}
       {ended && (
         <Alert>
@@ -126,61 +226,22 @@ export function TransfersPage() {
           <AlertDescription>{t('transfers.endedBudget')}</AlertDescription>
         </Alert>
       )}
-      {openAccounts.length < 2 && active.length === 0 ? (
-        // D-501: accounts come first; nothing else asks for them.
-        <EmptyState
-          icon={LandmarkIcon}
-          title={t('transfers.needAccounts')}
-          description={t(
-            openAccounts.length === 1 ? 'transfers.needAccountsOne' : 'transfers.needAccountsNone',
-          )}
-          action={
-            <Button asChild>
-              <Link to={paths.accounts}>
-                <LandmarkIcon />
-                {t('transfers.goToAccounts')}
-              </Link>
-            </Button>
-          }
-        />
+      {all.length === 0 ? (
+        // D-501: accounts come first; nothing else asks for them. Once anything was planned,
+        // its checklists and the ended transfers stay reachable, even with every account closed.
+        openAccounts.length < 2 ? (
+          needAccounts
+        ) : (
+          planned
+        )
       ) : (
         <>
-          {all.length > 0 && (
+          <ViewTabs view={view} plannedCount={active.length} />
+          {view === 'planned' ? (
+            planned
+          ) : (
             <Checklist budgetId={budgetId} periods={periods.data} current={current.data} />
           )}
-          <section className="flex flex-col gap-3" aria-labelledby="planned-transfers">
-            <h2 id="planned-transfers" className="text-lg font-semibold">
-              {t('transfers.plannedTitle')}
-            </h2>
-            {active.length === 0 ? (
-              <EmptyState
-                icon={ArrowRightLeftIcon}
-                title={t('transfers.empty')}
-                description={t('transfers.emptyHelp')}
-                action={
-                  <Button onClick={() => setDialog({ kind: 'add' })} disabled={!canAdd}>
-                    <PlusIcon />
-                    {t('transfers.addFirst')}
-                  </Button>
-                }
-              />
-            ) : (
-              <ul className="flex flex-col gap-3" aria-label={t('transfers.plannedTitle')}>
-                {active.map((transfer) => (
-                  <TransferCard
-                    key={transfer.id}
-                    transfer={transfer}
-                    today={current.data?.today ?? periods.data?.[0]?.today ?? null}
-                    onEdit={() => setDialog({ kind: 'edit', transfer })}
-                    onEnd={() => setDialog({ kind: 'end', transfer })}
-                  />
-                ))}
-              </ul>
-            )}
-            {endedList.length > 0 && (
-              <EndedTransfers transfers={endedList} periods={periods.data} />
-            )}
-          </section>
         </>
       )}
       <TransferFormDialog

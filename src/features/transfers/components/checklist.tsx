@@ -1,5 +1,6 @@
 import {
   BanIcon,
+  ChevronDownIcon,
   CircleCheckIcon,
   CircleDashedIcon,
   ClockAlertIcon,
@@ -11,12 +12,13 @@ import {
   ZapIcon,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState, LoadingState } from '@/components/states'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Select,
   SelectContent,
@@ -130,9 +132,19 @@ export function Checklist({
   const { period, setPeriod, unknown } = usePeriodParam(budgetId, periods, current)
   const olderPeriods = useOlderPeriodsOption(budgetId)
   const checklist = useChecklist(budgetId, period?.id ?? null)
+  // R-ACCOUNT-241: the dashboard counts the period before too; its open rows are pointed to.
+  const before = period?.is_current
+    ? periods.find((item) => item.seq === period.seq - 1)
+    : undefined
+  const previous = useChecklist(budgetId, before?.id ?? null)
+  const previousOpen = before
+    ? (previous.data ?? []).filter(
+        (row) => row.status === 'to_do' && row.planned !== false && row.is_automatic !== true,
+      ).length
+    : 0
   const marks = useMarks(budgetId, { errorDisplay: 'inline' })
   const [doneRow, setDoneRow] = useState<ChecklistRow | null>(null)
-  const listRef = useRef<HTMLUListElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   // After a mark, the focus stays on the row it acted on (its first action, else the row).
   const focusKey = useRef<string | null>(null)
   const rows = checklist.data ?? []
@@ -149,11 +161,50 @@ export function Checklist({
     })
     return () => window.cancelAnimationFrame(frame)
   }, [joined])
+  // Rows marked here stay where they were until the period changes, so the focus stays on
+  // them and Undo is at hand; the other settled rows are folded away.
+  const [kept, setKept] = useState<{ period: string; keys: ReadonlySet<string> }>({
+    period: '',
+    keys: new Set(),
+  })
+  const keep = (row: ChecklistRow) => {
+    const key = `${row.transfer_id}-${row.occurrence_date}`
+    focusKey.current = key
+    setKept((before) => ({
+      period: period?.id ?? '',
+      keys: new Set([...(before.period === period?.id ? before.keys : []), key]),
+    }))
+  }
+  const keptKeys = kept.period === period?.id ? kept.keys : new Set<string>()
+  const open: ChecklistRow[] = []
+  const settled: ChecklistRow[] = []
+  for (const row of rows) {
+    const key = `${row.transfer_id}-${row.occurrence_date}`
+    if (row.status !== 'more' && isSettled(row) && !keptKeys.has(key)) settled.push(row)
+    else open.push(row)
+  }
 
   const act = (row: ChecklistRow, kind: 'skip' | 'notDone' | 'undo') => {
-    focusKey.current = `${row.transfer_id}-${row.occurrence_date}`
+    keep(row)
     marks[kind].mutate(targetOf(row))
   }
+  const item = (row: ChecklistRow, index: number) =>
+    row.status === 'more' ? (
+      <li key="more" className="p-3 text-sm text-muted-foreground">
+        {t('transfers.checklist.more', { count: Number(row.name) || 0 })}
+      </li>
+    ) : (
+      <ChecklistItem
+        key={`${row.transfer_id}-${row.occurrence_date}-${index}`}
+        row={row}
+        busy={busy}
+        onDone={() => {
+          keep(row)
+          setDoneRow(row)
+        }}
+        onAct={(kind) => act(row, kind)}
+      />
+    )
   const label = (item: PeriodSummary) =>
     item.is_current
       ? t('transfers.checklist.currentPeriod', {
@@ -209,6 +260,30 @@ export function Checklist({
           <AlertDescription>{t('transfers.checklist.unknownPeriod')}</AlertDescription>
         </Alert>
       )}
+      {before && previousOpen > 0 && (
+        <Alert data-testid="checklist-previous-open">
+          <ClockAlertIcon aria-hidden />
+          <AlertDescription className="flex flex-col items-start gap-2">
+            <span>
+              {t('transfers.checklist.previousOpen', {
+                count: previousOpen,
+                start: formatCalendarDate(before.start_date),
+                end: formatCalendarDate(before.end_date),
+              })}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPeriod(before.id)
+                document.getElementById('checklist-title')?.focus()
+              }}
+            >
+              {t('transfers.checklist.previousOpenLink')}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {checklist.isError ? (
         <ErrorState error={checklist.error} onRetry={checklist.refetch} className="" />
       ) : !checklist.data || period === undefined ? (
@@ -218,30 +293,25 @@ export function Checklist({
           {t('transfers.checklist.empty')}
         </p>
       ) : (
-        <ul
-          ref={listRef}
-          className="flex flex-col divide-y rounded-xl border"
-          aria-labelledby="checklist-title"
-        >
-          {rows.map((row, index) =>
-            row.status === 'more' ? (
-              <li key="more" className="p-3 text-sm text-muted-foreground">
-                {t('transfers.checklist.more', { count: Number(row.name) || 0 })}
-              </li>
-            ) : (
-              <ChecklistItem
-                key={`${row.transfer_id}-${row.occurrence_date}-${index}`}
-                row={row}
-                busy={busy}
-                onDone={() => {
-                  focusKey.current = `${row.transfer_id}-${row.occurrence_date}`
-                  setDoneRow(row)
-                }}
-                onAct={(kind) => act(row, kind)}
-              />
-            ),
+        <div ref={listRef} className="flex flex-col gap-3">
+          {open.length > 0 ? (
+            <ul
+              className="flex flex-col divide-y rounded-xl border"
+              aria-labelledby="checklist-title"
+              data-testid="checklist-open"
+            >
+              {open.map(item)}
+            </ul>
+          ) : (
+            <p
+              className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground"
+              data-testid="checklist-all-settled"
+            >
+              {t('transfers.checklist.allSettled')}
+            </p>
           )}
-        </ul>
+          {settled.length > 0 && <SettledRows rows={settled} render={item} />}
+        </div>
       )}
       <MarkDoneDialog
         budgetId={budgetId}
@@ -404,5 +474,48 @@ function ChecklistItem({
         )}
       </div>
     </li>
+  )
+}
+
+/** Done, skipped, did not happen, or a tick no longer planned: nothing is left to do there. */
+function isSettled(row: ChecklistRow) {
+  if (row.planned === false) return true
+  if (row.held_back) return false
+  return row.status === 'done' || row.status === 'skipped' || row.status === 'not_done'
+}
+
+/** The settled rows of a period, folded away by default with their count. */
+function SettledRows({
+  rows,
+  render,
+}: {
+  rows: ChecklistRow[]
+  render: (row: ChecklistRow, index: number) => ReactNode
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} asChild>
+      <section className="flex flex-col gap-2" aria-label={t('transfers.checklist.settledLabel')}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            className="self-start px-2"
+            data-testid="checklist-settled-toggle"
+          >
+            <ChevronDownIcon
+              className={open ? 'rotate-180 transition-transform' : 'transition-transform'}
+              aria-hidden
+            />
+            {t('transfers.checklist.settled', { count: rows.length })}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ul className="flex flex-col divide-y rounded-xl border" data-testid="checklist-settled">
+            {rows.map(render)}
+          </ul>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
   )
 }

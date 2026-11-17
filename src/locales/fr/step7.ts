@@ -121,6 +121,8 @@ export const transfersFr = {
       '{{count}} coches de membres ne sont plus prévues : elles restent, signalées, jusqu’à leur annulation.',
   },
   card: {
+    failedTitle: 'Virements à faire',
+    failed: 'Ils n’ont pas pu être comptés pour l’instant. La liste à cocher les montre.',
     title_one: '{{count}} virement à faire',
     title_other: '{{count}} virements à faire',
     description: 'Ceux que vous faites vous-même, cette période et la précédente.',
@@ -293,6 +295,10 @@ export const transfersFr = {
     confirm: 'Terminer le virement',
     delete: 'Supprimer le virement',
   },
+  views: {
+    label: 'Vues des virements',
+    planned: 'Virements planifiés ({{count}})',
+  },
   checklist: {
     title: 'Liste à cocher',
     help: 'Les virements d’une période : cochez ceux que vous faites vous-même.',
@@ -300,6 +306,15 @@ export const transfersFr = {
     currentPeriod: 'Cette période (du {{start}} au {{end}})',
     unknownPeriod: 'La période du lien n’appartient pas à ce budget : voici la période en cours.',
     empty: 'Rien n’est prévu dans cette période.',
+    allSettled: 'Plus rien à faire dans cette période.',
+    settledLabel: 'Faits et réglés',
+    settled_one: '{{count}} fait ou réglé',
+    settled_other: '{{count}} faits ou réglés',
+    previousOpen_one:
+      '{{count}} virement est encore à faire dans la période précédente (du {{start}} au {{end}}).',
+    previousOpen_other:
+      '{{count}} virements sont encore à faire dans la période précédente (du {{start}} au {{end}}).',
+    previousOpenLink: 'Ouvrir cette liste',
     more_one: '… et {{count}} autre coche non listée',
     more_other: '… et {{count}} autres coches non listées',
     due: 'échéance le {{date}}',

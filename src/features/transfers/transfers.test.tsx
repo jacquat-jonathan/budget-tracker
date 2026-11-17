@@ -59,7 +59,7 @@ function transfersDb() {
 
 async function openPage(db = transfersDb()) {
   mock.current = createSupabaseMock(fakeSession(), db)
-  renderRoutes(routes, '/transfers')
+  renderRoutes(routes, '/transfers?view=planned')
   await screen.findAllByTestId('transfer-card')
   return db
 }

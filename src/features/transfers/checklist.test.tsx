@@ -5,6 +5,7 @@ import { routes } from '@/app/routes'
 import { actionsFor } from '@/features/transfers/transfer-terms'
 import { formatMoney } from '@/lib/money'
 import { budgetRow, categoriesDb } from '@/test/budget-fixtures'
+import { rpcError } from '@/test/mock-db'
 import { accountRow, checklistRow, transferRow } from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
@@ -85,7 +86,16 @@ function checklistDb() {
 async function openPage(db = checklistDb()) {
   mock.current = createSupabaseMock(fakeSession(), db)
   renderRoutes(routes, '/transfers')
-  await screen.findAllByTestId('checklist-row')
+  await screen.findByTestId('checklist')
+  await waitFor(() => {
+    expect(
+      screen.queryAllByTestId('checklist-row').length +
+        screen.queryAllByTestId('checklist-settled-toggle').length,
+    ).toBeGreaterThan(0)
+  })
+  // The settled rows are folded away: unfold them to look at every row.
+  const toggle = screen.queryByTestId('checklist-settled-toggle')
+  if (toggle) await userEvent.click(toggle)
   return db
 }
 
@@ -280,6 +290,89 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
   })
 })
 
+describe('a long checklist stays usable [D-543]', () => {
+  it('folds what is settled away with its count; a row marked here stays in place', async () => {
+    const db = checklistDb()
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transfers')
+    const open = await screen.findByTestId('checklist-open')
+    // To do and upcoming are listed; done and no longer planned are folded, counted.
+    expect(
+      within(open)
+        .getAllByTestId('checklist-row')
+        .map((r) => r.textContent),
+    ).toEqual([expect.stringMatching(/^Joint account/), expect.stringMatching(/^Savings/)])
+    const toggle = screen.getByTestId('checklist-settled-toggle')
+    expect(toggle).toHaveTextContent('2 done or settled')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('checklist-settled')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Skip “Joint account” this time' }))
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId('checklist-open')).getAllByTestId('checklist-row')[0],
+      ).toHaveTextContent('Skipped by Alex')
+    })
+    expect(
+      screen.getByRole('button', { name: 'Undo the tick of “Joint account”' }),
+    ).toBeInTheDocument()
+  })
+
+  it('the planned transfers are a view of their own, in the address', async () => {
+    mock.current = createSupabaseMock(fakeSession(), checklistDb())
+    renderRoutes(routes, '/transfers')
+    await screen.findByTestId('checklist')
+    expect(screen.queryByTestId('transfer-card')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Checklist' })).toHaveAttribute('aria-current', 'page')
+    const planned = screen.getByRole('link', { name: 'Planned transfers (2)' })
+    expect(planned).toHaveAttribute('href', '/transfers?view=planned')
+    await userEvent.click(planned)
+    expect(await screen.findAllByTestId('transfer-card')).toHaveLength(2)
+    expect(screen.queryByTestId('checklist')).not.toBeInTheDocument()
+  })
+})
+
+describe('the open rows of the period before [R-ACCOUNT-241]', () => {
+  it('the current checklist says how many are still to do there and leads to them', async () => {
+    const db = await openPage()
+    const note = await screen.findByTestId('checklist-previous-open')
+    expect(note).toHaveTextContent(
+      '1 transfer is still to do in the period before (25.09.2026 to 22.10.2026).',
+    )
+    await userEvent.click(within(note).getByRole('button', { name: 'Open that checklist' }))
+    await waitFor(() => {
+      expect(db.rpc.get_transfer_checklist).toHaveBeenLastCalledWith({ p_period_id: 'period-1' })
+    })
+    expect(await screen.findByText('due 27.09.2026')).toBeInTheDocument()
+    expect(screen.queryByTestId('checklist-previous-open')).not.toBeInTheDocument()
+  })
+})
+
+describe('with every account closed [D-501]', () => {
+  it('past checklists and the ended transfers stay reachable', async () => {
+    const db = checklistDb()
+    db.tables.account_overview = db.tables.account_overview.map((account) => ({
+      ...account,
+      is_active: false,
+      end_seq: 2,
+    }))
+    db.tables.transfer_overview = db.tables.transfer_overview.map((transfer) => ({
+      ...transfer,
+      is_active: false,
+      end_seq: 2,
+      next_due_date: null,
+    }))
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transfers')
+    expect(await screen.findByTestId('checklist')).toBeInTheDocument()
+    expect(screen.queryByText('Add your accounts first')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('link', { name: 'Planned transfers (0)' }))
+    // Nothing in force: new ones need accounts; the ended ones are listed.
+    expect(await screen.findByText('Add your accounts first')).toBeInTheDocument()
+    expect(screen.getByTestId('ended-transfers-toggle')).toHaveTextContent('2')
+  })
+})
+
 describe('a standing order counts as done from its due date [R-ACCOUNT-004]', () => {
   function standingOrderDb() {
     const db = checklistDb()
@@ -403,6 +496,20 @@ describe('the dashboard’s transfers to make [R-ACCOUNT-241]', () => {
       'href',
       '/transfers',
     )
+  })
+
+  it('says so when the count could not be read, and offers to try again', async () => {
+    const db = checklistDb()
+    db.rpc.get_transfers_to_do.mockImplementation(() => rpcError('TypeError: Failed to fetch', ''))
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/')
+    const card = await screen.findByTestId('transfers-to-do', {}, { timeout: 4000 })
+    expect(card).toHaveTextContent('They could not be counted just now.')
+    db.rpc.get_transfers_to_do.mockImplementation(() => [
+      { transfers_to_do: 1, transfers_overdue: 0 },
+    ])
+    await userEvent.click(within(card).getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('1 transfer to make')).toBeInTheDocument()
   })
 
   it('stays quiet with nothing to do, and waits for the catch-up before asking', async () => {

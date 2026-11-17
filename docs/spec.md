@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-565 rules (554 active, 0 planned), 24 conventions, 347 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
+565 rules (554 active, 0 planned), 24 conventions, 348 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -7199,6 +7199,20 @@ Creating a quarterly or yearly transfer with a next due date before today and wi
 **Rejected:** none recorded.
 
 Related: D-502, D-493, R-ACCOUNT-315
+
+Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
+
+### D-543 The Transfers page has two views; settled rows are folded (accepted)
+
+The Transfers page shows its checklist and its planned transfers as two views of the page, chosen by a segmented navigation under the title and kept in the address (`?view=planned`; the checklist by default, beside `?period=`), so the planned transfers never sit below a long checklist. This replaces D-500’s “the period’s checklist on top, the planned transfers below”; the order of the sidebar is unchanged. In a checklist the rows still to act on (to do, overdue, standing orders not yet due, waiting for room) are listed; the settled ones (done, skipped, did not happen, no longer planned) are folded away with their count, and a row marked on the page stays where it was until the period changes, so the focus and Undo stay on it. The current period’s checklist says how many manual transfers are still to do in the period before, which the dashboard card counts too (R-ACCOUNT-241), with a way to open that checklist. “Add your accounts first” replaces the page only while nothing was ever planned; once a transfer was planned, its checklists and the ended transfers stay reachable with every account closed, and the planned view says that new transfers need accounts. The dashboard card says when its count could not be read, with “Try again”.
+
+**Why:** The review measured the planned list 1,300 px down with 14 checklist rows, 4,500 px at 50 transfers and 115,000 px with 1,000 rows; the card counted two periods and its link showed one; closing every account hid past checklists.
+
+**Rejected:**
+
+- Jump links in one long page: at the limits the planned list still starts thousands of pixels down on a phone.
+
+Related: D-500, D-501, D-504, R-ACCOUNT-005, R-ACCOUNT-241
 
 Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
 
