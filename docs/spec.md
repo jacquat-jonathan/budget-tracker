@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-651 rules (632 active, 0 planned), 24 conventions, 399 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
+651 rules (632 active, 0 planned), 24 conventions, 399 decisions, 59 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -219,9 +219,9 @@ Bulk import of transactions from PDF bank and card statements, from CSV, or by a
 - **US-IMPORT-007** As a budget member, I want card-bill payments, transfers between my own accounts, salaries and other credits to be recognised when I import a statement, so that nothing is counted twice and I decide what each credit is.
   Rules: R-IMPORT-091, R-IMPORT-092, R-IMPORT-093, R-IMPORT-094
 
-### Step 7: Accounts and the money flow diagram (in-progress)
+### Step 7: Accounts and the money flow diagram (done)
 
-#### F-MONEYFLOW Accounts and money flow (in-progress)
+#### F-MONEYFLOW Accounts and money flow (done)
 
 Accounts, planned transfers after payday, a per-period checklist and the money flow diagram.
 
@@ -7069,7 +7069,7 @@ Source: owner-request: coordinator brief for the step 7 occurrence model redesig
 
 A transfer counts from the first day of the period it is created in, or corrected from, or that period's scheduled pay date when it is earlier (a salary that came late): transfers.starts_on. Nothing before it is planned, and a done date must lie on or after it (before_transfer_start). It stays a date when a reopen moves the transfer's first period into the reopened one, so that period's own earlier payday is not planned. Created with no period named and no first date after the period has started, it counts from the day it was created (D-493). The primary occurrence of a period counts when its salary came on or after that day, or when it is the salary the transfer was made from (by key; amended by D-520). Amended by D-610: the first counted day is the start of the period (or the day it was made, D-493); a main-income transfer counts from its first counted period (starts_seq), by number.
 
-**Why:** The handover's trap: a transfer created in a merged period had its first period moved into the reopened one, which then had its own occurrence of a payday the transfer never knew (the root of M2).
+**Why:** The review's trap: a transfer created in a merged period had its first period moved into the reopened one, which then had its own occurrence of a payday the transfer never knew (the root of M2).
 
 **Rejected:**
 
@@ -8811,6 +8811,32 @@ Source: owner-request: coordinator brief for the screens round after database ro
   - Context: Left as it is (round 5, D-610). Example: Ann (25th) is the primary; on 12 Dec Ben (10th) is made the primary: the period 25 Nov is stretched to 9 Jan and the next starts 10 Jan. "Joint" (naming no income) runs on 25 Nov and 10 Jan: none in December. A transfer naming Ann runs on 25 Nov and 25 Dec. Options: (1) leave it (one per period, as decided); (2) name the income in the transfer when a monthly rhythm matters; (3) a monthly floor for main-income transfers.
   - Related: D-610, R-ACCOUNT-511
   - Source: owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17
+- **Q-371** Should changing the password in Settings ask for the current password first?
+  - Context: Left as it is: R-AUTH-531 asks for the new password twice and nothing else, as the session is already signed in. Asking for the current password would stop someone at an unlocked device from changing it. Seen by the browser re-check and the screens review; an owner decision, not changed.
+  - Related: R-AUTH-531
+  - Source: owner-request: handover of the step 7 build session, closed 2026-11-17
+- **Q-372** Should the money flow's line "The other pages show ..." name the pages that show the other figure?
+  - Context: Left as it is: it says "the other pages" without naming them. Naming them (Budget, Progress, Dashboard) would be more exact but is longer and goes stale when a page moves. Left by the developer as an open wording choice.
+  - Related: R-ACCOUNT-304
+  - Source: owner-request: handover of the step 7 build session, closed 2026-11-17
+- **Q-373** Should a mark kept after a reopen have its own sentence instead of "the schedule or a payday moved"?
+  - Context: Left as it is: a kept mark whose occurrence is no longer planned says "Its date is no longer planned (the schedule or a payday moved). It stays until you undo it." after every cause, a reopen included. A sentence per cause would be more exact but needs the database to say which cause. Left by the developer as an open wording choice.
+  - Related: R-ACCOUNT-301, R-ACCOUNT-306
+  - Source: owner-request: handover of the step 7 build session, closed 2026-11-17
+- **Q-374** When an income's end is corrected to an earlier period, should a member's done mark on a transfer of that income's payday be kept as a mark of the same payday?
+  - Context: Found by the independent review of planned transfers, not planned: the mark becomes unplanned ("no longer planned") and the same payday is to do again, because marks carry over only in update_transfer. Options: (1) leave it, the member undoes the unplanned mark and ticks again; (2) carry the marks over when an income's end changes.
+  - Related: R-ACCOUNT-301
+  - Source: owner-request: handover of the step 7 build session, closed 2026-11-17
+- **Q-375** When a period's start is moved to before the day a transfer was made, should the transaction of that transfer be dated before the transfer was made?
+  - Context: Found by the independent review, not planned: moving a start back can give an automatic transfer a transaction dated before the transfer existed (R-ACCOUNT-309 moves it with the start). Options: (1) leave it, the date follows the period; (2) keep the date on or after the day the transfer was made.
+  - Related: R-ACCOUNT-309, R-ACCOUNT-315
+  - Source: owner-request: handover of the step 7 build session, closed 2026-11-17
+- **Q-376** Should private.period_keyed_tables move to a schema the data dump does not list, so that no dump flag has to be remembered?
+  - Context: Found by the independent review, not planned: the table is filled by the migrations, so a plain data dump does not restore (duplicate key). docs/deployment.md documents the dump flag that excludes it (--exclude private.period_keyed_tables); the reviewer would move the table so that nothing has to be remembered. Only matters when a dump is restored into a migrated database.
+  - Source: owner-request: handover of the step 7 build session, closed 2026-11-17
+- **Q-377** Should the early commit of this branch that contains a short amount string, which by coincidence also appears in one of the owner's statements, be scrubbed from history?
+  - Context: The owner was offered it; the default is to leave it (a rewrite of a pushed branch with an open pull request). The string is a short amount, not a statement line or a name.
+  - Source: owner-request: handover of the step 7 build session, closed 2026-11-17
 
 ## Glossary
 

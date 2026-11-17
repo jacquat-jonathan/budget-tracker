@@ -100,4 +100,10 @@ without saying so.
 ## Checks
 
 Run before reporting work as done: `npm run lint`, `npm run typecheck`, `npm test`,
-`npm run build`, `npm run spec:check`.
+`npm run build`, `npm run spec:check`, and, as its own command,
+`node .github/scripts/check-csp.mjs public/.htaccess https://example.supabase.co`.
+
+- Database tests: `npx supabase test db` (pg_prove, as CI). A helper statement in a test file
+  that prints a bare `ok` row counts as a test and fails the run.
+- Memory is tight: one Supabase stack at a time, and `npx vitest run --maxWorkers=2`.
+- What is still open or unverified: `docs/open-items.md`.
