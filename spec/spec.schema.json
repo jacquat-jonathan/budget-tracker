@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://budget-tracker.local/spec/spec.schema.json",
+  "title": "Budget Tracker specification",
+  "description": "Shape of spec/spec.json. Cross-references, id/area agreement, test coverage and generated files are checked by scripts/spec/check.mjs (npm run spec:check), not by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "meta",
+    "areas",
+    "glossary",
+    "actors",
+    "buildSteps",
+    "features",
+    "rules",
+    "decisions",
+    "conventions",
+    "openQuestions"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "product", "sources"],
+      "properties": {
+        "title": { "$ref": "#/$defs/text" },
+        "product": { "$ref": "#/$defs/text" },
+        "sources": {
+          "description": "What the `source` labels used below refer to.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "areas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" },
+          "title": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "glossary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "term", "definition"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^G-[A-Z]+(-[A-Z]+)*$" },
+          "term": { "$ref": "#/$defs/text" },
+          "definition": { "$ref": "#/$defs/text" },
+          "fr": {
+            "description": "The French UI term, as it appears in src/locales/fr/translation.ts.",
+            "$ref": "#/$defs/text"
+          },
+          "see": { "$ref": "#/$defs/idList" }
+        }
+      }
+    },
+    "actors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^A-[A-Z]+$" },
+          "name": { "$ref": "#/$defs/text" },
+          "description": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "buildSteps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step", "title"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "title": { "$ref": "#/$defs/text" }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "step", "title", "status", "description", "userStories"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^F-[A-Z]+$" },
+          "step": { "type": "integer", "minimum": 1 },
+          "title": { "$ref": "#/$defs/text" },
+          "status": { "enum": ["done", "in-progress", "planned"] },
+          "description": { "$ref": "#/$defs/text" },
+          "userStories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "actor", "iWant", "soThat", "rules"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^US-[A-Z]+-[0-9]{3}$" },
+                "actor": { "type": "string", "pattern": "^A-[A-Z]+$" },
+                "iWant": { "$ref": "#/$defs/text" },
+                "soThat": { "$ref": "#/$defs/text" },
+                "rules": { "$ref": "#/$defs/idList" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "conventions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/convention" }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "decision", "why", "rejected", "status", "source"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^D-[0-9]{3}$" },
+          "title": { "$ref": "#/$defs/text" },
+          "decision": { "$ref": "#/$defs/text" },
+          "why": { "$ref": "#/$defs/text" },
+          "rejected": {
+            "description": "Alternatives that were considered and rejected, each with the reason. Empty when the sources record none.",
+            "type": "array",
+            "items": { "$ref": "#/$defs/text" }
+          },
+          "status": { "enum": ["accepted", "superseded"] },
+          "supersededBy": { "type": "string", "pattern": "^D-[0-9]{3}$" },
+          "related": { "$ref": "#/$defs/idList" },
+          "source": { "$ref": "#/$defs/sourceList" }
+        },
+        "if": { "properties": { "status": { "const": "superseded" } } },
+        "then": { "required": ["supersededBy"] },
+        "else": { "not": { "required": ["supersededBy"] } }
+      }
+    },
+    "openQuestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "context", "status", "source"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^Q-[0-9]{3}$" },
+          "question": { "$ref": "#/$defs/text" },
+          "context": { "$ref": "#/$defs/text" },
+          "status": { "enum": ["open", "resolved"] },
+          "resolvedBy": { "type": "string", "pattern": "^D-[0-9]{3}$" },
+          "related": { "$ref": "#/$defs/idList" },
+          "source": { "$ref": "#/$defs/sourceList" }
+        },
+        "if": { "properties": { "status": { "const": "resolved" } } },
+        "then": { "required": ["resolvedBy"] },
+        "else": { "not": { "required": ["resolvedBy"] } }
+      }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "^\\S(.*\\S)?$" },
+    "idList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Z]+-[A-Z0-9]+(-[A-Z0-9]+)*$" }
+    },
+    "sourceList": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/text" }
+    },
+    "check": {
+      "description": "A mechanical check that enforces a rule with enforcement `lint`. spec:check verifies that it exists.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "name"],
+          "properties": {
+            "kind": { "const": "npm-script" },
+            "name": { "$ref": "#/$defs/text" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "name"],
+          "properties": {
+            "kind": { "const": "eslint-rule" },
+            "name": { "$ref": "#/$defs/text" },
+            "file": {
+              "description": "A file the rule must be enabled for (default src/main.tsx).",
+              "$ref": "#/$defs/text"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "workflow", "job", "step"],
+          "properties": {
+            "kind": { "const": "ci-step" },
+            "workflow": { "$ref": "#/$defs/text" },
+            "job": { "$ref": "#/$defs/text" },
+            "step": {
+              "description": "The step's `run` command or its `name`, exactly.",
+              "$ref": "#/$defs/text"
+            }
+          }
+        }
+      ]
+    },
+    "testPending": {
+      "description": "TEMPORARY. The tests proving this statement live in a suite not yet tagged with ids (supabase/tests), or are still being written in src/ by another developer. spec:check reports each marker as a warning instead of failing. Remove the marker once a test names the id.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "note"],
+      "properties": {
+        "suite": { "enum": ["supabase/tests", "src"] },
+        "note": { "$ref": "#/$defs/text" }
+      }
+    },
+    "checkable": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["active", "planned", "retired"] },
+        "enforcement": { "enum": ["test", "lint", "review"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "enforcement": { "const": "lint" } } },
+          "then": { "required": ["checks"] },
+          "else": { "not": { "required": ["checks"] } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "retired" } } },
+          "then": { "required": ["retiredBecause"] },
+          "else": { "not": { "required": ["retiredBecause"] } }
+        }
+      ]
+    },
+    "rule": {
+      "allOf": [{ "$ref": "#/$defs/checkable" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["id", "area", "statement", "feature", "status", "enforcement", "source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^R-[A-Z][A-Z0-9]*-[0-9]{3}$" },
+        "area": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" },
+        "statement": { "$ref": "#/$defs/text" },
+        "rationale": { "$ref": "#/$defs/text" },
+        "feature": {
+          "description": "The feature that makes this rule real; the rule is active exactly when that feature is done or in progress.",
+          "type": "string",
+          "pattern": "^F-[A-Z]+$"
+        },
+        "status": true,
+        "enforcement": true,
+        "checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/check" } },
+        "testPending": { "$ref": "#/$defs/testPending" },
+        "retiredBecause": { "$ref": "#/$defs/text" },
+        "related": { "$ref": "#/$defs/idList" },
+        "source": { "$ref": "#/$defs/sourceList" }
+      }
+    },
+    "convention": {
+      "allOf": [{ "$ref": "#/$defs/checkable" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["id", "area", "statement", "status", "enforcement", "source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^C-[A-Z][A-Z0-9]*-[0-9]{3}$" },
+        "area": { "type": "string", "pattern": "^[a-z][a-z0-9]*$" },
+        "statement": { "$ref": "#/$defs/text" },
+        "rationale": { "$ref": "#/$defs/text" },
+        "status": true,
+        "enforcement": true,
+        "checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/check" } },
+        "testPending": { "$ref": "#/$defs/testPending" },
+        "retiredBecause": { "$ref": "#/$defs/text" },
+        "related": { "$ref": "#/$defs/idList" },
+        "source": { "$ref": "#/$defs/sourceList" }
+      }
+    }
+  }
+}

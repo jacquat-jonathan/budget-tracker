@@ -1,0 +1,132 @@
+name: Deploy
+
+# Manual only for now. Run it from the Actions tab: "Deploy" > "Run workflow".
+# See docs/deployment.md for the one-time setup and for rollbacks.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy (branch, tag or commit SHA). Empty deploys the branch selected above.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# Never run two deploys at once; a second one waits instead of cancelling a running upload.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and upload to Infomaniak
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      # Fail fast on configuration problems, before installing anything.
+      - name: Check build configuration
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          missing=0
+          for name in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository variable $name is not set (Settings > Secrets and variables > Actions > Variables)."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          # The browser may only talk to origins the CSP in public/.htaccess allows.
+          node .github/scripts/check-csp.mjs public/.htaccess "$VITE_SUPABASE_URL"
+
+      - run: npm ci
+
+      # The same frontend checks as CI, so a manual run on a broken ref cannot ship it.
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH }}
+        run: npm run build
+
+      - name: Check build output
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+        run: |
+          test -f dist/index.html || { echo "::error::dist/index.html is missing"; exit 1; }
+          test -f dist/.htaccess || { echo "::error::dist/.htaccess is missing"; exit 1; }
+          # Check the policy that actually ships.
+          node .github/scripts/check-csp.mjs dist/.htaccess "$VITE_SUPABASE_URL"
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_USER: ${{ vars.SSH_USER }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+        run: |
+          for name in SSH_PRIVATE_KEY SSH_KNOWN_HOSTS SSH_HOST SSH_USER; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not configured for the production environment."
+              exit 1
+            fi
+          done
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host deploy-target
+            HostName ${SSH_HOST}
+            User ${SSH_USER}
+            Port ${SSH_PORT:-22}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            BatchMode yes
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Upload with rsync
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          if [ -z "$DEPLOY_PATH" ]; then
+            echo "::error::Variable DEPLOY_PATH is not configured for the production environment."
+            exit 1
+          fi
+          # Trailing slash on dist/: upload its contents, not the folder itself.
+          # --delay-updates puts changed files in place together at the end, and
+          # --delete-after removes old files only once the new ones are there.
+          # .well-known/ on the server (certificate validation) is never deleted.
+          rsync --recursive --links --times --compress --checksum \
+            --delete-after --delay-updates \
+            --filter='P .well-known/' \
+            --chmod=D755,F644 \
+            --itemize-changes \
+            -e ssh \
+            dist/ "deploy-target:${DEPLOY_PATH%/}/"
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -rf ~/.ssh

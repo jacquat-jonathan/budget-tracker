@@ -1,0 +1,889 @@
+import type { Translation } from '@/locales/en/translation'
+
+// French typography: a narrow no-break space (U+202F) precedes ? ! : ; and %, and
+// follows « (and precedes »).
+
+export const importFr: Translation['import'] = {
+  title: 'Importer',
+  description:
+    'Importez un relevé bancaire ou un fichier CSV plutôt que de saisir chaque transaction.',
+  andMore_one: 'Et {{count}} autre.',
+  andMore_other: 'Et {{count}} autres.',
+  privacy:
+    'Un relevé PDF est lu ici, sur cet appareil : le fichier n’est pas envoyé. Seules les transactions qui en sont lues sont envoyées à votre budget.',
+  start: {
+    title: 'Que voulez-vous importer ?',
+    pdf: 'Un relevé PDF',
+    pdfHelp:
+      'Extrait de compte Migros Bank, facture de carte de crédit Migros Bank (Viseca) ou relevé de compte Yuh, en français.',
+    pdfDrop: 'Déposez un relevé PDF ici, ou',
+    pdfChoose: 'Choisir un PDF…',
+    pdfDropActive: 'Déposez le fichier pour le lire',
+    oneAtATime:
+      'Un fichier à la fois : déposez ou choisissez le suivant une fois celui-ci importé.',
+    csv: 'Un fichier CSV',
+    csvHelp:
+      'Tout export avec une date et un montant par ligne. Vous indiquez quelle colonne contient quoi.',
+    csvChoose: 'Choisir un CSV…',
+    csvPaste: 'Coller du texte CSV',
+    csvPasteLabel: 'Texte CSV',
+    csvPastePlaceholder: 'Date;Description;Montant\n03.11.2026;Boulangerie;-4.50',
+    csvRead: 'Lire ce texte',
+    csvTooLong:
+      'Ce texte est trop long pour être importé en une fois ({{max}} caractères au plus).',
+    notPdf: 'Ce n’est pas un fichier PDF. Pour un CSV, utilisez « Un fichier CSV » ci-dessous.',
+    notCsv:
+      'Ce fichier ne ressemble pas à du texte CSV. Pour un relevé PDF, utilisez « Un relevé PDF ».',
+    readFailed: 'Le fichier n’a pas pu être lu sur cet appareil. Choisissez-le à nouveau.',
+    csvBinary:
+      'Ce fichier ne contient pas de texte : ce n’est pas un export CSV. Rien n’a été lu ni envoyé. Exportez le relevé en CSV et choisissez ce fichier.',
+    csvUndecodable:
+      'Ce fichier se dit texte Unicode, mais une partie ne peut pas être décodée : il est peut-être abîmé. Rien n’a été lu ni envoyé. Exportez-le à nouveau.',
+  },
+  reading: {
+    title: 'Lecture du relevé sur cet appareil…',
+    help: 'Rien n’est envoyé pendant la lecture.',
+  },
+  refused: {
+    title: 'Ce relevé ne peut pas être importé',
+    nothingSent: 'Rien n’a été envoyé à votre budget.',
+    another: 'Choisir un autre fichier',
+    lineLabel: 'La ligne en question (affichée sur cet appareil seulement) :',
+  },
+  refusal: {
+    'no-text-layer':
+      'Ce PDF n’a pas de texte à lire : c’est un scan ou une image. Téléchargez à nouveau le relevé depuis votre e-banking, en PDF avec du texte.',
+    'unrecognised-document':
+      'Ce n’est pas un des relevés que l’importation sait lire : l’extrait de compte Migros Bank, la facture de carte de crédit Migros Bank (Viseca) ou le relevé de compte Yuh.',
+    'unsupported-language':
+      'Ce relevé est en {{language}}. Pour l’instant, seule la version française peut être lue : téléchargez-le en français depuis votre e-banking.',
+    'unreadable-layout':
+      'Une ligne de ce document ({{source}}) n’a pas pu être lue ({{problem}}{{page}}). La mise en page a peut-être changé : rien n’est importé plutôt que quelque chose de faux.',
+    'implausible-date':
+      'L’écriture {{entry}} de ce document ({{source}}) a une date d’achat ({{purchase}}) {{control}} sa date de comptabilisation ({{booking}}). Le relevé n’est pas importé.',
+    'does-not-add-up':
+      'Ce document ({{source}}) ne tombe pas juste : {{control}} est imprimé {{printed}}, mais les écritures donnent {{computed}}{{page}}. Rien n’est importé plutôt qu’un montant faux.',
+    'unsupported-currency':
+      'Ce document ({{source}}) contient des mouvements en {{currency}}. Seuls les francs suisses peuvent être importés.',
+    'not-a-pdf': 'Ce fichier n’est pas un PDF.',
+    'password-protected':
+      'Ce PDF est protégé par un mot de passe. Téléchargez-le à nouveau sans, ou ouvrez-le et enregistrez une copie sans mot de passe.',
+    'corrupt-file': 'Ce PDF est endommagé et ne peut pas être lu. Téléchargez-le à nouveau.',
+    'file-too-large': 'Ce fichier fait {{size}} : un relevé peut faire {{max}} au plus.',
+    'too-many-pages': 'Ce PDF a {{pages}} pages : un relevé peut en avoir {{max}} au plus.',
+    'too-many-text-items':
+      'Ce PDF contient plus de texte qu’un relevé ({{perPage}} éléments par page, {{perDocument}} en tout au plus{{page}}). Il n’est pas lu.',
+    'unexpected-page-size':
+      'La page {{page}} n’a pas la taille d’une page de relevé ({{width}} × {{height}} pt). Elle n’est pas lue.',
+    'timed-out':
+      'La lecture de ce fichier a pris plus de {{seconds}} secondes et a été arrêtée. Réessayez ; si cela se reproduit, ce n’est pas un relevé que l’importation sait lire.',
+    'reader-unavailable':
+      'Le lecteur de PDF n’a pas pu être chargé : vérifiez votre connexion, ou rechargez la page (l’application a peut-être été mise à jour).',
+    'unexpected-error': 'Le lecteur de PDF a échoué sur ce fichier. Rien n’a été importé.',
+  },
+  languages: {
+    de: 'allemand',
+    it: 'italien',
+    en: 'anglais',
+    unknown: 'une autre langue',
+  },
+  sources: {
+    'migros-bank-account': 'Extrait de compte Migros Bank',
+    'migros-bank-credit-card': 'Facture de carte de crédit Migros Bank',
+    'yuh-account': 'Relevé de compte Yuh',
+    migros_account: 'Extrait de compte Migros Bank',
+    migros_card: 'Facture de carte de crédit Migros Bank',
+    yuh: 'Relevé de compte Yuh',
+    csv: 'Fichier CSV',
+    script: 'Script d’importation',
+    other: 'Autre',
+  },
+  problems: {
+    'missing-table': 'le tableau des transactions manque',
+    'missing-field': 'un champ manque',
+    'unexpected-item': 'du texte hors des colonnes',
+    'unexpected-line': 'une ligne inattendue',
+    'unreadable-amount': 'un montant illisible',
+    'unreadable-date': 'une date illisible',
+    'entry-without-amount': 'une écriture sans montant',
+    'entry-with-several-amounts': 'une écriture avec plusieurs montants',
+    'malformed-entry': 'une écriture qui ne correspond pas à son type',
+    'entry-outside-period': 'une écriture hors de la période du relevé',
+    'invalid-reference': 'une référence dont le contrôle échoue',
+    'inconsistent-document': 'des parties du relevé qui ne concordent pas',
+  },
+  onPage: ', page {{page}}',
+  dateControls: {
+    'purchase-after-booking': 'postérieure à',
+    'purchase-long-before-booking': 'antérieure de plus d’un an à',
+  },
+  controls: {
+    'debits-total': 'le total des débits',
+    'credits-total': 'le total des crédits',
+    'closing-balance': 'le solde final',
+    'running-balance': 'un solde intermédiaire',
+    'summary-opening-balance': 'le solde initial du récapitulatif',
+    'summary-debits': 'les débits du récapitulatif',
+    'summary-credits': 'les crédits du récapitulatif',
+    'summary-closing-balance': 'le solde final du récapitulatif',
+    'final-balance': 'le solde final',
+    'card-purchase-amount': 'le montant d’un achat par carte',
+    'foreign-currency-amount': 'un montant en monnaie étrangère',
+    'card-page-subtotal': 'le sous-total d’une carte sur la page',
+    'bill-page-subtotal': 'le sous-total de la facture sur la page',
+    'card-carried-forward': 'le report d’une carte',
+    'bill-carried-forward': 'le report de la facture',
+    'card-total': 'le total d’une carte',
+    'bill-total': 'le total de la facture',
+    'amount-due': 'le montant dû',
+    'payment-slip-amount': 'le montant du bulletin de versement',
+    conversion: 'une conversion de devise',
+    'conversion-fee': 'des frais de conversion',
+    'converted-plus-fee': 'un montant converti plus ses frais',
+    'chf-amount-plus-fee': 'un montant en CHF plus ses frais',
+    'opening-row': 'la ligne du solde initial',
+    'closing-row': 'la ligne du solde final',
+    'summary-currency-closing-balance': 'le solde final d’une devise',
+    'securities-amount': 'le montant d’un achat de titres',
+    'securities-quantity': 'une quantité de titres',
+  },
+  recognised: {
+    title: 'Relevé lu',
+    titleCsv: 'Fichier lu',
+    period: '{{source}}, {{from}} – {{to}}',
+    bill: '{{source}} du {{date}}',
+    billDue: '{{source}} du {{date}}, payable le {{due}}',
+    entries_one: '{{count}} écriture',
+    entries_other: '{{count}} écritures',
+    addsUp_one: 'Le relevé tombe juste : {{count}} contrôle vérifié.',
+    addsUp_other: 'Le relevé tombe juste : {{count}} contrôles vérifiés.',
+    notSentTitle: 'Non envoyé',
+    notSent: {
+      'zero-amount': 'L’écriture {{n}} est de 0.00 : il n’y a rien à importer.',
+      'amount-too-large':
+        "L'écriture {{n}} dépasse CHF 10'000'000, plus qu'une transaction ne peut.",
+    },
+    adjustmentsTitle: 'Raccourci pour tenir',
+    adjustments: {
+      description: 'Écriture {{n}} : la description a été coupée à 500 caractères.',
+      merchant: 'Écriture {{n}} : le nom du commerçant a été coupé à 200 caractères.',
+      bank_transaction_id:
+        'Écriture {{n}} : la référence de la banque est trop longue et a été laissée de côté.',
+      details: 'Écriture {{n}} : certains détails ont été laissés de côté ({{keys}}).',
+    },
+  },
+  csv: {
+    title: 'Associer les colonnes',
+    help: 'Indiquez quelle colonne contient quoi. L’aperçu ci-dessous montre les premières lignes exactement telles qu’elles seront envoyées.',
+    separator: 'Colonnes séparées par',
+    separators: { ';': 'Point-virgule (;)', ',': 'Virgule (,)', '\t': 'Tabulation' },
+    separatorUnknown: 'Le séparateur n’a pas pu être reconnu : choisissez-le.',
+    hasHeader: 'La première ligne contient les noms des colonnes',
+    firstLineData:
+      'La première ligne contient une date et un montant : elle est lue comme une ligne de données, pas comme les noms des colonnes. Cochez la case ci-dessus si elle contient bien les noms.',
+    cleaned_one:
+      'La ligne {{lines}} contenait un caractère de contrôle invisible (par exemple un NUL). Il a été retiré sur cet appareil avant tout envoi.',
+    cleaned_other:
+      'Les lignes {{lines}} contenaient des caractères de contrôle invisibles (par exemple un NUL). Ils ont été retirés sur cet appareil avant tout envoi.',
+    column: 'Colonne {{n}}',
+    columnNamed: 'Colonne {{n}} : {{name}}',
+    none: 'Aucune',
+    date: 'Date',
+    dateFormat: 'Format de date',
+    dateFormatAmbiguous:
+      'Les dates peuvent se lire de plusieurs façons (03.04 peut être le 3 avril ou le 4 mars) : choisissez le format.',
+    dateFormatNone:
+      'Aucun format ne lit toutes les dates de cette colonne : vérifiez la colonne, ou choisissez-en un.',
+    dateFormatChoose: 'Choisir…',
+    dateFormats: {
+      dmyDot: 'JJ.MM.AAAA',
+      dmyShortDot: 'JJ.MM.AA',
+      mdyDot: 'MM.JJ.AAAA',
+      dmySlash: 'JJ/MM/AAAA',
+      mdySlash: 'MM/JJ/AAAA',
+      ymdDash: 'AAAA-MM-JJ',
+      dmyDash: 'JJ-MM-AAAA',
+    },
+    amountMode: 'Montants',
+    amountSigned: 'Une colonne, avec un signe',
+    amountSplit: 'Deux colonnes : sorties et entrées',
+    amount: 'Montant',
+    negativeMeans: 'Un montant négatif est',
+    negativeDebit: 'une sortie (une dépense)',
+    negativeCredit: 'une entrée',
+    debit: 'Sorties',
+    credit: 'Entrées',
+    decimal: 'Décimales après',
+    decimalPoint: "un point (1'234.50)",
+    decimalComma: 'une virgule (1 234,50)',
+    decimalLine: 'ligne {{line}} « {{text}} »',
+    decimalFromPoint: 'Lu dans les montants : décimales après un point ({{lines}}).',
+    decimalFromComma: 'Lu dans les montants : décimales après une virgule ({{lines}}).',
+    decimalUndecided:
+      "Les montants ne disent pas quel signe sépare les décimales : {{lines}} : ces montants peuvent se lire en milliers ou en décimales (1.200 vaut 1'200 ou 1.20). Choisissez-le : rien n’est supposé.",
+    decimalContradictory:
+      'Les montants se contredisent : certains ont des décimales après un point ({{point}}), d’autres après une virgule ({{comma}}). Ce fichier ne peut pas être lu sans risque : vérifiez-le ou exportez-le à nouveau.',
+    description: 'Description',
+    merchant: 'Commerçant (facultatif)',
+    bankId: 'Référence bancaire (facultatif)',
+    remembered:
+      'L’association utilisée la dernière fois pour ce genre de fichier dans ce budget a été reprise.',
+    sample: 'Aperçu : les premières lignes telles qu’elles seront envoyées',
+    sampleEmpty: 'Associez la date et le montant pour voir les lignes.',
+    sampleNeedsDecimal: 'Choisissez le signe des décimales ci-dessus pour voir les lignes.',
+    sampleDirection: { debit: 'sortie', credit: 'entrée' },
+    problemsTitle_one: '{{count}} ligne ne peut pas être lue et ne sera pas envoyée',
+    problemsTitle_other: '{{count}} lignes ne peuvent pas être lues et ne seront pas envoyées',
+    problemLine: 'Ligne {{line}} : {{problem}}',
+    problems: {
+      'too-few-cells': 'elle a moins de colonnes que l’association n’en demande',
+      'date-missing': 'pas de date',
+      'date-unreadable': 'la date ne se lit pas dans le format choisi',
+      'amount-missing': 'pas de montant',
+      'amount-unreadable': 'le montant ne peut pas être lu',
+      'amount-too-precise': 'le montant a plus de deux décimales',
+      'amount-zero': 'le montant est de 0.00',
+      'amount-both': 'la sortie et l’entrée sont toutes deux remplies',
+      'amount-too-large': "le montant dépasse CHF 10'000'000",
+    },
+    adjustedTitle: 'Raccourci pour tenir',
+    adjusted: {
+      'description-truncated': 'Ligne {{line}} : la description a été coupée à 500 caractères.',
+      'merchant-truncated': 'Ligne {{line}} : le commerçant a été coupé à 200 caractères.',
+      'bank-id-dropped':
+        'Ligne {{line}} : la référence bancaire est trop longue et a été laissée de côté.',
+    },
+    unclosedQuote:
+      'Une cellule entre guillemets qui commence à la ligne {{line}} n’est jamais fermée : rien n’est lu à partir de cette ligne. Vérifiez le fichier.',
+    tooMany_one:
+      'Ce fichier a {{count}} ligne : un import en prend au plus {{max}}. Rien n’a été envoyé. Coupez le fichier en parties d’au plus {{max}} lignes et importez chacune.',
+    tooMany_other:
+      'Ce fichier a {{count}} lignes : un import en prend au plus {{max}}. Rien n’a été envoyé. Coupez le fichier en parties d’au plus {{max}} lignes et importez chacune.',
+    noRows: 'Aucune ligne de ce fichier ne peut être importée avec cette association.',
+    continue_one: 'Vérifier {{count}} ligne',
+    continue_other: 'Vérifier {{count}} lignes',
+    back: 'Choisir un autre fichier',
+  },
+  preview: {
+    title: 'Vérifier avant d’importer',
+    help: 'Voici ce que votre budget fera de chaque ligne. Modifiez ce que vous voulez : chaque changement est revérifié par le budget.',
+    checking: 'Vérification…',
+    checkFailed: 'Les lignes n’ont pas pu être vérifiées : {{reason}}',
+    checkBusy:
+      'Le budget est occupé et a mis trop de temps à vérifier ces lignes (rien n’a été changé). Il a été redemandé ; vérifiez à nouveau dans un moment.',
+    retry: 'Vérifier à nouveau',
+    checkLost:
+      'Les vérifications des parties précédentes n’étaient plus conservées (une vérification est gardée un jour, et celles d’autres relevés de ce budget peuvent la remplacer) ; les parties ont donc été vérifiées à nouveau, plusieurs fois. Vérifiez à nouveau dans un moment.',
+    summary: {
+      checkingPart: 'Vérification de la partie {{part}} sur {{parts}}…',
+      onePart: 'de la partie {{part}}',
+      partRange: 'des parties {{from}} à {{to}}',
+      writtenMeanwhile_one:
+        'La partie {{parts}} a été enregistrée entre-temps, par un autre appareil ou onglet : ses lignes montrent ce qu’elle a enregistré, et les chiffres ci-dessus ne la comptent pas. Elle est renvoyée telle quelle et n’enregistre rien.',
+      writtenMeanwhile_other:
+        'Les parties {{parts}} ont été enregistrées entre-temps, par un autre appareil ou onglet : leurs lignes montrent ce qu’elles ont enregistré, et les chiffres ci-dessus ne les comptent pas. Elles sont renvoyées telles quelles et n’enregistrent rien.',
+      expiredMeanwhile_one:
+        'La partie {{parts}} a été enregistrée, mais sa réponse n’est plus conservée (les réponses sont gardées 7 jours, et seulement les 50 plus récentes) : ses lignes ne peuvent pas être montrées, et elle n’est pas importée à nouveau. Ce qu’elle a importé figure dans l’historique des importations.',
+      expiredMeanwhile_other:
+        'Les parties {{parts}} ont été enregistrées, mais leurs réponses ne sont plus conservées (les réponses sont gardées 7 jours, et seulement les 50 plus récentes) : leurs lignes ne peuvent pas être montrées, et elles ne sont pas importées à nouveau. Ce qu’elles ont importé figure dans l’historique des importations.',
+      allRecorded:
+        'Toutes les parties ont été enregistrées par l’importation interrompue. Les renvoyer n’enregistre rien et montre ce qu’elles ont enregistré.',
+      kinds: {
+        expense_one: '{{count}} dépense, {{amount}} sortis',
+        expense_other: '{{count}} dépenses, {{amount}} sortis',
+        refund_one: '{{count}} remboursement, {{amount}} entrés',
+        refund_other: '{{count}} remboursements, {{amount}} entrés',
+        extra_income_one: '{{count}} en revenu supplémentaire, {{amount}} entrés',
+        extra_income_other: '{{count}} en revenu supplémentaire, {{amount}} entrés',
+      },
+      room_one: 'Elles tiennent : le budget peut encore recevoir {{count}} transaction.',
+      room_other: 'Elles tiennent : le budget peut encore recevoir {{count}} transactions.',
+      noRoom_one:
+        'Cela ne tient pas : {{count}} ligne est à importer, et le budget ne peut plus recevoir que {{room}} transactions. Ignorez des lignes, ou supprimez des transactions, avant d’importer.',
+      noRoom_other:
+        'Cela ne tient pas : {{count}} lignes sont à importer, et le budget ne peut plus recevoir que {{room}} transactions. Ignorez des lignes, ou supprimez des transactions, avant d’importer.',
+      recordedNote_one:
+        'Ces chiffres sont ceux {{range}}. La partie 1, enregistrée par l’importation interrompue, est renvoyée telle quelle : elle n’enregistre rien, répond ce qu’elle a enregistré, et le résultat la compte.',
+      recordedNote_other:
+        'Ces chiffres sont ceux {{range}}. Les parties 1 à {{count}}, enregistrées par l’importation interrompue, sont renvoyées telles quelles : elles n’enregistrent rien, répondent ce qu’elles ont enregistré, et le résultat les compte.',
+    },
+    counts: {
+      import_one: '{{count}} à importer',
+      import_other: '{{count}} à importer',
+      skip_duplicate_one: '{{count}} déjà dans le budget (doublon)',
+      skip_duplicate_other: '{{count}} déjà dans le budget (doublons)',
+      skip_flagged_one: '{{count}} ignorée car signalée',
+      skip_flagged_other: '{{count}} ignorées car signalées',
+      skip_matched_one: '{{count}} déjà saisie',
+      skip_matched_other: '{{count}} déjà saisies',
+      confirm_match_one: '{{count}} confirme un prélèvement d’abonnement',
+      confirm_match_other: '{{count}} confirment des prélèvements d’abonnement',
+      skip_chosen_one: '{{count}} ignorée par vous',
+      skip_chosen_other: '{{count}} ignorées par vous',
+      invalid_one: '{{count}} ne peut pas être importée',
+      invalid_other: '{{count}} ne peuvent pas être importées',
+    },
+    filter: 'Afficher',
+    filters: {
+      all: 'Toutes les lignes',
+      import: 'À importer',
+      skipped: 'Ignorées',
+      invalid: 'Impossibles à importer',
+    },
+    rowsLabel: 'Lignes du relevé',
+    entry: 'Écriture {{n}}',
+    line: 'Ligne {{n}}',
+    noDescription: 'Sans description',
+    money: { debit: 'sortie', credit: 'entrée' },
+    select: 'Sélectionner {{row}}',
+    selectAllCount_one: 'Sélectionner la {{count}} ligne de ce filtre',
+    selectAllCount_other: 'Sélectionner les {{count}} lignes de ce filtre',
+    skipToImport: 'Passer les lignes : aller au bouton Importer',
+    recorded_one:
+      'La partie {{count}} a déjà été enregistrée par l’importation interrompue : ses lignes sont verrouillées. Renvoyée, elle n’enregistre rien ; le résultat dira ce qu’elles sont devenues.',
+    recorded_other:
+      'Les parties 1 à {{count}} ont déjà été enregistrées par l’importation interrompue : leurs lignes sont verrouillées. Renvoyées, elles n’enregistrent rien ; le résultat dira ce qu’elles sont devenues.',
+    recordedRow:
+      'Déjà enregistrée dans la partie {{part}} par l’importation interrompue : elle ne peut plus être changée.',
+    selected_one: '{{count}} ligne sélectionnée',
+    selected_other: '{{count}} lignes sélectionnées',
+    bulk: {
+      import: 'Importer',
+      skip: 'Ignorer',
+      refund: 'Comme remboursements',
+      extra: 'Comme revenus supplémentaires',
+      category: 'Catégorie…',
+      clear: 'Vider la sélection',
+      label: 'Modifier les lignes sélectionnées',
+    },
+    showMore: 'Afficher {{count}} lignes de plus',
+    actionChoice: 'Importer ou ignorer',
+    choose: { import: 'Importer', skip: 'Ignorer' },
+    actions: {
+      import: 'À importer',
+      skip_duplicate: 'Ignorée : déjà dans le budget',
+      skip_flagged: 'Ignorée : {{flag}}',
+      skip_matched: 'Ignorée : déjà saisie',
+      confirm_match: 'Non importée : confirme le prélèvement de l’abonnement',
+      skip_chosen: 'Ignorée par vous',
+      invalid: 'Impossible à importer : {{reason}}',
+    },
+    duplicateOf: 'Identique à {{transaction}}.',
+    matchOf: 'Correspond à {{transaction}}.',
+    matchIsCharge:
+      'C’est un prélèvement d’abonnement en attente de confirmation : importer ce relevé le confirme au lieu d’ajouter la ligne.',
+    importAnywayHint: 'Choisissez « Importer » pour l’ajouter quand même.',
+    existing: '{{date}}, {{amount}}, « {{description}} »',
+    existingNoDescription: '{{date}}, {{amount}}',
+    existingUnknown: 'une transaction de ce budget',
+    flags: {
+      card_bill_payment: 'paiement de la facture de carte',
+      own_transfer: 'virement entre vos propres comptes',
+      transfer_to_person: 'virement à une personne',
+      salary: 'salaire',
+    },
+    flagNote: {
+      card_bill_payment:
+        'Un paiement de facture de carte : ses achats arrivent avec la facture de carte, il compterait deux fois.',
+      own_transfer: 'De l’argent déplacé entre vos propres comptes : pas une dépense.',
+      transfer_to_person:
+        'De l’argent envoyé à une personne : importé comme dépense, sauf si vous l’ignorez.',
+      salary: 'Un salaire compte déjà comme revenu dans le budget.',
+    },
+    remembered: 'La dernière fois, vous avez choisi : {{choice}}.',
+    rememberedChoice: { import: 'importer', skip: 'ignorer' },
+    salary: 'Le salaire prévu est de {{planned}} ; cette ligne est de {{amount}}.',
+    kind: 'Comme',
+    kinds: { expense: 'Dépense', refund: 'Remboursement', extra_income: 'Revenu supplémentaire' },
+    category: 'Catégorie',
+    categoryChoose: 'Catégorie : {{name}}',
+    categoryFromRule: '{{name}} (d’après une règle de commerçant)',
+    categoryChosen: '{{name}} (votre choix)',
+    toCategorise: 'À catégoriser',
+    toCategoriseNew: 'À catégoriser (créée par cette importation)',
+    noCategory: 'Pas de catégorie (revenu supplémentaire)',
+    categoryDialog: {
+      title: 'Choisir une catégorie',
+      titleMany_one: 'Choisir une catégorie pour {{count}} ligne',
+      titleMany_other: 'Choisir une catégorie pour {{count}} lignes',
+      help: 'Les catégories en usage le {{date}}. Sans catégorie, la ligne attend dans « À catégoriser » pour la revue.',
+      helpMany:
+        'Les catégories en usage le {{date}}, la date sélectionnée la plus récente. Une ligne datée d’un moment où la catégorie n’était pas en usage est refusée, et le dit.',
+      leave: 'La laisser à catégoriser plus tard',
+      none: 'Ce budget n’a encore aucune catégorie en usage à cette date.',
+      apply: 'Choisir',
+    },
+    details: 'Plus d’informations du relevé',
+    detailKeys: {
+      purchase_time: 'Heure',
+      booking_date: 'Comptabilisé',
+      value_date: 'Date de valeur',
+      card: 'Carte',
+      original: 'Montant d’origine',
+      exchange_rate: 'Cours de change',
+      fee: 'Frais',
+      merchant_category: 'Catégorie du commerçant',
+      security: 'Titre',
+      location: 'Lieu',
+      merchant: 'Commerçant',
+      bank_transaction_id: 'Référence bancaire',
+    },
+    reasons: {
+      invalid_row: 'la ligne n’a pas la forme attendue',
+      invalid_date: 'la date n’est pas valable',
+      invalid_amount: 'le montant n’est pas valable',
+      invalid_direction: 'ce n’est ni une sortie ni une entrée',
+      invalid_description: 'la description est trop longue',
+      invalid_merchant: 'le commerçant est trop long',
+      invalid_bank_transaction_id: 'la référence bancaire est trop longue',
+      invalid_hint: 'son type n’est pas connu',
+      invalid_details: 'ses détails ne sont pas valables',
+      invalid_kind: 'ce genre ne correspond pas au sens',
+      invalid_category: 'un revenu supplémentaire n’a pas de catégorie',
+      invalid_action: 'le choix n’est pas valable',
+      choice_not_allowed: 'aucun choix n’est possible ici',
+      date_outside_periods: 'sa date est avant la première période du budget ou après aujourd’hui',
+      category_not_found: 'la catégorie n’existe plus',
+      category_is_group: 'la catégorie a des sous-catégories : choisissez-en une',
+      category_not_in_force: 'la catégorie n’était pas en usage à cette date',
+      category_to_categorise: '« À catégoriser » ne peut pas être choisie',
+      unknown: 'le budget l’a refusée',
+    },
+    importButton_one: 'Importer {{count}} ligne',
+    importButton_other: 'Importer {{count}} lignes',
+    importNothing: 'Rien à importer',
+    importRecorded: 'Terminer l’importation',
+    importNoRoom: 'Trop de lignes pour la place restante',
+    importWait: 'Attendez la fin de la vérification',
+    cancel: 'Recommencer',
+    cancelConfirm:
+      'Abandonner ce relevé ? Vos choix pour ses lignes sont perdus ; rien n’a été importé.',
+    parts_one: 'Envoyé en {{count}} partie.',
+    parts_other: 'Envoyé en {{count}} parties de 500 lignes au plus.',
+    partsNote:
+      'Elles sont vérifiées dans l’ordre, chacune avec ce que les parties précédentes prennent (doublons, correspondances) et les choix qu’elles envoient : les chiffres ci-dessus sont ceux de tout le relevé.',
+    ended:
+      'Ce budget a pris fin : les lignes datées après son dernier jour ne peuvent pas être importées.',
+    toCategoriseName: 'À catégoriser',
+  },
+  run: {
+    title: 'Importation…',
+    progress: 'Partie {{done}} sur {{parts}} enregistrée',
+    progressLabel: 'Avancement de l’importation',
+    catchingUp:
+      'Le budget rattrape le temps écoulé depuis votre dernière visite ; l’importation continue juste après.',
+    resent_one:
+      'Une réponse s’est perdue en route : cette partie a été renvoyée ({{count}} fois). Elle n’est enregistrée qu’une fois.',
+    resent_other:
+      'Des réponses se sont perdues en route : des parties ont été renvoyées ({{count}} fois). Chacune n’est enregistrée qu’une fois.',
+    keepOpen: 'Gardez cette page ouverte jusqu’à la fin.',
+    busy_one:
+      'Le budget était occupé et n’a pas répondu à temps : la partie {{part}} a été renvoyée ({{count}} fois). Elle n’est enregistrée qu’une fois.',
+    busy_other:
+      'Le budget était occupé et n’a pas répondu à temps : la partie {{part}} a été renvoyée ({{count}} fois). Elle n’est enregistrée qu’une fois.',
+    stopped: {
+      title: 'L’importation s’est arrêtée',
+      limit_one:
+        'La partie {{part}} a été refusée : le budget a de la place pour {{fits}} transaction de plus, pas pour toutes les lignes de cette partie. Rien de cette partie n’a été écrit.',
+      limit_other:
+        'La partie {{part}} a été refusée : le budget a de la place pour {{fits}} transactions de plus, pas pour toutes les lignes de cette partie. Rien de cette partie n’a été écrit.',
+      limitUnknown:
+        "La partie {{part}} a été refusée : le budget contient 50'000 transactions, le maximum. Rien de cette partie n'a été écrit.",
+      network:
+        'La partie {{part}} n’a pas pu être envoyée : la connexion échoue sans cesse. Vérifiez-la et continuez : ce qui a déjà été enregistré ne l’est pas deux fois.',
+      busy: 'La partie {{part}} n’a pas pu être enregistrée : le budget est resté occupé et n’a pas répondu à temps. Rien de cette partie n’a été écrit. Continuez dans un moment : ce qui a déjà été enregistré ne l’est pas deux fois.',
+      other: 'La partie {{part}} a été refusée : {{reason}}',
+      storage: {
+        imports_per_day:
+          'La partie {{part}} n’a pas été importée : les membres de ce budget ont commencé 200 nouvelles importations au cours des dernières 24 heures, le maximum. Rien de cette partie n’a été écrit. La limite porte sur 24 heures glissantes : une nouvelle importation peut commencer 24 heures après la plus ancienne de ces 200. Rouvrez alors le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+        rows_per_day:
+          "La partie {{part}} n’a pas été importée : ce budget a reçu 20'000 lignes importées au cours des dernières 24 heures, le maximum. Rien de cette partie n’a été écrit. La limite porte sur 24 heures glissantes : des lignes peuvent de nouveau être importées à mesure que les plus anciennes dépassent 24 heures. Réessayez plus tard avec le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.",
+        imports_kept:
+          "La partie {{part}} n’a pas été importée : ce budget conserve au plus 2'000 importations, et chacune contient encore des transactions ou des lignes ignorées. Rien de cette partie n’a été écrit. Cela ne se libère pas avec le temps : annulez une ancienne importation dans l’historique, et dès qu’elle ne contient plus ni transaction ni ligne ignorée, sa place est libre. Rouvrez ensuite le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.",
+        unknown:
+          'La partie {{part}} n’a pas été importée : ce budget a atteint une de ses limites d’importation. Rien de cette partie n’a été écrit. Réessayez plus tard avec le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+      },
+      expired:
+        'La partie {{part}} avait déjà été enregistrée, mais le budget ne garde plus sa réponse (les réponses sont gardées 7 jours, les 50 plus récentes). Elle n’est pas importée à nouveau.',
+      expiredWhat:
+        'Ce qu’elle a importé et ignoré se trouve dans l’historique, sous cette importation. Les parties qui la suivent peuvent encore être envoyées.',
+      continuePast: 'Envoyer les parties après la partie {{part}}',
+      tryAgain: 'Réessayer',
+      before_one: 'La partie qui la précède est enregistrée.',
+      before_other: 'Les {{count}} parties qui la précèdent sont enregistrées.',
+      continue: 'Continuer l’importation',
+      finish: 'Voir ce qui a été importé',
+    },
+  },
+  pending: {
+    title: 'Une importation a été interrompue',
+    body: 'Une importation ({{source}}) commencée le {{date}} s’est arrêtée après la partie {{confirmed}} sur {{parts}}. Ouvrez à nouveau le même fichier pour la terminer : les parties déjà enregistrées ne le sont pas deux fois.',
+    stoppedBy: {
+      storage:
+        'Elle s’est arrêtée à une des limites d’importation du budget (nouvelles importations ou lignes en 24 heures, ou importations conservées). Ouvrez le même fichier plus tard pour la terminer : ce qui a été enregistré ne l’est pas deux fois.',
+      expired:
+        'Elle s’est arrêtée à une partie enregistrée dont la réponse n’est plus conservée (les réponses sont gardées 7 jours, et seulement les 50 plus récentes). Ouvrez le même fichier pour envoyer les parties suivantes ; ce que cette partie a importé se trouve dans l’historique.',
+    },
+    resumed:
+      'C’est le relevé de l’importation interrompue : elle continue sous la même importation, et les parties déjà enregistrées ne le sont pas deux fois.',
+    forget: 'L’oublier',
+  },
+  result: {
+    title: 'Importation terminée',
+    imported_one: '{{count}} transaction importée',
+    imported_other: '{{count}} transactions importées',
+    importedHelp: 'Elles comptent maintenant dans vos totaux et attendent votre revue.',
+    expired_one:
+      'La partie {{parts}} avait été enregistrée auparavant et sa réponse n’est plus conservée : ses lignes ne sont pas comptées ici. Voyez cette importation dans l’historique.',
+    expired_other:
+      'Les parties {{parts}} avaient été enregistrées auparavant et leurs réponses ne sont plus conservées : leurs lignes ne sont pas comptées ici. Voyez cette importation dans l’historique.',
+    anyway_one: 'Dont {{count}} importée quand même ensuite.',
+    anyway_other: 'Dont {{count}} importées quand même ensuite.',
+    undoneTitle: 'Cette importation a été annulée',
+    undoneHelp:
+      'Ses transactions encore à passer en revue et liées à rien ont été supprimées : elles ne comptent plus dans vos totaux. Ce qui est resté est indiqué plus bas.',
+    differedWhy:
+      'Cela arrive quand les mêmes transactions ont été rapprochées entre-temps : par une partie précédente de cette importation, par une autre importation (la vôtre ou celle d’un autre membre) ou par un changement du budget.',
+    differedSkipped_one: '{{count}} d’entre elles n’a pas été importée : elle figure plus bas.',
+    differedSkipped_other:
+      '{{count}} d’entre elles n’ont pas été importées : elles figurent plus bas.',
+    differedImported_one:
+      '{{count}} d’entre elles a été importée alors que la vérification disait de l’ignorer.',
+    differedImported_other:
+      '{{count}} d’entre elles ont été importées alors que la vérification disait de les ignorer.',
+    skipped: {
+      skip_duplicate_one: '{{count}} ignorée comme doublon',
+      skip_duplicate_other: '{{count}} ignorées comme doublons',
+      skip_flagged_one: '{{count}} ignorée car signalée',
+      skip_flagged_other: '{{count}} ignorées car signalées',
+      skip_matched_one: '{{count}} ignorée : déjà saisie',
+      skip_matched_other: '{{count}} ignorées : déjà saisies',
+      skip_chosen_one: '{{count}} ignorée par vous',
+      skip_chosen_other: '{{count}} ignorées par vous',
+      invalid_one: '{{count}} n’a pas pu être importée',
+      invalid_other: '{{count}} n’ont pas pu être importées',
+    },
+    charges_one: '{{count}} prélèvement d’abonnement confirmé par le relevé',
+    charges_other: '{{count}} prélèvements d’abonnement confirmés par le relevé',
+    differed_one: '{{count}} ligne a abouti autrement que la vérification ne l’annonçait.',
+    differed_other: '{{count}} lignes ont abouti autrement que la vérification ne l’annonçait.',
+    review: 'Passer en revue les transactions importées',
+    another: 'Importer un autre fichier',
+  },
+  skipped: {
+    title: 'Lignes non importées',
+    none: 'Toutes les lignes ont été importées.',
+    reasons: {
+      invalid: 'Impossible à importer : {{reason}}',
+    },
+    importedAnyway: 'Importée quand même',
+    importAnyway: 'Importer quand même',
+    importAnywayFor: 'Importer quand même : {{row}}',
+    importAllAnyway: 'Importer quand même toutes les lignes ignorées',
+    importedAnywayDone_one: '{{count}} ligne importée quand même.',
+    importedAnywayDone_other: '{{count}} lignes importées quand même.',
+    importedAnywayFewer_one:
+      '{{count}} ligne importée quand même ; {{missing}} autres n’étaient plus conservées et n’ont pas pu être importées.',
+    importedAnywayFewer_other:
+      '{{count}} lignes importées quand même ; {{missing}} autres n’étaient plus conservées et n’ont pas pu être importées.',
+    gone_one:
+      "{{count}} ligne ignorée plus ancienne de cette importation n’est plus conservée (un budget garde ses 20'000 lignes ignorées les plus récentes) : elle est encore comptée, mais ne peut plus être affichée ni importée quand même.",
+    gone_other:
+      "{{count}} lignes ignorées plus anciennes de cette importation ne sont plus conservées (un budget garde ses 20'000 lignes ignorées les plus récentes) : elles sont encore comptées, mais ne peuvent plus être affichées ni importées quand même.",
+    anywayFailed: 'Les lignes n’ont pas pu être importées quand même. Réessayez.',
+    kinds: {
+      salary: 'Ignorée : un salaire déjà prévu comme revenu',
+      card_bill_payment: 'Ignorée : un paiement de facture de carte',
+      own_transfer: 'Ignorée : un virement entre vos propres comptes',
+      transfer_to_person: 'Ignorée : un virement à une personne',
+      flagged: 'Ignorée : signalée',
+      charge: 'Pas importée : elle a confirmé un prélèvement d’abonnement déjà dans le budget',
+      typed: 'Ignorée : déjà saisie à la main',
+      matched: 'Ignorée : déjà saisie',
+      duplicate: 'Déjà dans le budget',
+      chosen: 'Ignorée par vous',
+    },
+    ask: {
+      title_one: 'Importer quand même {{count}} ligne ignorée ?',
+      title_other: 'Importer quand même {{count}} lignes ignorées ?',
+      body_one: 'Cette ligne a été ignorée pour une raison :',
+      body_other: 'Ces lignes ont été ignorées pour une raison :',
+      kinds: {
+        salary_one:
+          '{{count}} salaire déjà prévu comme revenu (ajouté comme revenu supplémentaire)',
+        salary_other:
+          '{{count}} salaires déjà prévus comme revenus (ajoutés comme revenus supplémentaires)',
+        card_bill_payment_one:
+          '{{count}} paiement de facture de carte (ses achats viennent avec la facture)',
+        card_bill_payment_other:
+          '{{count}} paiements de facture de carte (leurs achats viennent avec la facture)',
+        own_transfer_one: '{{count}} virement entre vos propres comptes',
+        own_transfer_other: '{{count}} virements entre vos propres comptes',
+        transfer_to_person_one: '{{count}} virement à une personne',
+        transfer_to_person_other: '{{count}} virements à une personne',
+        flagged_one: '{{count}} ligne signalée',
+        flagged_other: '{{count}} lignes signalées',
+        charge_one: '{{count}} prélèvement d’abonnement que l’importation a déjà confirmé',
+        charge_other: '{{count}} prélèvements d’abonnement que l’importation a déjà confirmés',
+        typed_one: '{{count}} déjà saisie à la main',
+        typed_other: '{{count}} déjà saisies à la main',
+        matched_one: '{{count}} qui correspondait à une transaction déjà dans le budget',
+        matched_other: '{{count}} qui correspondaient à des transactions déjà dans le budget',
+        duplicate_one: '{{count}} déjà dans le budget (un doublon)',
+        duplicate_other: '{{count}} déjà dans le budget (des doublons)',
+        chosen_one: '{{count}} que vous avez choisi d’ignorer',
+        chosen_other: '{{count}} que vous avez choisi d’ignorer',
+      },
+      twice_one:
+        'Si elle est ce que l’importation a pensé, elle comptera deux fois dans vos totaux.',
+      twice_other:
+        'Si elles sont ce que l’importation a pensé, elles compteront deux fois dans vos totaux.',
+      gone_one:
+        "Non comptée ici : {{count}} ligne ignorée plus ancienne de cette importation, plus conservée (un budget garde les 20'000 plus récentes), qui ne peut plus être importée quand même.",
+      gone_other:
+        "Non comptées ici : {{count}} lignes ignorées plus anciennes de cette importation, plus conservées (un budget garde les 20'000 plus récentes), qui ne peuvent plus être importées quand même.",
+      confirm_one: 'L’importer quand même',
+      confirm_other: 'Importer quand même {{count}} lignes',
+    },
+    more: 'Afficher plus de lignes',
+    row: '{{date}}, {{amount}} {{direction}}',
+  },
+  undo: {
+    action: 'Annuler cette importation',
+    title: 'Annuler cette importation ?',
+    bodyUnknown:
+      'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées.',
+    body_one:
+      'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées ({{count}} est encore à passer en revue).',
+    body_other:
+      'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées ({{count}} sont encore à passer en revue).',
+    keeps:
+      'Conservées : celles déjà confirmées, celles liées à un abonnement ou à une dette, et les prélèvements d’abonnement que l’importation a confirmés (ils restent confirmés). Les choix mémorisés pour les lignes signalées restent aussi.',
+    once: 'Une importation peut être annulée une fois ; elle ne prend ensuite plus de lignes.',
+    confirm: 'Annuler l’importation',
+    done: 'Importation annulée : {{deleted}} supprimées, {{confirmed}} conservées car confirmées, {{linked}} conservées car liées, {{charges}} prélèvements restent confirmés.',
+    undone: 'Annulée le {{date}}',
+  },
+  history: {
+    quote: { open: '« ', close: ' »' },
+    title: 'Historique des importations',
+    help: 'Chaque importation de ce budget, la plus récente d’abord : qui, à partir de quoi, et ce qu’est devenue chaque ligne.',
+    empty: 'Aucune importation pour l’instant.',
+    by: 'Par',
+    byToken: 'Par le jeton',
+    byUnknown: 'Par un ancien membre',
+    byDeletedToken: 'Par un jeton d’importation, supprimé depuis',
+    tokenDeleted: ', supprimé depuis',
+    when: 'Le {{date}}',
+    period: 'Relevé du {{from}} au {{to}}',
+    rows_one: '{{count}} ligne',
+    rows_other: '{{count}} lignes',
+    toReview_one: '{{count}} encore à passer en revue',
+    toReview_other: '{{count}} encore à passer en revue',
+    details: 'Lignes non importées et annulation',
+    more: 'Afficher les importations plus anciennes',
+    breakdown: {
+      imported: 'Importées',
+      duplicate: 'Doublons',
+      flagged: 'Signalées',
+      matched: 'Déjà saisies',
+      chosen: 'Ignorées par choix',
+      invalid: 'Invalides',
+      charges: 'Prélèvements confirmés',
+    },
+  },
+  review: {
+    cardTitle: 'Transactions importées à passer en revue',
+    cardBody_one: '{{count}} transaction importée attend votre revue.',
+    cardBody_other: '{{count}} transactions importées attendent votre revue.',
+    cardLink: 'Les passer en revue',
+    filterChip: 'À passer en revue',
+    showOnly_one: 'Afficher seulement celle à passer en revue ({{count}})',
+    showOnly_other: 'Afficher seulement les {{count}} à passer en revue',
+    batchChip: 'Une importation',
+    toReview: 'À passer en revue',
+    inToCategorise: 'Catégorie à choisir',
+    confirm: 'Confirmer',
+    confirmFor: 'Confirmer {{row}}',
+    confirmed: 'Confirmée.',
+    confirmAll: 'Confirmer toutes celles à passer en revue',
+    confirmBatch: 'Confirmer toute cette importation',
+    confirmAllDone_one: '{{count}} confirmée.',
+    confirmAllDone_other: '{{count}} confirmées.',
+    leftToCategorise_one: '{{count}} attend encore une catégorie et reste à passer en revue.',
+    leftToCategorise_other:
+      '{{count}} attendent encore une catégorie et restent à passer en revue.',
+    cannotConfirm: 'Choisissez d’abord une catégorie, puis confirmez-la.',
+    chooseCategory: 'Choisir une catégorie',
+    categoryNow: 'Catégorie : {{name}}',
+    categoryFor: 'Catégorie de {{row}} : en choisir une l’enregistre et confirme la transaction',
+    categorisedConfirmed: 'Catégorie enregistrée et transaction confirmée.',
+    categorisedNotConfirmed:
+      'La catégorie a été enregistrée, mais la transaction n’a pas été confirmée : {{reason}} Elle reste à vérifier.',
+    bulk: {
+      title: 'Une catégorie pour plusieurs',
+      selectAll_one: 'Sélectionner celle affichée ({{count}})',
+      selectAll_other: 'Sélectionner les {{count}} affichées',
+      selected_one: '{{count}} sélectionnée',
+      selected_other: '{{count}} sélectionnées',
+      selectRow: 'Sélectionner {{row}}',
+      category: 'Catégorie des transactions sélectionnées',
+      apply_one: 'Attribuer la catégorie et confirmer ({{count}})',
+      apply_other: 'Attribuer la catégorie et confirmer ({{count}})',
+      running: 'Enregistrement {{done}} sur {{count}}…',
+      help: 'Chaque transaction sélectionnée reçoit la catégorie et est confirmée, l’une après l’autre. La première refusée arrête la suite : rien n’est changé après elle.',
+      allDone_one: '{{count}} enregistrée et confirmée.',
+      allDone_other: '{{count}} enregistrées et confirmées.',
+      partial_one: '{{saved}} sur {{count}} enregistrée et confirmée',
+      partial_other: '{{saved}} sur {{count}} enregistrées et confirmées',
+      stopped: 'Arrêt à « {{row}} » : {{reason}}',
+      stoppedConfirm:
+        'Arrêt à « {{row}} » : sa catégorie a été enregistrée, mais elle n’a pas été confirmée : {{reason}}',
+      notSaved_one: '{{count}} non enregistrée ni confirmée :',
+      notSaved_other: '{{count}} non enregistrées ni confirmées :',
+      stillSelected:
+        'Elles restent sélectionnées : choisissez une autre catégorie, ou corrigez celle qui a été refusée, puis réessayez.',
+    },
+    imported: 'Importée depuis : {{source}}',
+    rule: {
+      title: 'Toujours mettre ce commerçant dans cette catégorie ?',
+      tooLong:
+        'Le texte de ce commerçant est trop long pour devenir une règle (100 caractères au plus une fois mis en forme). Rien n’a été créé.',
+      body: 'Les prochaines importations mettront « {{key}} » dans {{category}}.',
+      alsoMove_one:
+        'Déplacer aussi l’autre transaction ({{count}}) qui l’attend dans « À catégoriser ».',
+      alsoMove_other:
+        'Déplacer aussi les {{count}} autres transactions qui l’attendent dans « À catégoriser ».',
+      create: 'Toujours',
+      dismiss: 'Pas maintenant',
+      created: 'Règle enregistrée pour « {{key}} ».',
+      createdMoved_one:
+        'Règle enregistrée pour « {{key}} » ; {{count}} autre transaction déplacée.',
+      createdMoved_other:
+        'Règle enregistrée pour « {{key}} » ; {{count}} autres transactions déplacées.',
+    },
+  },
+  toCategorise: {
+    badge: 'Import',
+    mark: 'Là où les transactions importées attendent une catégorie',
+    restrictions:
+      'C’est là que les transactions importées attendent que vous leur donniez une catégorie. Elle peut être renommée, mais ne prend ni montant prévu ni sous-catégorie, et ne peut pas être supprimée tant qu’elle contient des transactions.',
+    noPlanShort: 'Pas de prévu',
+    cannotEnd: 'Pas tant qu’elle contient des transactions : donnez-leur d’abord une catégorie.',
+    errors: {
+      expectation:
+        '« À catégoriser » ne prend pas de montant prévu : elle ne contient que des importations en attente de catégorie.',
+      subcategory: '« À catégoriser » ne prend pas de sous-catégorie.',
+      ending:
+        '« À catégoriser » ne peut pas être supprimée tant qu’elle contient des transactions : donnez-leur d’abord une catégorie.',
+      rule: 'Une règle de commerçant ne peut pas mettre de transactions dans « À catégoriser » : choisissez une vraie catégorie.',
+      transaction:
+        'Une transaction saisie ne peut pas aller dans « À catégoriser » : choisissez une catégorie.',
+      subscription:
+        'Un abonnement ne peut pas utiliser « À catégoriser » : choisissez une catégorie.',
+      debt: 'Une dette ne peut pas utiliser « À catégoriser » : choisissez une catégorie.',
+      confirm:
+        'Cette transaction est encore dans « À catégoriser » : donnez-lui une catégorie, puis confirmez-la.',
+    },
+  },
+  tokens: {
+    title: 'Jetons d’importation',
+    help: 'Un jeton permet à un programme de confiance d’ajouter des transactions à ce budget pour vous, par exemple un assistant qui lit vos relevés bancaires. Il ne peut qu’ajouter des transactions, qui attendent ensuite votre vérification : il ne peut rien lire, modifier ni supprimer. Créez-en un pour chaque usage et révoquez-le une fois terminé.',
+    create: 'Créer un jeton',
+    createTitle: 'Créer un jeton d’importation',
+    name: 'Nom',
+    namePlaceholder: 'Session Claude, novembre',
+    expires: 'Valable (jours)',
+    expiresHelp: 'De 1 à {{max}} jours ; {{default}} par défaut.',
+    createButton: 'Créer',
+    secretTitle: 'Votre nouveau jeton',
+    secretOnce: 'Copiez-le maintenant : il n’est affiché que cette fois et ne pourra plus l’être.',
+    secretWhere:
+      'Donnez-le au programme comme l’indiquent ses instructions. Le script d’importation le lit dans {{name}}, dans l’environnement où il s’exécute.',
+    secretNever: 'Ne le collez jamais dans une conversation : ce qui y est tapé est conservé.',
+    secretLabel: 'Jeton',
+    copy: 'Copier le jeton',
+    copied: 'Copié.',
+    copyFailed: 'Impossible de copier : sélectionnez le texte et copiez-le.',
+    leaveAsk:
+      'Fermer sans le secret ? Il n’est plus affiché ensuite : si vous ne l’avez pas copié, révoquez ce jeton et créez-en un autre.',
+    leaveCopied: 'Je l’ai copié : fermer',
+    leaveBack: 'Revenir au secret',
+    done: 'Je l’ai copié',
+    list: 'Jetons de ce budget',
+    empty: 'Aucun jeton pour l’instant.',
+    createdBy: 'Créé par {{name}} le {{date}}',
+    createdByUnknown: 'Créé le {{date}} par un ancien membre',
+    lastUsed: 'Dernière utilisation le {{date}}',
+    neverUsed: 'Jamais utilisé',
+    expiresOn: 'Valable jusqu’au {{date}}',
+    expiredOn: 'Expiré le {{date}}',
+    revokedOn: 'Révoqué le {{date}}',
+    state: { active: 'Actif', revoked: 'Révoqué', expired: 'Expiré', stopped: 'Arrêté' },
+    stoppedHelp: 'La personne qui l’a créé n’est plus membre : il ne fonctionne plus.',
+    revoke: 'Révoquer',
+    revokeFor: 'Révoquer {{name}}',
+    revokeTitle: 'Révoquer « {{name}} » ?',
+    revokeBody:
+      'Le jeton s’arrête aussitôt et définitivement : une importation en cours se termine, la suivante est refusée. Ce qu’il a importé reste.',
+    revoked: 'Jeton révoqué.',
+    remove: 'Supprimer',
+    removeFor: 'Supprimer {{name}}',
+    removeTitle: 'Supprimer « {{name}} » ?',
+    removeBody: 'Le jeton disparaît de cette liste ; ses importations gardent son nom.',
+    removed: 'Jeton supprimé.',
+    limit: 'Un budget peut avoir 10 jetons encore utilisables.',
+    lifecycle:
+      'Un jeton n’est affiché qu’une fois, à sa création. Pour en arrêter un, choisissez Révoquer à côté de lui ci-dessous : il s’arrête aussitôt, et ce qu’il a déjà ajouté reste.',
+  },
+  rules: {
+    title: 'Règles de commerçant',
+    help: 'Une transaction importée dont le commerçant contient le texte d’une règle va dans la catégorie de cette règle. Le texte le plus long qui correspond l’emporte.',
+    empty:
+      'Aucune règle pour l’instant. Catégorisez une transaction importée pour qu’on vous en propose une.',
+    fragment: 'Texte du commerçant',
+    fragmentHelp: 'En minuscules, sans accents ni ponctuation, tel que le budget le compare.',
+    fragmentTooLong_one: '{{max}} caractères au plus : ce texte en a {{count}}.',
+    fragmentTooLong_other: '{{max}} caractères au plus : ce texte en a {{count}}.',
+    fragmentInvalid:
+      'Le budget ne prend pas ce texte comme règle : il doit avoir de 1 à {{max}} caractères une fois mis en forme (minuscules, sans accents ni ponctuation).',
+    category: 'Catégorie',
+    ended: 'Sa catégorie a pris fin : elle ne s’applique que là où la catégorie est en usage.',
+    editFor: 'Modifier la règle {{fragment}}',
+    editTitle: 'Modifier la règle',
+    apply:
+      'L’appliquer aussi dès maintenant aux transactions importées qui attendent dans « À catégoriser »',
+    saved: 'Règle enregistrée.',
+    savedMoved_one: 'Règle enregistrée ; {{count}} transaction déplacée.',
+    savedMoved_other: 'Règle enregistrée ; {{count}} transactions déplacées.',
+    remove: 'Supprimer',
+    removeFor: 'Supprimer la règle {{fragment}}',
+    removeTitle: 'Supprimer la règle « {{fragment}} » ?',
+    removeBody:
+      'Les prochaines importations ne l’utilisent plus. Les transactions qu’elle a catégorisées gardent leur catégorie.',
+    removed: 'Règle supprimée.',
+    count_one: '{{count}} règle',
+    count_other: '{{count}} règles',
+  },
+  choices: {
+    title: 'Choix mémorisés',
+    help: 'Ce qu’un membre a choisi pour les lignes signalées (paiements de facture de carte, virements, salaires), proposé à nouveau pour le même commerçant. Ce que l’importation a fait par défaut n’est pas mémorisé.',
+    empty: 'Rien de mémorisé pour l’instant.',
+    by: 'Choisi le {{date}}',
+    more: 'Afficher plus',
+    choice: { import: 'Importer', skip: 'Ignorer', other: 'Un autre choix' },
+    otherFlag: 'Un autre type de ligne signalée',
+    ownTransferKey: 'Un virement entre vos propres comptes sans description',
+    forget: 'Oublier',
+    forgetFor: 'Oublier le choix pour {{entry}}',
+    forgetTitle: 'Oublier ce choix ?',
+    forgetBody:
+      'La prochaine importation de {{entry}} ({{flag}}) ne propose plus ce qui avait été choisi : elle applique à nouveau le choix par défaut, {{then}}. Les lignes déjà importées ou ignorées restent telles quelles.',
+    default: { import: 'l’importer', skip: 'l’ignorer' },
+    forgetBodyOwnTransfer:
+      'La prochaine importation d’un virement entre vos propres comptes sans description ne propose plus ce qui avait été choisi : elle applique à nouveau le choix par défaut, {{then}}. Les lignes déjà importées ou ignorées restent telles quelles.',
+    forgotten: 'Choix oublié.',
+    alreadyForgotten: 'Ce choix avait déjà été oublié.',
+    quoted: '« {{text}} »',
+  },
+}

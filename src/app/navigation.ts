@@ -1,0 +1,73 @@
+import {
+  ArrowLeftRightIcon,
+  ArrowRightLeftIcon,
+  LandmarkIcon,
+  CalendarRangeIcon,
+  ChartColumnIcon,
+  CreditCardIcon,
+  HandCoinsIcon,
+  ImportIcon,
+  LayoutDashboardIcon,
+  PiggyBankIcon,
+  RepeatIcon,
+  SettingsIcon,
+  WalletIcon,
+  WorkflowIcon,
+  type LucideIcon,
+} from 'lucide-react'
+
+import { paths } from '@/app/paths'
+
+export type NavKey =
+  | 'dashboard'
+  | 'budget'
+  | 'transactions'
+  | 'subscriptions'
+  | 'debts'
+  | 'periods'
+  | 'compare'
+  | 'moneyFlow'
+  | 'accounts'
+  | 'transfers'
+  | 'income'
+  | 'import'
+  | 'settings'
+  | 'newBudget'
+
+export interface NavItem {
+  key: NavKey
+  path: string
+  icon: LucideIcon
+}
+
+/** Main sidebar entries, in display order. */
+export const mainNavItems: NavItem[] = [
+  { key: 'dashboard', path: paths.dashboard, icon: LayoutDashboardIcon },
+  // Right after the dashboard, where the progress view is (R-COMPARE-190).
+  { key: 'compare', path: paths.compare, icon: ChartColumnIcon },
+  { key: 'budget', path: paths.budget, icon: PiggyBankIcon },
+  { key: 'transactions', path: paths.transactions, icon: ArrowLeftRightIcon },
+  { key: 'import', path: paths.import, icon: ImportIcon },
+  { key: 'subscriptions', path: paths.subscriptions, icon: RepeatIcon },
+  { key: 'debts', path: paths.debts, icon: CreditCardIcon },
+  { key: 'periods', path: paths.periods, icon: CalendarRangeIcon },
+  { key: 'income', path: paths.income, icon: HandCoinsIcon },
+  // Step 7 (D-500): where the money goes after payday, in the order it is set up.
+  { key: 'accounts', path: paths.accounts, icon: LandmarkIcon },
+  { key: 'transfers', path: paths.transfers, icon: ArrowRightLeftIcon },
+  { key: 'moneyFlow', path: paths.moneyFlow, icon: WorkflowIcon },
+]
+
+/** Entries shown at the bottom of the sidebar, above the footer. */
+export const secondaryNavItems: NavItem[] = [
+  { key: 'settings', path: paths.settings, icon: SettingsIcon },
+]
+
+export const allNavItems: NavItem[] = [...mainNavItems, ...secondaryNavItems]
+
+export const AppIcon = WalletIcon
+
+/** Route handle carried by every app page; read by the breadcrumb and the tab title. */
+export interface PageHandle {
+  nav: NavKey
+}

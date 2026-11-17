@@ -1,0 +1,177 @@
+import { CalendarClockIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+
+import { PreviewLoadFailed } from '@/components/preview-state'
+import { previewLoadFailed } from '@/lib/preview'
+import type { TransferPreview, TransferPreviewRow } from '@/features/transfers/transfer-queries'
+import { useOccurrenceText } from '@/features/transfers/occurrence-text'
+import { TransferMoves } from '@/features/transfers/components/transfer-counts'
+import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { formatCalendarDate } from '@/lib/date'
+import { formatMoney } from '@/lib/money'
+
+/**
+ * What saving would do, exactly as the database previews it for the save's own arguments
+ * (preview_create_transfer / preview_update_transfer run the write and roll it back, D-428):
+ * the next due dates and amounts, what is recorded at once, and, with counts, what the
+ * app's own transactions and the members' marks become (R-ACCOUNT-303). Nothing is computed
+ * here; a refusal shows its reason, as the save would be refused alike.
+ */
+// R-ACCOUNT-233: the preview is the database's answer for the save's own arguments.
+export function TransferPreviewBox({
+  preview,
+  pending,
+  error,
+  needsInput,
+  creating,
+  recordsPast,
+  firstDateInPast = false,
+  fetching = false,
+  onRetry,
+  incomeName = null,
+}: {
+  preview: TransferPreview | undefined
+  pending: boolean
+  error: unknown
+  /** Not enough is typed yet to ask the database. */
+  needsInput: boolean
+  creating: boolean
+  /** Create: the member chose to record what already happened. */
+  recordsPast: boolean
+  /** Create: a quarterly or yearly date before today without "It already ran" (not sent). */
+  firstDateInPast?: boolean
+  fetching?: boolean
+  onRetry?: () => void
+  /** The income a named income's payday follows, as the form chose it. */
+  incomeName?: string | null
+}) {
+  const { t } = useTranslation()
+  const errorMessage = useErrorMessage({ category_to_categorise: 'transfers.errors.toCategorise' })
+  const occurrenceText = useOccurrenceText()
+  // R-ACCOUNT-552: every row says what it is for; a period's own one by the row's own period.
+  const describe = (row: TransferPreviewRow) =>
+    occurrenceText(
+      {
+        kind: row.occurrence_kind,
+        date: row.occurrence_date,
+        seq: row.occurrence_seq,
+        dueDate: row.due_date,
+        incomeName,
+        incomeDropped: true,
+        besideDue: true,
+      },
+      () => ({ start: row.start_date, end: row.end_date, own: true }),
+    )
+  return (
+    <section
+      className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-sm"
+      aria-label={t('transfers.preview.title')}
+      data-testid="transfer-preview"
+    >
+      <p className="flex items-center gap-2 font-medium">
+        <CalendarClockIcon className="size-4 text-muted-foreground" aria-hidden />
+        {t('transfers.preview.title')}
+      </p>
+      {firstDateInPast ? (
+        <p className="text-muted-foreground" data-testid="preview-date-in-past">
+          {t('transfers.preview.firstDateInPast')}
+        </p>
+      ) : needsInput ? (
+        <p className="text-muted-foreground">{t('transfers.preview.needsInput')}</p>
+      ) : previewLoadFailed({ isError: error !== null && error !== undefined, error }) ? (
+        <PreviewLoadFailed error={error} fetching={fetching} onRetry={() => onRetry?.()} />
+      ) : error !== null && error !== undefined ? (
+        <p className="text-destructive" data-testid="transfer-preview-refused">
+          {errorMessage(error)}
+        </p>
+      ) : pending || !preview ? (
+        <p className="text-muted-foreground">{t('common.loading')}</p>
+      ) : (
+        <div className="flex flex-col gap-2" aria-live="polite">
+          {preview.rows.length === 0 ? (
+            <p className="text-muted-foreground">{t('transfers.preview.none')}</p>
+          ) : (
+            <ul className="flex flex-col divide-y rounded-md border bg-background">
+              {preview.rows.map((row) => (
+                <li
+                  key={previewKey(row)}
+                  className="flex flex-wrap items-baseline justify-between gap-x-3 px-2.5 py-1.5"
+                  data-testid="preview-occurrence"
+                >
+                  <span className="tabular-nums">
+                    <time dateTime={row.due_date}>{formatCalendarDate(row.due_date)}</time>
+                    <span className="text-muted-foreground" data-testid="preview-occurrence-for">
+                      {' '}
+                      · {describe(row)}
+                    </span>
+                    {/* R-ACCOUNT-501: an occurrence already recorded stays as it was recorded. */}
+                    {row.already_recorded && (
+                      <span className="text-muted-foreground" data-testid="preview-recorded">
+                        {' '}
+                        · {t('transfers.preview.alreadyRecorded')}
+                      </span>
+                    )}
+                    {row.created_at_once && (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · {t('transfers.preview.atOnceRow')}
+                      </span>
+                    )}
+                    {row.projected && (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · {t('transfers.preview.projected')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-medium tabular-nums">{formatMoney(row.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {preview.rows.some((row) => row.follows_primary) && (
+            <p className="text-muted-foreground">{t('transfers.preview.followsPrimary')}</p>
+          )}
+          {preview.createdAtOnce > 0
+            ? !onlyMoves(preview) && (
+                <p className="font-medium" data-testid="created-at-once">
+                  {t('transfers.preview.createdAtOnce', { count: preview.createdAtOnce })}
+                </p>
+              )
+            : creating && (
+                <p className="text-muted-foreground" data-testid="nothing-past">
+                  {recordsPast
+                    ? t('transfers.preview.nothingAtOnce')
+                    : t('transfers.preview.nothingBeforeToday')}
+                </p>
+              )}
+          <TransferMoves
+            removed={preview.transactionsRemoved}
+            created={preview.createdAtOnce}
+            moved={preview.transactionsMoved}
+            words="preview"
+          />
+          {preview.marksUnplanned > 0 && (
+            <p data-testid="marks-unplanned">
+              {t('transfers.preview.marksUnplanned', { count: preview.marksUnplanned })}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Every transaction removed and recorded is one moved: said once, as a move. */
+function onlyMoves(preview: TransferPreview) {
+  return (
+    preview.transactionsMoved > 0 &&
+    preview.transactionsRemoved === preview.transactionsMoved &&
+    preview.createdAtOnce === preview.transactionsMoved
+  )
+}
+
+/** A previewed occurrence: its period (none when projected), kind, date or number, due date. */
+function previewKey(row: TransferPreviewRow): string {
+  return `${(row.period_id as string | null) ?? row.start_date}|${row.occurrence_kind}|${(row.occurrence_date as string | null) ?? ''}|${(row.occurrence_seq as number | null) ?? ''}|${row.due_date}`
+}
