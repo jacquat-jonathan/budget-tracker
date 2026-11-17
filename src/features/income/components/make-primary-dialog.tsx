@@ -135,8 +135,8 @@ function PrimaryBody({
         />
       )}
       {paydayTransfers && (
-        // R-ACCOUNT-461: a transfer naming an income keeps each of its paydays; one on the main
-        // income follows the new primary from the next period (D-562).
+        // R-ACCOUNT-512: a transfer naming an income keeps each of its paydays; one on the main
+        // income follows the new primary from the next period (D-610).
         <p className="text-sm text-muted-foreground" data-testid="primary-transfers-note">
           {t('income.primaryTransfersNote')}
         </p>

@@ -229,7 +229,7 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     )
   })
 
-  it('[R-ACCOUNT-428] [R-ACCOUNT-461] making another income primary says a transfer naming an income keeps its paydays and one on the main income follows the new primary', async () => {
+  it('[R-ACCOUNT-512] making another income primary says a transfer naming an income keeps its paydays and one on the main income follows the new primary', async () => {
     const db = householdDb(undefined, {
       income_overview: [
         incomeRow(),
@@ -250,7 +250,7 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
       'One on “The main income” follows the new primary income from its next payday, which starts the next period.',
     )
     expect(note).toHaveTextContent('Nothing already recorded or ticked changes.')
-    // What D-562 made untrue is no longer said.
+    // What D-610 made untrue is no longer said.
     expect(note).not.toHaveTextContent('In this period nothing about them changes')
     // Its preview answers 0 / 0 / 0, truthfully: no count is shown.
     await within(dialog).findByTestId('pay-date-preview')

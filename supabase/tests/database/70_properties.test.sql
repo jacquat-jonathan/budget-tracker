@@ -53,13 +53,16 @@
 --     runs before its change). The previews of creating, editing and ending a transfer equal
 --     what the write then does, counts included. The budget is caught up (ensure_periods until
 --     0) after every operation before the checks.
---   * fix round 4, properties stated from the household's side, computed without the plan
---     functions (tests.household_violations): every income a pay-date transfer names gets one
---     occurrence per payday, none missing, none twice (R-ACCOUNT-461); every untouched transaction
---     the app recorded sits on its occurrence's due date, never two on one date (R-ACCOUNT-462);
---     next_due_date is the next occurrence the plan records (R-ACCOUNT-464); and every 6th step,
---     every mark a checklist shows is undone by one call built from its row (pg_temp.undo_probe,
---     R-ACCOUNT-460).
+--   * fix round 5, properties stated from the household's side, computed only from the periods,
+--     the incomes' and transfers' own terms and the model's memory, never from the plan functions
+--     (tests.household_violations): a transfer naming no income has exactly one occurrence per
+--     period from its first period on (R-ACCOUNT-511); one naming an income has exactly that
+--     income's scheduled pay dates, a fixed day exactly its calendar dates (R-ACCOUNT-512,
+--     R-ACCOUNT-513); every untouched transaction the app recorded sits on its occurrence's due date
+--     (R-ACCOUNT-462); every 6th step every mark a checklist shows is undone by one call built from
+--     its row (pg_temp.undo_probe, R-ACCOUNT-510); every 10th step, for a few transfers, the clock
+--     is moved to next_due_date and that day must produce exactly that occurrence, with no unmarked
+--     one due before it (pg_temp.next_due_probe, R-ACCOUNT-464).
 -- Closed totals now include the committed total. Before each step the budget is opened (its
 -- catch-up runs), so the charges a long absence left due count as what the budget held.
 begin;
@@ -217,9 +220,9 @@ begin
   return a;
 end;
 $$;
--- Fix round 4, property 3 (R-ACCOUNT-301, R-ACCOUNT-460): every mark a checklist shows (a member's,
--- not the catch-up's transaction, which is the unmarked state) is undone by one call built only
--- from what its row shows (transfer, period, mark revision, key, kind); afterwards that row is
+-- Property 3 (R-ACCOUNT-301, R-ACCOUNT-510): every mark a checklist shows (a member's, not the
+-- catch-up's transaction, which is the unmarked state) is undone by one call built only from what
+-- its row shows (transfer, period, mark revision, kind, date or number); afterwards that row is
 -- unmarked (a manual one to do, an automatic one upcoming or assumed done), or gone when it was no
 -- longer planned. Each undo is rolled back. Call it as the member.
 create or replace function pg_temp.undo_probe(b uuid) returns setof text language plpgsql as $$
@@ -229,16 +232,19 @@ declare
   v_left integer;
   v_status text;
 begin
-  for r in select p.id as pid, c.transfer_id, c.occurrence_date, c.occurrence_kind, c.mark_revision, c.planned, c.is_automatic
+  for r in select p.id as pid, c.transfer_id, c.occurrence_date, c.occurrence_seq, c.occurrence_kind, c.mark_revision, c.planned,
+                  c.is_automatic
            from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
            where p.budget_id = b and c.mark_revision > 0 and not c.assumed
-           order by p.seq, c.transfer_id, c.occurrence_date, c.occurrence_kind loop
+           order by p.seq, c.transfer_id, c.occurrence_date, c.occurrence_seq, c.occurrence_kind loop
     begin
-      perform public.undo_transfer_mark(r.transfer_id, r.pid, r.mark_revision, r.occurrence_date, r.occurrence_kind);
+      perform public.undo_transfer_mark(r.transfer_id, r.pid, r.mark_revision, r.occurrence_date, r.occurrence_kind,
+                                        r.occurrence_seq);
       select count(*)::integer, count(*) filter (where c.mark_revision > 0 and not c.assumed)::integer, min(c.status)
       into v_rows, v_left, v_status
       from public.get_transfer_checklist(r.pid) as c
-      where c.transfer_id = r.transfer_id and c.occurrence_date = r.occurrence_date and c.occurrence_kind = r.occurrence_kind;
+      where c.transfer_id = r.transfer_id and c.occurrence_kind = r.occurrence_kind
+        and c.occurrence_date is not distinct from r.occurrence_date and c.occurrence_seq is not distinct from r.occurrence_seq;
       if not r.planned and v_rows <> 0 then
         return next format('undo of an unplanned mark (transfer %s, key %s, %s): the row is still listed', r.transfer_id,
                            r.occurrence_date, r.occurrence_kind);
@@ -255,18 +261,66 @@ begin
     end;
   end loop;
 end $$;
+-- R-ACCOUNT-464 (D-612), by moving the clock: for the first few transfers in force (in the order the
+-- run made them), next_due_date names a day; moved to that day (and caught up, as the app does),
+-- the transfer lists a planned occurrence due that day that had no mark before the move, and none
+-- due from the day before the move up to it without a mark before the move. Each move is rolled
+-- back. Call it as postgres; who: the member.
+create or replace function pg_temp.next_due_probe(b uuid, who text) returns setof text language plpgsql as $$
+declare
+  t record;
+  v_from date := private.today();
+  v_due date;
+  v_marks text[];
+  v_hit integer;
+  v_early text;
+begin
+  for t in select x.id, x.name from public.transfers as x join made as m on m.id = x.id
+           where x.budget_id = b and x.end_seq is null order by m.ord limit 4 loop
+    perform tests.authenticate_as(who);
+    v_due := (select o.next_due_date from public.transfer_overview as o where o.id = t.id);
+    perform tests.clear_authentication();
+    continue when v_due is null;
+    select array_agg(o.kind::text || '|' || coalesce(o.occurrence_seq::text, o.occurrence_date::text)) into v_marks
+    from public.transfer_occurrences as o where o.transfer_id = t.id;
+    begin
+      perform tests.set_today(v_due);
+      perform tests.authenticate_as(who);
+      for i in 1..40 loop
+        exit when public.ensure_periods(b) = 0;
+      end loop;
+      select count(*) filter (where c.due_date = v_due),
+             string_agg(c.due_date::text, ',') filter (where c.due_date < v_due)
+      into v_hit, v_early
+      from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
+      where p.budget_id = b and c.transfer_id = t.id and c.planned and c.due_date >= v_from and c.due_date <= v_due
+        and not (c.occurrence_kind::text || '|' || coalesce(c.occurrence_seq::text, c.occurrence_date::text)) = any (coalesce(v_marks, '{}'));
+      perform tests.clear_authentication();
+      if v_hit <> 1 or v_early is not null then
+        raise exception '%', format('next due date: transfer %s (%s): next_due_date %s, after moving the clock there %s unmarked occurrences due that day, unmarked before it: %s',
+                                    t.name, t.id, v_due, v_hit, coalesce(v_early, 'none')) using errcode = 'P0061';
+      end if;
+      raise exception 'probe' using errcode = 'P0050';
+    exception
+      when sqlstate 'P0050' then null;  -- rolled back
+      when sqlstate 'P0061' then return next sqlerrm;
+      when others then return next format('next due date: transfer %s, moving the clock to %s: %s', t.name, v_due, sqlerrm);
+    end;
+  end loop;
+  perform tests.clear_authentication();
+end $$;
 -- Step 7 model: every transaction of a transfer the run has not seen yet; one the catch-up
 -- made is checked once, when first seen, against a naive occurrence (tests.naive_occurrences: its
 -- key, due date and the amount and category of the terms in force in its period), as the model
 -- gave it before the step's operation (naive_snap) or gives it now; then all are recorded (as
 -- transactions the run may pick), by key, then by when the run made the transfer.
 create temp table naive_snap (transfer_id uuid, occurrence_date date, due_date date, amount bigint, category_id uuid,
-                              is_automatic boolean, kind public.transfer_occurrence_kind) on commit drop;
+                              is_automatic boolean, kind public.transfer_occurrence_kind, occurrence_seq integer) on commit drop;
 grant select, insert, delete on naive_snap to authenticated;
 create or replace function pg_temp.snap_naive(b uuid) returns void language sql as $$
   delete from naive_snap;
   insert into naive_snap select n.transfer_id, n.occurrence_date, n.due_date, n.amount, n.category_id, n.is_automatic,
-                                n.kind
+                                n.kind, n.occurrence_seq
   from tests.naive_occurrences(b) as n;
 $$;
 create or replace function pg_temp.transfer_oracle(b uuid) returns setof text language plpgsql as $$
@@ -274,16 +328,18 @@ declare
   r record;
 begin
   for r in
-    select x.id, x.date, x.amount, x.category_id, t.name, o.occurrence_date,
+    select x.id, x.date, x.amount, x.category_id, t.name, coalesce(o.occurrence_date::text, '#' || o.occurrence_seq) as occurrence_date,
            n.due_date as due, n.amount as planned, n.category_id as planned_category, n.is_automatic,
            s.due_date as s_due, s.amount as s_planned, s.category_id as s_category, s.is_automatic as s_automatic
     from public.transactions as x
     join public.transfer_occurrences as o on o.id = x.transfer_occurrence_id
     join public.transfers as t on t.id = o.transfer_id
     left join tests.naive_occurrences(b) as n
-      on n.transfer_id = o.transfer_id and n.occurrence_date = o.occurrence_date and n.kind = o.kind
+      on n.transfer_id = o.transfer_id and n.kind = o.kind
+         and (n.occurrence_date = o.occurrence_date or n.occurrence_seq = o.occurrence_seq)
     left join naive_snap as s
-      on s.transfer_id = o.transfer_id and s.occurrence_date = o.occurrence_date and s.kind = o.kind
+      on s.transfer_id = o.transfer_id and s.kind = o.kind
+         and (s.occurrence_date = o.occurrence_date or s.occurrence_seq = o.occurrence_seq)
     where x.budget_id = b and o.by_catch_up and not exists (select 1 from made as m where m.id = x.id)
   loop
     if not ((r.date = r.due and r.amount = r.planned and r.category_id is not distinct from r.planned_category and r.is_automatic)
@@ -302,14 +358,15 @@ begin
   join public.transfer_occurrences as o on o.id = x.transfer_occurrence_id
   join made as mt on mt.id = o.transfer_id
   where x.budget_id = b and not exists (select 1 from made as m where m.id = x.id)
-  order by o.occurrence_date, mt.ord;
+  order by o.occurrence_date, o.occurrence_seq, mt.ord;
 end;
 $$;
 -- A transfer's planned occurrences from period f on (all: null), as the checklists list them,
 -- at most 60 (as a preview lists them).
 create or replace function pg_temp.occurrences_of(t uuid, f integer default null, u integer default null) returns text language sql as $$
   select string_agg(z.s, ',' order by z.due_date, z.occurrence_date) from (
-    select format('%s:%s:%s:%s', p.seq, c.occurrence_date, c.due_date, c.amount) as s, c.due_date, c.occurrence_date
+    select format('%s:%s:%s:%s', p.seq, coalesce(c.occurrence_date::text, '#' || c.occurrence_seq), c.due_date, c.amount) as s,
+           c.due_date, c.occurrence_date
     from public.periods as p
     cross join lateral public.get_transfer_checklist(p.id) as c
     where p.budget_id = (select budget_id from public.transfers where id = t) and c.transfer_id = t and c.planned
@@ -322,7 +379,7 @@ $$;
 create or replace function pg_temp.mark_period(tr uuid) returns public.periods language sql as $$
   select p.* from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
   where p.budget_id = (select t.budget_id from public.transfers as t where t.id = tr) and c.transfer_id = tr and c.mark_revision > 0
-  order by c.occurrence_date desc limit 1
+  order by coalesce(c.occurrence_date, p.start_date) desc, c.occurrence_seq desc limit 1
 $$;
 -- The catch-up's transactions of a budget (to compare a write with what its preview said).
 create or replace function pg_temp.catch_up_txs(b uuid) returns uuid[] language sql as $$
@@ -627,6 +684,9 @@ declare
   v_acc2 uuid;
   v_tr public.transfers;
   v_check public.transfer_checklist_row;
+  v_check2 public.periods;
+  v_okind public.transfer_occurrence_kind;
+  v_oseq integer;
   v_stale public.transfer_checklist_row;
   v_stale_tried boolean;
   v_unmark record;
@@ -737,22 +797,27 @@ begin
           else 'undo_import'
         end;
       else
+        -- fix round 5: kinds switched on the same day, several primary switches in one period, a
+        -- late salary up to 40 days, among the transfer operations
         v_op := case
-          when v_r < 0.07 then 'create_account'
-          when v_r < 0.10 then 'create_account_backdated'
-          when v_r < 0.13 then 'close_account'
-          when v_r < 0.24 then 'create_transfer'
-          when v_r < 0.33 then 'create_transfer_backdated'
-          when v_r < 0.42 then 'update_transfer'
-          when v_r < 0.47 then 'correct_transfer'
-          when v_r < 0.51 then 'end_transfer'
-          when v_r < 0.62 then 'mark_done'
-          when v_r < 0.67 then 'skip_transfer'
-          when v_r < 0.74 then 'mark_not_done'
-          when v_r < 0.80 then 'undo_mark'
-          when v_r < 0.83 then 'income_account'
-          when v_r < 0.91 then 'unmark_after_settle'
-          else 'stale_mark'
+          when v_r < 0.06 then 'create_account'
+          when v_r < 0.08 then 'create_account_backdated'
+          when v_r < 0.10 then 'close_account'
+          when v_r < 0.19 then 'create_transfer'
+          when v_r < 0.26 then 'create_transfer_backdated'
+          when v_r < 0.33 then 'update_transfer'
+          when v_r < 0.37 then 'correct_transfer'
+          when v_r < 0.40 then 'end_transfer'
+          when v_r < 0.49 then 'mark_done'
+          when v_r < 0.53 then 'skip_transfer'
+          when v_r < 0.59 then 'mark_not_done'
+          when v_r < 0.64 then 'undo_mark'
+          when v_r < 0.66 then 'income_account'
+          when v_r < 0.72 then 'unmark_after_settle'
+          when v_r < 0.76 then 'stale_mark'
+          when v_r < 0.88 then 'transfer_kind_same_day'
+          when v_r < 0.95 then 'switch_twice'
+          else 'late_salary'
         end;
       end if;
 
@@ -1250,8 +1315,9 @@ begin
             v_date := case when v_r >= 0.5 and v_m >= 6 then coalesce(v_period.start_date, v_today) + floor(random() * 730)::integer - 365 end;
             -- the preview, then the write with the same arguments: the same occurrences (keys,
             -- due dates and amounts), and the transactions it said would be created at once
-            select string_agg(format('%s:%s:%s:%s', p.seq, x.occurrence_date, x.due_date, x.amount), ',' order by x.due_date, x.occurrence_date)
-                     filter (where x.occurrence_date is not null),
+            select string_agg(format('%s:%s:%s:%s', p.seq, coalesce(x.occurrence_date::text, '#' || x.occurrence_seq), x.due_date, x.amount),
+                              ',' order by x.due_date, x.occurrence_date)
+                     filter (where x.due_date is not null),
                    max(x.created_at_once_count)
             into v_pre, v_n
             from public.preview_create_transfer(v_budget, v_acc, v_acc2, v_amount,
@@ -1260,7 +1326,7 @@ begin
                    case when v_r < 0.5 then v_income end, v_r < 0.42 or v_r > 0.58, v_category,
                    case when v_from is not null then v_period.id end, 60,
                    case when v_date is not null then (case when v_m >= 8 then 'yearly' else 'quarterly' end)::public.subscription_cadence end,
-                   v_date) as x
+                   v_date, case when v_r >= 0.5 then (array['none', 'previous', 'next', 'nearest'])[1 + v_k % 4]::public.weekend_rule end) as x
             left join public.periods as p on p.id = x.period_id
             where not x.projected;
             v_pick := (select t.id from public.create_transfer(v_budget, 'Transfer ' || v_step, v_acc, v_acc2, v_amount,
@@ -1269,7 +1335,7 @@ begin
                    case when v_r < 0.5 then v_income end, v_r < 0.42 or v_r > 0.58, v_category,
                    case when v_from is not null then v_period.id end,
                    case when v_date is not null then (case when v_m >= 8 then 'yearly' else 'quarterly' end)::public.subscription_cadence end,
-                   v_date) as t);
+                   v_date, p_weekend_rule => case when v_r >= 0.5 then (array['none', 'previous', 'next', 'nearest'])[1 + v_k % 4]::public.weekend_rule end) as t);
             perform pg_temp.made('transfer', v_budget, v_pick);
             if v_from is null and v_date is null then
               perform tests.model_made_from_today(v_pick);  -- the model's first counted day (D-493)
@@ -1297,8 +1363,9 @@ begin
               v_m := (select min(y.effective_from_seq) from public.transfer_versions as y
                       where y.transfer_id = v_tr.id and y.effective_from_seq > v_n);
               v_part := to_jsonb(pg_temp.catch_up_txs(v_budget));
-              select string_agg(format('%s:%s:%s:%s', p.seq, x.occurrence_date, x.due_date, x.amount), ',' order by x.due_date, x.occurrence_date)
-                       filter (where x.occurrence_date is not null and not x.projected),
+              select string_agg(format('%s:%s:%s:%s', p.seq, coalesce(x.occurrence_date::text, '#' || x.occurrence_seq), x.due_date, x.amount),
+                                ',' order by x.due_date, x.occurrence_date)
+                       filter (where x.due_date is not null and not x.projected),
                      format('%s/%s', max(x.created_at_once_count), max(x.transactions_removed_count))
               into v_pre, v_out
               from public.preview_update_transfer(v_tr.id,
@@ -1393,7 +1460,7 @@ begin
               -- (assumed done or upcoming), the picked transfer's first (chosen without random():
               -- the walk is unchanged)
               for v_unmark in
-                select c.transfer_id, c.occurrence_date, q.id as period_id, q.seq
+                select c.transfer_id, c.occurrence_date, c.occurrence_seq, c.occurrence_kind, q.id as period_id, q.seq
                 from public.periods as q cross join lateral public.get_transfer_checklist(q.id) as c
                 where q.budget_id = v_budget and q.seq between v_period.seq - 3 and v_period.seq
                   and c.planned and c.is_automatic and c.mark_revision = 0 and not c.is_ended
@@ -1401,13 +1468,15 @@ begin
               loop
                 v_outcome := 'ok';
                 select c.* into v_check from public.mark_transfer_not_done(v_unmark.transfer_id, v_unmark.period_id, 0,
-                                                                           v_unmark.occurrence_date) as c;
+                                                                           v_unmark.occurrence_date, v_unmark.occurrence_kind,
+                                                                           v_unmark.occurrence_seq) as c;
                 perform public.ensure_periods(v_budget);
                 perform count(*) from public.get_money_flow(v_budget);
                 select c.* into v_check from public.undo_transfer_mark(v_unmark.transfer_id, v_unmark.period_id, v_check.mark_revision,
-                                                                       v_unmark.occurrence_date) as c;
+                                                                       v_unmark.occurrence_date, v_unmark.occurrence_kind,
+                                                                       v_unmark.occurrence_seq) as c;
                 v_touched := v_touched || pg_temp.seqs_of(v_budget, array[v_check.due_date, v_today]) || v_unmark.seq;
-                insert into unmark_seen values (v_seed, v_step, v_unmark.transfer_id, v_unmark.occurrence_date);
+                insert into unmark_seen values (v_seed, v_step, v_unmark.transfer_id, coalesce(v_unmark.occurrence_date, v_check.due_date));
               end loop;
             end if;
           elsif v_op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark', 'stale_mark') then
@@ -1434,16 +1503,22 @@ begin
                        c.due_date, c.occurrence_date
               limit 1;
               v_date := case when random() < 0.8 then v_check.occurrence_date end;
+              v_okind := case when v_date is not null or v_check.occurrence_seq is not null then v_check.occurrence_kind end;
+              v_oseq := case when v_okind is not null then v_check.occurrence_seq end;
               v_touched := pg_temp.seqs_of(v_budget, array[v_check.done_on, v_check.due_date, v_check.occurrence_date, v_today]) || v_period.seq;
               if v_op = 'mark_done' then
                 select c.* into v_check from public.mark_transfer_done(v_pick, v_period.id, coalesce(v_check.mark_revision, 0),
-                                                                       p_occurrence_date => v_date) as c;
+                                                                       p_occurrence_date => v_date, p_occurrence_kind => v_okind,
+                                                                       p_occurrence_seq => v_oseq) as c;
               elsif v_op = 'skip_transfer' then
-                select c.* into v_check from public.skip_transfer(v_pick, v_period.id, coalesce(v_check.mark_revision, 0), v_date) as c;
+                select c.* into v_check from public.skip_transfer(v_pick, v_period.id, coalesce(v_check.mark_revision, 0), v_date,
+                                                                  v_okind, v_oseq) as c;
               elsif v_op = 'mark_not_done' then
-                select c.* into v_check from public.mark_transfer_not_done(v_pick, v_period.id, coalesce(v_check.mark_revision, 0), v_date) as c;
+                select c.* into v_check from public.mark_transfer_not_done(v_pick, v_period.id, coalesce(v_check.mark_revision, 0), v_date,
+                                                                           v_okind, v_oseq) as c;
               elsif v_op = 'undo_mark' then
-                select c.* into v_check from public.undo_transfer_mark(v_pick, v_period.id, coalesce(v_check.mark_revision, 0), v_date) as c;
+                select c.* into v_check from public.undo_transfer_mark(v_pick, v_period.id, coalesce(v_check.mark_revision, 0), v_date,
+                                                                       v_okind, v_oseq) as c;
               elsif v_check.transfer_id is not null then
                 -- a mark based on an older read must be refused and change nothing: the mark it
                 -- read is gone or changed (undo), or one was made meanwhile (a mark from 0)
@@ -1475,6 +1550,44 @@ begin
                 insert into failures values (v_seed, v_step, v_name, v_op, 'a stale mark was accepted');
               end if;
             end if;
+          elsif v_op = 'transfer_kind_same_day' then
+            -- R-ACCOUNT-305, R-ACCOUNT-510: a transfer switched to another kind on a day it already
+            -- has (the day its period's salary came, an income's pay day, a fixed day), from now or
+            -- as a correction, after marks made by hand or by the app
+            v_pick := pg_temp.pick('transfer', v_budget, 't.end_seq is null');
+            select * into v_tr from public.transfers where id = v_pick;
+            if v_tr.id is not null then
+              if random() < 0.3 then
+                v_from := greatest(v_period.seq, v_tr.first_seq);
+              end if;
+              select p.* into v_check2 from public.periods as p
+              where p.budget_id = v_budget and p.seq = coalesce(v_from, (select q.seq from public.periods as q
+                                                                         where q.budget_id = v_budget and v_today between q.start_date and q.end_date));
+              v_r := random();
+              v_income := pg_temp.pick('income', v_budget, 't.end_seq is null');
+              perform public.update_transfer(v_tr.id, v_tr.revision,
+                p_schedule => (case when v_r < 0.4 then 'day_of_month' else 'pay_date' end)::public.transfer_schedule,
+                p_day_of_month => case when v_r < 0.4 then extract(day from v_check2.start_date)::integer end,
+                p_first_date => case when v_r < 0.4 then v_check2.start_date end,
+                p_income_id => case when v_r >= 0.4 and v_r < 0.75 then v_income end,
+                p_clear_income => v_r >= 0.75,
+                p_from_period_id => case when v_from is not null then (select q.id from public.periods as q
+                                                                       where q.budget_id = v_budget and q.seq = v_from) end);
+              v_touched := array[v_check2.seq - 1, v_check2.seq];
+            end if;
+          elsif v_op = 'switch_twice' then
+            -- several primary switches in one period (D-610: they change the boundaries only)
+            v_income := pg_temp.pick('income', v_budget, 't.end_seq is null');
+            perform tests.set_primary_income(v_income);
+            perform tests.clear_authentication();
+            perform tests.set_today(v_today + 1 + floor(random() * 3)::integer);
+            perform tests.authenticate_as(v_user);
+            perform public.ensure_periods(v_budget);
+            v_income := pg_temp.pick('income', v_budget, 't.end_seq is null');
+            perform tests.set_primary_income(v_income);
+          elsif v_op = 'late_salary' then
+            -- the next salary expected up to 40 days after today (a long period)
+            perform tests.set_expected_pay_date(v_budget, v_today + 20 + floor(random() * 21)::integer);
           elsif v_op = 'income_account' then
             v_income := pg_temp.pick('income', v_budget);
             v_acc := pg_temp.pick('account', v_budget);
@@ -1571,6 +1684,12 @@ begin
         end loop;
         perform tests.clear_authentication();
       end if;
+      -- fix round 5, next_due_date by moving the clock: every 10th step and the last
+      if v_step % 10 = 0 or v_step = v_steps then
+        for v_problem in select pg_temp.next_due_probe(v_budget, v_user) loop
+          insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
+        end loop;
+      end if;
       for v_problem in select pg_temp.charge_oracle(v_budget) union all select pg_temp.interest_oracle(v_budget)
                        union all select pg_temp.projection_oracle(v_budget) loop
         insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
@@ -1612,7 +1731,7 @@ $prop$;
 
 select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
-  'R-ACCOUNT-460 R-ACCOUNT-461 R-ACCOUNT-462 R-ACCOUNT-464 R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130 R-COMPARE-002 R-COMPARE-070 R-COMPARE-071 R-COMPARE-170: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
+  'R-ACCOUNT-460 R-ACCOUNT-510 R-ACCOUNT-511 R-ACCOUNT-512 R-ACCOUNT-513 R-ACCOUNT-462 R-ACCOUNT-464 R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130 R-COMPARE-002 R-COMPARE-070 R-COMPARE-071 R-COMPARE-170: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
 );
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
   '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');
@@ -1662,6 +1781,8 @@ select cmp_ok((select count(*)::integer from runs where outcome = 'refused: reco
   '>=', 3, 'R-CONCURRENCY-230: and refused every stale mark it tried');
 select cmp_ok((select count(*)::integer from unmark_seen),
   '>=', 5, 'R-ACCOUNT-074 R-ACCOUNT-240: and undid not-done marks of automatic transfers after the catch-up had run');
+select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('transfer_kind_same_day', 'switch_twice', 'late_salary')),
+  '>=', 20, 'R-ACCOUNT-510 R-ACCOUNT-511 R-ACCOUNT-512: and switched transfers between kinds on a day they had, made several primary switches in one period and salaries up to 40 days late');
 select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 

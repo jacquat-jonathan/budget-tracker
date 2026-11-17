@@ -502,7 +502,7 @@ select results_eq(
   format($$select transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned
            from public.preview_set_primary_income(%L)$$, tests.id('v_inc')),
   $$values (0, 0, 0)$$,
-  'R-ACCOUNT-428: a switch of the primary to the income the transfer chose counts for it from the next period: nothing of this period moves, and the preview says so');
+  'R-ACCOUNT-512: a switch of the primary to the income the transfer chose changes nothing for it: nothing of this period moves, and the preview says so');
 select tests.remember('v_d', (select id from public.create_transfer(tests.id('v'), 'On the 26th', tests.id('v_main'),
   tests.id('v_sav'), 2000, 'day_of_month', p_day_of_month => 26, p_is_automatic => true, p_category_id => tests.id('v_cat'), p_from_period_id => tests.this_period(tests.id('v')))));
 select results_eq(

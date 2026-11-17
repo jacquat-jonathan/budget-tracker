@@ -516,7 +516,7 @@ describe('a standing order counts as done from its due date [R-ACCOUNT-004]', ()
   })
 })
 
-describe('one date, two periods [R-ACCOUNT-446] [R-ACCOUNT-421]', () => {
+describe('one date, two periods [R-ACCOUNT-446] [R-ACCOUNT-510]', () => {
   it('two rows of a transfer with the same date in two periods are two rows; a mark acts on the one pressed', async () => {
     const db = checklistDb()
     db.checklist = [
