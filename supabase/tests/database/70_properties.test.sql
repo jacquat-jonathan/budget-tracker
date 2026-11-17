@@ -690,20 +690,20 @@ begin
         end;
       else
         v_op := case
-          when v_r < 0.10 then 'create_account'
-          when v_r < 0.14 then 'create_account_backdated'
-          when v_r < 0.18 then 'close_account'
-          when v_r < 0.30 then 'create_transfer'
-          when v_r < 0.38 then 'create_transfer_backdated'
-          when v_r < 0.47 then 'update_transfer'
-          when v_r < 0.52 then 'correct_transfer'
-          when v_r < 0.56 then 'end_transfer'
-          when v_r < 0.68 then 'mark_done'
-          when v_r < 0.73 then 'skip_transfer'
-          when v_r < 0.80 then 'mark_not_done'
-          when v_r < 0.88 then 'undo_mark'
-          when v_r < 0.91 then 'income_account'
-          when v_r < 0.96 then 'unmark_after_settle'
+          when v_r < 0.07 then 'create_account'
+          when v_r < 0.10 then 'create_account_backdated'
+          when v_r < 0.13 then 'close_account'
+          when v_r < 0.24 then 'create_transfer'
+          when v_r < 0.33 then 'create_transfer_backdated'
+          when v_r < 0.42 then 'update_transfer'
+          when v_r < 0.47 then 'correct_transfer'
+          when v_r < 0.51 then 'end_transfer'
+          when v_r < 0.62 then 'mark_done'
+          when v_r < 0.67 then 'skip_transfer'
+          when v_r < 0.74 then 'mark_not_done'
+          when v_r < 0.81 then 'undo_mark'
+          when v_r < 0.84 then 'income_account'
+          when v_r < 0.93 then 'unmark_after_settle'
           else 'stale_mark'
         end;
       end if;
@@ -1209,7 +1209,7 @@ begin
             from public.preview_create_transfer(v_budget, v_acc, v_acc2, v_amount,
                    (case when v_r < 0.5 then 'pay_date' else 'day_of_month' end)::public.transfer_schedule,
                    case when v_r < 0.5 then v_k end, case when v_r >= 0.5 and v_date is null then 1 + v_k % 31 end,
-                   case when v_r < 0.5 then v_income end, v_r < 0.35 or v_r > 0.65, v_category,
+                   case when v_r < 0.5 then v_income end, v_r < 0.42 or v_r > 0.58, v_category,
                    case when v_from is not null then v_period.id end, 60,
                    case when v_date is not null then (case when v_m >= 8 then 'yearly' else 'quarterly' end)::public.subscription_cadence end,
                    v_date) as x
@@ -1218,7 +1218,7 @@ begin
             v_pick := (select t.id from public.create_transfer(v_budget, 'Transfer ' || v_step, v_acc, v_acc2, v_amount,
                    (case when v_r < 0.5 then 'pay_date' else 'day_of_month' end)::public.transfer_schedule,
                    case when v_r < 0.5 then v_k end, case when v_r >= 0.5 and v_date is null then 1 + v_k % 31 end,
-                   case when v_r < 0.5 then v_income end, v_r < 0.35 or v_r > 0.65, v_category,
+                   case when v_r < 0.5 then v_income end, v_r < 0.42 or v_r > 0.58, v_category,
                    case when v_from is not null then v_period.id end,
                    case when v_date is not null then (case when v_m >= 8 then 'yearly' else 'quarterly' end)::public.subscription_cadence end,
                    v_date) as t);
