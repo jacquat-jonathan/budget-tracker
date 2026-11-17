@@ -35,6 +35,9 @@ export type Choices = Readonly<Record<number, RowChoice>>
 
 /** At most this many rows a call (the import function's bound). */
 export const CHUNK_SIZE = 500
+/** The most parts a batch takes (R-IMPORT-208), so the most rows one import can send. */
+export const MAX_CHUNKS = 100
+export const MAX_BATCH_ROWS = CHUNK_SIZE * MAX_CHUNKS
 
 /** The row as sent: the statement's row and the member's choice, nothing else. */
 export function rowToSend(

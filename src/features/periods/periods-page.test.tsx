@@ -440,34 +440,29 @@ describe('periods page [R-PERIOD-051]', () => {
     })
   })
 
-  it('says how many debts lose this period’s interest when the start moves [R-PERIOD-320]', async () => {
+  it('says before confirming that a start on or before a debt’s opening is refused, and never that interest goes [R-DEBT-340]', async () => {
     const db = householdDb()
     db.rpc.preview_move_period_start.mockImplementation((args) => [
       {
         period_id: 'period-2',
         scheduled_start: '2026-10-25',
-        accepted: true,
-        refusal: null,
-        // For the typed date, one debt opened on or after it; for the schedule, two.
-        interest_removed: args.p_start_date === '2026-10-27' ? 1 : 2,
+        accepted: args.p_start_date !== '2026-10-27',
+        refusal: args.p_start_date === '2026-10-27' ? 'interest_before_opening' : null,
+        // Always 0 since D-467: a moved start never removes interest.
+        interest_removed: 0,
       },
     ])
     const { rows } = await openPeriods(db)
-    let dialog = await choose(
+    const dialog = await choose(
       rows[0]!,
       CURRENT,
-      'Move this period’s start back to the schedule (25.10.2026)',
+      'This period’s salary actually arrived on another day',
     )
-    expect(await within(dialog).findByTestId('interest-removed')).toHaveTextContent(
-      'The interest added to 2 debts at this period’s start goes: the new start is on or before the day those debts were opened.',
-    )
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-
-    dialog = await choose(rows[0]!, CURRENT, 'This period’s salary actually arrived on another day')
     await typeDate(dialog, /Day the salary arrived/, '27,10,2026')
-    expect(await within(dialog).findByTestId('interest-removed')).toHaveTextContent(
-      'The interest added to 1 debt at this period’s start goes',
+    expect(await within(dialog).findByTestId('move-refused')).toHaveTextContent(
+      'The period’s start cannot move onto or before the opening of a debt that has interest in that period',
     )
+    expect(dialog).not.toHaveTextContent(/interest added to .* debt/)
     expect(db.rpc.preview_move_period_start).toHaveBeenCalledWith({
       p_period_id: 'period-2',
       p_start_date: '2026-10-27',

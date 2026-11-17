@@ -8,6 +8,7 @@ import { renderRoutes } from '@/test/render'
 import { BUDGET_ID, categoriesDb, DEBT_ID, debtRow } from '@/test/budget-fixtures'
 import { dbError } from '@/test/mock-db'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -66,6 +67,9 @@ async function openEdit(db: ReturnType<typeof debtDb>) {
   await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
   return { ...result, dialog: await screen.findByRole('dialog') }
 }
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('debts', 'debtDetail', 'dashboard'))
 
 describe('correcting a debt from an earlier period [R-DEBT-140]', () => {
   it('starts from that period’s rate and payment and sends only what was changed [R-VERSION-140]', async () => {

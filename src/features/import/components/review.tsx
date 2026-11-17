@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, useBudgetStatus } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
-import { useMerchantRules } from '@/features/import/import-queries'
 import type { Transaction } from '@/features/transactions/transaction-queries'
 import { useAppMutation } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
@@ -243,14 +242,12 @@ export function ToReviewCard() {
   )
 }
 
-/** Others waiting in "to categorise" read at most, to count those the rule would move. */
-const WAITING_READ = 200
-
 /**
  * After an imported transaction to review got its category: "always put this merchant in this
- * category?", with the merchant key the database computed, and how many others wait for it;
- * one click creates the rule and moves them (create_merchant_rule with p_apply). Not offered
- * when a rule already covers the key.
+ * category?", with the merchant key the database computed, and how many others it moves, as
+ * preview_merchant_rule answers (D-457): exactly what one click then moves; not offered when a
+ * rule already covers the key. One click creates the rule and moves them (create_merchant_rule
+ * with p_apply).
  */
 // R-IMPORT-007: one click to always put this merchant in this category.
 export function RuleOffer({
@@ -265,10 +262,7 @@ export function RuleOffer({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const status = useBudgetStatus(budgetId)
-  const rules = useMerchantRules(budgetId)
   const key = after.merchant_key
-  const toCategorise = status.data?.to_categorise_category_id ?? null
   const eligible =
     before.review_state === 'to_review' &&
     key !== null &&
@@ -276,32 +270,28 @@ export function RuleOffer({
     after.category_id !== null &&
     after.category_id !== before.category_id &&
     after.in_to_categorise !== true
-  // A rule whose text the key contains already applies (Q-271: the database does not say).
-  const covered = rules.data?.some((rule) => key !== null && key.includes(rule.fragment)) ?? true
-  const waiting = useQuery({
+  const preview = useQuery({
     queryKey: [
-      ...budgetKeys.transactions(budgetId),
-      'waiting-for-rule',
-      toCategorise ?? '',
+      ...budgetKeys.merchantRules(budgetId),
+      'preview',
+      key ?? '',
+      after.category_id ?? '',
     ] as const,
-    enabled: eligible && toCategorise !== null,
-    queryFn: async (): Promise<Transaction[]> =>
+    enabled: eligible,
+    staleTime: 0,
+    queryFn: async () =>
       unwrap(
-        await supabase.rpc('list_transactions', {
+        await supabase.rpc('preview_merchant_rule', {
           p_budget_id: budgetId,
-          p_to_review_only: true,
-          p_category_id: toCategorise ?? '',
-          p_limit: WAITING_READ,
+          p_fragment: key ?? '',
+          p_category_id: after.category_id ?? '',
         }),
-      ),
+      )[0] ?? null,
   })
-  const others = (waiting.data ?? []).filter(
-    (row) =>
-      row.id !== after.id &&
-      row.merchant_key !== null &&
-      key !== null &&
-      row.merchant_key.includes(key),
-  ).length
+  const answer = preview.data
+  // The generated type says string; the call answers null when no rule covers the key.
+  const covered = !answer || Boolean(answer.covered_by_rule_id) || answer.rule_exists
+  const others = answer?.would_move ?? 0
   const create = useAppMutation<{ moved: number } | null>({
     errorMessages: { category_to_categorise: 'import.toCategorise.errors.rule' },
     mutationFn: async () =>
@@ -320,21 +310,27 @@ export function RuleOffer({
     onSuccess: onClose,
     invalidate: () => [...affected(budgetId), budgetKeys.merchantRules(budgetId)],
   })
-  if (!eligible || rules.data === undefined || covered) return null
+  if (!eligible || covered) return null
   const category = after.parent_category_name
     ? `${after.parent_category_name} › ${after.category_name ?? ''}`
     : (after.category_name ?? '')
   return (
-    <Alert data-testid="rule-offer" role="region" aria-label={t('import.review.rule.title')}>
+    // R-IMPORT-365: fixed in the window (under the header on a phone, bottom left beside the sidebar, away
+    // from the toasts): in view wherever the saved row is, never scrolling the
+    // page, and it takes no focus by itself (a stray Enter would create a rule).
+    <Alert
+      data-testid="rule-offer"
+      role="region"
+      aria-label={t('import.review.rule.title')}
+      className="fixed inset-x-4 top-16 z-40 max-h-[50vh] w-auto overflow-y-auto shadow-lg md:top-auto md:right-auto md:bottom-4 md:left-[calc(var(--sidebar-width)+1rem)] md:w-[28rem]"
+    >
       <SparklesIcon aria-hidden />
       <AlertTitle>{t('import.review.rule.title')}</AlertTitle>
       <AlertDescription className="flex flex-col gap-2">
         <p>{t('import.review.rule.body', { key: `\u2068${key}\u2069`, category })}</p>
         {others > 0 && (
           <p>
-            {others >= WAITING_READ - 1
-              ? t('import.review.rule.alsoMoveAtLeast', { count: others })
-              : t('import.review.rule.alsoMove', { count: others })}
+            {t('import.review.rule.alsoMove', { count: others })}
           </p>
         )}
         <div className="flex flex-wrap gap-2">
@@ -343,7 +339,6 @@ export function RuleOffer({
             size="sm"
             disabled={create.isPending}
             onClick={() => create.mutate()}
-            autoFocus
           >
             {t('import.review.rule.create')}
           </Button>

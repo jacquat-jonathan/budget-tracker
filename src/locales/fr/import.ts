@@ -35,6 +35,10 @@ export const importFr: Translation['import'] = {
     notCsv:
       'Ce fichier ne ressemble pas à du texte CSV. Pour un relevé PDF, utilisez « Un relevé PDF ».',
     readFailed: 'Le fichier n’a pas pu être lu sur cet appareil. Choisissez-le à nouveau.',
+    csvBinary:
+      'Ce fichier ne contient pas de texte : ce n’est pas un export CSV. Rien n’a été lu ni envoyé. Exportez le relevé en CSV et choisissez ce fichier.',
+    csvUndecodable:
+      'Ce fichier se dit texte Unicode, mais une partie ne peut pas être décodée : il est peut-être abîmé. Rien n’a été lu ni envoyé. Exportez-le à nouveau.',
   },
   reading: {
     title: 'Lecture du relevé sur cet appareil…',
@@ -175,6 +179,12 @@ export const importFr: Translation['import'] = {
     separators: { ';': 'Point-virgule (;)', ',': 'Virgule (,)', '\t': 'Tabulation' },
     separatorUnknown: 'Le séparateur n’a pas pu être reconnu : choisissez-le.',
     hasHeader: 'La première ligne contient les noms des colonnes',
+    firstLineData:
+      'La première ligne contient une date et un montant : elle est lue comme une ligne de données, pas comme les noms des colonnes. Cochez la case ci-dessus si elle contient bien les noms.',
+    cleaned_one:
+      'La ligne {{lines}} contenait un caractère de contrôle invisible (par exemple un NUL). Il a été retiré sur cet appareil avant tout envoi.',
+    cleaned_other:
+      'Les lignes {{lines}} contenaient des caractères de contrôle invisibles (par exemple un NUL). Ils ont été retirés sur cet appareil avant tout envoi.',
     column: 'Colonne {{n}}',
     columnNamed: 'Colonne {{n}} : {{name}}',
     none: 'Aucune',
@@ -197,6 +207,13 @@ export const importFr: Translation['import'] = {
     decimal: 'Décimales après',
     decimalPoint: "un point (1'234.50)",
     decimalComma: 'une virgule (1 234,50)',
+    decimalLine: 'ligne {{line}} « {{text}} »',
+    decimalFromPoint: 'Lu dans les montants : décimales après un point ({{lines}}).',
+    decimalFromComma: 'Lu dans les montants : décimales après une virgule ({{lines}}).',
+    decimalUndecided:
+      'Les montants ne disent pas quel signe sépare les décimales : {{lines}} : ces montants peuvent se lire en milliers ou en décimales (1.200 vaut 1’200 ou 1.20). Choisissez-le : rien n’est supposé.',
+    decimalContradictory:
+      'Les montants se contredisent : certains ont des décimales après un point ({{point}}), d’autres après une virgule ({{comma}}). Ce fichier ne peut pas être lu sans risque : vérifiez-le ou exportez-le à nouveau.',
     description: 'Description',
     merchant: 'Commerçant (facultatif)',
     bankId: 'Référence bancaire (facultatif)',
@@ -204,6 +221,7 @@ export const importFr: Translation['import'] = {
       'L’association utilisée la dernière fois pour ce genre de fichier dans ce budget a été reprise.',
     sample: 'Aperçu : les premières lignes telles qu’elles seront envoyées',
     sampleEmpty: 'Associez la date et le montant pour voir les lignes.',
+    sampleNeedsDecimal: 'Choisissez le signe des décimales ci-dessus pour voir les lignes.',
     sampleDirection: { debit: 'sortie', credit: 'entrée' },
     problemsTitle_one: '{{count}} ligne ne peut pas être lue et ne sera pas envoyée',
     problemsTitle_other: '{{count}} lignes ne peuvent pas être lues et ne seront pas envoyées',
@@ -228,6 +246,10 @@ export const importFr: Translation['import'] = {
     },
     unclosedQuote:
       'Une cellule entre guillemets qui commence à la ligne {{line}} n’est jamais fermée : rien n’est lu à partir de cette ligne. Vérifiez le fichier.',
+    tooMany_one:
+      'Ce fichier a {{count}} ligne : un import en prend au plus {{max}}. Rien n’a été envoyé. Coupez le fichier en parties d’au plus {{max}} lignes et importez chacune.',
+    tooMany_other:
+      'Ce fichier a {{count}} lignes : un import en prend au plus {{max}}. Rien n’a été envoyé. Coupez le fichier en parties d’au plus {{max}} lignes et importez chacune.',
     noRows: 'Aucune ligne de ce fichier ne peut être importée avec cette association.',
     continue_one: 'Vérifier {{count}} ligne',
     continue_other: 'Vérifier {{count}} lignes',
@@ -238,6 +260,8 @@ export const importFr: Translation['import'] = {
     help: 'Voici ce que votre budget fera de chaque ligne. Modifiez ce que vous voulez : chaque changement est revérifié par le budget.',
     checking: 'Vérification…',
     checkFailed: 'Les lignes n’ont pas pu être vérifiées : {{reason}}',
+    checkBusy:
+      'Le budget est occupé et a mis trop de temps à vérifier ces lignes (rien n’a été changé). Il a été redemandé ; vérifiez à nouveau dans un moment.',
     retry: 'Vérifier à nouveau',
     counts: {
       import_one: '{{count}} à importer',
@@ -269,6 +293,15 @@ export const importFr: Translation['import'] = {
     money: { debit: 'sortie', credit: 'entrée' },
     select: 'Sélectionner {{row}}',
     selectAll: 'Sélectionner toutes les lignes affichées',
+    selectAllCount_one: 'Sélectionner la {{count}} ligne de ce filtre',
+    selectAllCount_other: 'Sélectionner les {{count}} lignes de ce filtre',
+    skipToImport: 'Passer les lignes : aller au bouton Importer',
+    recorded_one:
+      'La partie {{count}} a déjà été enregistrée par l’importation interrompue : ses lignes sont verrouillées. Renvoyée, elle n’enregistre rien ; le résultat dira ce qu’elles sont devenues.',
+    recorded_other:
+      'Les parties 1 à {{count}} ont déjà été enregistrées par l’importation interrompue : leurs lignes sont verrouillées. Renvoyées, elles n’enregistrent rien ; le résultat dira ce qu’elles sont devenues.',
+    recordedRow:
+      'Déjà enregistrée dans la partie {{part}} par l’importation interrompue : elle ne peut plus être changée.',
     selected_one: '{{count}} ligne sélectionnée',
     selected_other: '{{count}} lignes sélectionnées',
     bulk: {
@@ -401,6 +434,10 @@ export const importFr: Translation['import'] = {
     resent_other:
       'Des réponses se sont perdues en route : des parties ont été renvoyées ({{count}} fois). Chacune n’est enregistrée qu’une fois.',
     keepOpen: 'Gardez cette page ouverte jusqu’à la fin.',
+    busy_one:
+      'Le budget était occupé et n’a pas répondu à temps : la partie {{part}} a été renvoyée ({{count}} fois). Elle n’est enregistrée qu’une fois.',
+    busy_other:
+      'Le budget était occupé et n’a pas répondu à temps : la partie {{part}} a été renvoyée ({{count}} fois). Elle n’est enregistrée qu’une fois.',
     leaveWarning: 'L’importation est encore en cours d’envoi. Quitter quand même ?',
     stopped: {
       title: 'L’importation s’est arrêtée',
@@ -412,9 +449,10 @@ export const importFr: Translation['import'] = {
         "La partie {{part}} a été refusée : le budget contient 50'000 transactions, le maximum. Rien de cette partie n'a été écrit.",
       network:
         'La partie {{part}} n’a pas pu être envoyée : la connexion échoue sans cesse. Vérifiez-la et continuez : ce qui a déjà été enregistré ne l’est pas deux fois.',
+      busy: 'La partie {{part}} n’a pas pu être enregistrée : le budget est resté occupé et n’a pas répondu à temps. Rien de cette partie n’a été écrit. Continuez dans un moment : ce qui a déjà été enregistré ne l’est pas deux fois.',
       other: 'La partie {{part}} a été refusée : {{reason}}',
-      before_one: 'La {{count}} partie qui la précède est importée.',
-      before_other: 'Les {{count}} parties qui la précèdent sont importées.',
+      before_one: 'La partie qui la précède est enregistrée.',
+      before_other: 'Les {{count}} parties qui la précèdent sont enregistrées.',
       continue: 'Continuer l’importation',
       finish: 'Voir ce qui a été importé',
     },
@@ -432,6 +470,20 @@ export const importFr: Translation['import'] = {
     imported_one: '{{count}} transaction importée',
     imported_other: '{{count}} transactions importées',
     importedHelp: 'Elles comptent maintenant dans vos totaux et attendent votre revue.',
+    anyway_one: 'Dont {{count}} importée quand même ensuite.',
+    anyway_other: 'Dont {{count}} importées quand même ensuite.',
+    undoneTitle: 'Cette importation a été annulée',
+    undoneHelp:
+      'Ses transactions encore à passer en revue et liées à rien ont été supprimées : elles ne comptent plus dans vos totaux. Ce qui est resté est indiqué plus bas.',
+    differedWhy:
+      'Cela arrive quand les mêmes transactions ont été rapprochées entre-temps : par une partie précédente de cette importation, par une autre importation (la vôtre ou celle d’un autre membre) ou par un changement du budget.',
+    differedSkipped_one: '{{count}} d’entre elles n’a pas été importée : elle figure plus bas.',
+    differedSkipped_other:
+      '{{count}} d’entre elles n’ont pas été importées : elles figurent plus bas.',
+    differedImported_one:
+      '{{count}} d’entre elles a été importée alors que la vérification disait de l’ignorer.',
+    differedImported_other:
+      '{{count}} d’entre elles ont été importées alors que la vérification disait de les ignorer.',
     skipped: {
       skip_duplicate_one: '{{count}} ignorée comme doublon',
       skip_duplicate_other: '{{count}} ignorées comme doublons',
@@ -446,10 +498,8 @@ export const importFr: Translation['import'] = {
     },
     charges_one: '{{count}} prélèvement d’abonnement confirmé par le relevé',
     charges_other: '{{count}} prélèvements d’abonnement confirmés par le relevé',
-    differed_one:
-      '{{count}} ligne a abouti autrement que la vérification ne l’annonçait (une partie précédente correspondait déjà à la même transaction) : elle est listée ci-dessous.',
-    differed_other:
-      '{{count}} lignes ont abouti autrement que la vérification ne l’annonçait (une partie précédente correspondait déjà aux mêmes transactions) : elles sont listées ci-dessous.',
+    differed_one: '{{count}} ligne a abouti autrement que la vérification ne l’annonçait.',
+    differed_other: '{{count}} lignes ont abouti autrement que la vérification ne l’annonçait.',
     review: 'Passer en revue les transactions importées',
     another: 'Importer un autre fichier',
   },
@@ -469,12 +519,65 @@ export const importFr: Translation['import'] = {
     importAllAnyway: 'Importer quand même toutes les lignes ignorées',
     importedAnywayDone_one: '{{count}} ligne importée quand même.',
     importedAnywayDone_other: '{{count}} lignes importées quand même.',
+    anywayFailed: 'Les lignes n’ont pas pu être importées quand même. Réessayez.',
+    kinds: {
+      salary: 'Ignorée : un salaire déjà prévu comme revenu',
+      card_bill_payment: 'Ignorée : un paiement de facture de carte',
+      own_transfer: 'Ignorée : un virement entre vos propres comptes',
+      transfer_to_person: 'Ignorée : un virement à une personne',
+      flagged: 'Ignorée : signalée',
+      charge: 'Pas importée : elle a confirmé un prélèvement d’abonnement déjà dans le budget',
+      typed: 'Ignorée : déjà saisie à la main',
+      matched: 'Ignorée : déjà saisie',
+      duplicate: 'Déjà dans le budget',
+      chosen: 'Ignorée par vous',
+    },
+    ask: {
+      title_one: 'Importer quand même {{count}} ligne ignorée ?',
+      title_other: 'Importer quand même {{count}} lignes ignorées ?',
+      body_one: 'Cette ligne a été ignorée pour une raison :',
+      body_other: 'Ces lignes ont été ignorées pour une raison :',
+      kinds: {
+        salary_one:
+          '{{count}} salaire déjà prévu comme revenu (ajouté comme revenu supplémentaire)',
+        salary_other:
+          '{{count}} salaires déjà prévus comme revenus (ajoutés comme revenus supplémentaires)',
+        card_bill_payment_one:
+          '{{count}} paiement de facture de carte (ses achats viennent avec la facture)',
+        card_bill_payment_other:
+          '{{count}} paiements de facture de carte (leurs achats viennent avec la facture)',
+        own_transfer_one: '{{count}} virement entre vos propres comptes',
+        own_transfer_other: '{{count}} virements entre vos propres comptes',
+        transfer_to_person_one: '{{count}} virement à une personne',
+        transfer_to_person_other: '{{count}} virements à une personne',
+        flagged_one: '{{count}} ligne signalée',
+        flagged_other: '{{count}} lignes signalées',
+        charge_one: '{{count}} prélèvement d’abonnement que l’importation a déjà confirmé',
+        charge_other: '{{count}} prélèvements d’abonnement que l’importation a déjà confirmés',
+        typed_one: '{{count}} déjà saisie à la main',
+        typed_other: '{{count}} déjà saisies à la main',
+        matched_one: '{{count}} qui correspondait à une transaction déjà dans le budget',
+        matched_other: '{{count}} qui correspondaient à des transactions déjà dans le budget',
+        duplicate_one: '{{count}} déjà dans le budget (un doublon)',
+        duplicate_other: '{{count}} déjà dans le budget (des doublons)',
+        chosen_one: '{{count}} que vous avez choisi d’ignorer',
+        chosen_other: '{{count}} que vous avez choisi d’ignorer',
+      },
+      twice_one:
+        'Si elle est ce que l’importation a pensé, elle comptera deux fois dans vos totaux.',
+      twice_other:
+        'Si elles sont ce que l’importation a pensé, elles compteront deux fois dans vos totaux.',
+      confirm_one: 'L’importer quand même',
+      confirm_other: 'Importer quand même {{count}} lignes',
+    },
     more: 'Afficher plus de lignes',
     row: '{{date}}, {{amount}} {{direction}}',
   },
   undo: {
     action: 'Annuler cette importation',
     title: 'Annuler cette importation ?',
+    bodyUnknown:
+      'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées.',
     body_one:
       'Les transactions de cette importation encore à passer en revue et liées à rien sont supprimées ({{count}} est encore à passer en revue).',
     body_other:
@@ -599,6 +702,10 @@ export const importFr: Translation['import'] = {
     copy: 'Copier le jeton',
     copied: 'Copié.',
     copyFailed: 'Impossible de copier : sélectionnez le texte et copiez-le.',
+    leaveAsk:
+      'Fermer sans le secret ? Il n’est plus affiché ensuite : si vous ne l’avez pas copié, révoquez ce jeton et créez-en un autre.',
+    leaveCopied: 'Je l’ai copié : fermer',
+    leaveBack: 'Revenir au secret',
     done: 'Je l’ai copié',
     list: 'Jetons de ce budget',
     empty: 'Aucun jeton pour l’instant.',

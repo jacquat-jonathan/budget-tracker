@@ -15,16 +15,24 @@ import type { DraftEntry } from '@/features/import/import-model'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 
+import { MAX_BATCH_ROWS } from '@/features/import/import-model'
+import { formatCount } from '@/lib/money'
+
 import {
+  amountCells,
   DATE_FORMATS,
   dateFormatsFor,
+  decimalEvidence,
+  decimalToUse,
   guessMapping,
+  looksLikeData,
   mapRecords,
   mappingComplete,
   type CsvAdjustment,
   type CsvMapping,
   type CsvProblem,
   type DateFormat,
+  type DecimalMark,
 } from './csv-map'
 import { readRememberedMapping, rememberMapping } from './csv-mapping-storage'
 import { CSV_SEPARATORS, detectSeparator, parseCsv, type CsvSeparator } from './csv-parse'
@@ -39,6 +47,8 @@ export interface CsvReady {
 const SAMPLE = 6
 /** How many unreadable lines are listed one by one. */
 const LISTED = 50
+/** How many lines a note about the decimal mark names. */
+const NAMED = 5
 
 /**
  * The mapping step of the CSV import (R-IMPORT-082): which column is the date (and its format,
@@ -87,12 +97,42 @@ export function CsvMapper({
     // The key stands for the header and the separator.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mappingKey, budgetId])
-  const [edited, setEdited] = useState<{ key: string; mapping: CsvMapping } | null>(null)
-  const chosen = edited?.key === mappingKey ? edited.mapping : start.mapping
-  const remembered = start.remembered && edited?.key !== mappingKey
+  const [edited, setEdited] = useState<{
+    key: string
+    mapping: CsvMapping
+    /** The member chose the decimal mark here. */
+    decimalSet: boolean
+  } | null>(null)
+  const own = edited?.key === mappingKey ? edited : null
+  const chosen = own ? own.mapping : start.mapping
+  const remembered = start.remembered && own === null
   const set = (change: Partial<CsvMapping>) =>
-    setEdited({ key: mappingKey, mapping: { ...chosen, ...change } })
+    setEdited({
+      key: mappingKey,
+      mapping: { ...chosen, ...change },
+      decimalSet: (own?.decimalSet ?? false) || 'decimal' in change,
+    })
   const body = chosen.hasHeader ? records.slice(1) : records
+  // The first line reads as data (a date and an amount): it is a row unless the member says not.
+  const firstIsData = useMemo(() => looksLikeData(header), [header])
+  // R-IMPORT-324: the decimal mark comes from every amount of the file, or is asked.
+  const evidence = useMemo(
+    () =>
+      decimalEvidence(
+        amountCells(body, {
+          amountMode: chosen.amountMode,
+          amount: chosen.amount,
+          debit: chosen.debit,
+          credit: chosen.credit,
+        }),
+      ),
+    [body, chosen.amountMode, chosen.amount, chosen.debit, chosen.credit],
+  )
+  // What the amounts settle wins over a mapping remembered from another file; a choice made
+  // here wins over both.
+  const decimalChoice: DecimalMark | null =
+    own?.decimalSet === true ? chosen.decimal : evidence.state === 'settled' ? null : chosen.decimal
+  const decimal = decimalToUse(evidence, decimalChoice)
   const dateValues = useMemo(
     () => (chosen.date === null ? [] : body.map((record) => record.cells[chosen.date ?? 0] ?? '')),
     [body, chosen.date],
@@ -100,14 +140,25 @@ export function CsvMapper({
   const formats = useMemo(() => dateFormatsFor(dateValues), [dateValues])
   // A format fills the choice by itself only when it alone reads every date.
   const mapping = useMemo<CsvMapping>(
-    () =>
-      chosen.dateFormat === null && formats.length === 1
-        ? { ...chosen, dateFormat: formats[0] ?? null }
-        : chosen,
-    [chosen, formats],
+    () => ({
+      ...chosen,
+      dateFormat:
+        chosen.dateFormat === null && formats.length === 1
+          ? (formats[0] ?? null)
+          : chosen.dateFormat,
+      decimal,
+    }),
+    [chosen, formats, decimal],
   )
   const mapped = useMemo(() => mapRecords(records, mapping), [records, mapping])
   const complete = mappingComplete(mapping)
+  // R-IMPORT-208: a batch takes 100 parts of 500 rows; a longer file is refused before sending.
+  const tooMany = mapped.rows.length > MAX_BATCH_ROWS
+  const named = (cells: readonly { line: number; text: string }[]) =>
+    cells
+      .slice(0, NAMED)
+      .map((cell) => t('import.csv.decimalLine', { line: cell.line, text: cell.text.trim() }))
+      .join(', ') + (cells.length > NAMED ? '…' : '')
   const columnName = (index: number) => {
     const name = mapping.hasHeader ? (header[index] ?? '').trim() : ''
     return name !== ''
@@ -147,7 +198,13 @@ export function CsvMapper({
   const sample = mapped.rows.slice(0, SAMPLE)
 
   const ready = () => {
-    rememberMapping(budgetId, { header: [...header], separator, mapping })
+    // A point used only because no amount depends on it is not remembered as a choice.
+    const kept = decimalChoice ?? (evidence.state === 'settled' ? decimal : null)
+    rememberMapping(budgetId, {
+      header: [...header],
+      separator,
+      mapping: { ...mapping, decimal: kept },
+    })
     onReady({
       entries: mapped.rows.map(({ line, row }) => ({ key: line, row })),
       problems: mapped.problems,
@@ -173,6 +230,17 @@ export function CsvMapper({
             <TriangleAlertIcon aria-hidden />
             <AlertDescription>
               {t('import.csv.unclosedQuote', { line: parsed.unclosedQuoteAt })}
+            </AlertDescription>
+          </Alert>
+        )}
+        {parsed.cleaned.length > 0 && (
+          <Alert data-testid="csv-cleaned">
+            <InfoIcon aria-hidden />
+            <AlertDescription>
+              {t('import.csv.cleaned', {
+                count: parsed.cleaned.length,
+                lines: parsed.cleaned.slice(0, LISTED).join(', '),
+              })}
             </AlertDescription>
           </Alert>
         )}
@@ -208,6 +276,11 @@ export function CsvMapper({
             />
             <Label htmlFor={`${id}-header`}>{t('import.csv.hasHeader')}</Label>
           </div>
+          {firstIsData && !mapping.hasHeader && (
+            <p className="text-xs font-medium sm:col-span-2" data-testid="header-note">
+              {t('import.csv.firstLineData')}
+            </p>
+          )}
         </div>
         <fieldset className="grid gap-4 sm:grid-cols-2">
           <legend className="sr-only">{t('import.csv.title')}</legend>
@@ -292,13 +365,51 @@ export function CsvMapper({
             </span>
             <RadioGroup
               aria-labelledby={`${id}-decimal`}
-              value={mapping.decimal}
+              aria-describedby={evidence.state !== 'none' ? `${id}-decimal-note` : undefined}
+              value={mapping.decimal ?? ''}
+              disabled={evidence.state === 'contradictory'}
               onValueChange={(value) => set({ decimal: value === ',' ? ',' : '.' })}
               className="flex flex-wrap gap-x-6 gap-y-2"
             >
               <Choice id={`${id}-point`} value="." label={t('import.csv.decimalPoint')} />
               <Choice id={`${id}-comma`} value="," label={t('import.csv.decimalComma')} />
             </RadioGroup>
+            {evidence.state === 'settled' && (
+              <p
+                id={`${id}-decimal-note`}
+                className="text-xs text-muted-foreground"
+                data-testid="decimal-note"
+              >
+                {t(
+                  evidence.mark === ','
+                    ? 'import.csv.decimalFromComma'
+                    : 'import.csv.decimalFromPoint',
+                  {
+                    lines: named(evidence.mark === ',' ? evidence.comma : evidence.point),
+                  },
+                )}
+              </p>
+            )}
+            {evidence.state === 'undecided' && (
+              <p
+                id={`${id}-decimal-note`}
+                className="text-xs font-medium"
+                data-testid="decimal-note"
+              >
+                {t('import.csv.decimalUndecided', { lines: named(evidence.ambiguous) })}
+              </p>
+            )}
+            {evidence.state === 'contradictory' && (
+              <Alert variant="destructive" id={`${id}-decimal-note`} data-testid="decimal-note">
+                <TriangleAlertIcon aria-hidden />
+                <AlertDescription>
+                  {t('import.csv.decimalContradictory', {
+                    point: named(evidence.point),
+                    comma: named(evidence.comma),
+                  })}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -313,7 +424,11 @@ export function CsvMapper({
           </h3>
           {!complete || sample.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {complete ? t('import.csv.noRows') : t('import.csv.sampleEmpty')}
+              {complete
+                ? t('import.csv.noRows')
+                : mapping.decimal === null && evidence.state === 'undecided'
+                  ? t('import.csv.sampleNeedsDecimal')
+                  : t('import.csv.sampleEmpty')}
             </p>
           ) : (
             <ul
@@ -369,12 +484,28 @@ export function CsvMapper({
           />
         )}
 
+        {tooMany && (
+          <Alert variant="destructive" data-testid="csv-too-many">
+            <TriangleAlertIcon aria-hidden />
+            <AlertDescription>
+              {t('import.csv.tooMany', {
+                count: mapped.rows.length,
+                max: formatCount(MAX_BATCH_ROWS),
+              })}
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="flex flex-wrap justify-between gap-2">
           <Button type="button" variant="outline" onClick={onBack}>
             <ArrowLeftIcon aria-hidden />
             {t('import.csv.back')}
           </Button>
-          <Button type="button" disabled={!complete || mapped.rows.length === 0} onClick={ready}>
+          <Button
+            type="button"
+            disabled={!complete || mapped.rows.length === 0 || tooMany}
+            onClick={ready}
+          >
             {t('import.csv.continue', { count: mapped.rows.length })}
           </Button>
         </div>

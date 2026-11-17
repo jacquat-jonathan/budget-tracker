@@ -128,6 +128,19 @@ describe('imported transactions to review [R-IMPORT-081] [R-IMPORT-209]', () => 
     await waitFor(() => expect(router.state.location.search).not.toContain('review=1'))
   })
 
+  it('[R-IMPORT-365] "show only the N to review" shows those N, in every period, whatever else was filtered', async () => {
+    const db = reviewDb()
+    const { router } = open(db, '/transactions?category=cat-groceries')
+    const button = await screen.findByRole('button', { name: 'Show only the 3 to review' })
+    await userEvent.click(button)
+    await waitFor(() => expect(router.state.location.search).toBe('?period=all&review=1'))
+    await waitFor(() => expect(screen.getAllByTestId('transaction-row')).toHaveLength(3))
+    const last = db.rpc.list_transactions.mock.calls.at(-1)?.[0]
+    expect(last).toMatchObject({ p_to_review_only: true })
+    expect(last?.p_period_id ?? null).toBeNull()
+    expect(last?.p_category_id ?? null).toBeNull()
+  })
+
   it('confirms one, and a transaction still in "to categorise" says why it cannot be', async () => {
     const db = reviewDb()
     open(db, '/transactions?period=all&review=1')
@@ -170,7 +183,7 @@ describe('imported transactions to review [R-IMPORT-081] [R-IMPORT-209]', () => 
   })
 })
 
-describe('one click to always put a merchant in a category [R-IMPORT-007]', () => {
+describe('one click to always put a merchant in a category [R-IMPORT-007] [R-IMPORT-365]', () => {
   it('is offered after categorising, with the database’s key and the others waiting, and moves them', async () => {
     const db = reviewDb()
     db.rpc.update_transaction.mockImplementation(() => [
@@ -199,6 +212,11 @@ describe('one click to always put a merchant in a category [R-IMPORT-007]', () =
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     const offer = await screen.findByTestId('rule-offer')
     expect(offer).toHaveTextContent('Next imports put “\u2068coop pronto 12\u2069” in Groceries.')
+    // In view wherever the row is (fixed in the window), and it takes no focus by itself: a
+    // stray Enter must not create a rule.
+    expect(offer.className).toContain('fixed')
+    expect(within(offer).getByRole('button', { name: 'Always' })).not.toHaveFocus()
+    expect(offer).not.toContainElement(document.activeElement as HTMLElement | null)
     await userEvent.click(within(offer).getByRole('button', { name: 'Always' }))
     await waitFor(() =>
       expect(db.rpc.create_merchant_rule).toHaveBeenCalledWith({
@@ -222,14 +240,15 @@ describe('one click to always put a merchant in a category [R-IMPORT-007]', () =
       in_to_categorise: true,
       merchant_key: 'shell',
     }
-    db.rpc.update_transaction.mockImplementation(() => [
-      {
-        ...db.tables.transaction_list[0],
+    db.rpc.update_transaction.mockImplementation(() => {
+      db.tables.transaction_list[0] = {
+        ...db.tables.transaction_list[0]!,
         category_id: 'cat-groceries',
         category_name: 'Groceries',
         in_to_categorise: false,
-      },
-    ])
+      }
+      return [db.tables.transaction_list[0]]
+    })
     open(db, '/transactions?period=all&review=1')
     const rows = await screen.findAllByTestId('transaction-row')
     await userEvent.click(within(rows[0]!).getByRole('button', { name: /Actions for/ }))
@@ -241,8 +260,44 @@ describe('one click to always put a merchant in a category [R-IMPORT-007]', () =
     expect(await screen.findByTestId('rule-offer')).toHaveTextContent(
       'Also move the 1 other transaction waiting in “To categorise” for it.',
     )
-    expect(db.rpc.list_transactions).toHaveBeenCalledWith(
-      expect.objectContaining({ p_to_review_only: true, p_category_id: TO_CATEGORISE }),
+    // The database counts them (D-457), all of them, not a page of the newest.
+    expect(db.rpc.preview_merchant_rule).toHaveBeenCalledWith({
+      p_budget_id: BUDGET_ID,
+      p_fragment: 'shell',
+      p_category_id: 'cat-groceries',
+    })
+  })
+
+  it('says the real number that moves when thousands wait [R-IMPORT-202]', async () => {
+    const db = reviewDb()
+    db.rpc.update_transaction.mockImplementation(() => [
+      {
+        ...db.tables.transaction_list[1],
+        category_id: 'cat-groceries',
+        category_name: 'Groceries',
+        in_to_categorise: false,
+        revision: 2,
+      },
+    ])
+    db.rpc.preview_merchant_rule.mockImplementation(() => [
+      {
+        fragment: 'coop pronto 12',
+        covered_by_rule_id: null,
+        covered_by_fragment: null,
+        rule_exists: false,
+        would_move: 5_097,
+      },
+    ])
+    open(db, '/transactions?period=all&review=1')
+    const rows = await screen.findAllByTestId('transaction-row')
+    await userEvent.click(within(rows[1]!).getByRole('button', { name: /Actions for/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit transaction' })
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Category' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Groceries' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByTestId('rule-offer')).toHaveTextContent(
+      "Also move the 5'097 other transactions waiting in “To categorise” for it.",
     )
   })
 

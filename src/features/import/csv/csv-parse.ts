@@ -4,6 +4,7 @@
  * and a separator detected among comma, semicolon and tab (the user can change it). Pure: no
  * React, nothing leaves the device.
  */
+import { CONTROL } from './csv-decode'
 
 export type CsvSeparator = ',' | ';' | '\t'
 
@@ -19,6 +20,8 @@ export interface CsvParse {
   records: CsvRecord[]
   /** The line where a quoted cell starts that is never closed: nothing after it is read. */
   unclosedQuoteAt: number | null
+  /** The lines of the records where a control character (a NUL…) was removed from a cell. */
+  cleaned: number[]
 }
 
 /** At most this many characters are read (about 2'000 kB of text). */
@@ -32,6 +35,7 @@ function stripBom(text: string): string {
 export function parseCsv(input: string, separator: CsvSeparator): CsvParse {
   const text = stripBom(input)
   const records: CsvRecord[] = []
+  const cleaned = new Set<number>()
   let cells: string[] = []
   let cell = ''
   let quoted = false
@@ -41,6 +45,13 @@ export function parseCsv(input: string, separator: CsvSeparator): CsvParse {
   let index = 0
   const pushRecord = () => {
     cells.push(cell)
+    // A NUL or another control character in a cell is removed here, before anything is sent,
+    // and the line is named in the notes.
+    cells = cells.map((value) => {
+      const clean = value.replace(CONTROL, '')
+      if (clean !== value) cleaned.add(recordLine)
+      return clean
+    })
     // A line with nothing on it is not a record.
     if (!(cells.length === 1 && cells[0]?.trim() === '')) records.push({ line: recordLine, cells })
     cells = []
@@ -94,9 +105,9 @@ export function parseCsv(input: string, separator: CsvSeparator): CsvParse {
     cell += character
     index += 1
   }
-  if (quoted) return { records, unclosedQuoteAt: quoteLine }
+  if (quoted) return { records, unclosedQuoteAt: quoteLine, cleaned: [...cleaned] }
   if (cell !== '' || cells.length > 0) pushRecord()
-  return { records, unclosedQuoteAt: null }
+  return { records, unclosedQuoteAt: null, cleaned: [...cleaned] }
 }
 
 /**

@@ -72,6 +72,22 @@ export interface PreviewRowsProps {
   onChoices: (next: Choices) => void
   existing: ReadonlyMap<string, ExistingTransaction> | undefined
   categories: readonly Category[] | undefined
+  /** Rows of parts an interrupted import already recorded, with their part: not changeable. */
+  locked?: ReadonlyMap<number, number>
+}
+
+const NONE_LOCKED: ReadonlyMap<number, number> = new Map()
+
+/** A checkbox with a hit area of at least 24 by 24 pixels around its 16-pixel box. */
+function Target({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="-m-1 flex size-6 shrink-0 cursor-pointer items-center justify-center"
+    >
+      {children}
+    </label>
+  )
 }
 
 /**
@@ -90,6 +106,7 @@ export function PreviewRows({
   onChoices,
   existing,
   categories,
+  locked = NONE_LOCKED,
 }: PreviewRowsProps) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState<Filter>('all')
@@ -113,8 +130,13 @@ export function PreviewRows({
     [answers, filter],
   )
   const drawn = visible.slice(0, shown)
-  const allDrawnSelected =
-    drawn.length > 0 && drawn.every((answer) => selected.has(answer.entry.key))
+  // "Select all" covers every row the filter shows, drawn or not, except the locked ones.
+  const selectable = useMemo(
+    () => visible.filter((answer) => !locked.has(answer.entry.key)),
+    [visible, locked],
+  )
+  const allSelected =
+    selectable.length > 0 && selectable.every((answer) => selected.has(answer.entry.key))
 
   const change = (
     keys: readonly number[],
@@ -122,6 +144,7 @@ export function PreviewRows({
   ) => {
     let next = choices
     for (const key of keys) {
+      if (locked.has(key)) continue
       const answer = answers.find((item) => item.entry.key === key)
       if (!answer) continue
       const delta = compute(answer, next[key])
@@ -174,29 +197,33 @@ export function PreviewRows({
           </Button>
         ))}
       </div>
+      {/* R-IMPORT-364: below the app's header (h-14) while the rows scroll; on a phone one line that scrolls
+          sideways inside itself rather than three lines over the rows. */}
       <div
-        className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-background/95 p-2 backdrop-blur"
+        className="sticky top-14 z-10 flex flex-nowrap items-center gap-2 overflow-x-auto rounded-lg border bg-background/95 p-2 backdrop-blur sm:flex-wrap sm:overflow-x-visible"
         role="group"
         aria-label={t('import.preview.bulk.label')}
         data-testid="bulk-bar"
       >
-        <div className="flex items-center gap-2 pr-2">
-          <Checkbox
-            id="preview-select-all"
-            checked={allDrawnSelected}
-            onCheckedChange={(next) => {
-              const keys = drawn.map((answer) => answer.entry.key)
-              setSelected((now) => {
-                const out = new Set(now)
-                for (const key of keys)
-                  if (next === true) out.add(key)
-                  else out.delete(key)
-                return out
-              })
-            }}
-            aria-label={t('import.preview.selectAll')}
-          />
-          <span className="text-sm" aria-live="polite">
+        <div className="flex shrink-0 items-center gap-2 pr-2">
+          <Target htmlFor="preview-select-all">
+            <Checkbox
+              id="preview-select-all"
+              checked={allSelected}
+              onCheckedChange={(next) => {
+                const keys = selectable.map((answer) => answer.entry.key)
+                setSelected((now) => {
+                  const out = new Set(now)
+                  for (const key of keys)
+                    if (next === true) out.add(key)
+                    else out.delete(key)
+                  return out
+                })
+              }}
+              aria-label={t('import.preview.selectAllCount', { count: selectable.length })}
+            />
+          </Target>
+          <span className="text-sm whitespace-nowrap" aria-live="polite">
             {t('import.preview.selected', { count: selected.size })}
           </span>
         </div>
@@ -204,6 +231,7 @@ export function PreviewRows({
           type="button"
           size="sm"
           variant="outline"
+          className="shrink-0"
           disabled={selected.size === 0}
           onClick={() =>
             change(selectedKeys, (answer, choice) => actionChange(answer, choice, 'import'))
@@ -215,6 +243,7 @@ export function PreviewRows({
           type="button"
           size="sm"
           variant="outline"
+          className="shrink-0"
           disabled={selected.size === 0}
           onClick={() =>
             change(selectedKeys, (answer, choice) => actionChange(answer, choice, 'skip'))
@@ -226,6 +255,7 @@ export function PreviewRows({
           type="button"
           size="sm"
           variant="outline"
+          className="shrink-0"
           disabled={selected.size === 0}
           onClick={() =>
             change(selectedKeys, (answer, choice) => kindChange(answer, choice, 'refund'))
@@ -237,6 +267,7 @@ export function PreviewRows({
           type="button"
           size="sm"
           variant="outline"
+          className="shrink-0"
           disabled={selected.size === 0}
           onClick={() =>
             change(selectedKeys, (answer, choice) => kindChange(answer, choice, 'extra_income'))
@@ -248,6 +279,7 @@ export function PreviewRows({
           type="button"
           size="sm"
           variant="outline"
+          className="shrink-0"
           disabled={selected.size === 0}
           onClick={() => {
             const dates = answers
@@ -260,7 +292,13 @@ export function PreviewRows({
           {t('import.preview.bulk.category')}
         </Button>
         {selected.size > 0 && (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="shrink-0"
+            onClick={() => setSelected(new Set())}
+          >
             {t('import.preview.bulk.clear')}
           </Button>
         )}
@@ -277,6 +315,7 @@ export function PreviewRows({
             answer={answer}
             draftKind={draftKind}
             choice={choices[answer.entry.key]}
+            lockedPart={locked.get(answer.entry.key) ?? null}
             selected={selected.has(answer.entry.key)}
             onSelect={(on) =>
               setSelected((now) => {
@@ -353,6 +392,7 @@ function PreviewRow({
   answer,
   draftKind,
   choice,
+  lockedPart,
   selected,
   onSelect,
   onAction,
@@ -364,6 +404,7 @@ function PreviewRow({
   answer: EntryAnswer
   draftKind: 'pdf' | 'csv'
   choice: RowChoice | undefined
+  lockedPart: number | null
   selected: boolean
   onSelect: (on: boolean) => void
   onAction: (to: 'import' | 'skip') => void
@@ -395,13 +436,15 @@ function PreviewRow({
       data-testid="preview-row"
       data-action={action ?? 'pending'}
     >
-      <Checkbox
-        id={checkboxId}
-        checked={selected}
-        onCheckedChange={(next) => onSelect(next === true)}
-        aria-label={t('import.preview.select', { row: rowName })}
-        className="mt-1"
-      />
+      <Target htmlFor={checkboxId}>
+        <Checkbox
+          id={checkboxId}
+          checked={selected}
+          disabled={lockedPart !== null}
+          onCheckedChange={(next) => onSelect(next === true)}
+          aria-label={t('import.preview.select', { row: rowName })}
+        />
+      </Target>
       <div className="flex min-w-0 flex-col gap-2">
         <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <div className="flex min-w-0 flex-col">
@@ -453,7 +496,12 @@ function PreviewRow({
             )}
           </div>
 
-          {result !== undefined && action !== 'invalid' && (
+          {lockedPart !== null && (
+            <p className="text-xs text-muted-foreground" data-testid="row-recorded">
+              {t('import.preview.recordedRow', { part: lockedPart })}
+            </p>
+          )}
+          {lockedPart === null && result !== undefined && action !== 'invalid' && (
             <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
               <NativeSelect
                 aria-label={`${t('import.preview.actionChoice')}: ${rowName}`}
@@ -471,7 +519,7 @@ function PreviewRow({
                   onChange={(event) =>
                     onKind(event.target.value === 'extra_income' ? 'extra_income' : 'refund')
                   }
-                  className="w-40"
+                  className="w-auto max-w-full"
                 >
                   <option value="refund">{t('import.preview.kinds.refund')}</option>
                   <option value="extra_income">{t('import.preview.kinds.extra_income')}</option>
@@ -499,13 +547,15 @@ function PreviewRow({
               )}
             </div>
           )}
-          {action === 'invalid' && result?.reason?.startsWith('category_') && (
-            <div>
-              <Button type="button" variant="outline" size="sm" onClick={onCategory}>
-                {t('import.preview.bulk.category')}
-              </Button>
-            </div>
-          )}
+          {lockedPart === null &&
+            action === 'invalid' &&
+            result?.reason?.startsWith('category_') && (
+              <div>
+                <Button type="button" variant="outline" size="sm" onClick={onCategory}>
+                  {t('import.preview.bulk.category')}
+                </Button>
+              </div>
+            )}
         </div>
         <DetailsBlock row={row} />
       </div>

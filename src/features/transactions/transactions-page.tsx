@@ -334,7 +334,12 @@ export function TransactionsPage() {
             variant="outline"
             size="sm"
             className="h-auto min-h-8 max-w-full py-1 text-left whitespace-normal"
-            onClick={() => setFilter('review', '1')}
+            onClick={() => {
+              // R-IMPORT-209: the count is the whole budget's, so the list shows all of them:
+              // every period, no other filter.
+              const next = new URLSearchParams({ period: ALL, review: '1' })
+              setParams(next, { replace: true })
+            }}
           >
             <ListChecksIcon aria-hidden />
             {t('import.review.showOnly', { count: toReviewCount })}

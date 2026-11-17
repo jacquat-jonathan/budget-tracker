@@ -11,20 +11,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { decodeCsvBytes, type CsvDecoded } from '@/features/import/csv/csv-decode'
 import { formatCount } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
 /** The most CSV text read at once (the import itself takes 500 rows a call). */
 export const MAX_CSV_TEXT = 2_000_000
 
-/** A CSV file as text: UTF-8, or Windows-1252 when it is not valid UTF-8 (older bank exports). */
-async function readCsvFile(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  } catch {
-    return new TextDecoder('windows-1252').decode(bytes)
-  }
+/** A CSV file as text (UTF-16, UTF-8 or Windows-1252), or why it cannot be read as text. */
+async function readCsvFile(file: File): Promise<CsvDecoded> {
+  return decodeCsvBytes(new Uint8Array(await file.arrayBuffer()))
 }
 
 function looksLikePdf(file: File): boolean {
@@ -69,7 +65,16 @@ export function SourceChooser({
       return
     }
     try {
-      const text = await readCsvFile(file)
+      const decoded = await readCsvFile(file)
+      if (!decoded.ok) {
+        setProblem(
+          decoded.reason === 'binary'
+            ? t('import.start.csvBinary')
+            : t('import.start.csvUndecodable'),
+        )
+        return
+      }
+      const text = decoded.text
       if (text.length > MAX_CSV_TEXT) {
         setProblem(t('import.start.csvTooLong', { max: formatCount(MAX_CSV_TEXT) }))
         return

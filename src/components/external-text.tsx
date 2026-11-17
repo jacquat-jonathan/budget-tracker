@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
  * characters cannot reorder the words around it, and broken anywhere when it has no spaces so
  * that a long string never widens the page.
  */
-// R-SECURITY-250: outside text stays text, isolated, and wraps.
+// R-IMPORT-325: outside text stays text, isolated, and wraps.
 export function ExternalText({
   children,
   className,

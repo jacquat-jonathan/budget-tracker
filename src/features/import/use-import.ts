@@ -13,7 +13,7 @@ import {
 import type { ImportRowResult } from '@/features/import/import-queries'
 import { clearPendingImport, writePendingImport } from '@/features/import/pending-import'
 import { useDebounced } from '@/hooks/use-debounced'
-import { dbErrorCode, dbErrorDetail, dbErrorKey } from '@/lib/db-errors'
+import { dbErrorCode, dbErrorDetail, dbErrorKey, isBusyError } from '@/lib/db-errors'
 import type { Json } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
@@ -35,6 +35,34 @@ export interface PreviewState {
   retry: () => void
 }
 
+/** At most this many parts are previewed at once: the duplicate lookup is heavy on a big budget. */
+export const PREVIEW_AT_ONCE = 2
+
+/** A gate letting at most `size` calls run at once; a call whose query was dropped is skipped. */
+function createGate(size: number) {
+  let running = 0
+  const waiting: (() => void)[] = []
+  const release = () => {
+    running -= 1
+    waiting.shift()?.()
+  }
+  return async <T>(signal: AbortSignal, call: () => Promise<T>): Promise<T> => {
+    if (running >= size) await new Promise<void>((resolve) => waiting.push(resolve))
+    running += 1
+    try {
+      // Asked again meanwhile (a newer choice): this answer would not be read.
+      if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
+      return await call()
+    } finally {
+      release()
+    }
+  }
+}
+
+/** A busy budget (statement timeout) is asked again, a little later each time. */
+const BUSY_TRIES = 3
+const busyDelay = (tries: number) => 1_000 * tries
+
 /** The rows of each part as they are sent, from the draft and the choices. */
 export function partsToSend(draft: ImportDraft, choices: Choices): Record<string, unknown>[][] {
   return chunksOf(draft.entries).map((entries) =>
@@ -54,9 +82,12 @@ export function useImportPreview(
   draftId: string,
   draft: ImportDraft,
   choices: Choices,
+  /** The import has started: nothing is previewed any more, now or after it. */
+  paused = false,
 ): PreviewState {
   const settled = useDebounced(choices, 400)
   const parts = useMemo(() => chunksOf(draft.entries), [draft])
+  const [gate] = useState(() => createGate(PREVIEW_AT_ONCE))
   const queries = useQueries({
     queries: parts.map((entries, index) => {
       // The choices of this part only: a change elsewhere does not ask this part again.
@@ -75,13 +106,19 @@ export function useImportPreview(
         ] as const,
         placeholderData: keepPreviousData,
         staleTime: Infinity,
-        queryFn: async (): Promise<ImportRowResult[]> =>
-          unwrap(
-            await supabase.rpc('preview_import', {
-              p_budget_id: budgetId,
-              p_batch_id: batchId,
-              p_rows: entries.map((entry) => rowToSend(entry, settled.value[entry.key])) as Json,
-            }),
+        // R-IMPORT-361: once the import runs, its answers are the truth; no part is asked again.
+        enabled: !paused,
+        retry: (failures: number, error: unknown) => failures < BUSY_TRIES && isBusyError(error),
+        retryDelay: busyDelay,
+        queryFn: async ({ signal }: { signal: AbortSignal }): Promise<ImportRowResult[]> =>
+          gate(signal, async () =>
+            unwrap(
+              await supabase.rpc('preview_import', {
+                p_budget_id: budgetId,
+                p_batch_id: batchId,
+                p_rows: entries.map((entry) => rowToSend(entry, settled.value[entry.key])) as Json,
+              }),
+            ),
           ),
       }
     }),
@@ -123,6 +160,7 @@ export function useImportPreview(
 export type RunStop =
   | { kind: 'limit'; part: number; fits: number | null }
   | { kind: 'network'; part: number }
+  | { kind: 'busy'; part: number }
   | { kind: 'refused'; part: number; error: unknown }
 
 export interface RunState {
@@ -134,10 +172,20 @@ export interface RunState {
   answers: ImportRowResult[][]
   /** How many times a part was sent again after a lost answer. */
   resent: number
+  /** The part last sent again because the budget was busy, and how many times. */
+  busy: { part: number; count: number } | null
   stop: RunStop | null
 }
 
-const IDLE: RunState = { phase: 'idle', done: 0, parts: 0, answers: [], resent: 0, stop: null }
+const IDLE: RunState = {
+  phase: 'idle',
+  done: 0,
+  parts: 0,
+  answers: [],
+  resent: 0,
+  busy: null,
+  stop: null,
+}
 
 /** How often a part is sent again after a lost answer before the import stops and says so. */
 const NETWORK_TRIES = 3
@@ -174,6 +222,7 @@ export function useImportRun(budgetId: string) {
       running.current = true
       const answers: ImportRowResult[][] = []
       let resent = 0
+      let busy: RunState['busy'] = null
       const startedAt = new Date().toISOString()
       setState({
         phase: 'sending',
@@ -181,6 +230,7 @@ export function useImportRun(budgetId: string) {
         parts: parts.length,
         answers: [],
         resent: 0,
+        busy: null,
         stop: null,
       })
       const note = (confirmedParts: number) =>
@@ -200,6 +250,7 @@ export function useImportRun(budgetId: string) {
           parts: parts.length,
           answers: [...answers],
           resent,
+          busy,
           stop: value,
         })
       }
@@ -207,6 +258,7 @@ export function useImportRun(budgetId: string) {
         for (let index = 0; index < parts.length; index += 1) {
           const part = index + 1
           let networkFailures = 0
+          let busyTries = 0
           let catchUps = 0
           for (;;) {
             let error: unknown = null
@@ -236,6 +288,7 @@ export function useImportRun(budgetId: string) {
                 parts: parts.length,
                 answers: [...answers],
                 resent,
+                busy,
                 stop: null,
               })
               break
@@ -248,6 +301,20 @@ export function useImportRun(budgetId: string) {
               }
               resent += 1
               await new Promise((resolve) => window.setTimeout(resolve, 500 * networkFailures))
+              continue
+            }
+            // A statement timeout wrote nothing: the same part is sent again, said as "busy",
+            // never as a refusal.
+            if (isBusyError(error)) {
+              busyTries += 1
+              if (busyTries > BUSY_TRIES) {
+                stop({ kind: 'busy', part })
+                return
+              }
+              busy = { part, count: busyTries }
+              const now = busy
+              setState((state) => ({ ...state, busy: now }))
+              await new Promise((resolve) => window.setTimeout(resolve, busyDelay(busyTries)))
               continue
             }
             const code = dbErrorCode(error)
@@ -279,6 +346,7 @@ export function useImportRun(budgetId: string) {
           parts: parts.length,
           answers,
           resent,
+          busy,
           stop: null,
         })
       } catch (thrown) {

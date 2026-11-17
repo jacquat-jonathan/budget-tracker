@@ -1,5 +1,5 @@
 import { CheckCircle2Icon, CircleSlashIcon, TriangleAlertIcon, Undo2Icon } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -9,7 +9,13 @@ import { Button } from '@/components/ui/button'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap } from '@/features/budgets/budget-queries'
 import { reasonText } from '@/features/import/statement-words'
-import { useSkippedRows, type SkippedRow } from '@/features/import/import-queries'
+import {
+  useExistingTransactions,
+  useImportBatch,
+  useSkippedRows,
+  type ExistingTransaction,
+  type SkippedRow,
+} from '@/features/import/import-queries'
 import { useAppMutation } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { formatCount, formatMoney } from '@/lib/money'
@@ -41,62 +47,164 @@ function rowData(row: SkippedRow): {
 
 const FLAGS = ['card_bill_payment', 'own_transfer', 'transfer_to_person', 'salary'] as const
 
+/** What a skipped row is, for the words and for the question before importing it anyway. */
+type SkippedKind =
+  | 'salary'
+  | 'card_bill_payment'
+  | 'own_transfer'
+  | 'transfer_to_person'
+  | 'flagged'
+  | 'duplicate'
+  | 'charge'
+  | 'typed'
+  | 'matched'
+  | 'chosen'
+  | 'invalid'
+
+const SKIPPED_KINDS: readonly Exclude<SkippedKind, 'invalid'>[] = [
+  'salary',
+  'card_bill_payment',
+  'own_transfer',
+  'transfer_to_person',
+  'flagged',
+  'charge',
+  'typed',
+  'matched',
+  'duplicate',
+  'chosen',
+]
+
+/**
+ * A skipped row's kind: its flag, or for a match whether the existing transaction is a
+ * subscription charge (the import confirmed it) or one entered by hand.
+ */
+function skippedKind(
+  row: Pick<SkippedRow, 'reason' | 'detail' | 'match_of'>,
+  existing: ReadonlyMap<string, ExistingTransaction> | undefined,
+): SkippedKind {
+  switch (row.reason) {
+    case 'flagged':
+      return (FLAGS as readonly string[]).includes(row.detail ?? '')
+        ? (row.detail as (typeof FLAGS)[number])
+        : 'flagged'
+    case 'matched': {
+      const match = row.match_of ? existing?.get(row.match_of) : undefined
+      if (!match) return 'matched'
+      return match.subscription_name !== null ? 'charge' : 'typed'
+    }
+    case 'duplicate':
+    case 'chosen':
+    case 'invalid':
+      return row.reason
+    default:
+      return 'invalid'
+  }
+}
+
+/** Rows imported anyway per call (import_skipped_anyway takes at most 500). */
+const ANYWAY_CALL = 500
+
 /**
  * A batch's rows that were not imported, in statement order (list_import_skipped_rows), each
  * with why, and "import anyway" for a row or for all of them (import_skipped_anyway, which
- * plans each row again with action import). An invalid row cannot be imported anyway.
+ * plans each row again with action import). An invalid row cannot be imported anyway. Before
+ * all are imported anyway, or one that matched a charge or a typed transaction, the page asks:
+ * how many, of which kinds, and that they count twice if they are what the import thought.
  */
-// R-IMPORT-073: skipped rows can be imported anyway, one by one or all at once.
+// R-IMPORT-360: importing skipped rows anyway asks first when they may count twice.
 export function SkippedRows({
   budgetId,
   batchId,
   undone,
+  onImported,
 }: {
   budgetId: string
   batchId: string
   /** An undone batch takes nothing more. */
   undone: boolean
+  /** How many rows were just imported anyway. */
+  onImported?: (count: number) => void
 }) {
   const { t } = useTranslation()
   const skipped = useSkippedRows(budgetId, batchId)
+  const matchIds = useMemo(
+    () =>
+      (skipped.data ?? []).flatMap((row) =>
+        row.reason === 'matched' && row.match_of ? [row.match_of] : [],
+      ),
+    [skipped.data],
+  )
+  const existing = useExistingTransactions(budgetId, matchIds)
   const [done, setDone] = useState<number | null>(null)
-  const anyway = useAppMutation<number, string[] | null>({
+  const [asking, setAsking] = useState<{ ids: string[] | 'all' } | null>(null)
+  const focusAfter = useRef<string | null>(null)
+  const anyway = useAppMutation<number, string[]>({
+    errorDisplay: 'inline',
     mutationFn: async (ids) => {
-      const rows = unwrap(
-        await supabase.rpc('import_skipped_anyway', {
-          p_batch_id: batchId,
-          ...(ids ? { p_skipped_row_ids: ids } : {}),
-        }),
-      )
-      return rows.filter((row) => row.action === 'import').length
+      let count = 0
+      for (let start = 0; start < ids.length; start += ANYWAY_CALL) {
+        const rows = unwrap(
+          await supabase.rpc('import_skipped_anyway', {
+            p_batch_id: batchId,
+            p_skipped_row_ids: ids.slice(start, start + ANYWAY_CALL),
+          }),
+        )
+        count += rows.filter((row) => row.action === 'import').length
+      }
+      return count
     },
-    onSuccess: (count) => setDone(count),
+    onSuccess: (count) => {
+      setDone(count)
+      setAsking(null)
+      onImported?.(count)
+    },
     invalidate: () => [budgetKeys.budget(budgetId)],
   })
-  if (skipped.isError)
-    return <ErrorState error={skipped.error} onRetry={() => void skipped.refetch()} />
-  if (!skipped.data) return <LoadingState rows={2} />
-  const rows = skipped.data
+  const rows = useMemo(() => skipped.data ?? [], [skipped.data])
   const open = rows.filter(
     (row) => row.reason !== 'invalid' && row.imported_transaction_id === null,
   )
+  // Every page is read before "all" is counted and sent: the question names every row.
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = skipped
+  const readingAll = asking?.ids === 'all' && hasNextPage
+  useEffect(() => {
+    if (asking?.ids === 'all' && hasNextPage && !isFetchingNextPage) void fetchNextPage()
+  }, [asking, hasNextPage, isFetchingNextPage, fetchNextPage])
+  // After "import anyway" the focus goes to that row's new state, never to the page's body.
+  useEffect(() => {
+    const id = focusAfter.current
+    if (id === null || done === null) return
+    focusAfter.current = null
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-skipped-state="${id}"]`)?.focus()
+    })
+  }, [done, rows])
+  if (skipped.isError)
+    return <ErrorState error={skipped.error} onRetry={() => void skipped.refetch()} />
+  if (!skipped.data) return <LoadingState rows={2} />
+  const kindOf = (row: SkippedRow) => skippedKind(row, existing.data)
   const reason = (row: SkippedRow) => {
-    switch (row.reason) {
-      case 'flagged':
-        return t('import.skipped.reasons.flagged', {
-          flag: (FLAGS as readonly string[]).includes(row.detail ?? '')
-            ? t(`import.preview.flags.${row.detail as (typeof FLAGS)[number]}`)
-            : '',
-        })
-      case 'invalid':
-        return t('import.skipped.reasons.invalid', { reason: reasonText(t, row.detail) })
-      case 'duplicate':
-      case 'matched':
-      case 'chosen':
-        return t(`import.skipped.reasons.${row.reason}`)
-      default:
-        return row.reason
-    }
+    const kind = kindOf(row)
+    if (kind === 'invalid')
+      return t('import.skipped.reasons.invalid', { reason: reasonText(t, row.detail) })
+    return t(`import.skipped.kinds.${kind}`)
+  }
+  const askedRows =
+    asking === null
+      ? []
+      : asking.ids === 'all'
+        ? open
+        : open.filter((row) => (asking.ids as string[]).includes(row.id))
+  const askedKinds = SKIPPED_KINDS.map((kind) => ({
+    kind,
+    count: askedRows.filter((row) => kindOf(row) === kind).length,
+  })).filter(({ count }) => count > 0)
+  const importOne = (row: SkippedRow) => {
+    focusAfter.current = row.id
+    // A row that confirmed a charge or matched a typed transaction would count twice: asked.
+    const kind = kindOf(row)
+    if (kind === 'charge' || kind === 'typed' || kind === 'matched') setAsking({ ids: [row.id] })
+    else anyway.mutate([row.id])
   }
   return (
     <section
@@ -114,7 +222,10 @@ export function SkippedRows({
             size="sm"
             variant="outline"
             disabled={anyway.isPending}
-            onClick={() => anyway.mutate(null)}
+            onClick={() => {
+              anyway.reset()
+              setAsking({ ids: 'all' })
+            }}
           >
             {t('import.skipped.importAllAnyway')}
           </Button>
@@ -123,6 +234,11 @@ export function SkippedRows({
       {done !== null && (
         <p role="status" className="text-sm" data-testid="anyway-done">
           {t('import.skipped.importedAnywayDone', { count: done })}
+        </p>
+      )}
+      {anyway.error !== null && asking === null && (
+        <p role="alert" className="text-sm text-destructive">
+          {t('import.skipped.anywayFailed')}
         </p>
       )}
       {rows.length === 0 ? (
@@ -151,7 +267,11 @@ export function SkippedRows({
                   <span className="min-w-0">
                     <ExternalText>{data.description}</ExternalText>
                   </span>
-                  <span className="flex items-start gap-1.5 text-xs">
+                  <span
+                    className="flex items-start gap-1.5 rounded-sm text-xs focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    tabIndex={-1}
+                    data-skipped-state={row.id}
+                  >
                     {row.reason === 'invalid' ? (
                       <TriangleAlertIcon
                         className="size-3.5 shrink-0 text-destructive"
@@ -177,7 +297,7 @@ export function SkippedRows({
                     aria-label={t('import.skipped.importAnywayFor', {
                       row: `${label} ${data.description ?? ''}`,
                     })}
-                    onClick={() => anyway.mutate([row.id])}
+                    onClick={() => importOne(row)}
                   >
                     {t('import.skipped.importAnyway')}
                   </Button>
@@ -199,11 +319,43 @@ export function SkippedRows({
           {t('import.skipped.more')}
         </Button>
       )}
+      <ConfirmDialog
+        open={asking !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setAsking(null)
+            anyway.reset()
+          }
+        }}
+        title={t('import.skipped.ask.title', { count: askedRows.length })}
+        description={
+          readingAll || existing.isFetching ? (
+            <span>{t('common.loading')}</span>
+          ) : (
+            <>
+              <span>{t('import.skipped.ask.body', { count: askedRows.length })}</span>
+              <span className="flex flex-col" data-testid="anyway-kinds">
+                {askedKinds.map(({ kind, count }) => (
+                  <span key={kind}>{t(`import.skipped.ask.kinds.${kind}`, { count })}</span>
+                ))}
+              </span>
+              <span className="font-medium">
+                {t('import.skipped.ask.twice', { count: askedRows.length })}
+              </span>
+            </>
+          )
+        }
+        confirmLabel={t('import.skipped.ask.confirm', { count: askedRows.length })}
+        disabled={readingAll || existing.isFetching || askedRows.length === 0}
+        pending={anyway.isPending}
+        error={anyway.error}
+        onConfirm={() => anyway.mutate(askedRows.map((row) => row.id))}
+      />
     </section>
   )
 }
 
-interface UndoAnswer {
+export interface UndoAnswer {
   deleted: number
   kept_confirmed: number
   kept_linked: number
@@ -211,8 +363,8 @@ interface UndoAnswer {
 }
 
 /**
- * Undo a batch, behind a confirmation that says what goes and what stays; afterwards, what
- * the database did (undo_import_batch).
+ * Undo a batch, behind a confirmation that says what goes and what stays (how many are still
+ * to review, read from the batch itself); afterwards, what the database did (undo_import_batch).
  */
 // R-IMPORT-206: an import is undone once, what stays said before and after.
 export function UndoImport({
@@ -223,12 +375,17 @@ export function UndoImport({
 }: {
   budgetId: string
   batchId: string
+  /** How many are still to review when the batch cannot be read (the newest page holds it). */
   toReview: number | null
-  onUndone?: () => void
+  onUndone?: (answer: UndoAnswer | null) => void
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [answer, setAnswer] = useState<UndoAnswer | null>(null)
+  // The batch's own count, read again when the dialog opens: imports anyway since are in it.
+  const batches = useImportBatch(budgetId, batchId, open)
+  const batch = batches.data
+  const stillToReview = batch?.to_review_count ?? toReview
   const undo = useAppMutation<UndoAnswer | null>({
     errorDisplay: 'inline',
     mutationFn: async () =>
@@ -236,7 +393,7 @@ export function UndoImport({
     onSuccess: (result) => {
       setAnswer(result)
       setOpen(false)
-      onUndone?.()
+      onUndone?.(result)
     },
     invalidate: () => [budgetKeys.budget(budgetId)],
   })
@@ -254,7 +411,14 @@ export function UndoImport({
   }
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setOpen(true)
+        }}
+      >
         <Undo2Icon aria-hidden />
         {t('import.undo.action')}
       </Button>
@@ -267,13 +431,20 @@ export function UndoImport({
         title={t('import.undo.title')}
         description={
           <>
-            <span>{t('import.undo.body', { count: toReview ?? 0 })}</span>
+            <span data-testid="undo-to-review">
+              {batches.isFetching
+                ? t('common.loading')
+                : stillToReview === null
+                  ? t('import.undo.bodyUnknown')
+                  : t('import.undo.body', { count: stillToReview })}
+            </span>
             <span>{t('import.undo.keeps')}</span>
             <span>{t('import.undo.once')}</span>
           </>
         }
         confirmLabel={t('import.undo.confirm')}
         onConfirm={() => undo.mutate()}
+        disabled={batches.isFetching}
         pending={undo.isPending}
         error={undo.error}
         destructive

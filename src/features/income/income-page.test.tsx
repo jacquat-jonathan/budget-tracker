@@ -14,6 +14,7 @@ import {
 } from '@/test/budget-fixtures'
 import { rpcError } from '@/test/mock-db'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -89,6 +90,9 @@ function card(name: string): HTMLElement {
   if (!match) throw new Error(`No income card for ${name}`)
   return match
 }
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('income', 'dashboard'))
 
 describe('income page', () => {
   it('lists incomes with their owner, terms, next pay date and the monthly total', async () => {

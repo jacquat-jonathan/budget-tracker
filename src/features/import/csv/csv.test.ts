@@ -1,6 +1,5 @@
 import {
   dateFormatsFor,
-  detectDecimal,
   guessMapping,
   mapRecords,
   parseCsvAmount,
@@ -71,9 +70,6 @@ describe('mapping CSV columns to rows [R-IMPORT-082] [R-IMPORT-324]', () => {
     expect(parseCsvAmount('1.234,50', '.')).toEqual({ ok: false, problem: 'amount-unreadable' })
     expect(parseCsvAmount('12,5', '.')).toEqual({ ok: false, problem: 'amount-unreadable' })
     expect(parseCsvAmount('abc', '.')).toEqual({ ok: false, problem: 'amount-unreadable' })
-    expect(detectDecimal(['-4,50', '3,00'])).toBe(',')
-    expect(detectDecimal(['-4.50', "1'000.00"])).toBe('.')
-    expect(detectDecimal(['12', '7'])).toBeNull()
   })
 
   it('reads dates as calendar dates, and never decides 03.04 alone', () => {

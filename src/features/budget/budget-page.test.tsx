@@ -7,6 +7,7 @@ import { renderRoutes } from '@/test/render'
 import { BUDGET_ID, categoriesDb, categoryRow, periodRow } from '@/test/budget-fixtures'
 import { RpcFailure, rpcError } from '@/test/mock-db'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -42,6 +43,9 @@ async function action(name: string, item: string) {
   )
   await userEvent.click(await screen.findByRole('menuitem', { name: item }))
 }
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('budget', 'dashboard'))
 
 describe('budget page [R-CATEGORY-050]', () => {
   it('lists the categories in force with the amounts the database gives, and the period totals', async () => {

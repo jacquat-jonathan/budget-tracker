@@ -23,7 +23,11 @@ import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useCategories } from '@/features/categories/category-queries'
-import { SkippedRows, UndoImport } from '@/features/import/components/batch-actions'
+import {
+  SkippedRows,
+  UndoImport,
+  type UndoAnswer,
+} from '@/features/import/components/batch-actions'
 import { ImportHistory } from '@/features/import/components/import-history'
 import { PreviewRows } from '@/features/import/components/preview-rows'
 import { ReadSummary, type ReadInfo } from '@/features/import/components/read-summary'
@@ -57,6 +61,7 @@ import {
   type RunState,
 } from '@/features/import/use-import'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { isBusyError } from '@/lib/db-errors'
 import { formatTimestamp } from '@/lib/date'
 
 // The CSV mapping step and its parser are a chunk of their own, loaded when a CSV is opened.
@@ -77,6 +82,8 @@ type Stage =
       draftId: string
       fingerprint: string
       resumed: boolean
+      /** Parts the interrupted import had recorded: locked, sent again unchanged. */
+      recordedParts: number
     }
 
 /**
@@ -117,6 +124,7 @@ export function ImportPage() {
       draftId: crypto.randomUUID(),
       fingerprint: print,
       resumed,
+      recordedParts: resumed ? Math.min(now.confirmedParts, chunksOf(draft.entries).length) : 0,
     })
   }
 
@@ -344,7 +352,19 @@ function ImportFlow({
   }, [phase])
   const sending = run.state.phase === 'sending' || run.state.phase === 'catching-up'
   const started = run.state.phase !== 'idle'
-  const preview = useImportPreview(budgetId, batchId, draftId, draft, choices)
+  const preview = useImportPreview(budgetId, batchId, draftId, draft, choices, started)
+  // The rows of the parts the interrupted import recorded, by key, with their part.
+  const locked = useMemo(() => {
+    const out = new Map<number, number>()
+    chunksOf(draft.entries)
+      .slice(0, stage.recordedParts)
+      .forEach((entries, index) => {
+        for (const entry of entries) out.set(entry.key, index + 1)
+      })
+    return out
+  }, [draft, stage.recordedParts])
+  const importButton = useRef<HTMLButtonElement>(null)
+  const importBar = useRef<HTMLDivElement>(null)
   const categories = useCategories(budgetId)
   const ids = useMemo(
     () =>
@@ -371,10 +391,15 @@ function ImportFlow({
   }, [sending])
 
   const start = () => {
-    setPreviewed(preview.answers)
+    // A row of a part already recorded is not compared: its part answers as the first time.
+    setPreviewed(
+      preview.answers.map((answer) =>
+        locked.has(answer.entry.key) ? { ...answer, result: undefined } : answer,
+      ),
+    )
     void run.run({
       draft,
-      parts: partsToSend(draft, choices),
+      parts: partsToSend(draft, lockedOut(choices, locked)),
       batchId,
       fingerprint: stage.fingerprint,
       toCategoriseName: t('import.preview.toCategoriseName'),
@@ -416,13 +441,21 @@ function ImportFlow({
           {stage.resumed && (
             <Alert data-testid="resumed">
               <InfoIcon aria-hidden />
-              <AlertDescription>{t('import.pending.resumed')}</AlertDescription>
+              <AlertDescription className="flex flex-col gap-1">
+                <p>{t('import.pending.resumed')}</p>
+                {stage.recordedParts > 0 && (
+                  <p data-testid="recorded-parts">
+                    {t('import.preview.recorded', { count: stage.recordedParts })}
+                  </p>
+                )}
+              </AlertDescription>
             </Alert>
           )}
           <ReadSummary info={stage.info} />
         </CardContent>
       </Card>
-      <Card>
+      {/* Not clipped: the bulk bar and the import bar stay in view while the rows scroll. */}
+      <Card className="overflow-visible">
         <CardHeader>
           <CardTitle>
             <h2>{t('import.preview.title')}</h2>
@@ -466,7 +499,11 @@ function ImportFlow({
             <Alert variant="destructive">
               <TriangleAlertIcon aria-hidden />
               <AlertDescription className="flex flex-col gap-2">
-                <p>{t('import.preview.checkFailed', { reason: errorMessage(preview.error) })}</p>
+                <p>
+                  {isBusyError(preview.error)
+                    ? t('import.preview.checkBusy')
+                    : t('import.preview.checkFailed', { reason: errorMessage(preview.error) })}
+                </p>
                 <div>
                   <Button type="button" size="sm" variant="outline" onClick={preview.retry}>
                     <RotateCcwIcon aria-hidden />
@@ -481,8 +518,23 @@ function ImportFlow({
               {t('import.preview.parts', { count: parts })} {t('import.preview.partsNote')}
             </p>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="sr-only self-start focus-visible:not-sr-only"
+            onClick={() => {
+              // The bar when there is nothing to import yet: a disabled button takes no focus.
+              const button = importButton.current
+              if (button && !button.disabled) button.focus()
+              else importBar.current?.focus()
+            }}
+          >
+            {t('import.preview.skipToImport')}
+          </Button>
           <PreviewRows
             budgetId={budgetId}
+            locked={locked}
             draftKind={draft.kind}
             answers={preview.answers}
             choices={choices}
@@ -490,7 +542,12 @@ function ImportFlow({
             existing={existing.data}
             categories={categories.data}
           />
-          <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-2 border-t bg-card/95 px-1 py-3 backdrop-blur">
+          <div
+            className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-2 rounded-b-xl border-t bg-card/95 px-4 py-3 backdrop-blur"
+            data-testid="import-bar"
+            ref={importBar}
+            tabIndex={-1}
+          >
             <Button type="button" variant="outline" onClick={() => setLeaving(true)}>
               {t('import.preview.cancel')}
             </Button>
@@ -503,6 +560,7 @@ function ImportFlow({
               onConfirm={onRestart}
             />
             <Button
+              ref={importButton}
               type="button"
               disabled={!preview.current || counts.import + counts.confirm_match === 0}
               onClick={start}
@@ -518,6 +576,15 @@ function ImportFlow({
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+/** The choices without those for rows already recorded (their part is sent unchanged). */
+// R-IMPORT-362: the parts an interrupted import recorded are locked and sent unchanged.
+function lockedOut(choices: Choices, locked: ReadonlyMap<number, number>): Choices {
+  if (locked.size === 0) return choices
+  return Object.fromEntries(
+    Object.entries(choices).filter(([key]) => !locked.has(Number(key))),
   )
 }
 
@@ -547,14 +614,19 @@ function RunView({
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
   const [showResult, setShowResult] = useState(false)
-  const [undone, setUndone] = useState(false)
+  const [undone, setUndone] = useState<{ answer: UndoAnswer | null } | null>(null)
+  // R-IMPORT-363: rows imported anyway since are in the headline.
+  const [anyway, setAnyway] = useState(0)
   const results = state.answers.flat()
   const counts = countActions(results)
-  // Rows whose answer differs from the preview (a later part, matched meanwhile by an earlier one).
+  // Rows whose answer differs from the preview: matched meanwhile by an earlier part, another
+  // import or a change in the budget. Only those not imported are in the list below.
   const differed = results.filter((result, index) => {
     const before = previewed[index]?.result
     return before !== undefined && rowAction(before) !== rowAction(result)
-  }).length
+  })
+  const differedSkipped = differed.filter((result) => rowAction(result) !== 'import').length
+  const differedImported = differed.length - differedSkipped
 
   if (state.phase === 'sending' || state.phase === 'catching-up') {
     const percent = state.parts === 0 ? 0 : Math.round((state.done / state.parts) * 100)
@@ -577,6 +649,11 @@ function RunView({
           {state.resent > 0 && (
             <p className="text-sm text-muted-foreground">
               {t('import.run.resent', { count: state.resent })}
+            </p>
+          )}
+          {state.busy && (
+            <p className="text-sm text-muted-foreground" data-testid="run-busy">
+              {t('import.run.busy', { part: state.busy.part, count: state.busy.count })}
             </p>
           )}
         </CardContent>
@@ -608,10 +685,12 @@ function RunView({
                 : t('import.run.stopped.limitUnknown', { part: stop.part })
               : stop.kind === 'network'
                 ? t('import.run.stopped.network', { part: stop.part })
-                : t('import.run.stopped.other', {
-                    part: stop.part,
-                    reason: errorMessage(stop.error),
-                  })}
+                : stop.kind === 'busy'
+                  ? t('import.run.stopped.busy', { part: stop.part })
+                  : t('import.run.stopped.other', {
+                      part: stop.part,
+                      reason: errorMessage(stop.error),
+                    })}
           </p>
           {state.done > 0 && (
             <p className="text-sm">{t('import.run.stopped.before', { count: state.done })}</p>
@@ -643,12 +722,25 @@ function RunView({
         <CardDescription>{t(`import.sources.${draft.source}`)}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <div className="flex flex-col gap-1" data-testid="import-result">
-          <p className="text-lg font-medium">
-            {t('import.result.imported', { count: counts.import })}
-          </p>
-          {counts.import > 0 && (
-            <p className="text-sm text-muted-foreground">{t('import.result.importedHelp')}</p>
+        {/* The counts are announced when they appear and when they change afterwards. */}
+        <div className="flex flex-col gap-1" data-testid="import-result" role="status">
+          {undone ? (
+            <>
+              <p className="text-lg font-medium">{t('import.result.undoneTitle')}</p>
+              <p className="text-sm text-muted-foreground">{t('import.result.undoneHelp')}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-medium">
+                {t('import.result.imported', { count: counts.import + anyway })}
+              </p>
+              {anyway > 0 && (
+                <p className="text-sm">{t('import.result.anyway', { count: anyway })}</p>
+              )}
+              {counts.import + anyway > 0 && (
+                <p className="text-sm text-muted-foreground">{t('import.result.importedHelp')}</p>
+              )}
+            </>
           )}
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {(['skip_duplicate', 'skip_flagged', 'skip_matched', 'skip_chosen', 'invalid'] as const)
@@ -662,17 +754,24 @@ function RunView({
               <li>{t('import.result.charges', { count: counts.confirm_match })}</li>
             )}
           </ul>
-          {differed > 0 && (
-            <Alert className="mt-2">
+          {differed.length > 0 && (
+            <Alert className="mt-2" data-testid="differed">
               <InfoIcon aria-hidden />
-              <AlertDescription>
-                {t('import.result.differed', { count: differed })}
+              <AlertDescription className="flex flex-col gap-1">
+                <p>{t('import.result.differed', { count: differed.length })}</p>
+                <p>{t('import.result.differedWhy')}</p>
+                {differedSkipped > 0 && (
+                  <p>{t('import.result.differedSkipped', { count: differedSkipped })}</p>
+                )}
+                {differedImported > 0 && (
+                  <p>{t('import.result.differedImported', { count: differedImported })}</p>
+                )}
               </AlertDescription>
             </Alert>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {counts.import > 0 && !undone && (
+          {counts.import + anyway > 0 && !undone && (
             <Button asChild>
               <Link to={transactionsOf({ review: true, batch: batchId })}>
                 <ListChecksIcon aria-hidden />
@@ -684,13 +783,18 @@ function RunView({
             {t('import.result.another')}
           </Button>
         </div>
-        <SkippedRows budgetId={budgetId} batchId={batchId} undone={undone} />
+        <SkippedRows
+          budgetId={budgetId}
+          batchId={batchId}
+          undone={undone !== null}
+          onImported={(count) => setAnyway((now) => now + count)}
+        />
         <div className="flex flex-col items-start gap-2 border-t pt-4">
           <UndoImport
             budgetId={budgetId}
             batchId={batchId}
-            toReview={counts.import}
-            onUndone={() => setUndone(true)}
+            toReview={counts.import + anyway}
+            onUndone={(answer) => setUndone({ answer })}
           />
         </div>
       </CardContent>

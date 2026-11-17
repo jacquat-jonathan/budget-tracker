@@ -60,6 +60,8 @@ export interface MockDb {
   /** Make the next read of a relation fail with this error. */
   failNextRead: (relation: RelationName, error: MockError) => void
   readFailures: Map<RelationName, MockError>
+  /** preview_import_part's staged parts, by batch then part. */
+  staged: Record<string, Record<number, ImportRowResult[]>>
 }
 
 function emptyTables(): MockTables {
@@ -144,6 +146,7 @@ export function plannedRow(row: Record<string, unknown>, rowNo: number): ImportR
     merchant_key: text.toLowerCase().trim() || null,
     flag: null,
     remembered_choice: null,
+    choice_key: null,
     duplicate_of: null,
     match_of: null,
     match_is_charge: false,
@@ -157,12 +160,35 @@ function rowsOf(args: Record<string, unknown>): Record<string, unknown>[] {
   return Array.isArray(args.p_rows) ? (args.p_rows as Record<string, unknown>[]) : []
 }
 
+const ACTIONS = [
+  'import',
+  'skip_duplicate',
+  'skip_flagged',
+  'skip_matched',
+  'confirm_match',
+  'skip_chosen',
+  'invalid',
+] as const
+
+/** preview_import_part's totals of some rows (D-455): one count per action, and by kind. */
+export function partTotals(rows: readonly ImportRowResult[]): Record<string, number> {
+  const totals: Record<string, number> = { rows: rows.length }
+  for (const action of ACTIONS) totals[action] = rows.filter((row) => row.action === action).length
+  for (const kind of ['expense', 'refund', 'extra_income']) {
+    const of = rows.filter((row) => row.action === 'import' && row.kind === kind)
+    totals[`${kind}_count`] = of.length
+    totals[`${kind}_amount`] = of.reduce((sum, row) => sum + (row.amount ?? 0), 0)
+  }
+  return totals
+}
+
 export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
   const readFailures = new Map<RelationName, MockError>()
   const db: MockDb = {
     tables: { ...emptyTables(), ...tables },
     rpc: {} as MockDb['rpc'],
     readFailures,
+    staged: {},
     failNextRead: (relation, error) => {
       readFailures.set(relation, error)
     },
@@ -426,6 +452,31 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         transaction_id: `imported-${String(args.p_chunk)}-${index + 1}`,
       })),
     ),
+    // A part's rows as preview_import plans them, with the totals of the part and of the parts
+    // staged so far in this batch (kept per batch here, forgotten from a part previewed again).
+    preview_import_part: handler((args) => {
+      const part = Number(args.p_part)
+      const batch = String(args.p_batch_id)
+      const rows = rowsOf(args).map((row, index) => plannedRow(row, index + 1))
+      // Previewing a part again forgets the staged parts from it on.
+      const kept = Object.entries(db.staged[batch] ?? {}).filter(([key]) => Number(key) < part)
+      const staged: Record<number, ImportRowResult[]> = Object.fromEntries([...kept, [part, rows]])
+      db.staged[batch] = staged
+      const parts = Object.keys(staged)
+        .map(Number)
+        .sort((a, b) => a - b)
+      const all = parts.flatMap((key) => staged[key] ?? [])
+      const room = 50_000 - db.tables.transaction_list.length
+      const toImport = all.filter((row) => row.action === 'import').length
+      return {
+        rows,
+        part: partTotals(rows),
+        statement: partTotals(all),
+        parts,
+        room,
+        fits: toImport <= room,
+      }
+    }),
     import_skipped_anyway: handler(() => []),
     import_with_token: handler(() => rpcError('not_mocked')),
     confirm_import: handler((args) => {
@@ -472,6 +523,55 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         .sort((a, b) => a.chunk - b.chunk || a.row_no - b.row_no)
         .slice(0, typeof args.p_limit === 'number' ? args.p_limit : 100),
     ),
+    get_import_batch: handler((args) => {
+      const batch = db.tables.import_batch_list.find((row) => row.id === args.p_batch_id)
+      if (!batch) rpcError('import_batch_not_found')
+      return [batch]
+    }),
+    forget_import_choice: handler((args) => {
+      const before = db.tables.import_choices.length
+      db.tables.import_choices = db.tables.import_choices.filter(
+        (row) =>
+          !(
+            row.budget_id === args.p_budget_id &&
+            row.flag === args.p_flag &&
+            row.counterparty_key === args.p_counterparty_key
+          ),
+      )
+      return db.tables.import_choices.length < before
+    }),
+    // The fragment as stored (lower case, trimmed), the rule the import would pick for it (the
+    // longest fragment it contains) and how many waiting in "to categorise" it would move.
+    preview_merchant_rule: handler((args) => {
+      const fragment = (typeof args.p_fragment === 'string' ? args.p_fragment : '')
+        .toLowerCase()
+        .trim()
+      if (fragment === '' || fragment.length > 100) rpcError('invalid_fragment')
+      const rules = db.tables.merchant_rule_list.filter(
+        (rule) => rule.budget_id === args.p_budget_id,
+      )
+      const covering = rules
+        .filter((rule) => fragment.includes(rule.fragment))
+        .sort((a, b) => b.fragment.length - a.fragment.length)[0]
+      const wouldMove = db.tables.transaction_list.filter(
+        (row) =>
+          row.budget_id === args.p_budget_id &&
+          row.review_state === 'to_review' &&
+          row.in_to_categorise === true &&
+          row.subscription_id === null &&
+          row.debt_id === null &&
+          (row.merchant_key ?? '').includes(fragment),
+      ).length
+      return [
+        {
+          fragment,
+          covered_by_rule_id: covering?.id ?? null,
+          covered_by_fragment: covering?.fragment ?? null,
+          rule_exists: rules.some((rule) => rule.fragment === fragment),
+          would_move: wouldMove,
+        },
+      ]
+    }),
     list_import_choices: handler((args) =>
       db.tables.import_choices
         .filter((row) => row.budget_id === args.p_budget_id)

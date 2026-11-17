@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-552 rules (542 active, 0 planned), 24 conventions, 319 decisions, 40 open questions. 0 rules and conventions are marked **TEST PENDING**.
+558 rules (547 active, 0 planned), 24 conventions, 327 decisions, 40 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1059,7 +1059,8 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Related: R-PERIOD-191
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-queries.ts
 - **R-PERIOD-320** The confirmations that move a period's start ("this period's salary actually arrived on …" and "back to the schedule") say, as preview_move_period_start answers for that start, how many debts lose the interest added at the period's start (D-386).
-  _active · enforced by test · F-PERIOD_
+  _retired · enforced by test · F-PERIOD_
+  - Retired: D-467: a start on or before the opening of a debt with interest in the period is refused (R-DEBT-340), so no interest is removed and preview_move_period_start.interest_removed is always 0; the confirmations no longer present it.
   - Related: D-386, R-PERIOD-151
   - Source: owner-request: coordinator brief for the step 6 screens (part A, contract changes), 2026-11-16; code: src/features/periods/periods-page.tsx
 - **R-PERIOD-300** One catch-up step creates at most a bounded number of transactions per budget (4000, and about two seconds of work), leaving the rest due, none skipped; a step that stops before creating every one due never answers 0 from ensure_periods.
@@ -2170,9 +2171,9 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-208, D-443
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/pending-import.ts
-- **R-IMPORT-324** The CSV import reads quoted cells (separators, doubled quotes and line breaks inside), a byte-order mark and CRLF, detects the separator among comma, semicolon and tab and lets the user change it; asks for the date format whenever the dates can be read more than one way; reads amounts into integer rappen without floating-point arithmetic, in either decimal style, with a stated sign or two columns; lists every line it cannot read with its line number and why, and sends none of them; remembers the mapping per budget on the device only.
+- **R-IMPORT-324** The CSV import reads quoted cells (separators, doubled quotes and line breaks inside), a byte-order mark and CRLF, a UTF-16 file with or without its byte-order mark, UTF-8 and Windows-1252, and refuses with the reason a file that is not text or cannot be decoded; removes a control character (a NUL…) from a cell on the device and names its line; detects the separator among comma, semicolon and tab and lets the user change it; asks for the date format whenever the dates can be read more than one way; reads the decimal mark from the amounts of the whole file and asks for it when they do not settle it (one mark followed by exactly three digits, as in 1.200, is ambiguous), saying it could not be decided, never assuming one, and refuses a file whose lines contradict each other, naming them; reads amounts into integer rappen without floating-point arithmetic, with a stated sign or two columns; lists every line it cannot read with its line number and why, and sends none of them; remembers the mapping per budget on the device only.
   _active · enforced by test · F-IMPORT_
-  - Related: R-IMPORT-082, D-444
+  - Related: R-IMPORT-082, D-444, D-470, D-471
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/csv/csv-map.ts
 - **R-IMPORT-325** Text from a bank file or a token (descriptions, merchants, details, token and category names) is rendered as text only, never as markup or a link, isolated so that right-to-left characters cannot reorder the words around it, and wraps rather than widening the page.
   _active · enforced by test · F-IMPORT_
@@ -2222,6 +2223,30 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-006
   - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: scripts/import/import.mjs
+- **R-IMPORT-360** Importing skipped rows anyway asks first when they may count twice: all of them, or one that confirmed a subscription charge or matched a transaction entered by hand. The question says how many rows, of which kinds (salary already planned, card bill payment, own transfer, transfer to a person, charge confirmed, entered by hand, duplicate, skipped by the member), and that they count twice if they are what the import thought; it sends exactly the rows it counted.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-204, D-474
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+- **R-IMPORT-361** The preview asks at most two parts at once and asks nothing once the import has started, nor after it; an answer the database gave up on (statement timeout, PostgreSQL 57014) is said as "busy", never as a refusal, and asked or sent again with the same batch, part and rows.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-321, R-IMPORT-322, D-473
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+- **R-IMPORT-362** When an interrupted import is resumed, the rows of the parts it had recorded are shown as recorded and cannot be changed, and their part is sent again unchanged; the note about rows that turned out differently names every possible cause and points to the list below only for rows that are in it.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-323, D-443
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+- **R-IMPORT-363** The result of an import follows what happens after it: rows imported anyway are added to its count, the undo question gives the batch’s own number still to review, and after an undo the result says the import was undone.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-204, R-IMPORT-206
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+- **R-IMPORT-364** On a long preview the bulk bar and the import bar stay in view at every width, a keyboard user reaches the import button without going through the rows, and "select all" acts on every row the filter shows, drawn or not, saying how many.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-321, D-475
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+- **R-IMPORT-365** The one-click merchant rule offer appears in view wherever the saved row is, never scrolls the page and never takes the focus; "show only the N to review" shows those N, in every period.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-007, R-IMPORT-209, D-476
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
 
 ### Accounts and planned transfers (money flow)
 
@@ -6274,11 +6299,13 @@ Source: owner-request: coordinator brief for the step 6 screens (part B, import)
 
 ### D-446 An import token's secret stays in its dialog (accepted)
 
-create_import_token is called from the mutation, which hands the secret to the dialog's state and returns only the token id, so the mutation cache never holds it; closing the dialog drops it. The dialog says it is shown once, offers a copy button, and says to put it in the environment of the session that runs the script as BUDGET_IMPORT_TOKEN, never in a conversation (docs/import-script.md).
+The token dialog calls create_import_token itself, outside the query library (D-472), and keeps the secret in its own state only, set to null when it closes; no query or mutation holds it or a closure that reaches it, so once the dialog is closed and garbage collected nothing reaches the secret (checked with a heap snapshot). The dialog says it is shown once, offers a copy button, and says to put it in the environment of the session that runs the script as BUDGET_IMPORT_TOKEN, never in a conversation (docs/import-script.md).
 
 **Why:** R-IMPORT-074, R-SECURITY-005.
 
 **Rejected:** none recorded.
+
+Related: D-472
 
 Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16
 
@@ -6543,6 +6570,107 @@ move_period_start, and any other change of a period's start, is refused with int
 Related: D-386, D-272, R-DEBT-131, R-DEBT-340, Q-282
 
 Source: owner-request: coordinator follow-up to the step 6 database fix round 2 (5f57c5a), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+
+### D-470 The CSV decimal mark is read from the whole file, or asked (accepted)
+
+Each amount cell says a point, a comma, either (no mark: -350, 1'234) or ambiguous (one mark followed by exactly three digits, a whole part of one to three digits: 1.200, 1,200). Both marks: the last one is the decimal mark; one mark twice groups thousands. Over every amount of the mapped columns: one reading settles it for every line (ambiguous lines follow it); only "either": a point, which changes no value and is not remembered; ambiguous and nothing settling it: the member must choose, and the screen says it could not be decided, naming the lines; a point on some lines and a comma on others: the file is refused, naming those lines, and no choice reads it. A choice made on the screen wins; a mapping remembered from an earlier file keeps its mark only if the member chose it or its file settled it (remembered mappings now carry version 2; older ones lose the assumed point). Under a settled point, 1.200 reads as 1.20 (trailing zeros of three decimals were already accepted, D-444).
+
+**Why:** Review M-1: -1.200 was read as CHF 1.20 because the mark defaulted to a point.
+
+**Rejected:**
+
+- Refuse every three-digit fraction: a settled file would lose its readable lines.
+- Guess from the language of the header names: not reliable.
+
+Related: R-IMPORT-324, D-444
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-471 CSV bytes: encodings, control characters and a first line of data (accepted)
+
+A CSV file is decoded on the device (csv-decode, a small module of the start screen): UTF-16 LE/BE by its byte-order mark or by NULs in every other byte, else UTF-8, else Windows-1252; a UTF-16 file that does not decode, or a text whose first 20 000 characters hold more than 2 % control characters, is refused with its reason before anything is read. A control character (C0 but tab and line ends, DEL, C1) is removed from each cell and its line named in a note. A first line holding a date and an amount is taken as a row: the header box opens unticked with a note saying why, and the date, amount and description columns are guessed from the content. A file with more rows than a batch takes (100 parts of 500, R-IMPORT-208) is refused on the mapping step, with the number and the advice to split it.
+
+**Why:** Review S-9, S-12, S-13.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-324, R-IMPORT-208, D-444
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-472 The token secret is created outside the query library (accepted)
+
+The token dialog calls create_import_token itself (its own pending and error state, then invalidates the token list), so no mutation exists whose options or closures could keep the secret; the secret is in the dialog's state only and set to null when it closes. While the secret is shown, Escape or a click outside asks "Close without the secret?" with "I have copied it: close" and "Back to the secret"; the Done button ("I have copied it") closes directly.
+
+**Why:** Review S-10: a heap snapshot after the dialog closed still reached the secret through the mutation cache (mutation options, mutationFn closure, the state setter, its last state).
+
+**Rejected:**
+
+- A mutation with gcTime 0: the closure lives until the cache removes it, and the setter still reaches the state while the component is mounted.
+
+Related: R-IMPORT-326, D-446
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-473 Preview calls are limited, paused for the run, and a busy budget is not a refusal (accepted)
+
+The preview of a part waits for a free place among two; a part asked again meanwhile drops its waiting call. Once the import starts, no part is previewed (the queries are disabled, so the invalidation after the run reads nothing again). A statement timeout (57014, HTTP 500) is "busy" (errors.busy): the preview asks again up to three times, one, two and three seconds apart, then says so with "Check again"; the run sends the same part again after the same waits, says "the budget was busy: part n was sent again", and after three stops with "Continue in a moment", which resends the same batch.
+
+**Why:** Review S-8: ten previews at once for 5 000 rows, every part previewed again after the run, and timeouts shown as "refused".
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-321, R-IMPORT-322, R-IMPORT-361
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-474 Import anyway: the kinds asked about (accepted)
+
+A skipped row's kind comes from list_import_skipped_rows: its flag, or for a match whether the existing transaction (read by match_of) is linked to a subscription (a charge the import confirmed) or not (entered by hand). "Import all anyway" first reads every page of skipped rows, then asks with the count per kind, and sends exactly those ids, 500 a call. One row that matched (a charge or a typed transaction) asks the same question for itself; a duplicate or a flagged row alone is imported in one click, and the focus goes to that row's new state.
+
+**Why:** Review S-5 and the counting words: the confirmed charge was shown as "Already entered".
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-204, R-IMPORT-360
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-475 The long preview: sticky bars, a skip link, select all (accepted)
+
+The preview card is not clipped (overflow visible) so its bars stick: the bulk bar under the app header (top 3.5 rem), on a phone one line that scrolls sideways inside itself; the import bar at the bottom. A link-styled button, visible on focus, before the rows, moves the focus to the import button, or to its bar while there is nothing to import. "Select all" selects every row of the current filter (not only the 100 drawn) except locked ones and says how many. Checkboxes have a 24 by 24 pixel target.
+
+**Why:** Review S-1.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-364
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-476 The rule offer floats in the window; "show only" clears the other filters (accepted)
+
+The merchant rule offer is fixed in the window: under the header on a phone, at the bottom left beside the sidebar from 768 px (away from the toasts at the bottom right); it takes no focus by itself. "Show only the N to review" sets period=all&review=1 and drops the category, kind and batch filters, since N is the whole budget's count.
+
+**Why:** Review S-2 and S-4.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-365, R-IMPORT-007, R-IMPORT-209
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-477 One test file proves pages wait for their strings (accepted)
+
+src/test/setup.ts loads every string group before a file's tests unless the file sets globalThis.skipStringPreload in a hoisted block; src/locales/lazy-strings.page.test.tsx does, delays the import group and checks the import page shows its words, never a key, the moment it renders. Page test files warm their lazy page chunks in beforeAll (src/test/warm.ts).
+
+**Why:** Review: the D-448 break survived because every test pre-loaded the strings; slow first tests under load.
+
+**Rejected:** none recorded.
+
+Related: D-448
+
+Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
 
 ### D-420 Occurrences are keyed by date, not by period (accepted)
 

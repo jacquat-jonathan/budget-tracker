@@ -12,6 +12,7 @@ import {
   transactionRow,
 } from '@/test/budget-fixtures'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
+import { warmPages } from '@/test/warm'
 
 const mock = vi.hoisted(() => ({ current: null as ReturnType<typeof createSupabaseMock> | null }))
 
@@ -70,6 +71,9 @@ async function openEdit(db: ReturnType<typeof categoriesDb>) {
   const dialog = await screen.findByRole('dialog')
   return { ...result, dialog }
 }
+
+// The pages are lazy chunks: loaded once here, not inside the first test's time.
+beforeAll(() => warmPages('dashboard', 'subscriptions', 'transactions'))
 
 describe('correcting a subscription from an earlier period [R-SUBSCRIPTION-140]', () => {
   it('starts from that period’s terms and sends only what was changed', async () => {

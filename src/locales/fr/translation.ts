@@ -224,6 +224,7 @@ const core: Omit<Translation, LazyKey> = {
   errors: {
     forbidden: 'Vous n’avez pas le droit de faire cela.',
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
+    busy: 'Le budget est occupé et a mis trop de temps à répondre : rien n’a été changé. Réessayez dans un moment.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
     networkAdd:
       'La connexion a été coupée avant la réponse. Ce que vous avez saisi est toujours là : enregistrez à nouveau une fois connecté. Sans risque : ce sera enregistré une seule fois, même si le premier enregistrement a abouti.',
@@ -232,6 +233,20 @@ const core: Omit<Translation, LazyKey> = {
     generic: 'Une erreur s’est produite. Veuillez réessayer.',
     db: {
       not_authenticated: 'Votre session a expiré. Reconnectez-vous.',
+      interest_before_opening:
+        'Le début de la période ne peut pas être placé à l’ouverture ou avant l’ouverture d’une dette qui a des intérêts dans cette période : choisissez un début plus tardif.',
+      import_limit_reached:
+        'Ce budget a importé autant qu’il le peut pour l’instant (20’000 lignes ou 50 importations en 24 heures, ou 2’000 importations conservées). Rien de cette partie n’a été écrit. Réessayez demain, ou annulez une importation dont vous n’avez plus besoin.',
+      chunk_expired:
+        'Cette partie a déjà été enregistrée, mais sa réponse n’est plus conservée : elle n’est pas importée à nouveau. Consultez les lignes de l’importation dans l’historique.',
+      token_busy:
+        'Le jeton d’importation est occupé par un autre appel : rien n’a été fait. Renvoyez la même partie dans un moment.',
+      imports_busy:
+        'Les importations sont occupées pour l’instant : rien n’a été fait. Renvoyez la même partie dans un moment.',
+      budget_busy:
+        'Le budget est occupé par une autre importation : rien n’a été écrit. Renvoyez la même partie.',
+      call_cancelled:
+        'L’importation a pris trop de temps et a été annulée : rien n’a été écrit. Renvoyez la même partie.',
       budget_not_found: 'Ce budget n’existe plus, ou vous n’en êtes plus membre.',
       income_not_found: 'Ce revenu n’existe plus.',
       period_not_found: 'Cette période n’existe plus.',
