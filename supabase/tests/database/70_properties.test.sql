@@ -70,7 +70,7 @@ begin;
 create temp table seeds (seed double precision) on commit drop;
 insert into seeds values (0.11), (0.23), (0.37), (0.41), (0.53), (0.67), (0.79), (0.83);
 create temp table prop_config (steps integer) on commit drop;
-insert into prop_config values (300);
+insert into prop_config values (320);
 
 create temp table runs (seed double precision, step integer, budget text, op text, outcome text) on commit drop;
 create temp table failures (seed double precision, step integer, budget text, op text, problem text) on commit drop;
@@ -642,7 +642,7 @@ create or replace function pg_temp.totals_disagree(b uuid) returns setof text la
          or s.result <> s.income_total - s.spent_total)
 $$;
 
-select plan(24);
+select plan(25);
 
 do $prop$
 declare
@@ -818,9 +818,9 @@ begin
           when v_r < 0.64 then 'undo_mark'
           when v_r < 0.66 then 'income_account'
           when v_r < 0.72 then 'unmark_after_settle'
-          when v_r < 0.79 then 'stale_mark'
-          when v_r < 0.89 then 'transfer_kind_same_day'
-          when v_r < 0.95 then 'switch_twice'
+          when v_r < 0.81 then 'stale_mark'
+          when v_r < 0.90 then 'transfer_kind_same_day'
+          when v_r < 0.97 then 'switch_twice'
           else 'late_salary'
         end;
       end if;
