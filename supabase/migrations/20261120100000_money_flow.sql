@@ -4703,6 +4703,12 @@ begin
     end if;
     perform private.assert_length(v_previous.start_date, v_start - 1);
     perform private.assert_length(v_start, v_period.end_date);
+    -- R-DEBT-340, D-467: as the write's trigger refuses it
+    if v_start < v_period.start_date
+       and exists (select 1 from public.debt_interest as i join public.debts as d on d.id = i.debt_id
+                   where i.period_id = v_period.id and d.opened_on >= v_start) then
+      raise exception 'interest_before_opening' using errcode = 'P0001';
+    end if;
   exception when sqlstate 'P0001' then
     v_refusal := sqlerrm;
   end;
@@ -4721,8 +4727,7 @@ begin
   end if;
   return query select v_period.id, v_scheduled, v_refusal is null and v_start <> v_period.start_date, coalesce(v_refusal,
     case when v_start = v_period.start_date then 'already_on_schedule' end),
-    (select pg_catalog.count(*)::integer from public.debt_interest as i join public.debts as d on d.id = i.debt_id
-     where i.period_id = v_period.id and d.opened_on >= v_start and v_refusal is null and v_start < v_period.start_date),
+    0,  -- interest_removed: a move never removes interest (D-467)
     v_removed, v_created, v_unplanned;
 end;
 $$;

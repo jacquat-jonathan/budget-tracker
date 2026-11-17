@@ -203,6 +203,55 @@ select lives_ok(format($$delete from auth.users where id = %L$$, tests.get_user_
 select is((select count(*)::integer from public.budgets where id = tests.id('m2b')), 0, 'R-ACCOUNT-308: that budget is gone too');
 select tests.authenticate_as('iris');
 
+-- ===========================================================================
+-- M3: moving a period's start moves what the app recorded by itself; a member's own mark stays
+-- (R-ACCOUNT-309, D-491; the reviewer's F2b)
+-- ===========================================================================
+select pg_temp.day('2026-11-25');
+select pg_temp.budget('m3');
+select tests.remember('m3_t', (select id from public.create_transfer(tests.id('m3'), 'Savings on payday', tests.id('m3_main'),
+  tests.id('m3_sav'), 100000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('m3_cat'),
+  p_from_period_id => tests.id('m3_p1'))));
+select tests.remember('m3_h', (select id from public.create_transfer(tests.id('m3'), 'By hand', tests.id('m3_main'),
+  tests.id('m3_sav'), 5000, 'pay_date', p_from_period_id => tests.id('m3_p1'))));
+select tests.remember('m3_cur', (pg_temp.cur('m3')).id);
+select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0, p_done_on => '2026-11-25')$$, tests.id('m3_h'), tests.id('m3_cur')),
+  'R-ACCOUNT-309: (a member marks the manual one done on the 25th)');
+select pg_temp.day('2026-11-27');
+select is((select row(accepted, transfer_transactions_removed, transfer_transactions_created)::text
+           from public.preview_move_period_start(tests.id('m3_cur'), '2026-11-27')), row(true, 1, 1)::text,
+  'R-ACCOUNT-309: the preview of the move counts the catch-up''s transaction that moves (removed from the 25th, made on the 27th)');
+select lives_ok(format($$select public.move_period_start(%L, %s, '2026-11-27')$$, tests.id('m3_cur'),
+                       (select revision from public.periods where id = tests.id('m3_cur'))),
+  'R-ACCOUNT-309: (the salary came on the 27th: the member moves the start)');
+select is(pg_temp.txs(tests.id('m3_t')), '2026-09-25,2026-10-25,2026-11-27',
+  'R-ACCOUNT-309: the automatic transaction sits on the new due date, in the moved period');
+select is((select string_agg(c.status || '/' || c.done_on, ',') from public.get_transfer_checklist(tests.id('m3_cur')) as c
+           where c.transfer_id = tests.id('m3_t')), 'done/2026-11-27',
+  'R-ACCOUNT-309: the moved period''s checklist row is done on the 27th');
+select is((select count(*)::integer from public.transaction_list as x
+           where x.transfer_id = tests.id('m3_t') and x.period_id = pg_temp.period_at('m3', '2026-11-26')), 1,
+  'R-ACCOUNT-309: the period before keeps only its own transfer');
+select is((select done_on from public.transfer_occurrences where transfer_id = tests.id('m3_h')
+           and occurrence_date = '2026-11-25'), '2026-11-25'::date,
+  'R-ACCOUNT-309: a member''s own mark stays where the member put it');
+-- the preview and the write agree on the debts' refusal (R-DEBT-340): nothing to count then
+select pg_temp.day('2026-12-10');
+select tests.remember('m3_dc', (select id from public.create_category(tests.id('m3'), 'Loans', p_amount => 1000)));
+select tests.remember('m3_debt', (select id from public.create_debt(tests.id('m3'), 'Loan', 100000, tests.id('m3_dc'), 5000, 12)));
+select pg_temp.day('2026-12-26');
+select public.ensure_periods(tests.id('m3'));
+select tests.remember('m3_dec', (pg_temp.cur('m3')).id);
+select is((select row(accepted, refusal, interest_removed, transfer_transactions_removed, transfer_transactions_created)::text
+           from public.preview_move_period_start(tests.id('m3_dec'), '2026-12-10')),
+          row(false, 'interest_before_opening', 0, 0, 0)::text,
+  'R-DEBT-340: a move onto the opening of a debt with interest there is refused by the preview, with nothing counted');
+select throws_ok(format($$select public.move_period_start(%L, %s, '2026-12-10')$$, tests.id('m3_dec'),
+                        (select revision from public.periods where id = tests.id('m3_dec'))),
+  'P0001', 'interest_before_opening', 'R-DEBT-340: and by the write');
+select is(pg_temp.txs(tests.id('m3_t')), '2026-09-25,2026-10-25,2026-11-27,2026-12-25',
+  'R-ACCOUNT-309: the refused move moved nothing');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;

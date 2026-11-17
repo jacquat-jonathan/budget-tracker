@@ -447,11 +447,17 @@ a period and the one before it: the period starts on `p_start_date` (today or ea
 not after the budget's end date), the previous one ends the day before. Omit `p_start_date`
 to move it to where the schedule puts it (the previous period's projected end, the day
 before). The previous period's `end_is_manual` is true unless the boundary is on the
-schedule's day, so moving it back clears the mark. A debt opened on or after the new start
-loses its interest entry of the period, so its history still starts with the opening; moving
-the start later again adds no interest back (interest is computed once, when a period is
-created: D-386, R-DEBT-131). Errors also: `period_not_found`. Inverse: move it back.
-(R-PERIOD-100, D-152)
+schedule's day, so moving it back clears the mark. A start on or before the opening of a debt
+that has an interest entry in the period is refused (`interest_before_opening`, D-467); moving
+the start later adds no interest (interest is computed once, when a period is created: D-386,
+R-DEBT-131). **Planned transfers** (D-491, R-ACCOUNT-309): what the app recorded by itself
+moves with the boundary, exactly as after a reopen and the salary recorded on the new day: a
+catch-up's transaction of an automatic pay-date transfer of the two periods whose due date the
+move changed is removed and made again on the new due date, in the right period (at the terms
+in force there; a member's edit of that transaction goes with it, as after a reopen); a
+member's own mark (done or skipped by hand, with its date) stays where the member put it. A
+fixed-day transaction keeps its date. Errors also: `period_not_found`,
+`interest_before_opening`. Inverse: move it back. (R-PERIOD-100, D-152)
 
 **`preview_move_period_start(p_period_id, p_start_date = null) -> {period_id, scheduled_start, accepted, refusal, interest_removed, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned}[]`**
 (one row) Member. What `move_period_start` to `p_start_date` (default: the scheduled start)
@@ -464,7 +470,8 @@ start never removes interest. `interest_removed` is always 0 (kept for the answe
 the catch-up step (and answers `catching_up` when the budget is still behind), and changes
 nothing else. The last three columns: what the move does to the planned transfers, found by running
 it and rolling it back (R-ACCOUNT-303: the catch-up's transactions it removes and creates, the
-members' marks whose occurrence it moves away; 0 when refused). Errors: `period_not_found`,
+members' marks whose occurrence it moves away; 0 when refused; a catch-up's transaction that
+moves to the new due date counts once removed and once created). Errors: `period_not_found`,
 `catching_up`. (R-PERIOD-133, Q-091)
 
 ### Pure helper

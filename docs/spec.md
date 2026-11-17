@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-545 rules (535 active, 0 planned), 24 conventions, 316 decisions, 40 open questions. 0 rules and conventions are marked **TEST PENDING**.
+546 rules (536 active, 0 planned), 24 conventions, 317 decisions, 40 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2359,6 +2359,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-423, D-426, R-MEMBER-002, R-BUDGET-009
   - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M2 with C5, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-309** Moving a period's start moves the automatic transfer transactions the app recorded by itself to their new due date, in the right period, as a reopen and the salary recorded that day would; a member's own mark stays where the member put it, and the move's preview counts what moves.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-424, D-491, R-PERIOD-100, R-ACCOUNT-303
+  - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M3, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 
@@ -6576,7 +6580,7 @@ Source: owner-request: coordinator brief for the step 7 occurrence model redesig
 
 ### D-424 What the catch-up removes and what stays (accepted)
 
-After a change of the plan the catch-up removes its own marks (and their transactions) whose occurrence is no longer planned or no longer due, and creates the transactions of the automatic linked occurrences due without a mark. It keeps its own mark of an occurrence still planned whatever the new terms: made manual, unlinked, another amount or category (what was recorded on the due date stays; undo leads out). Ending a transfer turns the catch-up's marks of occurrences it removes into kept marks (by_catch_up false), so nothing recorded goes. A member's mark never goes with a change of the plan: one whose occurrence is no longer planned is listed in the checklist of the period containing its date, flagged (planned false; is_ended when the transfer is not in force there), until undone or until its occurrence is planned again (the salary recorded again).
+After a change of the plan the catch-up removes its own marks (and their transactions) whose occurrence is no longer planned or no longer due, and creates the transactions of the automatic linked occurrences due without a mark. It keeps its own mark of an occurrence still planned whatever the new terms: made manual, unlinked, another amount or category (what was recorded on the due date stays; undo leads out). A moved period start is the exception: the catch-up's own marks whose due date the move changed are made again on the new due date (D-491). Ending a transfer turns the catch-up's marks of occurrences it removes into kept marks (by_catch_up false), so nothing recorded goes. A member's mark never goes with a change of the plan: one whose occurrence is no longer planned is listed in the checklist of the period containing its date, flagged (planned false; is_ended when the transfer is not in force there), until undone or until its occurrence is planned again (the salary recorded again).
 
 **Why:** The brief's reconcile step, read together with its rule that an occurrence keeps its mark or transaction when the transfer is made manual, corrected or ended: only an occurrence that is gone or not yet due loses the catch-up's transaction.
 
@@ -6585,7 +6589,7 @@ After a change of the plan the catch-up removes its own marks (and their transac
 - Removing the catch-up's transaction when the transfer is made manual from the current period: the bank did the transfer on its due date.
 - Removing a member's mark whose occurrence is gone: it would go silently.
 
-Related: R-ACCOUNT-301, R-ACCOUNT-302, R-ACCOUNT-305, D-380, D-423
+Related: R-ACCOUNT-301, R-ACCOUNT-302, R-ACCOUNT-305, D-380, D-423, D-491
 
 Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; owner-request: database developer decision for the step 7 occurrence model, within the coordinator's brief, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
@@ -6728,6 +6732,21 @@ Every period has a scheduled pay date as its key (periods.pay_key). When the dat
 Related: D-420, D-424, D-429, R-ACCOUNT-301, R-ACCOUNT-302, R-ACCOUNT-307, R-ACCOUNT-240, Q-260
 
 Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M1 with C1, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-491 Moving a period's start moves what the app recorded by itself (accepted)
+
+After move_period_start, an automatic transaction the catch-up made for an occurrence of the two periods whose boundary moved sits on the occurrence's new due date, in the right period, exactly as after a reopen and the salary recorded on that day: the catch-up's own mark (by_catch_up) whose done date is not the new due date goes with its transaction and the catch-up makes it again (on the new due date, at the terms in force there; when that date is still ahead, once it is due). A member's own mark (done or skipped by hand, with its date) stays where the member put it. preview_move_period_start counts each moved transaction once removed and once created. The move's refusal for a debt's interest (interest_before_opening, D-467) is answered by the preview as by the write, with every count 0.
+
+**Why:** The member says when the salary really came; the standing order the app recorded on the old day then showed two transfers in the period before and none in the moved one, with a checklist row done before the period started, while saying the same thing another way (reopen, then record the salary) dated it on the new day.
+
+**Rejected:**
+
+- Keeping the transaction on its old date (D-424 as first written): the two ways to say when the salary came gave different budgets.
+- Re-dating the transaction in place: a move would then keep an amount the terms no longer give, unlike a reopen and the salary recorded again.
+
+Related: D-424, D-430, D-467, R-ACCOUNT-309, R-PERIOD-100
+
+Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M3, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ## Open questions
 
