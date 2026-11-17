@@ -279,6 +279,44 @@ select is((select bool_or(c.follows_primary) from public.periods as p cross join
            where p.budget_id = tests.id('s1') and c.transfer_id = tests.id('s1_prim')), false,
   'R-ACCOUNT-310: a transfer that chose the primary income never says it follows the primary instead');
 
+-- ===========================================================================
+-- S2: ending a chosen income never rewrites what is already recorded (R-ACCOUNT-311, D-492; the
+-- reviewer's F8): remove_income, and leave_budget for a member's income
+-- ===========================================================================
+select pg_temp.day('2026-11-20');
+select pg_temp.budget('s2');
+select tests.remember('s2_inc', public.add_income(tests.id('s2'), 'Partner', 300000, 10, p_from_period_id => tests.id('s2_p1')));
+select tests.remember('s2_t', (select id from public.create_transfer(tests.id('s2'), 'After the partner''s salary', tests.id('s2_main'),
+  tests.id('s2_sav'), 30000, 'pay_date', p_offset_days => 2, p_income_id => tests.id('s2_inc'), p_is_automatic => true,
+  p_category_id => tests.id('s2_cat'), p_from_period_id => tests.id('s2_p1'))));
+select is(pg_temp.txs(tests.id('s2_t')), '2026-10-11,2026-11-12', 'R-ACCOUNT-311: (two days after each of the partner''s salaries)');
+select is(public.remove_income(tests.id('s2_inc'), (select revision from public.incomes where id = tests.id('s2_inc'))), 'ended',
+  'R-ACCOUNT-311: (on 20 November the partner''s income ends)');
+select is(pg_temp.txs(tests.id('s2_t')), '2026-10-11,2026-11-12',
+  'R-ACCOUNT-311: the transfer of 12 November stays and nothing dated in the past appears');
+select is((select string_agg(c.occurrence_date || '/' || c.status || '/' || c.planned, ',')
+           from public.get_transfer_checklist((pg_temp.cur('s2')).id) as c where c.transfer_id = tests.id('s2_t')),
+  '2026-11-10/done/true', 'R-ACCOUNT-311: the current period still plans the occurrence already made, and only it');
+select pg_temp.day('2026-11-28');
+select public.ensure_periods(tests.id('s2'));
+select is(pg_temp.txs(tests.id('s2_t')), '2026-10-11,2026-11-12,2026-11-27',
+  'R-ACCOUNT-311: from the next occurrence not yet due the transfer follows the primary income');
+-- a member's income, ended by leave_budget
+select pg_temp.day('2026-11-20');
+select pg_temp.budget('s2m');
+select tests.remember('s2m_inv', public.invite_member(tests.id('s2m'), tests.get_user_email('ivan')));
+select pg_temp.day('2026-11-20', 'ivan');
+select public.accept_invitation(tests.id('s2m_inv'));
+select tests.remember('s2m_inc', public.add_income(tests.id('s2m'), 'Ivan''s salary', 300000, 10,
+  p_user_id => tests.get_user_id('ivan'), p_from_period_id => tests.id('s2m_p1')));
+select tests.remember('s2m_t', (select id from public.create_transfer(tests.id('s2m'), 'After Ivan''s salary', tests.id('s2m_main'),
+  tests.id('s2m_sav'), 30000, 'pay_date', p_offset_days => 2, p_income_id => tests.id('s2m_inc'), p_is_automatic => true,
+  p_category_id => tests.id('s2m_cat'), p_from_period_id => tests.id('s2m_p1'))));
+select lives_ok(format($$select public.leave_budget(%L)$$, tests.id('s2m')), 'R-ACCOUNT-311: (Ivan leaves the budget)');
+select pg_temp.day('2026-11-20');
+select is(pg_temp.txs(tests.id('s2m_t')), '2026-10-11,2026-11-12',
+  'R-ACCOUNT-311: leave_budget keeps the transfer already made after the member''s salary, and adds nothing in the past');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;

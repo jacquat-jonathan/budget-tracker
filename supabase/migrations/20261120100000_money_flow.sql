@@ -708,6 +708,9 @@ $$;
 -- again derives the same key from the same earlier periods. Keys are unique in a budget and
 -- can lie outside their period, so every lookup of an occurrence goes by the stored key.
 alter table public.periods add column pay_key date;
+-- D-492: the day an income was ended in the period it ends from (remove_income, remove_member,
+-- leave_budget in the current period); null when ended from another period or not ended
+alter table public.incomes add column ended_on date;
 create unique index periods_pay_key_unique on public.periods (budget_id, pay_key) where pay_key is not null;
 
 create function private.period_pay_key(p_budget_id uuid, p_seq integer, p_start date)
@@ -871,6 +874,8 @@ language plpgsql
 stable
 set search_path = ''
 as $$
+declare
+  v_ended date;
 begin
   if p_schedule = 'day_of_month' then
     return query select d, d, false, false
@@ -879,6 +884,18 @@ begin
         and not private.income_is_primary_at(p_income_id, p_seq) then
     return query select d, least(d + p_offset, p_end), false, false
                  from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on), p_end) as d;
+  elsif p_income_id is not null
+        and exists (select 1 from public.incomes as i
+                    where i.id = p_income_id and i.end_seq = p_seq and i.ended_on is not null) then
+    -- D-492: the chosen income ended in this period on ended_on: its occurrences already due
+    -- then stay; the primary's occurrence only when it was not due yet
+    v_ended := (select i.ended_on from public.incomes as i where i.id = p_income_id);
+    return query select d, least(d + p_offset, p_end), false, false
+                 from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on), p_end) as d
+                 where least(d + p_offset, p_end) <= v_ended;
+    if p_pay_key is not null and p_pay_key >= p_starts_on and least(p_start + p_offset, p_end) > v_ended then
+      return query select p_pay_key, least(p_start + p_offset, p_end), true, true;
+    end if;
   elsif p_pay_key is not null and p_pay_key >= p_starts_on then
     return query select p_pay_key, least(p_start + p_offset, p_end),
                         (p_income_id is not null and not private.income_is_primary_at(p_income_id, p_seq))
@@ -3881,7 +3898,10 @@ begin
     perform private.materialise_transfers(v_income.budget_id);
     return 'deleted';
   end if;
-  update public.incomes set end_seq = v_seq where id = v_income.id;
+  update public.incomes
+  set end_seq = v_seq,
+      ended_on = case when v_seq = private.current_seq(v_income.budget_id) then private.today() end
+  where id = v_income.id;
   delete from public.income_versions where income_id = v_income.id and effective_from_seq >= v_seq;
   perform private.materialise_transfers(v_income.budget_id);
   return 'ended';
@@ -3919,7 +3939,9 @@ begin
   delete from public.incomes as i
   where i.budget_id = p_budget_id and i.user_id = p_user_id and i.end_seq is null
     and i.first_seq >= v_seq;
-  update public.incomes as i set end_seq = v_seq
+  update public.incomes as i
+  set end_seq = v_seq,
+      ended_on = case when v_seq = (private.current_period(p_budget_id)).seq then private.today() end
   where i.budget_id = p_budget_id and i.user_id = p_user_id and i.end_seq is null;
   perform private.materialise_transfers(p_budget_id);
 end;

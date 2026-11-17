@@ -1610,7 +1610,13 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
     another income chosen, or a fixed day, is keyed by its own dates as below.
   - **Another income chosen** and in force in the period: each of its actual pay dates in the
     period (its terms then, its weekend rule) is a key; a period with none of them has no
-    occurrence, a long one can have several.
+    occurrence, a long one can have several. **When that income ends in the current period**
+    (`remove_income`, `remove_member`, `leave_budget`; D-492, R-ACCOUNT-311), nothing already
+    recorded is rewritten: its occurrences of that period already due on the day it ended stay,
+    with their marks and transactions; the transfer follows the primary income from the next
+    occurrence not yet due (the primary's occurrence of that period only if it was not due yet
+    that day), so nothing dated in the past appears. Ended from an earlier period (a
+    correction, `p_from_period_id`), the periods from then on follow the primary income.
 - Nothing before the transfer's **first counted day** (`starts_on`: the start of the period it
   was created in or corrected from, or that period's scheduled pay date when the salary came
   late; it stays a date through a reopen).
