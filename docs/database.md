@@ -406,15 +406,16 @@ before the reopen are still in force after it. An income that would then never b
 in the merged period, which stays with the reopened period (moving it back needs explicit
 corrections). (R-VERSION-011, R-VERSION-013)
 
-**`preview_reopen(p_budget_id) -> {record_kind, record_id, record_name, change, replaces_previous}[]`**
+**`preview_reopen(p_budget_id, p_pay_date = null) -> {record_kind, record_id, record_name, change, replaces_previous}[]`**
 Member. What `reopen_previous_period` would move, one row per change recorded in the current
 period, for every kind of record (`record_kind` is `'income'`, `'category'` (a category
 or subcategory; `'terms_changed'` is a changed expectation), `'subscription'`, `'debt'`,
 `'account'` or `'transfer'` (`'terms_changed'`: changed terms); later steps add kinds without
 client changes; for a transfer also one row per occurrence the reopen affects:
 `'transaction_removed'`, `'transaction_created'`, `'mark_unplanned'`, `'mark_planned_again'`,
-see "Accounts and money flow"; found by running the reopen at its default end and rolling it
-back). A
+see "Accounts and money flow"; found by running the reopen with the same `p_pay_date` the
+write takes (send the one the member chose: the preview then describes that reopen, also when
+the reopen at its default end would be refused, R-ACCOUNT-313) and rolling it back). A
 category, subscription or debt `'removed'` that has transactions (or, for a debt,
 adjustments) is kept as a void row, and its transactions keep counting in the reopened
 period. `change`: `'added'`, `'ended'`, `'removed'` (it would never be in force after the
@@ -1545,7 +1546,8 @@ change never moves a period's end.
 
 #### Planned transfers
 
-`transfer_overview` (view; one row per transfer, ended and void ones included): `id`,
+`transfer_overview` (view; one row per transfer, ended ones included, and those a reopen kept
+in force nowhere for their marks, R-ACCOUNT-312): `id`,
 `budget_id`, `name`, `is_active`, `first_seq`, `end_seq`, the **terms in force now**:
 `from_account_id`, `from_account_name`, `to_account_id`, `to_account_name`, `amount` (the real
 amount of one occurrence), `schedule` (enum `transfer_schedule`: `'pay_date'` |
@@ -1878,7 +1880,11 @@ and is the same occurrence again then. Fixed-day occurrences keep their dates an
 now belong to the reopened period). A transfer created in the merged period counts from its
 first counted day, so the reopened period gets no occurrence of its own earlier payday. A
 transfer ended in the merged period now ends in the reopened one; its marks there stay, listed
-as ended. `preview_reopen` lists one row per occurrence the reopen affects: `record_kind`
+as ended. A transfer created in the reopened period and ended in the merged one, which would
+then be in force nowhere, is **kept when it has a mark** (R-ACCOUNT-312): in force nowhere
+(`is_active` false, `first_seq` = `end_seq`), its marks and their transactions stay, listed with
+`planned` false and `is_ended` true until undone; `preview_reopen` says `'ended'` for it (not
+`'removed'`) and `'mark_unplanned'` for each such mark. Without a mark it is removed. `preview_reopen` lists one row per occurrence the reopen affects: `record_kind`
 `'transfer'`, `change` `'transaction_removed'` (the catch-up's transaction goes),
 `'transaction_created'`, `'mark_unplanned'` (a member's mark stays, flagged) or
 `'mark_planned_again'`, `replaces_previous` false. These kinds replace step 7's first

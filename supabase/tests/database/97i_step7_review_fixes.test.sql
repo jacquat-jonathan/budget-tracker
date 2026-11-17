@@ -317,6 +317,82 @@ select pg_temp.day('2026-11-20');
 select is(pg_temp.txs(tests.id('s2m_t')), '2026-10-11,2026-11-12',
   'R-ACCOUNT-311: leave_budget keeps the transfer already made after the member''s salary, and adds nothing in the past');
 
+-- ===========================================================================
+-- S3: a reopen keeps a transfer that has a mark, listed as ended with its marks, and the preview
+-- says so (R-ACCOUNT-312; the reviewer's F4)
+-- ===========================================================================
+select pg_temp.day('2026-11-22');
+select pg_temp.budget('s3');
+select tests.remember('s3_p2', (pg_temp.cur('s3')).id);
+select tests.remember('s3_t', (select id from public.create_transfer(tests.id('s3'), 'Holiday fund', tests.id('s3_main'),
+  tests.id('s3_sav'), 30000, 'pay_date', p_category_id => tests.id('s3_cat'))));
+select is((select status from public.mark_transfer_done(tests.id('s3_t'), tests.id('s3_p2'), 0, p_amount => 31000)), 'done',
+  'R-ACCOUNT-312: (a member marks it done, with a transaction)');
+select pg_temp.day('2026-11-26');
+select public.ensure_periods(tests.id('s3'));
+select is(public.end_transfer(tests.id('s3_t'), (select revision from public.transfers where id = tests.id('s3_t'))), 'ended',
+  'R-ACCOUNT-312: (ended from the new period)');
+select results_eq(
+  $$select change from public.preview_reopen(tests.id('s3')) where record_kind = 'transfer' and record_id = tests.id('s3_t') order by change$$,
+  $$values ('ended'::text), ('mark_unplanned')$$,
+  'R-ACCOUNT-312: preview_reopen says the transfer is kept, ended, and its mark stays, no longer planned');
+select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('s3'), (pg_temp.cur('s3')).id,
+                       (pg_temp.cur('s3')).revision), 'R-ACCOUNT-312: (the reopen)');
+select is((select count(*)::integer from public.transfer_overview where id = tests.id('s3_t') and not is_active), 1,
+  'R-ACCOUNT-312: the transfer stays, not in force');
+select results_eq(
+  $$select status, planned, is_ended, done_on, transaction_id is not null from public.get_transfer_checklist(tests.id('s3_p2'))
+    where transfer_id = tests.id('s3_t')$$,
+  $$values ('done'::text, false, true, '2026-11-22'::date, true)$$,
+  'R-ACCOUNT-312: its mark stays, listed as ended, with its transaction still linked');
+select is((select count(*)::integer from public.undo_transfer_mark(tests.id('s3_t'), tests.id('s3_p2'),
+             (select revision from public.transfer_occurrences where transfer_id = tests.id('s3_t')))), 0,
+  'R-ACCOUNT-312: undo leads out of it');
+select is((select count(*)::integer from public.transaction_list where transfer_id = tests.id('s3_t')), 0,
+  'R-ACCOUNT-312: with its transaction');
+
+-- ===========================================================================
+-- S4: preview_reopen takes the reopen's pay date and describes that reopen (R-ACCOUNT-313; the
+-- reviewer's F3a and F3b)
+-- ===========================================================================
+create function pg_temp.reopen_check(n text, d date) returns text language plpgsql as $$
+declare
+  v_preview integer;
+  v_before integer;
+  v_after integer;
+  t uuid := tests.id(n || '_t');
+begin
+  v_preview := (select count(*) from public.preview_reopen(tests.id(n), d) where record_kind = 'transfer' and change = 'transaction_removed');
+  v_before := (select count(*) from public.transaction_list where transfer_id = t);
+  perform public.reopen_previous_period(tests.id(n), (pg_temp.cur(n)).id, (pg_temp.cur(n)).revision, d);
+  v_after := (select count(*) from public.transaction_list where transfer_id = t);
+  return v_preview || ' announced, ' || (v_before - v_after) || ' removed';
+end $$;
+select pg_temp.day('2026-10-20');
+select pg_temp.budget('s4a');
+select tests.remember('s4a_t', (select id from public.create_transfer(tests.id('s4a'), 'Savings on payday', tests.id('s4a_main'),
+  tests.id('s4a_sav'), 100000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('s4a_cat'), p_from_period_id => tests.id('s4a_p1'))));
+select public.record_early_pay_date(tests.id('s4a'), (pg_temp.cur('s4a')).id, (pg_temp.cur('s4a')).revision, '2026-10-20');
+select pg_temp.day('2026-11-20');
+select public.set_expected_pay_date(tests.id('s4a'), (pg_temp.cur('s4a')).id, (pg_temp.cur('s4a')).revision, '2026-12-25');
+select pg_temp.day('2027-01-10');
+select public.ensure_periods(tests.id('s4a'));
+select throws_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('s4a'), (pg_temp.cur('s4a')).id,
+                        (pg_temp.cur('s4a')).revision), 'P0001', null,
+  'R-ACCOUNT-313: (the reopen at its default end is refused)');
+select is(pg_temp.reopen_check('s4a', '2027-01-15'), '1 announced, 1 removed',
+  'R-ACCOUNT-313: the preview with the pay date announces the removal the reopen with that pay date makes');
+select pg_temp.day('2026-11-15');
+select pg_temp.budget('s4b');
+select tests.remember('s4b_t', (select id from public.create_transfer(tests.id('s4b'), 'A month after payday', tests.id('s4b_main'),
+  tests.id('s4b_sav'), 100000, 'pay_date', p_offset_days => 31, p_is_automatic => true, p_category_id => tests.id('s4b_cat'),
+  p_from_period_id => tests.id('s4b_p1'))));
+select public.record_early_pay_date(tests.id('s4b'), (pg_temp.cur('s4b')).id, (pg_temp.cur('s4b')).revision, '2026-11-15');
+select pg_temp.day('2026-11-16');
+select public.ensure_periods(tests.id('s4b'));
+select is(pg_temp.reopen_check('s4b', '2026-11-17'), '0 announced, 0 removed',
+  'R-ACCOUNT-313: with another end the preview follows that end''s due-date cap, as the write does');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;

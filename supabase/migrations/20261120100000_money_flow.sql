@@ -3592,6 +3592,12 @@ begin
           'select id from %1$s where budget_id = $1 and end_seq = $2 and first_seq >= $3',
           t.table_name) using p_budget_id, p_from, p_to loop
         begin
+          -- S3, R-ACCOUNT-312: a transfer with a mark stays (in force nowhere, listed as ended
+          -- with its marks), like a row something else still refers to
+          if t.table_name::text = 'public.transfers'
+             and exists (select 1 from public.transfer_occurrences as o where o.transfer_id = v_id) then
+            raise foreign_key_violation;
+          end if;
           execute pg_catalog.format('delete from %1$s where id = $1', t.table_name) using v_id;
         exception when foreign_key_violation then
           execute pg_catalog.format('update %1$s set first_seq = $2, end_seq = $2 where id = $1', t.table_name)
@@ -3616,7 +3622,9 @@ $$;
 -- 'transaction_removed' (the catch-up's transaction of an occurrence no longer planned or not
 -- yet due), 'transaction_created', 'mark_unplanned' (a member's mark kept, its occurrence no
 -- longer planned), 'mark_planned_again'; one row per occurrence.
-create or replace function private.merge_impact(p_budget_id uuid, p_from integer, p_to integer)
+-- S4: with the reopen's own optional pay date (the reopen previewed is the one the member asks for)
+drop function private.merge_impact(uuid, integer, integer);
+create function private.merge_impact(p_budget_id uuid, p_from integer, p_to integer, p_pay_date date default null)
 returns table (record_kind text, record_id uuid, record_name text, change text, replaces_previous boolean)
 language plpgsql
 volatile
@@ -3636,16 +3644,20 @@ begin
            left join private.period_keyed_tables as e on e.table_name = r.entity_table
            order by r.kind, r.table_name::text loop
     if t.kind = 'validity' then
+      -- S3: a transfer with a mark is kept, ended, not removed (its marks: mark_unplanned below)
       return query execute pg_catalog.format($q$
         select %3$L::text, v.id, v.%2$I::text,
-               case when v.end_seq = $2 and v.first_seq >= $3 then 'removed'
+               case when v.end_seq = $2 and v.first_seq >= $3
+                         and not ($4 and exists (select 1 from public.transfer_occurrences as o where o.transfer_id = v.id))
+                    then 'removed'
                     when v.end_seq = $2 then 'ended'
                     else 'added' end,
                false
         from %1$s as v
         where v.budget_id = $1 and (v.first_seq = $2 or v.end_seq = $2)
         order by 3$q$, t.table_name, t.name_column, t.record_kind)
-        using p_budget_id, p_from, p_to;
+        using p_budget_id, p_from, p_to, t.table_name::text = 'public.transfers';
+
     else
       return query execute pg_catalog.format($q$
         select %4$L::text, e.id, e.%3$I::text, 'terms_changed',
@@ -3674,7 +3686,7 @@ begin
     v_before := private.transfer_marks_snapshot(p_budget_id, null, private.seq_start(p_budget_id, p_to) - 93);
     begin
       perform private.preview_fresh_step();
-      perform public.reopen_previous_period(p_budget_id, v_current.id, v_current.revision);
+      perform public.reopen_previous_period(p_budget_id, v_current.id, v_current.revision, p_pay_date);
       select coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(e)), '[]'::jsonb) into v_effects
       from private.transfer_effect_rows(v_before,
              private.transfer_marks_snapshot(p_budget_id, null, private.seq_start(p_budget_id, p_to) - 93)) as e;
@@ -3691,6 +3703,56 @@ begin
     order by tr.name, e.occurrence_date, e.change;
 end;
 $$;
+
+-- R-APP-170, R-ACCOUNT-303, S4 (R-ACCOUNT-313): preview_reopen as in step 5 (at most 1000 rows,
+-- the last one counting the rest) with the reopen's own optional p_pay_date: it describes the
+-- reopen the member asks for, also when the reopen at its default end would be refused.
+drop function public.preview_reopen(uuid);
+create function public.preview_reopen(p_budget_id uuid, p_pay_date date default null)
+returns table (record_kind text, record_id uuid, record_name text, change text, replaces_previous boolean)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_current public.periods;
+  v_rows record;
+  v_n integer := 0;
+begin
+  perform private.assert_member(p_budget_id);
+  if p_pay_date is not null and not private.is_sane_date(p_pay_date) then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  v_current := private.current_period(p_budget_id);
+  if v_current.id is null then
+    raise exception 'budget_ended' using errcode = 'P0001';
+  end if;
+  if v_current.seq = 1 then
+    raise exception 'invalid_boundary' using errcode = 'P0001';
+  end if;
+  for v_rows in select * from private.merge_impact(p_budget_id, v_current.seq, v_current.seq - 1, p_pay_date) loop
+    v_n := v_n + 1;
+    if v_n <= 999 then
+      record_kind := v_rows.record_kind; record_id := v_rows.record_id; record_name := v_rows.record_name;
+      change := v_rows.change; replaces_previous := v_rows.replaces_previous;
+      return next;
+    elsif v_n = 1000 then
+      record_kind := v_rows.record_kind; record_id := v_rows.record_id; record_name := v_rows.record_name;
+      change := v_rows.change; replaces_previous := v_rows.replaces_previous;
+    end if;
+  end loop;
+  if v_n = 1000 then
+    return next;
+  elsif v_n > 1000 then
+    record_kind := 'more'; record_id := null; record_name := (v_n - 999)::text; change := 'more'; replaces_previous := false;
+    return next;
+  end if;
+end;
+$$;
+revoke all on function public.preview_reopen(uuid, date) from public, anon, authenticated;
+grant execute on function public.preview_reopen(uuid, date) to authenticated;
 
 -- ===========================================================================
 -- Boundary operations and income changes settle the transfers at once (D-423)
