@@ -3751,6 +3751,15 @@ begin
   perform private.assert_length(v_start, v_period.end_date);
   update public.periods set end_date = v_start - 1, end_is_manual = v_start <> v_scheduled where id = v_previous.id;
   update public.periods set start_date = v_start where id = v_period.id;
+  -- D-491: what the app recorded by itself moves with the boundary, as after a reopen and the
+  -- salary recorded on that day: the catch-up's own marks of the two periods whose due date the
+  -- move changed go with their transactions, and the catch-up makes them again on the new due
+  -- date (a member's mark stays where the member put it)
+  perform private.drop_transfer_marks((
+    select pg_catalog.array_agg(o.id)
+    from private.transfer_plan_range(v_budget_id, null, v_previous.seq, v_period.seq) as pl
+    join public.transfer_occurrences as o on o.transfer_id = pl.transfer_id and o.occurrence_date = pl.occurrence_date
+    where o.by_catch_up and o.mark = 'done' and o.done_on is distinct from pl.due_date));
   perform private.materialise_transfers(v_budget_id);
 end;
 $function$
