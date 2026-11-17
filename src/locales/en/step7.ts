@@ -434,8 +434,8 @@ export const moneyFlowEn = {
     left: 'left {{amount}}',
   },
   short: {
-    planned: 'not planned {{amount}}: more spending is planned than is spendable',
-    actual: 'left {{amount}}: more was spent than is spendable',
+    planned: 'short: not planned {{amount}}',
+    actual: 'short: left {{amount}}',
   },
   more: {
     incomes_one: 'And {{count}} more income: every figure is in the tables.',

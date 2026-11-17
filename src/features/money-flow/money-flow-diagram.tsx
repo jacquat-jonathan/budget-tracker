@@ -12,7 +12,12 @@ import {
   type FlowNode,
   type MoneyFlow,
 } from '@/features/money-flow/money-flow-model'
-import { slotColor, useNodeText, type NodeText } from '@/features/money-flow/money-flow-words'
+import {
+  groupColor,
+  slotColor,
+  useNodeText,
+  type NodeText,
+} from '@/features/money-flow/money-flow-words'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +27,9 @@ export const SIDEWAYS_MIN = 600
 const COLUMN_MIN = 150
 const NODE = 14
 const LABEL_BAND = 48
+/** A label with a warning keeps its figure on one line and its warning on two. */
+const WARNING_BAND = 78
+const bandOf = (node: FlowNode) => (node.warning ? WARNING_BAND : LABEL_BAND)
 const BAR_ROOM = 320
 const BAND_GAP = 52
 
@@ -51,8 +59,9 @@ function nodeColor(node: FlowNode): string {
     case 'not_assigned':
       return 'var(--muted-foreground)'
     case 'account':
-    case 'spending':
       return slotColor(node.slot)
+    case 'spending':
+      return groupColor(node.slot)
     default:
       return 'var(--flow-pool)'
   }
@@ -61,7 +70,7 @@ function nodeColor(node: FlowNode): string {
 function linkColor(link: FlowLink): string {
   if (link.color === 'income') return 'var(--chart-1)'
   if (link.color === 'neutral') return 'var(--flow-pool)'
-  return slotColor(link.slot)
+  return link.kind === 'spend' ? groupColor(link.slot) : slotColor(link.slot)
 }
 
 /** The fills the diagram, its labels and its key share (one set per page). */
@@ -258,7 +267,7 @@ export function MoneyFlowDiagram({
         basis,
         cross: BAR_ROOM,
         gap: 14,
-        labelBand: LABEL_BAND,
+        labelBand: bandOf,
         gapsInside: false,
       })
     : layoutFlow(flow, { basis, cross: Math.max(120, width - 2), gap: 6 })
@@ -425,9 +434,12 @@ function Sideways({
         <div
           key={node.id}
           className="absolute"
-          style={{ left: x(node.tier), top: top + node.pos - LABEL_BAND + 2, width: span - 12 }}
+          style={{ left: x(node.tier), top: top + node.pos - bandOf(node) + 2, width: span - 12 }}
         >
-          <ClampedLabel text={describe(node)} node={node} patterns={patterns} />
+          {/* On the card's colour: a band passing under a label never runs through its text. */}
+          <div className="w-fit max-w-full rounded-md bg-card/90 py-0.5 pr-1.5">
+            <ClampedLabel text={describe(node)} node={node} patterns={patterns} />
+          </div>
         </div>
       ))}
     </div>
@@ -454,12 +466,20 @@ function ClampedLabel({
         <span className="truncate text-[13px] leading-tight font-medium">{text.name}</span>
         <span
           className={cn(
-            'line-clamp-2 text-xs leading-snug tabular-nums',
-            text.warning ? 'font-medium text-destructive' : 'text-muted-foreground',
+            'text-xs leading-snug tabular-nums',
+            text.warning
+              ? 'truncate font-medium text-destructive'
+              : 'line-clamp-2 text-muted-foreground',
           )}
           data-testid="flow-node-value"
         >
-          {text.warning ? `⚠ ${text.figure} · ${text.warning}` : text.figure}
+          {text.figure}
+          {text.warning && (
+            <span className="flex items-start gap-1 whitespace-normal">
+              <TriangleAlertIcon className="mt-0.5 size-3 shrink-0" aria-hidden />
+              <span className="line-clamp-2">{text.warning}</span>
+            </span>
+          )}
         </span>
       </div>
     </div>

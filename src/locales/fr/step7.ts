@@ -449,8 +449,8 @@ export const moneyFlowFr = {
     left: 'restant {{amount}}',
   },
   short: {
-    planned: 'non prévu {{amount}} : plus de dépenses prévues que de disponible',
-    actual: 'restant {{amount}} : plus de dépenses que de disponible',
+    planned: 'manque : non prévu {{amount}}',
+    actual: 'manque : restant {{amount}}',
   },
   more: {
     incomes_one: 'Et {{count}} autre revenu : tous les montants figurent dans les tableaux.',

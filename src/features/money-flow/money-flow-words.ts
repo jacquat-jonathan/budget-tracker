@@ -14,6 +14,16 @@ export function slotColor(slot: number | null): string {
   return slot === null ? 'var(--flow-pool)' : `var(--flow-${(slot % PALETTE_SIZE) + 1})`
 }
 
+/**
+ * Category groups take the same eight hues from the fifth on, so that the first groups never
+ * share a colour with the first accounts (a household seldom has more than four).
+ */
+export const GROUP_HUE_OFFSET = 4
+
+export function groupColor(slot: number | null): string {
+  return slotColor(slot === null ? null : (slot % PALETTE_SIZE) + GROUP_HUE_OFFSET)
+}
+
 export interface NodeText {
   name: string
   /** The figure with its word ("stays CHF 600.00, spendable", "spent … of …"). */

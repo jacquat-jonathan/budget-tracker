@@ -10,8 +10,20 @@ export function workedExamplePlan(periodId = 'period-2'): MoneyFlowPlan {
   return {
     periodId,
     incomes: [
-      { id: 'inc-ann', name: 'Ann’s salary', amount: 600_000, accountId: 'acc-main' },
-      { id: 'inc-ben', name: 'Ben’s salary', amount: 400_000, accountId: 'acc-main' },
+      {
+        id: 'inc-ann',
+        name: 'Ann’s salary',
+        amount: 600_000,
+        accountId: 'acc-main',
+        userId: 'user-ann',
+      },
+      {
+        id: 'inc-ben',
+        name: 'Ben’s salary',
+        amount: 400_000,
+        accountId: 'acc-main',
+        userId: 'user-ann',
+      },
     ],
     accounts: [
       { id: 'acc-main', name: 'Main', kind: 'current', createdAt: '2026-10-01T08:00:00+00:00' },
@@ -46,7 +58,7 @@ export function workedExamplePlan(periodId = 'period-2'): MoneyFlowPlan {
         to: 'acc-pillar',
         amount: 705_600,
         cadence: 'yearly',
-        automatic: false,
+        automatic: true,
         category: 'grp-saving',
       },
     ],

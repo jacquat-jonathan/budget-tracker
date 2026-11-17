@@ -314,11 +314,13 @@ export function layoutFlow(
     cross: number
     gap?: number
     /** Room kept before each bar for its label (px; 0 when labels sit elsewhere). */
-    labelBand?: number
+    /** Room before a bar for its label: a figure with a warning says more, so takes more. */
+    labelBand?: number | ((node: FlowNode) => number)
     /** The gaps (and label bands) come out of `cross` (a phone's fixed width), else add to it. */
     gapsInside?: boolean
   },
 ): FlowLayout {
+  const bandOf = (node: FlowNode) => (typeof labelBand === 'number' ? labelBand : labelBand(node))
   const slots = accountSlots(flow.accounts)
   const groupSlot = groupSlots(flow.spending)
   const total = flow.total
@@ -623,7 +625,7 @@ export function layoutFlow(
     gapsInside
       ? cross -
         Math.max(0, list.length - 1) * gap -
-        list.filter((item) => item.kind === 'node').length * labelBand
+        list.reduce((acc, item) => acc + (item.node ? bandOf(item.node) : 0), 0)
       : cross
   let scale = Number.POSITIVE_INFINITY
   for (const list of items) {
@@ -668,7 +670,7 @@ export function layoutFlow(
     for (const item of list) {
       const size = item.length * scale
       if (item.node) {
-        item.node.pos = at + labelBand
+        item.node.pos = at + bandOf(item.node)
         item.node.size = size
         at = item.node.pos + size + gap
       } else if (item.lane) {

@@ -211,9 +211,16 @@ function monthlyShare(amount: number, cadence: MoneyFlowPlan['transfers'][number
   return Math.floor((2 * amount + months) / (2 * months))
 }
 
-/** Text order as the database sorts `name` (its collation, checked against a real stack). */
+const collator = new Intl.Collator('en-US')
+
+/**
+ * Text order as the database sorts `name`: its collation is en_US.UTF-8 (a, b, B, e, é, Z on a
+ * real stack), not byte order; equal under it, by bytes.
+ */
 export function pgTextOrder(a: string | null, b: string | null): number {
-  return (a ?? '') < (b ?? '') ? -1 : (a ?? '') > (b ?? '') ? 1 : 0
+  const x = a ?? ''
+  const y = b ?? ''
+  return collator.compare(x, y) || (x < y ? -1 : x > y ? 1 : 0)
 }
 
 /**

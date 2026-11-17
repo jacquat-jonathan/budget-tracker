@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { transactionsOf } from '@/app/paths'
-import { slotColor } from '@/features/money-flow/money-flow-words'
+import { groupColor, slotColor } from '@/features/money-flow/money-flow-words'
 import {
   accountSlots,
   groupSlots,
@@ -381,7 +381,7 @@ function SpendingTable({
           testId: 'flow-spending-row',
           header: (
             <>
-              <Dot color={slotColor(groups.get(row.id) ?? 0)} />
+              <Dot color={groupColor(groups.get(row.id) ?? 0)} />
               {row.name}
             </>
           ),

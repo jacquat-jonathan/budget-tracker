@@ -291,9 +291,7 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422]', 
     expect(text(screen.getByTestId('tile-rest'))).toContain(
       `Not planned${money(-233_800)}Short: more spending is planned than is spendable`,
     )
-    expect(label(SPENDABLE)).toContain(
-      `not planned ${money(-233_800)}: more spending is planned than is spendable`,
-    )
+    expect(label(SPENDABLE)).toContain(`short: not planned ${money(-233_800)}`)
     expect(
       screen.queryAllByTestId('flow-label').some((el) => el.getAttribute('data-node') === REST),
     ).toBe(false)
