@@ -306,6 +306,10 @@ begin
       when sqlstate 'P0061' then return next sqlerrm;
       when others then return next format('next due date: transfer %s, moving the clock to %s: %s', t.name, v_due, sqlerrm);
     end;
+    -- private.today() is replaced inside the rolled-back block: replace it again here, so no cached
+    -- plan keeps the day of the probe
+    perform tests.clear_authentication();
+    perform tests.set_today(v_from);
   end loop;
   perform tests.clear_authentication();
 end $$;
@@ -814,8 +818,8 @@ begin
           when v_r < 0.64 then 'undo_mark'
           when v_r < 0.66 then 'income_account'
           when v_r < 0.72 then 'unmark_after_settle'
-          when v_r < 0.76 then 'stale_mark'
-          when v_r < 0.88 then 'transfer_kind_same_day'
+          when v_r < 0.79 then 'stale_mark'
+          when v_r < 0.89 then 'transfer_kind_same_day'
           when v_r < 0.95 then 'switch_twice'
           else 'late_salary'
         end;

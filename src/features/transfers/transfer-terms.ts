@@ -143,8 +143,8 @@ export function editArgs(
 }
 
 /**
- * An occurrence on the page: its transfer, its period, its key and its kind. The same key can
- * be an occurrence of two periods (R-ACCOUNT-421), and one period can list two occurrences of a
+ * An occurrence on the page: its transfer, its period, its key and its kind. The same date can
+ * be an occurrence of two kinds (R-ACCOUNT-510), and one period can list two occurrences of a
  * transfer with one key that differ by kind (D-560), so the key alone never names one.
  */
 // R-ACCOUNT-500: rows, focus and the rows kept in place are keyed with the period and the kind.

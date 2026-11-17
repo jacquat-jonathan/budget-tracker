@@ -127,7 +127,7 @@ below lists the rule ids it implements.
 | `income_overview` (view) | incomes, ended ones included | `id`, `budget_id`, `user_id` (whose income; null if their account was deleted), `user_display_name` (also for a former member), `name`, `is_primary`, `is_active` (in force in the current period), `first_seq`, `end_seq`, terms in force now `amount`, `pay_day`, `weekend_rule`, `terms_from_seq`, `next_pay_date` (first actual pay date on or after today; null when ended), `account_id`, `account_name` (the account it is paid into, terms in force now; null: none) | R-INCOME-003, R-INCOME-006, R-VERSION-001, R-PROFILE-004, R-ACCOUNT-236 |
 | `period_summaries` (view) | existing periods | `id`, `budget_id`, `seq`, `start_date`, `end_date` (inclusive), `end_is_manual`, `is_current`, `today`, `income_total` (`salary_total` + `extra_income_total`), `salary_total` (incomes in force in the period, each at the version in force then: the sum of the incomes' own amounts, so the income page's total for the current period is this figure), `extra_income_total` (extra incomes dated in it), `expected_total` (the rounded monthly shares of the expectations in force, added up), `spent_total` (expenses minus refunds dated in it, automatic charges and debt payments included; may be negative), `left_to_assign` (`income_total - expected_total`; negative when over-assigned), `result` (`income_total - spent_total`: a surplus when positive, a deficit when negative), `committed_total` (the monthly costs of the subscriptions in force in the period: part of `expected_total`, never added to it), `transfer_committed_total` (the monthly shares of the transfers linked to a category in force in the period: also part of `expected_total`, never added to it; R-ACCOUNT-238, R-ACCOUNT-304) | R-PERIOD-004, R-PERIOD-018, R-INCOME-011, R-PERIOD-028, R-CATEGORY-006, R-CATEGORY-071, R-CATEGORY-091, R-PROGRESS-002, R-PROGRESS-090, R-TRANSACTION-092, R-SUBSCRIPTION-078, R-SUBSCRIPTION-079 |
 | `category_overview` (view) | categories and subcategories, ended and void ones included | `id`, `budget_id`, `parent_id` (null: top level), `name`, `sort_order` (among siblings), `is_group` (has, or had, subcategories: no expectation of its own), `is_active` (in force in the current period), `first_seq`, `end_seq`, expectation in force now: `amount` (as entered), `cadence` (`'monthly'` \| `'yearly'`), `monthly_amount` (the monthly share; for a group, the total of its active subcategories), `terms_from_seq`; `has_transactions` (itself or its subcategories), `removal_deletes` (removing it now deletes it instead of ending it: no transactions, no subscription or debt on it, never counted in a past period), `revision`; `committed_amount` (the monthly costs of the subscriptions on it in force now; a group: its subcategories'), `in_use` (the terms of a subscription or debt in force now or later use it or a subcategory: `end_category` from now refuses it with `category_in_use`; transfers count too, R-CATEGORY-230), `transfer_committed_amount` (the planned amounts of the transfers on it in force now; a group: its subcategories'), `is_to_categorise` (the budget's "to categorise" category, step 6: offer it nowhere but the review) | R-CATEGORY-001 to R-CATEGORY-005, R-CATEGORY-072, R-CATEGORY-073, R-CATEGORY-090, R-CATEGORY-110, R-SUBSCRIPTION-079 |
-| `transaction_list` (view) | transactions | `id`, `budget_id`, `kind` (`'expense'` \| `'refund'` \| `'extra_income'`), `amount` (positive), `date`, `period_id` (the period containing the date), `category_id` (null for an extra income), `category_name`, `parent_category_id`, `parent_category_name`, `description` (may be null), `recorded_by` (null if their account was deleted, and for an automatic charge), `recorded_by_name` (also for a former member), `revision`, `created_at`, `updated_at`, `subscription_id` and `subscription_name` (linked to a subscription), `debt_id` and `debt_name` (a debt payment), `charge_date` (an automatic charge: the scheduled date it was created for; null for a transaction a member recorded), `review_state` (enum `review_state`: `'confirmed'` \| `'awaiting_confirmation'` (a charge) \| `'to_review'` (imported, not yet confirmed; step 6)), `debt_ended` (a payment of a debt that has ended: frozen, it cannot be changed, unlinked or deleted; false otherwise; an ended subscription freezes nothing, D-274). Step 6 appends `import_batch_id` (null: not imported), `import_source` (its batch's source), `bank_transaction_id`, `merchant`, `merchant_key`, `details` (normalised, see "Import"), `in_to_categorise` (it sits in "to categorise"); step 7 `transfer_id`, `transfer_name`, `transfer_occurrence_date` (the transaction of a transfer's occurrence, and that occurrence's key date; null otherwise, R-ACCOUNT-073). List it with `list_transactions` (paged); select it directly only by `id` | R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-006, R-TRANSACTION-095, R-SUBSCRIPTION-075 |
+| `transaction_list` (view) | transactions | `id`, `budget_id`, `kind` (`'expense'` \| `'refund'` \| `'extra_income'`), `amount` (positive), `date`, `period_id` (the period containing the date), `category_id` (null for an extra income), `category_name`, `parent_category_id`, `parent_category_name`, `description` (may be null), `recorded_by` (null if their account was deleted, and for an automatic charge), `recorded_by_name` (also for a former member), `revision`, `created_at`, `updated_at`, `subscription_id` and `subscription_name` (linked to a subscription), `debt_id` and `debt_name` (a debt payment), `charge_date` (an automatic charge: the scheduled date it was created for; null for a transaction a member recorded), `review_state` (enum `review_state`: `'confirmed'` \| `'awaiting_confirmation'` (a charge) \| `'to_review'` (imported, not yet confirmed; step 6)), `debt_ended` (a payment of a debt that has ended: frozen, it cannot be changed, unlinked or deleted; false otherwise; an ended subscription freezes nothing, D-274). Step 6 appends `import_batch_id` (null: not imported), `import_source` (its batch's source), `bank_transaction_id`, `merchant`, `merchant_key`, `details` (normalised, see "Import"), `in_to_categorise` (it sits in "to categorise"); step 7 `transfer_id`, `transfer_name`, `transfer_occurrence_date`, `transfer_occurrence_kind`, `transfer_occurrence_seq` (the transaction of a transfer's occurrence, and that occurrence: its kind, and its date, or for a period's own occurrence its period number; null otherwise, R-ACCOUNT-073, R-ACCOUNT-510). List it with `list_transactions` (paged); select it directly only by `id` | R-TRANSACTION-001, R-TRANSACTION-002, R-TRANSACTION-003, R-TRANSACTION-006, R-TRANSACTION-095, R-SUBSCRIPTION-075 |
 | `subscription_overview` (view) | subscriptions, ended and void ones included | `id`, `budget_id`, `name`, `is_active` (in force in the current period), `first_seq`, `end_seq`, terms in force now: `price`, `cadence` (`'monthly'` \| `'quarterly'` \| `'half_yearly'` \| `'yearly'`), `category_id`, `category_name`, `parent_category_id`, `parent_category_name`, `anchor_date` (the date the schedule counts from: the first charge date, or the next charge date given when the schedule last changed), `terms_from_seq`; `monthly_cost` (its committed amount: price / months of the cadence, rounded half up), `next_charge_date` (the next scheduled date not yet charged; null once ended, when the budget has ended, or when it falls after the budget's end), `charged_through` (every charge up to this date is settled), `charge_count` (its automatic charges), `awaiting_count` (of which awaiting confirmation), `removal_deletes` (removing it now deletes it instead of ending it), `revision`, `created_at`, `updated_at` (an edit; never the catch-up), `charge_day` (the nominal day of the month, 1 to 31, of the terms in force now) | R-SUBSCRIPTION-001, R-SUBSCRIPTION-002, R-SUBSCRIPTION-070, R-SUBSCRIPTION-079, R-SUBSCRIPTION-130, R-SUBSCRIPTION-132, R-VERSION-003 |
 | `debt_overview` (view) | debts, ended and void ones included | `id`, `budget_id`, `name`, `category_id`, `category_name`, `parent_category_id`, `parent_category_name` (the category of the terms in force now; for an ended debt, of its last terms), `principal`, `opened_on`, `is_active`, `first_seq`, `end_seq`, terms in force now: `interest_rate`, `monthly_payment`, `terms_from_seq`; `interest_total`, `adjustment_total` (signed), `paid_total`, `remaining` (`principal + interest_total + adjustment_total - paid_total`; negative when overpaid), `payoff` (enum `debt_payoff`: `'paid_off'` \| `'ends'` \| `'never'`; null for an ended debt, or when the budget has ended), `payments_left` (the planned payments still needed, this period's included while still due; 0 for `'paid_off'`; null for `'never'` and when `payoff` is null), `expected_end_date` (the projected end of the period of the last planned payment; null unless `'ends'`), `has_history` (a payment, interest or adjustment exists: the principal can no longer change), `removal_deletes`, `revision`, `created_at`, `updated_at`, `expected_end_after_budget_end` (the projected end falls after the budget's end: say so rather than show the date as a plan; false when there is no end date), `overpaid_by` (how much more than owed was paid; 0 unless `remaining` is negative), `paid_percent` (the payments as a whole percent of principal + interest + adjustments, rounded down: 100 exactly when `remaining` is 0 or less, 0 while nothing has been paid) | R-DEBT-001 to R-DEBT-005, R-DEBT-070, R-DEBT-074, R-DEBT-112, R-DEBT-132, R-DEBT-136, R-DEBT-137, R-VERSION-004 |
 | `debt_totals` (view) | one row per budget with a debt in force now | `budget_id`, `remaining_total` (the positive remaining amounts of its debts in force, added up: an overpaid or paid-off debt adds nothing), `owing_count` (how many debts in force still owe something). No row: no debt in force (show 0) | R-DEBT-133, D-216 |
@@ -327,11 +327,16 @@ R-INCOME-050, R-CONCURRENCY-070)
 Member. `p_expected_revision`: **the budget's** (`my_budgets.revision`: the primary income
 is a budget field). Only an income in force in the current period. Re-projects the current
 period's end as above; show it first with `preview_set_primary_income` and send its
-`end_date` as `p_previewed_end_date`. **Transfers** (R-ACCOUNT-428, D-527): the switch counts
-for them from the **next** period: nothing the current or an earlier period planned or
-recorded changes (the preview's three transfer counts are 0); from the next period a transfer
-naming the old primary follows its own pay dates and one naming the new primary the scheduled
-pay dates. Both incomes whose primary status changes get a new
+`end_date` as `p_previewed_end_date`. **Transfers** (D-610): a switch changes the **periods'
+boundaries** (the current period's end is re-projected to the new main income's next pay date)
+and nothing else about any transfer. A transfer naming an income keeps one occurrence per
+scheduled pay date of that income, whichever is the main income; one naming no income keeps one
+occurrence per period, so it follows the new main income only through the boundaries (the next
+period starts on the new main income's pay date). Example: on 12 Dec Ben (10th) is made the main
+income instead of Ann (25th): the current period, started 25 Nov, now ends 9 Jan; "Ann savings"
+keeps 25 Dec, "Ben savings" keeps 10 Dec and 10 Jan, "Joint" (no income) has 25 Nov for this
+period and 10 Jan for the next. The preview's transfer counts say what the moved end does (often
+nothing). Both incomes whose primary status changes get a new
 revision: an edit of either opened before the switch is refused with `record_changed`
 (R-CONCURRENCY-131). Errors: `income_not_found`, `record_changed`, `invalid_revision`,
 `income_ended`, `income_not_in_force`, `budget_ended`. (R-INCOME-007, R-INCOME-008,
@@ -387,14 +392,28 @@ never retry automatically. Missing: `invalid_revision`. (R-CONCURRENCY-100, D-15
 **`set_expected_pay_date(p_budget_id, p_period_id, p_expected_revision, p_pay_date = null) -> period_summaries[]`** (the
 current period) Member. The next salary is expected on `p_pay_date` (after today): the
 current period ends the day before, and that end is kept through changes of terms. Omit
-`p_pay_date` to reset the end to the projection. Inverse: call again, or reset.
+`p_pay_date` to reset the end to the projection. Inverse: call again, or reset. Show its effect
+on the planned transfers first with `preview_set_expected_pay_date` (below).
 
 **`record_early_pay_date(p_budget_id, p_period_id, p_expected_revision, p_pay_date) -> period_summaries[]`** (the new current
 period) Member. The salary arrived early, on `p_pay_date` (today or earlier, not after the
 budget's end date): the current period ends the day before and the next one starts on that
 day. The closed period's `end_is_manual` is true only when `p_pay_date` is not the
 schedule's day, so undoing a reopen with the original date leaves the boundary on the
-schedule. Inverse: `reopen_previous_period`. (R-BUDGET-007, R-PERIOD-132)
+schedule. Inverse: `reopen_previous_period`. (R-BUDGET-007, R-PERIOD-132) Show its effect on the
+planned transfers first with `preview_record_early_pay_date` (below).
+
+**`preview_record_early_pay_date(p_budget_id, p_pay_date) -> {period_id, accepted, refusal, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned, transfer_transactions_moved}[]`**
+and **`preview_set_expected_pay_date(p_budget_id, p_pay_date = null) -> {...the same}[]`** (one row
+each) Member. What `record_early_pay_date` / `set_expected_pay_date` on the current period would
+do now: `accepted`, or `refusal` the write's code (`invalid_boundary`, ...; the counts are then
+0), and what it does to the planned transfers, found by running it and rolling it back
+(R-ACCOUNT-516, D-613): the catch-up's transactions removed and created, of those the ones only
+re-dated (`transfer_transactions_moved`, counted once in each), and the members' marks whose
+occurrence it moves away. Example: on 16 Dec "the salary came on 10 Dec": a transfer due 20 days
+after the 25 Nov salary (15 Dec, recorded) is now due on the shortened period's last day, 9 Dec:
+`1, 1, 0, 1` (removed, created, unplanned, moved). Changes nothing (it first does one catch-up
+step; `catching_up` when still behind). Errors: `budget_not_found`, `budget_ended`.
 
 **`reopen_previous_period(p_budget_id, p_period_id, p_expected_revision, p_pay_date = null) -> period_summaries[]`** (the
 reopened period) Member. `p_period_id`: the current period, the one to merge. The salary that started the current period has not arrived yet:
@@ -416,7 +435,8 @@ period, for every kind of record (`record_kind` is `'income'`, `'category'` (a c
 or subcategory; `'terms_changed'` is a changed expectation), `'subscription'`, `'debt'`,
 `'account'` or `'transfer'` (`'terms_changed'`: changed terms); later steps add kinds without
 client changes; for a transfer also one row per occurrence the reopen affects:
-`'transaction_removed'`, `'transaction_created'`, `'mark_unplanned'`, `'mark_planned_again'`,
+`'transaction_removed'`, `'transaction_created'`, `'transaction_moved'` (also listed as removed
+and created: one occurrence's transaction re-dated), `'mark_unplanned'`, `'mark_planned_again'`,
 see "Accounts and money flow"; found by running the reopen with the same `p_pay_date` the
 write takes (send the one the member chose: the preview then describes that reopen, also when
 the reopen at its default end would be refused, R-ACCOUNT-313) and rolling it back). A
@@ -434,8 +454,8 @@ listed and the 1000th has `record_kind = 'more'`, `change = 'more'`, `record_id`
 adds to the registry. Exactly 1000 changes are all listed. (R-APP-170)
 
 
-**`preview_update_income(p_income_id, p_amount = null, p_pay_day = null, p_weekend_rule = null, p_from_period_id = null) -> {period_id, end_date, expected_pay_date, end_is_manual, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned}[]`**
-and **`preview_set_primary_income(p_income_id) -> {period_id, end_date, expected_pay_date, end_is_manual, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned}[]`**
+**`preview_update_income(p_income_id, p_amount = null, p_pay_day = null, p_weekend_rule = null, p_from_period_id = null) -> {period_id, end_date, expected_pay_date, end_is_manual, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned, transfer_transactions_moved}[]`**
+and **`preview_set_primary_income(p_income_id) -> {period_id, end_date, expected_pay_date, end_is_manual, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned, transfer_transactions_moved}[]`**
 (one row each) Member. What the current period's end and expected next pay date would become
 if `update_income` were called with the same terms and correction period (a correction
 shadowed by a later version changes nothing, and the preview says so; an income that is not
@@ -467,7 +487,7 @@ keeps its date. **A move to the start the period already has** (no date while on
 the day it starts) changes nothing and re-dates nothing (R-ACCOUNT-426). Errors also: `period_not_found`,
 `interest_before_opening`. Inverse: move it back. (R-PERIOD-100, D-152)
 
-**`preview_move_period_start(p_period_id, p_start_date = null) -> {period_id, scheduled_start, accepted, refusal, interest_removed, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned}[]`**
+**`preview_move_period_start(p_period_id, p_start_date = null) -> {period_id, scheduled_start, accepted, refusal, interest_removed, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned, transfer_transactions_moved}[]`**
 (one row) Member. What `move_period_start` to `p_start_date` (default: the scheduled start)
 would do now: `scheduled_start` (the start the schedule gives), and whether the move would be
 accepted (`accepted`; when not, `refusal` is the code the write would answer, or
@@ -479,7 +499,8 @@ the catch-up step (and answers `catching_up` when the budget is still behind), a
 nothing else. The last three columns: what the move does to the planned transfers, found by running
 it and rolling it back (R-ACCOUNT-303: the catch-up's transactions it removes and creates, the
 members' marks whose occurrence it moves away; 0 when refused; a catch-up's transaction that
-moves to the new due date counts once removed and once created). Errors: `period_not_found`,
+moves to the new due date counts once removed and once created, and once in
+`transfer_transactions_moved`). Errors: `period_not_found`,
 `catching_up`. (R-PERIOD-133, Q-091)
 
 ### Pure helper
@@ -1602,12 +1623,15 @@ as a subscription's monthly cost; R-ACCOUNT-304), `income_id` / `income_name` (t
 income; null: the primary income), `is_automatic`, `category_id`, `category_name`,
 `parent_category_id`, `parent_category_name` (null: no transaction), `terms_from_seq`;
 `follows_primary` (the chosen income is not in force now, or was deleted: the transfer follows
-the primary income, say so; D-426), `next_due_date` (the first occurrence due today or later, as
-the plan will record it, R-ACCOUNT-464: in the current period (an old primary's pay date after a
-switch included), else, for a pay date, in the next three periods at their projected
-boundaries, for a fixed day the first date of its schedule in the 13 months after the current
-period, so a yearly or quarterly one always has it, R-ACCOUNT-314; null once ended, when the
-budget has ended, after its end date, or for a first date more than 13 months ahead), `starts_on` (its first counted day, D-421),
+the primary income, say so; D-426), `next_due_date` (R-ACCOUNT-464, D-612: the due date of the
+first occurrence, due today or later, that has **no mark of any kind** (done, skipped or not done,
+a member's or the app's) and that the plan will then record or list as to do: in the existing
+periods, else in the next periods at their projected boundaries, up to 15 periods ahead, so a
+yearly or quarterly fixed day always has one, R-ACCOUNT-314; moving the clock to that day produces
+exactly that occurrence; null once ended, when the budget has ended, or after its end date),
+`starts_on` (its first counted day, D-421), `starts_seq` (its first counted period, for its
+own occurrence when it names no income, D-610), `weekend_rule` (a fixed day's weekend rule, enum
+`weekend_rule`; null for a pay date, D-611),
 `has_history` (something was marked or created for it), `removal_deletes` (ending it now deletes
 it), `transaction_count` (its transactions still linked), `revision`, `created_at`,
 `updated_at`. Terms are versioned like an income's: an edit applies from the current period,
@@ -1616,104 +1640,89 @@ applies from its period until the next existing change. The name is not versione
 "CHF 7'056.00 once a year", show `amount` with `cadence`; for "CHF 588.00 a month", use
 `monthly_amount`.
 
-#### Occurrences (D-420 to D-422, D-560 to D-563; R-ACCOUNT-300, R-ACCOUNT-301, R-ACCOUNT-460 to R-ACCOUNT-464)
+#### Occurrences (D-610 to D-617, D-421 to D-422, D-563; R-ACCOUNT-300, R-ACCOUNT-301, R-ACCOUNT-510 to R-ACCOUNT-513)
 
-An **occurrence** is one execution of a transfer the plan expects. It is identified by a date,
-its **key** (`occurrence_date`), and its **kind** (`occurrence_kind`, enum
-`transfer_occurrence_kind`), never by a period, and has a **due date** (`due_date`). The kind is
-what kind of date produced the key, a property of the occurrence itself (D-560): `'payday'` (the
-salary that started a period, keyed by the period's scheduled pay date), `'income_payday'` (a
-chosen income's pay date) or `'fixed_day'` (a fixed-day date). Occurrences of two kinds with one
-key are two occurrences; nothing else ever decides which mark is whose.
+An **occurrence** is one execution of a transfer the plan expects. There are **three kinds**
+(`occurrence_kind`, enum `transfer_occurrence_kind`), each with an identity nothing else can
+change, and occurrences of two kinds are **never merged, replaced or compared** (D-610):
 
-- **A fixed day** (`'day_of_month'`; kind `'fixed_day'`) follows the calendar exactly like a
-  subscription: from its `first_date`, every 1, 3 or 12 months, on `day_of_month` clamped to
-  the month's length (31: 30 November, 28 or 29 February), no weekend rule. Each date is the key
-  and the due date of an occurrence of the **period that contains it**. A short period (an early
-  salary) can have none, a long one two, and a yearly payment is one occurrence a year.
-- **A pay date** (`'pay_date'`): **once for every pay date of its income** from the transfer's
-  first counted day, whichever income is the primary and however often the primary changes
-  (R-ACCOUNT-461, D-562), due on the actual pay date plus `offset_days`, never after the last
-  day of the period containing that pay date.
-  - The **primary income** (no income chosen, the primary income itself chosen, R-ACCOUNT-310:
-    the income that was the primary one in that period, by the primary's history, a switch
-    counting from the period after it, R-ACCOUNT-428; or the chosen one not in force there or
-    deleted; kind `'payday'`): one occurrence per period. Its key is the period's **scheduled
-    pay date** (`periods.pay_key`: the scheduled date of the salary that started the period),
-    its due date the period's start (the actual pay date, whatever moved it) plus the offset. An
-    early salary on the 20th for the 25th: key the 25th, due the 20th plus the offset; a late
-    one on the 28th: key the 25th, due the 28th plus the offset. **Keys** (D-561,
-    R-ACCOUNT-463): the first period's key is its start; each next period's key is derived from
-    the previous period's key, never from its start: the next scheduled pay date after it while
-    the primary income and its pay day stay the same; after a change of pay day or a primary
-    switch, the first pay date of the new terms after the previous key, no more than 15 days
-    before the period's start and after the switch day. Keys strictly increase, so they are
-    unique; a salary early or late, a moved start and a reopen with the salary recorded again on
-    another day never change one; three salaries recorded in one month give three keys (three
-    occurrences). A key can lie a month or more from its period: it is an identifier to send
-    back in the mark calls, **not a date to show**; show `due_date`.
-  - **A primary switch** (`set_primary_income`, D-562): it counts for the transfers from the
-    next period and never rewrites what is already recorded or marked. In the period it is made
-    in, a transfer naming the old primary keeps that period's payday and **also has the old
-    primary's pay dates after the switch day** (kind `'income_payday'`), as any non-primary
-    income's; the next period, started by the new primary's salary, is keyed by its first pay
-    date after the switch day, so it has its own occurrence. Example: Ann (25th) is the primary,
-    Ben is paid on the 10th; on 12 Dec Ben is made the primary; the period 25 Nov is stretched to
-    9 Jan and the next one starts 10 Jan, keyed 10 Jan. "Ann savings" (names Ann): 25 Nov (that
-    period's payday), 25 Dec (Ann's own, after the switch), 25 Jan; "Ben savings" (names Ben):
-    10 Dec (Ben's own in the switch period), 10 Jan (the new period's payday), 10 Feb; a
-    transfer naming no income: 25 Nov, 10 Jan, 10 Feb.
-  - **Another income chosen** and in force in the period, not the primary there (kind
-    `'income_payday'`): each of its actual pay dates in the period (its terms then, its weekend
-    rule) is a key; a period with none of them has no occurrence, a long one can have several.
-    **When that income ends in the current period** (`remove_income`, `remove_member`,
-    `leave_budget`; D-492, R-ACCOUNT-311), nothing already recorded is rewritten: its
-    occurrences of that period already due on the day it ended stay, with their marks and
-    transactions; the transfer follows the primary income from the next occurrence not yet due
-    (the primary's occurrence of that period only if it was not due yet that day), so nothing
-    dated in the past appears. Ended from an earlier period (a correction, `p_from_period_id`),
-    the periods from then on follow the primary income. **Deleted outright** in the current
-    period (added and removed in it; R-ACCOUNT-427, D-564): what the catch-up recorded for it in
-    that period stays (listed with `planned` false, as a kept mark), and the primary's occurrence
-    of **that period** is planned only if it was not due yet that day, whatever terms an edit
-    or a reopen later puts there and wherever that day lies once a salary is recorded: nothing
-    dated in the past appears.
-- Nothing before the transfer's **first counted day** (`starts_on`: the start of the period it
-  was created in or corrected from, or that period's scheduled pay date when the salary came
-  late; the day it was created when it was created with no period and no first date after the
-  period's start, D-493; it stays a date through a reopen). A primary occurrence counts when the
-  salary that started its period **came** on or after that day; the period's key is never
-  compared with it (R-ACCOUNT-420, D-520). The salary a transfer was made from (named, or made
-  on its period's first day) stays its occurrence wherever that salary is recorded again: a
-  reopen and the salary on an earlier day, or a start moved earlier.
-- **One key in two periods** (R-ACCOUNT-421, D-560). A key can lie outside its period, so a
-  period's scheduled pay date can equal a date of another period. When it is the **same
-  payday** (one income's salary that started a period, keyed d, and that same income's own pay
-  date d in the other period: the income became or stopped being the primary; the salary came
-  late, or early by less than 15 days) it is one occurrence, the earlier period's. Otherwise (a fixed day, two
-  different incomes paid the same day, or a salary that came more than 15 days from its key: an
-  extra salary in a month) they are **two occurrences** of two kinds, one in each period, with the same `occurrence_date`: each period's
-  checklist lists its own, and the mark calls tell them apart by the row's `occurrence_kind`.
-- **An edit that changes an occurrence's kind on the same date in the same period** (a payday
-  made a fixed day on that date, a chosen income's pay date made the period's payday, or back;
-  R-ACCOUNT-305): its mark and transaction go over to the new kind, when the old occurrence is
-  planned nowhere else and the new one has no mark of its own.
+- **`'period'` — "on the main income's payday"** (a pay-date transfer naming no income, or one
+  whose income is not in force in that period or was deleted). **One occurrence for every
+  period** from the transfer's first counted period on, due on the **period's start** (the day
+  its salary came, whatever started the period and whichever income is or was the primary) plus
+  `offset_days`, never after the period's last day. Identified by the **period's number**
+  (`occurrence_seq`; `occurrence_date` is null). A reopen and the salary recorded again on
+  another day, a moved start, an early or late salary and a primary switch leave the number as
+  it is, so its mark stays with it.
+- **`'income_payday'` — "on <income>'s payday"** (a pay-date transfer naming an income in
+  force in the period). **One occurrence for every scheduled pay date** of that income (its pay
+  day and weekend rule in force in the period containing the date) from the transfer's first
+  counted day on, due that day plus `offset_days`, never after the end of the period containing
+  it, **whether or not that income is the primary and whenever its salary is recorded** (it
+  follows the schedule, as a standing order at a bank does). Identified by that date
+  (`occurrence_date`). A primary switch changes nothing about it.
+- **`'fixed_day'` — "on a fixed day"** (`'day_of_month'`): from its `first_date`, every 1, 3 or
+  12 months, on `day_of_month` clamped to the month's length (31: 30 November, 28 or 29
+  February). Identified by that **scheduled date** (`occurrence_date`), listed by the period that
+  contains it; **due on it moved by the transfer's `weekend_rule`** (D-611: `'none'` (the
+  default): on that day; `'previous'`: the Friday before a Saturday or Sunday; `'next'`: the
+  Monday after; `'nearest'`: Saturday to Friday, Sunday to Monday), so a due date may lie a day
+  or two outside the period listing it. A short period can have none, a long one two, and a
+  yearly payment is one occurrence a year.
+
+**Which to choose, in plain words (for the screens):** when a household wants a transfer to
+follow the day the main salary **really arrives**, it chooses "the main income's payday" (no
+income); when it wants a transfer to follow a **particular income's calendar** (Ben's 10th,
+whoever is the main income and whenever his salary is recorded), it names that income. A
+transfer on the main income's payday has one occurrence per period, so none in a calendar month
+that a stretched period skips (Q-358). Example: Ann (25th) is the main income, Ben is paid on the
+10th; on 12 Dec Ben is made the main income: the period that started 25 Nov is stretched to 9 Jan
+and the next one starts 10 Jan. "Joint" (no income): 25 Nov, 10 Jan, 10 Feb (none in December);
+"Ann savings" (names Ann): 25 Nov, 25 Dec, 25 Jan; "Ben savings" (names Ben): 10 Nov, 10 Dec,
+10 Jan, 10 Feb.
+
+- **Bounds.** Nothing before the transfer's **first counted day** (`starts_on`: the start of the
+  period it was created in or corrected from; the day it was created when it was created with no
+  period and no first date after the period's start, D-493; it stays a date through a reopen) for
+  a dated occurrence, and nothing before its **first counted period** (`starts_seq`: that period,
+  or the next one when it was created after that period's first day with no period named) for a
+  period's own occurrence. A named income that **ends in the current period** (`remove_income`,
+  `remove_member`, `leave_budget`; D-492, R-ACCOUNT-311): its dates already due on the day it ended
+  stay, with their marks and transactions; the period's own occurrence only if it was not due yet
+  that day; from the next period the transfer follows the main income (`follows_primary`). Ended
+  from an earlier period (a correction): those periods follow the main income. An income **added
+  later**: before it, the transfer follows the main income. **Deleted outright** in the current
+  period (added and removed in it; R-ACCOUNT-427, D-564): what the catch-up recorded for it stays
+  (listed with `planned` false), and the period's own occurrence of that period is planned only
+  if it was not due yet that day.
+- **An edit that changes an occurrence's kind on the same day in the same period** (R-ACCOUNT-305,
+  D-615) is the same transfer: its mark and transaction go over to the new occurrence. The day of
+  a period's own occurrence is the day its salary came (its start); of an income's, its
+  scheduled date; of a fixed day, its scheduled date. It happens whatever arguments the call
+  carries (a new income alone changes the kind too), when exactly one old and one new occurrence
+  meet on that day, the old one is planned nowhere now and the new one has no mark of its own;
+  otherwise the old mark stays, listed with `planned` false. Example: Ann (main, 25th) and Ben
+  both paid on the 25th; "Savings" (no income) recorded on 25 Nov; on 26 Nov `update_transfer(...,
+  p_income_id => Ben)`: the 25 Nov transaction is Ben's 25 Nov occurrence now, not made again. Made
+  Cy's (18th) instead, the 25 Nov mark stays (no longer planned) and Cy's 18 Dec is to do.
 - **What the app recorded by itself sits on its occurrence's due date, always** (R-ACCOUNT-462,
-  D-563): when an occurrence's due date moves (a moved start, a salary early or late that moved
-  a period's end and so capped an offset, another offset, the same payday now listed by another
-  period), the catch-up's own transaction, untouched since, goes and is made again on the new
-  due date at the terms in force there (once due). A mark of a member, an occurrence made manual
-  or unlinked from its category since, and a transaction a member edited stay as the member
-  left them.
+  D-563): when an occurrence's due date moves (a moved start, a salary early or late that moved a
+  period's end and so capped an offset, another offset or weekend rule, a kind carried over), the
+  catch-up's own transaction, untouched since, goes and is made again on the new due date at the
+  terms in force there (once due); the previews count it as moved. A mark of a member, an
+  occurrence made manual or unlinked from its category since, and a transaction a member edited
+  stay as the member left them (but a member-edited transaction goes when its occurrence itself
+  goes, Q-356).
 
-The read model: **one checklist row per occurrence**; **one mark per transfer, key and kind**;
-one transaction per mark at most.
-- **`create_transfer(p_budget_id, p_name, p_from_account_id, p_to_account_id, p_amount, p_schedule, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = false, p_category_id = null, p_from_period_id = null, p_cadence = null, p_first_date = null, p_client_id = null) -> transfer_overview[]`** (one row)
+The read model: **one checklist row per occurrence**; **one mark per occurrence** (transfer, kind,
+and number or date); one transaction per mark at most.
+- **`create_transfer(p_budget_id, p_name, p_from_account_id, p_to_account_id, p_amount, p_schedule, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = false, p_category_id = null, p_from_period_id = null, p_cadence = null, p_first_date = null, p_client_id = null, p_weekend_rule = null) -> transfer_overview[]`** (one row)
   Membership is checked first, before `p_client_id` is looked up: a retry answers only to a
   current member (anyone else gets `budget_not_found`, whatever the id).
   From the current period, or as a correction from `p_from_period_id` (the earlier periods'
   occurrences then exist too). `'pay_date'` takes `p_offset_days` (default 0) and optionally
-  `p_income_id` (an income in force in that period). `'day_of_month'` takes `p_cadence`
+  `p_income_id` (an income in force in that period; none: the main income's payday). `'day_of_month'`
+  takes `p_weekend_rule` (default `'none'`; a pay date with one: `invalid_schedule`) and `p_cadence`
   (default `'monthly'`; `'monthly'`, `'quarterly'` or `'yearly'`) and `p_first_date` and/or
   `p_day_of_month`: with only the day, the first date is the first date with that day on or
   after today (with `p_from_period_id`, on or after the start of that period); with only the
@@ -1736,9 +1745,10 @@ one transaction per mark at most.
   `category_is_group`, `category_not_in_force`, `category_to_categorise`, `period_not_found`,
   `transfer_limit_reached` (50 in force, 200 in all, void ones not counted; 900 rows),
   `budget_ended`, `request_reused`.
-- **`update_transfer(p_transfer_id, p_expected_revision, p_name = null, p_from_account_id = null, p_to_account_id = null, p_amount = null, p_schedule = null, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = null, p_category_id = null, p_clear_income = false, p_clear_category = false, p_from_period_id = null, p_cadence = null, p_first_date = null) -> transfer_overview[]`** (one row)
+- **`update_transfer(p_transfer_id, p_expected_revision, p_name = null, p_from_account_id = null, p_to_account_id = null, p_amount = null, p_schedule = null, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = null, p_category_id = null, p_clear_income = false, p_clear_category = false, p_from_period_id = null, p_cadence = null, p_first_date = null, p_weekend_rule = null) -> transfer_overview[]`** (one row)
   A rename and/or new terms (each omitted keeps the value in force there; `p_clear_income`:
-  back to the primary income; `p_clear_category`: no category). Switching to `'day_of_month'`
+  back to the main income's payday; `p_clear_category`: no category; a fixed day keeps its
+  weekend rule unless `p_weekend_rule` is given). Switching to `'day_of_month'`
   needs a day or a first date (`invalid_day`) and drops the income and offset; switching to
   `'pay_date'` defaults the offset to 0. A new day without a first date keeps the schedule's
   phase (the first date moves to that day in its month); a new cadence keeps the first date.
@@ -1773,8 +1783,9 @@ write does, errors included (`transfer_limit_reached` too), and take the budget 
 
 **Which previews run the write** (D-428). These run it inside a subtransaction and roll it back:
 `preview_create_transfer`, `preview_update_transfer` (unless only `p_amount` is given, below),
-`preview_reopen` (its transfer rows), `preview_update_income`, `preview_set_primary_income` and
-`preview_move_period_start` (when the move is accepted). These do not, and never wait for a
+`preview_reopen` (its transfer rows), `preview_update_income`, `preview_set_primary_income`,
+`preview_move_period_start` (when the move is accepted), `preview_record_early_pay_date` and
+`preview_set_expected_pay_date`. These do not, and never wait for a
 writer: `preview_end_transfer`, `preview_close_account`, and `preview_update_transfer` with
 `p_amount` alone (no `p_from_period_id`): an amount changes no occurrence, no due date and no
 transaction already made, so it answers the plan as it is at the new amount, after the write's
@@ -1801,24 +1812,27 @@ for a screen:
   transfers and the two periods, not by the budget's age). Two members re-asking a preview at
   keystroke pace (every 150 ms) at once: median 72 ms, worst 133 ms.
 
-- **`preview_create_transfer(p_budget_id, p_from_account_id, p_to_account_id, p_amount, p_schedule, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = false, p_category_id = null, p_from_period_id = null, p_count = 6, p_cadence = null, p_first_date = null)`**
-  and **`preview_update_transfer(p_transfer_id, <the update's term arguments and p_from_period_id>, p_count = 6, p_cadence = null, p_first_date = null)`**
-  `-> {period_id, start_date, end_date, projected, occurrence_date, due_date, amount, is_automatic, category_id, follows_primary, created_at_once, created_at_once_count, transactions_removed_count, marks_unplanned_count, occurrence_kind, already_recorded}[]`:
+- **`preview_create_transfer(p_budget_id, p_from_account_id, p_to_account_id, p_amount, p_schedule, p_offset_days = null, p_day_of_month = null, p_income_id = null, p_is_automatic = false, p_category_id = null, p_from_period_id = null, p_count = 6, p_cadence = null, p_first_date = null, p_weekend_rule = null)`**
+  and **`preview_update_transfer(p_transfer_id, <the update's term arguments and p_from_period_id>, p_count = 6, p_cadence = null, p_first_date = null, p_weekend_rule = null)`**
+  `-> {period_id, start_date, end_date, projected, occurrence_date, due_date, amount, is_automatic, category_id, follows_primary, created_at_once, created_at_once_count, transactions_removed_count, marks_unplanned_count, occurrence_kind, already_recorded, occurrence_seq, transactions_moved_count}[]`:
   the first `p_count` (1 to 60) occurrences the terms would govern, by due date: those of the
   existing periods (`period_id`), then, while the terms are open-ended, those of the next
   periods at their projected boundaries (`projected`, `period_id` null; the terms then in force;
   never after the budget's end; a yearly transfer is looked for up to `12 × p_count` periods
-  ahead). `created_at_once`: the write creates this occurrence's transaction (key and kind, so a
-  payday and a fixed day with one key are never confused). `occurrence_kind`: the occurrence's
-  kind, as on a checklist row. `already_recorded` (Q-322, D-568): the occurrence already had a
+  ahead). `created_at_once`: the write creates this occurrence's transaction. `occurrence_kind`,
+  `occurrence_date`, `occurrence_seq`: the occurrence, as on a checklist row (a period's own
+  occurrence has its period number, on projected rows the number the catch-up will give it). `already_recorded` (Q-322, D-568): the occurrence already had a
   mark (done, skipped or not done, a member's or the catch-up's) before the change, and the
   change keeps it: what was recorded stays (false on projected rows and on the counts-only row).
   On **every row**:
   `created_at_once_count` (how many transactions the write creates, also beyond the rows
   listed), `transactions_removed_count` (how many transactions of the catch-up it removes: their
-  occurrence moved away), `marks_unplanned_count` (how many members' marks lose their
+  occurrence moved away or its due date moved), `transactions_moved_count` (R-ACCOUNT-517, D-614:
+  of those removed and created, how many are one occurrence's transaction made again on its new
+  due date: say "moves from 28.11 to 26.11" rather than a loss and a new one),
+  `marks_unplanned_count` (how many members' marks lose their
   occurrence: they stay, flagged). When the terms govern no occurrence, **one row** carries the
-  counts with `occurrence_date` and the other fields null. With no term argument,
+  counts with `occurrence_date`, `occurrence_seq` and the other fields null. With no term argument,
   `preview_update_transfer` answers the terms in force from the current period. Errors: those of
   the write, and `invalid_limit`.
 - **`preview_end_transfer(p_transfer_id, p_from_period_id = null) -> {outcome, refusal, occurrences_removed, marks_kept, transactions_kept}[]`**
@@ -1829,20 +1843,31 @@ for a screen:
   occurrences it removes, which stay, listed as ended.
 - The previews of the other changes the catch-up follows say what they do to the transfers, with
   the write's own code (D-428): `preview_reopen` (rows of `record_kind` `'transfer'`, below),
-  `preview_move_period_start`, `preview_update_income` and `preview_set_primary_income` (three
-  new columns at their end: `transfer_transactions_removed`, `transfer_transactions_created`,
-  `transfer_marks_unplanned`; 0 when the write would be refused).
+  `preview_move_period_start`, `preview_update_income`, `preview_set_primary_income`,
+  `preview_record_early_pay_date` and `preview_set_expected_pay_date` (four columns at their end:
+  `transfer_transactions_removed`, `transfer_transactions_created`, `transfer_marks_unplanned`,
+  `transfer_transactions_moved`; 0 when the write would be refused).
+- **Which marks a preview sees** (R-ACCOUNT-519, D-616): every mark of an occurrence listed by the
+  earliest period the write can change and later (the period before a moved boundary, the reopened
+  one, the edit's first period). An occurrence's identity never lies outside the period listing
+  it, so no mark is missed however long the periods or old the mark; `end_transfer` keeps every
+  catch-up mark the end leaves unplanned, however old.
 
 #### The checklist (R-ACCOUNT-004, R-ACCOUNT-005, R-ACCOUNT-301)
 
 **`get_transfer_checklist(p_period_id) -> transfer_checklist_row[]`** Member; any period,
 current or past; catches up first. **One row per occurrence** planned in the period, plus one per
 mark whose occurrence is **no longer planned** and whose key lies in the period (the first
-period lists earlier keys, the latest later ones), ordered by due date (key for a row with
-none), then name: `transfer_id`, `period_id`, `occurrence_date` (the key: name it in the mark
-calls; a pay-date key can lie outside the period, D-490, so show `due_date`), `occurrence_kind`
-(enum `transfer_occurrence_kind`: `'payday'`, `'income_payday'` or `'fixed_day'`, D-560: with
-`occurrence_date` it names the occurrence; send it back as `p_occurrence_kind`), `name`, `from_account_id` / `from_account_name`, `to_account_id` / `to_account_name`,
+period lists earlier dates, the latest later ones; a period's own mark is listed by its period,
+and by the latest period when its period does not exist, after a reopen), ordered by due date
+(the date or the period's start for a row with none), then name: `transfer_id`, `period_id`,
+`occurrence_kind` (enum `transfer_occurrence_kind`: `'period'`, `'income_payday'` or
+`'fixed_day'`, R-ACCOUNT-510), `occurrence_date` (a dated occurrence's scheduled date; null for
+`'period'`), `occurrence_seq` (a `'period'` occurrence's period number: the row's own period, or
+another one for a mark kept after a reopen; null for a dated one) — the three name the
+occurrence: send them back as `p_occurrence_kind`, `p_occurrence_date`, `p_occurrence_seq`;
+show `due_date` —, `income_id` / `income_name` (R-ACCOUNT-518: the income an `'income_payday'`
+row follows, to say "on Ben's payday"; null for the other kinds), `name`, `from_account_id` / `from_account_name`, `to_account_id` / `to_account_name`,
 `amount` (planned, the terms in force in that period; for an unplanned row, the terms there or
 nearest), `due_date` (null for an unplanned row), `is_automatic`, `category_id` /
 `category_name`, `status`, `is_overdue`, `held_back`, `follows_primary`, `done_on`,
@@ -1876,34 +1901,35 @@ when nothing is marked**; send it as `p_expected_revision` (R-CONCURRENCY-230): 
 changed since is refused with `record_changed` (reload the checklist).
 
 The four mark calls take the period and, **when the period lists several rows of the
-transfer**, the row: `p_occurrence_date` (the row's `occurrence_date`) and, when two rows share
-that key, `p_occurrence_kind` (the row's `occurrence_kind`; R-ACCOUNT-460). A period lists at
-most one row per key and kind, so **always sending the row's period, key and kind** names any
-row, a mark no longer planned included, and one undo built from what the row shows leads out of
-every mark (R-ACCOUNT-301). Each returns the occurrence's new checklist row (none after undoing
+transfer**, the row: `p_occurrence_kind` with `p_occurrence_date` (a dated row) or
+`p_occurrence_seq` (a `'period'` row). A period lists at most one row per occurrence, so **always
+sending the row's period, kind, date and number** names any row, a mark no longer planned
+included, and one undo built from what the row shows leads out of every mark (R-ACCOUNT-301,
+R-ACCOUNT-510). Each returns the occurrence's new checklist row (none after undoing
 an unplanned mark).
 
-- **`mark_transfer_done(p_transfer_id, p_period_id, p_expected_revision, p_done_on = null, p_amount = null, p_occurrence_date = null, p_occurrence_kind = null) -> transfer_checklist_row[]`**
+- **`mark_transfer_done(p_transfer_id, p_period_id, p_expected_revision, p_done_on = null, p_amount = null, p_occurrence_date = null, p_occurrence_kind = null, p_occurrence_seq = null) -> transfer_checklist_row[]`**
   A planned manual occurrence was done: on `p_done_on` (default today when the period is the
   current one, else its due date; any date of the budget's periods up to today, and on or after
-  the transfer's first counted day: `before_transfer_start`) with the amount actually moved
+  the transfer's first counted day, or for a period's own occurrence on or after its period's
+  start: `before_transfer_start`) with the amount actually moved
   (default the planned amount). **Linked to a category, its transaction is created** there (an
   expense, recorded by the caller, dated `p_done_on`; R-ACCOUNT-073).
-- **`skip_transfer(p_transfer_id, p_period_id, p_expected_revision, p_occurrence_date = null, p_occurrence_kind = null)`**
+- **`skip_transfer(p_transfer_id, p_period_id, p_expected_revision, p_occurrence_date = null, p_occurrence_kind = null, p_occurrence_seq = null)`**
   A planned manual occurrence was skipped.
-- **`mark_transfer_not_done(p_transfer_id, p_period_id, p_expected_revision, p_occurrence_date = null, p_occurrence_kind = null)`**
+- **`mark_transfer_not_done(p_transfer_id, p_period_id, p_expected_revision, p_occurrence_date = null, p_occurrence_kind = null, p_occurrence_seq = null)`**
   A planned automatic occurrence did not happen (before or after its due date): the catch-up's
   transaction, if made, is **deleted**, and none is created for it again.
-- **`undo_transfer_mark(p_transfer_id, p_period_id, p_expected_revision, p_occurrence_date = null, p_occurrence_kind = null)`**
+- **`undo_transfer_mark(p_transfer_id, p_period_id, p_expected_revision, p_occurrence_date = null, p_occurrence_kind = null, p_occurrence_seq = null)`**
   Back to what the occurrence is without a mark, **by the terms in force for it now**: a manual
   one to do (the transaction of "done", whoever made it, deleted); an automatic one assumed done,
   its transaction created within the same call when linked and due (later, by the catch-up, once
   due). An unplanned mark is removed with its transaction. No state is left from which no call
   leads out.
 - Errors: `transfer_not_found`, `period_not_found`, `transfer_not_in_force` (no occurrence of
-  it in that period, or `p_occurrence_date` / `p_occurrence_kind` name none of them; also done,
+  it in that period, or `p_occurrence_date` / `p_occurrence_kind` / `p_occurrence_seq` name none of them; also done,
   skip and not done asked of an unplanned mark), `occurrence_required` (several rows there: name
-  one by key, and by kind when two share the key),
+  one by kind and date or number),
   `invalid_revision`, `record_changed`, `transfer_already_marked` (undo the mark first),
   `transfer_is_automatic` (done or skipped asked of an automatic occurrence), `transfer_is_manual`
   (not done asked of a manual one), `nothing_to_undo` (no mark, or the catch-up's transaction of
@@ -1919,7 +1945,8 @@ manual one when marked done; an **automatic one by the catch-up on its due date*
 at the amount and in the category of the terms in force in its period, `review_state`
 `'confirmed'`, `recorded_by` null), **exactly once, none skipped**, held back at the transaction
 limit. A transfer without a category never creates a transaction. In `transaction_list`:
-`transfer_id`, `transfer_name`, `transfer_occurrence_date` (the occurrence's key; the date of a
+`transfer_id`, `transfer_name`, `transfer_occurrence_kind`, `transfer_occurrence_date` /
+`transfer_occurrence_seq` (the occurrence; the date of a
 manual one done late may lie in another period). Such a transaction can be edited (amount,
 date, category, description; it shows on the occurrence) but stays an expense with no other
 link (`invalid_link`). **Deleting it says the transfer did not happen**, by the terms in force
@@ -1932,8 +1959,8 @@ an income's terms or end, a primary switch, the transfer's terms or end, a mark 
 it back, and the catch-up then looks at the transfer again from there: **its own transactions
 whose occurrence is no longer planned, or not yet due, go**; the automatic linked occurrences
 due without a mark get theirs. A **member's mark never goes** this way: it stays, listed in the
-period containing its key with `planned` false, until undone or until its occurrence is planned
-again (the same salary recorded again after a reopen). The writes that change the plan settle
+period listing its occurrence with `planned` false, until undone or until its occurrence is
+planned again (the period recorded again after a reopen). The writes that change the plan settle
 this before they answer, so their answer and the next reads show the result.
 
 **The catch-up's step is bounded** (R-PERIOD-300, D-427): one step creates at most 4000
@@ -2062,28 +2089,56 @@ never count; 0 when the budget has ended. These two counts were columns of `my_b
 are a read of their own so that `my_budgets`, read on every page, stays cheap. Older periods'
 unfinished ones show in their own checklist only.
 
-#### Reopen (R-ACCOUNT-306, D-430)
+#### Reopen (R-ACCOUNT-306, D-430, D-610)
 
 Accounts, transfers and their terms are merged like every validity and version table
-(`preview_reopen` kinds `'account'` and `'transfer'`). **A reopen moves no mark**: marks are
-keyed by date. The merged period's scheduled pay date is no longer planned (its salary has not
-come), so the catch-up's transaction of a primary pay-date occurrence there goes, and comes back
-once the salary is recorded again, dated the day it came; a member's mark there stays, flagged,
-and is the same occurrence again then. A transfer **ended in the merged period** now ends in the
-reopened one: what the catch-up recorded for the occurrences that this earlier end removes
-stays, listed as ended, as `end_transfer` keeps it (R-ACCOUNT-424). Fixed-day occurrences keep their dates and marks (they
-now belong to the reopened period). A transfer created in the merged period counts from its
-first counted day, so the reopened period gets no occurrence of its own earlier payday. A
-transfer ended in the merged period now ends in the reopened one; its marks there stay, listed
-as ended. A transfer created in the reopened period and ended in the merged one, which would
-then be in force nowhere, is **kept when it has a mark** (R-ACCOUNT-312): in force nowhere
-(`is_active` false, `first_seq` = `end_seq`), its marks and their transactions stay, listed with
-`planned` false and `is_ended` true until undone; `preview_reopen` says `'ended'` for it (not
-`'removed'`) and `'mark_unplanned'` for each such mark. Without a mark it is removed. `preview_reopen` lists one row per occurrence the reopen affects: `record_kind`
-`'transfer'`, `change` `'transaction_removed'` (the catch-up's transaction goes),
-`'transaction_created'`, `'mark_unplanned'` (a member's mark stays, flagged) or
-`'mark_planned_again'`, `replaces_previous` false. These kinds replace step 7's first
-`'mark_moved'`, `'mark_removed'` and `'transaction_unlinked'`, which no longer occur.
+(`preview_reopen` kinds `'account'` and `'transfer'`). **A reopen moves no mark**: no identity
+names a period's row. The merged period's own occurrences (its number) are no longer planned
+(its salary has not come), so the catch-up's transaction of one goes, and comes back once the
+salary is recorded again (the period comes back with the same number), dated the day it came; a
+member's mark there stays, listed by the latest period with `planned` false, and is the same
+occurrence again then. Income paydays and fixed days keep their dates and marks (they now belong
+to the reopened period). A transfer created in the merged period counts from its first counted
+day and period, so the reopened period gets no occurrence of its own. A transfer **ended in the
+merged period** now ends in the reopened one: what the catch-up recorded for the occurrences that
+this earlier end removes stays, listed as ended, as `end_transfer` keeps it (R-ACCOUNT-424). A
+transfer created in the reopened period and ended in the merged one, which would then be in force
+nowhere, is **kept when it has a mark** (R-ACCOUNT-312): in force nowhere (`is_active` false,
+`first_seq` = `end_seq`), its marks and their transactions stay, listed with `planned` false and
+`is_ended` true until undone; `preview_reopen` says `'ended'` for it (not `'removed'`) and
+`'mark_unplanned'` for each such mark. Without a mark it is removed. `preview_reopen` lists one row
+per occurrence and change the reopen makes: `record_kind` `'transfer'`, `change`
+`'transaction_removed'` (the catch-up's transaction goes), `'transaction_created'`,
+`'transaction_moved'` (also listed as removed and created), `'mark_unplanned'` (a member's mark
+stays, flagged) or `'mark_planned_again'`, `replaces_previous` false.
+
+#### Decided as they are, for the screens to say (Q-355 to Q-358)
+
+The owner left these four as they are (each is an open question that can be revisited); the
+previews announce each:
+
+- **A reopen replays the reopened stretch with the terms now in force** (Q-355): an edit made
+  "from now" in the merged period becomes the reopened period's terms (R-VERSION-011). Example: on
+  30 Nov the offset of "Savings" is changed from now from 2 to 0 days; the period of 25 Nov is
+  reopened: the reopened period of 25 Oct takes the offset 0, so its transaction of 27 Oct goes
+  and is made again on 25 Oct. `preview_reopen` lists it (`'transaction_removed'`,
+  `'transaction_created'`, `'transaction_moved'`).
+- **A transaction a member edited is never re-dated, but goes with its occurrence when the
+  occurrence itself goes** (Q-356): a reopen, a moved start, a correction or a pay-day change that
+  removes the occurrence removes the transaction too, the member's edit with it. Example: the app
+  recorded "Savings" on 28 Nov and a member added a note; an edit from now moves its offset: the
+  transaction stays on 28 Nov with its note; the transfer is then made a fixed day 5 from that
+  period: the occurrence of 28 Nov goes, and so does the noted transaction. Every preview counts
+  it in `transactions_removed_count` / `transfer_transactions_removed`.
+- **"From now" means from the start of the current period** (Q-357), for an income's pay day and
+  a transfer's schedule alike. Example: on 16 Dec Ben's pay day is changed from now from 10 to 12:
+  the current period started 25 Nov, so his 10 Dec transfer, already recorded, becomes 12 Dec
+  (preview: 1 removed, 1 created, 1 moved); changed to 20 instead, the 10 Dec transaction goes and
+  the transfer runs on 20 Dec.
+- **A transfer on the main income's payday has one occurrence per period** (Q-358), so none in a
+  calendar month that a stretched period skips. Example: Ben is made the main income on 12 Dec
+  and the period of 25 Nov runs to 9 Jan: "Joint" runs on 25 Nov and 10 Jan, none in December. A
+  household that wants a monthly rhythm names the income.
 
 **Members** (R-MEMBER-007). A member who leaves or is removed keeps the accounts they held
 (`user_is_member` false); their incomes end, so transfers that chose one follow the primary
@@ -2205,7 +2260,7 @@ Step 7 messages:
 | `transfer_already_marked` | the occurrence is already marked: undo the mark first |
 | `transfer_is_automatic`, `transfer_is_manual` | done and skipped are for manual transfers, not done for automatic ones |
 | `nothing_to_undo` | the occurrence has no mark (or its transaction was made by the catch-up: mark it not done) |
-| `occurrence_required` | the period lists several rows of the transfer: name one (`p_occurrence_date`, and `p_occurrence_kind` when two share the key) |
+| `occurrence_required` | the period lists several rows of the transfer: name one (`p_occurrence_kind` with `p_occurrence_date` or `p_occurrence_seq`) |
 | `before_transfer_start` | a done date before the transfer's first counted day (`transfer_overview.starts_on`) |
 | `invalid_first_date` | a fixed-day transfer's first date is not a valid date, more than ten years ahead, or not on its day of the month |
 | `account_limit_reached`, `transfer_limit_reached` | 50 in force or 200 in all (void ones not counted), 900 rows a budget |
