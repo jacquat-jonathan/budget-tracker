@@ -701,9 +701,9 @@ begin
           when v_r < 0.62 then 'mark_done'
           when v_r < 0.67 then 'skip_transfer'
           when v_r < 0.74 then 'mark_not_done'
-          when v_r < 0.81 then 'undo_mark'
-          when v_r < 0.84 then 'income_account'
-          when v_r < 0.93 then 'unmark_after_settle'
+          when v_r < 0.80 then 'undo_mark'
+          when v_r < 0.83 then 'income_account'
+          when v_r < 0.91 then 'unmark_after_settle'
           else 'stale_mark'
         end;
       end if;
@@ -1322,14 +1322,32 @@ begin
               'exists (select 1 from public.transfer_versions as x where x.transfer_id = t.id and x.is_automatic and x.category_id is not null) and t.first_seq <= %s and (t.end_seq is null or t.end_seq > %s)',
               coalesce(v_period.seq, 0), coalesce(v_period.seq, 0)));
             v_outcome := 'nothing to pick';
+            if v_period.id is not null and not exists (
+                 select 1 from public.periods as q cross join lateral public.get_transfer_checklist(q.id) as c
+                 where q.budget_id = v_budget and q.seq between v_period.seq - 3 and v_period.seq
+                   and c.planned and c.is_automatic and c.mark_revision = 0 and not c.is_ended) then
+              -- none yet (a transfer made without a period starts today, D-493): a standing order of
+              -- this whole period first, so the case is exercised
+              begin
+                v_acc := pg_temp.pick('account', v_budget, 't.end_seq is null');
+                v_acc2 := pg_temp.pick('account', v_budget, format('t.end_seq is null and t.id <> %L', v_acc));
+                v_category := pg_temp.pick('category', v_budget,
+                  format('t.id in (select category_id from public.list_categories_for_date(%L, %L))', v_budget, v_period.start_date));
+                v_pick := (select t.id from public.create_transfer(v_budget, 'Unmark ' || v_step, v_acc, v_acc2, 100, 'pay_date', 0,
+                                                                   null, null, true, v_category, v_period.id) as t);
+                perform pg_temp.made('transfer', v_budget, v_pick);
+              exception when sqlstate 'P0001' then
+                null;  -- no two accounts, no category, a limit: nothing to pick this time
+              end;
+            end if;
             if v_period.id is not null then
-              -- up to three automatic occurrences of this period or the previous one nobody marked
+              -- up to three automatic occurrences of this period or the three before it nobody marked
               -- (assumed done or upcoming), the picked transfer's first (chosen without random():
               -- the walk is unchanged)
               for v_unmark in
                 select c.transfer_id, c.occurrence_date, q.id as period_id, q.seq
                 from public.periods as q cross join lateral public.get_transfer_checklist(q.id) as c
-                where q.budget_id = v_budget and q.seq in (v_period.seq, v_period.seq - 1)
+                where q.budget_id = v_budget and q.seq between v_period.seq - 3 and v_period.seq
                   and c.planned and c.is_automatic and c.mark_revision = 0 and not c.is_ended
                 order by c.transfer_id is not distinct from v_pick desc, q.seq desc, c.transfer_id, c.due_date, c.occurrence_date limit 3
               loop
