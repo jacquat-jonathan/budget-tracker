@@ -164,7 +164,8 @@ export function MoneyFlowPage() {
       : periodLabel
 
   return (
-    <div className="flex max-w-5xl min-w-0 flex-col gap-6">
+    // Wider than the usual page: the diagram's columns use the room; the tables keep theirs.
+    <div className="flex max-w-[96rem] min-w-0 flex-col gap-6">
       {header}
       {unknown && (
         <Alert>
@@ -216,12 +217,14 @@ export function MoneyFlowPage() {
               notAssigned={data.notAssigned !== null && !noAccounts}
             />
           )}
-          <MoneyFlowTable
-            flow={data}
-            basis={basis}
-            accountName={accountName}
-            periodId={period?.id ?? ''}
-          />
+          <div className="max-w-5xl min-w-0">
+            <MoneyFlowTable
+              flow={data}
+              basis={basis}
+              accountName={accountName}
+              periodId={period?.id ?? ''}
+            />
+          </div>
         </>
       )}
     </div>
@@ -240,9 +243,9 @@ function BasisTabs({ basis }: { basis: Basis }) {
     return { search: search ? `?${search}` : '' }
   }
   const item = (value: Basis) => (
+    // R-APP-480: a basis is a history entry, so Back returns to the other one.
     <Link
       to={to(value)}
-      replace
       aria-current={basis === value ? 'page' : undefined}
       className={cn(
         'inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:flex-none',
@@ -280,29 +283,38 @@ function Tiles({
   const { t } = useTranslation()
   // A shortfall reads in words, not only by colour.
   const short = figures.rest < 0
+  const sentOn = total.setAside < 0
   return (
-    <dl className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="money-flow-tiles">
-      <Tile label={t('moneyFlow.tiles.incomes')} amount={total.incomes} testId="tile-incomes" />
-      <Tile
-        label={t('moneyFlow.tiles.setAside')}
-        amount={total.setAside}
-        hint={t('moneyFlow.tiles.setAsideHelp')}
-        testId="tile-set-aside"
-      />
-      <Tile
-        label={t(`moneyFlow.tiles.spending.${basis}`)}
-        amount={figures.spending}
-        hint={t('moneyFlow.tiles.ofSpendable', { amount: formatMoney(total.spendable) })}
-        testId="tile-spending"
-      />
-      <Tile
-        label={t(`moneyFlow.tiles.rest.${basis}`)}
-        amount={figures.rest}
-        negative={short}
-        hint={short ? t(`moneyFlow.tiles.short.${basis}`) : t(`moneyFlow.tiles.restHelp.${basis}`)}
-        testId="tile-rest"
-      />
-    </dl>
+    <div className="@container">
+      <dl
+        className="grid grid-cols-1 gap-3 @[22rem]:grid-cols-2 @[52rem]:grid-cols-4"
+        data-testid="money-flow-tiles"
+      >
+        <Tile label={t('moneyFlow.tiles.incomes')} amount={total.incomes} testId="tile-incomes" />
+        <Tile
+          label={t('moneyFlow.tiles.setAside')}
+          amount={total.setAside}
+          negative={sentOn}
+          hint={sentOn ? t('moneyFlow.tiles.setAsideNegative') : t('moneyFlow.tiles.setAsideHelp')}
+          testId="tile-set-aside"
+        />
+        <Tile
+          label={t(`moneyFlow.tiles.spending.${basis}`)}
+          amount={figures.spending}
+          hint={t('moneyFlow.tiles.ofSpendable', { amount: formatMoney(total.spendable) })}
+          testId="tile-spending"
+        />
+        <Tile
+          label={t(`moneyFlow.tiles.rest.${basis}`)}
+          amount={figures.rest}
+          negative={short}
+          hint={
+            short ? t(`moneyFlow.tiles.short.${basis}`) : t(`moneyFlow.tiles.restHelp.${basis}`)
+          }
+          testId="tile-rest"
+        />
+      </dl>
+    </div>
   )
 }
 
@@ -330,12 +342,13 @@ function Tile({
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          'flex items-center gap-1.5 text-lg font-semibold tracking-tight tabular-nums sm:text-xl',
+          'flex items-center gap-1.5 text-lg font-semibold tracking-tight tabular-nums @[52rem]:text-xl',
           negative && 'text-destructive',
         )}
       >
         {negative && <TriangleAlertIcon className="size-4 shrink-0" aria-hidden />}
-        <span className="min-w-0 break-words">{formatMoney(amount)}</span>
+        {/* An amount never breaks inside its figures: the tiles take one per row instead. */}
+        <span className="min-w-0 whitespace-nowrap">{formatMoney(amount)}</span>
       </dd>
       {hint && (
         <dd

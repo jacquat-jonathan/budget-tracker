@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-587 rules (576 active, 0 planned), 24 conventions, 362 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+592 rules (581 active, 0 planned), 24 conventions, 363 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -294,6 +294,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SHELL_
   - Related: D-540
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-APP-480** A page's views kept in the address (the money flow's Planned and Actual, the transfers' checklist and planned transfers) are history entries: Back returns to the other view instead of leaving the page.
+  _active · enforced by test · F-SHELL_
+  - Related: D-545
+  - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
 
 ### Accounts and sign-in
 
@@ -2528,6 +2532,22 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-545, D-546
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-ACCOUNT-480** The money flow draws every account a drawn income arrives on before the other accounts, then the largest by what goes through them, eight at most, so an income never has a bar without its band; an income whose account still cannot be drawn says so in words.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-545, R-ACCOUNT-235
+  - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
+- **R-ACCOUNT-481** The money flow never cuts a figure or its word: a label's figure and warning wrap, only a name is shortened (whole in its title and the tables), and two names are never shortened to the same text; left to right is used only where every label fits whole beside its bar.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-545, D-580
+  - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
+- **R-ACCOUNT-482** In the money flow a pattern that means something is wrong (the red hatch) is drawn only where a node's own figure from the read is negative or short, and always with a sentence beside it in the label (and in the tile for a pool); the legend names exactly what is drawn in the current layout and basis.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-545, R-ACCOUNT-447
+  - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
+- **R-ACCOUNT-483** Money sent back to an earlier account is drawn left to right as a dashed band with an arrow, leaving its source in its colour, and named in the legend from its source to its target; top to bottom it is not drawn but listed under the diagram ("Sent back") and left out of the legend.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-545, R-ACCOUNT-235
+  - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
 
 ### Concurrent edits
 
@@ -7446,19 +7466,21 @@ Source: owner-request: coordinator brief for the step 7 screens fix round (revie
 
 ### D-545 The money flow page, from income to spending (supersedes D-503) (accepted)
 
-The Money flow page draws get_money_flow in an SVG of its own (no chart library, a lazy chunk), planned or actual (`?basis=actual`, planned by default, beside `?period=`): four tiles that are the total row; tiers of incomes, accounts by their chain of transfers, the pool (what stays on the spendable accounts, what is set aside) and the destinations (each category group's planned amount or what it spent, then "not planned" or "left"); bars and bands on one scale, a band that skips a tier keeps a lane there, money sent back to an earlier account is a dashed return loop. Below 600 px of room, or when a column would be narrower than 150 px, it runs top to bottom (no sideways scroll at 320 px), else left to right. Labels are HTML and carry their word ("stays … , spendable", "set aside", "planned", "spent … of …"); a legend explains every swatch and pattern. The eight largest incomes, accounts and destinations are drawn; the others are counted ("and n more: every figure is in the tables"), never summed. A group whose plan is carried by transfers (amount 0) is not drawn as spending (it is in "set aside"); one with its own spending and a transfer share is drawn at its own amount, its label naming the share shown as transfers. A shortfall extends the spendable bar, hatched, by the negative "not planned" or "left", and is said in words. Four tables (incomes, transfers with a link to their transactions, accounts with in, out and what stays, spendable or set aside, and the spending by group, planned and spent) carry every figure with the database's totals and become row blocks below 640 px.
+The Money flow page draws get_money_flow in an SVG of its own (no chart library, a lazy chunk), planned or actual (`?basis=actual`, planned by default, beside `?period=`; each is a history entry, so Back returns to the other): four tiles that are the total row; tiers of incomes, accounts by their chain of transfers, the pool (what stays on the spendable accounts, what is set aside) and the destinations (each category group's planned amount or what it spent, then "not planned" or "left"); bars and bands on one scale (a band too thin to see is drawn at a small minimum thickness, said in the legend), a band that skips a tier keeps a lane there. Left to right whenever every column holds its labels whole beside their bars (from about 600 px of diagram for five tiers); a longer chain up to half again as wide as the card is drawn left to right in its own focusable, named frame that says it scrolls; otherwise top to bottom (no sideways page scroll at 320 px). The thresholds are the developer's to tune by looking. The page may be wider than the usual page (the tables keep the usual width). Labels are HTML, carry their word ("stays … , spendable", "set aside", "planned", "spent … of …") and never cut a figure; a name may be shortened, never two to the same text, whole in its title and the tables. A pattern that means something is wrong (the red hatch) is drawn only where a node's own figure from the read is negative or short, and always with a sentence beside it; the legend names exactly what is drawn in the current layout and basis. Money sent back to an earlier account is drawn left to right as a dashed band with an arrow in its source's colour, named in the legend; top to bottom it is said in a "Sent back" list under the diagram. At most eight incomes, accounts and destinations are drawn: the accounts the drawn incomes arrive on first, then the largest by flow; the others are counted ("and n more: every figure is in the tables"), never summed; an income whose account cannot be drawn says so. A group whose plan is carried by transfers (amount 0) is not drawn as spending (it is in "set aside"); one with its own spending and a transfer share is drawn at its own amount, its label naming the share shown as transfers. A shortfall extends the spendable bar, hatched, by the negative "not planned" or "left", and is said in words. Four tables (incomes, transfers with a link to their transactions, accounts with in, out and what stays, spendable or set aside, and the spending by group, planned and spent) carry every figure with the database's totals and become row blocks below 640 px.
 
-**Why:** The read now ends at spending (D-524) and the review found the old diagram clipped on a phone, coloured by name and without a legend (S-5, S-6). The owner asked for the money flow diagram by name and to keep it beautiful.
+**Why:** The read now ends at spending (D-524) and the review found the old diagram clipped on a phone, coloured by name and without a legend (S-5, S-6). The owner asked for the money flow diagram by name and to keep it beautiful. Amended after the second screens review: labels were boxed over bands and cut figures, a red hatch appeared without words, the account a salary arrives on could be left out, and Back left the page.
 
 **Rejected:**
 
 - An "others" bar summing what is not drawn: the page would add figures, and the read gives no aggregate row (D-524).
 - A sideways scroll frame on a phone (D-503): the flow runs top to bottom instead.
 - A "left" per account: left is one pooled figure (D-524).
+- Label boxes on the card colour over the bands, and a lane drawn as a slab under a tier's labels: read as the account named on top of them.
+- Hatching the set-aside bar whenever more enters it than its figure: nothing is short then.
 
-Related: D-503, D-524, D-525, R-ACCOUNT-447, R-ACCOUNT-448, Q-320
+Related: D-503, D-524, D-525, R-ACCOUNT-447, R-ACCOUNT-448, Q-320, D-580, R-ACCOUNT-480, R-ACCOUNT-481, R-ACCOUNT-482, R-ACCOUNT-483, R-APP-480
 
-Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17; owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
 
 ### D-546 Category group colours: on the money flow only, by display order (accepted)
 
@@ -7501,6 +7523,21 @@ Unlike a stale subscription or debt link (whose filter is dropped silently), `?t
 Related: D-525, R-TRANSACTION-441
 
 Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+
+### D-580 How the money flow places its labels and routes its bands (accepted)
+
+Left to right, each label sits in the gap right of its bar, centred on it, as plain text with a halo in the card's colour over the pale bands; every bar keeps the room its label needs on the cross axis, and bars and lanes move a few rounds towards what they are joined to (the accounts' tiers may change order) so bands run level with their ends. Top to bottom, each tier is a row of bars (a band that skips the tier is a pale part of the row), then its labels on the plain card in the bars' order, each in the column under its bar while that is free, then the bands to the next tier starting with a thin echo of the bars. The headings name incomes, accounts (once, over all their tiers), the pool and the destinations; the middle tiers have no title of their own. Neighbouring bands are separated by a hairline in the card's colour. A band has the colour of where it comes from; a band into a category group has the group's colour.
+
+**Why:** The reviewer and the coordinator found that a newcomer read the slab under a tier's labels as the account named on top of it, and the labels were tied to their bars by colour alone; "Then to" said nothing.
+
+**Rejected:**
+
+- Leader lines from each bar to a stacked list of labels: they cross the labels above them on a phone.
+- A chart library: D-503 and D-545 keep the drawing app-owned.
+
+Related: D-545, R-ACCOUNT-481
+
+Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
 
 ## Open questions
 

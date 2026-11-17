@@ -16,7 +16,8 @@ import {
 } from '@/features/money-flow/money-flow-model'
 import { formatMoney } from '@/lib/money'
 import { householdDb } from '@/test/budget-fixtures'
-import { workedExamplePlan } from '@/test/money-flow-fixtures'
+import { shortNames } from '@/features/money-flow/money-flow-words'
+import { chainPlan, workedExamplePlan } from '@/test/money-flow-fixtures'
 import { rpcError } from '@/test/mock-db'
 import { moneyFlowRows, type MoneyFlowPlan } from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
@@ -313,23 +314,31 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422] [R
     await openPage([plan])
     // planned spending 10 750.00 against 8 412.00 spendable: not planned −2 338.00
     expect(text(screen.getByTestId('tile-rest'))).toContain(
-      `Not planned${money(-233_800)}Short: more spending is planned than is spendable`,
+      `Not planned${money(-233_800)}More spending is planned than is spendable.`,
     )
-    expect(label(SPENDABLE)).toContain(`short: not planned ${money(-233_800)}`)
+    expect(label(SPENDABLE)).toBe(
+      `spendable ${money(841_200)}More is planned than is spendable, which leaves ${money(-233_800)} not planned.`,
+    )
     expect(
       screen.queryAllByTestId('flow-label').some((el) => el.getAttribute('data-node') === REST),
     ).toBe(false)
     expect(text(screen.getByTestId('total-not-planned'))).toBe(
-      `${money(-233_800)}short: more planned than spendable`,
+      `${money(-233_800)}More is planned than is spendable.`,
     )
-    expect(screen.getByTestId('money-flow-key')).toHaveTextContent('Red hatching: short')
+    expect(screen.getByTestId('money-flow-key')).toHaveTextContent(
+      'Red hatching: the part of a bar past its own figure',
+    )
     await userEvent.click(screen.getByTestId('basis-actual'))
     await waitFor(() => {
-      expect(text(screen.getByTestId('tile-rest'))).toContain(
-        'Short: more was spent than is spendable',
-      )
+      expect(text(screen.getByTestId('tile-rest'))).toContain('More was spent than was spendable.')
     })
-    expect(label('group:grp-home')).toContain('more than planned')
+    // spent 10 405.50 of 8 412.00 spendable: left −1 993.50, said as what was spent.
+    expect(label(SPENDABLE)).toBe(
+      `spendable ${money(841_200)}More was spent than was spendable, which leaves ${money(-199_350)}.`,
+    )
+    expect(label('group:grp-home')).toBe(
+      `spent ${money(950_000)} of ${money(900_000)}More was spent than planned.`,
+    )
   })
 
   it('says how many spending rows the read left out, near the spending table', async () => {
@@ -400,7 +409,9 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422] [R
     await openPage([plan])
     expect(screen.queryByTestId('money-flow-diagram')).not.toBeInTheDocument()
     expect(screen.getByText(/No income counts in this period/)).toBeVisible()
-    expect(text(screen.getByTestId('tile-rest'))).toContain('Short')
+    expect(text(screen.getByTestId('tile-rest'))).toContain(
+      'More spending is planned than is spendable.',
+    )
   })
 
   it('an empty period says so', async () => {
@@ -550,5 +561,399 @@ describe('the diagram’s layout [R-ACCOUNT-235] [D-545]', () => {
     const layout = layoutFlow(readMoneyFlow(moneyFlowRows(plan)), { basis: 'planned', cross: 300 })
     expect(band(layout, 'tr-back').back).toBe(true)
     expect(band(layout, 'tr-savings').back).toBe(false)
+  })
+})
+
+/** The diagram's width, as the page measures it: left to right from 600 px, else downwards. */
+function atWidth(width: number) {
+  return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+    width,
+    height: 0,
+    x: 0,
+    y: 0,
+    top: 0,
+    left: 0,
+    right: width,
+    bottom: 0,
+    toJSON: () => ({}),
+  })
+}
+
+const drawn = {
+  orientation: () =>
+    screen
+      .getByTestId('money-flow-diagram')
+      .querySelector('[data-orientation]')
+      ?.getAttribute('data-orientation'),
+  node: (id: string) =>
+    screen.getAllByTestId('flow-node').find((element) => element.getAttribute('data-node') === id),
+  /** The drawn length of a bar: its solid and hatched parts along the cross axis. */
+  length: (id: string) => {
+    const node = drawn.node(id)
+    const axis = drawn.orientation() === 'sideways' ? 'height' : 'width'
+    return [...(node?.querySelectorAll('rect[data-part="solid"], rect[data-part="hatch"]') ?? [])]
+      .map((rect) => Number(rect.getAttribute(axis)))
+      .reduce((a, b) => a + b, 0)
+  },
+  parts: (id: string) =>
+    [...(drawn.node(id)?.querySelectorAll('[data-part]') ?? [])].map((el) =>
+      el.getAttribute('data-part'),
+    ),
+  fill: (id: string) =>
+    drawn.node(id)?.querySelector('rect[data-part="solid"]')?.getAttribute('fill'),
+  bands: () =>
+    screen.queryAllByTestId('flow-band').map((element) => ({
+      link: element.getAttribute('data-link'),
+      source: element.getAttribute('data-source'),
+      target: element.getAttribute('data-target'),
+      part: element.getAttribute('data-part'),
+      /** The drawn thickness of its coloured path. */
+      stroke: Number(element.querySelector('path:last-of-type')?.getAttribute('stroke-width')),
+    })),
+}
+
+async function openAt(plan: MoneyFlowPlan, width: number, path = '/money-flow') {
+  atWidth(width)
+  const db = householdDb()
+  db.moneyFlowPlans = [plan]
+  mock.current = createSupabaseMock(fakeSession(), db)
+  const view = renderRoutes(routes, path)
+  await screen.findByTestId('money-flow-table')
+  return view
+}
+
+describe('what the diagram draws, as drawn [R-ACCOUNT-235] [R-ACCOUNT-447] [R-ACCOUNT-448]', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it.each([1100, 360])(
+    'at %i px, bars and bands are drawn at their amounts on one scale, bands inside their bars',
+    async (width) => {
+      await openAt(workedExamplePlan(), width)
+      expect(drawn.orientation()).toBe(width === 1100 ? 'sideways' : 'downwards')
+      // A band drawn in parts (top to bottom, one per tier it crosses) counts once.
+      const bands = drawn
+        .bands()
+        .filter((band, index, all) => all.findIndex((other) => other.link === band.link) === index)
+      const stroke = (id: string) => bands.find((band) => band.link === id)?.stroke ?? 0
+      // Each salary's bar is exactly its band, and Main's bar holds what enters and leaves it.
+      expect(drawn.length('income:inc-ann')).toBeCloseTo(stroke('income:inc-ann'), 3)
+      expect(drawn.length('income:inc-ben')).toBeCloseTo(stroke('income:inc-ben'), 3)
+      expect(drawn.length('income:inc-ann') / drawn.length('income:inc-ben')).toBeCloseTo(1.5, 3)
+      const into = (id: string) =>
+        bands.filter((b) => b.target === id).reduce((acc, b) => acc + b.stroke, 0)
+      const outOf = (id: string) =>
+        bands.filter((b) => b.source === id).reduce((acc, b) => acc + b.stroke, 0)
+      expect(drawn.length('acc-main')).toBeCloseTo(into('acc-main'), 3)
+      expect(drawn.length('acc-main')).toBeCloseTo(outOf('acc-main'), 3)
+      expect(drawn.length('pool:spendable')).toBeCloseTo(outOf('pool:spendable'), 3)
+      expect(stroke('rest') / stroke('income:inc-ann')).toBeCloseTo(451_200 / 600_000, 3)
+    },
+  )
+
+  it('stripes the set-aside accounts only, and only what stays on everyday accounts is spendable', async () => {
+    await openAt(workedExamplePlan(), 360)
+    expect(drawn.parts('acc-savings')).toContain('stripes')
+    expect(drawn.parts('acc-pillar')).toContain('stripes')
+    expect(drawn.parts('acc-main')).not.toContain('stripes')
+    const sources = (target: string) =>
+      [
+        ...new Set(
+          drawn
+            .bands()
+            .filter((band) => band.target === target)
+            .map((band) => band.source ?? ''),
+        ),
+      ].sort()
+    expect(sources('pool:spendable')).toEqual(['acc-main'])
+    expect(sources('pool:set-aside')).toEqual(['acc-pillar', 'acc-savings'])
+  })
+
+  it('[R-ACCOUNT-448] colours accounts from the first hue and groups from the fifth, as drawn', async () => {
+    await openAt(workedExamplePlan(), 1100)
+    expect(drawn.fill('acc-main')).toBe('var(--flow-1)')
+    expect(drawn.fill('acc-savings')).toBe('var(--flow-2)')
+    expect(drawn.fill('group:grp-home')).toBe('var(--flow-5)')
+    expect(drawn.fill('group:grp-food')).toBe('var(--flow-6)')
+  })
+
+  it('counts the accounts and the groups not drawn, each its own number', async () => {
+    const plan = workedExamplePlan()
+    for (let index = 0; index < 12; index += 1) {
+      const id = `acc-x${String(index).padStart(2, '0')}`
+      plan.accounts.push({
+        id,
+        name: `Extra ${index}`,
+        kind: 'current',
+        createdAt: `2026-10-02T08:${String(index).padStart(2, '0')}:00+00:00`,
+      })
+      plan.transfers.push({
+        id: `tr-${id}`,
+        name: `To ${index}`,
+        from: 'acc-main',
+        to: id,
+        amount: 1_000,
+      })
+      plan.categories.push({
+        id: `grp-x${index}`,
+        name: `Group ${index}`,
+        displayOrder: 10 + index,
+        expected: 500,
+      })
+    }
+    await openAt(plan, 1100)
+    const notes = screen.getAllByTestId('flow-more').map((note) => text(note))
+    expect(notes).toEqual([
+      'And 7 more accounts, not drawn: every figure is in the tables.',
+      'And 8 more category groups: every figure is in the tables.',
+    ])
+  })
+
+  it('[R-ACCOUNT-480] draws every account an income arrives on first, then the largest by flow', async () => {
+    const plan = workedExamplePlan()
+    plan.accounts.push({
+      id: 'acc-tiny',
+      name: 'Tiny',
+      kind: 'current',
+      createdAt: '2026-10-03T08:00:00+00:00',
+    })
+    plan.incomes.push({ id: 'inc-tip', name: 'Tips', amount: 1_000, accountId: 'acc-tiny' })
+    for (let index = 0; index < 9; index += 1) {
+      const id = `acc-y${index}`
+      plan.accounts.push({
+        id,
+        name: `Big ${index}`,
+        kind: 'savings',
+        createdAt: `2026-10-04T08:0${index}:00+00:00`,
+      })
+      plan.transfers.push({
+        id: `tr-${id}`,
+        name: `To ${index}`,
+        from: 'acc-main',
+        to: id,
+        amount: 20_000,
+      })
+    }
+    await openAt(plan, 1100)
+    expect(drawn.node('acc-tiny')).toBeDefined()
+    expect(drawn.bands().some((band) => band.link === 'income:inc-tip')).toBe(true)
+    expect(
+      screen
+        .getAllByTestId('flow-node')
+        .filter((n) => n.getAttribute('data-node')?.startsWith('acc-')),
+    ).toHaveLength(8)
+  })
+})
+
+describe('labels say the read’s figures with their words [R-ACCOUNT-447]', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('an account with more out than in says what stays, below nothing, in a sentence', async () => {
+    await openAt(chainPlan(), 1100)
+    expect(label('acc-holiday')).toBe(
+      `stays ${money(-70_000)}More is planned to leave this account than comes in.`,
+    )
+    expect(label('acc-buffer')).toBe(`stays ${money(60_000)}, set aside`)
+  })
+
+  it('on Actual, a group says what it spent of its planned spending and what its transfers moved', async () => {
+    const plan = workedExamplePlan()
+    plan.categories[4]!.expected = 188_800
+    plan.categories[4]!.spent = 125_000
+    await openAt(plan, 1100)
+    expect(label('group:grp-saving')).toBe(
+      `planned ${money(30_000)} · ${money(705_600)} a year · ${money(158_800)} shown as transfers`,
+    )
+    await userEvent.click(screen.getByTestId('basis-actual'))
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    expect(label('group:grp-saving')).toBe(
+      `spent ${money(25_000)} of ${money(30_000)} · ${money(705_600)} a year · ${money(100_000)} moved by transfers`,
+    )
+  })
+
+  it('the diagram’s name carries the totals in their places, planned and actual', async () => {
+    await openAt(workedExamplePlan(), 1100)
+    const image = within(screen.getByTestId('money-flow-diagram')).getByRole('img')
+    const esc = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s')
+    expect(image).toHaveAccessibleName(
+      new RegExp(
+        `incomes ${esc(money(1_000_000))}; set aside ${esc(money(158_800))}; spendable ${esc(money(841_200))}, of which ${esc(money(390_000))} is planned for spending and ${esc(money(451_200))} is not planned`,
+      ),
+    )
+    await userEvent.click(screen.getByTestId('basis-actual'))
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    expect(within(screen.getByTestId('money-flow-diagram')).getByRole('img')).toHaveAccessibleName(
+      new RegExp(`of which ${esc(money(290_550))} was spent and ${esc(money(550_650))} is left`),
+    )
+  })
+})
+
+describe('a warning is a sentence, and a hatch has one beside it [R-ACCOUNT-482]', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const everyHatchIsSaid = () => {
+    for (const node of screen.getAllByTestId('flow-node')) {
+      if (!node.querySelector('[data-part="hatch"]')) continue
+      const id = node.getAttribute('data-node') ?? ''
+      const said = screen
+        .getAllByTestId('flow-label')
+        .find((element) => element.getAttribute('data-node') === id)
+        ?.querySelector('[data-testid="flow-node-warning"]')
+      expect(text(said), id).toMatch(/\.$/)
+    }
+  }
+
+  it('set aside is not hatched when more enters its bar than its figure, nothing being short', async () => {
+    await openAt(chainPlan(), 1100)
+    expect(drawn.parts('pool:set-aside')).not.toContain('hatch')
+    expect(label(SET_ASIDE)).toBe(`set aside ${money(110_000)}`)
+    expect(drawn.parts('acc-holiday')).toContain('hatch')
+    everyHatchIsSaid()
+  })
+
+  it('set aside below nothing is hatched and said in the label, the tile and the table', async () => {
+    await openAt(chainPlan(200_000), 1100)
+    expect(drawn.parts('pool:set-aside')).toContain('hatch')
+    expect(label(SET_ASIDE)).toBe(
+      `set aside ${money(-50_000)}These accounts send on more than they receive.`,
+    )
+    expect(text(screen.getByTestId('tile-set-aside'))).toContain(
+      `${money(-50_000)}The savings, pillar, tax and investment accounts send on more than they receive.`,
+    )
+    expect(text(screen.getByTestId('total-set-aside'))).toContain('send on more than they receive.')
+    everyHatchIsSaid()
+  })
+
+  it('on Actual the hatch follows what was spent, not the plan', async () => {
+    const plan = workedExamplePlan()
+    plan.categories[0]!.expected = 900_000
+    await openAt(plan, 1100)
+    expect(drawn.parts(SPENDABLE)).toContain('hatch')
+    everyHatchIsSaid()
+    await userEvent.click(screen.getByTestId('basis-actual'))
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    expect(drawn.parts(SPENDABLE)).not.toContain('hatch')
+    expect(label(SPENDABLE)).toBe(`spendable ${money(841_200)}`)
+    expect(screen.getByTestId('money-flow-key').querySelector('[data-key="short"]')).toBeNull()
+  })
+
+  it('a shortfall only on Actual is said as what was spent', async () => {
+    const plan = workedExamplePlan()
+    plan.categories[0]!.spent = 900_000
+    await openAt(plan, 1100)
+    expect(label(SPENDABLE)).toBe(`spendable ${money(841_200)}`)
+    await userEvent.click(screen.getByTestId('basis-actual'))
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    expect(label(SPENDABLE)).toBe(
+      `spendable ${money(841_200)}More was spent than was spendable, which leaves ${money(-149_350)}.`,
+    )
+    expect(drawn.parts(SPENDABLE)).toContain('hatch')
+    everyHatchIsSaid()
+  })
+})
+
+describe('money sent back [R-ACCOUNT-483]', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('left to right, is drawn from its source with an arrow, and the legend names it from where to where', async () => {
+    await openAt(chainPlan(), 1100)
+    expect(drawn.orientation()).toBe('sideways')
+    const back = drawn.bands().filter((band) => band.part === 'return')
+    expect(back).toEqual([
+      expect.objectContaining({ link: 'tr-back', source: 'acc-buffer', target: 'acc-salary' }),
+    ])
+    const returned = screen
+      .getAllByTestId('flow-band')
+      .find((band) => band.getAttribute('data-part') === 'return')
+    expect(returned?.querySelector('path')?.getAttribute('marker-end')).toMatch(/arrow/)
+    expect(returned?.querySelector('path')?.getAttribute('stroke')).toBe('var(--flow-4)')
+    const key = screen.getByTestId('money-flow-key')
+    expect(text(key.querySelector('[data-key="loop"]'))).toBe(
+      `Dashed band with an arrow, money sent back to an earlier account: Back to salary, from Buffer to Salary account, ${money(40_000)} a month`,
+    )
+    expect(screen.queryByTestId('flow-sent-back')).not.toBeInTheDocument()
+  })
+
+  it('top to bottom, is said in words under the diagram and is not in the legend', async () => {
+    await openAt(chainPlan(), 360)
+    expect(drawn.orientation()).toBe('downwards')
+    expect(drawn.bands().some((band) => band.link === 'tr-back')).toBe(false)
+    expect(text(screen.getByTestId('flow-sent-back'))).toBe(
+      `Sent backBack to salary: from Buffer back to Salary account, ${money(40_000)} a month`,
+    )
+    expect(screen.getByTestId('money-flow-key').querySelector('[data-key="loop"]')).toBeNull()
+  })
+})
+
+describe('labels keep their figures whole [R-ACCOUNT-481]', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('runs left to right when every column holds its labels beside their bars (five tiers in 700 px)', async () => {
+    await openAt(workedExamplePlan(), 700)
+    expect(drawn.orientation()).toBe('sideways')
+  })
+
+  it('a longer chain scrolls left to right in its own named, focusable frame that says so (seven tiers in 700 px)', async () => {
+    await openAt(chainPlan(), 700)
+    expect(drawn.orientation()).toBe('sideways')
+    const frame = screen.getByRole('region', { name: 'Money flow diagram, scrolls sideways' })
+    expect(frame).toHaveAttribute('tabindex', '0')
+    expect(screen.getByTestId('flow-scroll-hint')).toHaveTextContent('scroll the diagram sideways')
+    // The drawing inside is wider than the card: each label keeps its whole width.
+    expect(Number.parseFloat(within(frame).getByRole('img').style.width)).toBeGreaterThan(700)
+  })
+
+  it('runs top to bottom when even a frame would be too wide (seven tiers in 600 px), or below 600 px', async () => {
+    await openAt(chainPlan(), 590)
+    expect(drawn.orientation()).toBe('downwards')
+    expect(screen.queryByTestId('flow-scroll-frame')).not.toBeInTheDocument()
+  })
+
+  it('never cuts a figure: a figure wraps, only a name is shortened, never two to the same text', async () => {
+    await openAt(chainPlan(), 1100)
+    for (const value of screen.getAllByTestId('flow-node-value')) {
+      expect(value.className).not.toMatch(/truncate|line-clamp|ellipsis/)
+    }
+    expect(shortNames(['Joint household account A', 'Joint household account B'], 90, 13)).toEqual([
+      expect.stringMatching(/… ?A$/),
+      expect.stringMatching(/… ?B$/),
+    ])
+    const names = shortNames(['Compte courant 1', 'Compte courant 12', 'Short'], 70, 13)
+    expect(new Set(names).size).toBe(3)
+    expect(names[2]).toBe('Short')
+    // The full name is in the label's title.
+    const holiday = screen
+      .getAllByTestId('flow-label')
+      .find((element) => element.getAttribute('data-node') === 'acc-house')
+    expect(holiday?.getAttribute('title')).toMatch(/^Household account/)
+  })
+})
+
+describe('Planned and Actual are history entries [R-APP-480]', () => {
+  it('Back returns to the other view instead of leaving the page', async () => {
+    const { router } = await openAt(workedExamplePlan(), 1100)
+    await userEvent.click(screen.getByTestId('basis-actual'))
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    await router.navigate(-1)
+    await screen.findByRole('heading', { name: /^Planned money flow/ })
+    expect(router.state.location.pathname).toBe('/money-flow')
+    vi.restoreAllMocks()
+  })
+})
+
+describe('the accounts table', () => {
+  it('writes a dash, not CHF 0.00, for what leaves “Not assigned”', async () => {
+    await openAt(chainPlan(), 1100)
+    expect(text(screen.getByTestId('not-assigned-out'))).toBe('–nothing goes out')
+    vi.restoreAllMocks()
   })
 })

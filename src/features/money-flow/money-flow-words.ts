@@ -9,6 +9,77 @@ import {
 } from '@/features/money-flow/money-flow-model'
 import { formatMoney } from '@/lib/money'
 
+/** Roughly how wide a text is at a font size (px), a little generously: room, not a figure. */
+export function textWidth(text: string, px: number): number {
+  let em = 0
+  for (const char of text) {
+    if (/[0-9]/.test(char)) em += 0.6
+    else if (/\s/.test(char)) em += 0.28
+    else if (/['’.,:;·]/.test(char)) em += 0.27
+    else if (/[A-ZÀ-Ý]/.test(char)) em += 0.68
+    else if (/[mwMW]/.test(char)) em += 0.82
+    else if (/[ijlft]/.test(char)) em += 0.3
+    else em += 0.55
+  }
+  return em * px * 1.06
+}
+
+/** How many lines a text wraps to in a width: it breaks at plain spaces only. */
+export function textLines(text: string, width: number, px: number): number {
+  if (!text) return 0
+  const space = textWidth(' ', px)
+  let lines = 1
+  let line = 0
+  for (const word of text.split(' ')) {
+    const size = textWidth(word, px)
+    if (line > 0 && line + space + size > width) {
+      lines += 1
+      line = size
+    } else {
+      line += (line > 0 ? space : 0) + size
+    }
+  }
+  return lines
+}
+
+/**
+ * Names shortened to fit a width with an ellipsis, never two to the same text: where two
+ * would read alike, both keep their end ("Joint acc…t A", "Joint acc…t B") or grow until
+ * they differ. The full name is in the label's title and in the tables.
+ */
+export function shortNames(names: readonly string[], width: number, px: number): string[] {
+  const fit = (name: string) => textWidth(name, px) <= width
+  const cut = (name: string, keepEnd: number, extra: number) => {
+    if (fit(name)) return name
+    let head = name.length
+    const tail = keepEnd > 0 ? name.slice(-keepEnd) : ''
+    const make = () => `${name.slice(0, head).trimEnd()}…${tail}`
+    while (head > 1 && textWidth(make(), px) > width + extra) head -= 1
+    return make()
+  }
+  const out = names.map((name) => cut(name, 0, 0))
+  for (let round = 0; round < 3; round += 1) {
+    const seen = new Map<string, number[]>()
+    out.forEach((text, index) => seen.set(text, [...(seen.get(text) ?? []), index]))
+    const clashes = [...seen.values()].filter(
+      (indices) => indices.length > 1 && new Set(indices.map((i) => names[i])).size > 1,
+    )
+    if (clashes.length === 0) break
+    for (const indices of clashes) {
+      for (const index of indices) {
+        const name = names[index] ?? ''
+        // Keep enough of the end to tell them apart; allow a little more width each round.
+        const others = indices.filter((i) => i !== index).map((i) => names[i] ?? '')
+        let keep = 1
+        while (keep < name.length && others.some((other) => other.endsWith(name.slice(-keep))))
+          keep += 1
+        out[index] = cut(name, Math.min(name.length, keep + 1), round * 24)
+      }
+    }
+  }
+  return out
+}
+
 /** A palette slot's colour; past the eighth the hues repeat (drawn with a dashed outline). */
 export function slotColor(slot: number | null): string {
   return slot === null ? 'var(--flow-pool)' : `var(--flow-${(slot % PALETTE_SIZE) + 1})`
@@ -70,22 +141,22 @@ export function useNodeText(flow: MoneyFlow, basis: Basis) {
       }
       case 'spendable': {
         const rest = basis === 'planned' ? (total?.notPlanned ?? 0) : (total?.left ?? 0)
+        // A shortfall is a sentence around the read's own figure (negative as it is given).
+        const said = [
+          (total?.spendable ?? 0) < 0 ? t('moneyFlow.label.spendableNegative') : null,
+          rest < 0 ? t(`moneyFlow.short.${basis}`, { amount: m(rest) }) : null,
+        ].filter((part): part is string => part !== null)
         return {
           name: t('moneyFlow.spendableName'),
           figure: t('moneyFlow.label.spendable', { amount: m(total?.spendable ?? 0) }),
-          warning:
-            rest < 0
-              ? t(`moneyFlow.short.${basis}`, { amount: m(rest) })
-              : (total?.spendable ?? 0) < 0
-                ? t('moneyFlow.label.spendableNegative')
-                : null,
+          warning: said.length > 0 ? said.join(' ') : null,
         }
       }
       case 'set_aside':
         return {
           name: t('moneyFlow.setAsideName'),
           figure: t('moneyFlow.label.setAside', { amount: m(total?.setAside ?? 0) }),
-          warning: null,
+          warning: (total?.setAside ?? 0) < 0 ? t('moneyFlow.label.setAsideNegative') : null,
         }
       case 'spending': {
         const row = groups.get(node.id)

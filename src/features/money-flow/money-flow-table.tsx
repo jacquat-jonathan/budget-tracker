@@ -306,7 +306,11 @@ export function MoneyFlowTable({
                     header: t('moneyFlow.notAssigned'),
                     cells: [
                       m(flow.notAssigned.inflow),
-                      m(0),
+                      // Nothing can leave "not assigned": no figure, said in words to a reader.
+                      <span key="o" data-testid="not-assigned-out">
+                        <span aria-hidden>–</span>
+                        <span className="sr-only">{t('moneyFlow.table.noOut')}</span>
+                      </span>,
                       <>
                         {m(flow.notAssigned.stays)}
                         <Note>{t('moneyFlow.table.spendable')}</Note>
@@ -343,7 +347,14 @@ export function MoneyFlowTable({
                       '',
                       '',
                       <span key="a" data-testid="total-set-aside">
-                        {m(total.setAside)}
+                        {total.setAside < 0 ? (
+                          <>
+                            <Warn>{m(total.setAside)}</Warn>
+                            <Note>{t('moneyFlow.tiles.setAsideNegative')}</Note>
+                          </>
+                        ) : (
+                          m(total.setAside)
+                        )}
                       </span>,
                     ],
                   },

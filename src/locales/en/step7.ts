@@ -411,14 +411,15 @@ export const moneyFlowEn = {
       actual: 'Spendable and not spent',
     },
     short: {
-      planned: 'Short: more spending is planned than is spendable',
-      actual: 'Short: more was spent than is spendable',
+      planned: 'More spending is planned than is spendable.',
+      actual: 'More was spent than was spendable.',
     },
+    setAsideNegative:
+      'The savings, pillar, tax and investment accounts send on more than they receive.',
   },
   tier: {
     incomes: 'Incomes',
     accounts: 'Accounts',
-    accountsNext: 'Then to',
     pool: 'Spendable and set aside',
     destinations: { planned: 'Planned spending', actual: 'Spent' },
   },
@@ -430,13 +431,14 @@ export const moneyFlowEn = {
     stays: 'stays {{amount}}',
     staysSpendable: 'stays {{amount}}, spendable',
     staysSetAside: 'stays {{amount}}, set aside',
-    moreOut: 'more planned out than in',
+    moreOut: 'More is planned to leave this account than comes in.',
     spendable: 'spendable {{amount}}',
-    spendableNegative: 'less than nothing is spendable',
+    spendableNegative: 'More is set aside than comes in.',
     setAside: 'set aside {{amount}}',
+    setAsideNegative: 'These accounts send on more than they receive.',
     planned: 'planned {{amount}}',
     spent: 'spent {{spent}} of {{amount}}',
-    overPlan: 'more than planned',
+    overPlan: 'More was spent than planned.',
     yearly: '{{amount}} a year',
     viaTransfers: '{{amount}} shown as transfers',
     viaTransfersSpent: '{{amount}} moved by transfers',
@@ -444,8 +446,16 @@ export const moneyFlowEn = {
     left: 'left {{amount}}',
   },
   short: {
-    planned: 'short: not planned {{amount}}',
-    actual: 'short: left {{amount}}',
+    planned: 'More is planned than is spendable, which leaves {{amount}} not planned.',
+    actual: 'More was spent than was spendable, which leaves {{amount}}.',
+  },
+  unplaced:
+    '{{income}} arrives on {{account}}, which is not drawn: more accounts receive incomes than the diagram holds. Its figures are in the tables.',
+  scrollHint: 'This flow is wider than the page: scroll the diagram sideways to see all of it',
+  scrollFrame: 'Money flow diagram, scrolls sideways',
+  sentBack: {
+    title: 'Sent back',
+    item: '{{name}}: from {{from}} back to {{to}}, {{amount}} a month',
   },
   more: {
     incomes_one: 'And {{count}} more income: every figure is in the tables.',
@@ -469,12 +479,16 @@ export const moneyFlowEn = {
       actual: 'A category group: what was spent (its colour follows its place in the budget)',
     },
     rest: { planned: 'Outline: spendable, not planned', actual: 'Outline: spendable, left' },
-    short: 'Red hatching: short, more goes out than there is',
+    short:
+      'Red hatching: the part of a bar past its own figure, where more goes out than there is; its label says why in words',
     repeat: 'Dashed outline: a colour used again, from the ninth on',
-    loop: 'Dashed band: money sent back to an earlier account.',
-    loopItem: '{{name}}, {{from}} to {{to}}, {{amount}} a month',
+    loop: 'Dashed band with an arrow, money sent back to an earlier account: {{name}}, from {{from}} to {{to}}, {{amount}} a month',
     scale:
       'Bands are as wide as the amounts, on one scale. A quarterly or yearly transfer counts its monthly share. A category’s share planned as transfers shows as the transfer, not as spending.',
+    colour:
+      'A band has the colour of where it comes from; a band into a category group has the group’s colour.',
+    thicker:
+      'The smallest amounts are drawn a little thicker than their scale, so they can be seen.',
     idle: 'Nothing planned this period on: {{names}}.',
   },
   next: {
@@ -504,7 +518,8 @@ export const moneyFlowEn = {
     spendable: 'spendable',
     setAside: 'set aside',
     negative: '(more planned out than in)',
-    negativeShort: 'more planned out than in',
+    negativeShort: 'More is planned to leave than comes in.',
+    noOut: 'nothing goes out',
     totalSpendable: 'Spendable',
     totalSetAside: 'Set aside',
     noBalance:
@@ -519,8 +534,8 @@ export const moneyFlowEn = {
     remainsHelp: 'Of {{amount}} spendable',
     notPlanned: 'not planned',
     left: 'left',
-    shortPlanned: 'short: more planned than spendable',
-    shortActual: 'short: more spent than spendable',
+    shortPlanned: 'More is planned than is spendable.',
+    shortActual: 'More was spent than was spendable.',
     noSpending: 'Nothing is planned or spent in any category this period.',
     omitted_one:
       '{{count}} more category group is not listed (the read stops at 1000 rows): the totals include it.',

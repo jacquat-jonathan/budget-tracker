@@ -426,14 +426,15 @@ export const moneyFlowFr = {
       actual: 'Disponible et non dépensé',
     },
     short: {
-      planned: 'Manque : plus de dépenses prévues que de disponible',
-      actual: 'Manque : plus de dépenses que de disponible',
+      planned: 'Il est prévu de dépenser davantage que ce qui est disponible.',
+      actual: 'On a dépensé davantage que ce qui était disponible.',
     },
+    setAsideNegative:
+      'Les comptes d’épargne, de pilier, d’impôts et de placement envoient plus qu’ils ne reçoivent.',
   },
   tier: {
     incomes: 'Revenus',
     accounts: 'Comptes',
-    accountsNext: 'Puis vers',
     pool: 'Disponible et mis de côté',
     destinations: { planned: 'Dépenses prévues', actual: 'Dépensé' },
   },
@@ -445,13 +446,14 @@ export const moneyFlowFr = {
     stays: 'reste {{amount}}',
     staysSpendable: 'reste {{amount}}, disponible',
     staysSetAside: 'reste {{amount}}, mis de côté',
-    moreOut: 'plus de sorties prévues que d’entrées',
+    moreOut: 'Il est prévu de sortir de ce compte plus qu’il n’y entre.',
     spendable: 'disponible {{amount}}',
-    spendableNegative: 'moins que rien n’est disponible',
+    spendableNegative: 'On met de côté plus qu’il n’entre.',
     setAside: 'mis de côté {{amount}}',
+    setAsideNegative: 'Ces comptes envoient plus qu’ils ne reçoivent.',
     planned: 'prévu {{amount}}',
     spent: 'dépensé {{spent}} sur {{amount}}',
-    overPlan: 'plus que prévu',
+    overPlan: 'On a dépensé plus que prévu.',
     yearly: '{{amount}} par an',
     viaTransfers: '{{amount}} montrés comme virements',
     viaTransfersSpent: '{{amount}} déplacés par des virements',
@@ -459,8 +461,17 @@ export const moneyFlowFr = {
     left: 'restant {{amount}}',
   },
   short: {
-    planned: 'manque : non prévu {{amount}}',
-    actual: 'manque : restant {{amount}}',
+    planned: 'Il est prévu plus que ce qui est disponible, ce qui laisse {{amount}} non prévus.',
+    actual: 'On a dépensé plus que ce qui était disponible, ce qui laisse {{amount}}.',
+  },
+  unplaced:
+    '{{income}} arrive sur {{account}}, qui n’est pas dessiné : plus de comptes reçoivent des revenus que le schéma n’en contient. Ses montants figurent dans les tableaux.',
+  scrollHint:
+    'Ce flux est plus large que la page : faites défiler le schéma de côté pour le voir en entier',
+  scrollFrame: 'Schéma des flux financiers, défile de côté',
+  sentBack: {
+    title: 'Renvoyé',
+    item: '{{name}} : de {{from}} en retour vers {{to}}, {{amount}} par mois',
   },
   more: {
     incomes_one: 'Et {{count}} autre revenu : tous les montants figurent dans les tableaux.',
@@ -490,10 +501,14 @@ export const moneyFlowFr = {
         'Un groupe de catégories : ce qui a été dépensé (sa couleur suit sa place dans le budget)',
     },
     rest: { planned: 'Contour : disponible, non prévu', actual: 'Contour : disponible, restant' },
-    short: 'Hachures rouges : manque, plus de sorties qu’il n’y a',
+    short:
+      'Hachures rouges : la partie d’une barre au-delà de son propre montant, là où il sort plus qu’il n’y a ; son étiquette dit pourquoi en toutes lettres',
     repeat: 'Contour en tirets : une couleur réutilisée, à partir de la neuvième',
-    loop: 'Bande en tirets : de l’argent renvoyé vers un compte précédent.',
-    loopItem: '{{name}}, de {{from}} vers {{to}}, {{amount}} par mois',
+    loop: 'Bande en tirets avec une flèche, de l’argent renvoyé vers un compte précédent : {{name}}, de {{from}} vers {{to}}, {{amount}} par mois',
+    colour:
+      'Une bande a la couleur de son point de départ ; une bande qui entre dans un groupe de catégories a la couleur du groupe.',
+    thicker:
+      'Les plus petits montants sont dessinés un peu plus épais que leur échelle, pour qu’on les voie.',
     scale:
       'Les bandes sont aussi larges que les montants, à une même échelle. Un virement trimestriel ou annuel compte sa part mensuelle. La part d’une catégorie prévue en virements apparaît comme virement, pas comme dépense.',
     idle: 'Rien de prévu cette période sur : {{names}}.',
@@ -526,7 +541,8 @@ export const moneyFlowFr = {
     spendable: 'disponible',
     setAside: 'mis de côté',
     negative: '(plus de sorties prévues que d’entrées)',
-    negativeShort: 'plus de sorties prévues que d’entrées',
+    negativeShort: 'Il est prévu d’en sortir plus qu’il n’y entre.',
+    noOut: 'rien ne sort',
     totalSpendable: 'Disponible',
     totalSetAside: 'Mis de côté',
     noBalance:
@@ -541,8 +557,8 @@ export const moneyFlowFr = {
     remainsHelp: 'Sur {{amount}} disponibles',
     notPlanned: 'non prévu',
     left: 'restant',
-    shortPlanned: 'manque : plus de prévu que de disponible',
-    shortActual: 'manque : plus de dépensé que de disponible',
+    shortPlanned: 'Il est prévu plus que ce qui est disponible.',
+    shortActual: 'On a dépensé plus que ce qui était disponible.',
     noSpending: 'Rien n’est prévu ni dépensé dans aucune catégorie cette période.',
     omitted_one:
       '{{count}} autre groupe de catégories n’est pas listé (la lecture s’arrête à 1000 lignes) : les totaux l’incluent.',
