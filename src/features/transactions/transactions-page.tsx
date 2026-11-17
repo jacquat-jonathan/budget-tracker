@@ -309,8 +309,8 @@ export function TransactionsPage() {
       key: 'transfer',
       label: t('transfers.filterChip', {
         name: transfer.name,
-        from: transfer.from_account_name ?? '–',
-        to: transfer.to_account_name ?? '–',
+        from: transfer.from_account_name,
+        to: transfer.to_account_name,
       }),
     },
   ].filter((item): item is { key: string; label: string } => !!item)
