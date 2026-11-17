@@ -419,7 +419,7 @@ select results_eq(
 select tests.remember('i_auto', (select id from public.create_transfer(tests.id('i'), 'Automatic', tests.id('i_main'), tests.id('i_sav'),
   1000, 'day_of_month', p_day_of_month => 1, p_is_automatic => true, p_from_period_id => tests.this_period(tests.id('i')))));
 select results_eq(
-  format($$select transfers_to_do, transfers_overdue from public.my_budgets where id = %L$$, tests.id('i')),
+  format($$select transfers_to_do, transfers_overdue from public.get_transfers_to_do(%L)$$, tests.id('i')),
   $$values (1, 1)$$,
   'R-ACCOUNT-241: the dashboard counts manual occurrences only (the automatic one is not to do)');
 select tests.remember('i_today', (select id from public.create_transfer(tests.id('i'), 'Today', tests.id('i_main'), tests.id('i_sav'),

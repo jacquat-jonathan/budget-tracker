@@ -121,7 +121,7 @@ below lists the rule ids it implements.
 
 | Relation | Rows | Columns (beyond the obvious) | Rules |
 | --- | --- | --- | --- |
-| `my_budgets` (view) | budgets I belong to | `id`, `name`, `owner_id`, `primary_income_id`, `end_date_entered` (the end date the owner entered; null: no end), `end_date` (the end shown: the end of the period containing the date entered, projected while that period does not exist), `is_owner`, `created_at`, `updated_at`, `caught_up` (false while the budget needs more `ensure_periods` calls: after an absence, and whenever a subscription charge or a transfer's transaction is due and not yet created), `charges_awaiting` (how many automatic charges await confirmation), `to_review` (how many transactions are to review: imported and not yet confirmed; step 6), `to_categorise_category_id` (the budget's "to categorise" category while it is in force; null when there is none or it has ended; step 6), `transfers_to_do`, `transfers_overdue` (the manual transfers of the current period and of the period before it still to do, and of those the overdue ones; R-ACCOUNT-241, D-395), `first_period_start` (the first period's start: the earliest date a transaction can have, whatever the number of periods; D-392; the last date is `end_date` once the budget has an end, otherwise today) | R-BUDGET-004, R-BUDGET-008, R-BUDGET-014, R-PERIOD-130, R-SUBSCRIPTION-135, R-IMPORT-081, R-CATEGORY-250, R-ACCOUNT-241 |
+| `my_budgets` (view) | budgets I belong to | `id`, `name`, `owner_id`, `primary_income_id`, `end_date_entered` (the end date the owner entered; null: no end), `end_date` (the end shown: the end of the period containing the date entered, projected while that period does not exist), `is_owner`, `created_at`, `updated_at`, `caught_up` (false while the budget needs more `ensure_periods` calls: after an absence, and whenever a subscription charge or a transfer's transaction is due and not yet created), `charges_awaiting` (how many automatic charges await confirmation), `to_review` (how many transactions are to review: imported and not yet confirmed; step 6), `to_categorise_category_id` (the budget's "to categorise" category while it is in force; null when there is none or it has ended; step 6), `first_period_start` (the first period's start: the earliest date a transaction can have, whatever the number of periods; D-392; the last date is `end_date` once the budget has an end, otherwise today) | R-BUDGET-004, R-BUDGET-008, R-BUDGET-014, R-PERIOD-130, R-SUBSCRIPTION-135, R-IMPORT-081, R-CATEGORY-250 |
 | `budget_member_list` (view) | members of my budgets | `budget_id`, `user_id`, `role` (`'owner'` \| `'member'`), `display_name` (may be null), `email`, `joined_at` | R-MEMBER-001, R-PROFILE-003 |
 | `budget_invitations` | pending invitations; **owner only** | `id`, `budget_id`, `email` (lower case), `invited_by`, `created_at`, `expires_at` (30 days after the last invite; an expired one cannot be accepted, re-invite to renew) | R-MEMBER-004, R-INVITE-007, R-INVITE-009 |
 | `income_overview` (view) | incomes, ended ones included | `id`, `budget_id`, `user_id` (whose income; null if their account was deleted), `user_display_name` (also for a former member), `name`, `is_primary`, `is_active` (in force in the current period), `first_seq`, `end_seq`, terms in force now `amount`, `pay_day`, `weekend_rule`, `terms_from_seq`, `next_pay_date` (first actual pay date on or after today; null when ended), `account_id`, `account_name` (the account it is paid into, terms in force now; null: none) | R-INCOME-003, R-INCOME-006, R-VERSION-001, R-PROFILE-004, R-ACCOUNT-236 |
@@ -1874,9 +1874,12 @@ about 900 rows (500 incomes, 200 accounts and 200 transfers at the limits). Draw
 `'not_assigned'` node). Errors: `budget_not_found`, `period_not_found`, `budget_ended`,
 `catching_up`.
 
-**Dashboard** (R-ACCOUNT-241, D-395): `my_budgets.transfers_to_do` (the manual occurrences of
-the current period and of the period before it with no mark) and `transfers_overdue` (of those,
-due date passed); automatic ones never count; 0 when the budget has ended. Older periods'
+**Dashboard** (R-ACCOUNT-241, D-395, D-494): **`get_transfers_to_do(p_budget_id) -> {transfers_to_do, transfers_overdue}[]`**
+(one row; member, else `budget_not_found`; reads only, no catch-up: read it after `my_budgets`
+says `caught_up`). `transfers_to_do`: the manual occurrences of the current period and of the
+period before it with no mark; `transfers_overdue`: of those, due date passed; automatic ones
+never count; 0 when the budget has ended. These two counts were columns of `my_budgets`; they
+are a read of their own so that `my_budgets`, read on every page, stays cheap. Older periods'
 unfinished ones show in their own checklist only.
 
 #### Reopen (R-ACCOUNT-306, D-430)

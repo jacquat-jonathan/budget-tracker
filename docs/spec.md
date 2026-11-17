@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-558 rules (547 active, 0 planned), 24 conventions, 327 decisions, 40 open questions. 0 rules and conventions are marked **TEST PENDING**.
+558 rules (547 active, 0 planned), 24 conventions, 328 decisions, 41 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -5726,13 +5726,13 @@ Source: owner-request: coordinator, independent review of the step 7 database (7
 
 ### D-395 The dashboard counts the period before too (accepted)
 
-transfers_to_do and transfers_overdue (my_budgets) count the manual occurrences still to do of the current period and of the period before it.
+transfers_to_do and transfers_overdue (get_transfers_to_do, a read of its own since D-494) count the manual occurrences still to do of the current period and of the period before it.
 
 **Why:** Answer to Q-222 (coordinator decision): a transfer left undone at the end of a period must not vanish from the dashboard the day the salary arrives.
 
 **Rejected:** none recorded.
 
-Related: Q-222, R-ACCOUNT-241
+Related: Q-222, R-ACCOUNT-241, D-494
 
 Source: owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
@@ -6928,6 +6928,20 @@ Related: D-421, R-ACCOUNT-300, R-ACCOUNT-315
 
 Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), C3, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
+### D-494 The dashboard's transfer counts are a read of their own (accepted)
+
+transfers_to_do and transfers_overdue are no longer columns of my_budgets: get_transfers_to_do(p_budget_id) answers them for a member (one row; no catch-up). my_budgets, read on every page and after every write, no longer computes two periods' plan for every budget the user belongs to. No screen read them yet.
+
+**Why:** At the documented limits my_budgets took about 100 ms, 82 of them the transfer counts, also when they were not selected (the screens select every column).
+
+**Rejected:**
+
+- Keeping the columns and making the plan cheaper: the plan of two periods for every budget a user belongs to stays the dominant cost of a read made on every page.
+
+Related: D-395, R-ACCOUNT-241
+
+Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S6, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -7350,6 +7364,10 @@ Source: owner-request: coordinator decisions on the independent review of the st
   - Context: D-420 gives a key to one period only, so a reopen and the salary recorded again find the same mark. Example: pay day 25, a salary recorded on 9 November for 25 November: that period's "Savings 500" (pay date, automatic) is keyed 25 November and its transaction dated 9 November; the period the schedule then starts on 25 November gets no key, so its checklist has no "Savings" row and the catch-up makes no transaction for it. The next period (25 December) is keyed as usual. If the 25 November salary is real, one standing order is missing from the budget until a member records it as a plain transaction.
   - Related: D-420, R-ACCOUNT-301, R-ACCOUNT-302
   - Source: owner-request: coordinator follow-up on the step 7 redesign (2264e82), 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **Q-261** Should a fixed-day planned transfer follow a weekend rule, as a bank runs a standing order due on a Saturday or Sunday on the next (or previous) working day?
+  - Context: Fixed-day transfers have no weekend rule (R-ACCOUNT-300): an order on the 22nd is planned on Sunday 22 November 2026, while the bank runs it on Monday 23 November. The due date (and so the overdue flag and the catch-up's transaction date) is then a day or two away from the bank's. Incomes already have a weekend rule ('none', 'before', 'after', 'nearest'); subscriptions have none.
+  - Related: R-ACCOUNT-300, D-420, D-422
+  - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), recorded, 2026-11-16
 
 ## Glossary
 

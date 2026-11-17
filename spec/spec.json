@@ -11372,11 +11372,11 @@
     {
       "id": "D-395",
       "title": "The dashboard counts the period before too",
-      "decision": "transfers_to_do and transfers_overdue (my_budgets) count the manual occurrences still to do of the current period and of the period before it.",
+      "decision": "transfers_to_do and transfers_overdue (get_transfers_to_do, a read of its own since D-494) count the manual occurrences still to do of the current period and of the period before it.",
       "why": "Answer to Q-222 (coordinator decision): a transfer left undone at the end of a period must not vanish from the dashboard the day the salary arrives.",
       "rejected": [],
       "status": "accepted",
-      "related": ["Q-222", "R-ACCOUNT-241"],
+      "related": ["Q-222", "R-ACCOUNT-241", "D-494"],
       "source": [
         "owner-request: coordinator, independent review of the step 7 database (79afb45), 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
@@ -12590,6 +12590,21 @@
       "related": ["D-421", "R-ACCOUNT-300", "R-ACCOUNT-315"],
       "source": [
         "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), C3, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-494",
+      "title": "The dashboard's transfer counts are a read of their own",
+      "decision": "transfers_to_do and transfers_overdue are no longer columns of my_budgets: get_transfers_to_do(p_budget_id) answers them for a member (one row; no catch-up). my_budgets, read on every page and after every write, no longer computes two periods' plan for every budget the user belongs to. No screen read them yet.",
+      "why": "At the documented limits my_budgets took about 100 ms, 82 of them the transfer counts, also when they were not selected (the screens select every column).",
+      "rejected": [
+        "Keeping the columns and making the plan cheaper: the plan of two periods for every budget a user belongs to stays the dominant cost of a read made on every page."
+      ],
+      "status": "accepted",
+      "related": ["D-395", "R-ACCOUNT-241"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S6, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
     }
@@ -13843,6 +13858,16 @@
         "code: supabase/migrations/20261120100000_money_flow.sql"
       ],
       "resolvedBy": "D-490"
+    },
+    {
+      "id": "Q-261",
+      "question": "Should a fixed-day planned transfer follow a weekend rule, as a bank runs a standing order due on a Saturday or Sunday on the next (or previous) working day?",
+      "context": "Fixed-day transfers have no weekend rule (R-ACCOUNT-300): an order on the 22nd is planned on Sunday 22 November 2026, while the bank runs it on Monday 23 November. The due date (and so the overdue flag and the catch-up's transaction date) is then a day or two away from the bank's. Incomes already have a weekend rule ('none', 'before', 'after', 'nearest'); subscriptions have none.",
+      "status": "open",
+      "related": ["R-ACCOUNT-300", "D-420", "D-422"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), recorded, 2026-11-16"
+      ]
     }
   ]
 }

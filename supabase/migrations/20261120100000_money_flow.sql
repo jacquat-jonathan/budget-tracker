@@ -4463,13 +4463,30 @@ create or replace view public.my_budgets with (security_invoker = true) as
     (select pg_catalog.count(*)::integer from public.transactions as t
      where t.budget_id = b.id and t.review_state = 'to_review') as to_review,
     (select c.id from public.categories as c where c.budget_id = b.id and c.is_to_categorise and c.end_seq is null) as to_categorise_category_id,
-    coalesce(d.to_do, 0) as transfers_to_do,
-    coalesce(d.overdue, 0) as transfers_overdue,
     -- D-392: the earliest date the budget accepts (the first period's start; index lookup)
     (select p.start_date from public.periods as p where p.budget_id = b.id order by p.seq limit 1) as first_period_start
   from public.budgets as b
-  join public.budget_members as m on m.budget_id = b.id and m.user_id = (select auth.uid())
-  left join lateral private.transfers_to_do(b.id) as d on true;
+  join public.budget_members as m on m.budget_id = b.id and m.user_id = (select auth.uid());
+
+-- S6, R-ACCOUNT-241, D-494: the dashboard's transfer counts, a read of their own (my_budgets is read
+-- on every page and after every write; these need the plan of two periods). Member; no catch-up.
+create function public.get_transfers_to_do(p_budget_id uuid)
+returns table (transfers_to_do integer, transfers_overdue integer)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not private.is_budget_member(p_budget_id) then
+    raise exception 'budget_not_found' using errcode = 'P0001';
+  end if;
+  return query select coalesce(d.to_do, 0), coalesce(d.overdue, 0)
+               from (select 1) as one left join private.transfers_to_do(p_budget_id) as d on true;
+end;
+$$;
+revoke all on function public.get_transfers_to_do(uuid) from public, anon, authenticated;
+grant execute on function public.get_transfers_to_do(uuid) to authenticated;
 
 create or replace view public.transaction_list with (security_invoker = true) as
   select

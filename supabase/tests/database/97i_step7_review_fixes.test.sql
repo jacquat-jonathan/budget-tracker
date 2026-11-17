@@ -438,6 +438,19 @@ select is((select max(created_at_once_count) from public.preview_create_transfer
              1000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('c3_cat'))), 0,
   'R-ACCOUNT-315: with neither, nothing at once');
 
+-- ===========================================================================
+-- S6: the dashboard's transfer counts are a read of their own, for members only (D-494)
+-- ===========================================================================
+select pg_temp.day('2026-11-26', 'ivan');
+select throws_ok(format($$select * from public.get_transfers_to_do(%L)$$, tests.id('c3')), 'P0001', 'budget_not_found',
+  'R-ACCOUNT-241: another user cannot read a budget''s transfers to do');
+select tests.authenticate_as_anon();
+select throws_ok(format($$select * from public.get_transfers_to_do(%L)$$, tests.id('c3')), '42501', null,
+  'R-ACCOUNT-241: nor can an anonymous visitor');
+select pg_temp.day('2026-11-26');
+select results_eq(format($$select transfers_to_do, transfers_overdue from public.get_transfers_to_do(%L)$$, tests.id('c3')),
+  $$values (0, 0)$$, 'R-ACCOUNT-241: a member reads them (no manual transfer here)');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;
