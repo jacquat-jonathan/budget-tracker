@@ -66,7 +66,8 @@ function AmountTable({
         {item.header}
       </th>
       {item.cells.map((content, index) => (
-        <td key={index} role="cell" className={cell}>
+        // An empty cell (a total that has no figure in this column) is no line of a row block.
+        <td key={index} role="cell" className={cn(cell, content === '' && 'max-sm:hidden')}>
           <span className="text-xs font-normal text-muted-foreground sm:hidden">
             {columns[index]?.label}
           </span>

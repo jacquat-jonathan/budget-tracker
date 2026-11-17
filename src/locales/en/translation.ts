@@ -51,7 +51,8 @@ const core = {
         'How your periods compare: the trend, each category over time, and any two side by side.',
     },
     moneyFlow: {
-      description: 'Where the money of a period comes from and where the plan sends it.',
+      description:
+        'Where the money of a period comes from and where it goes, by the plan or as it happened.',
     },
     accounts: { description: 'The accounts your household keeps money in.' },
     transfers: {

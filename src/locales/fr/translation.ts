@@ -53,7 +53,8 @@ const core: Omit<Translation, LazyKey> = {
         'Comment vos périodes se comparent : la tendance, chaque catégorie au fil du temps, et deux périodes côte à côte.',
     },
     moneyFlow: {
-      description: 'D’où vient l’argent d’une période et où le plan l’envoie.',
+      description:
+        'D’où vient l’argent d’une période et où il va, selon le plan ou tel que cela s’est passé.',
     },
     accounts: { description: 'Les comptes sur lesquels votre ménage garde son argent.' },
     transfers: {
