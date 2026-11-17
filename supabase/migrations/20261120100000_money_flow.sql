@@ -1062,7 +1062,8 @@ begin
         return query select d, least(d + p_offset, p_end), false, false
                      from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on, v_switched + 1),
                                                    p_end) as d
-                     where d is distinct from p_pay_key;
+                     -- the period's own salary is not counted twice (when it is the payday of its key)
+                     where not (d = p_pay_key and abs(p_pay_key - p_start) < private.limit_projection_min_days());
       end if;
     end if;
   end if;
@@ -1072,7 +1073,7 @@ $$;
 -- The keys one transfer's terms give in one period, before any key is given to an earlier
 -- period (no row when the transfer is not in force there).
 create function private.transfer_raw_keys(p_transfer_id uuid, p_seq integer)
-returns table (occurrence_date date, kind public.transfer_occurrence_kind, start_date date)
+returns table (occurrence_date date, kind public.transfer_occurrence_kind, income_id uuid)
 language sql
 stable
 set search_path = ''
@@ -1080,7 +1081,7 @@ as $$
   select o.occurrence_date,
          case when v.schedule = 'day_of_month' then 'fixed_day' when o.from_pay_key then 'payday'
               else 'income_payday' end::public.transfer_occurrence_kind,
-         p.start_date
+         v.income_id
   from public.transfers as t
   join public.periods as p on p.budget_id = t.budget_id and p.seq = p_seq
   cross join lateral (
@@ -1142,25 +1143,28 @@ begin
       and (p_transfer_id is null or t.id = p_transfer_id)
       and (not p_manual_only or not v.is_automatic)
   ) as k
-  -- R-ACCOUNT-421 (D-560): the same payday given by two periods, a period's salary keyed d and a
-  -- chosen income's pay date d (the transfer moved between its chosen income and the primary
-  -- one), is one occurrence, listed by the earlier period; only when that salary came within the
-  -- projection's 15 days of its scheduled date d (otherwise it was another salary, an extra one in
-  -- the month: two paydays, two occurrences, two kinds).
+  -- R-ACCOUNT-421 (D-560): the same payday given by two periods (an income's salary that started
+  -- a period, keyed d, and that same income's pay date d in another period, where it was not the
+  -- primary: the income became or stopped being the primary) is one occurrence, listed by the
+  -- earlier period; only when that salary came within the projection's 15 days of d (otherwise it
+  -- was another salary, an extra one in a month: two paydays, two occurrences, two kinds).
   -- a period's salary keyed before its start (it came late), which the earlier period containing
-  -- its scheduled date gave first as a chosen income's pay date
+  -- its scheduled date gave first as that income's own pay date
   where not (k.from_pay_key and k.occurrence_date < k.start_date
              and k.start_date - k.occurrence_date < private.limit_projection_min_days()
              and exists (select 1 from public.periods as x
                          where x.budget_id = p_budget_id and x.start_date <= k.occurrence_date
                            and x.end_date >= k.occurrence_date and x.seq < k.seq
                            and exists (select 1 from private.transfer_raw_keys(k.transfer_id, x.seq) as r
-                                       where r.occurrence_date = k.occurrence_date and r.kind = 'income_payday')))
-    -- a chosen income's pay date that an earlier period's salary (it came early) has as its key
+                                       where r.occurrence_date = k.occurrence_date and r.kind = 'income_payday'
+                                         and r.income_id = private.primary_income_at(p_budget_id, k.seq))))
+    -- an income's own pay date that an earlier period's salary of that income (it came early) has as
+    -- its key
     and not (not k.from_pay_key and k.schedule = 'pay_date'
              and exists (select 1 from public.periods as y
                          where y.budget_id = p_budget_id and y.pay_key = k.occurrence_date and y.seq < k.seq
                            and y.pay_key - y.start_date < private.limit_projection_min_days()
+                           and private.primary_income_at(p_budget_id, y.seq) = k.income_id
                            and exists (select 1 from private.transfer_raw_keys(k.transfer_id, y.seq) as r
                                        where r.occurrence_date = k.occurrence_date and r.kind = 'payday')));
 end;

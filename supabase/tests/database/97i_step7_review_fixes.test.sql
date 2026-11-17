@@ -542,8 +542,9 @@ select is(public.remove_income(tests.id('nd_inc'), (select revision from public.
 select pg_temp.day('2026-11-24');
 select public.ensure_periods(tests.id('nd'));
 select is(pg_temp.txs(tests.id('nd_t')), '2026-10-24', 'R-ACCOUNT-311: an occurrence not yet due when the income ended is not made');
--- a scheduled pay date lying in the period before (a late salary) loses its key to that period's
--- chosen income paid that day (D-420, D-490)
+-- a scheduled pay date lying in the period before (a late salary), where the transfer followed a
+-- chosen income paid that day: two incomes, two paydays (R-ACCOUNT-421 as amended by D-560: the
+-- same payday is one income's salary and its own pay date; it was one occurrence before)
 select pg_temp.day('2026-11-25');
 select pg_temp.budget('lk');
 select tests.remember('lk_inc', public.add_income(tests.id('lk'), 'Partner', 300000, 25, 'none', null, tests.id('lk_p1')));
@@ -557,9 +558,9 @@ select lives_ok(format($$select * from public.update_transfer(%L, %s, p_clear_in
                        tests.id('lk_t'), (select revision from public.transfers where id = tests.id('lk_t')), (pg_temp.cur('lk')).id),
   'R-ACCOUNT-071: (from the late salary''s period the transfer follows the primary, keyed 25 November)');
 select tests.clear_authentication();
-select is((select string_agg(pl.start_date::text, ',') from private.transfer_plan_range(tests.id('lk'), tests.id('lk_t'), 1, 9) as pl
-           where pl.occurrence_date = '2026-11-25'), '2026-10-25',
-  'R-ACCOUNT-301: the 25th of November is planned once, by the period containing it, where the partner was paid that day');
+select is((select string_agg(pl.start_date::text, ',' order by pl.start_date) from private.transfer_plan_range(tests.id('lk'), tests.id('lk_t'), 1, 9) as pl
+           where pl.occurrence_date = '2026-11-25'), '2026-10-25,2026-11-28',
+  'R-ACCOUNT-461: key 25 Nov twice: the partner''s 25 Nov in the period containing it, the late salary of 28 Nov in its own');
 select tests.authenticate_as('iris');
 
 -- a primary switch to an income with the same projected end still looks at the transfers that
