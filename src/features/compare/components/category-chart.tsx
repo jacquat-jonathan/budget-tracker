@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CartesianGrid, Line, LineChart, ReferenceArea, XAxis, YAxis } from 'recharts'
 
@@ -52,7 +53,11 @@ export function CategoryChart({
     period,
     ...Object.fromEntries(drawn.map((item) => [item.key, item.line.spent[index] ?? 0])),
   }))
-  const values = valueTicks([0, ...drawn.flatMap((item) => item.line.spent)])
+  const axisFor = useCallback(
+    (from: number, to: number) =>
+      valueTicks([0, ...drawn.flatMap((item) => item.line.spent.slice(from, to))]),
+    [drawn],
+  )
   const labels = periodLabels(periods)
   const ticks = new Map(
     periods.map((period, index) => [
@@ -86,119 +91,121 @@ export function CategoryChart({
         count={periods.length}
         minBand={MIN_BAND}
         height={HEIGHT}
-        axis={values}
+        axisFor={axisFor}
         name={name}
       >
-        <ChartContainer
-          config={config}
-          className="aspect-auto w-full"
-          style={{ height: HEIGHT }}
-          role="img"
-          aria-label={name}
-          data-testid="category-chart"
-        >
-          <LineChart
-            data={data}
-            margin={{ top: PLOT_TOP, right: 8, bottom: 0, left: 8 }}
-            accessibilityLayer={false}
+        {(values) => (
+          <ChartContainer
+            config={config}
+            className="aspect-auto w-full"
+            style={{ height: HEIGHT }}
+            role="img"
+            aria-label={name}
+            data-testid="category-chart"
           >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="id"
-              tickLine={false}
-              axisLine={false}
-              height={X_AXIS_HEIGHT}
-              interval={0}
-              padding={{ left: 8, right: 8 }}
-              tick={<PeriodTick labels={ticks} />}
-            />
-            <YAxis
-              hide
-              ticks={values.ticks}
-              domain={[values.ticks[0] ?? 0, values.ticks.at(-1) ?? 0]}
-              allowDataOverflow
-            />
-            {live && (
-              <ReferenceArea
-                x1={live.period_id}
-                x2={live.period_id}
-                fill="var(--muted)"
-                fillOpacity={0.6}
-                label={{
-                  value: t('compare.running'),
-                  // The running period is the last one: the word ends at its right edge, never cut.
-                  position: 'insideTopRight',
-                  fontSize: 11,
-                  fill: 'var(--muted-foreground)',
-                  dy: -18,
+            <LineChart
+              data={data}
+              margin={{ top: PLOT_TOP, right: 8, bottom: 0, left: 8 }}
+              accessibilityLayer={false}
+            >
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="id"
+                tickLine={false}
+                axisLine={false}
+                height={X_AXIS_HEIGHT}
+                interval={0}
+                padding={{ left: 8, right: 8 }}
+                tick={<PeriodTick labels={ticks} />}
+              />
+              <YAxis
+                hide
+                ticks={values.ticks}
+                domain={[values.ticks[0] ?? 0, values.ticks.at(-1) ?? 0]}
+                allowDataOverflow
+              />
+              {live && (
+                <ReferenceArea
+                  x1={live.period_id}
+                  x2={live.period_id}
+                  fill="var(--muted)"
+                  fillOpacity={0.6}
+                  label={{
+                    value: t('compare.running'),
+                    // The running period is the last one: the word ends at its right edge, never cut.
+                    position: 'insideTopRight',
+                    fontSize: 11,
+                    fill: 'var(--muted-foreground)',
+                    dy: -18,
+                  }}
+                />
+              )}
+              <ChartTooltip
+                cursor={{ stroke: 'var(--border)' }}
+                content={({ active, payload }) => {
+                  const row = active
+                    ? (payload[0]?.payload as (typeof data)[number] | undefined)
+                    : undefined
+                  if (!row) return null
+                  return (
+                    <div className="grid min-w-44 gap-1.5 rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                      <div className="font-medium tabular-nums">
+                        {t('compare.period', {
+                          start: formatCalendarDate(row.period.start_date),
+                          end: formatCalendarDate(row.period.end_date),
+                        })}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {t('compare.days', { count: row.period.days })}
+                        {row.period.is_current && ` · ${t('compare.runningLong')}`}
+                      </div>
+                      {drawn.map((item) => (
+                        <div key={item.key} className="flex items-center gap-2">
+                          <SlotSwatch slot={item.slot} />
+                          <span className="max-w-40 truncate text-muted-foreground">
+                            {item.line.name}
+                          </span>
+                          <span className="ml-auto font-medium tabular-nums">
+                            {formatMoney((row as Record<string, unknown>)[item.key] as number)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 }}
               />
-            )}
-            <ChartTooltip
-              cursor={{ stroke: 'var(--border)' }}
-              content={({ active, payload }) => {
-                const row = active
-                  ? (payload[0]?.payload as (typeof data)[number] | undefined)
-                  : undefined
-                if (!row) return null
-                return (
-                  <div className="grid min-w-44 gap-1.5 rounded-lg border bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                    <div className="font-medium tabular-nums">
-                      {t('compare.period', {
-                        start: formatCalendarDate(row.period.start_date),
-                        end: formatCalendarDate(row.period.end_date),
-                      })}
-                    </div>
-                    <div className="text-muted-foreground">
-                      {t('compare.days', { count: row.period.days })}
-                      {row.period.is_current && ` · ${t('compare.runningLong')}`}
-                    </div>
-                    {drawn.map((item) => (
-                      <div key={item.key} className="flex items-center gap-2">
-                        <SlotSwatch slot={item.slot} />
-                        <span className="max-w-40 truncate text-muted-foreground">
-                          {item.line.name}
-                        </span>
-                        <span className="ml-auto font-medium tabular-nums">
-                          {formatMoney((row as Record<string, unknown>)[item.key] as number)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )
-              }}
-            />
-            {drawn.map((item) => (
-              <Line
-                key={item.key}
-                dataKey={item.key}
-                type="linear"
-                stroke={SLOT_COLORS[item.slot]}
-                strokeWidth={2}
-                strokeDasharray={SLOT_DASHES[item.slot] || undefined}
-                dot={(props: { cx?: number; cy?: number; index?: number }) => (
-                  <Mark
-                    key={`${item.key}-${props.index ?? 0}`}
-                    kind={SLOT_MARKS[item.slot] ?? 'circle'}
-                    x={props.cx}
-                    y={props.cy}
-                    color={SLOT_COLORS[item.slot] ?? SLOT_COLORS[0]}
-                  />
-                )}
-                activeDot={(props: { cx?: number; cy?: number }) => (
-                  <Mark
-                    kind={SLOT_MARKS[item.slot] ?? 'circle'}
-                    x={props.cx}
-                    y={props.cy}
-                    color={SLOT_COLORS[item.slot] ?? SLOT_COLORS[0]}
-                    size={6}
-                  />
-                )}
-                isAnimationActive={false}
-              />
-            ))}
-          </LineChart>
-        </ChartContainer>
+              {drawn.map((item) => (
+                <Line
+                  key={item.key}
+                  dataKey={item.key}
+                  type="linear"
+                  stroke={SLOT_COLORS[item.slot]}
+                  strokeWidth={2}
+                  strokeDasharray={SLOT_DASHES[item.slot] || undefined}
+                  dot={(props: { cx?: number; cy?: number; index?: number }) => (
+                    <Mark
+                      key={`${item.key}-${props.index ?? 0}`}
+                      kind={SLOT_MARKS[item.slot] ?? 'circle'}
+                      x={props.cx}
+                      y={props.cy}
+                      color={SLOT_COLORS[item.slot] ?? SLOT_COLORS[0]}
+                    />
+                  )}
+                  activeDot={(props: { cx?: number; cy?: number }) => (
+                    <Mark
+                      kind={SLOT_MARKS[item.slot] ?? 'circle'}
+                      x={props.cx}
+                      y={props.cy}
+                      color={SLOT_COLORS[item.slot] ?? SLOT_COLORS[0]}
+                      size={6}
+                    />
+                  )}
+                  isAnimationActive={false}
+                />
+              ))}
+            </LineChart>
+          </ChartContainer>
+        )}
       </ChartFrame>
     </div>
   )

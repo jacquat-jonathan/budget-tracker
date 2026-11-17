@@ -4,7 +4,7 @@ import { createContext } from 'react'
 export const BandContext = createContext<number | null>(null)
 
 /** A day-and-month label needs about this much room, a year below it included. */
-const LABEL_PX = 38
+export const LABEL_PX = 38
 
 /**
  * Which period labels are written, oldest first: every year change always (a year must never

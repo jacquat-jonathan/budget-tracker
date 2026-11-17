@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import {
   periodLabels,
@@ -7,7 +7,8 @@ import {
   SLOT_MARKS,
 } from '@/features/compare/compare-format'
 import { SlotSwatch } from '@/features/compare/components/category-chart'
-import { ChartFrame } from '@/features/compare/components/chart-frame'
+import { ChartFrame, PeriodTick } from '@/features/compare/components/chart-frame'
+import { BandContext } from '@/features/compare/components/chart-ticks'
 
 describe('a difference [R-COMPARE-281]', () => {
   it('has its sign before the currency in both directions', () => {
@@ -87,10 +88,10 @@ describe('a chart wider than its frame [R-COMPARE-282]', () => {
         count={24}
         minBand={24}
         height={272}
-        axis={{ ticks: [0, 500_000], decimals: false }}
+        axisFor={() => ({ ticks: [0, 500_000], decimals: false })}
         name="The trend"
       >
-        <div />
+        {() => <div />}
       </ChartFrame>,
     )
     const frame = screen.getByRole('group', { name: 'The trend' })
@@ -111,13 +112,65 @@ describe('a chart wider than its frame [R-COMPARE-282]', () => {
         count={24}
         minBand={24}
         height={272}
-        axis={{ ticks: [0, 100], decimals: false }}
+        axisFor={() => ({ ticks: [0, 100], decimals: false })}
         name="The trend"
       >
-        <div />
+        {() => <div />}
       </ChartFrame>,
     )
     expect(screen.queryByRole('group', { name: 'The trend' })).not.toBeInTheDocument()
     expect(screen.queryByTestId('chart-scrolls')).not.toBeInTheDocument()
+  })
+
+  it('scales the value axis to the periods in view, and again when scrolled', () => {
+    width = 250
+    // The axis goes up to the last period in view (each period's index in thousands).
+    const axisFor = vi.fn((_from: number, to: number) => ({
+      ticks: [0, to * 100_000],
+      decimals: false,
+    }))
+    render(
+      <ChartFrame count={24} minBand={24} height={272} axisFor={axisFor} name="The trend">
+        {(axis) => <div data-testid="drawn-on">{axis.ticks.join(' ')}</div>}
+      </ChartFrame>,
+    )
+    // Opened on the newest 10 periods: 14 to 23.
+    expect(axisFor).toHaveBeenLastCalledWith(14, 24)
+    expect(screen.getByTestId('value-axis')).toHaveTextContent("CHF024'000")
+    expect(screen.getByTestId('drawn-on')).toHaveTextContent('0 2400000')
+    const frame = screen.getByRole('group', { name: 'The trend' })
+    frame.scrollLeft = 0
+    fireEvent.scroll(frame)
+    expect(axisFor).toHaveBeenLastCalledWith(0, 10)
+    expect(screen.getByTestId('value-axis')).toHaveTextContent("CHF010'000")
+  })
+
+  it('keeps the first and the last period label inside the chart when a period is narrower than a label', () => {
+    const labels = new Map([
+      ['a', { dayMonth: '25.09.', year: null }],
+      ['b', { dayMonth: '25.10.', year: null }],
+      ['c', { dayMonth: '25.11.', year: null }],
+    ])
+    const { container } = render(
+      <BandContext value={20}>
+        <svg>
+          {['a', 'b', 'c'].map((value, index) => (
+            <PeriodTick
+              key={value}
+              x={10 + index * 20}
+              y={0}
+              payload={{ value }}
+              index={index}
+              labels={labels}
+            />
+          ))}
+        </svg>
+      </BandContext>,
+    )
+    const texts = [...container.querySelectorAll('text')]
+    // Only the labels written (one in two at 20 px a period) are drawn; the last ends at the edge.
+    const last = texts.at(-1)
+    expect(last).toHaveAttribute('text-anchor', 'end')
+    expect(last).toHaveAttribute('x', '59')
   })
 })

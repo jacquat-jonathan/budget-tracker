@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Bar,
@@ -195,10 +196,14 @@ export function IncomeSpentChart({
   const { t } = useTranslation()
   const data = points(periods)
   const labels = useTicks(periods)
-  const values = valueTicks([
-    0,
-    ...data.flatMap((point) => [point.income, point.spent, point.planned]),
-  ])
+  const axisFor = useCallback(
+    (from: number, to: number) =>
+      valueTicks([
+        0,
+        ...data.slice(from, to).flatMap((point) => [point.income, point.spent, point.planned]),
+      ]),
+    [data],
+  )
   const first = periods[0]
   const last = periods.at(-1)
   const live = data.find((point) => point.period.is_current)?.id
@@ -216,73 +221,75 @@ export function IncomeSpentChart({
       count={data.length}
       minBand={MIN_BAND}
       height={MAIN_HEIGHT}
-      axis={values}
+      axisFor={axisFor}
       name={name}
     >
-      <ChartContainer
-        config={config}
-        className="aspect-auto w-full"
-        style={{ height: MAIN_HEIGHT }}
-        role="img"
-        aria-label={name}
-        data-testid="trend-chart"
-      >
-        <ComposedChart
-          data={data}
-          margin={{ top: PLOT_TOP, right: 0, bottom: 0, left: 0 }}
-          accessibilityLayer={false}
-          barGap={2}
+      {(values) => (
+        <ChartContainer
+          config={config}
+          className="aspect-auto w-full"
+          style={{ height: MAIN_HEIGHT }}
+          role="img"
+          aria-label={name}
+          data-testid="trend-chart"
         >
-          {axes(values.ticks, labels)}
-          <RunningBand id={live} />
-          <ReferenceLine y={0} stroke="var(--border)" />
-          <ChartTooltip
-            cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-            content={({ active, payload }) => {
-              const point = active ? (payload[0]?.payload as Point | undefined) : undefined
-              return (
-                <Tip
-                  point={point}
-                  rows={
-                    point
-                      ? [
-                          { key: 'income', value: point.income },
-                          { key: 'spent', value: point.spent },
-                          { key: 'planned', value: point.planned },
-                        ]
-                      : []
-                  }
-                />
-              )
-            }}
-          />
-          <Bar
-            dataKey="income"
-            fill="var(--color-income)"
-            maxBarSize={24}
-            radius={[4, 4, 0, 0]}
-            onClick={select}
-            className="cursor-pointer"
-          />
-          <Bar
-            dataKey="spent"
-            fill="var(--color-spent)"
-            maxBarSize={24}
-            radius={[4, 4, 0, 0]}
-            onClick={select}
-            className="cursor-pointer"
-          />
-          <Line
-            dataKey="planned"
-            type="linear"
-            stroke="var(--color-planned)"
-            strokeWidth={2}
-            dot={{ r: 4, stroke: 'var(--card)', strokeWidth: 2, fill: 'var(--color-planned)' }}
-            activeDot={{ r: 5 }}
-            isAnimationActive={false}
-          />
-        </ComposedChart>
-      </ChartContainer>
+          <ComposedChart
+            data={data}
+            margin={{ top: PLOT_TOP, right: 0, bottom: 0, left: 0 }}
+            accessibilityLayer={false}
+            barGap={2}
+          >
+            {axes(values.ticks, labels)}
+            <RunningBand id={live} />
+            <ReferenceLine y={0} stroke="var(--border)" />
+            <ChartTooltip
+              cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
+              content={({ active, payload }) => {
+                const point = active ? (payload[0]?.payload as Point | undefined) : undefined
+                return (
+                  <Tip
+                    point={point}
+                    rows={
+                      point
+                        ? [
+                            { key: 'income', value: point.income },
+                            { key: 'spent', value: point.spent },
+                            { key: 'planned', value: point.planned },
+                          ]
+                        : []
+                    }
+                  />
+                )
+              }}
+            />
+            <Bar
+              dataKey="income"
+              fill="var(--color-income)"
+              maxBarSize={24}
+              radius={[4, 4, 0, 0]}
+              onClick={select}
+              className="cursor-pointer"
+            />
+            <Bar
+              dataKey="spent"
+              fill="var(--color-spent)"
+              maxBarSize={24}
+              radius={[4, 4, 0, 0]}
+              onClick={select}
+              className="cursor-pointer"
+            />
+            <Line
+              dataKey="planned"
+              type="linear"
+              stroke="var(--color-planned)"
+              strokeWidth={2}
+              dot={{ r: 4, stroke: 'var(--card)', strokeWidth: 2, fill: 'var(--color-planned)' }}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        </ChartContainer>
+      )}
     </ChartFrame>
   )
 }
@@ -297,7 +304,11 @@ export function ResultChart({
   const { t } = useTranslation()
   const data = points(periods)
   const labels = useTicks(periods)
-  const values = valueTicks([0, ...data.map((point) => point.result)])
+  const axisFor = useCallback(
+    (from: number, to: number) =>
+      valueTicks([0, ...data.slice(from, to).map((point) => point.result)]),
+    [data],
+  )
   const first = periods[0]
   const last = periods.at(-1)
   const live = data.find((point) => point.period.is_current)?.id
@@ -311,47 +322,49 @@ export function ResultChart({
       count={data.length}
       minBand={MIN_BAND}
       height={RESULT_HEIGHT}
-      axis={values}
+      axisFor={axisFor}
       name={name}
     >
-      <ChartContainer
-        config={config}
-        className="aspect-auto w-full"
-        style={{ height: RESULT_HEIGHT }}
-        role="img"
-        aria-label={name}
-        data-testid="result-chart"
-      >
-        <BarChart
-          data={data}
-          margin={{ top: PLOT_TOP, right: 0, bottom: 0, left: 0 }}
-          accessibilityLayer={false}
+      {(values) => (
+        <ChartContainer
+          config={config}
+          className="aspect-auto w-full"
+          style={{ height: RESULT_HEIGHT }}
+          role="img"
+          aria-label={name}
+          data-testid="result-chart"
         >
-          {axes(values.ticks, labels)}
-          <RunningBand id={live} />
-          <ReferenceLine y={0} stroke="var(--muted-foreground)" />
-          <ChartTooltip
-            cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-            content={({ active, payload }) => {
-              const point = active ? (payload[0]?.payload as Point | undefined) : undefined
-              return (
-                <Tip point={point} rows={point ? [{ key: 'result', value: point.result }] : []} />
-              )
-            }}
-          />
-          <Bar
-            dataKey="result"
-            fill="var(--color-result)"
-            maxBarSize={24}
-            radius={4}
-            className="cursor-pointer"
-            onClick={(payload: unknown) => {
-              const point = (payload as { payload?: Point } | undefined)?.payload
-              if (point) onSelect(point.id)
-            }}
-          />
-        </BarChart>
-      </ChartContainer>
+          <BarChart
+            data={data}
+            margin={{ top: PLOT_TOP, right: 0, bottom: 0, left: 0 }}
+            accessibilityLayer={false}
+          >
+            {axes(values.ticks, labels)}
+            <RunningBand id={live} />
+            <ReferenceLine y={0} stroke="var(--muted-foreground)" />
+            <ChartTooltip
+              cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
+              content={({ active, payload }) => {
+                const point = active ? (payload[0]?.payload as Point | undefined) : undefined
+                return (
+                  <Tip point={point} rows={point ? [{ key: 'result', value: point.result }] : []} />
+                )
+              }}
+            />
+            <Bar
+              dataKey="result"
+              fill="var(--color-result)"
+              maxBarSize={24}
+              radius={4}
+              className="cursor-pointer"
+              onClick={(payload: unknown) => {
+                const point = (payload as { payload?: Point } | undefined)?.payload
+                if (point) onSelect(point.id)
+              }}
+            />
+          </BarChart>
+        </ChartContainer>
+      )}
     </ChartFrame>
   )
 }
