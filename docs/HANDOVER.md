@@ -107,6 +107,31 @@ Smaller findings of the same review, not planned, for the owner to weigh:
 
 ### 2. Screens: findings of a re-check that was stopped part-way
 
+**FIXED** (English and French, with tests; the text below is kept as the record). What was
+done, and what is left for the owner:
+
+- Dropped to-do (Q-357): kept as the owner left it ("from now" is the start of the current
+  period), so the drop is by design; the edit form now says it (`R-ACCOUNT-562`, `D-655`) from the
+  current period's checklist the page already holds: only when the kind changes and unmarked,
+  transaction-less to-dos of the kind left exist. No database change. Not covered: a schedule
+  whose dates move within one kind (a fixed day to another day); the preview still counts only
+  transactions and marks.
+- Wording: the weekend-rule help explains the chosen rule; a payday row beside its due date no
+  longer repeats the date ("2 days after the payday of ... (date)"); the form foot says "nothing
+  dated before today" once (in the preview); a kept mark of a transfer that no longer follows an
+  income says that, and the transactions list says "on the payday of an income" (it does not
+  know the income); the Budget and progress totals say "Includes up to CHF x" when a category is
+  committed above its plan (`R-PROGRESS-533`).
+- Notes: From and To have a placeholder; on the transactions page the rule offer leaves room at
+  the bottom (md and up, while it is shown).
+- Left for the owner, as before: the two "open choices left by the developer" below; changing
+  the password still asks for no current password (an owner decision, not changed). A fixed
+  day's row still says its scheduled date beside an equal due date (not reported, not changed).
+  Browser re-check of the remaining scenarios (early salary, expected pay date, make primary,
+  move start, reopen with marks, dark theme, accessibility scan, large budget) is still open.
+
+Original findings:
+
 The screens re-check had built a household in the browser and compared every press and every
 preview with the database (all agreed: each press changed only its own row; 12 changes of a
 transfer's kind matched their previews; import review by row and in bulk with a refusal
