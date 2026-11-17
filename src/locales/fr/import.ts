@@ -846,6 +846,8 @@ export const importFr: Translation['import'] = {
     forgetBody:
       'La prochaine importation de {{entry}} ({{flag}}) ne propose plus ce qui avait été choisi : elle applique à nouveau le choix par défaut, {{then}}. Les lignes déjà importées ou ignorées restent telles quelles.',
     default: { import: 'l’importer', skip: 'l’ignorer' },
+    forgetBodyOwnTransfer:
+      'La prochaine importation d’un virement entre vos propres comptes sans description ne propose plus ce qui avait été choisi : elle applique à nouveau le choix par défaut, {{then}}. Les lignes déjà importées ou ignorées restent telles quelles.',
     forgotten: 'Choix oublié.',
     alreadyForgotten: 'Ce choix avait déjà été oublié.',
     quoted: '« {{text}} »',

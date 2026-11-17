@@ -401,11 +401,15 @@ export function RememberedChoicesSettings() {
         description={
           forgetting ? (
             <p>
-              {t('import.choices.forgetBody', {
-                entry: entryName(forgetting),
-                flag: flagName(t, forgetting.flag),
-                then: t(`import.choices.default.${defaultOf(forgetting.flag)}`),
-              })}
+              {forgetting.counterparty_key === OWN_TRANSFER_KEY
+                ? t('import.choices.forgetBodyOwnTransfer', {
+                    then: t(`import.choices.default.${defaultOf(forgetting.flag)}`),
+                  })
+                : t('import.choices.forgetBody', {
+                    entry: entryName(forgetting),
+                    flag: flagName(t, forgetting.flag),
+                    then: t(`import.choices.default.${defaultOf(forgetting.flag)}`),
+                  })}
             </p>
           ) : null
         }

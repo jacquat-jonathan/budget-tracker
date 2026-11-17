@@ -284,6 +284,14 @@ describe('remembered choices [R-IMPORT-092] [R-IMPORT-346] [R-IMPORT-367]', () =
     expect(rows[1]).toHaveTextContent('A transfer between your own accounts without a description')
     expect(rows[1]).not.toHaveTextContent('own_transfer')
     expect(screen.getByText(/What the import did by default is not remembered/)).toBeInTheDocument()
+    await userEvent.click(
+      within(rows[1]!).getByRole('button', {
+        name: 'Forget the choice for A transfer between your own accounts without a description',
+      }),
+    )
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent(
+      'The next import of a transfer between your own accounts without a description no longer proposes what was chosen: it applies the default again, skip it.',
+    )
   })
 
   it('forgets one after asking, says what the next import does, and puts the focus on the card', async () => {

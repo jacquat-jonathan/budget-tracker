@@ -813,6 +813,8 @@ export const importEn = {
     forgetBody:
       'The next import of {{entry}} ({{flag}}) no longer proposes what was chosen: it applies the default again, {{then}}. Rows already imported or skipped stay as they are.',
     default: { import: 'import it', skip: 'skip it' },
+    forgetBodyOwnTransfer:
+      'The next import of a transfer between your own accounts without a description no longer proposes what was chosen: it applies the default again, {{then}}. Rows already imported or skipped stay as they are.',
     forgotten: 'Choice forgotten.',
     alreadyForgotten: 'That choice was already forgotten.',
     quoted: '“{{text}}”',
