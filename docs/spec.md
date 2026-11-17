@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-608 rules (597 active, 0 planned), 24 conventions, 378 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
+609 rules (598 active, 0 planned), 24 conventions, 379 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2339,6 +2339,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-422
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-IMPORT-530** In the review, a transaction to review that can take a category (an expense or a refund linked to nothing and not frozen) has a category picker on the row itself: one choice saves the category (update_transaction with every other field as it is) and confirms the row (confirm_import with the revision that answered). Several such rows can be selected and given one category: the rows are sent one after another with the same two calls, with a visible count ("Saving 3 of 12…"); the first refusal stops the run, and the screen says how many were saved and confirmed, at which row it stopped and why (also when only the confirmation was refused), and lists the rows not saved, which stay selected.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-209, R-IMPORT-081, D-633
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/import/components/review-categorise.tsx
 
 ### Accounts and planned transfers (money flow)
 
@@ -7825,6 +7829,21 @@ Related: R-PERIOD-530, D-082, Q-365
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
+### D-633 The review's categories are set with the existing per-row calls, one row after another (accepted)
+
+The row picker and the "one category for several" bar use update_transaction then confirm_import per row, sequentially, never in parallel, stopping at the first refusal. The bulk bar offers the leaves in force now; a row dated where the chosen category is not in force is refused by the database and the run stops there and says so.
+
+**Why:** The household walk-through had 75 rows to categorise through Actions, Edit, Save, Confirm. No call sets a category and confirms in one step, or does so for several rows; inventing one is a database decision (Q-366). Sequential calls keep the count truthful and the stop exact.
+
+**Rejected:**
+
+- Parallel calls: a failure would leave an unknown set saved and the count would not say which.
+- Continuing after a refusal: the brief asks to stop at the first failure.
+
+Related: R-IMPORT-530, Q-366
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -8294,6 +8313,10 @@ Source: owner-request: coordinator brief for the final fix round after the house
 - **Q-365** When reopen_previous_period is called without p_pay_date, should the reopened period end the day before the pay day that did not arrive is next expected (for example a few days after today), rather than at its projection, the day before the next scheduled pay date after today (a month later)?
   - Context: Household walk-through: today 26.01.2027, pay day 25 (nearest), period 4 started 25.01; reopen without a date merged it into period 3, which then ran from 28.12.2026 to 24.02.2027 with "Next pay day 25.02.2027". The contract says the reopened period ends "at its projection when omitted". The screen no longer omits the date (D-632, R-PERIOD-530), so only other clients (or a later screen) meet this; the database side decides whether the default should change or the parameter become required.
   - Related: D-632, R-PERIOD-530, D-082
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+- **Q-366** Should the database offer one call that gives a category to several imported transactions to review and confirms them (for example categorise_imports(p_budget_id, p_category_id, p_transactions: {id, expected_revision}[]) -> {confirmed, refused[]}), all or nothing or per row?
+  - Context: The review's bulk category (R-IMPORT-530) makes two calls per row, one row after another: 75 rows are 150 requests, each taking the budget lock and catching up, and a session that ends half-way leaves a part done (said truthfully on the screen). One call would be faster, atomic or per-row by choice, and could check every row's date against the category once.
+  - Related: R-IMPORT-530, D-633, R-IMPORT-209
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
 ## Glossary

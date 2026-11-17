@@ -341,7 +341,7 @@ const core: Omit<Translation, LazyKey> = {
       invalid_first_date:
         'Cette première date ne convient pas au calendrier (elle doit tomber le jour choisi, au plus dix ans à l’avance).',
       occurrence_required:
-        'Cette période compte plusieurs exécutions de ce virement : choisissez laquelle.',
+        'Cette période compte plusieurs exécutions de ce virement : choisissez laquelle.',
       before_debt_opened:
         'Cette date précède l’ouverture de la dette : remboursements et ajustements commencent à sa date d’ouverture.',
       catching_up:
@@ -1047,11 +1047,11 @@ const core: Omit<Translation, LazyKey> = {
     committedTransfers: '{{amount}} engagés pour des virements planifiés',
     overCommitted: 'Engagé au-delà du prévu',
     overCommittedSubscriptions:
-      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements, pour {{planned}} prévus.',
+      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements, pour {{planned}} prévus.',
     overCommittedTransfers:
-      'Les engagements dépassent le prévu : {{transfers}} de virements planifiés, pour {{planned}} prévus.',
+      'Les engagements dépassent le prévu : {{transfers}} de virements planifiés, pour {{planned}} prévus.',
     overCommittedBoth:
-      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements et {{transfers}} de virements planifiés, pour {{planned}} prévus.',
+      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements et {{transfers}} de virements planifiés, pour {{planned}} prévus.',
   },
   periods: {
     older: 'Périodes plus anciennes…',

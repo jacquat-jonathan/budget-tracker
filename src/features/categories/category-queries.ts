@@ -99,13 +99,18 @@ export function categoryTree(categories: readonly Category[]): CategoryTree {
  * The leaves a transaction dated `date` may use (list_categories_for_date), in display order:
  * read again whenever the date changes (R-TRANSACTION-091).
  */
-export function useCategoriesForDate(budgetId: string, date: string) {
+export function useCategoriesForDate(
+  budgetId: string,
+  date: string,
+  /** False until the list is needed (a picker not opened yet). */
+  wanted = true,
+) {
   const valid = isCalendarDate(date)
   // The budget's "to categorise" category is the import's waiting room: never a choice.
   const hidden = useToCategoriseIds(budgetId)
   const query = useQuery({
     queryKey: budgetKeys.categoriesForDate(budgetId, date),
-    enabled: valid,
+    enabled: valid && wanted,
     queryFn: async (): Promise<CategoryForDate[]> =>
       unwrap(
         await supabase.rpc('list_categories_for_date', { p_budget_id: budgetId, p_date: date }),

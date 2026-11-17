@@ -12,7 +12,7 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
@@ -75,6 +75,11 @@ import {
   ReviewBadge,
   RuleOffer,
 } from '@/features/import/components/review'
+import {
+  ReviewCategorise,
+  ReviewSelectBox,
+  RowCategoryPicker,
+} from '@/features/import/components/review-categorise'
 import {
   TransactionFormDialog,
   type DateRange,
@@ -433,17 +438,24 @@ export function TransactionsPage() {
           }
         />
       ) : (
-        <TransactionList
-          rows={rows}
+        <ReviewTools
+          active={toReviewOnly || importBatchId !== null}
           budgetId={budgetId}
-          inlineAnswers={awaitingOnly}
-          onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
-          onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
-          onAnswer={(transaction, answer) => {
-            if (answer === 'confirm') charges.confirm.mutate(transaction)
-            else setDialog({ kind: 'dismiss', transaction })
-          }}
-        />
+          rows={rows}
+        >
+          <TransactionList
+            rows={rows}
+            budgetId={budgetId}
+            inlineAnswers={awaitingOnly}
+            onEdit={(transaction) => setDialog({ kind: 'edit', transaction })}
+            onDelete={(transaction) => setDialog({ kind: 'delete', transaction })}
+            onAnswer={(transaction, answer) => {
+              if (answer === 'confirm') charges.confirm.mutate(transaction)
+              else setDialog({ kind: 'dismiss', transaction })
+            }}
+            onCategorised={(before, after) => setRuleOffer({ before, after })}
+          />
+        </ReviewTools>
       )}
       {list.hasNextPage && (
         <Button
@@ -720,6 +732,26 @@ function weekday(date: string, language: string): string {
   )
 }
 
+/** The review's category tools around the list, only while the review is shown. */
+function ReviewTools({
+  active,
+  budgetId,
+  rows,
+  children,
+}: {
+  active: boolean
+  budgetId: string
+  rows: Transaction[]
+  children: ReactNode
+}) {
+  if (!active) return children
+  return (
+    <ReviewCategorise budgetId={budgetId} rows={rows}>
+      {children}
+    </ReviewCategorise>
+  )
+}
+
 /** Transactions grouped by day, newest first. */
 function TransactionList({
   rows,
@@ -728,6 +760,7 @@ function TransactionList({
   onEdit,
   onDelete,
   onAnswer,
+  onCategorised,
 }: {
   rows: Transaction[]
   budgetId: string
@@ -736,6 +769,8 @@ function TransactionList({
   onEdit: (transaction: Transaction) => void
   onDelete: (transaction: Transaction) => void
   onAnswer: (transaction: Transaction, answer: 'confirm' | 'dismiss') => void
+  /** An imported row got its category on the row itself (the merchant rule's offer). */
+  onCategorised: (before: Transaction, after: Transaction) => void
 }) {
   const { t, i18n } = useTranslation()
   // R-SUBSCRIPTION-191: after an answer the focus goes to the row now at that place, else to
@@ -794,6 +829,7 @@ function TransactionList({
                 onAnswered={() => {
                   answered.current = rows.indexOf(row)
                 }}
+                onCategorised={onCategorised}
               />
             ))}
           </ul>
@@ -871,6 +907,7 @@ function TransactionRow({
   budgetId,
   inlineAnswers = false,
   onAnswered,
+  onCategorised,
 }: {
   row: Transaction
   /** A payment of an ended debt: it can be looked at, not changed or deleted. */
@@ -882,6 +919,7 @@ function TransactionRow({
   /** The charges awaiting confirmation: both answers on the row itself. */
   inlineAnswers?: boolean
   onAnswered?: () => void
+  onCategorised?: (before: Transaction, after: Transaction) => void
 }) {
   const { t } = useTranslation()
   const linkNote = useLinkNote()
@@ -894,6 +932,7 @@ function TransactionRow({
         : (row.category_name ?? '')
   return (
     <li className="flex items-center gap-3 px-3 py-2.5 sm:px-4" data-testid="transaction-row">
+      <ReviewSelectBox row={row} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <span className="truncate font-medium" dir="auto">
@@ -927,6 +966,7 @@ function TransactionRow({
         </span>
         {budgetId && row.review_state === 'to_review' && (
           <div className="mt-1.5 flex flex-wrap items-center gap-2" data-answer>
+            <RowCategoryPicker budgetId={budgetId} row={row} onSaved={onCategorised} />
             <ConfirmImportButton
               budgetId={budgetId}
               row={row}

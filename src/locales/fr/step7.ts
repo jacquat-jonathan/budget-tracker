@@ -46,7 +46,7 @@ export const accountsFr = {
     kind: 'Type',
     kindPlaceholder: 'Choisir un type',
     kindHelp:
-      'Dans les flux financiers, ce qui reste sur un compte de tous les jours (compte courant, espèces, carte de crédit, autre) est disponible ; ce qui reste sur un compte d’épargne, de troisième pilier, de réserve d’impôts ou de placement est mis de côté.',
+      'Dans les flux financiers, ce qui reste sur un compte de tous les jours (compte courant, espèces, carte de crédit, autre) est disponible ; ce qui reste sur un compte d’épargne, de troisième pilier, de réserve d’impôts ou de placement est mis de côté.',
     bankLabel: 'Banque',
     bankLabelOptional: 'Banque (facultatif)',
     bankLabelPlaceholder: 'La banque ou une courte note',

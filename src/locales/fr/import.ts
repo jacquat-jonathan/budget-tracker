@@ -726,6 +726,36 @@ export const importFr: Translation['import'] = {
     leftToCategorise_other:
       '{{count}} attendent encore une catégorie et restent à passer en revue.',
     cannotConfirm: 'Choisissez d’abord une catégorie, puis confirmez-la.',
+    chooseCategory: 'Choisir une catégorie',
+    categoryNow: 'Catégorie : {{name}}',
+    categoryFor: 'Catégorie de {{row}} : en choisir une l’enregistre et confirme la transaction',
+    categorisedConfirmed: 'Catégorie enregistrée et transaction confirmée.',
+    categorisedNotConfirmed:
+      'La catégorie a été enregistrée, mais la transaction n’a pas été confirmée : {{reason}} Elle reste à vérifier.',
+    bulk: {
+      title: 'Une catégorie pour plusieurs',
+      selectAll_one: 'Sélectionner celle affichée ({{count}})',
+      selectAll_other: 'Sélectionner les {{count}} affichées',
+      selected_one: '{{count}} sélectionnée',
+      selected_other: '{{count}} sélectionnées',
+      selectRow: 'Sélectionner {{row}}',
+      category: 'Catégorie des transactions sélectionnées',
+      apply_one: 'Attribuer la catégorie et confirmer ({{count}})',
+      apply_other: 'Attribuer la catégorie et confirmer ({{count}})',
+      running: 'Enregistrement {{done}} sur {{count}}…',
+      help: 'Chaque transaction sélectionnée reçoit la catégorie et est confirmée, l’une après l’autre. La première refusée arrête la suite : rien n’est changé après elle.',
+      allDone_one: '{{count}} enregistrée et confirmée.',
+      allDone_other: '{{count}} enregistrées et confirmées.',
+      partial_one: '{{saved}} sur {{count}} enregistrée et confirmée',
+      partial_other: '{{saved}} sur {{count}} enregistrées et confirmées',
+      stopped: 'Arrêt à « {{row}} » : {{reason}}',
+      stoppedConfirm:
+        'Arrêt à « {{row}} » : sa catégorie a été enregistrée, mais elle n’a pas été confirmée : {{reason}}',
+      notSaved_one: '{{count}} non enregistrée ni confirmée :',
+      notSaved_other: '{{count}} non enregistrées ni confirmées :',
+      stillSelected:
+        'Elles restent sélectionnées : choisissez une autre catégorie, ou corrigez celle qui a été refusée, puis réessayez.',
+    },
     imported: 'Importée depuis : {{source}}',
     details: 'Du relevé',
     rule: {
