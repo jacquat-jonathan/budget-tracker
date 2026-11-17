@@ -1146,12 +1146,12 @@ begin
   -- R-ACCOUNT-421 (D-560): the same payday given by two periods (an income's salary that started
   -- a period, keyed d, and that same income's pay date d in another period, where it was not the
   -- primary: the income became or stopped being the primary) is one occurrence, listed by the
-  -- earlier period; only when that salary came within the projection's 15 days of d (otherwise it
-  -- was another salary, an extra one in a month: two paydays, two occurrences, two kinds).
+  -- earlier period: always when the salary came late (keyed before its start: that scheduled pay
+  -- date came late), and when it came early only within the projection's 15 days of d (earlier,
+  -- it was another salary, an extra one in a month: two paydays, two occurrences, two kinds).
   -- a period's salary keyed before its start (it came late), which the earlier period containing
   -- its scheduled date gave first as that income's own pay date
   where not (k.from_pay_key and k.occurrence_date < k.start_date
-             and k.start_date - k.occurrence_date < private.limit_projection_min_days()
              and exists (select 1 from public.periods as x
                          where x.budget_id = p_budget_id and x.start_date <= k.occurrence_date
                            and x.end_date >= k.occurrence_date and x.seq < k.seq

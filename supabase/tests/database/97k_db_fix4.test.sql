@@ -638,5 +638,175 @@ select is((select f.not_planned::text || '/' || f.is_negative from public.get_mo
 select results_eq($$select stays, spendable from pg_temp.flow('fr') where row_kind = 'not_assigned'$$,
   $$values (600000::bigint, true)$$, 'R-ACCOUNT-423: the incomes paid into no account are spendable');
 
+
+-- ===========================================================================
+-- The reviewer's surviving breaks (re-check 4), transfers
+-- ===========================================================================
+-- the chosen income ended in the period (D-492's branch): the first counted day is compared with
+-- the salary's day, never the key (R-ACCOUNT-420), and the salary the transfer was made from counts
+select pg_temp.day('2026-11-20', 'kit');
+select pg_temp.budget('ea');
+select public.record_early_pay_date(tests.id('ea'), (pg_temp.cur('ea')).id, (pg_temp.cur('ea')).revision, '2026-11-20');
+select tests.remember('ea_par', public.add_income(tests.id('ea'), 'Partner', 300000, 10, 'none', p_from_period_id => tests.id('ea_p1')));
+select pg_temp.day('2026-11-22', 'kit');
+select tests.remember('ea_t', (select id from public.create_transfer(tests.id('ea'), 'After the partner', tests.id('ea_main'), tests.id('ea_sav'),
+  1000, 'pay_date', p_offset_days => 5, p_income_id => tests.id('ea_par'), p_is_automatic => true, p_category_id => tests.id('ea_cat'))));
+select tests.model_made_from_today(tests.id('ea_t'));
+select is(public.remove_income(tests.id('ea_par'), (select revision from public.incomes where id = tests.id('ea_par'))), 'ended',
+  'R-ACCOUNT-420: (the partner''s income ends today, in the period it was chosen in)');
+select is((select rows from pg_temp.rows('ea', tests.id('ea_t')) where start_date = '2026-11-20'), '',
+  'R-ACCOUNT-420: the salary came on 20 Nov (keyed 25 Nov), before the transfer was made on 22 Nov: no occurrence, also where its chosen income ended');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('ea')), 'R-ACCOUNT-420: the model agrees (ended, A)');
+-- made from its period while the salary was late (keyed 25 Nov, came 28 Nov), the income ended,
+-- then the salary recorded earlier (23 Nov): it is the salary the transfer was made from
+select pg_temp.day('2026-11-28', 'kit');
+select pg_temp.budget('eb');
+select tests.remember('eb_par', public.add_income(tests.id('eb'), 'Partner', 300000, 10, 'none', p_from_period_id => tests.id('eb_p1')));
+select public.move_period_start((pg_temp.cur('eb')).id, (pg_temp.cur('eb')).revision, '2026-11-28');
+select tests.remember('eb_t', (select id from public.create_transfer(tests.id('eb'), 'After the partner', tests.id('eb_main'), tests.id('eb_sav'),
+  1000, 'pay_date', p_offset_days => 10, p_income_id => tests.id('eb_par'), p_is_automatic => true, p_category_id => tests.id('eb_cat'),
+  p_from_period_id => (pg_temp.cur('eb')).id)));
+select is(public.remove_income(tests.id('eb_par'), (select revision from public.incomes where id = tests.id('eb_par'))), 'ended',
+  'R-ACCOUNT-420: (the partner''s income ends on 28 Nov)');
+select public.move_period_start((pg_temp.cur('eb')).id, (pg_temp.cur('eb')).revision, '2026-11-23');
+select is((select rows from pg_temp.rows('eb', tests.id('eb_t')) where start_date = '2026-11-23'), '2026-11-25/2026-12-03/upcoming',
+  'R-ACCOUNT-420: recorded on 23 Nov, before its first counted day, the salary it was made from still counts (its key), where its income ended');
+
+-- the same payday late by more than 15 days: still one (the new primary's late salary)
+select pg_temp.day('2026-12-05', 'kit');
+select pg_temp.house('lt', 25, 10);
+select pg_temp.switch('lt', '_ben');
+select pg_temp.day('2026-12-30', 'kit');
+select public.ensure_periods(tests.id('lt'));
+select public.move_period_start((pg_temp.cur('lt')).id, (pg_temp.cur('lt')).revision, '2026-12-30');
+select is(pg_temp.since(tests.id('lt_tb'), '2026-11-01'), '2026-11-10,2026-12-10',
+  'R-ACCOUNT-421: Ben''s December salary came 20 days late (30 Dec, keyed 10 Dec): one transfer, on his 10 Dec, not two');
+select is_empty(format($$select * from tests.household_violations(%L)$$, tests.id('lt')), 'R-ACCOUNT-461: the household properties hold (late)');
+
+-- marks on the later of two rows with one key: an early salary (5 Nov, keyed 25 Nov) and a fixed
+-- day 25 from the next period (R-ACCOUNT-460)
+select pg_temp.day('2026-11-05', 'kit');
+select pg_temp.budget('lm');
+select tests.remember('lm_t', pg_temp.new_transfer('lm', 'By hand', false, tests.id('lm_p1')));
+select public.record_early_pay_date(tests.id('lm'), (pg_temp.cur('lm')).id, (pg_temp.cur('lm')).revision, '2026-11-05');
+select pg_temp.day('2026-11-26', 'kit');
+select public.ensure_periods(tests.id('lm'));
+select public.update_transfer(tests.id('lm_t'), pg_temp.rev(tests.id('lm_t')), p_schedule => 'day_of_month', p_day_of_month => 25,
+  p_first_date => '2026-11-25');
+select results_eq(format($$select transfers_to_do, transfers_overdue from public.get_transfers_to_do(%L)$$, tests.id('lm')),
+  $$values (2, 2)$$, 'R-ACCOUNT-460: (both rows with key 25 Nov are to do, each counted)');
+select public.mark_transfer_done(tests.id('lm_t'), (pg_temp.cur('lm')).id, 0, '2026-11-25', p_occurrence_kind => 'fixed_day');
+select results_eq(
+  $$select start_date, rows from pg_temp.rows('lm', tests.id('lm_t')) where start_date >= '2026-11-05'$$,
+  $$values ('2026-11-05'::date, '2026-11-25/2026-11-05/to_do'), ('2026-11-25', '2026-11-25/2026-11-25/done[f]')$$,
+  'R-ACCOUNT-460: done on the later row marks that row only');
+select results_eq(format($$select transfers_to_do, transfers_overdue from public.get_transfers_to_do(%L)$$, tests.id('lm')),
+  $$values (1, 1)$$, 'R-ACCOUNT-460: the dashboard counts the earlier row still to do');
+select public.delete_transaction(x.id, x.revision) from public.transaction_list as x where x.transfer_id = tests.id('lm_t');
+select results_eq(
+  $$select start_date, rows from pg_temp.rows('lm', tests.id('lm_t')) where start_date >= '2026-11-05'$$,
+  $$values ('2026-11-05'::date, '2026-11-25/2026-11-05/to_do'), ('2026-11-25', '2026-11-25/2026-11-25/to_do[f]')$$,
+  'R-ACCOUNT-460: deleting its transaction puts the later row back to do, the earlier untouched');
+select public.mark_transfer_done(tests.id('lm_t'), pg_temp.period_at('lm', '2026-11-05'), 0, '2026-11-06');
+select is(public.end_transfer(tests.id('lm_t'), pg_temp.rev(tests.id('lm_t')), (pg_temp.cur('lm')).id), 'ended',
+  'R-ACCOUNT-460: (ended from the period of the later row)');
+select results_eq(
+  $$select start_date, rows from pg_temp.rows('lm', tests.id('lm_t')) where start_date >= '2026-11-05'$$,
+  $$values ('2026-11-05'::date, '2026-11-25/2026-11-05/done'), ('2026-11-25', '')$$,
+  'R-ACCOUNT-460: ending it keeps the earlier row''s mark, still planned, and lists nothing for the later period');
+-- automatic: not done on the later row leaves the earlier row's transaction
+select pg_temp.day('2026-11-05', 'kit');
+select pg_temp.budget('la');
+select tests.remember('la_t', pg_temp.new_transfer('la', 'Automatic', true, tests.id('la_p1')));
+select public.record_early_pay_date(tests.id('la'), (pg_temp.cur('la')).id, (pg_temp.cur('la')).revision, '2026-11-05');
+select pg_temp.day('2026-11-26', 'kit');
+select public.ensure_periods(tests.id('la'));
+select public.update_transfer(tests.id('la_t'), pg_temp.rev(tests.id('la_t')), p_schedule => 'day_of_month', p_day_of_month => 25,
+  p_first_date => '2026-11-25');
+select is(pg_temp.since(tests.id('la_t'), '2026-11-01'), '2026-11-05,2026-11-25', 'R-ACCOUNT-460: (setup) both recorded');
+select public.mark_transfer_not_done(tests.id('la_t'), (pg_temp.cur('la')).id, 1, '2026-11-25', 'fixed_day');
+select is(pg_temp.since(tests.id('la_t'), '2026-11-01'), '2026-11-05',
+  'R-ACCOUNT-460: not done on the later row removes its transaction only');
+select is(pg_temp.marks(tests.id('la_t')) like '%2026-11-25/payday/done/2026-11-05/2026-11-05;2026-11-25/fixed_day/not_done/-/-', true,
+  'R-ACCOUNT-460: each row keeps its own mark');
+
+-- R-ACCOUNT-424: a reopen that ends a transfer one period earlier keeps the catch-up's own mark of
+-- an occurrence still planned (it is not frozen)
+select pg_temp.day('2026-11-26', 'kit');
+select pg_temp.budget('rk');
+select tests.remember('rk_t', pg_temp.new_transfer('rk', 'Standing', true, tests.id('rk_p1')));
+select is(public.end_transfer(tests.id('rk_t'), pg_temp.rev(tests.id('rk_t')), (pg_temp.cur('rk')).id), 'ended',
+  'R-ACCOUNT-424: (ended from the current period)');
+select public.reopen_previous_period(tests.id('rk'), (pg_temp.cur('rk')).id, (pg_temp.cur('rk')).revision, '2026-11-28');
+select results_eq(
+  format($$select occurrence_date, by_catch_up from public.transfer_occurrences where transfer_id = %L order by 1$$, tests.id('rk_t')),
+  $$values ('2026-09-25'::date, true), ('2026-10-25', false), ('2026-11-25', false)$$,
+  'R-ACCOUNT-424: the reopen keeps the mark of the period the end now removes, and leaves the one still planned to the catch-up');
+
+-- ===========================================================================
+-- The reviewer's surviving breaks, import (R-IMPORT-420, D-452, D-522, D-523)
+-- ===========================================================================
+create function pg_temp.refusal(q text) returns text language plpgsql as $$
+declare
+  v_detail text;
+begin
+  execute q;
+  return 'no error';
+exception when others then
+  get stacked diagnostics v_detail = pg_exception_detail;
+  return sqlerrm || coalesce(' ' || nullif(v_detail, ''), '');
+end $$;
+create function pg_temp.row1(n integer, d date default '2026-11-10') returns jsonb language sql as $$
+  select jsonb_build_array(jsonb_build_object('date', d, 'amount', n, 'direction', 'debit', 'description', 'Shop ' || n)) $$;
+select pg_temp.day('2026-11-16', 'kit');
+select tests.remember('im', public.create_budget('Import survivors', 'Salary', 600000, 25, 'none', '2026-09-01'));
+-- the 2001st import kept is refused naming imports_kept (2 kept here)
+select tests.clear_authentication();
+create or replace function private.limit_import_batches_kept() returns integer language sql immutable set search_path = '' as $f$ select 2 $f$;
+select pg_temp.day('2026-11-16', 'kit');
+select public.import_transactions(tests.id('im'), gen_random_uuid(), 1, pg_temp.row1(9001), 'csv');
+select public.import_transactions(tests.id('im'), gen_random_uuid(), 1, pg_temp.row1(9002), 'csv');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, gen_random_uuid(), 1, %L, 'csv')$$, tests.id('im'),
+  pg_temp.row1(9003))), 'import_limit_reached {"limit" : "imports_kept"}',
+  'R-IMPORT-420: beyond the imports kept, a new import is refused naming imports_kept in its detail');
+select tests.clear_authentication();
+create or replace function private.limit_import_batches_kept() returns integer language sql immutable set search_path = '' as $f$ select 2000 $f$;
+select pg_temp.day('2026-11-16', 'kit');
+-- import anyway: an id of another batch, the same id twice, an unknown id alone
+create temp table imk on commit drop as
+  select * from public.import_transactions(tests.id('im'), gen_random_uuid(), 1, pg_temp.row1(9001), 'csv');
+grant select on imk to authenticated;
+select is((select action from imk), 'skip_duplicate', 'D-523: (setup) a duplicate is skipped and kept');
+select tests.clear_authentication();
+select tests.remember('imk_row', (select id from public.import_skipped_rows where budget_id = tests.id('im') limit 1));
+select tests.remember('imk_batch', (select batch_id from public.import_skipped_rows where budget_id = tests.id('im') limit 1));
+select tests.remember('imk_other', (select id from public.import_batches where budget_id = tests.id('im') and id <> tests.id('imk_batch')
+                                     order by created_at limit 1));
+select pg_temp.day('2026-11-16', 'kit');
+select results_eq(
+  format($$select action, reason, valid from public.import_skipped_anyway(%L, array[%L::uuid])$$, tests.id('imk_other'), tests.id('imk_row')),
+  $$values ('not_kept'::text, 'not_kept'::text, false)$$,
+  'D-523: a skipped row of another batch is not kept by this one: one not_kept row');
+select is((select count(*)::integer from public.import_skipped_anyway(tests.id('imk_batch'),
+                                                                      array['00000000-0000-0000-0000-00000000abcd'::uuid,
+                                                                            '00000000-0000-0000-0000-00000000abcd'::uuid])),
+  1, 'D-523: an id sent twice answers one row');
+select results_eq(
+  format($$select action, reason, valid from public.import_skipped_anyway(%L, array[gen_random_uuid()])$$, tests.id('imk_batch')),
+  $$values ('not_kept'::text, 'not_kept'::text, false)$$,
+  'D-523: an unknown id alone (nothing imported) still answers its not_kept row');
+-- a written part whose answer is forgotten: chunk_expired (D-522)
+select tests.remember('imw', gen_random_uuid());
+select public.import_transactions(tests.id('im'), tests.id('imw'), 1, pg_temp.row1(9101), 'csv');
+select tests.clear_authentication();
+create or replace function private.limit_import_answers_kept() returns integer language sql immutable set search_path = '' as $f$ select 0 $f$;
+select pg_temp.day('2026-11-16', 'kit');
+select public.import_transactions(tests.id('im'), tests.id('imw'), 2, pg_temp.row1(9102), 'csv');
+select is(pg_temp.refusal(format($$select public.preview_import_part(%L, %L, 1, %L)$$, tests.id('im'), tests.id('imw'), pg_temp.row1(9101))),
+  'chunk_expired', 'D-522: previewing a written part whose answer is no longer kept answers chunk_expired');
+select tests.clear_authentication();
+create or replace function private.limit_import_answers_kept() returns integer language sql immutable set search_path = '' as $f$ select 50 $f$;
+select pg_temp.day('2026-11-16', 'kit');
+
 select * from finish();
 rollback;

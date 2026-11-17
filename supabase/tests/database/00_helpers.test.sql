@@ -1093,7 +1093,8 @@ $$;
 
 -- The same payday given by two periods (an income's salary that started a period, keyed d, and
 -- that income's own pay date d) is one occurrence of the earlier period, when that salary came
--- within 15 days of d; otherwise both are occurrences, of two kinds (R-ACCOUNT-421, R-ACCOUNT-460).
+-- late, or early within 15 days of d; otherwise both are occurrences, of two kinds (R-ACCOUNT-421,
+-- R-ACCOUNT-460).
 drop function if exists tests.naive_occurrences(uuid);
 create or replace function tests.naive_occurrences(budget uuid)
 returns table (transfer_id uuid, seq integer, period_id uuid, occurrence_date date, due_date date,
@@ -1106,7 +1107,7 @@ as $$
   with c as materialized (select * from tests.naive_occurrence_candidates(budget))
   select g.transfer_id, g.seq, g.period_id, g.occurrence_date, g.due_date, g.is_automatic, g.category_id, g.amount, g.kind
   from c as g
-  where not (g.kind = 'payday' and g.occurrence_date < g.period_start and g.period_start - g.occurrence_date < 15
+  where not (g.kind = 'payday' and g.occurrence_date < g.period_start
              and exists (select 1 from c as e where e.transfer_id = g.transfer_id and e.occurrence_date = g.occurrence_date
                                                 and e.kind = 'income_payday' and e.seq < g.seq
                                                 and e.income_id = g.primary_income))
@@ -1256,7 +1257,8 @@ $$;
 --    weekend rule) from the first counted day; in a period X stopped being the primary in (a
 --    switch made there), its scheduled pay dates after the switch day too. A scheduled date and a
 --    period start of X are the same salary when the period's key (the model's) is that date and
---    the salary came within 15 days of it (counted once, by the earlier period). Bounds: only
+--    the salary came late, or early within 15 days of it (counted once, by the earlier period); a
+--    salary that came 15 days or more before its key is another salary. Bounds: only
 --    periods where the transfer is in force and its terms there name X; X in force there, or
 --    ended there on a known day (its dates due by then); an income deleted outright is no longer
 --    named (the transfer follows the primary); a correction changes the terms of its periods.
@@ -1358,7 +1360,7 @@ begin
     -- salary within 15 days of it): once, by the earlier period
     delete from hh_salary as a
     where exists (select 1 from hh_salary as b
-                  where b.seq < a.seq and ((a.origin = 'start' and b.origin = 'scheduled' and b.d = a.key and abs(a.start - a.key) < 15)
+                  where b.seq < a.seq and ((a.origin = 'start' and b.origin = 'scheduled' and b.d = a.key and a.key < a.start)
                                            or (a.origin = 'scheduled' and b.origin = 'start' and b.key = a.d and abs(b.start - b.key) < 15)));
     select pg_catalog.array_agg(s.due::text order by s.due) into v_exp from hh_salary as s where s.due <= v_today;
     select pg_catalog.array_agg(c.due_date::text order by c.due_date) into v_act

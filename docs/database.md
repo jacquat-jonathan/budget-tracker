@@ -1683,7 +1683,7 @@ key are two occurrences; nothing else ever decides which mark is whose.
   period's scheduled pay date can equal a date of another period. When it is the **same
   payday** (one income's salary that started a period, keyed d, and that same income's own pay
   date d in the other period: the income became or stopped being the primary; the salary came
-  within 15 days of d) it is one occurrence, the earlier period's. Otherwise (a fixed day, two
+  late, or early by less than 15 days) it is one occurrence, the earlier period's. Otherwise (a fixed day, two
   different incomes paid the same day, or a salary that came more than 15 days from its key: an
   extra salary in a month) they are **two occurrences** of two kinds, one in each period, with the same `occurrence_date`: each period's
   checklist lists its own, and the mark calls tell them apart by the row's `occurrence_kind`.
