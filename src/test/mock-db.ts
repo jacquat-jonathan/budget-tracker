@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 
 import type { Database } from '@/lib/database.types'
+import { step7Handlers, type ChecklistRow, type MoneyFlowRow } from '@/test/mock-transfers'
 
 /**
  * An in-memory stand-in for the database behind the Supabase mock: tables and views as
@@ -18,6 +19,25 @@ type RowOf<N extends RelationName> = N extends keyof PublicSchema['Tables']
     ? PublicSchema['Views'][N]['Row']
     : never
 type FunctionName = keyof PublicSchema['Functions']
+type Step7Name =
+  | 'close_account'
+  | 'create_account'
+  | 'update_account'
+  | 'preview_close_account'
+  | 'create_transfer'
+  | 'update_transfer'
+  | 'end_transfer'
+  | 'preview_create_transfer'
+  | 'preview_update_transfer'
+  | 'preview_end_transfer'
+  | 'get_transfer_terms'
+  | 'get_transfer_checklist'
+  | 'get_transfers_to_do'
+  | 'get_money_flow'
+  | 'mark_transfer_done'
+  | 'mark_transfer_not_done'
+  | 'skip_transfer'
+  | 'undo_transfer_mark'
 
 export type MockTables = { [N in RelationName]: RowOf<N>[] }
 
@@ -62,6 +82,10 @@ export interface MockDb {
   readFailures: Map<RelationName, MockError>
   /** preview_import_part's staged parts, by batch then part. */
   staged: Record<string, Record<number, ImportRowResult[]>>
+  /** get_transfer_checklist's rows, every period's (the marks change them in place). */
+  checklist: ChecklistRow[]
+  /** get_money_flow's rows, every period's. */
+  moneyFlow: MoneyFlowRow[]
 }
 
 function emptyTables(): MockTables {
@@ -220,6 +244,8 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     rpc: {} as MockDb['rpc'],
     readFailures,
     staged: {},
+    checklist: [],
+    moneyFlow: [],
     failNextRead: (relation, error) => {
       readFailures.set(relation, error)
     },
@@ -454,6 +480,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
           amount: row.amount,
           pay_day: row.pay_day,
           weekend_rule: row.weekend_rule,
+          account_id: row.account_id,
           terms_from_period_id: args.p_period_id,
           until_period_id: null,
         },
@@ -611,25 +638,10 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
       return [{ rule_id: rule.id, fragment: rule.fragment, revision: rule.revision + 1, moved: 0 }]
     }),
     delete_merchant_rule: handler(() => null),
-    // Step 7: no screens yet.
-    close_account: handler(() => rpcError('not_mocked')),
-    create_account: handler(() => rpcError('not_mocked')),
-    update_account: handler(() => rpcError('not_mocked')),
-    preview_close_account: handler(() => rpcError('not_mocked')),
-    create_transfer: handler(() => rpcError('not_mocked')),
-    update_transfer: handler(() => rpcError('not_mocked')),
-    end_transfer: handler(() => rpcError('not_mocked')),
-    preview_create_transfer: handler(() => rpcError('not_mocked')),
-    preview_update_transfer: handler(() => rpcError('not_mocked')),
-    preview_end_transfer: handler(() => rpcError('not_mocked')),
-    get_transfer_terms: handler(() => rpcError('not_mocked')),
-    get_transfer_checklist: handler(() => rpcError('not_mocked')),
-    get_transfers_to_do: handler(() => rpcError('not_mocked')),
-    get_money_flow: handler(() => rpcError('not_mocked')),
-    mark_transfer_done: handler(() => rpcError('not_mocked')),
-    mark_transfer_not_done: handler(() => rpcError('not_mocked')),
-    skip_transfer: handler(() => rpcError('not_mocked')),
-    undo_transfer_mark: handler(() => rpcError('not_mocked')),
+    // Step 7: accounts, transfers, the checklist and its marks, the money flow.
+    ...(Object.fromEntries(
+      Object.entries(step7Handlers(db)).map(([name, impl]) => [name, handler(impl)]),
+    ) as Pick<MockDb['rpc'], Step7Name>),
   }
 
   return db

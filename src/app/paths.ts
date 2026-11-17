@@ -8,6 +8,8 @@ export const paths = {
   periods: '/periods',
   compare: '/compare',
   moneyFlow: '/money-flow',
+  accounts: '/accounts',
+  transfers: '/transfers',
   income: '/income',
   import: '/import',
   settings: '/settings',
@@ -48,6 +50,16 @@ export function transactionsOf(filter: {
   if (filter.review) params.set('review', '1')
   if (filter.batch) params.set('batch', filter.batch)
   return `${paths.transactions}?${params.toString()}`
+}
+
+/** The transfers page on one period's checklist (the current one when absent). */
+export function transfersOf(periodId?: string | null): string {
+  return periodId ? `${paths.transfers}?period=${encodeURIComponent(periodId)}` : paths.transfers
+}
+
+/** The money flow of one period (the current one when absent). */
+export function moneyFlowOf(periodId?: string | null): string {
+  return periodId ? `${paths.moneyFlow}?period=${encodeURIComponent(periodId)}` : paths.moneyFlow
 }
 
 /** Location state carried to the sign-in page so the user lands where they wanted to go. */

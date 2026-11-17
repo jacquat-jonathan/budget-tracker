@@ -2,6 +2,7 @@ import { catchUpEn } from '@/locales/en/catch-up'
 import type { compareEn } from '@/locales/en/compare'
 import type { importEn } from '@/locales/en/import'
 import type { chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
+import type { accountsEn } from '@/locales/en/step7'
 
 const core = {
   app: {
@@ -29,6 +30,8 @@ const core = {
     periods: 'Periods',
     compare: 'Compare',
     moneyFlow: 'Money flow',
+    accounts: 'Accounts',
+    transfers: 'Transfers',
     income: 'Income',
     import: 'Import',
     settings: 'Settings',
@@ -47,7 +50,14 @@ const core = {
       description:
         'How your periods compare: the trend, each category over time, and any two side by side.',
     },
-    moneyFlow: { description: 'How money moves between your accounts after payday.' },
+    moneyFlow: {
+      description: 'Where the money of a period comes from and where the plan sends it.',
+    },
+    accounts: { description: 'The accounts your household keeps money in.' },
+    transfers: {
+      description:
+        'Money that moves between your accounts on a schedule, and this period’s checklist.',
+    },
     income: { description: 'The incomes that make up your monthly budget.' },
     import: {
       description: 'Bring in a bank statement or a CSV file instead of typing each transaction.',
@@ -83,6 +93,11 @@ const core = {
     datePlaceholder: 'dd.mm.yyyy',
   },
   validation: {
+    bankLabelTooLong: 'Use at most 100 characters.',
+    accountRequired: 'Choose an account.',
+    sameAccount: 'Choose two different accounts.',
+    dueNotBeforeToday: 'Choose today or a later date, or record what already happened.',
+    doneAfterToday: 'The date cannot be after today.',
     emailRequired: 'Enter your email address.',
     emailInvalid: 'Enter a valid email address.',
     passwordRequired: 'Enter your password.',
@@ -1200,6 +1215,7 @@ interface LazyStrings {
   debts: typeof debtsEn
   compare: typeof compareEn
   import: typeof importEn
+  accounts: typeof accountsEn
 }
 export type LazyKey = keyof LazyStrings
 

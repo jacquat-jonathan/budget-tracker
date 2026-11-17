@@ -3,10 +3,11 @@ import { fr as frCore } from '@/locales/fr/translation'
 import * as compareGroup from '@/locales/groups/compare'
 import * as importGroup from '@/locales/groups/import'
 import * as step4Group from '@/locales/groups/step4'
+import * as step7Group from '@/locales/groups/step7'
 
 // Every string, the groups loaded with their pages included.
-const en = { ...enCore, ...compareGroup.en, ...importGroup.en, ...step4Group.en }
-const fr = { ...frCore, ...compareGroup.fr, ...importGroup.fr, ...step4Group.fr }
+const en = { ...enCore, ...compareGroup.en, ...importGroup.en, ...step4Group.en, ...step7Group.en }
+const fr = { ...frCore, ...compareGroup.fr, ...importGroup.fr, ...step4Group.fr, ...step7Group.fr }
 
 function flattenKeys(value: unknown, prefix = ''): string[] {
   if (typeof value !== 'object' || value === null) return [prefix]

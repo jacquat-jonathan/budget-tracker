@@ -28,6 +28,8 @@ const core: Omit<Translation, LazyKey> = {
     periods: 'Périodes',
     compare: 'Comparer',
     moneyFlow: 'Flux financiers',
+    accounts: 'Comptes',
+    transfers: 'Virements',
     income: 'Revenus',
     import: 'Importer',
     settings: 'Paramètres',
@@ -51,7 +53,12 @@ const core: Omit<Translation, LazyKey> = {
         'Comment vos périodes se comparent : la tendance, chaque catégorie au fil du temps, et deux périodes côte à côte.',
     },
     moneyFlow: {
-      description: 'La répartition de votre argent entre vos comptes après le jour de paie.',
+      description: 'D’où vient l’argent d’une période et où le plan l’envoie.',
+    },
+    accounts: { description: 'Les comptes sur lesquels votre ménage garde son argent.' },
+    transfers: {
+      description:
+        'L’argent qui passe d’un compte à l’autre selon un calendrier, et la liste à cocher de la période.',
     },
     income: { description: 'Les revenus qui composent votre budget mensuel.' },
     import: {
@@ -89,6 +96,12 @@ const core: Omit<Translation, LazyKey> = {
     datePlaceholder: 'jj.mm.aaaa',
   },
   validation: {
+    bankLabelTooLong: 'Utilisez au plus 100 caractères.',
+    accountRequired: 'Choisissez un compte.',
+    sameAccount: 'Choisissez deux comptes différents.',
+    dueNotBeforeToday:
+      'Choisissez aujourd’hui ou une date plus tardive, ou enregistrez ce qui a déjà eu lieu.',
+    doneAfterToday: 'La date ne peut pas être postérieure à aujourd’hui.',
     emailRequired: 'Saisissez votre adresse e-mail.',
     emailInvalid: 'Saisissez une adresse e-mail valide.',
     passwordRequired: 'Saisissez votre mot de passe.',

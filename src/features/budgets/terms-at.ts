@@ -36,7 +36,9 @@ export type DebtTerms = Pick<
   'category_id' | 'interest_rate' | 'monthly_payment'
 >
 export type CategoryTerms = Pick<Row<'get_category_terms'>, 'amount' | 'cadence'>
-export type IncomeTerms = Pick<Row<'get_income_terms'>, 'amount' | 'pay_day' | 'weekend_rule'>
+export type IncomeTerms = Pick<Row<'get_income_terms'>, 'amount' | 'pay_day' | 'weekend_rule'> & {
+  account_id: string | null
+}
 
 interface Kinds {
   subscription: SubscriptionTerms

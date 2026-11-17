@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-564 rules (553 active, 0 planned), 24 conventions, 338 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
+564 rules (553 active, 0 planned), 24 conventions, 340 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -7087,6 +7087,30 @@ The history, token rows, remembered choices and the interrupted-import note show
 Related: R-I18N-001
 
 Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-500 Accounts, transfers and the money flow have pages of their own (accepted)
+
+The sidebar gains "Accounts" and "Transfers" after "Income", followed by "Money flow": accounts are set up first, then the transfers between them (the period's checklist on top, the planned transfers below), then the diagram. Accounts are not in Settings: they are household data that incomes, transfers and the diagram name, edited as often as incomes.
+
+**Why:** Settings holds the budget's and the person's preferences; accounts are part of the plan and are reached from every screen that names one.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-001, R-ACCOUNT-005
+
+Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+
+### D-501 Accounts are optional: nothing asks for them (accepted)
+
+A household that never adds an account is never nagged or blocked: the income form shows "Paid into" only once the budget has accounts (or the income already names one), the dashboard shows no transfer card while nothing is to do, and the Transfers and Money flow pages explain in their empty state that accounts come first and are optional, with a way to add one.
+
+**Why:** Owner brief: everything of steps 1 to 6 works without accounts.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-236
+
+Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 
 ## Open questions
 

@@ -41,6 +41,7 @@ import {
   useArrivedUnderNewTerms,
   useExpectedPayDatePreview,
 } from '@/features/income/pay-date-preview'
+import { IncomeAccountField } from '@/features/income/components/income-account-field'
 import { useAddIncome, useEditIncome } from '@/features/income/income-mutations'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { CorrectionReach } from '@/features/budgets/correction-reach'
@@ -64,6 +65,8 @@ const incomeSchema = z.object({
   payDay: payDaySchema,
   weekendRule: weekendRuleSchema,
   userId: z.string(),
+  /** The account it is paid into; "" for none (R-ACCOUNT-236). */
+  accountId: z.string(),
   /** "" for the current period. */
   fromPeriodId: z.string(),
   /** Edit only: apply the terms from an earlier period, an explicit correction. */
@@ -137,6 +140,7 @@ function IncomeForm({
     weekendRule: from?.weekend_rule ?? 'nearest',
     // R-INCOME-002: any member's income; mine by default.
     userId: from?.user_id ?? user?.id ?? '',
+    accountId: from?.account_id ?? '',
     fromPeriodId: '',
     correct: false,
   })
@@ -198,7 +202,12 @@ function IncomeForm({
   // The terms the form starts from: now, or the chosen period's (read from the database).
   const startValues =
     base && income
-      ? { amount: base.amount, payDay: base.pay_day, weekendRule: base.weekend_rule }
+      ? {
+          amount: base.amount,
+          payDay: base.pay_day,
+          weekendRule: base.weekend_rule,
+          accountId: base.account_id ?? '',
+        }
       : null
   const start = useStartFrom(
     form,
@@ -229,6 +238,7 @@ function IncomeForm({
       amount: values.amount,
       payDay: values.payDay,
       weekendRule: values.weekendRule,
+      accountId: values.accountId || null,
     }
     if (correcting && (!periodTerms || notInForce)) return
     const done = income
@@ -344,6 +354,19 @@ function IncomeForm({
         <MoneyField control={form.control} name="amount" label={t('income.fields.amount')} />
         <PayDayField control={form.control} name="payDay" />
         <WeekendRuleField control={form.control} name="weekendRule" />
+        <IncomeAccountField
+          control={form.control}
+          budgetId={budgetId}
+          period={
+            income
+              ? correcting
+                ? fromPeriod
+                : currentPeriod
+              : (periods.find((period) => period.id === fromPeriodId) ?? currentPeriod)
+          }
+          keep={income?.account_id ?? null}
+          keepName={income?.account_name ?? null}
+        />
         {!income && periodOptions.length > 1 && (
           <SelectField
             control={form.control}

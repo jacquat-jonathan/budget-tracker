@@ -1,5 +1,7 @@
 import {
   ArrowLeftRightIcon,
+  ArrowRightLeftIcon,
+  LandmarkIcon,
   CalendarRangeIcon,
   ChartColumnIcon,
   CreditCardIcon,
@@ -25,6 +27,8 @@ export type NavKey =
   | 'periods'
   | 'compare'
   | 'moneyFlow'
+  | 'accounts'
+  | 'transfers'
   | 'income'
   | 'import'
   | 'settings'
@@ -47,8 +51,11 @@ export const mainNavItems: NavItem[] = [
   { key: 'subscriptions', path: paths.subscriptions, icon: RepeatIcon },
   { key: 'debts', path: paths.debts, icon: CreditCardIcon },
   { key: 'periods', path: paths.periods, icon: CalendarRangeIcon },
-  { key: 'moneyFlow', path: paths.moneyFlow, icon: WorkflowIcon },
   { key: 'income', path: paths.income, icon: HandCoinsIcon },
+  // Step 7 (D-500): where the money goes after payday, in the order it is set up.
+  { key: 'accounts', path: paths.accounts, icon: LandmarkIcon },
+  { key: 'transfers', path: paths.transfers, icon: ArrowRightLeftIcon },
+  { key: 'moneyFlow', path: paths.moneyFlow, icon: WorkflowIcon },
 ]
 
 /** Entries shown at the bottom of the sidebar, above the footer. */

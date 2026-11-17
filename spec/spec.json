@@ -12772,6 +12772,26 @@
       "status": "accepted",
       "related": ["R-I18N-001"],
       "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-500",
+      "title": "Accounts, transfers and the money flow have pages of their own",
+      "decision": "The sidebar gains \"Accounts\" and \"Transfers\" after \"Income\", followed by \"Money flow\": accounts are set up first, then the transfers between them (the period's checklist on top, the planned transfers below), then the diagram. Accounts are not in Settings: they are household data that incomes, transfers and the diagram name, edited as often as incomes.",
+      "why": "Settings holds the budget's and the person's preferences; accounts are part of the plan and are reached from every screen that names one.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-001", "R-ACCOUNT-005"],
+      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
+    },
+    {
+      "id": "D-501",
+      "title": "Accounts are optional: nothing asks for them",
+      "decision": "A household that never adds an account is never nagged or blocked: the income form shows \"Paid into\" only once the budget has accounts (or the income already names one), the dashboard shows no transfer card while nothing is to do, and the Transfers and Money flow pages explain in their empty state that accounts come first and are optional, with a way to add one.",
+      "why": "Owner brief: everything of steps 1 to 6 works without accounts.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-236"],
+      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
     }
   ],
   "conventions": [

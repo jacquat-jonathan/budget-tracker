@@ -60,6 +60,12 @@ export function useRecordViews() {
           rule: t(`income.weekendRule.${income.weekend_rule}.short`),
         }),
       },
+      {
+        key: 'account',
+        fields: ['accountId'],
+        label: t('accounts.income.viewLabel'),
+        value: income.account_name ?? t('accounts.income.none'),
+      },
     ],
     category: (category: Category): FieldView[] => [
       { key: 'name', label: label('name'), value: category.name },

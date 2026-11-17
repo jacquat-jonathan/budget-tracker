@@ -34,5 +34,13 @@ export const budgetKeys = {
   /** Import: batches, a batch's skipped rows, previews, remembered choices. */
   imports: (budgetId: string) => ['budget', budgetId, 'imports'] as const,
   importTokens: (budgetId: string) => ['budget', budgetId, 'import-tokens'] as const,
+  /** Step 7: accounts, planned transfers, their checklists and the money flow. */
+  accounts: (budgetId: string) => ['budget', budgetId, 'accounts'] as const,
+  transfers: (budgetId: string) => ['budget', budgetId, 'transfers'] as const,
+  checklist: (budgetId: string, periodId: string) =>
+    ['budget', budgetId, 'transfer-checklist', periodId] as const,
+  transfersToDo: (budgetId: string) => ['budget', budgetId, 'transfers-to-do'] as const,
+  moneyFlow: (budgetId: string, periodId: string) =>
+    ['budget', budgetId, 'money-flow', periodId] as const,
   merchantRules: (budgetId: string) => ['budget', budgetId, 'merchant-rules'] as const,
 }

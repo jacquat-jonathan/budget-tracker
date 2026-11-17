@@ -11,6 +11,8 @@ type RecordView =
   | 'transaction_list'
   | 'subscription_overview'
   | 'debt_overview'
+  | 'account_overview'
+  | 'transfer_overview'
 
 /**
  * One editable record read by its id, for an edit form or a removal confirmation: never

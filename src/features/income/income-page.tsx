@@ -302,6 +302,15 @@ function IncomeCard({
                 {nextPayDate ? <CalendarDate value={nextPayDate} /> : '–'}
               </dd>
             </div>
+            {/* R-ACCOUNT-236: shown only once an account is named; no account is fine. */}
+            {income.account_name && (
+              <div>
+                <dt className="text-muted-foreground">{t('accounts.income.viewLabel')}</dt>
+                <dd className="truncate" data-testid="income-account">
+                  {income.account_name}
+                </dd>
+              </div>
+            )}
           </dl>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

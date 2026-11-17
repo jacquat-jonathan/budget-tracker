@@ -14,6 +14,8 @@ export interface IncomeTerms {
   amount: number
   payDay: number
   weekendRule: WeekendRule
+  /** The account it is paid into; null: none (R-ACCOUNT-236). */
+  accountId: string | null
 }
 
 export interface AddIncomeInput extends IncomeTerms {
@@ -43,6 +45,7 @@ export function useAddIncome(budgetId: string, options: { onDone: () => void }) 
           p_weekend_rule: input.weekendRule,
           p_client_id: input.clientId,
           ...(input.userId ? { p_user_id: input.userId } : {}),
+          ...(input.accountId ? { p_account_id: input.accountId } : {}),
           ...(input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
         }),
       ),
@@ -66,7 +69,12 @@ export interface EditIncomeInput extends IncomeTerms {
    */
   fromPeriodId: string | null
   /** The terms the form started from: those now, or those of the corrected period. */
-  base?: { amount: number; pay_day: number; weekend_rule: WeekendRule }
+  base?: {
+    amount: number
+    pay_day: number
+    weekend_rule: WeekendRule
+    account_id: string | null
+  }
 }
 
 /**
@@ -112,10 +120,12 @@ export function useEditIncome(
       // The pay day and its weekend rule are one value (D-160): either changed sends both.
       const payDay = input.payDay !== from.pay_day || input.weekendRule !== from.weekend_rule
       const weekendRule = payDay
+      // R-ACCOUNT-236: the account is a term like the amount, sent only when it changed.
+      const account = input.accountId !== (from.account_id ?? null)
       // R-VERSION-140: a correction sends only what the user changed.
-      const correcting = input.fromPeriodId !== null && (amount || payDay)
+      const correcting = input.fromPeriodId !== null && (amount || payDay || account)
       const renamed = input.name !== income.name
-      if (!renamed && !amount && !payDay && !weekendRule) return false
+      if (!renamed && !amount && !payDay && !weekendRule && !account) return false
       unwrap(
         await supabase.rpc('update_income', {
           p_income_id: income.id,
@@ -124,6 +134,11 @@ export function useEditIncome(
           ...(amount ? { p_amount: input.amount } : {}),
           ...(payDay ? { p_pay_day: input.payDay } : {}),
           ...(weekendRule ? { p_weekend_rule: input.weekendRule } : {}),
+          ...(account
+            ? input.accountId
+              ? { p_account_id: input.accountId }
+              : { p_clear_account: true }
+            : {}),
           ...(correcting && input.fromPeriodId ? { p_from_period_id: input.fromPeriodId } : {}),
           ...(input.previewedEndDate ? { p_previewed_end_date: input.previewedEndDate } : {}),
         }),

@@ -9,7 +9,7 @@ import { budgetKeys } from '@/features/budgets/budget-keys'
  */
 export function useRecordSettled(
   budgetId: string,
-  view: 'subscription_overview' | 'debt_overview',
+  view: 'subscription_overview' | 'debt_overview' | 'account_overview' | 'transfer_overview',
   id: string | undefined,
   live: unknown,
 ): boolean {

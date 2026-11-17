@@ -82,6 +82,16 @@ const MoneyFlowPage = lazy(() =>
     default: m.MoneyFlowPage,
   })),
 )
+const AccountsPage = lazy(() =>
+  withStrings(import('@/features/accounts/accounts-page')).then((m) => ({
+    default: m.AccountsPage,
+  })),
+)
+const TransfersPage = lazy(() =>
+  withStrings(import('@/features/transfers/transfers-page')).then((m) => ({
+    default: m.TransfersPage,
+  })),
+)
 const IncomePage = lazy(() =>
   withStrings(import('@/features/income/income-page')).then((m) => ({ default: m.IncomePage })),
 )
@@ -167,6 +177,12 @@ export const routes: RouteObject[] = [
                         ...page('moneyFlow'),
                       },
                       { path: paths.income, element: <IncomePage />, ...page('income') },
+                      { path: paths.accounts, element: <AccountsPage />, ...page('accounts') },
+                      {
+                        path: paths.transfers,
+                        element: <TransfersPage />,
+                        ...page('transfers'),
+                      },
                       { path: paths.import, element: <ImportPage />, ...page('import') },
                       { path: paths.settings, element: <SettingsPage />, ...page('settings') },
                       {
