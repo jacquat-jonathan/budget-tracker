@@ -211,7 +211,7 @@ export const importFr: Translation['import'] = {
     decimalFromPoint: 'Lu dans les montants : décimales après un point ({{lines}}).',
     decimalFromComma: 'Lu dans les montants : décimales après une virgule ({{lines}}).',
     decimalUndecided:
-      'Les montants ne disent pas quel signe sépare les décimales : {{lines}} peut se lire en milliers ou en décimales (1.200 vaut 1’200 ou 1.20). Choisissez-le : rien n’est supposé.',
+      'Les montants ne disent pas quel signe sépare les décimales : {{lines}} : ces montants peuvent se lire en milliers ou en décimales (1.200 vaut 1’200 ou 1.20). Choisissez-le : rien n’est supposé.',
     decimalContradictory:
       'Les montants se contredisent : certains ont des décimales après un point ({{point}}), d’autres après une virgule ({{comma}}). Ce fichier ne peut pas être lu sans risque : vérifiez-le ou exportez-le à nouveau.',
     description: 'Description',
@@ -221,6 +221,7 @@ export const importFr: Translation['import'] = {
       'L’association utilisée la dernière fois pour ce genre de fichier dans ce budget a été reprise.',
     sample: 'Aperçu : les premières lignes telles qu’elles seront envoyées',
     sampleEmpty: 'Associez la date et le montant pour voir les lignes.',
+    sampleNeedsDecimal: 'Choisissez le signe des décimales ci-dessus pour voir les lignes.',
     sampleDirection: { debit: 'sortie', credit: 'entrée' },
     problemsTitle_one: '{{count}} ligne ne peut pas être lue et ne sera pas envoyée',
     problemsTitle_other: '{{count}} lignes ne peuvent pas être lues et ne seront pas envoyées',

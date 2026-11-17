@@ -424,7 +424,11 @@ export function CsvMapper({
           </h3>
           {!complete || sample.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {complete ? t('import.csv.noRows') : t('import.csv.sampleEmpty')}
+              {complete
+                ? t('import.csv.noRows')
+                : mapping.decimal === null && evidence.state === 'undecided'
+                  ? t('import.csv.sampleNeedsDecimal')
+                  : t('import.csv.sampleEmpty')}
             </p>
           ) : (
             <ul

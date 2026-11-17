@@ -209,6 +209,7 @@ export const importEn = {
     remembered: 'The mapping used last time for this kind of file in this budget was applied.',
     sample: 'Sample: the first rows as they will be sent',
     sampleEmpty: 'Map the date and the amount to see the rows.',
+    sampleNeedsDecimal: 'Choose the decimal mark above to see the rows.',
     sampleDirection: { debit: 'out', credit: 'in' },
     problemsTitle_one: '{{count}} line cannot be read and will not be sent',
     problemsTitle_other: '{{count}} lines cannot be read and will not be sent',
