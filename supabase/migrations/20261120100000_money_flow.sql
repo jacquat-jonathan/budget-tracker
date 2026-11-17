@@ -297,8 +297,9 @@ declare
   v_automatic boolean;
 begin
   select x.* into o from public.transfer_occurrences as x where x.id = old.transfer_occurrence_id;
-  if o.id is null or o.mark <> 'done' then
-    return null;
+  if o.id is null or o.mark <> 'done'
+     or not exists (select 1 from public.budgets as b where b.id = old.budget_id) then
+    return null;  -- R-ACCOUNT-308: nothing to mark while the budget is being deleted
   end if;
   select pl.is_automatic into v_automatic from private.transfer_planned(o.transfer_id, o.occurrence_date) as pl;
   if coalesce(v_automatic, false) then
@@ -1027,6 +1028,9 @@ as $$
   update public.transfers as t
   set needs_check = true, settled_through = least(t.settled_through, p_from - 1)
   where t.budget_id = p_budget_id
+    -- M2, R-ACCOUNT-308: nothing to look at again while the budget itself is being deleted (its
+    -- transfers go with it; touching a row twice would re-check its key against the deleted budget)
+    and exists (select 1 from public.budgets as b where b.id = p_budget_id)
     and (p_transfer_id is null or t.id = p_transfer_id)
     -- a transfer ended before the period before the one containing p_from has nothing there
     and (t.end_seq is null or p_transfer_id is not null
@@ -1109,6 +1113,9 @@ language plpgsql
 set search_path = ''
 as $$
 begin
+  if not exists (select 1 from public.budgets as b where b.id = old.budget_id) then
+    return old;  -- R-ACCOUNT-308: the budget is being deleted, its transfers with it
+  end if;
   perform private.transfers_recheck(old.budget_id, null, old.id, private.seq_start(old.budget_id, old.first_seq));
   update public.transfer_versions set income_gone = true, income_id = null where income_id = old.id;
   return old;

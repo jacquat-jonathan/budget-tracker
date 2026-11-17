@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-543 rules (533 active, 0 planned), 24 conventions, 315 decisions, 41 open questions. 0 rules and conventions are marked **TEST PENDING**.
+544 rules (534 active, 0 planned), 24 conventions, 315 decisions, 41 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2351,6 +2351,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-420, D-490, R-ACCOUNT-301, R-ACCOUNT-302
   - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M1 with C1, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-308** Deleting a budget, or its owner's login, never fails because of its transfers: the transfers' bookkeeping (looking at the plan again, an income gone, a transaction's mark) does nothing while the budget itself is being deleted, also within the transaction that created it; any refusal is a named code (P0001).
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-423, D-426, R-MEMBER-002, R-BUDGET-009
+  - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M2 with C5, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 

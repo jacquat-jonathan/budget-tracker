@@ -257,8 +257,9 @@ Member. Errors: `invalid_name`, `record_changed`, `invalid_revision` (none sent)
 (R-BUDGET-009, R-CONCURRENCY-070)
 
 **`delete_budget(p_budget_id) -> void`** Owner. Deletes the budget and everything in it.
-Errors: `budget_not_found` (also when already deleted), `not_owner`. (R-MEMBER-002,
-R-BUDGET-009, R-BUDGET-018)
+Errors: `budget_not_found` (also when already deleted), `not_owner`; nothing else, whatever
+the budget holds (a transfer that named two incomes included, R-ACCOUNT-308); deleting the
+owner's login deletes their budgets the same way. (R-MEMBER-002, R-BUDGET-009, R-BUDGET-018)
 
 ### Members and invitations
 

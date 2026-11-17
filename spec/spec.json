@@ -7946,6 +7946,19 @@
       ]
     },
     {
+      "id": "R-ACCOUNT-308",
+      "area": "account",
+      "statement": "Deleting a budget, or its owner's login, never fails because of its transfers: the transfers' bookkeeping (looking at the plan again, an income gone, a transaction's mark) does nothing while the budget itself is being deleted, also within the transaction that created it; any refusal is a named code (P0001).",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-423", "D-426", "R-MEMBER-002", "R-BUDGET-009"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M2 with C5, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
       "id": "R-PERIOD-300",
       "area": "period",
       "statement": "One catch-up step creates at most a bounded number of transactions per budget (4000, and about two seconds of work), leaving the rest due, none skipped; a step that stops before creating every one due never answers 0 from ensure_periods.",

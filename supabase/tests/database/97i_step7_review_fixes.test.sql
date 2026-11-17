@@ -164,6 +164,45 @@ select is((select string_agg(pl.seq::text, ',') from private.transfer_plan_range
           ((select seq from public.periods where id = tests.id('fk_p7')) - 3)::text,
   'R-ACCOUNT-301: the plan gives that key to the earlier period only');
 
+-- ===========================================================================
+-- M2 with C5: a budget whose transfer named two incomes is deleted, also within the transaction
+-- that created it, and so is its owner's login (R-ACCOUNT-308; the reviewer's p_delete4 case 4)
+-- ===========================================================================
+create function pg_temp.two_incomes(n text) returns void language plpgsql as $$
+declare
+  t uuid;
+  b uuid;
+begin
+  perform pg_temp.budget(n);
+  b := tests.id(n);
+  perform tests.remember(n || '_p2', (select id from public.periods where budget_id = b and seq = 2));
+  perform tests.remember(n || '_p4', (select id from public.periods where budget_id = b and seq = 4));
+  perform tests.remember(n || '_partner', public.add_income(tests.id(n), 'Partner', 300000, 10, 'none', null, tests.id(n || '_p4')));
+  perform tests.remember(n || '_side', public.add_income(tests.id(n), 'Side job', 50000, 15, 'none', null, tests.id(n || '_p2')));
+  t := (select id from public.create_transfer(tests.id(n), 'Saving', tests.id(n || '_main'), tests.id(n || '_sav'), 100,
+    'pay_date', p_income_id => tests.id(n || '_side'), p_is_automatic => true, p_category_id => tests.id(n || '_cat'),
+    p_from_period_id => tests.id(n || '_p2')));
+  perform public.update_transfer(t, (select revision from public.transfers where id = t),
+    p_income_id => tests.id(n || '_partner'), p_from_period_id => tests.id(n || '_p4'));
+  perform tests.remember(n || '_t', t);
+end $$;
+select pg_temp.day('2027-01-26');
+select pg_temp.two_incomes('m2');
+select is((select count(distinct income_id)::integer from public.transfer_versions where transfer_id = tests.id('m2_t')), 2,
+  'R-ACCOUNT-308: (the transfer named two incomes, the later one from period 4)');
+select lives_ok(format($$select public.delete_budget(%L)$$, tests.id('m2')),
+  'R-ACCOUNT-308: delete_budget deletes a budget whose transfer named two incomes (created in this same transaction)');
+select is((select count(*)::integer from public.budgets where id = tests.id('m2')), 0, 'R-ACCOUNT-308: the budget is gone');
+select is((select count(*)::integer from public.transfers where budget_id = tests.id('m2')), 0, 'R-ACCOUNT-308: its transfers with it');
+-- the owner's login: every budget they own goes with it
+select pg_temp.day('2027-01-26', 'ines');
+select pg_temp.two_incomes('m2b');
+select tests.clear_authentication();
+select lives_ok(format($$delete from auth.users where id = %L$$, tests.get_user_id('ines')),
+  'R-ACCOUNT-308: deleting the owner''s login deletes their budget whose transfer named two incomes');
+select is((select count(*)::integer from public.budgets where id = tests.id('m2b')), 0, 'R-ACCOUNT-308: that budget is gone too');
+select tests.authenticate_as('iris');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;
