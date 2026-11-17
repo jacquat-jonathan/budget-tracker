@@ -158,6 +158,29 @@ describe('the mock database’s money flow answers as the database does [R-ACCOU
     })
   })
 
+  it('caps a group’s transfer share at what it expects, and sorts names as the database’s collation', () => {
+    const plan = workedExamplePlan()
+    plan.categories[4]!.expected = 100_000
+    plan.accounts.push(
+      { id: 'acc-b', name: 'bank', kind: 'cash', createdAt: '2026-10-03T08:00:00+00:00' },
+      { id: 'acc-B', name: 'Bank', kind: 'cash', createdAt: '2026-10-03T08:01:00+00:00' },
+    )
+    const rows = moneyFlowRows(plan)
+    expect(rows.find((row) => row.name === 'Saving and pension')).toMatchObject({
+      expected: 100_000,
+      transfer_share: 100_000,
+      amount: 0,
+    })
+    // en_US.UTF-8, as a real stack sorts: lower case before upper case, not byte order.
+    expect(rows.filter((row) => row.row_kind === 'account').map((row) => row.name)).toEqual([
+      'bank',
+      'Bank',
+      'Main',
+      'Pillar 3a',
+      'Savings',
+    ])
+  })
+
   it('refuses another budget and another budget’s period, and leaves out the last spending rows past 1000', async () => {
     const db = householdDb()
     db.moneyFlowPlans = [workedExamplePlan()]
