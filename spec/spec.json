@@ -620,7 +620,7 @@
       "id": "F-BUDGET",
       "step": 2,
       "title": "Budgets",
-      "status": "in-progress",
+      "status": "done",
       "description": "Create, rename, end and delete a budget, created atomically with its first income and period.",
       "userStories": [
         {
@@ -691,7 +691,7 @@
       "id": "F-MEMBERS",
       "step": 2,
       "title": "Members and invitations",
-      "status": "in-progress",
+      "status": "done",
       "description": "Invite people by email, accept or decline, leave, remove members.",
       "userStories": [
         {
@@ -743,7 +743,7 @@
       "id": "F-INCOME",
       "step": 2,
       "title": "Incomes",
-      "status": "in-progress",
+      "status": "done",
       "description": "Versioned monthly incomes per member, one of them primary, with a weekend rule.",
       "userStories": [
         {
@@ -806,7 +806,7 @@
       "id": "F-PERIOD",
       "step": 2,
       "title": "Periods",
-      "status": "in-progress",
+      "status": "done",
       "description": "Pay-day-to-pay-day periods, created on demand, with manual boundaries.",
       "userStories": [
         {
@@ -860,7 +860,7 @@
       "id": "F-CATEGORY",
       "step": 3,
       "title": "Categories and expectations",
-      "status": "in-progress",
+      "status": "done",
       "description": "Two-level categories with monthly or yearly expectations, and the amount left to assign.",
       "userStories": [
         {
@@ -951,7 +951,7 @@
       "id": "F-TRANSACTION",
       "step": 3,
       "title": "Transactions",
-      "status": "in-progress",
+      "status": "done",
       "description": "Manual transactions, landing in the period that contains their date.",
       "userStories": [
         {
@@ -1005,7 +1005,7 @@
       "id": "F-PROGRESS",
       "step": 3,
       "title": "Period progress view",
-      "status": "in-progress",
+      "status": "done",
       "description": "Each period, the current one and past ones, tracked against its expectations, with its result.",
       "userStories": [
         {
@@ -1035,7 +1035,7 @@
       "id": "F-SUBSCRIPTION",
       "step": 4,
       "title": "Subscriptions",
-      "status": "in-progress",
+      "status": "done",
       "description": "Recurring charges and their next charge date.",
       "userStories": [
         {
@@ -1095,7 +1095,7 @@
       "id": "F-DEBT",
       "step": 4,
       "title": "Debts",
-      "status": "in-progress",
+      "status": "done",
       "description": "Debts with planned payments, their evolution and expected end date.",
       "userStories": [
         {
@@ -1149,7 +1149,7 @@
       "id": "F-COMPARE",
       "step": 5,
       "title": "Period comparison",
-      "status": "in-progress",
+      "status": "done",
       "description": "Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).",
       "userStories": [
         {
@@ -1193,7 +1193,7 @@
       "id": "F-IMPORT",
       "step": 6,
       "title": "Import",
-      "status": "in-progress",
+      "status": "done",
       "description": "Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.",
       "userStories": [
         {
@@ -14267,6 +14267,20 @@
       ],
       "status": "accepted",
       "related": ["R-PROGRESS-532"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-638",
+      "title": "The features of build steps 1 to 6 are done; step 7 stays in progress",
+      "decision": "F-BUDGET, F-MEMBERS, F-INCOME, F-PERIOD (step 2), F-CATEGORY, F-TRANSACTION, F-PROGRESS (step 3), F-SUBSCRIPTION, F-DEBT (step 4), F-COMPARE (step 5) and F-IMPORT (step 6) are marked done: their screens (src/features/) and their database (supabase/migrations/) are in the repository, every active test-enforced rule of theirs is named by a test (spec:check), and the final household walk-through used them end to end. F-MONEYFLOW (step 7: accounts, planned transfers, money flow) stays in progress while the database round on planned transfers and the money flow read runs. A done feature's rules stay active (scripts/spec: active when done or in progress), so nothing changes for the checker.",
+      "why": "Every product feature was still \"in-progress\" after the final review; the bookkeeping should say what is finished.",
+      "rejected": [
+        "Marking step 7 done as well: its contract is being changed in parallel and a later round follows."
+      ],
+      "status": "accepted",
+      "related": ["D-450"],
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]

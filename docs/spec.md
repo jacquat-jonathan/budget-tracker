@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-627 rules (616 active, 0 planned), 24 conventions, 383 decisions, 50 open questions. 0 rules and conventions are marked **TEST PENDING**.
+627 rules (616 active, 0 planned), 24 conventions, 384 decisions, 50 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -64,9 +64,9 @@ Local Supabase stack, row-level security baseline, CI, and the manual deploy to 
 - **US-PLATFORM-001** As a signed-in user, I want my data to be protected by the database itself, so that nobody reaches it by going around the app.
   Rules: R-SECURITY-001, R-SECURITY-005
 
-### Step 2: Budgets and members, incomes, periods (in-progress)
+### Step 2: Budgets and members, incomes, periods (done)
 
-#### F-BUDGET Budgets (in-progress)
+#### F-BUDGET Budgets (done)
 
 Create, rename, end and delete a budget, created atomically with its first income and period.
 
@@ -81,7 +81,7 @@ Create, rename, end and delete a budget, created atomically with its first incom
 - **US-BUDGET-005** As a budget owner, I want to delete a budget with everything in it, so that I can remove one I no longer use.
   Rules: R-BUDGET-001, R-BUDGET-009, R-MEMBER-002, R-BUDGET-052
 
-#### F-MEMBERS Members and invitations (in-progress)
+#### F-MEMBERS Members and invitations (done)
 
 Invite people by email, accept or decline, leave, remove members.
 
@@ -96,7 +96,7 @@ Invite people by email, accept or decline, leave, remove members.
 - **US-MEMBERS-005** As a budget member, I want to see who the other members are, so that I know with whom I share the budget.
   Rules: R-PROFILE-003, R-MEMBER-001
 
-#### F-INCOME Incomes (in-progress)
+#### F-INCOME Incomes (done)
 
 Versioned monthly incomes per member, one of them primary, with a weekend rule.
 
@@ -109,7 +109,7 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 - **US-INCOME-004** As a budget member, I want to remove an income, so that it stops counting without rewriting past periods.
   Rules: R-INCOME-001, R-INCOME-009, R-INCOME-012, R-INCOME-051
 
-#### F-PERIOD Periods (in-progress)
+#### F-PERIOD Periods (done)
 
 Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 
@@ -120,9 +120,9 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
   Rules: R-PERIOD-007, R-PERIOD-011, R-VERSION-007, R-VERSION-008
 
-### Step 3: Categories, transactions, period progress view (in-progress)
+### Step 3: Categories, transactions, period progress view (done)
 
-#### F-CATEGORY Categories and expectations (in-progress)
+#### F-CATEGORY Categories and expectations (done)
 
 Two-level categories with monthly or yearly expectations, and the amount left to assign.
 
@@ -139,7 +139,7 @@ Two-level categories with monthly or yearly expectations, and the amount left to
 - **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
   Rules: R-CONCURRENCY-070, R-CONCURRENCY-090, R-CONCURRENCY-091, R-CONCURRENCY-100
 
-#### F-TRANSACTION Transactions (in-progress)
+#### F-TRANSACTION Transactions (done)
 
 Manual transactions, landing in the period that contains their date.
 
@@ -150,7 +150,7 @@ Manual transactions, landing in the period that contains their date.
 - **US-TRANSACTION-003** As a budget member, I want to record money coming back as a refund, so that it reduces what was spent in its category.
   Rules: R-TRANSACTION-070, R-TRANSACTION-071, R-TRANSACTION-092, R-TRANSACTION-050
 
-#### F-PROGRESS Period progress view (in-progress)
+#### F-PROGRESS Period progress view (done)
 
 Each period, the current one and past ones, tracked against its expectations, with its result.
 
@@ -161,9 +161,9 @@ Each period, the current one and past ones, tracked against its expectations, wi
 - **US-PROGRESS-003** As a budget member, I want to browse past periods and see the progress view of each, so that I can look back at how any period went.
   Rules: R-COMPARE-001, R-PROGRESS-090, R-PROGRESS-050
 
-### Step 4: Subscriptions and debts (in-progress)
+### Step 4: Subscriptions and debts (done)
 
-#### F-SUBSCRIPTION Subscriptions (in-progress)
+#### F-SUBSCRIPTION Subscriptions (done)
 
 Recurring charges and their next charge date.
 
@@ -174,7 +174,7 @@ Recurring charges and their next charge date.
 - **US-SUBSCRIPTION-003** As a budget member, I want to see a subscription's monthly cost as committed within its category's expectation, so that I see how much of the category is already spoken for.
   Rules: R-SUBSCRIPTION-079, R-PROGRESS-120
 
-#### F-DEBT Debts (in-progress)
+#### F-DEBT Debts (done)
 
 Debts with planned payments, their evolution and expected end date.
 
@@ -185,9 +185,9 @@ Debts with planned payments, their evolution and expected end date.
 - **US-DEBT-003** As a budget member, I want to adjust a debt's balance by hand, so that it matches my bank statement.
   Rules: R-DEBT-075, R-DEBT-122
 
-### Step 5: Period comparison charts (in-progress)
+### Step 5: Period comparison charts (done)
 
-#### F-COMPARE Period comparison (in-progress)
+#### F-COMPARE Period comparison (done)
 
 Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).
 
@@ -198,9 +198,9 @@ Comparing periods in charts. Browsing a past period and its progress view is par
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
   Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174, R-COMPARE-194
 
-### Step 6: Import (statements, CSV and Claude) (in-progress)
+### Step 6: Import (statements, CSV and Claude) (done)
 
-#### F-IMPORT Import (in-progress)
+#### F-IMPORT Import (done)
 
 Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.
 
@@ -7966,6 +7966,20 @@ The progress view drops the "To categorise" row of a period when it has no trans
 - Asking the database for a history flag: no read has it, and the row would still be zeros.
 
 Related: R-PROGRESS-532
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-638 The features of build steps 1 to 6 are done; step 7 stays in progress (accepted)
+
+F-BUDGET, F-MEMBERS, F-INCOME, F-PERIOD (step 2), F-CATEGORY, F-TRANSACTION, F-PROGRESS (step 3), F-SUBSCRIPTION, F-DEBT (step 4), F-COMPARE (step 5) and F-IMPORT (step 6) are marked done: their screens (src/features/) and their database (supabase/migrations/) are in the repository, every active test-enforced rule of theirs is named by a test (spec:check), and the final household walk-through used them end to end. F-MONEYFLOW (step 7: accounts, planned transfers, money flow) stays in progress while the database round on planned transfers and the money flow read runs. A done feature's rules stay active (scripts/spec: active when done or in progress), so nothing changes for the checker.
+
+**Why:** Every product feature was still "in-progress" after the final review; the bookkeeping should say what is finished.
+
+**Rejected:**
+
+- Marking step 7 done as well: its contract is being changed in parallel and a later round follows.
+
+Related: D-450
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
