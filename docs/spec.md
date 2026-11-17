@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-566 rules (555 active, 0 planned), 24 conventions, 346 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
+568 rules (557 active, 0 planned), 24 conventions, 348 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2271,6 +2271,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-340, D-455, D-480
   - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-IMPORT-420** Members and tokens have separate daily allowances of new imports per budget (200 started by members and 50 by tokens in any 24 hours), and tokens may use at most 10 000 of the 20 000 rows a budget takes in 24 hours, so a token can never lock the members out; each refusal at a storage limit (import_limit_reached) names the limit it hit.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-452, R-IMPORT-341
+  - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-421** The import calls added in step 6 fix round 2 check membership first and the size of their text arguments before any work on them, so an outsider or an oversized fragment or key is answered at once (budget_not_found, invalid_fragment, or nothing to forget).
+  _active · enforced by test · F-IMPORT_
+  - Related: D-457, D-458, R-IMPORT-347
+  - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
 
 ### Accounts and planned transfers (money flow)
 
@@ -6391,20 +6399,21 @@ Related: D-371, R-SECURITY-251, R-SECURITY-345
 
 Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
 
-### D-452 Import storage per budget is bounded (accepted)
+### D-452 Import storage per budget is bounded (amended: members and tokens have separate allowances) (accepted)
 
-Whatever members and tokens do, a budget's import storage is bounded. Within a rolling 24 hours (members and tokens together): 20 000 rows submitted to a write and 50 new batches (import_limit_reached), 20 tokens created, deleted ones included (token_limit_reached). Kept: 2 000 batches (at the limit, the oldest batches that hold no transaction and no skipped row any more go first; import_limit_reached when none can), the newest 20 000 skipped rows (older ones go; the batch's counts stay), the newest 50 chunk answers and none older than 7 days (a chunk whose answer is forgotten stays recorded, so sending it again answers chunk_expired and never imports it twice), and staged preview parts for a day, at most 100. Measured with incompressible text at every limit: a skipped row takes about 3 kB and a 500-row chunk answer about 380 kB, so a day adds at most about 85 MB and all that is kept beyond the transactions is at most about 110 MB (skipped rows 66 MB, chunk answers 19 MB, staged parts 11 MB, recorded chunks and batches about 15 MB).
+Whatever members and tokens do, a budget's import storage is bounded. Within a rolling 24 hours: 200 new batches started by members and, apart from them, 50 started by tokens; 20 000 rows submitted to a write in all, of which tokens at most 10 000 (import_limit_reached, whose detail names the limit: imports_per_day, token_imports_per_day, rows_per_day, token_rows_per_day, imports_kept); 20 tokens created, deleted ones included (token_limit_reached). Kept: 2 000 batches (at the limit, the oldest batches that hold no transaction and no skipped row any more go first; import_limit_reached when none can), the newest 20 000 skipped rows (older ones go; the batch's counts stay), the newest 50 chunk answers and none older than 7 days (a chunk whose answer is forgotten stays recorded, so sending it again answers chunk_expired and never imports it twice), and staged preview parts for a day, at most 100. Measured again with incompressible text at every limit (this round): a day adds at most about 82 MB (skipped rows 65 MB, chunk answers 15 MB, the 250 batches and their chunks 1.4 MB), and all that is kept beyond the transactions is at most about 120 MB (skipped rows 66 MB, chunk answers 19 MB, staged parts 11 MB, 2 000 batches with up to 200 000 recorded chunks about 25 MB). Amended in place in the last database fix round (the separate allowances, the detail); undoing an import gives back none of the day's allowance.
 
-**Why:** The re-review stored 39 MB in 7 s through chunks and recycled 30 tokens in 4.4 s: each call was bounded, nothing bounded the total.
+**Why:** The re-review stored 39 MB in 7 s through chunks and recycled 30 tokens in 4.4 s: each call was bounded, nothing bounded the total. Amended: one token sent 52 one-row calls in 0.8 s and used the day's 50 new batches, locking the members out for 24 hours, and a household importing its history hit the same wall at its 51st file (re-check 3, import should-fix 1).
 
 **Rejected:**
 
 - Refusing at the kept limits only: a stolen token could block imports for good.
 - Only a time-based pruning: no total bound.
+- One allowance for members and tokens together (as first written): a token, stolen or looping, locks the members out for a day.
 
-Related: D-378, R-IMPORT-250, R-IMPORT-341
+Related: D-378, R-IMPORT-250, R-IMPORT-341, R-IMPORT-420
 
-Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql
+Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261119100000_import.sql; owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17
 
 ### D-453 Token calls never queue (accepted)
 
@@ -7199,6 +7208,35 @@ Related: D-420, D-490, D-424, R-ACCOUNT-421
 
 Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), must-fix 1, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 
+### D-522 A written part previews as what it recorded (answers Q-290) (accepted)
+
+preview_import_part for a part whose chunk is already written answers what that chunk recorded: its rows as the write answered them, their totals, and written true; it plans nothing, stages nothing and forgets no later part (chunk_expired when that answer is no longer kept). Writing a chunk removes the part staged for it, so statement and parts cover the parts staged and not yet written.
+
+**Why:** It planned a written part as new rows against everything the batch had absorbed, its own write included, and a part staged and then written counted in the statement for a day (Q-290).
+
+**Rejected:**
+
+- Refusing a written part: the screens would need to know which parts are written to avoid an error.
+
+Related: D-455, D-479, Q-290, R-IMPORT-340
+
+Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
+
+### D-523 Import anyway says which ids are no longer kept (answers Q-291) (accepted)
+
+import_skipped_anyway answers, after the rows it imported, one row per distinct id sent that is no longer a skipped row the batch keeps (action and reason 'not_kept', valid false, every other field null), so each call says how many of the ids sent could no longer be imported. Ids still kept but nothing to do (invalid, already imported) answer nothing, as before.
+
+**Why:** The call answered fewer rows silently (Q-291), and the screens could only guess why.
+
+**Rejected:**
+
+- Refusing the call: the rows still kept would not be imported.
+- A count in another call: the answer belongs to the call that was asked.
+
+Related: D-452, D-484, Q-291, R-IMPORT-368
+
+Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), import should-fixes, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -7625,11 +7663,11 @@ Source: owner-request: coordinator brief for the last database fix round (re-che
   - Context: Fixed-day transfers have no weekend rule (R-ACCOUNT-300): an order on the 22nd is planned on Sunday 22 November 2026, while the bank runs it on Monday 23 November. The due date (and so the overdue flag and the catch-up's transaction date) is then a day or two away from the bank's. Incomes already have a weekend rule ('none', 'before', 'after', 'nearest'); subscriptions have none.
   - Related: R-ACCOUNT-300, D-420, D-422
   - Source: owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), recorded, 2026-11-16
-- **Q-290** Should preview_import_part answer a part already written in its batch with what it recorded (or refuse it), and leave staged parts of a written chunk out of `statement`?
+- **Q-290** (resolved by D-522) Should preview_import_part answer a part already written in its batch with what it recorded (or refuse it), and leave staged parts of a written chunk out of `statement`?
   - Context: It plans a written part as new rows against everything the batch absorbed, its own write included, so its answer is wrong; and a part staged before it was written still counts in `statement` for a day. The screens therefore never preview a recorded part (D-479) and say which parts the totals cover.
   - Related: D-455, D-479, R-IMPORT-362
   - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
-- **Q-291** What does import_skipped_anyway answer for ids of skipped rows that are no longer kept?
+- **Q-291** (resolved by D-523) What does import_skipped_anyway answer for ids of skipped rows that are no longer kept?
   - Context: The contract says older skipped rows cannot be imported anyway, not whether the call skips such ids silently, answers fewer rows, or refuses. The screens send only listed ids and say so when fewer rows come back (D-484).
   - Related: D-452, D-484, R-IMPORT-368
   - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17

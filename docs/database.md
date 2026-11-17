@@ -1292,9 +1292,17 @@ it on. Staged parts are kept a day, at most 100 a budget. The answer is one obje
   the sum in rappen (`expense_count`, `expense_amount`, `refund_count`, `refund_amount`,
   `extra_income_count`, `extra_income_amount`);
 - `parts`: the part numbers `statement` covers; `room`: how many transactions the budget can
-  still take; `fits`: whether the statement's rows to import fit.
+  still take; `fits`: whether the statement's rows to import fit;
+- `written`: whether this part was already written (below).
+**A part already written** (D-522, answers Q-290) answers what its chunk recorded: `rows` are
+the write's own answers (with their `transaction_id`, `chunk`), `part` their totals, `written`
+true; `p_rows` is then not planned, nothing is staged and no later staged part is forgotten
+(a chunk whose answer is no longer kept: `chunk_expired`). A staged part is **no longer
+staged once its chunk is written**: `statement` and `parts` cover the parts staged and not yet
+written. So the screens may preview any part at any time; a written part shows what it did.
+Membership is checked before anything else, then the rows' size (R-IMPORT-421).
 Errors: `budget_not_found`, `invalid_batch`, `invalid_chunk` (the part), `invalid_rows`,
-`import_batch_conflict`, `batch_undone`, `catching_up`.
+`import_batch_conflict`, `batch_undone`, `chunk_expired`, `catching_up`.
 
 **`import_transactions(p_budget_id, p_batch_id, p_chunk, p_rows, p_source, p_statement_from = null, p_statement_to = null, p_to_categorise_name = null) -> import_row_result[]`**
 Member. Imports one chunk of a batch, exactly as the preview says, all or nothing.
@@ -1312,16 +1320,27 @@ Member. Imports one chunk of a batch, exactly as the preview says, all or nothin
 - **The transaction limit**: when the budget has no room for the rows to import, the chunk is
   refused before anything is written: `transaction_limit_reached` with detail
   `{"fits": n}` (how many rows would fit; a member only, never a token).
-- **Import storage is bounded per budget** (R-IMPORT-341, D-452), members and tokens
-  together: within any 24 hours at most **20 000 rows** submitted to a write and **50 new
-  batches** (`import_limit_reached`); kept at most **2 000 batches** (at the limit, the
-  oldest batches that hold no transaction and no skipped row any more go first;
-  `import_limit_reached` when none can), the newest **20 000 skipped rows** (older ones go:
+- **Import storage is bounded per budget** (R-IMPORT-341, R-IMPORT-420, D-452). Within any
+  24 hours: **200 new imports** (batches) started by members and, apart from those, **50**
+  started by tokens, so a token can never lock the members out; **20 000 rows** submitted to a
+  write in all, of which tokens at most **10 000** (members always keep 10 000). Kept: at most
+  **2 000 batches** (at the limit, the oldest batches that hold no transaction and no skipped
+  row any more go first), the newest **20 000 skipped rows** (older ones go:
   `list_import_skipped_rows` no longer lists them and they cannot be imported anyway; the
   batch's counts stay) and the newest **50 chunk answers**, none older than 7 days (a chunk
   sent again after its answer was forgotten answers `chunk_expired` and is never imported
-  twice). Worst case, measured with incompressible text at every limit: about 85 MB a day and
-  110 MB kept beyond the transactions.
+  twice). Each refusal is `import_limit_reached` with a **detail** naming the limit (JSON text
+  `{"limit": "..."}`, supabase-js `error.details`): `imports_per_day` (the members' 200 new
+  imports: the next one is possible 24 hours after the oldest of them; chunks of a batch
+  already started still go in), `rows_per_day` (20 000 rows in all), `imports_kept` (2 000
+  batches that all still hold something: undoing an old import frees one); a token call's
+  `error` is `import_limit_reached` for its own limits (`token_imports_per_day`,
+  `token_rows_per_day`) and for `rows_per_day`. Undoing an import does **not** give back the
+  day's imports or rows. Worst case, measured with incompressible text at every limit (re-check
+  of this round): a day adds at most about 82 MB (20 000 skipped rows of about 3 kB: 65 MB;
+  chunk answers: 15 MB; the 250 new batches and their recorded chunks: 1.4 MB), and all that is
+  kept beyond the transactions is at most about 120 MB (skipped rows 66 MB, chunk answers 19
+  MB, staged parts 11 MB, 2 000 batches with up to 200 000 recorded chunks about 25 MB).
 - Every argument is checked before anything of the budget. Errors: `invalid_name` (first),
   `budget_not_found`, `invalid_batch`, `invalid_chunk`, `invalid_source`, `invalid_date` (the
   range), `invalid_rows`, `import_batch_conflict` (the id is another budget's batch, also when
@@ -1329,7 +1348,10 @@ Member. Imports one chunk of a batch, exactly as the preview says, all or nothin
   `category_limit_reached`, `import_limit_reached`, `catching_up`.
 
 **`import_skipped_anyway(p_batch_id, p_skipped_row_ids = null) -> import_row_result[]`**
-Member. Imports skipped rows of a batch anyway (R-IMPORT-073, R-IMPORT-204, R-IMPORT-258): the
+Member. **Ids no longer kept** (D-523, answers Q-291): after the rows imported, each distinct
+id sent that is no longer a skipped row the batch keeps (the oldest go, D-452; or never one of
+this batch) answers one row with `action` `'not_kept'`, `reason` `'not_kept'`, `valid` false
+and every other field null: count them to say "n rows could no longer be imported". Imports skipped rows of a batch anyway (R-IMPORT-073, R-IMPORT-204, R-IMPORT-258): the
 given ones, or all that are not invalid and not already imported (at most 500 a call; call
 again for more). Each is planned again now with action `import`, its original kind and
 category dropped (the review decides), and answers with its original `chunk` and `row_no`. The
@@ -1401,7 +1423,9 @@ same statement still finds. Errors:
   to nothing, move to the category where it is in force on their date; `moved` says how many
   (R-IMPORT-260).
 - **`preview_merchant_rule(p_budget_id, p_fragment, p_category_id = null) -> {fragment, covered_by_rule_id, covered_by_fragment, rule_exists, would_move}`**
-  (R-IMPORT-347, D-457, answers Q-271) without writing: the fragment as it would be stored; the
+  (R-IMPORT-347, D-457, answers Q-271) without writing (membership is checked first, then the
+  fragment's raw length: over 1000 characters is `invalid_fragment` before any work on it, as
+  for `create_merchant_rule`; R-IMPORT-421): the fragment as it would be stored; the
   existing rule that already covers it (the one the import would pick for that key: the
   longest fragment it contains; null when none); whether a rule with this very fragment
   exists; and how many transactions waiting in "to categorise" the rule would move to
@@ -2060,21 +2084,14 @@ Step 2 messages:
 | `budget_ended` | no current period: the budget is past its end date |
 | `budget_limit_reached`, `member_limit_reached`, `invitation_limit_reached`, `income_limit_reached` | a limit (20 owned budgets, 20 members, 20 pending invitations, 50 incomes in force or 500 in all) |
 
-## Error messages added by the step 6 fix round 2
-
-Stable messages added by the second fix round of step 6 (D-451 to D-466). They are listed here,
-apart from the table above, until the screens know them (`src/lib/db-errors.ts` and both
-locales): until then a member who meets `import_limit_reached` or `chunk_expired` sees the
-generic message. The other four reach only the import script (`import_with_token`'s `error`
-column). `interest_before_opening` (D-467) is a refusal of `move_period_start` and its preview's
-`refusal`. Move them into the table above when the screens add them.
+Step 6 fix round 2 and step 7 messages (D-451 to D-467, D-452 as amended):
 
 | Message | Meaning |
 | --- | --- |
 | `token_busy`, `imports_busy` | another call of this token is working, or every slot for token work is taken: nothing was done or counted; send the same chunk again after a pause (token import's `error` column) |
 | `budget_busy` | the token import waited a second for its budget, held by another call: nothing written (counted); send again |
 | `call_cancelled` | the token import was cancelled (statement timeout): nothing written, counted; send again |
-| `import_limit_reached` | the budget's import storage is used up: 20 000 rows or 50 new batches within 24 hours, or 2 000 batches kept that all still hold something |
+| `import_limit_reached` | the budget's import storage is used up; the detail names the limit (`{"limit": ...}`): `imports_per_day` (the members' 200 new imports within 24 hours; tokens have 50 of their own), `rows_per_day` (20 000 rows within 24 hours, tokens at most 10 000 of them), `imports_kept` (2 000 batches kept that all still hold something); the day's limits free 24 hours after the oldest use, undoing an import does not give them back |
 | `chunk_expired` | that chunk was recorded but its answer is no longer kept: it is not imported again (list the batch's rows instead) |
 | `interest_before_opening` | the period's start cannot move to on or before the opening of a debt that has interest in that period (`move_period_start`, and the preview's `refusal`) |
 

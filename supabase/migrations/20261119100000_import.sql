@@ -55,13 +55,19 @@ language sql immutable set search_path = '' as $$ select '1000ms' $$;
 -- budget has room for fewer than this many transactions, whatever it sends.
 create function private.limit_token_rows_per_call() returns integer
 language sql immutable set search_path = '' as $$ select 250 $$;
--- D-452 (R-IMPORT-341): import storage per budget, members and tokens together. Over a rolling
--- 24 hours: rows submitted to a write, new batches, tokens created (deleted ones count). Kept:
--- batches, skipped rows (the oldest go), stored chunk answers (the oldest are forgotten), staged
--- preview parts (the oldest go, and those older than a day).
+-- D-452 (R-IMPORT-341), R-IMPORT-420: import storage per budget. Over a rolling 24 hours: rows
+-- submitted to a write (members and tokens together, tokens at most limit_import_token_rows_per_day
+-- of them), new batches (members and tokens each their own allowance, so a token never locks the
+-- members out), tokens created (deleted ones count). Kept: batches, skipped rows (the oldest go),
+-- stored chunk answers (the oldest are forgotten), staged preview parts (the oldest go, and those
+-- older than a day).
 create function private.limit_import_rows_per_day() returns integer
 language sql immutable set search_path = '' as $$ select 20000 $$;
+create function private.limit_import_token_rows_per_day() returns integer
+language sql immutable set search_path = '' as $$ select 10000 $$;
 create function private.limit_import_batches_per_day() returns integer
+language sql immutable set search_path = '' as $$ select 200 $$;
+create function private.limit_import_token_batches_per_day() returns integer
 language sql immutable set search_path = '' as $$ select 50 $$;
 create function private.limit_import_tokens_per_day() returns integer
 language sql immutable set search_path = '' as $$ select 20 $$;
@@ -319,6 +325,9 @@ create table private.import_budget_usage (
   rows integer not null default 0,
   batches integer not null default 0,
   tokens integer not null default 0,
+  -- R-IMPORT-420: of those, what token calls used (rows and new batches)
+  token_rows integer not null default 0,
+  token_batches integer not null default 0,
   primary key (budget_id, minute)
 );
 -- Q-270 (D-455): the staged parts of a statement previewed in parts before any is written:
@@ -1111,12 +1120,16 @@ begin
 end;
 $$;
 
--- D-452 (R-IMPORT-341): add what an import write uses to the budget's rolling 24 hours (rows
--- submitted, new batches, tokens created) when it stays within the limits; false (nothing
--- added) when it would not. A minute counts while it is at most 24 hours before the current
--- minute. Under the budget lock.
-create function private.import_use(p_budget_id uuid, p_rows integer, p_batches integer, p_tokens integer)
-returns boolean
+-- D-452 (R-IMPORT-341), R-IMPORT-420: add what an import write uses to the budget's rolling 24
+-- hours (rows submitted, new batches, tokens created; a token call's rows and batches also as
+-- the tokens' own) when it stays within the limits, and answer null; otherwise add nothing and
+-- answer the limit it would pass ('rows_per_day', 'token_rows_per_day', 'imports_per_day',
+-- 'token_imports_per_day', 'tokens_per_day'). Members and tokens have separate allowances of
+-- new batches, and tokens at most part of the rows, so a token never locks the members out. A
+-- minute counts while it is at most 24 hours before the current minute. Under the budget lock.
+create function private.import_use(p_budget_id uuid, p_rows integer, p_batches integer, p_tokens integer,
+                                   p_by_token boolean default false)
+returns text
 language plpgsql
 volatile
 set search_path = ''
@@ -1124,22 +1137,45 @@ as $$
 declare
   v_minute timestamptz := pg_catalog.date_trunc('minute', pg_catalog.clock_timestamp());
   v_used record;
+  v_token integer := case when p_by_token then 1 else 0 end;
 begin
   delete from private.import_budget_usage as u where u.budget_id = p_budget_id and u.minute < v_minute - interval '24 hours';
   select coalesce(pg_catalog.sum(u.rows), 0) as rows, coalesce(pg_catalog.sum(u.batches), 0) as batches,
-         coalesce(pg_catalog.sum(u.tokens), 0) as tokens
+         coalesce(pg_catalog.sum(u.tokens), 0) as tokens, coalesce(pg_catalog.sum(u.token_rows), 0) as token_rows,
+         coalesce(pg_catalog.sum(u.token_batches), 0) as token_batches
   into v_used
   from private.import_budget_usage as u where u.budget_id = p_budget_id and u.minute >= v_minute - interval '24 hours';
-  if v_used.rows + p_rows > private.limit_import_rows_per_day()
-     or v_used.batches + p_batches > private.limit_import_batches_per_day()
-     or v_used.tokens + p_tokens > private.limit_import_tokens_per_day() then
-    return false;
+  if v_used.rows + p_rows > private.limit_import_rows_per_day() then
+    return 'rows_per_day';
+  elsif p_by_token and v_used.token_rows + p_rows > private.limit_import_token_rows_per_day() then
+    return 'token_rows_per_day';
+  elsif p_by_token and v_used.token_batches + p_batches > private.limit_import_token_batches_per_day() then
+    return 'token_imports_per_day';
+  elsif not p_by_token and v_used.batches - v_used.token_batches + p_batches > private.limit_import_batches_per_day() then
+    return 'imports_per_day';
+  elsif v_used.tokens + p_tokens > private.limit_import_tokens_per_day() then
+    return 'tokens_per_day';
   end if;
-  insert into private.import_budget_usage (budget_id, minute, rows, batches, tokens)
-  values (p_budget_id, v_minute, p_rows, p_batches, p_tokens)
+  insert into private.import_budget_usage (budget_id, minute, rows, batches, tokens, token_rows, token_batches)
+  values (p_budget_id, v_minute, p_rows, p_batches, p_tokens, v_token * p_rows, v_token * p_batches)
   on conflict (budget_id, minute) do update set rows = private.import_budget_usage.rows + excluded.rows,
-    batches = private.import_budget_usage.batches + excluded.batches, tokens = private.import_budget_usage.tokens + excluded.tokens;
-  return true;
+    batches = private.import_budget_usage.batches + excluded.batches, tokens = private.import_budget_usage.tokens + excluded.tokens,
+    token_rows = private.import_budget_usage.token_rows + excluded.token_rows,
+    token_batches = private.import_budget_usage.token_batches + excluded.token_batches;
+  return null;
+end;
+$$;
+
+-- R-IMPORT-420: the refusal of an import write at a limit of the budget's storage; its detail
+-- names the limit (JSON text {"limit": "..."}), so a screen can say which one and when it frees.
+create function private.raise_import_limit(p_limit text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'import_limit_reached' using errcode = 'P0001',
+    detail = pg_catalog.json_build_object('limit', p_limit)::text;
 end;
 $$;
 
@@ -1174,12 +1210,12 @@ begin
                        and not exists (select 1 from public.import_skipped_rows as k where k.batch_id = x.id)
                      order by x.created_at, x.id limit 10);
       if (select pg_catalog.count(*) from public.import_batches as b where b.budget_id = p_budget_id) >= private.limit_import_batches_kept() then
-        raise exception 'import_limit_reached' using errcode = 'P0001';
+        perform private.raise_import_limit('imports_kept');
       end if;
     end if;
-    if not private.import_use(p_budget_id, 0, 1, 0) then
-      raise exception 'import_limit_reached' using errcode = 'P0001';
-    end if;
+    perform private.raise_import_limit(v_limit)
+    from (select private.import_use(p_budget_id, 0, 1, 0, p_token.id is not null) as v_limit) as u
+    where u.v_limit is not null;
     -- F8: two budgets racing for one new batch id get a clean answer (no unique violation)
     insert into public.import_batches (id, budget_id, source, statement_from, statement_to, created_by, token_id, token_name)
     values (p_batch_id, p_budget_id, p_source, p_from, p_to,
@@ -1227,9 +1263,9 @@ begin
   if v_by_token and private.transaction_room(p_budget_id) < private.limit_token_rows_per_call() then
     raise exception 'transaction_limit_reached' using errcode = 'P0001';
   end if;
-  if not private.import_use(p_budget_id, pg_catalog.jsonb_array_length(p_rows), 0, 0) then
-    raise exception 'import_limit_reached' using errcode = 'P0001';
-  end if;
+  perform private.raise_import_limit(u.v_limit)
+  from (select private.import_use(p_budget_id, pg_catalog.jsonb_array_length(p_rows), 0, 0, v_by_token) as v_limit) as u
+  where u.v_limit is not null;
   select pg_catalog.array_agg(p order by p.row_no) into v_plan from private.import_plan(p_budget_id, p_batch_id, p_rows, v_by_token) as p;
   select pg_catalog.array_agg(a order by a.row_no) into v_result
   from private.import_apply(p_budget_id, p_batch_id, p_chunk, v_plan, p_rows, v_by_token, p_to_categorise_name) as a;
@@ -1246,6 +1282,8 @@ begin
   where b.id = p_batch_id;
   insert into private.import_chunks (batch_id, budget_id, chunk, result, created_at)
   values (p_batch_id, p_budget_id, p_chunk, pg_catalog.to_jsonb(v_result), pg_catalog.clock_timestamp());
+  -- Q-290 (D-522): the part staged for this chunk is written now, no longer staged
+  delete from private.import_preview_parts as x where x.batch_id = p_batch_id and x.part = p_chunk;
   -- D-452: the newest skipped rows and chunk answers are kept
   delete from public.import_skipped_rows as k
   where k.id in (select x.id from public.import_skipped_rows as x where x.budget_id = p_budget_id
@@ -1322,8 +1360,12 @@ $$;
 -- totals of the staged parts 1 to p_part), parts (the part numbers they cover), room (how many
 -- transactions the budget can still take), fits (whether the statement's rows to import fit).
 -- A row going to a "to categorise" category that does not exist yet has category_id null in the
--- preview and the new category's id in the write. Members. Errors: budget_not_found,
--- invalid_batch, invalid_chunk, invalid_rows, import_batch_conflict, batch_undone, catching_up.
+-- preview and the new category's id in the write. D-522 (answers Q-290): a part already written
+-- as its chunk answers what that chunk recorded (its rows and its totals, written true), stages
+-- nothing and forgets no later part; a staged part is no longer staged once written, so the
+-- statement covers the parts staged and not yet written (written false on a planned part).
+-- Members. Errors: budget_not_found, invalid_batch, invalid_chunk, invalid_rows,
+-- import_batch_conflict, batch_undone, chunk_expired, catching_up.
 create function public.preview_import_part(p_budget_id uuid, p_batch_id uuid, p_part integer, p_rows jsonb)
 returns jsonb
 language plpgsql
@@ -1341,6 +1383,7 @@ declare
   v_statement jsonb;
   v_parts integer[];
   v_room integer;
+  v_written private.import_chunks;
 begin
   perform private.assert_member(p_budget_id);
   if p_batch_id is null then
@@ -1359,6 +1402,18 @@ begin
   elsif v_batch.undone_at is not null then
     raise exception 'batch_undone' using errcode = 'P0001';
   end if;
+  select c.* into v_written from private.import_chunks as c where c.batch_id = p_batch_id and c.chunk = p_part;
+  if v_written.batch_id is not null and v_written.budget_id = p_budget_id then
+    -- Q-290 (D-522): what the write recorded for this part, as it answered then
+    if v_written.result is null then
+      raise exception 'chunk_expired' using errcode = 'P0001';
+    end if;
+    select pg_catalog.array_agg(r order by r.row_no) into v_plan
+    from pg_catalog.jsonb_populate_recordset(null::public.import_row_result, v_written.result) as r;
+    v_totals := private.import_totals(v_plan);
+    delete from private.import_preview_parts as x
+    where x.budget_id = p_budget_id and x.created_at < now() - interval '1 day';
+  else
   delete from private.import_preview_parts as x
   where x.budget_id = p_budget_id and (x.created_at < now() - interval '1 day' or (x.batch_id = p_batch_id and x.part >= p_part));
   select coalesce(pg_catalog.array_agg(u.id), '{}') into v_absorbed
@@ -1383,6 +1438,7 @@ begin
   delete from private.import_preview_parts as x
   where (x.batch_id, x.part) in (select y.batch_id, y.part from private.import_preview_parts as y where y.budget_id = p_budget_id
                                  order by y.created_at desc, y.batch_id, y.part desc offset private.limit_import_preview_parts_kept());
+  end if;
   select pg_catalog.jsonb_object_agg(t.key, t.total), pg_catalog.array_agg(distinct t.part)
   into v_statement, v_parts
   from (select e.key, pg_catalog.sum(e.value::bigint) over (partition by e.key) as total, x.part
@@ -1392,7 +1448,8 @@ begin
   return pg_catalog.jsonb_build_object(
     'rows', (select pg_catalog.jsonb_agg(pg_catalog.to_jsonb(x) order by x.row_no) from unnest(v_plan) as x),
     'part', v_totals, 'statement', v_statement, 'parts', pg_catalog.to_jsonb(v_parts),
-    'room', greatest(v_room, 0), 'fits', (v_statement ->> 'import')::bigint <= v_room);
+    'room', greatest(v_room, 0), 'fits', coalesce((v_statement ->> 'import')::bigint, 0) <= v_room,
+    'written', v_written.batch_id is not null);
 end;
 $$;
 
@@ -1437,8 +1494,11 @@ $$;
 -- and matches no longer matter), through the same code; rows no longer valid stay skipped.
 -- Answers each row with its own chunk and row_no. The batch's counts move from the row's
 -- reason to imported (once per row: a row imported anyway whose transaction was deleted since
--- can be imported anyway again, without counting it twice). Members. Errors:
--- import_batch_not_found, batch_undone, transaction_limit_reached, catching_up.
+-- can be imported anyway again, without counting it twice). D-523 (answers Q-291): each id sent
+-- that is no longer a kept skipped row of the batch (the oldest go, D-452) answers one row of
+-- action 'not_kept' (reason 'not_kept', valid false, the other fields null), after the rows
+-- imported. Members. Errors: import_batch_not_found, batch_undone, transaction_limit_reached,
+-- catching_up.
 create function public.import_skipped_anyway(p_batch_id uuid, p_skipped_row_ids uuid[] default null)
 returns setof public.import_row_result
 language plpgsql
@@ -1473,7 +1533,9 @@ begin
           and (p_skipped_row_ids is null or s.id = any (p_skipped_row_ids))
         order by s.chunk, s.row_no
         limit private.limit_import_rows_per_call()) as x;
+  -- D-523: the ids sent that are no longer kept, answered after the rows (none when all are)
   if v_ids is null then
+    return query select * from private.import_not_kept_rows(p_batch_id, p_skipped_row_ids);
     return;
   end if;
   -- the original choices (a kind, a category) of a row are dropped: the member's review decides
@@ -1497,7 +1559,22 @@ begin
     r.row_no := k.row_no;
     return next r;
   end loop;
+  return query select * from private.import_not_kept_rows(p_batch_id, p_skipped_row_ids);
 end;
+$$;
+
+-- D-523: one row of action 'not_kept' for each distinct id sent that is no longer a skipped row
+-- the batch keeps.
+create function private.import_not_kept_rows(p_batch_id uuid, p_ids uuid[])
+returns setof public.import_row_result
+language sql
+stable
+set search_path = ''
+as $$
+  select r.* from (select distinct u.id from unnest(p_ids) as u (id) where u.id is not null) as i
+  cross join lateral (select null::integer as row_no, false as valid, 'not_kept'::text as reason, 'not_kept'::text as action) as x
+  cross join lateral pg_catalog.jsonb_populate_record(null::public.import_row_result, pg_catalog.to_jsonb(x)) as r
+  where not exists (select 1 from public.import_skipped_rows as s where s.id = i.id and s.batch_id = p_batch_id)
 $$;
 
 -- ===========================================================================
@@ -1747,7 +1824,7 @@ begin
   perform private.prune_import_tokens(p_budget_id);
   if (select pg_catalog.count(*) from public.import_tokens as t
       where t.budget_id = p_budget_id and t.revoked_at is null and t.expires_at > now()) >= private.limit_import_tokens_active()
-     or not private.import_use(p_budget_id, 0, 0, 1) then
+     or private.import_use(p_budget_id, 0, 0, 1) is not null then
     raise exception 'token_limit_reached' using errcode = 'P0001';
   end if;
   v_secret := 'bti_' || pg_catalog.replace(gen_random_uuid()::text, '-', '') || pg_catalog.replace(gen_random_uuid()::text, '-', '');
@@ -2039,6 +2116,29 @@ begin
 end;
 $$;
 
+-- R-IMPORT-421: a rule's fragment as stored (normalised like a merchant key, 1 to 100
+-- characters), its raw length checked before any work on it: no text over 1000 characters
+-- normalises to a valid fragment worth the work (invalid_fragment).
+create function private.merchant_fragment(p_fragment text)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_fragment text;
+begin
+  if p_fragment is null or pg_catalog.octet_length(p_fragment) > 4000 or char_length(p_fragment) > 1000 then
+    raise exception 'invalid_fragment' using errcode = 'P0001';
+  end if;
+  v_fragment := private.normalize_merchant_text(p_fragment);
+  if v_fragment = '' or char_length(v_fragment) > 100 then
+    raise exception 'invalid_fragment' using errcode = 'P0001';
+  end if;
+  return v_fragment;
+end;
+$$;
+
 -- Q-271 (D-457): what a one-click rule would do, without writing: the fragment as it would be
 -- stored, the existing rule that already covers the key it is taken from (the one the import
 -- would pick: the longest fragment the key contains; null if none), whether a rule with this
@@ -2055,13 +2155,12 @@ set search_path = ''
 as $$
 #variable_conflict use_column
 declare
-  v_fragment text := private.normalize_merchant_text(p_fragment);
+  v_fragment text;
   v_rule public.merchant_rules;
 begin
+  -- R-IMPORT-421: membership, then the fragment's length, before any work on it
   perform private.assert_member(p_budget_id);
-  if v_fragment = '' or char_length(v_fragment) > 100 then
-    raise exception 'invalid_fragment' using errcode = 'P0001';
-  end if;
+  v_fragment := private.merchant_fragment(p_fragment);
   if p_category_id is not null then
     perform private.assert_rule_category(p_budget_id, p_category_id);
   end if;
@@ -2101,13 +2200,11 @@ set search_path = ''
 as $$
 #variable_conflict use_column
 declare
-  v_fragment text := private.normalize_merchant_text(p_fragment);
+  v_fragment text;
   v_rule public.merchant_rules;
 begin
   perform private.assert_member(p_budget_id);
-  if v_fragment = '' or char_length(v_fragment) > 100 then
-    raise exception 'invalid_fragment' using errcode = 'P0001';
-  end if;
+  v_fragment := private.merchant_fragment(p_fragment);
   perform private.lock_and_catch_up(p_budget_id);
   perform private.assert_rule_category(p_budget_id, p_category_id);
   if exists (select 1 from public.merchant_rules as r where r.budget_id = p_budget_id and r.fragment = v_fragment) then
@@ -2309,6 +2406,10 @@ declare
   v_found boolean;
 begin
   perform private.assert_member(p_budget_id);
+  -- R-IMPORT-421: nothing longer than a stored key is looked for (none can match)
+  if p_flag is null or p_counterparty_key is null or char_length(p_flag) > 100 or char_length(p_counterparty_key) > 1000 then
+    return false;
+  end if;
   perform private.lock_budget(p_budget_id);
   delete from public.import_choices as c
   where c.budget_id = p_budget_id and c.flag = p_flag and c.counterparty_key = p_counterparty_key;

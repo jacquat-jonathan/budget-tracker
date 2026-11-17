@@ -206,5 +206,151 @@ select is((select starts_key from public.transfers where id = tests.id('a_t')), 
   'R-ACCOUNT-420: one made from a later day remembers none');
 select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('k')), 'R-ACCOUNT-420: the model agrees (moved salary)');
 
+-- ===========================================================================
+-- Import ceilings: members and tokens have separate allowances (R-IMPORT-420, D-452 as amended)
+-- ===========================================================================
+create function pg_temp.refusal(q text) returns text language plpgsql as $$
+declare
+  v_detail text;
+begin
+  execute q;
+  return 'no error';
+exception when others then
+  get stacked diagnostics v_detail = pg_exception_detail;
+  return sqlerrm || coalesce(' ' || nullif(v_detail, ''), '');
+end $$;
+create function pg_temp.call(p_secret text, p_batch text, p_rows jsonb) returns text language sql as $$
+  select coalesce(x.error, x.received::text || '/' || x.refused::text)
+  from public.import_with_token(p_secret, p_batch, '1', p_rows, 'script') as x
+$$;
+create function pg_temp.row1(n integer) returns jsonb language sql as $$
+  select jsonb_build_array(jsonb_build_object('date', '2026-11-14', 'amount', n, 'direction', 'debit')) $$;
+grant execute on function pg_temp.call(text, text, jsonb), pg_temp.row1(integer) to anon, authenticated;
+select pg_temp.day('2026-11-16');
+select tests.remember('i', public.create_budget('Import ceilings', 'Salary', 600000, 25, 'none', '2026-09-01'));
+create temp table jtok on commit drop as select * from public.create_import_token(tests.id('i'), 'Script');
+grant select on jtok to anon, authenticated;
+select tests.clear_authentication();
+-- a token takes its 50 new imports of the day; the 51st is refused, naming its own limit
+select tests.authenticate_as_anon();
+select is((select count(*)::integer from generate_series(1, 50) as g
+           where pg_temp.call((select token from jtok), gen_random_uuid()::text, pg_temp.row1(1000 + g)) = '1/0'), 50,
+  'R-IMPORT-420: a token starts 50 new imports in a day');
+select is(pg_temp.call((select token from jtok), gen_random_uuid()::text, pg_temp.row1(2000)), 'import_limit_reached',
+  'R-IMPORT-420: the token''s 51st new import is refused');
+select tests.clear_authentication();
+select pg_temp.day('2026-11-16');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, gen_random_uuid(), 1, %L, 'csv')$$,
+                                 tests.id('i'), pg_temp.row1(3000))),
+  'no error', 'R-IMPORT-420: the token never locks the members out: a member still starts a new import');
+-- the members' allowance is their own (200 a day; 3 here), and its refusal names it
+select tests.clear_authentication();
+savepoint ceilings;
+create or replace function private.limit_import_batches_per_day() returns integer language sql immutable set search_path = '' as $f$ select 3 $f$;
+select pg_temp.day('2026-11-16');
+select public.import_transactions(tests.id('i'), gen_random_uuid(), 1, pg_temp.row1(3001), 'csv');
+select public.import_transactions(tests.id('i'), gen_random_uuid(), 1, pg_temp.row1(3002), 'csv');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, gen_random_uuid(), 1, %L, 'csv')$$,
+                                 tests.id('i'), pg_temp.row1(3003))),
+  'import_limit_reached {"limit" : "imports_per_day"}', 'R-IMPORT-420: the members'' 4th new import of the day (3 here) is refused, naming the limit');
+select is(pg_temp.refusal(format($$select * from public.preview_import(%L, null, %L)$$, tests.id('i'), pg_temp.row1(3003))),
+  'no error', 'R-IMPORT-420: a preview is not an import (nothing counted)');
+rollback to savepoint ceilings;
+-- rows: 20 000 a day in all (20 here), of which tokens at most 10 000 (10 here)
+savepoint ceilings2;
+create or replace function private.limit_import_rows_per_day() returns integer language sql immutable set search_path = '' as $f$ select 20 $f$;
+create or replace function private.limit_import_token_rows_per_day() returns integer language sql immutable set search_path = '' as $f$ select 10 $f$;
+select tests.clear_authentication();
+delete from private.import_budget_usage where budget_id = tests.id('i');
+select tests.authenticate_as_anon();
+select is(pg_temp.call((select token from jtok), gen_random_uuid()::text,
+                       (select jsonb_agg(jsonb_build_object('date', '2026-11-13', 'amount', 4000 + g, 'direction', 'debit')) from generate_series(1, 10) as g)),
+  '10/0', 'R-IMPORT-420: tokens import their share of the day''s rows');
+select is(pg_temp.call((select token from jtok), gen_random_uuid()::text, pg_temp.row1(4100)), 'import_limit_reached',
+  'R-IMPORT-420: one row more by a token is refused');
+select tests.clear_authentication();
+select pg_temp.day('2026-11-16');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, gen_random_uuid(), 1, %L, 'csv')$$, tests.id('i'),
+          (select jsonb_agg(jsonb_build_object('date', '2026-11-13', 'amount', 4200 + g, 'direction', 'debit')) from generate_series(1, 10) as g))),
+  'no error', 'R-IMPORT-420: members keep the rest of the day''s rows');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, gen_random_uuid(), 1, %L, 'csv')$$, tests.id('i'), pg_temp.row1(4300))),
+  'import_limit_reached {"limit" : "rows_per_day"}', 'R-IMPORT-420: beyond 20 000 rows in all, a member is refused, naming the limit');
+select tests.clear_authentication();
+select is((select sum(token_rows)::integer || '/' || sum(rows)::integer from private.import_budget_usage where budget_id = tests.id('i')),
+  '10/20', 'R-IMPORT-420: the tokens'' share is counted on its own');
+rollback to savepoint ceilings2;
+
+-- ===========================================================================
+-- The new import calls check membership and lengths before any work (R-IMPORT-421)
+-- ===========================================================================
+savepoint order_of_work;
+-- the fragment's normalisation is replaced by a refusal of its own: whoever reaches it says so
+create or replace function private.normalize_merchant_text(p_text text) returns text language plpgsql immutable set search_path = ''
+  as $f$ begin raise exception 'normalised' using errcode = 'P0001'; end $f$;
+select pg_temp.day('2026-11-16', 'jules');
+select is(pg_temp.refusal(format($$select * from public.preview_merchant_rule(%L, %L)$$, tests.id('i'), repeat('x', 2000000))),
+  'budget_not_found', 'R-IMPORT-421: an outsider''s huge fragment is refused for the budget before any work on it');
+select is(pg_temp.refusal(format($$select * from public.create_merchant_rule(%L, %L, %L)$$, tests.id('i'), repeat('x', 2000000),
+                                 gen_random_uuid())),
+  'budget_not_found', 'R-IMPORT-421: so is creating the rule');
+select is(pg_temp.refusal(format($$select public.forget_import_choice(%L, 'own_transfer', %L)$$, tests.id('i'), repeat('x', 2000000))),
+  'budget_not_found', 'R-IMPORT-421: forget_import_choice checks membership first');
+select is(pg_temp.refusal(format($$select public.preview_import_part(%L, gen_random_uuid(), 1, '[]')$$, tests.id('i'))),
+  'budget_not_found', 'R-IMPORT-421: preview_import_part checks membership first');
+select pg_temp.day('2026-11-16');
+select is(pg_temp.refusal(format($$select * from public.preview_merchant_rule(%L, %L)$$, tests.id('i'), repeat('x', 1001))),
+  'invalid_fragment', 'R-IMPORT-421: a member''s fragment over 1000 characters is refused before it is normalised');
+select is(pg_temp.refusal(format($$select * from public.preview_merchant_rule(%L, %L)$$, tests.id('i'), 'coop')),
+  'normalised', 'R-IMPORT-421: (a fragment of a sane length is normalised)');
+select is(public.forget_import_choice(tests.id('i'), 'own_transfer', repeat('x', 1001)), false,
+  'R-IMPORT-421: a key longer than any stored one is not looked for');
+rollback to savepoint order_of_work;
+
+-- ===========================================================================
+-- Q-290 (D-522): a written part answers what it recorded; once written it is no longer staged
+-- ===========================================================================
+select pg_temp.day('2026-11-16');
+select tests.remember('qb', gen_random_uuid());
+create temp table qrows on commit drop as
+  select (select jsonb_agg(jsonb_build_object('date', '2026-11-10', 'amount', 5100 + g, 'direction', 'debit', 'description', 'Shop ' || g))
+          from generate_series(1, 3) as g) as p1,
+         (select jsonb_agg(jsonb_build_object('date', '2026-11-11', 'amount', 5200 + g, 'direction', 'debit')) from generate_series(1, 2) as g) as p2;
+grant select on qrows to authenticated;
+select is((public.preview_import_part(tests.id('i'), tests.id('qb'), 1, (select p1 from qrows)) -> 'part' ->> 'import')::integer, 3,
+  'D-522: (part 1 staged: 3 rows to import)');
+create temp table qwrite on commit drop as
+  select * from public.import_transactions(tests.id('i'), tests.id('qb'), 1, (select p1 from qrows), 'csv');
+grant select on qwrite to authenticated;
+create temp table qagain on commit drop as
+  select public.preview_import_part(tests.id('i'), tests.id('qb'), 1, (select p1 from qrows)) as a;
+grant select on qagain to authenticated;
+select is((select a ->> 'written' from qagain), 'true', 'D-522: part 1 previewed again after its write says it was written');
+select results_eq($$select x.row_no, x.action, x.transaction_id from qagain cross join lateral
+                     jsonb_populate_recordset(null::public.import_row_result, a -> 'rows') as x order by 1$$,
+  $$select row_no, action, transaction_id from qwrite order by 1$$,
+  'D-522: its rows are what the write recorded (the same answers, the transactions it made), not planned as new');
+select is((select (a -> 'part' ->> 'import')::integer from qagain), 3, 'D-522: its counts are the write''s');
+select is((public.preview_import_part(tests.id('i'), tests.id('qb'), 2, (select p2 from qrows)) -> 'parts')::text, '[2]',
+  'D-522: part 1, written, no longer counts as staged: the statement covers part 2 only');
+select is((select count(*)::integer from public.import_transactions(tests.id('i'), tests.id('qb'), 1, (select p1 from qrows), 'csv')
+           where action = 'import'), 3, 'D-522: (the chunk sent again answers as before)');
+
+-- ===========================================================================
+-- Q-291 (D-523): import_skipped_anyway says which ids sent are no longer kept
+-- ===========================================================================
+create temp table qskip on commit drop as
+  select * from public.import_transactions(tests.id('i'), gen_random_uuid(), 1,
+    (select jsonb_agg(jsonb_build_object('date', '2026-11-10', 'amount', 5101, 'direction', 'debit', 'description', 'Shop 1'))), 'csv');
+select is((select action from qskip), 'skip_duplicate', 'D-523: (setup) a duplicate is skipped and kept');
+select tests.clear_authentication();
+select tests.remember('qk', (select id from public.import_skipped_rows where budget_id = tests.id('i') limit 1));
+select tests.remember('qkb', (select batch_id from public.import_skipped_rows where budget_id = tests.id('i') limit 1));
+select pg_temp.day('2026-11-16');
+select results_eq(
+  format($$select action, reason, valid from public.import_skipped_anyway(%L, array[%L::uuid, %L::uuid, %L::uuid]) order by action$$,
+         tests.id('qkb'), tests.id('qk'), gen_random_uuid(), gen_random_uuid()),
+  $$values ('import', null::text, true), ('not_kept', 'not_kept', false), ('not_kept', 'not_kept', false)$$,
+  'D-523: the kept row is imported anyway and each id no longer kept answers a row not_kept');
+
 select * from finish();
 rollback;
