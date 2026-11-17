@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 
 import type { Database } from '@/lib/database.types'
-import { step7Handlers, type ChecklistRow, type MoneyFlowRow } from '@/test/mock-transfers'
+import { step7Handlers, type ChecklistRow, type MoneyFlowPlan } from '@/test/mock-transfers'
 
 /**
  * An in-memory stand-in for the database behind the Supabase mock: tables and views as
@@ -84,8 +84,8 @@ export interface MockDb {
   staged: Record<string, Record<number, ImportRowResult[]>>
   /** get_transfer_checklist's rows, every period's (the marks change them in place). */
   checklist: ChecklistRow[]
-  /** get_money_flow's rows, every period's. */
-  moneyFlow: MoneyFlowRow[]
+  /** The plans get_money_flow reads, one per period (moneyFlowRows builds its rows). */
+  moneyFlowPlans: MoneyFlowPlan[]
 }
 
 function emptyTables(): MockTables {
@@ -245,7 +245,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     readFailures,
     staged: {},
     checklist: [],
-    moneyFlow: [],
+    moneyFlowPlans: [],
     failNextRead: (relation, error) => {
       readFailures.set(relation, error)
     },

@@ -369,25 +369,125 @@ export const transfersFr = {
 }
 
 export const moneyFlowFr = {
-  scrollFrame: 'Diagramme des flux financiers, défile horizontalement',
   period: 'Période',
   currentPeriod: '{{label}} (en cours)',
   notAssigned: 'Non attribué',
   notAssignedHelp:
     '« Non attribué » : les revenus qui n’indiquent pas encore de compte. Précisez dans le revenu où il arrive.',
-  nodeTitle: 'entrées {{in}}, sorties {{out}}, reste {{stays}}',
   bandIncome: '{{name}} : {{amount}}',
   bandTransfer: '{{name}} : {{amount}} par mois',
-  diagramTitle:
-    'Flux financiers de la période {{period}} : revenus de {{incomes}}, dont {{transfers}} déplacés par des virements. Tous les montants figurent dans les tableaux ci-dessous.',
-  empty: 'Aucun revenu dans cette période',
-  emptyHelp: 'Les flux financiers partent des revenus en vigueur dans une période.',
-  incomesTotal: 'Revenus de la période',
-  transfersTotal: 'Déplacé par les virements (par mois)',
-  howToRead:
-    'Lisez de gauche à droite : chaque revenu vers son compte, puis les virements. Les bandes sont aussi larges que les montants. Sous un revenu, son montant ; sous un compte, ce que le plan y laisse pendant la période (avec un signe d’alerte quand plus sort qu’il n’entre). Un virement trimestriel ou annuel compte sa part mensuelle.',
-  spendingNote:
-    'Seulement le plan : ce qui a réellement été dépensé figure dans le budget et les transactions. Aucun solde n’est tenu.',
+  basis: {
+    label: 'Prévu ou réel',
+    planned: 'Prévu',
+    actual: 'Réel',
+  },
+  heading: {
+    planned: 'Flux financiers prévus de la période {{period}}',
+    actual: 'Ce qui s’est réellement passé pendant la période {{period}}',
+  },
+  intro: {
+    planned:
+      'Où vont les revenus de la période selon le plan : vers les comptes, les virements entre eux, ce qui est mis de côté et les dépenses prévues dans chaque groupe de catégories.',
+    actual:
+      'Les mêmes revenus et virements, avec ce que les transactions de la période ont réellement dépensé dans chaque groupe de catégories.',
+  },
+  running:
+    'Cette période est encore en cours jusqu’au {{end}} : ce qui est dépensé jusqu’ici, pas ses chiffres définitifs.',
+  diagramTitle: {
+    planned:
+      'Flux financiers prévus de la période {{period}} : revenus {{incomes}} ; mis de côté {{setAside}} ; disponible {{spendable}}, dont {{spending}} prévus en dépenses et {{rest}} non prévus. Tous les montants figurent dans les tableaux ci-dessous.',
+    actual:
+      'Flux financiers de la période {{period}}, tels qu’ils se sont passés : revenus {{incomes}} ; mis de côté {{setAside}} ; disponible {{spendable}}, dont {{spending}} dépensés et {{rest}} restants. Tous les montants figurent dans les tableaux ci-dessous.',
+  },
+  noIncome:
+    'Aucun revenu ne compte dans cette période, rien ne circule encore : les dépenses ci-dessous sont tout ce qu’il y a.',
+  empty: 'Rien encore dans cette période',
+  emptyHelp:
+    'Les flux financiers partent des revenus en vigueur dans une période et finissent par ce qui est prévu ou dépensé dans ses catégories.',
+  tiles: {
+    incomes: 'Revenus',
+    setAside: 'Mis de côté',
+    setAsideHelp: 'Reste sur les comptes d’épargne, de pilier, d’impôts et de placement',
+    spending: { planned: 'Dépenses prévues', actual: 'Dépensé' },
+    ofSpendable: 'Sur {{amount}} disponibles',
+    rest: { planned: 'Non prévu', actual: 'Restant' },
+    restHelp: {
+      planned: 'Disponible, sans dépense prévue',
+      actual: 'Disponible et non dépensé',
+    },
+    short: {
+      planned: 'Manque : plus de dépenses prévues que de disponible',
+      actual: 'Manque : plus de dépenses que de disponible',
+    },
+  },
+  tier: {
+    incomes: 'Revenus',
+    accounts: 'Comptes',
+    accountsNext: 'Puis vers',
+    pool: 'Disponible et mis de côté',
+    destinations: { planned: 'Dépenses prévues', actual: 'Dépensé' },
+  },
+  spendableName: 'Disponible',
+  setAsideName: 'Mis de côté',
+  notPlannedName: 'Non prévu',
+  leftName: 'Restant',
+  label: {
+    stays: 'reste {{amount}}',
+    staysSpendable: 'reste {{amount}}, disponible',
+    staysSetAside: 'reste {{amount}}, mis de côté',
+    moreOut: 'plus de sorties prévues que d’entrées',
+    spendable: 'disponible {{amount}}',
+    spendableNegative: 'moins que rien n’est disponible',
+    setAside: 'mis de côté {{amount}}',
+    planned: 'prévu {{amount}}',
+    spent: 'dépensé {{spent}} sur {{amount}}',
+    overPlan: 'plus que prévu',
+    yearly: '{{amount}} par an',
+    viaTransfers: '{{amount}} montrés comme virements',
+    viaTransfersSpent: '{{amount}} déplacés par des virements',
+    notPlanned: 'non prévu {{amount}}',
+    left: 'restant {{amount}}',
+  },
+  short: {
+    planned: 'non prévu {{amount}} : plus de dépenses prévues que de disponible',
+    actual: 'restant {{amount}} : plus de dépenses que de disponible',
+  },
+  more: {
+    incomes_one: 'Et {{count}} autre revenu : tous les montants figurent dans les tableaux.',
+    incomes_other: 'Et {{count}} autres revenus : tous les montants figurent dans les tableaux.',
+    accounts_one:
+      'Et {{count}} autre compte, non dessiné : tous les montants figurent dans les tableaux.',
+    accounts_other:
+      'Et {{count}} autres comptes, non dessinés : tous les montants figurent dans les tableaux.',
+    destinations_one:
+      'Et {{count}} autre groupe de catégories : tous les montants figurent dans les tableaux.',
+    destinations_other:
+      'Et {{count}} autres groupes de catégories : tous les montants figurent dans les tableaux.',
+  },
+  key: {
+    title: 'Comment le lire',
+    income: 'Un revenu',
+    account: 'Un compte : sa couleur le suit, quel que soit son nom',
+    setAsideAccount:
+      'Rayé : un compte dont le reste est mis de côté (épargne, 3e pilier, réserve d’impôts, placement)',
+    notAssigned: 'Gris pointillé : les revenus qui n’indiquent aucun compte',
+    spendable: 'Gris : ce qui reste sur les comptes courants, disponible ensemble',
+    setAside: 'Gris rayé : mis de côté',
+    group: {
+      planned:
+        'Un groupe de catégories : dépenses prévues (sa couleur suit sa place dans le budget)',
+      actual:
+        'Un groupe de catégories : ce qui a été dépensé (sa couleur suit sa place dans le budget)',
+    },
+    rest: { planned: 'Contour : disponible, non prévu', actual: 'Contour : disponible, restant' },
+    short: 'Hachures rouges : manque, plus de sorties qu’il n’y a',
+    repeat: 'Contour en tirets : une couleur réutilisée, à partir de la neuvième',
+    loop: 'Bande en tirets : de l’argent renvoyé vers un compte précédent.',
+    loopItem: '{{name}}, de {{from}} vers {{to}}, {{amount}} par mois',
+    scale:
+      'Les bandes sont aussi larges que les montants, à une même échelle. Un virement trimestriel ou annuel compte sa part mensuelle. La part d’une catégorie prévue en virements apparaît comme virement, pas comme dépense.',
+    idle: 'Rien de prévu cette période sur : {{names}}.',
+  },
   next: {
     title: 'Pour voir davantage de vos flux financiers',
     accounts:
@@ -401,21 +501,50 @@ export const moneyFlowFr = {
   table: {
     incomes: 'Revenus',
     income: 'Revenu',
-    into: 'Arrive sur',
+    arrivesOn: 'Arrive sur {{account}}',
     amount: 'Montant',
     totalIncomes: 'Total des revenus',
     transfers: 'Virements',
     transfer: 'Virement',
-    fromTo: 'De et vers',
     perMonth: 'Par mois',
     totalTransfers: 'Total déplacé',
+    itsTransactions: 'Ses transactions',
+    itsTransactionsFor: 'Transactions de {{name}}',
     accounts: 'Comptes',
     account: 'Compte',
     in: 'Entrées',
     out: 'Sorties',
     stays: 'Reste',
+    spendable: 'disponible',
+    setAside: 'mis de côté',
     negative: '(plus de sorties prévues que d’entrées)',
+    negativeShort: 'plus de sorties prévues que d’entrées',
+    totalSpendable: 'Disponible',
+    totalSetAside: 'Mis de côté',
     noBalance:
       '« Reste » est ce que le plan laisse sur un compte pendant la période, pas son solde : les soldes ne sont pas suivis.',
+    spending: 'Dépenses par groupe de catégories',
+    group: 'Groupe de catégories',
+    planned: 'Prévu',
+    spent: 'Dépensé',
+    overPlan: 'plus que prévu',
+    totalSpending: 'Total',
+    remains: 'Ce qui reste',
+    remainsHelp: 'Sur {{amount}} disponibles',
+    notPlanned: 'non prévu',
+    left: 'restant',
+    shortPlanned: 'manque : plus de prévu que de disponible',
+    shortActual: 'manque : plus de dépensé que de disponible',
+    noSpending: 'Rien n’est prévu ni dépensé dans aucune catégorie cette période.',
+    omitted_one:
+      '{{count}} autre groupe de catégories n’est pas listé (la lecture s’arrête à 1000 lignes) : les totaux l’incluent.',
+    omitted_other:
+      '{{count}} autres groupes de catégories ne sont pas listés (la lecture s’arrête à 1000 lignes) : les totaux les incluent.',
+    spendingHelp: {
+      planned:
+        'Prévu : les montants attendus des catégories à leur part mensuelle, moins ce que portent les virements planifiés. Dépensé : les transactions de la période, remboursements déduits, moins celles des virements.',
+      actual:
+        'Dépensé : les transactions de la période, remboursements déduits, moins celles des virements. Prévu : les montants attendus des catégories à leur part mensuelle, moins ce que portent les virements planifiés.',
+    },
   },
 }

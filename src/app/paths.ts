@@ -42,6 +42,8 @@ export function transactionsOf(filter: {
   review?: boolean
   /** The transactions of one import batch. */
   batch?: string
+  /** The transactions of one planned transfer (D-525). */
+  transfer?: string
 }): string {
   const params = new URLSearchParams({ period: filter.period ?? 'all' })
   if (filter.subscription) params.set('subscription', filter.subscription)
@@ -49,6 +51,7 @@ export function transactionsOf(filter: {
   if (filter.awaiting) params.set('awaiting', '1')
   if (filter.review) params.set('review', '1')
   if (filter.batch) params.set('batch', filter.batch)
+  if (filter.transfer) params.set('transfer', filter.transfer)
   return `${paths.transactions}?${params.toString()}`
 }
 

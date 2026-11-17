@@ -354,25 +354,119 @@ export const transfersEn = {
 }
 
 export const moneyFlowEn = {
-  scrollFrame: 'Money flow diagram, scrolls sideways',
   period: 'Period',
   currentPeriod: '{{label}} (current)',
   notAssigned: 'Not assigned',
   notAssignedHelp:
     '“Not assigned”: incomes that name no account yet. Say in the income where it arrives.',
-  nodeTitle: 'in {{in}}, out {{out}}, stays {{stays}}',
   bandIncome: '{{name}}: {{amount}}',
   bandTransfer: '{{name}}: {{amount}} a month',
-  diagramTitle:
-    'Money flow of the period {{period}}: incomes of {{incomes}}, of which transfers move {{transfers}}. Every figure is in the tables below.',
-  empty: 'No income in this period',
-  emptyHelp: 'The money flow starts with the incomes in force in a period.',
-  incomesTotal: 'Incomes this period',
-  transfersTotal: 'Moved by transfers (per month)',
-  howToRead:
-    'Read it from left to right: each income into its account, then the transfers. The bands are as wide as the amounts. Under an income, its amount; under an account, what the plan leaves on it this period (with a warning sign when more is planned out than in). A quarterly or yearly transfer counts its monthly share.',
-  spendingNote:
-    'The plan only: what was actually spent is in the budget and the transactions. No account balance is kept.',
+  basis: {
+    label: 'Planned or actual',
+    planned: 'Planned',
+    actual: 'Actual',
+  },
+  heading: {
+    planned: 'Planned money flow of the period {{period}}',
+    actual: 'What actually happened in the period {{period}}',
+  },
+  intro: {
+    planned:
+      'Where the period’s incomes go by the plan: into the accounts, the transfers between them, what is set aside, and the spending planned in each category group.',
+    actual:
+      'The same incomes and transfers, with what the period’s transactions actually spent in each category group.',
+  },
+  running:
+    'This period is still running until {{end}}: what is spent so far, not its final figures.',
+  diagramTitle: {
+    planned:
+      'Planned money flow of the period {{period}}: incomes {{incomes}}; set aside {{setAside}}; spendable {{spendable}}, of which {{spending}} is planned for spending and {{rest}} is not planned. Every figure is in the tables below.',
+    actual:
+      'Money flow of the period {{period}}, as it happened: incomes {{incomes}}; set aside {{setAside}}; spendable {{spendable}}, of which {{spending}} was spent and {{rest}} is left. Every figure is in the tables below.',
+  },
+  noIncome:
+    'No income counts in this period, so nothing flows yet: the spending below is all there is.',
+  empty: 'Nothing in this period yet',
+  emptyHelp:
+    'The money flow starts with the incomes in force in a period and ends with what is planned or spent in its categories.',
+  tiles: {
+    incomes: 'Incomes',
+    setAside: 'Set aside',
+    setAsideHelp: 'Stays on savings, pillar, tax and investment accounts',
+    spending: { planned: 'Planned spending', actual: 'Spent' },
+    ofSpendable: 'Out of {{amount}} spendable',
+    rest: { planned: 'Not planned', actual: 'Left' },
+    restHelp: {
+      planned: 'Spendable, with no spending planned for it',
+      actual: 'Spendable and not spent',
+    },
+    short: {
+      planned: 'Short: more spending is planned than is spendable',
+      actual: 'Short: more was spent than is spendable',
+    },
+  },
+  tier: {
+    incomes: 'Incomes',
+    accounts: 'Accounts',
+    accountsNext: 'Then to',
+    pool: 'Spendable and set aside',
+    destinations: { planned: 'Planned spending', actual: 'Spent' },
+  },
+  spendableName: 'Spendable',
+  setAsideName: 'Set aside',
+  notPlannedName: 'Not planned',
+  leftName: 'Left',
+  label: {
+    stays: 'stays {{amount}}',
+    staysSpendable: 'stays {{amount}}, spendable',
+    staysSetAside: 'stays {{amount}}, set aside',
+    moreOut: 'more planned out than in',
+    spendable: 'spendable {{amount}}',
+    spendableNegative: 'less than nothing is spendable',
+    setAside: 'set aside {{amount}}',
+    planned: 'planned {{amount}}',
+    spent: 'spent {{spent}} of {{amount}}',
+    overPlan: 'more than planned',
+    yearly: '{{amount}} a year',
+    viaTransfers: '{{amount}} shown as transfers',
+    viaTransfersSpent: '{{amount}} moved by transfers',
+    notPlanned: 'not planned {{amount}}',
+    left: 'left {{amount}}',
+  },
+  short: {
+    planned: 'not planned {{amount}}: more spending is planned than is spendable',
+    actual: 'left {{amount}}: more was spent than is spendable',
+  },
+  more: {
+    incomes_one: 'And {{count}} more income: every figure is in the tables.',
+    incomes_other: 'And {{count}} more incomes: every figure is in the tables.',
+    accounts_one: 'And {{count}} more account, not drawn: every figure is in the tables.',
+    accounts_other: 'And {{count}} more accounts, not drawn: every figure is in the tables.',
+    destinations_one: 'And {{count}} more category group: every figure is in the tables.',
+    destinations_other: 'And {{count}} more category groups: every figure is in the tables.',
+  },
+  key: {
+    title: 'How to read it',
+    income: 'An income',
+    account: 'An account: its colour stays with it, whatever its name',
+    setAsideAccount:
+      'Striped: an account whose remainder is set aside (savings, third pillar, tax reserve, investment)',
+    notAssigned: 'Dotted grey: incomes that name no account',
+    spendable: 'Grey: what stays on the everyday accounts, spendable together',
+    setAside: 'Grey, striped: set aside',
+    group: {
+      planned: 'A category group: planned spending (its colour follows its place in the budget)',
+      actual: 'A category group: what was spent (its colour follows its place in the budget)',
+    },
+    rest: { planned: 'Outline: spendable, not planned', actual: 'Outline: spendable, left' },
+    short: 'Red hatching: short, more goes out than there is',
+    repeat: 'Dashed outline: a colour used again, from the ninth on',
+    loop: 'Dashed band: money sent back to an earlier account.',
+    loopItem: '{{name}}, {{from}} to {{to}}, {{amount}} a month',
+    scale:
+      'Bands are as wide as the amounts, on one scale. A quarterly or yearly transfer counts its monthly share. A category’s share planned as transfers shows as the transfer, not as spending.',
+    idle: 'Nothing planned this period on: {{names}}.',
+  },
   next: {
     title: 'To see more of your money flow',
     accounts: 'Add your accounts: where the salaries arrive and where money is put aside.',
@@ -385,21 +479,50 @@ export const moneyFlowEn = {
   table: {
     incomes: 'Incomes',
     income: 'Income',
-    into: 'Arrives on',
+    arrivesOn: 'Arrives on {{account}}',
     amount: 'Amount',
     totalIncomes: 'Total incomes',
     transfers: 'Transfers',
     transfer: 'Transfer',
-    fromTo: 'From and to',
     perMonth: 'Per month',
     totalTransfers: 'Total moved',
+    itsTransactions: 'Its transactions',
+    itsTransactionsFor: 'Transactions of {{name}}',
     accounts: 'Accounts',
     account: 'Account',
     in: 'In',
     out: 'Out',
     stays: 'Stays',
+    spendable: 'spendable',
+    setAside: 'set aside',
     negative: '(more planned out than in)',
+    negativeShort: 'more planned out than in',
+    totalSpendable: 'Spendable',
+    totalSetAside: 'Set aside',
     noBalance:
       '“Stays” is what the plan leaves on an account this period, not its balance: balances are not tracked.',
+    spending: 'Spending by category group',
+    group: 'Category group',
+    planned: 'Planned',
+    spent: 'Spent',
+    overPlan: 'more than planned',
+    totalSpending: 'Total',
+    remains: 'What remains',
+    remainsHelp: 'Of {{amount}} spendable',
+    notPlanned: 'not planned',
+    left: 'left',
+    shortPlanned: 'short: more planned than spendable',
+    shortActual: 'short: more spent than spendable',
+    noSpending: 'Nothing is planned or spent in any category this period.',
+    omitted_one:
+      '{{count}} more category group is not listed (the read stops at 1000 rows): the totals include it.',
+    omitted_other:
+      '{{count}} more category groups are not listed (the read stops at 1000 rows): the totals include them.',
+    spendingHelp: {
+      planned:
+        'Planned: the categories’ expectations at their monthly share, less what planned transfers carry. Spent: the period’s transactions, refunds deducted, less the transfers’ own.',
+      actual:
+        'Spent: the period’s transactions, refunds deducted, less the transfers’ own. Planned: the categories’ expectations at their monthly share, less what planned transfers carry.',
+    },
   },
 }

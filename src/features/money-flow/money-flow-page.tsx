@@ -1,6 +1,12 @@
-import { HandCoinsIcon, LandmarkIcon, ArrowRightLeftIcon, WorkflowIcon } from 'lucide-react'
+import {
+  ArrowRightLeftIcon,
+  HandCoinsIcon,
+  LandmarkIcon,
+  TriangleAlertIcon,
+  WorkflowIcon,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 
 import { paths } from '@/app/paths'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
@@ -27,13 +33,21 @@ import { pickPeriod, useOlderPeriodsOption } from '@/features/budgets/older-peri
 import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
 import { usePeriodParam } from '@/features/budgets/use-period-param'
 import { MoneyFlowDiagram } from '@/features/money-flow/money-flow-diagram'
-import { NOT_ASSIGNED, readMoneyFlow, type MoneyFlow } from '@/features/money-flow/money-flow-model'
+import {
+  basisFigures,
+  NOT_ASSIGNED,
+  readMoneyFlow,
+  type Basis,
+  type FlowTotal,
+  type MoneyFlow,
+} from '@/features/money-flow/money-flow-model'
 import { MoneyFlowTable } from '@/features/money-flow/money-flow-table'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 
-/** get_money_flow for one period: the plan in force there, never transactions (D-356). */
+/** get_money_flow for one period: its plan, and what its transactions spent (D-524). */
 function useMoneyFlow(budgetId: string, periodId: string | null) {
   return usePeriodDependentQuery(
     budgetId,
@@ -53,9 +67,10 @@ function useMoneyFlow(budgetId: string, periodId: string | null) {
 }
 
 /**
- * Where a period's money comes from and where the plan sends it (R-ACCOUNT-006): the diagram,
- * its figures as tables, and a period picker; flows only, no balances (R-ACCOUNT-075). A
- * household without accounts sees its incomes and what to set up next (D-501).
+ * Where a period's money comes from and where it goes (R-ACCOUNT-006, R-ACCOUNT-422): the
+ * database's totals as four tiles, the diagram, its figures as tables, planned or actual and a
+ * period picker in the address; flows only, no balances (R-ACCOUNT-075). A household without
+ * accounts sees its incomes and what to set up next (D-501).
  */
 export function MoneyFlowPage() {
   const { t } = useTranslation()
@@ -65,6 +80,8 @@ export function MoneyFlowPage() {
   const { period, setPeriod, unknown } = usePeriodParam(budgetId, periods.data, current.data)
   const olderPeriods = useOlderPeriodsOption(budgetId)
   const flow = useMoneyFlow(budgetId, period?.id ?? null)
+  const [params] = useSearchParams()
+  const basis: Basis = params.get('basis') === 'actual' ? 'actual' : 'planned'
 
   const label = (item: PeriodSummary) =>
     t('income.fields.fromPeriod', {
@@ -130,21 +147,31 @@ export function MoneyFlowPage() {
   const accountName = (id: string | null) =>
     id === null || id === NOT_ASSIGNED ? t('moneyFlow.notAssigned') : (names.get(id) ?? '–')
   const noAccounts = data.accounts.length === 0
-  const nothing = data.incomes.length === 0
-  const title = t('moneyFlow.diagramTitle', {
-    period: period ? label(period) : '',
-    incomes: formatMoney(data.total?.incomes ?? 0),
-    transfers: formatMoney(data.total?.transfers ?? 0),
-  })
+  const nothing = data.incomes.length === 0 && data.spending.length === 0
+  const total = data.total
+  const periodLabel = period ? label(period) : ''
+  const figures = total ? basisFigures(total, basis) : null
+  const title =
+    total && figures
+      ? t(`moneyFlow.diagramTitle.${basis}`, {
+          period: periodLabel,
+          incomes: formatMoney(total.incomes),
+          setAside: formatMoney(total.setAside),
+          spendable: formatMoney(total.spendable),
+          spending: formatMoney(figures.spending),
+          rest: formatMoney(figures.rest),
+        })
+      : periodLabel
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6">
+    <div className="flex max-w-5xl min-w-0 flex-col gap-6">
       {header}
       {unknown && (
         <Alert>
           <AlertDescription>{t('transfers.checklist.unknownPeriod')}</AlertDescription>
         </Alert>
       )}
+      <BasisTabs basis={basis} />
       {nothing ? (
         <EmptyState
           icon={WorkflowIcon}
@@ -153,24 +180,33 @@ export function MoneyFlowPage() {
         />
       ) : (
         <>
+          <section className="flex flex-col gap-1" aria-labelledby="money-flow-heading">
+            <h2 id="money-flow-heading" className="text-lg font-semibold tracking-tight">
+              {t(`moneyFlow.heading.${basis}`, { period: periodLabel })}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t(`moneyFlow.intro.${basis}`)}</p>
+            {basis === 'actual' && period?.is_current && (
+              <p className="text-sm font-medium" data-testid="money-flow-running">
+                {t('moneyFlow.running', { end: formatCalendarDate(period.end_date) })}
+              </p>
+            )}
+          </section>
+          {total && figures && <Tiles total={total} basis={basis} figures={figures} />}
           <Card>
-            <CardContent className="flex flex-col gap-4">
-              <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">{t('moneyFlow.incomesTotal')}</dt>
-                  <dd className="text-xl font-semibold tabular-nums">
-                    {formatMoney(data.total?.incomes ?? 0)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">{t('moneyFlow.transfersTotal')}</dt>
-                  <dd className="text-xl font-semibold tabular-nums">
-                    {formatMoney(data.total?.transfers ?? 0)}
-                  </dd>
-                </div>
-              </dl>
-              <MoneyFlowDiagram flow={data} title={title} />
-              <p className="text-xs text-muted-foreground">{t('moneyFlow.howToRead')}</p>
+            <CardContent className="flex min-w-0 flex-col gap-4">
+              {data.incomes.length > 0 ? (
+                <MoneyFlowDiagram
+                  flow={data}
+                  basis={basis}
+                  title={title}
+                  accountName={accountName}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('moneyFlow.noIncome')}</p>
+              )}
+              {data.notAssigned && (
+                <p className="text-xs text-muted-foreground">{t('moneyFlow.notAssignedHelp')}</p>
+              )}
             </CardContent>
           </Card>
           {(noAccounts || data.transfers.length === 0 || data.notAssigned) && (
@@ -180,9 +216,135 @@ export function MoneyFlowPage() {
               notAssigned={data.notAssigned !== null && !noAccounts}
             />
           )}
-          <MoneyFlowTable flow={data} accountName={accountName} />
-          <p className="text-xs text-muted-foreground">{t('moneyFlow.spendingNote')}</p>
+          <MoneyFlowTable
+            flow={data}
+            basis={basis}
+            accountName={accountName}
+            periodId={period?.id ?? ''}
+          />
         </>
+      )}
+    </div>
+  )
+}
+
+/** Planned or actual, kept in the address beside the period (`?basis=actual`). */
+function BasisTabs({ basis }: { basis: Basis }) {
+  const { t } = useTranslation()
+  const [params] = useSearchParams()
+  const to = (next: Basis) => {
+    const after = new URLSearchParams(params)
+    if (next === 'actual') after.set('basis', 'actual')
+    else after.delete('basis')
+    const search = after.toString()
+    return { search: search ? `?${search}` : '' }
+  }
+  const item = (value: Basis) => (
+    <Link
+      to={to(value)}
+      replace
+      aria-current={basis === value ? 'page' : undefined}
+      className={cn(
+        'inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:flex-none',
+        basis === value
+          ? 'bg-background text-foreground shadow-sm'
+          : 'text-foreground/70 hover:text-foreground',
+      )}
+      data-testid={`basis-${value}`}
+    >
+      {t(`moneyFlow.basis.${value}`)}
+    </Link>
+  )
+  return (
+    <nav
+      aria-label={t('moneyFlow.basis.label')}
+      className="flex w-full gap-1 self-start rounded-lg bg-muted p-1 sm:w-auto"
+    >
+      {item('planned')}
+      {item('actual')}
+    </nav>
+  )
+}
+
+/** The database's total row, four figures: nothing is added up on the page. */
+function Tiles({
+  total,
+  basis,
+  figures,
+}: {
+  total: FlowTotal
+  basis: Basis
+  figures: { spending: number; rest: number }
+}) {
+  const { t } = useTranslation()
+  // A shortfall reads in words, not only by colour.
+  const short = figures.rest < 0
+  return (
+    <dl className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="money-flow-tiles">
+      <Tile label={t('moneyFlow.tiles.incomes')} amount={total.incomes} testId="tile-incomes" />
+      <Tile
+        label={t('moneyFlow.tiles.setAside')}
+        amount={total.setAside}
+        hint={t('moneyFlow.tiles.setAsideHelp')}
+        testId="tile-set-aside"
+      />
+      <Tile
+        label={t(`moneyFlow.tiles.spending.${basis}`)}
+        amount={figures.spending}
+        hint={t('moneyFlow.tiles.ofSpendable', { amount: formatMoney(total.spendable) })}
+        testId="tile-spending"
+      />
+      <Tile
+        label={t(`moneyFlow.tiles.rest.${basis}`)}
+        amount={figures.rest}
+        negative={short}
+        hint={short ? t(`moneyFlow.tiles.short.${basis}`) : t(`moneyFlow.tiles.restHelp.${basis}`)}
+        testId="tile-rest"
+      />
+    </dl>
+  )
+}
+
+function Tile({
+  label,
+  amount,
+  hint,
+  negative = false,
+  testId,
+}: {
+  label: string
+  amount: number
+  hint?: string
+  negative?: boolean
+  testId: string
+}) {
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 flex-col gap-1 rounded-xl border bg-card p-3 sm:p-4',
+        negative && 'border-destructive/50',
+      )}
+      data-testid={testId}
+    >
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          'flex items-center gap-1.5 text-lg font-semibold tracking-tight tabular-nums sm:text-xl',
+          negative && 'text-destructive',
+        )}
+      >
+        {negative && <TriangleAlertIcon className="size-4 shrink-0" aria-hidden />}
+        <span className="min-w-0 break-words">{formatMoney(amount)}</span>
+      </dd>
+      {hint && (
+        <dd
+          className={cn(
+            'text-xs',
+            negative ? 'font-medium text-destructive' : 'text-muted-foreground',
+          )}
+        >
+          {hint}
+        </dd>
       )}
     </div>
   )

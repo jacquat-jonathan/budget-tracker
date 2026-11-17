@@ -78,6 +78,18 @@
   --chart-3: #0da3a8;
   --chart-4: #a668f9;
   --chart-5: #812f52;
+  /* Money flow (D-545): eight hues for accounts (by creation) and category groups (by display
+     order), adjacent pairs kept apart under colour-blind simulation; a ninth repeats them with
+     a dashed outline. Labels and tables carry every identity, never colour alone. */
+  --flow-1: #d06002;
+  --flow-2: #0da3a8;
+  --flow-3: #a668f9;
+  --flow-4: #a37700;
+  --flow-5: #812f52;
+  --flow-6: #008300;
+  --flow-7: #d2477f;
+  --flow-8: #2f78c4;
+  --flow-pool: oklch(0.45 0.02 260);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -115,6 +127,15 @@
   --chart-3: #14a185;
   --chart-4: #a77fd4;
   --chart-5: #a9348d;
+  --flow-1: #df692a;
+  --flow-2: #14a185;
+  --flow-3: #a77fd4;
+  --flow-4: #c98500;
+  --flow-5: #a9348d;
+  --flow-6: #0ca30c;
+  --flow-7: #d55181;
+  --flow-8: #3987e5;
+  --flow-pool: oklch(0.7 0.02 260);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

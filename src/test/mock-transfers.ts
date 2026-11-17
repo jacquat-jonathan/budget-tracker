@@ -6,8 +6,9 @@ import { rpcError } from '@/test/mock-db'
  * The step 7 calls of the in-memory database: accounts, planned transfers, the checklist and
  * its marks, the dashboard's counts and the money flow. They behave as docs/database.md says
  * for what the screens do (revisions, refusals, the states a mark leads to); what only the
- * database can work out (due dates, previews, the flow) comes from the rows a test puts in
- * `db.checklist`, `db.moneyFlow`, or from the handlers' simple defaults.
+ * database can work out (due dates, previews) comes from the rows a test puts in
+ * `db.checklist`, or from the handlers' simple defaults; the money flow is built from the
+ * period's plan a test puts in `db.moneyFlowPlans`, as private.money_flow builds it.
  */
 
 type Fns = Database['public']['Functions']
@@ -117,29 +118,240 @@ export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRo
   }
 }
 
+/** Every column get_money_flow answers, null where the row does not use it (as the database). */
+const MONEY_FLOW_COLUMNS = [
+  'row_kind',
+  'id',
+  'name',
+  'source_id',
+  'target_id',
+  'amount',
+  'inflow',
+  'outflow',
+  'stays',
+  'is_negative',
+  'account_kind',
+  'user_id',
+  'is_automatic',
+  'period_id',
+  'planned_amount',
+  'cadence',
+  'spendable',
+  'expected',
+  'transfer_share',
+  'spent',
+  'transfer_spent',
+  'yearly_amount',
+  'display_order',
+  'set_aside',
+  'spendable_amount',
+  'planned_spending',
+  'actual_spending',
+  'not_planned',
+  'left_amount',
+  'created_at',
+  'spending_rows_omitted',
+] as const
+
 export function moneyFlowRow(overrides: {
   [K in keyof MoneyFlowRow]?: MoneyFlowRow[K] | null
 }): MoneyFlowRow {
   // The generated type marks every column required; the contract leaves most of them null.
-  return {
-    row_kind: 'account',
-    id: null,
-    name: null,
-    source_id: null,
-    target_id: null,
-    amount: null,
-    inflow: null,
-    outflow: null,
-    stays: null,
-    is_negative: null,
-    account_kind: null,
-    user_id: null,
-    is_automatic: null,
-    period_id: 'period-2',
-    planned_amount: null,
-    cadence: null,
-    ...overrides,
-  } as unknown as MoneyFlowRow
+  const row: Record<string, unknown> = Object.fromEntries(
+    MONEY_FLOW_COLUMNS.map((column) => [column, null]),
+  )
+  return { ...row, row_kind: 'account', period_id: 'period-2', ...overrides } as MoneyFlowRow
+}
+
+/**
+ * A period's plan as the money flow reads it: what is in force there (incomes and their
+ * account, accounts, transfers and the top-level category each is linked to) and, per
+ * top-level category, its expected monthly share, the real amount of its yearly expectations
+ * and what the period's transactions spent (the transfers' own included, and apart).
+ */
+export interface MoneyFlowPlan {
+  periodId: string
+  incomes: { id: string; name: string; amount: number; accountId: string | null; userId?: string }[]
+  accounts: {
+    id: string
+    name: string
+    kind: Tables<'account_overview'>['kind']
+    createdAt: string
+    userId?: string | null
+  }[]
+  transfers: {
+    id: string
+    name: string
+    from: string
+    to: string
+    /** The real amount; a pay-date transfer has no cadence (null). */
+    amount: number
+    cadence?: 'monthly' | 'quarterly' | 'yearly' | null
+    automatic?: boolean
+    /** The top-level category its share is committed in. */
+    category?: string | null
+  }[]
+  categories: {
+    id: string
+    name: string
+    displayOrder: number
+    /** Expected at the monthly share (a yearly expectation counts one twelfth, half up). */
+    expected: number
+    yearly?: number | null
+    /** What the period's transactions spent in it, refunds deducted, the transfers' included. */
+    spent?: number
+    /** Of `spent`, the transactions of transfers linked to it. */
+    transferSpent?: number
+  }[]
+}
+
+/** private.subscription_monthly_cost: the amount over its months, half up. */
+function monthlyShare(amount: number, cadence: MoneyFlowPlan['transfers'][number]['cadence']) {
+  const months = cadence === 'quarterly' ? 3 : cadence === 'yearly' ? 12 : 1
+  return Math.floor((2 * amount + months) / (2 * months))
+}
+
+/** Text order as the database sorts `name` (its collation, checked against a real stack). */
+export function pgTextOrder(a: string | null, b: string | null): number {
+  return (a ?? '') < (b ?? '') ? -1 : (a ?? '') > (b ?? '') ? 1 : 0
+}
+
+/**
+ * get_money_flow's rows for a plan, as private.money_flow builds them: incomes, "not assigned"
+ * (only when an income names no account), accounts, transfers, one spending row per top-level
+ * category planned or spent (display order), the total last; each kind ordered by name, then
+ * id; every column null where the row does not use it; past `limit` rows the last spending
+ * rows are left out and counted on the total, whose figures still cover them.
+ */
+export function moneyFlowRows(plan: MoneyFlowPlan, limit = 1000): MoneyFlowRow[] {
+  const period = plan.periodId
+  const row = (fields: Partial<Record<(typeof MONEY_FLOW_COLUMNS)[number], unknown>>) =>
+    moneyFlowRow({ period_id: period, ...(fields as Partial<MoneyFlowRow>) })
+  const byName = <T extends { name: string; id: string }>(list: T[]) =>
+    [...list].sort((a, b) => pgTextOrder(a.name, b.name) || pgTextOrder(a.id, b.id))
+  const transfers = plan.transfers.map((t) => ({
+    ...t,
+    monthly:
+      t.cadence === 'quarterly' || t.cadence === 'yearly'
+        ? monthlyShare(t.amount, t.cadence)
+        : t.amount,
+  }))
+  const sum = (values: number[]) => values.reduce((acc, value) => acc + value, 0)
+  const accounts = plan.accounts.map((a) => {
+    const inflow =
+      sum(plan.incomes.filter((i) => i.accountId === a.id).map((i) => i.amount)) +
+      sum(transfers.filter((t) => t.to === a.id).map((t) => t.monthly))
+    const outflow = sum(transfers.filter((t) => t.from === a.id).map((t) => t.monthly))
+    const spendable = !['savings', 'third_pillar', 'tax_reserve', 'investment'].includes(a.kind)
+    return { ...a, inflow, outflow, spendable }
+  })
+  const top = [...plan.categories]
+    .map((c) => {
+      const committed = sum(transfers.filter((t) => t.category === c.id).map((t) => t.monthly))
+      const share = Math.min(committed, c.expected)
+      const spent = c.spent ?? 0
+      const transferSpent = c.transferSpent ?? 0
+      return { ...c, committed, share, gross: spent, spent: spent - transferSpent, transferSpent }
+    })
+    .filter((c) => c.expected !== 0 || c.gross !== 0 || c.committed !== 0)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+  const unassigned = plan.incomes.filter((i) => i.accountId === null)
+  const room = Math.max(
+    limit -
+      plan.incomes.length -
+      (unassigned.length > 0 ? 1 : 0) -
+      plan.accounts.length -
+      plan.transfers.length -
+      1,
+    1,
+  )
+  const income = sum(plan.incomes.map((i) => i.amount))
+  const setAside = sum(accounts.filter((a) => !a.spendable).map((a) => a.inflow - a.outflow))
+  const planned = sum(top.map((c) => c.expected - c.share))
+  const actual = sum(top.map((c) => c.spent))
+  const shown = top.slice(0, room)
+  return [
+    ...byName(plan.incomes).map((i) =>
+      row({
+        row_kind: 'income',
+        id: i.id,
+        name: i.name,
+        source_id: i.id,
+        target_id: i.accountId,
+        amount: i.amount,
+        user_id: i.userId ?? null,
+      }),
+    ),
+    ...(unassigned.length > 0
+      ? [
+          row({
+            row_kind: 'not_assigned',
+            inflow: sum(unassigned.map((i) => i.amount)),
+            outflow: 0,
+            stays: sum(unassigned.map((i) => i.amount)),
+            is_negative: false,
+            spendable: true,
+          }),
+        ]
+      : []),
+    ...byName(accounts).map((a) =>
+      row({
+        row_kind: 'account',
+        id: a.id,
+        name: a.name,
+        inflow: a.inflow,
+        outflow: a.outflow,
+        stays: a.inflow - a.outflow,
+        is_negative: a.inflow < a.outflow,
+        account_kind: a.kind,
+        user_id: a.userId ?? null,
+        spendable: a.spendable,
+        created_at: a.createdAt,
+      }),
+    ),
+    ...byName(transfers).map((t) =>
+      row({
+        row_kind: 'transfer',
+        id: t.id,
+        name: t.name,
+        source_id: t.from,
+        target_id: t.to,
+        amount: t.monthly,
+        is_automatic: t.automatic ?? false,
+        planned_amount: t.amount,
+        cadence: t.cadence ?? null,
+      }),
+    ),
+    ...shown.map((c) =>
+      row({
+        row_kind: 'spending',
+        id: c.id,
+        name: c.name,
+        amount: c.expected - c.share,
+        is_negative: c.spent > c.expected - c.share,
+        expected: c.expected,
+        transfer_share: c.share,
+        spent: c.spent,
+        transfer_spent: c.transferSpent,
+        yearly_amount: c.yearly ?? null,
+        display_order: c.displayOrder,
+      }),
+    ),
+    row({
+      row_kind: 'total',
+      amount: income,
+      inflow: income,
+      outflow: sum(transfers.map((t) => t.monthly)),
+      is_negative: income - setAside < planned,
+      set_aside: setAside,
+      spendable_amount: income - setAside,
+      planned_spending: planned,
+      actual_spending: actual,
+      not_planned: income - setAside - planned,
+      left_amount: income - setAside - actual,
+      spending_rows_omitted: Math.max(top.length - room, 0),
+    }),
+  ]
 }
 
 type Args = Record<string, unknown>
@@ -520,10 +732,26 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
         },
       ]
     },
+    // As the database: a member's budget (else budget_not_found), one of its periods (else
+    // period_not_found; the current one by default, budget_ended when there is none), and the
+    // rows private.money_flow builds from the period's plan (moneyFlowRows).
     get_money_flow: (args) => {
-      const periodId = str(args.p_period_id) ?? current()?.id ?? null
+      if (!db.tables.my_budgets.some((budget) => budget.id === args.p_budget_id))
+        rpcError('budget_not_found')
+      const named = str(args.p_period_id)
+      const periodId = named ?? current()?.id ?? null
       if (periodId === null) rpcError('budget_ended')
-      return db.moneyFlow.filter((row) => row.period_id === periodId).map((row) => ({ ...row }))
+      if (
+        named !== null &&
+        !db.tables.period_summaries.some(
+          (period) => period.id === named && period.budget_id === args.p_budget_id,
+        )
+      )
+        rpcError('period_not_found')
+      const plan = db.moneyFlowPlans.find((item) => item.periodId === periodId)
+      return moneyFlowRows(
+        plan ?? { periodId, incomes: [], accounts: [], transfers: [], categories: [] },
+      )
     },
   }
 }
