@@ -10,6 +10,7 @@ import {
   SkipForwardIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -532,11 +533,13 @@ function BoundaryForm({
   const outside = outsideRange !== null
   const valid = typed && !outside
   const budgetId = budget.id
+  const [saving, setSaving] = useState(false)
   // R-ACCOUNT-313: the preview describes the reopen with the pay date the member chose.
   const reopenPreview = useReopenPreview(
     budgetId,
-    // Once written, the period it previewed is gone: it is not asked again while closing.
-    action.kind === 'reopen' && !mutation.isSuccess,
+    // The write invalidates the budget's queries before the mutation reads as a success, and
+    // the period it previewed is gone by then: nothing is asked from the press on.
+    action.kind === 'reopen' && !saving && !mutation.isSuccess,
     action.kind === 'reopen' && valid ? date : null,
   )
   // R-DEBT-340: a start on or before the opening of a debt with interest in this period is
@@ -621,13 +624,16 @@ function BoundaryForm({
     }
   })()
 
-  const onSubmit = form.handleSubmit((values) =>
-    mutation
+  const onSubmit = form.handleSubmit((values) => {
+    // Rendered before the write is sent, so its invalidation finds no preview to ask again.
+    flushSync(() => setSaving(true))
+    return mutation
       .mutateAsync({ action, date: hasField ? values.date : null }, { onSuccess: onClose })
       .catch((error: unknown) => {
+        setSaving(false)
         if (isRecordChanged(error)) onChangedElsewhere()
-      }),
-  )
+      })
+  })
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>

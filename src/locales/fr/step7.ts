@@ -441,7 +441,7 @@ export const transfersFr = {
     status: {
       toDo: 'À faire',
       overdue: 'En retard',
-      upcoming: 'Ordre permanent : considéré comme fait à son échéance',
+      upcoming: 'Ordre permanent : sera considéré comme fait à son échéance',
       done: 'Fait le {{date}}',
       doneBy: 'Fait le {{date}} par {{name}}',
       assumed: 'Fait par ordre permanent le {{date}}',

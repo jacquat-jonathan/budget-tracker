@@ -424,7 +424,7 @@ export const transfersEn = {
     status: {
       toDo: 'To do',
       overdue: 'Overdue',
-      upcoming: 'Standing order: assumed done on its due date',
+      upcoming: 'Standing order: will be assumed done on its due date',
       done: 'Done on {{date}}',
       doneBy: 'Done on {{date}} by {{name}}',
       assumed: 'Done by standing order on {{date}}',

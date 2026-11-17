@@ -150,6 +150,19 @@ describe('periods page [R-PERIOD-051]', () => {
     })
   })
 
+  it('asks no preview again once the reopen is saved: the period it previewed is gone [R-PERIOD-053]', async () => {
+    const { db, rows } = await openPeriods()
+
+    const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
+    await within(dialog).findByTestId('reopen-preview')
+    expect(db.rpc.preview_reopen).toHaveBeenCalledTimes(1)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(db.rpc.reopen_previous_period).toHaveBeenCalledTimes(1))
+    // Give the invalidation of the budget's queries time to refetch whatever is still asked.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(db.rpc.preview_reopen).toHaveBeenCalledTimes(1)
+  })
+
   it('never leaves the expected day to the projection: an empty date is refused [R-PERIOD-530]', async () => {
     const { db, rows } = await openPeriods()
 

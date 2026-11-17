@@ -124,7 +124,7 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
 
     // A standing order is assumed done: nothing to tick, only "did not happen".
     const savings = row('Savings')
-    expect(savings).toHaveTextContent('Standing order: assumed done on its due date')
+    expect(savings).toHaveTextContent('Standing order: will be assumed done on its due date')
     expect(
       within(savings)
         .getAllByRole('button')
@@ -1005,7 +1005,7 @@ describe('every row says what it is for, and a mark acts on exactly its row [R-A
     await waitFor(() => {
       expect(status('Savings', 'payday of')).toBe('Did not happen (said by Alex)')
     })
-    expect(status('Savings', forPeriod)).toBe('Standing order: assumed done on its due date')
+    expect(status('Savings', forPeriod)).toBe('Standing order: will be assumed done on its due date')
   })
 
   it('a mark kept with another period’s number says it is not this period’s; its Undo sends that number', async () => {
@@ -1248,5 +1248,17 @@ describe('the checklist and the planned transfers are history entries [R-APP-480
     await router.navigate(-1)
     expect(await screen.findByTestId('checklist')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/transfers')
+  })
+})
+
+describe('a standing order due later is not yet said to be assumed done [R-ACCOUNT-004]', () => {
+  it('says it will be assumed done, in English and French', async () => {
+    const { default: i18n } = await import('@/lib/i18n')
+    const key = 'transfers.checklist.status.upcoming'
+    await i18n.changeLanguage('en')
+    expect(i18n.t(key)).toBe('Standing order: will be assumed done on its due date')
+    await i18n.changeLanguage('fr')
+    expect(i18n.t(key)).toBe('Ordre permanent\u202f: sera considéré comme fait à son échéance')
+    await i18n.changeLanguage('en')
   })
 })
