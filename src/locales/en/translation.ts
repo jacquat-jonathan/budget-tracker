@@ -95,6 +95,7 @@ const core = {
   },
   validation: {
     bankLabelTooLong: 'Use at most 100 characters.',
+    accountKindRequired: 'Choose what kind of account it is.',
     accountRequired: 'Choose an account.',
     sameAccount: 'Choose two different accounts.',
     dueNotBeforeToday: 'Choose today or a later date, or record what already happened.',

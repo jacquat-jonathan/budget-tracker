@@ -8745,6 +8745,19 @@
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
         "code: src/features/progress/commitments.tsx"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-ACCOUNT-530",
+      "area": "account",
+      "feature": "F-MONEYFLOW",
+      "statement": "No account kind is chosen for the user: a new account's Kind field starts empty and is required (\"Choose what kind of account it is.\"), the first account included, and one line under it says what the kind changes: in the money flow what stays on an everyday kind (current, cash, credit card, other) is spendable, what stays on a savings kind (savings, third pillar, tax reserve, investment) is set aside.",
+      "related": ["R-ACCOUNT-001", "R-ACCOUNT-423", "D-631"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/accounts/components/account-form-dialog.tsx"
+      ]
     }
   ],
   "decisions": [
@@ -13888,6 +13901,20 @@
       ],
       "status": "accepted",
       "related": ["R-PROGRESS-531", "R-PROGRESS-530", "R-ACCOUNT-238", "D-399"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-631",
+      "title": "A new account's kind starts empty, even for the first account",
+      "decision": "The account form no longer preselects a kind (it used to start the first account as \"Current or salary account\" and the second as \"Savings\"). The field is required and explains the money flow's split (R-ACCOUNT-423) under it.",
+      "why": "The household walk-through's second account silently became \"Savings\", and the money flow then treated its money as set aside. A kind decides spendable versus set aside, so it must be the user's choice.",
+      "rejected": [
+        "Keeping \"Current\" for the first account only: still a choice made for the user, and the brief asks for none."
+      ],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-530", "R-ACCOUNT-423"],
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]

@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-606 rules (595 active, 0 planned), 24 conventions, 376 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
+607 rules (596 active, 0 planned), 24 conventions, 377 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2604,6 +2604,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-567, R-ACCOUNT-447, C-LOGIC-003, D-602
   - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+- **R-ACCOUNT-530** No account kind is chosen for the user: a new account's Kind field starts empty and is required ("Choose what kind of account it is."), the first account included, and one line under it says what the kind changes: in the money flow what stays on an everyday kind (current, cash, credit card, other) is spendable, what stays on a savings kind (savings, third pillar, tax reserve, investment) is set aside.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-001, R-ACCOUNT-423, D-631
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/accounts/components/account-form-dialog.tsx
 
 ### Concurrent edits
 
@@ -7785,6 +7789,20 @@ The screen compares the subscriptions' committed amount plus the planned transfe
 - Showing the sum of the two committed figures: the page would add figures for display (C-LOGIC-003).
 
 Related: R-PROGRESS-531, R-PROGRESS-530, R-ACCOUNT-238, D-399
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-631 A new account's kind starts empty, even for the first account (accepted)
+
+The account form no longer preselects a kind (it used to start the first account as "Current or salary account" and the second as "Savings"). The field is required and explains the money flow's split (R-ACCOUNT-423) under it.
+
+**Why:** The household walk-through's second account silently became "Savings", and the money flow then treated its money as set aside. A kind decides spendable versus set aside, so it must be the user's choice.
+
+**Rejected:**
+
+- Keeping "Current" for the first account only: still a choice made for the user, and the brief asks for none.
+
+Related: R-ACCOUNT-530, R-ACCOUNT-423
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 

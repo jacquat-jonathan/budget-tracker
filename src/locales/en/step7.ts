@@ -40,6 +40,9 @@ export const accountsEn = {
     name: 'Name',
     namePlaceholder: 'Salary account, savings, joint account…',
     kind: 'Kind',
+    kindPlaceholder: 'Choose a kind',
+    kindHelp:
+      'In the money flow, what stays on an everyday account (current, cash, credit card, other) is spendable; what stays on a savings, third pillar, tax reserve or investment account is set aside.',
     bankLabel: 'Bank',
     bankLabelOptional: 'Bank (optional)',
     bankLabelPlaceholder: 'The bank or a short note',

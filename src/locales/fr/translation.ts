@@ -98,6 +98,7 @@ const core: Omit<Translation, LazyKey> = {
   },
   validation: {
     bankLabelTooLong: 'Utilisez au plus 100 caractères.',
+    accountKindRequired: 'Choisissez de quel type de compte il s’agit.',
     accountRequired: 'Choisissez un compte.',
     sameAccount: 'Choisissez deux comptes différents.',
     dueNotBeforeToday:

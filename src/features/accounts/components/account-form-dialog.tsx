@@ -19,12 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { FieldGroup } from '@/components/ui/field'
 import { useCreateAccount, useUpdateAccount } from '@/features/accounts/account-mutations'
-import {
-  ACCOUNT_KINDS,
-  useAccountRecord,
-  type Account,
-  type AccountKind,
-} from '@/features/accounts/account-queries'
+import { ACCOUNT_KINDS, useAccountRecord, type Account } from '@/features/accounts/account-queries'
 import { useAccountViews, useHolderText } from '@/features/accounts/account-views'
 import { useAuth } from '@/features/auth/auth-context'
 import { TextField } from '@/features/auth/components/text-field'
@@ -48,16 +43,24 @@ export const BANK_LABEL_MAX = 100
 
 const accountSchema = z.object({
   name: nameSchema,
-  kind: z.enum([
-    'current',
-    'savings',
-    'third_pillar',
-    'tax_reserve',
-    'investment',
-    'cash',
-    'credit_card',
-    'other',
-  ]),
+  // R-ACCOUNT-530: no kind is chosen for the user; the field starts empty and is required.
+  kind: z
+    .string()
+    .pipe(
+      z.enum(
+        [
+          'current',
+          'savings',
+          'third_pillar',
+          'tax_reserve',
+          'investment',
+          'cash',
+          'credit_card',
+          'other',
+        ],
+        { error: 'validation.accountKindRequired' },
+      ),
+    ),
   bankLabel: z.string().trim().max(BANK_LABEL_MAX, { error: 'validation.bankLabelTooLong' }),
   /** "" for a shared account. */
   userId: z.string(),
@@ -75,8 +78,6 @@ interface Props {
   members: BudgetMember[]
   periods: PeriodSummary[]
   currentPeriod: PeriodSummary | null
-  /** The kind a new account starts with. */
-  initialKind?: AccountKind
 }
 
 export function AccountFormDialog(props: Props) {
@@ -106,7 +107,6 @@ function AccountForm({
   members,
   periods,
   currentPeriod,
-  initialKind,
 }: Props) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -123,7 +123,7 @@ function AccountForm({
 
   const valuesOf = (from: Account | undefined): Input => ({
     name: from?.name ?? '',
-    kind: from?.kind ?? initialKind ?? 'current',
+    kind: from?.kind ?? '',
     bankLabel: from?.bank_label ?? '',
     userId: from?.user_id ?? '',
     fromPeriodId: !from && mustCorrect ? (periods[0]?.id ?? '') : '',
@@ -216,6 +216,8 @@ function AccountForm({
           control={form.control}
           name="kind"
           label={t('accounts.fields.kind')}
+          placeholder={t('accounts.fields.kindPlaceholder')}
+          description={t('accounts.fields.kindHelp')}
           options={ACCOUNT_KINDS.map((kind) => ({
             value: kind,
             label: t(`accounts.kinds.${kind}`),

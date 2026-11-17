@@ -169,7 +169,6 @@ export function AccountsPage() {
         members={members.data ?? []}
         periods={periods.data}
         currentPeriod={current.data}
-        initialKind={open.length === 0 ? 'current' : open.length === 1 ? 'savings' : undefined}
       />
       <CloseAccountDialog
         budgetId={budgetId}
