@@ -165,9 +165,9 @@ describe('the transactions of one planned transfer [D-525] [R-TRANSACTION-441]',
     const db = filterDb()
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/transfers?view=planned')
-    const link = await screen.findByRole('link', { name: 'Transactions of Pillar 3a' })
+    const link = await screen.findByRole('link', { name: 'Its transactions: Pillar 3a' })
     expect(link).toHaveAttribute('href', `/transactions?period=all&transfer=${PILLAR}`)
-    expect(screen.queryByRole('link', { name: 'Transactions of Joint' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Its transactions: Joint' })).not.toBeInTheDocument()
   })
 
   it('later pages of a transfer’s transactions keep the transfer filter', async () => {

@@ -53,7 +53,7 @@ const core: Omit<Translation, LazyKey> = {
     settings: { description: 'Le budget, les personnes qui le partagent et votre compte.' },
   },
   userMenu: {
-    open: 'Ouvrir le menu du compte',
+    open: '{{identity}}. Menu du compte',
     signOut: 'Se déconnecter',
     fallbackName: 'Compte',
   },
@@ -475,7 +475,7 @@ const core: Omit<Translation, LazyKey> = {
     typeToConfirm: 'Saisissez « {{text}} » pour confirmer',
   },
   budgetSwitcher: {
-    open: 'Budget actuel : {{name}}. Changer de budget',
+    open: '{{name}} {{role}}. Changer de budget',
     label: 'Vos budgets',
     current: 'Budget actuel',
     create: 'Créer un budget',

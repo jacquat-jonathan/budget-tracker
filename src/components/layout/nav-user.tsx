@@ -24,11 +24,18 @@ function initials(text: string): string {
 function UserIdentity({ name, email }: { name: string; email: string | undefined }) {
   return (
     <>
-      <Avatar className="size-8 rounded-lg">
-        <AvatarFallback className="rounded-lg text-foreground">{initials(name)}</AvatarFallback>
+      <Avatar className="size-8 rounded-lg" aria-hidden="true">
+        {/* The initials are drawn by CSS: they are not text, so the button's visible text (and its
+            accessible name, label in name) is the name and the email only. */}
+        <AvatarFallback
+          data-initials={initials(name)}
+          className="rounded-lg text-foreground before:content-[attr(data-initials)]"
+        />
       </Avatar>
       <div className="grid flex-1 text-left text-sm leading-tight">
         <span className="truncate font-medium">{name}</span>
+        {/* A space between the lines, so the visible text reads "name email" (label in name). */}
+        {email && ' '}
         {email && <span className="truncate text-xs text-muted-foreground">{email}</span>}
       </div>
     </>
@@ -49,7 +56,9 @@ export function NavUser() {
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
             size="lg"
-            aria-label={t('userMenu.open')}
+            aria-label={t('userMenu.open', {
+              identity: displayName && email ? `${name} ${email}` : name,
+            })}
             className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
           >
             <UserIdentity name={name} email={displayName ? email : undefined} />

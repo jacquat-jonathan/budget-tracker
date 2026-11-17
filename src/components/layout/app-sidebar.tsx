@@ -65,7 +65,8 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <BudgetSwitcher />
       </SidebarHeader>
-      <SidebarContent>
+      {/* R-APP-540: the links are a navigation landmark. */}
+      <SidebarContent role="navigation" aria-label={t('nav.label')}>
         <SidebarGroup>
           <SidebarGroupLabel>{t('nav.label')}</SidebarGroupLabel>
           <SidebarGroupContent>

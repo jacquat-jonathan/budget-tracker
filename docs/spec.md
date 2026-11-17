@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-650 rules (631 active, 0 planned), 24 conventions, 399 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
+651 rules (632 active, 0 planned), 24 conventions, 399 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -339,6 +339,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-APP-539** A name already used (another category of the budget, another of my budgets; compared trimmed, ignoring case and accents) is warned about at the name field, in words, while typing ("both will look the same in lists"); it is never refused.
   _active · enforced by test · F-CATEGORY_
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/lib/same-name.ts
+- **R-APP-540** The sidebar's links are a navigation landmark named like the menu, and a control's accessible name starts with the text it shows (label in name): the budget switcher reads "<budget> <role>. Switch budget", the account menu "<name> <email>. Account menu" (the initials are drawn, not text), and a transfer's link to its transactions "Its transactions: <transfer>".
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-001, R-APP-538
+  - Source: owner-request: browser re-check of the screens (axe-core scan), 2026-11-17; code: src/components/layout/app-sidebar.tsx
 
 ### Accounts and sign-in
 

@@ -301,7 +301,7 @@ describe('the current budget [R-BUDGET-051]', () => {
     renderRoutes(routes, '/')
 
     expect(await screen.findByTestId('current-budget-name')).toHaveTextContent('Household')
-    await userEvent.click(screen.getByRole('button', { name: /Current budget: Household/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Household.*Switch budget/ }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Ski trip' }))
 
     expect(screen.getByTestId('current-budget-name')).toHaveTextContent('Ski trip')
@@ -374,7 +374,7 @@ describe('the current budget [R-BUDGET-051]', () => {
     })
     const { router } = renderRoutes(routes, '/')
 
-    await userEvent.click(await screen.findByRole('button', { name: /Current budget/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Switch budget/ }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Create a budget' }))
     expect(router.state.location.pathname).toBe('/budgets/new')
 
@@ -401,7 +401,7 @@ describe('periods are made to exist when a budget is opened [R-PERIOD-050]', () 
     await waitFor(() => {
       expect(db.rpc.ensure_periods).toHaveBeenCalledWith({ p_budget_id: BUDGET_ID })
     })
-    await userEvent.click(await screen.findByRole('button', { name: /Current budget/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Switch budget/ }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Ski trip' }))
     await waitFor(() => {
       expect(db.rpc.ensure_periods).toHaveBeenCalledWith({ p_budget_id: SECOND_ID })

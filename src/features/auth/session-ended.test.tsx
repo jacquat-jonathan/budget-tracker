@@ -54,7 +54,7 @@ describe('a session that ends by itself [R-AUTH-530]', () => {
     mock.current = supabaseMock
     renderRoutes(routes, '/')
     await screen.findByRole('heading', { name: 'Dashboard', level: 1 })
-    await userEvent.click(screen.getAllByRole('button', { name: 'Open the account menu' })[0]!)
+    await userEvent.click(screen.getAllByRole('button', { name: /account menu/i })[0]!)
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
     expect(screen.queryByTestId('session-ended')).not.toBeInTheDocument()

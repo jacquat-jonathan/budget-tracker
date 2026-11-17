@@ -104,7 +104,7 @@ export const transfersEn = {
     nonePeriod: 'None was recorded for it in this period. Choose all periods to see the others.',
   },
   itsTransactions: 'Its transactions',
-  itsTransactionsFor: 'Transactions of {{name}}',
+  itsTransactionsFor: 'Its transactions: {{name}}',
   transaction: {
     badge: 'Transfer',
     of: 'Planned transfer “{{name}}”',

@@ -53,7 +53,7 @@ const core = {
     settings: { description: 'The budget, the people who share it, and your account.' },
   },
   userMenu: {
-    open: 'Open the account menu',
+    open: '{{identity}}. Account menu',
     signOut: 'Sign out',
     fallbackName: 'Account',
   },
@@ -461,7 +461,7 @@ const core = {
     typeToConfirm: 'Type “{{text}}” to confirm',
   },
   budgetSwitcher: {
-    open: 'Current budget: {{name}}. Switch budget',
+    open: '{{name}} {{role}}. Switch budget',
     label: 'Your budgets',
     current: 'Current budget',
     create: 'Create a budget',

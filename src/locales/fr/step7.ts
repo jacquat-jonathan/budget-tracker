@@ -110,7 +110,7 @@ export const transfersFr = {
       'Aucune n’a été enregistrée pour lui pendant cette période. Choisissez toutes les périodes pour voir les autres.',
   },
   itsTransactions: 'Ses transactions',
-  itsTransactionsFor: 'Transactions de {{name}}',
+  itsTransactionsFor: 'Ses transactions : {{name}}',
   transaction: {
     badge: 'Virement',
     of: 'Virement planifié « {{name}} »',

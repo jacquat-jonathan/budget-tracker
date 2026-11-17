@@ -8975,6 +8975,19 @@
     {
       "status": "active",
       "enforcement": "test",
+      "id": "R-APP-540",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "The sidebar's links are a navigation landmark named like the menu, and a control's accessible name starts with the text it shows (label in name): the budget switcher reads \"<budget> <role>. Switch budget\", the account menu \"<name> <email>. Account menu\" (the initials are drawn, not text), and a transfer's link to its transactions \"Its transactions: <transfer>\".",
+      "related": ["R-APP-001", "R-APP-538"],
+      "source": [
+        "owner-request: browser re-check of the screens (axe-core scan), 2026-11-17",
+        "code: src/components/layout/app-sidebar.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
       "id": "R-IMPORT-531",
       "area": "import",
       "feature": "F-IMPORT",

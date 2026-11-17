@@ -292,12 +292,13 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422] [R
     ]
     mock.current = createSupabaseMock(fakeSession(), db)
     renderRoutes(routes, '/money-flow')
-    expect(await screen.findByRole('link', { name: 'Transactions of Pillar 3a' })).toHaveAttribute(
-      'href',
-      '/transactions?period=period-2&transfer=tr-pillar',
-    )
+    expect(
+      await screen.findByRole('link', { name: 'Its transactions: Pillar 3a' }),
+    ).toHaveAttribute('href', '/transactions?period=period-2&transfer=tr-pillar')
     // Savings records no transactions in this example's read: no link that leads to nothing.
-    expect(screen.queryByRole('link', { name: 'Transactions of Savings' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Its transactions: Savings' }),
+    ).not.toBeInTheDocument()
   })
 
   it('on Actual, draws what was spent, keeps the basis in the address and says the period is still running', async () => {

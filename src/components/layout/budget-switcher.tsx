@@ -40,7 +40,10 @@ export function BudgetSwitcher() {
             <SidebarMenuButton
               size="lg"
               tooltip={budget.name}
-              aria-label={t('budgetSwitcher.open', { name: budget.name })}
+              aria-label={t('budgetSwitcher.open', {
+                name: budget.name,
+                role: isOwner ? t('members.role.owner') : t('members.role.member'),
+              })}
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
@@ -50,6 +53,7 @@ export function BudgetSwitcher() {
                 <span className="truncate font-semibold" data-testid="current-budget-name">
                   {budget.name}
                 </span>
+                {/* A space between the lines, so the visible text reads "name role" (label in name). */}{' '}
                 <span className="truncate text-xs text-muted-foreground">
                   {isOwner ? t('members.role.owner') : t('members.role.member')}
                 </span>

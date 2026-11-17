@@ -212,3 +212,20 @@ describe('a name already used [R-APP-539]', () => {
     )
   })
 })
+
+describe('the sidebar for assistive technology [R-APP-540]', () => {
+  it('is a navigation landmark and its two menu buttons name what they show', async () => {
+    mock.current = createSupabaseMock(fakeSession(), householdDb())
+    renderRoutes(routes, '/')
+    await screen.findByRole('heading', { name: 'Dashboard', level: 1 })
+    expect(screen.getByRole('navigation', { name: 'Menu' })).toHaveTextContent('Budget')
+    // The accessible name starts with the visible text (label in name), then says what it does.
+    const switcher = screen.getByRole('button', { name: /Switch budget/ })
+    expect(switcher.getAttribute('aria-label')).toContain(
+      within(switcher).getByTestId('current-budget-name').textContent,
+    )
+    const account = screen.getAllByRole('button', { name: /Account menu/ })[0]!
+    expect(account).toHaveTextContent('alex@example.com')
+    expect(account.getAttribute('aria-label')).toContain('Alex alex@example.com')
+  })
+})

@@ -127,8 +127,33 @@ done, and what is left for the owner:
 - Left for the owner, as before: the two "open choices left by the developer" below; changing
   the password still asks for no current password (an owner decision, not changed). A fixed
   day's row still says its scheduled date beside an equal due date (not reported, not changed).
-  Browser re-check of the remaining scenarios (early salary, expected pay date, make primary,
-  move start, reopen with marks, dark theme, accessibility scan, large budget) is still open.
+- **Browser re-check finished** (2026-11-17, Chromium, local stack, the clock moved by replacing
+  `private.today()` as the database tests do; invented household of two members, two incomes,
+  seven accounts, eight transfers of every kind, two subscriptions). Covered, each press and
+  preview compared with the database and found equal: the new transfer wording in English and
+  French (placeholders, weekend-rule help per rule, form foot, payday rows, the dropped to-do
+  note, "Includes up to"); weekend-rule rows after their date (done assumed, overdue); "the salary
+  arrived early" (non-zero: 1 created; 1 removed, 3 created, 1 moved, then applied: the
+  transactions matched), the expected pay date (1 created for a transfer capped to today),
+  make primary (preview, and the "has this salary arrived" prompt, then recorded), move start (3
+  moved, applied and matched), reopen with a member's mark (preview rows equal to
+  `preview_reopen`, applied and matched); the money flow against the dashboard (4'730 planned =
+  3'930 + 800 set aside by transfers; spent 2'100 = 1'850 + 250 set aside); dark theme; a budget
+  with 165 categories and 6000 transactions (every page ready in about 1 to 1.7 s, no horizontal
+  scroll at 390 px); the production CSP served from `public/.htaccess`'s header (local API added
+  to `connect-src`, `upgrade-insecure-requests` dropped because the stack is plain http): no
+  violation on all pages, the pdf.js worker loads. The database suite passes on that data (45
+  files, 2795 tests).
+- Found and fixed: axe-core reported on every page the sidebar outside any landmark (`region`)
+  and, for the budget switcher, the account menu and the "Its transactions" links, an accessible
+  name that did not contain the visible text (`label-content-name-mismatch`): `R-APP-540`.
+  After the fix axe reports nothing on 13 pages, light and dark.
+- Seen, not changed: after a reopen is saved, the page asks `preview_reopen` once more for the now
+  first period and the database answers `invalid_boundary` (a 400 in the console, nothing on
+  screen): the invalidation of the budget's queries runs before the dialog stops asking. A
+  checklist row of a standing order due later this period says "assumed done on its due date"
+  although the date is in the future. Not exercised: a real PDF statement in a browser (the
+  fixtures are text-item JSON), phones other than 390 px emulation.
 
 Original findings:
 
