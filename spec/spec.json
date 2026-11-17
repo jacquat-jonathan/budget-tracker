@@ -8818,7 +8818,7 @@
       "id": "R-APP-532",
       "area": "app",
       "feature": "F-SHELL",
-      "statement": "A page whose code (or strings) could not be downloaded says \"This page could not be loaded\" inside the app's layout, says whether the browser is offline, offers \"Try again\", and tries again by itself when the browser comes back online; a failed download is never kept, so the retry downloads it again. Any other error still goes to the error page.",
+      "statement": "A page whose code (or strings) could not be downloaded says \"This page could not be loaded\" inside the app's layout, says whether the browser is offline, offers \"Try again\", and tries again by itself when the browser comes back online; a failed download is never kept by the app, so trying again downloads it again, and when that try fails while the browser is online (Chromium keeps a failed module download and does not ask the server again) the whole page is reloaded. Any other error still goes to the error page.",
       "related": ["R-APP-530", "D-634"],
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",

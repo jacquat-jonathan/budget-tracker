@@ -4,10 +4,15 @@ import { useTranslation } from 'react-i18next'
 
 import { PageLoadError } from '@/app/lazy-page'
 import { Button } from '@/components/ui/button'
-import { useOffline } from '@/lib/online'
+import { isOffline, useOffline } from '@/lib/online'
+
+/** A failure this soon after "try again" counts as that try failing. */
+const RETRY_WINDOW_MS = 30_000
 
 interface Props {
   children: ReactNode
+  /** Reloads the whole page; replaced in tests. */
+  reload?: () => void
 }
 
 interface State {
@@ -19,9 +24,16 @@ interface State {
  * again, and tries again by itself when the browser comes back online. Any other error is
  * thrown on from here, to the router's error page (a boundary's own render error goes to the
  * boundary above it).
+ *
+ * Trying again first renders the page again (lazyPage asks for its code anew). Chromium keeps
+ * a failed module download and answers the same failure without asking the server again, so
+ * when that second try fails while the browser is online, the whole page is reloaded: nothing
+ * typed is lost, since the page never loaded.
  */
 export class PageLoadBoundary extends Component<Props, State> {
   state: State = { error: null }
+  /** When the last "try again" was started (by the button or the browser coming online). */
+  private retriedAt = 0
 
   static getDerivedStateFromError(error: unknown): State {
     return { error: { value: error } }
@@ -35,8 +47,19 @@ export class PageLoadBoundary extends Component<Props, State> {
     window.removeEventListener('online', this.retry)
   }
 
+  componentDidUpdate() {
+    // Failed again shortly after trying again, while online: the browser kept the failure.
+    if (!(this.state.error?.value instanceof PageLoadError)) return
+    if (Date.now() - this.retriedAt < RETRY_WINDOW_MS && !isOffline()) {
+      this.retriedAt = 0
+      ;(this.props.reload ?? (() => window.location.reload()))()
+    }
+  }
+
   retry = () => {
-    if (this.state.error?.value instanceof PageLoadError) this.setState({ error: null })
+    if (!(this.state.error?.value instanceof PageLoadError)) return
+    this.retriedAt = Date.now()
+    this.setState({ error: null })
   }
 
   render() {

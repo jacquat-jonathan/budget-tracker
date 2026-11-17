@@ -287,7 +287,7 @@ function CategoryRow({
   }
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-[6rem] flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn('line-clamp-2 break-words', sub ? 'text-sm' : 'font-medium')}
@@ -313,10 +313,10 @@ function CategoryRow({
           <span className="text-xs text-muted-foreground">{t('categories.groupNote')}</span>
         )}
       </div>
-      <span className="flex shrink-0 flex-col items-end">
+      <span className="flex max-w-[60%] min-w-0 flex-col items-end text-right">
         <span
           className={cn(
-            'text-right tabular-nums',
+            'text-right whitespace-nowrap tabular-nums',
             category.is_group ? 'font-semibold' : sub ? 'text-sm' : 'font-medium',
           )}
           data-testid="category-amount"

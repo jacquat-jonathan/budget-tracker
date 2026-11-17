@@ -310,7 +310,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SHELL_
   - Related: R-APP-530, D-634, R-APP-007
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/lib/online.ts; code: src/hooks/use-app-mutation.ts
-- **R-APP-532** A page whose code (or strings) could not be downloaded says "This page could not be loaded" inside the app's layout, says whether the browser is offline, offers "Try again", and tries again by itself when the browser comes back online; a failed download is never kept, so the retry downloads it again. Any other error still goes to the error page.
+- **R-APP-532** A page whose code (or strings) could not be downloaded says "This page could not be loaded" inside the app's layout, says whether the browser is offline, offers "Try again", and tries again by itself when the browser comes back online; a failed download is never kept by the app, so trying again downloads it again, and when that try fails while the browser is online (Chromium keeps a failed module download and does not ask the server again) the whole page is reloaded. Any other error still goes to the error page.
   _active · enforced by test · F-SHELL_
   - Related: R-APP-530, D-634
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/app/lazy-page.ts; code: src/components/page-load-boundary.tsx

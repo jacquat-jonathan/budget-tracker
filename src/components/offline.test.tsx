@@ -150,6 +150,25 @@ describe('a page whose code failed to load [R-APP-532]', () => {
     expect(await screen.findByRole('heading', { name: 'The page' })).toBeInTheDocument()
   })
 
+  it('reloads the page when trying again fails while online (a browser that keeps the failed download)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const reload = vi.fn()
+    const Page = lazyPage(() =>
+      Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
+    )
+    render(
+      <PageLoadBoundary reload={reload}>
+        <Suspense fallback={<p>Loading</p>}>
+          <Page />
+        </Suspense>
+      </PageLoadBoundary>,
+    )
+    const failed = await screen.findByTestId('page-load-failed')
+    expect(reload).not.toHaveBeenCalled()
+    await userEvent.click(within(failed).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1))
+  })
+
   it('leaves any other error to the error page above it', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     function Broken(): ReactNode {
