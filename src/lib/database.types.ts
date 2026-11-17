@@ -1170,7 +1170,7 @@ isOneToOne: false
                   ]
                 },"my_budgets": {
                   Row: {
-                    "caught_up": boolean | null,"charges_awaiting": number | null,"created_at": string,"end_date": string | null,"end_date_entered": string | null,"first_period_start": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"revision": number,"to_categorise_category_id": string | null,"to_review": number | null,"transfers_overdue": number | null,"transfers_to_do": number | null,"updated_at": string
+                    "caught_up": boolean | null,"charges_awaiting": number | null,"created_at": string,"end_date": string | null,"end_date_entered": string | null,"first_period_start": string | null,"id": string,"is_owner": boolean | null,"name": string,"owner_id": string,"primary_income_id": string,"revision": number,"to_categorise_category_id": string | null,"to_review": number | null,"updated_at": string
                   }
                   ComputedFields: never
                   Relationships: [
@@ -1938,6 +1938,11 @@ isOneToOne: false
               "amount": number,"cadence": Database["public"]['Enums']["subscription_cadence"],"category_id": string,"day_of_month": number,"first_date": string,"from_account_id": string,"in_force": boolean,"income_id": string,"is_automatic": boolean,"offset_days": number,"period_id": string,"schedule": Database["public"]['Enums']["transfer_schedule"],"terms_from_period_id": string,"to_account_id": string,"until_period_id": string
             }[]
                            },
+"get_transfers_to_do":
+{ Args: { "p_budget_id": string }; Returns: {
+              "transfers_overdue": number,"transfers_to_do": number
+            }[]
+                           },
 "import_skipped_anyway":
 { Args: { "p_batch_id": string,"p_skipped_row_ids"?: (string)[] }; Returns: Database["public"]['CompositeTypes']["import_row_result"][]
                           SetofOptions: {
@@ -2414,8 +2419,6 @@ isOneToOne: false
 "revision": number,
 "to_categorise_category_id": string | null,
 "to_review": number | null,
-"transfers_overdue": number | null,
-"transfers_to_do": number | null,
 "updated_at": string
             }[]
                           SetofOptions: {
