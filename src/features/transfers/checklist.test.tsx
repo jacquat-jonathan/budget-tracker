@@ -810,6 +810,12 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
       expect(status('Joint account, on its fixed day')).toBe('Skipped by Alex')
     })
     expect(status('Joint account, on the payday')).toBe('To do')
+    // The focus stays on the twin acted on, not on the other one with the same key.
+    await waitFor(() => {
+      expect(document.activeElement?.closest('[data-testid="checklist-row"]')).toBe(
+        twin('Joint account, on its fixed day'),
+      )
+    })
 
     await userEvent.click(
       screen.getByRole('button', {
@@ -857,6 +863,36 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
     await waitFor(() => {
       expect(status('Joint account, on the payday')).toBe('To do')
     })
+  })
+
+  it('a twin marked here stays in place while its settled twin stays folded away [D-543]', async () => {
+    const db = checklistDb()
+    const [payday, fixed] = twins()
+    db.checklist = [
+      payday!,
+      { ...fixed!, status: 'skipped', mark_revision: 1, recorded_by_name: 'Sam' },
+    ]
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transfers')
+    await screen.findByTestId('checklist-open')
+    expect(screen.getByTestId('checklist-settled-toggle')).toHaveTextContent('1')
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Skip “Joint account, on the payday that started the period” this time',
+      }),
+    )
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId('checklist-open')).getAllByTestId('checklist-row'),
+      ).toHaveLength(1)
+    })
+    await waitFor(() => {
+      expect(
+        within(screen.getByTestId('checklist-open')).getByTestId('checklist-status'),
+      ).toHaveTextContent('Skipped by Alex')
+    })
+    // Only the row skipped here is kept in place: its twin, settled before, is still folded.
+    expect(screen.getByTestId('checklist-settled-toggle')).toHaveTextContent('1')
   })
 
   it('Did not happen on a standing order acts on its own twin and sends its kind', async () => {

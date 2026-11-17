@@ -437,6 +437,23 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
     )
   })
 
+  it('[R-ACCOUNT-462] removed with nothing recorded at once: the removal is said, no move note', async () => {
+    const db = await openPage()
+    // As my stack answered a new offset in the current period: the app's transaction goes and
+    // comes back on its new due date once due, so nothing is recorded at once.
+    db.rpc.preview_update_transfer.mockImplementation(() => [
+      previewRow({ due_date: '2026-11-28', transactions_removed_count: 1 }),
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const preview = within(dialog).getByTestId('transfer-preview')
+    expect(await within(preview).findByTestId('transactions-removed')).toHaveTextContent(
+      'or its due date moves',
+    )
+    expect(within(preview).queryByTestId('preview-moved-note')).not.toBeInTheDocument()
+  })
+
   it('[R-ACCOUNT-500] two previewed occurrences on one due date say their kind; others do not', async () => {
     const db = await openPage()
     db.rpc.preview_update_transfer.mockImplementation(() => [
