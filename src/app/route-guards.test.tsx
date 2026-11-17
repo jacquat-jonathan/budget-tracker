@@ -36,7 +36,8 @@ describe('protected routes', () => {
 
     expect(await screen.findByRole('heading', { name: 'Money flow' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument()
-    expect(screen.getByText('Coming soon')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Transfers' })).toHaveAttribute('href', '/transfers')
+    expect(screen.getByRole('link', { name: 'Accounts' })).toHaveAttribute('href', '/accounts')
   })
 
   it('send a signed-in user away from the sign-in page [R-AUTH-002]', async () => {
