@@ -194,6 +194,8 @@ select is(pg_temp.rows('k', tests.id('k_t'), 5), '5:#5/2027-01-05/done', '(setup
 select pg_temp.reopen('k', '2027-01-21');
 select is(pg_temp.rows('k', tests.id('k_t'), 4), '4:#4/2026-12-05/to_do;#5/-/done/unplanned',
   'R-ACCOUNT-511: K5: reopened, the mark of period 5 stays, listed (no longer planned) by the latest period');
+select is((select next_due_date from public.transfer_overview where id = tests.id('k_t')), '2027-02-05'::date,
+  'R-ACCOUNT-464: K5: the next period (5, projected from 21 Jan) is already marked: the next due date is period 6''s, 5 Feb');
 select pg_temp.day('2027-01-21');
 select is(pg_temp.rows('k', tests.id('k_t'), 5), '5:#5/2027-01-21/done',
   'R-ACCOUNT-511: K5: the salary recorded again 16 days late: period 5''s mark is planned again, done');
@@ -248,6 +250,8 @@ select pg_temp.day('2027-01-26');
 select is(regexp_replace(pg_temp.here('i', tests.id('i_t')), '#[0-9]+', '#'), '#/2027-01-25/done',
   'R-ACCOUNT-512: after Ben''s end the transfer follows the main income: one occurrence of its period');
 select is((select follows_primary from public.transfer_overview where id = tests.id('i_t')), true, 'R-ACCOUNT-512: and says so');
+select is((select follows_primary from public.get_transfer_checklist((pg_temp.cur('i')).id) where transfer_id = tests.id('i_t')), true,
+  'R-ACCOUNT-512: its checklist row says it follows the main income');
 -- an income added later: before it, the transfer follows the main income
 select tests.remember('i_dee', public.add_income(tests.id('i'), 'Dee', 100000, 28, 'none'));
 select tests.remember('i_w', pg_temp.new_transfer('i', 'Dee savings', 'dee', p_from => (pg_temp.cur('i')).id));
@@ -265,6 +269,8 @@ select tests.remember('f_next', (select id from public.create_transfer(tests.id(
   p_weekend_rule => 'next')));
 select tests.remember('f_prev', (select id from public.create_transfer(tests.id('f'), 'Prev', tests.id('f_main'), tests.id('f_sav'), 1000,
   'day_of_month', p_day_of_month => 22, p_first_date => '2026-10-22', p_is_automatic => false, p_weekend_rule => 'previous')));
+select tests.remember('f_sat', (select id from public.create_transfer(tests.id('f'), 'Saturday', tests.id('f_main'), tests.id('f_sav'), 1000,
+  'day_of_month', p_day_of_month => 21, p_first_date => '2026-10-21', p_is_automatic => false, p_weekend_rule => 'next')));
 select tests.remember('f_none', (select id from public.create_transfer(tests.id('f'), 'None', tests.id('f_main'), tests.id('f_sav'), 1000,
   'day_of_month', p_day_of_month => 22, p_first_date => '2026-10-22', p_is_automatic => false)));
 select is(pg_temp.here('f', tests.id('f_next')), '2026-11-22/2026-11-23/done[f]',
@@ -272,6 +278,8 @@ select is(pg_temp.here('f', tests.id('f_next')), '2026-11-22/2026-11-23/done[f]'
 select is((select occurrence_date from public.get_transfer_checklist((pg_temp.cur('f')).id) where transfer_id = tests.id('f_next')),
   '2026-11-22'::date, 'R-ACCOUNT-513: the occurrence is the scheduled date, 22 Nov');
 select is(pg_temp.txs(tests.id('f_next')), '2026-11-23', 'R-ACCOUNT-513: the app records it on Monday 23 Nov');
+select is((select due_date from public.get_transfer_checklist((pg_temp.cur('f')).id) where transfer_id = tests.id('f_sat')),
+  '2026-11-23'::date, 'R-ACCOUNT-513: Saturday 21 Nov with the working day after: due Monday 23 Nov');
 select is((select due_date from public.get_transfer_checklist((pg_temp.cur('f')).id) where transfer_id = tests.id('f_prev')),
   '2026-11-20'::date, 'R-ACCOUNT-513: the working day before: due Friday 20 Nov');
 select is((select due_date from public.get_transfer_checklist((pg_temp.cur('f')).id) where transfer_id = tests.id('f_none')),
@@ -423,6 +431,35 @@ select results_eq(format($$select change, count(*)::integer from public.preview_
                            group by change order by change$$, tests.id('r')),
   $$values ('transaction_removed'::text, 2)$$,
   'R-ACCOUNT-517: preview_reopen lists each removal (the merged period''s own occurrences of Plus20 and Plus25); none moved');
+
+select pg_temp.day('2026-12-16');
+select pg_temp.budget('mv');
+select tests.remember('mv_t', (select id from public.create_transfer(tests.id('mv'), 'On the 10th', tests.id('mv_main'), tests.id('mv_sav'),
+  1000, 'day_of_month', p_day_of_month => 10, p_first_date => '2026-12-10', p_is_automatic => true, p_category_id => tests.id('mv_cat'))));
+select results_eq(format($$select transactions_removed_count, created_at_once_count, transactions_moved_count
+                           from public.preview_update_transfer(%L, p_day_of_month => 12, p_first_date => '2026-12-12', p_count => 1)$$,
+                         tests.id('mv_t')),
+  $$values (1, 1, 0)$$, 'R-ACCOUNT-517: 10 Dec removed and 12 Dec created are two occurrences: nothing moved');
+
+-- a fixed day on Sunday 1 Nov with the working day before is due Friday 30 Oct, before its period
+-- starts: a correction that plans it records it (the watermark goes back far enough)
+select pg_temp.day('2026-11-16');
+select pg_temp.budget('fw', 1);
+select tests.remember('fw_t', (select id from public.create_transfer(tests.id('fw'), 'First', tests.id('fw_main'), tests.id('fw_sav'),
+  1000, 'day_of_month', p_day_of_month => 5, p_first_date => '2026-11-05', p_is_automatic => true, p_category_id => tests.id('fw_cat'),
+  p_from_period_id => (pg_temp.cur('fw')).id)));
+select public.update_transfer(tests.id('fw_t'), pg_temp.rev(tests.id('fw_t')), p_day_of_month => 1, p_first_date => '2026-11-01',
+  p_weekend_rule => 'previous', p_from_period_id => (pg_temp.cur('fw')).id);
+select is(pg_temp.txs(tests.id('fw_t')), '2026-10-30',
+  'R-ACCOUNT-513: the occurrence of Sunday 1 Nov, due Friday 30 Oct (before its period starts), is recorded by the correction');
+select is(pg_temp.problems('fw'), '', 'R-ACCOUNT-513: the model agrees (due before the period)');
+-- a period's own occurrence counts from its period, wherever its start moves
+select pg_temp.day('2026-11-27');
+select pg_temp.budget('ms');
+select tests.remember('ms_t', pg_temp.new_transfer('ms', 'By hand', p_auto => false, p_from => (pg_temp.cur('ms')).id));
+select public.move_period_start((pg_temp.cur('ms')).id, (pg_temp.cur('ms')).revision, '2026-11-23');
+select is((select status from public.mark_transfer_done(tests.id('ms_t'), (pg_temp.cur('ms')).id, 0, '2026-11-23', p_occurrence_kind => 'period')),
+  'done', 'R-ACCOUNT-511: its period now starts 23 Nov, before its first counted day: done on 23 Nov is accepted');
 
 -- ===========================================================================
 -- R-ACCOUNT-464 (D-612, re-check 5 S2): next_due_date is the first occurrence due today or later
