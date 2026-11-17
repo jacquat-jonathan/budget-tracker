@@ -194,7 +194,7 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235]', () => {
         .getAllByTestId('flow-node')
         .find((node) => node.getAttribute('data-node') === id)
         ?.querySelector('[data-testid="flow-node-value"]')
-        ?.textContent?.replace(/\s/g, ' ')
+        ?.textContent.replace(/\s/g, ' ')
     expect(value('acc-a')).toContain(money(391_200))
     expect(value('acc-j')).toContain(money(670_000))
     expect(value('income:inc-s')).toContain(money(480_000))
