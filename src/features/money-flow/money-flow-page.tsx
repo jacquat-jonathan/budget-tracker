@@ -96,7 +96,7 @@ export function MoneyFlowPage() {
       end: formatCalendarDate(item.end_date),
     })
   const picker = period && periods.data && (
-    <div className="flex w-full flex-col gap-1 sm:w-72">
+    <div className="flex w-full flex-col gap-1 sm:w-96">
       <label htmlFor="money-flow-period" className="text-sm font-medium">
         {t('moneyFlow.period')}
       </label>

@@ -323,7 +323,7 @@ export const transfersFr = {
     title: 'Liste à cocher',
     help: 'Les virements d’une période : cochez ceux que vous faites vous-même.',
     period: 'Période',
-    currentPeriod: 'Cette période (du {{start}} au {{end}})',
+    currentPeriod: 'En cours ({{start}} – {{end}})',
     unknownPeriod: 'La période du lien n’appartient pas à ce budget : voici la période en cours.',
     empty: 'Rien n’est prévu dans cette période.',
     allSettled: 'Plus rien à faire dans cette période.',

@@ -248,7 +248,7 @@ export function Checklist({
           <p className="text-sm text-muted-foreground">{t('transfers.checklist.help')}</p>
         </div>
         {period && (
-          <div className="flex flex-col gap-1 sm:w-72">
+          <div className="flex flex-col gap-1 sm:w-96">
             <label htmlFor="checklist-period" className="text-sm font-medium">
               {t('transfers.checklist.period')}
             </label>
