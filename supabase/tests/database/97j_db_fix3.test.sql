@@ -438,7 +438,7 @@ select public.undo_import_batch(tests.id('n_b'));
 select pg_temp.day('2026-11-16');
 select is((select created_by_name from public.get_import_batch(tests.id('n_b'))), 'Juno',
   'R-IMPORT-422: a current member whose only import was undone (no transaction recorded) is named');
-select is((select created_by_name from public.list_import_batches(tests.id('i')) where id = tests.id('n_b')), 'Juno',
+select is((select created_by_name from public.list_import_batches(tests.id('i'), 200) where id = tests.id('n_b')), 'Juno',
   'R-IMPORT-422: in the batch list too');
 select public.remove_member(tests.id('i'), tests.get_user_id('juno'));
 select is((select created_by_name from public.get_import_batch(tests.id('n_b'))), null,
@@ -556,6 +556,183 @@ select is(pg_temp.txs(tests.id('mv_manual')), '2026-11-25', 'R-ACCOUNT-425: made
 select results_eq(format($$select date, amount, description from public.transaction_list where transfer_id = %L$$, tests.id('mv_edit')),
   $$values ('2026-11-25'::date, 98000::bigint, 'bank fee taken off')$$,
   'R-ACCOUNT-425: its transaction edited by a member: it stays exactly as edited');
+
+-- ===========================================================================
+-- What the reviewer's surviving mutants showed untested (re-check 3), step 7
+-- ===========================================================================
+-- the previous period after a moved start: its occurrence's due date, capped at its end, moves
+select pg_temp.day('2026-11-20');
+select pg_temp.budget('pv');
+select tests.remember('pv_t', (select id from public.create_transfer(tests.id('pv'), 'Late in the month', tests.id('pv_main'), tests.id('pv_sav'),
+  100000, 'pay_date', p_offset_days => 25, p_is_automatic => true, p_category_id => tests.id('pv_cat'), p_from_period_id => tests.id('pv_p1'))));
+select is(pg_temp.txs(tests.id('pv_t')), '2026-10-20,2026-11-19', 'R-ACCOUNT-309: (setup) due 25 days after payday');
+select public.move_period_start((pg_temp.cur('pv')).id, (pg_temp.cur('pv')).revision, '2026-10-15');
+select is(pg_temp.txs(tests.id('pv_t')), '2026-10-14,2026-11-09',
+  'R-ACCOUNT-309: the previous period''s transaction moves too: its due date, capped at its end, is now 14 Oct');
+-- a yearly transfer 12 to 13 months ahead still shows its next date (13 months, not 12)
+select tests.remember('pv_y', (select id from public.create_transfer(tests.id('pv'), 'Yearly', tests.id('pv_main'), tests.id('pv_sav'),
+  50000, 'day_of_month', p_cadence => 'yearly', p_first_date => '2027-12-01')));
+select is((select next_due_date from public.transfer_overview where id = tests.id('pv_y')), '2027-12-01'::date,
+  'R-ACCOUNT-314: a yearly date more than 12 months ahead is still its next due date');
+-- D-492's boundaries: due on the day the income ended stays; the primary's due that day does not
+-- appear; ended by a correction from an earlier period, those periods follow the primary as before
+select pg_temp.day('2026-11-10');
+select pg_temp.budget('eb');
+select tests.remember('eb_x', public.add_income(tests.id('eb'), 'Side job', 30000, 10, 'none', p_from_period_id => tests.id('eb_p1')));
+select tests.remember('eb_t1', (select id from public.create_transfer(tests.id('eb'), 'On its day', tests.id('eb_main'), tests.id('eb_sav'),
+  1000, 'pay_date', p_income_id => tests.id('eb_x'), p_is_automatic => true, p_category_id => tests.id('eb_cat'), p_from_period_id => tests.id('eb_p1'))));
+select tests.remember('eb_t2', (select id from public.create_transfer(tests.id('eb'), 'Sixteen days on', tests.id('eb_main'), tests.id('eb_sav'),
+  1000, 'pay_date', p_offset_days => 16, p_income_id => tests.id('eb_x'), p_is_automatic => true, p_category_id => tests.id('eb_cat'),
+  p_from_period_id => tests.id('eb_p1'))));
+select public.remove_income(tests.id('eb_x'), (select revision from public.incomes where id = tests.id('eb_x')));
+select is(pg_temp.txs(tests.id('eb_t1')), '2026-10-10,2026-11-10', 'R-ACCOUNT-311: an occurrence due on the day the income ended stays');
+select is((select rows from pg_temp.rows('eb', tests.id('eb_t2')) where start_date = '2026-10-25'), '',
+  'R-ACCOUNT-311: the primary''s occurrence due that very day (25 Oct + 16) does not appear');
+select pg_temp.day('2026-11-26');
+select pg_temp.budget('ec');
+select tests.remember('ec_x', public.add_income(tests.id('ec'), 'Side job', 30000, 10, 'none', p_from_period_id => tests.id('ec_p1')));
+select tests.remember('ec_t', (select id from public.create_transfer(tests.id('ec'), 'After it', tests.id('ec_main'), tests.id('ec_sav'),
+  1000, 'pay_date', p_income_id => tests.id('ec_x'), p_is_automatic => true, p_category_id => tests.id('ec_cat'), p_from_period_id => tests.id('ec_p1'))));
+select public.remove_income(tests.id('ec_x'), (select revision from public.incomes where id = tests.id('ec_x')),
+  pg_temp.period_at('ec', '2026-11-01'));
+select is(pg_temp.txs(tests.id('ec_t')), '2026-10-10,2026-10-25,2026-11-25',
+  'R-ACCOUNT-311: ended by a correction from an earlier period, that period follows the primary income (25 Oct), not the day it was asked');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('ec')), 'R-ACCOUNT-311: the model agrees');
+-- the gate (D-433): more than 62 days behind with a charge or a transfer's transaction answers
+-- catching_up, 62 does not, and a full budget is not behind
+select pg_temp.day('2026-11-26');
+select pg_temp.budget('g');
+select tests.remember('g_t', pg_temp.new_transfer('g', 'Standing order', p_from => tests.id('g_p1')));
+select tests.clear_authentication();
+update public.transfers set next_due = date '2026-11-26' - 62 where id = tests.id('g_t');
+select pg_temp.day('2026-11-26');
+select is(pg_temp.refusal(format($$select public.create_category(%L, 'Gate 62')$$, tests.id('g'))), 'no error',
+  'R-PERIOD-250: a transfer''s transaction 62 days due: not behind');
+select tests.clear_authentication();
+update public.transfers set next_due = date '2026-11-26' - 63 where id = tests.id('g_t');
+select pg_temp.day('2026-11-26');
+select is(pg_temp.refusal(format($$select public.create_category(%L, 'Gate 63')$$, tests.id('g'))), 'catching_up',
+  'R-PERIOD-250: 63 days: catching_up');
+select tests.clear_authentication();
+savepoint gate_full;
+create or replace function private.limit_transactions() returns integer language sql immutable set search_path = '' as $f$ select 0 $f$;
+select pg_temp.day('2026-11-26');
+select is(pg_temp.refusal(format($$select public.create_category(%L, 'Gate full')$$, tests.id('g'))), 'no error',
+  'R-PERIOD-250: a full budget is not behind (its transactions wait for room)');
+select tests.clear_authentication();
+rollback to savepoint gate_full;
+update public.transfers set next_due = null where id = tests.id('g_t');
+select pg_temp.day('2026-11-26');
+select tests.remember('g_sub', (select id from public.create_subscription(tests.id('g'), 'Streaming', 1500, 'monthly', tests.id('g_cat'), '2026-11-30')));
+select tests.clear_authentication();
+update public.subscriptions set next_due = date '2026-11-26' - 63 where id = tests.id('g_sub');
+select pg_temp.day('2026-11-26');
+select is(pg_temp.refusal(format($$select public.create_category(%L, 'Gate charge')$$, tests.id('g'))), 'catching_up',
+  'R-PERIOD-250: a subscription charge 63 days due: catching_up too');
+select tests.clear_authentication();
+update public.subscriptions set next_due = date '2026-11-26' - 62 where id = tests.id('g_sub');
+select pg_temp.day('2026-11-26');
+select is(pg_temp.refusal(format($$select public.create_category(%L, 'Gate charge 62')$$, tests.id('g'))), 'no error',
+  'R-PERIOD-250: 62 days: not behind');
+
+-- ===========================================================================
+-- What the reviewer's surviving mutants showed untested (re-check 3), import
+-- ===========================================================================
+-- preview_import_part (D-455): its refusals, the day, the cap, the parts forgotten, fits, part 101
+select pg_temp.day('2026-11-16', 'jules');
+select tests.remember('o', public.create_budget('Other', 'Salary', 500000, 25, 'none', '2026-09-01'));
+select tests.remember('o_staged', gen_random_uuid());
+select public.preview_import_part(tests.id('o'), tests.id('o_staged'), 1, pg_temp.row1(8001));
+select tests.remember('o_batch', gen_random_uuid());
+select public.import_transactions(tests.id('o'), tests.id('o_batch'), 1, pg_temp.row1(8002), 'csv');
+select pg_temp.day('2026-11-16');
+select is(pg_temp.refusal(format($$select public.preview_import_part(%L, %L, 1, %L)$$, tests.id('i'), tests.id('o_staged'), pg_temp.row1(1))),
+  'import_batch_conflict', 'R-IMPORT-340: another budget''s staged batch id is refused');
+select is(pg_temp.refusal(format($$select public.preview_import_part(%L, %L, 1, %L)$$, tests.id('i'), tests.id('o_batch'), pg_temp.row1(1))),
+  'import_batch_conflict', 'R-IMPORT-340: another budget''s batch is refused');
+select tests.remember('u_b', gen_random_uuid());
+select public.import_transactions(tests.id('i'), tests.id('u_b'), 1, pg_temp.row1(8101), 'csv');
+select public.undo_import_batch(tests.id('u_b'));
+select is(pg_temp.refusal(format($$select public.preview_import_part(%L, %L, 2, %L)$$, tests.id('i'), tests.id('u_b'), pg_temp.row1(1))),
+  'batch_undone', 'R-IMPORT-340: an undone batch is refused');
+select is(pg_temp.refusal(format($$select public.preview_import_part(%L, gen_random_uuid(), 101, %L)$$, tests.id('i'), pg_temp.row1(1))),
+  'invalid_chunk', 'R-IMPORT-340: part 101 is refused (1 to 100)');
+select tests.remember('pp', gen_random_uuid());
+select public.preview_import_part(tests.id('i'), tests.id('pp'), 1, pg_temp.row1(8201));
+select public.preview_import_part(tests.id('i'), tests.id('pp'), 2, pg_temp.row1(8202));
+select public.preview_import_part(tests.id('i'), tests.id('pp'), 3, pg_temp.row1(8203));
+select is((public.preview_import_part(tests.id('i'), tests.id('pp'), 2, pg_temp.row1(8202)) -> 'parts')::text, '[1, 2]',
+  'R-IMPORT-340: previewing part 2 again forgets the staged parts from it on (part 3)');
+select tests.clear_authentication();
+update private.import_preview_parts set created_at = now() - interval '25 hours' where batch_id = tests.id('pp') and part = 1;
+select pg_temp.day('2026-11-16');
+select is((public.preview_import_part(tests.id('i'), tests.id('pp'), 2, pg_temp.row1(8202)) -> 'parts')::text, '[2]',
+  'R-IMPORT-340: a part staged more than a day ago is forgotten');
+select tests.clear_authentication();
+savepoint parts_cap;
+create or replace function private.limit_import_preview_parts_kept() returns integer language sql immutable set search_path = '' as $f$ select 2 $f$;
+select pg_temp.day('2026-11-16');
+select public.preview_import_part(tests.id('i'), gen_random_uuid(), 1, pg_temp.row1(8301));
+select public.preview_import_part(tests.id('i'), gen_random_uuid(), 1, pg_temp.row1(8302));
+select tests.clear_authentication();
+select is((select count(*)::integer from private.import_preview_parts where budget_id = tests.id('i')), 2,
+  'R-IMPORT-340: at most 100 staged parts a budget (2 here): the oldest go');
+rollback to savepoint parts_cap;
+savepoint parts_fit;
+do $d$ begin
+  execute format($f$create or replace function private.limit_transactions() returns integer language sql stable set search_path = ''
+    as $g$ select (select count(*)::integer from public.transactions where budget_id = %L) + 1 $g$$f$, tests.id('i'));
+end $d$;
+select pg_temp.day('2026-11-16');
+select is((public.preview_import_part(tests.id('i'), gen_random_uuid(), 1,
+           (select jsonb_agg(jsonb_build_object('date', '2026-11-12', 'amount', 8400 + g, 'direction', 'debit')) from generate_series(1, 2) as g))
+          ->> 'fits'), 'false', 'R-IMPORT-340: fits is false when the statement''s rows to import do not fit');
+select tests.clear_authentication();
+rollback to savepoint parts_fit;
+-- the 24-hour window: a use 23 hours ago still counts
+select tests.clear_authentication();
+savepoint window24;
+create or replace function private.limit_import_rows_per_day() returns integer language sql immutable set search_path = '' as $f$ select 5 $f$;
+delete from private.import_budget_usage where budget_id = tests.id('i');
+insert into private.import_budget_usage (budget_id, minute, rows, batches, tokens)
+values (tests.id('i'), date_trunc('minute', now()) - interval '23 hours', 5, 0, 0);
+select pg_temp.day('2026-11-16');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, gen_random_uuid(), 1, %L, 'csv')$$, tests.id('i'), pg_temp.row1(8501))),
+  'import_limit_reached {"limit" : "rows_per_day"}', 'R-IMPORT-341: rows used 23 hours ago still count (a rolling 24 hours)');
+select tests.clear_authentication();
+update private.import_budget_usage set minute = date_trunc('minute', now()) - interval '25 hours' where budget_id = tests.id('i');
+select pg_temp.day('2026-11-16');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, gen_random_uuid(), 1, %L, 'csv')$$, tests.id('i'), pg_temp.row1(8502))),
+  'no error', 'R-IMPORT-341: 25 hours ago no longer');
+select tests.clear_authentication();
+rollback to savepoint window24;
+-- an answer older than 7 days is forgotten: sending the chunk again answers chunk_expired
+select tests.remember('old_b', gen_random_uuid());
+select pg_temp.day('2026-11-16');
+select public.import_transactions(tests.id('i'), tests.id('old_b'), 1, pg_temp.row1(8601), 'csv');
+select tests.clear_authentication();
+update private.import_chunks set created_at = now() - interval '8 days' where batch_id = tests.id('old_b');
+select pg_temp.day('2026-11-16');
+select public.import_transactions(tests.id('i'), gen_random_uuid(), 1, pg_temp.row1(8602), 'csv');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, %L, 1, %L, 'csv')$$, tests.id('i'), tests.id('old_b'), pg_temp.row1(8601))),
+  'chunk_expired', 'R-IMPORT-341: an answer older than 7 days is forgotten; the chunk is never imported twice');
+-- the rule preview: covered by the longest fragment; would_move counts only what is to review
+select tests.remember('rc', (select id from public.create_category(tests.id('i'), 'Groceries')));
+select public.create_merchant_rule(tests.id('i'), 'coop', tests.id('rc'));
+select public.create_merchant_rule(tests.id('i'), 'coop bern', tests.id('rc'));
+select is((select covered_by_fragment from public.preview_merchant_rule(tests.id('i'), 'Coop Bern 12')), 'coop bern',
+  'R-IMPORT-347: covered by the longest fragment it contains');
+-- (would_move's "to review only" cannot be told apart: a transaction in "to categorise" is always
+-- to review, a trigger refuses any other state there)
+-- a moved start onto a debt's opening day is refused (on or before the opening)
+select pg_temp.day('2026-11-16');
+select tests.remember('db', public.create_budget('Debt edge', 'Salary', 500000, 25, 'nearest', '2026-09-01'));
+select tests.remember('db_cat', (select id from public.create_category(tests.id('db'), 'Loans', p_amount => 1000)));
+select public.create_debt(tests.id('db'), 'Loan', 100000, tests.id('db_cat'), 5000, 12);
+select pg_temp.day('2026-11-26');
+select public.ensure_periods(tests.id('db'));
+select is((select refusal from public.preview_move_period_start(pg_temp.period_at('db', '2026-11-26'), '2026-11-16')), 'interest_before_opening',
+  'R-DEBT-340: a start moved onto the opening day itself is refused');
 
 select * from finish();
 rollback;
