@@ -395,11 +395,24 @@ begin
   return query select * from public.record_early_pay_date(p_budget_id, v.id, v.revision, p_pay_date);
 end; $$;
 
+-- D-493: what the transfer model remembers as 'the next period's own occurrence' of a transfer made
+-- in the merged period follows the merge: it is again the merged period's number (the model
+-- writes this down itself, never reading transfers.starts_seq)
+create or replace function tests.model_reopened(p_budget_id uuid, p_merged_seq integer)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  update tests.model_transfer_starts as m set starts_seq = p_merged_seq
+  from public.transfers as t
+  where t.id = m.transfer_id and t.budget_id = p_budget_id and m.starts_seq = p_merged_seq + 1;
+end; $$;
+grant execute on function tests.model_reopened(uuid, integer) to authenticated;
+
 create or replace function tests.reopen_previous_period(p_budget_id uuid, p_pay_date date default null)
 returns setof public.period_summaries language plpgsql security invoker set search_path = '' as $$
 declare v public.periods := tests.current_period_of(p_budget_id);
 begin
   return query select * from public.reopen_previous_period(p_budget_id, v.id, v.revision, p_pay_date);
+  perform tests.model_reopened(p_budget_id, v.seq);
 end; $$;
 
 create or replace function tests.move_period_start(p_period_id uuid, p_start_date date default null)

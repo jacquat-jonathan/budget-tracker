@@ -1021,7 +1021,7 @@ as $$
   set needs_check = true, settled_through = least(t.settled_through, p_from - 3)
   where t.budget_id = p_budget_id
     -- M2, R-ACCOUNT-308: nothing to look at again while the budget itself is being deleted (its
-    -- transfers go with it; touching a row twice would re-check its key against the deleted budget)
+    -- transfers go with it; touching a row twice would re-check it against the deleted budget)
     and exists (select 1 from public.budgets as b where b.id = p_budget_id)
     and (p_transfer_id is null or t.id = p_transfer_id)
     -- a transfer ended before the period before the one containing p_from has nothing there
@@ -1040,10 +1040,16 @@ as $$
 begin
   if tg_table_name = 'periods' then
     if tg_op = 'INSERT' then
-      -- a new period changes no occurrence already planned: the catch-up looks at it from the
-      -- watermark when there is room (next_due), and its marks need no check
-      update public.transfers set next_due = new.start_date
-      where budget_id = new.budget_id and (next_due is null or next_due > new.start_date)
+      -- a new period changes no occurrence already planned, and its marks need no check; but a
+      -- fixed day of this period can be due up to two days before it starts (its weekend rule,
+      -- D-611), when the catch-up may already have passed that due date because the period did
+      -- not exist (R-ACCOUNT-302): the watermark moves back before it, as in the UPDATE branch,
+      -- and the catch-up looks at the period from there when there is room (next_due)
+      update public.transfers
+      set next_due = least(coalesce(next_due, new.start_date), new.start_date),
+          settled_through = least(settled_through, new.start_date - 3)
+      where budget_id = new.budget_id
+        and (next_due is null or next_due > new.start_date or settled_through > new.start_date - 3)
         and (end_seq is null or end_seq > new.seq);
     elsif tg_op = 'UPDATE' then
       perform private.transfers_recheck(new.budget_id, null, null, least(old.start_date, new.start_date));
@@ -2515,7 +2521,9 @@ begin
     v_day := coalesce(p_day_of_month, extract(day from p_first_date)::integer);
     if v_from_today and v_day between 1 and 31 then
       v_first := private.month_day(private.month_index(v_today), v_day);
-      if v_first < v_today then
+      -- R-ACCOUNT-315: the first date is the first one whose due date (moved by the weekend rule)
+      -- is on or after today, as the preview and the write both read it
+      if v_first < v_today or private.weekend_shifted(v_first, coalesce(v_rule, 'none')) < v_today then
         v_first := private.month_day(private.month_index(v_today) + 1, v_day);
       end if;
     else
@@ -4191,6 +4199,12 @@ begin
   select pg_catalog.array_agg(t.id) into v_ended from public.transfers as t
   where t.budget_id = p_budget_id and t.end_seq = v_current.seq;
   perform private.rekey_period(p_budget_id, v_current.seq, v_previous.seq);
+  -- D-493: a transfer made in the merged period naming no income counts from the next period's own
+  -- occurrence, which after the merge is the one the period coming back will have (the
+  -- number of the merged one): none is skipped, and the new period starts after today, so none
+  -- is due before the transfer was made
+  update public.transfers set starts_seq = v_current.seq, needs_check = true
+  where budget_id = p_budget_id and starts_seq = v_current.seq + 1;
   delete from public.periods where id = v_current.id;
   update public.periods set end_date = v_end, end_is_manual = p_pay_date is not null
   where id = v_previous.id;
