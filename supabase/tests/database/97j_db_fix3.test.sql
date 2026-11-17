@@ -800,5 +800,18 @@ select public.ensure_periods(tests.id('db'));
 select is((select refusal from public.preview_move_period_start(pg_temp.period_at('db', '2026-11-26'), '2026-11-16')), 'interest_before_opening',
   'R-DEBT-340: a start moved onto the opening day itself is refused');
 
+-- ===========================================================================
+-- The new table (private.primary_incomes, C-RLS-001): another user and an anonymous visitor
+-- cannot read or write it (only definer functions do)
+-- ===========================================================================
+select pg_temp.day('2026-11-20', 'jules');
+select throws_ok($$select * from private.primary_incomes$$, '42501', null, 'C-DBTEST-002: another user cannot read the primary''s history');
+select throws_ok(format($$insert into private.primary_incomes (budget_id, income_id, from_seq) values (%L, gen_random_uuid(), 99)$$, tests.id('sw')),
+  '42501', null, 'C-DBTEST-002: nor write it');
+select tests.clear_authentication();
+select tests.authenticate_as_anon();
+select throws_ok($$select * from private.primary_incomes$$, '42501', null, 'C-DBTEST-003: an anonymous visitor cannot read it');
+select tests.clear_authentication();
+
 select * from finish();
 rollback;
