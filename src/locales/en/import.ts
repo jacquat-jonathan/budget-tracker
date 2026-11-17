@@ -254,6 +254,12 @@ export const importEn = {
       'The checks of the earlier parts were no longer kept (a check is kept a day, and checks of other statements of this budget can push it out), so the parts were checked again, several times. Check again in a moment.',
     summary: {
       checkingPart: 'Checking part {{part}} of {{parts}}…',
+      onePart: 'part {{part}}',
+      partRange: 'parts {{from}} to {{to}}',
+      recordedIncluded_one:
+        'These counts include part 1, recorded by the interrupted import, as it was checked before it was sent. It is sent again unchanged: it records nothing and answers what it recorded.',
+      recordedIncluded_other:
+        'These counts include parts 1 to {{count}}, recorded by the interrupted import, as they were checked before they were sent. They are sent again unchanged: they record nothing and answer what they recorded.',
       allRecorded:
         'Every part was recorded by the interrupted import. Sending them again records nothing and shows what they recorded.',
       kinds: {
@@ -271,9 +277,9 @@ export const importEn = {
       noRoom_other:
         'This does not fit: {{count}} rows are set to import, and the budget can take {{room}} more transactions. Skip rows, or delete transactions, before importing.',
       recordedNote_one:
-        'These counts are those of parts {{from}} to {{to}}. Part 1, recorded by the interrupted import, is sent again unchanged: it records nothing and answers what it recorded, and the result counts it.',
+        'These counts are those of {{range}}. Part 1, recorded by the interrupted import, is sent again unchanged: it records nothing and answers what it recorded, and the result counts it.',
       recordedNote_other:
-        'These counts are those of parts {{from}} to {{to}}. Parts 1 to {{count}}, recorded by the interrupted import, are sent again unchanged: they record nothing and answer what they recorded, and the result counts them.',
+        'These counts are those of {{range}}. Parts 1 to {{count}}, recorded by the interrupted import, are sent again unchanged: they record nothing and answer what they recorded, and the result counts them.',
     },
     counts: {
       import_one: '{{count}} to import',

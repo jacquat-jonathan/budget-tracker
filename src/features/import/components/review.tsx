@@ -328,11 +328,7 @@ export function RuleOffer({
       <AlertTitle>{t('import.review.rule.title')}</AlertTitle>
       <AlertDescription className="flex flex-col gap-2">
         <p>{t('import.review.rule.body', { key: `\u2068${key}\u2069`, category })}</p>
-        {others > 0 && (
-          <p>
-            {t('import.review.rule.alsoMove', { count: others })}
-          </p>
-        )}
+        {others > 0 && <p>{t('import.review.rule.alsoMove', { count: others })}</p>}
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"

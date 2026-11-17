@@ -267,6 +267,12 @@ export const importFr: Translation['import'] = {
       'Les vérifications des parties précédentes n’étaient plus conservées (une vérification est gardée un jour, et celles d’autres relevés de ce budget peuvent la remplacer) ; les parties ont donc été vérifiées à nouveau, plusieurs fois. Vérifiez à nouveau dans un moment.',
     summary: {
       checkingPart: 'Vérification de la partie {{part}} sur {{parts}}…',
+      onePart: 'de la partie {{part}}',
+      partRange: 'des parties {{from}} à {{to}}',
+      recordedIncluded_one:
+        'Ces chiffres comprennent la partie 1, enregistrée par l’importation interrompue, telle qu’elle a été vérifiée avant son envoi. Elle est renvoyée telle quelle : elle n’enregistre rien et répond ce qu’elle a enregistré.',
+      recordedIncluded_other:
+        'Ces chiffres comprennent les parties 1 à {{count}}, enregistrées par l’importation interrompue, telles qu’elles ont été vérifiées avant leur envoi. Elles sont renvoyées telles quelles : elles n’enregistrent rien et répondent ce qu’elles ont enregistré.',
       allRecorded:
         'Toutes les parties ont été enregistrées par l’importation interrompue. Les renvoyer n’enregistre rien et montre ce qu’elles ont enregistré.',
       kinds: {
@@ -284,9 +290,9 @@ export const importFr: Translation['import'] = {
       noRoom_other:
         'Cela ne tient pas : {{count}} lignes sont à importer, et le budget ne peut plus recevoir que {{room}} transactions. Ignorez des lignes, ou supprimez des transactions, avant d’importer.',
       recordedNote_one:
-        'Ces chiffres sont ceux des parties {{from}} à {{to}}. La partie 1, enregistrée par l’importation interrompue, est renvoyée telle quelle : elle n’enregistre rien, répond ce qu’elle a enregistré, et le résultat la compte.',
+        'Ces chiffres sont ceux {{range}}. La partie 1, enregistrée par l’importation interrompue, est renvoyée telle quelle : elle n’enregistre rien, répond ce qu’elle a enregistré, et le résultat la compte.',
       recordedNote_other:
-        'Ces chiffres sont ceux des parties {{from}} à {{to}}. Les parties 1 à {{count}}, enregistrées par l’importation interrompue, sont renvoyées telles quelles : elles n’enregistrent rien, répondent ce qu’elles ont enregistré, et le résultat les compte.',
+        'Ces chiffres sont ceux {{range}}. Les parties 1 à {{count}}, enregistrées par l’importation interrompue, sont renvoyées telles quelles : elles n’enregistrent rien, répondent ce qu’elles ont enregistré, et le résultat les compte.',
     },
     counts: {
       import_one: '{{count}} à importer',

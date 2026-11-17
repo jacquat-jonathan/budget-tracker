@@ -504,6 +504,9 @@ describe('an interrupted import resumed [R-IMPORT-323] [R-IMPORT-362]', () => {
       view.unmount()
 
       db.rpc.import_transactions.mockClear()
+      db.rpc.preview_import_part.mockClear()
+      // A day later: the check made before the interruption is no longer kept.
+      db.staged = {}
       open(db)
       expect(await screen.findByTestId('pending-import')).toHaveTextContent(
         'stopped after part 1 of 2',
@@ -514,6 +517,12 @@ describe('an interrupted import resumed [R-IMPORT-323] [R-IMPORT-362]', () => {
         'Part 1 was already recorded by the interrupted import: its rows are locked.',
       )
       await importButtonReady()
+      // The recorded part is not previewed (it would be planned as new): only part 2 is.
+      expect(db.rpc.preview_import_part.mock.calls.map(([args]) => args.p_part)).toEqual([2])
+      expect(screen.getByTestId('preview-recorded-note')).toHaveTextContent(
+        'These counts are those of part 2.',
+      )
+      expect(screen.getByTestId('count-import')).toHaveTextContent('100 to import')
       const rows = screen.getAllByTestId('preview-row')
       const first = rows[0] as HTMLElement
       expect(within(first).getByTestId('row-recorded')).toHaveTextContent(
@@ -568,6 +577,85 @@ describe('a long preview [R-IMPORT-321] [R-IMPORT-364]', () => {
         'overflow-visible',
       )
       expect(localStorage.getItem(`budget-tracker-import-pending:${BUDGET_ID}`)).toBeNull()
+    },
+    MANY_ROWS_MS,
+  )
+})
+
+describe('[R-IMPORT-366] a run the database stops says why in its own words', () => {
+  it(
+    'says the import limit was reached, what is recorded, and says it again when the import is resumed',
+    async () => {
+      const db = categoriesDb()
+      db.rpc.import_transactions.mockImplementation((args) => {
+        if (args.p_chunk === 2) rpcError('import_limit_reached')
+        return (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
+          ...plannedRow(row, index + 1),
+          chunk: Number(args.p_chunk),
+        }))
+      })
+      const view = open(db)
+      const text = csvOf(600)
+      await chooseCsv(text)
+      await userEvent.click(screen.getByRole('button', { name: 'Check 600 rows' }))
+      await userEvent.click(await importButtonReady())
+      expect(await screen.findByTestId('run-stopped')).toHaveTextContent(
+        'Part 2 was not imported: this budget has imported as much as it can for now.',
+      )
+      expect(
+        screen.getByText(/at most 20'000 rows and 50 imports within 24 hours/),
+      ).toBeInTheDocument()
+      expect(screen.getByText('The part before it is recorded.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+      expect(screen.queryByText(/was refused/)).not.toBeInTheDocument()
+      view.unmount()
+      open(db)
+      expect(await screen.findByTestId('pending-stopped-by')).toHaveTextContent(
+        'It stopped because this budget had imported as much as it can for now',
+      )
+    },
+    MANY_ROWS_MS,
+  )
+
+  it(
+    'says a recorded part’s answer is gone, and sends the parts after it once asked',
+    async () => {
+      const db = categoriesDb()
+      db.rpc.import_transactions.mockImplementation((args) => {
+        if (args.p_chunk === 1) rpcError('chunk_expired')
+        return (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
+          ...plannedRow(row, index + 1),
+          chunk: Number(args.p_chunk),
+        }))
+      })
+      const view = open(db)
+      const text = csvOf(600)
+      await chooseCsv(text)
+      await userEvent.click(screen.getByRole('button', { name: 'Check 600 rows' }))
+      await userEvent.click(await importButtonReady())
+      expect(await screen.findByTestId('run-stopped')).toHaveTextContent(
+        'Part 1 had already been recorded, but the budget no longer keeps its answer',
+      )
+      expect(screen.getByText(/in the history, under this import/)).toBeInTheDocument()
+      view.unmount()
+      // On resume the start page says so too.
+      open(db)
+      expect(await screen.findByTestId('pending-stopped-by')).toHaveTextContent(
+        'It stopped at a part recorded so long ago that its answer is no longer kept.',
+      )
+      await chooseCsv(text)
+      await userEvent.click(screen.getByRole('button', { name: 'Check 600 rows' }))
+      await userEvent.click(await importButtonReady())
+      await screen.findByTestId('run-stopped')
+      await userEvent.click(screen.getByRole('button', { name: 'Send the parts after part 1' }))
+      const result = await screen.findByTestId('import-result')
+      expect(result).toHaveTextContent('100 transactions imported')
+      expect(screen.getByTestId('expired-parts')).toHaveTextContent(
+        'Part 1 had been recorded before and its answer is no longer kept: its rows are not counted here.',
+      )
+      expect(db.rpc.import_transactions.mock.calls.map(([args]) => args.p_chunk)).toEqual([
+        1, 1, 1, 2,
+      ])
     },
     MANY_ROWS_MS,
   )

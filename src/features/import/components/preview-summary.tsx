@@ -36,6 +36,14 @@ export function PreviewSummary({
   const statement = totals?.statement
   const allRecorded = recordedParts >= parts
   const checkingPart = preview.progress.done + recordedParts + 1
+  // The check of the recorded parts made before the interruption may still be kept (a day):
+  // the totals then cover them too, as they were checked with the rows that were sent.
+  const covered = new Set(totals?.parts ?? [])
+  const recordedCounted =
+    recordedParts > 0 &&
+    Array.from({ length: recordedParts }, (_, index) => index + 1).every((part) =>
+      covered.has(part),
+    )
   return (
     <div
       className="flex flex-col gap-2"
@@ -100,11 +108,18 @@ export function PreviewSummary({
               {t('import.preview.summary.room', { count: totals.room })}
             </p>
           )}
-          {recordedParts > 0 && (
+          {recordedParts > 0 && recordedCounted && (
+            <p className="text-sm text-muted-foreground" data-testid="preview-recorded-note">
+              {t('import.preview.summary.recordedIncluded', { count: recordedParts })}
+            </p>
+          )}
+          {recordedParts > 0 && !recordedCounted && (
             <p className="text-sm text-muted-foreground" data-testid="preview-recorded-note">
               {t('import.preview.summary.recordedNote', {
-                from: recordedParts + 1,
-                to: parts,
+                range:
+                  recordedParts + 1 === parts
+                    ? t('import.preview.summary.onePart', { part: parts })
+                    : t('import.preview.summary.partRange', { from: recordedParts + 1, to: parts }),
                 count: recordedParts,
               })}
             </p>

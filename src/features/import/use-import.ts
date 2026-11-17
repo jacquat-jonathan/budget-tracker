@@ -109,7 +109,7 @@ export interface PreviewState {
   /** A part is being asked (first time or after a change). */
   checking: boolean
   /** The totals of every part previewed, from the last part's answer; null before it. */
-  totals: { statement: PreviewTotals; room: number; fits: boolean } | null
+  totals: { statement: PreviewTotals; parts: number[]; room: number; fits: boolean } | null
   /** Parts with a current answer, of the parts to preview. */
   progress: { done: number; of: number }
   error: unknown
@@ -190,8 +190,13 @@ export function useImportPreview(
     [parts, settled.value],
   )
   const sigs = useMemo(() => sent.map((rows) => JSON.stringify(rows)), [sent])
-  const [asked, setAsked] = useState<Readonly<Record<number, Asked>>>({})
-  const [inFlight, setInFlight] = useState<number | null>(null)
+  // The answers and the part being asked change together: a render never sees an answer
+  // without the part it ends, nor the other way round.
+  const [asking, setAsking] = useState<{
+    asked: Readonly<Record<number, Asked>>
+    inFlight: number | null
+  }>({ asked: {}, inFlight: null })
+  const { asked, inFlight } = asking
   // Set at once when a part is asked: the effect may run again before the state says so.
   const flying = useRef(false)
   const [error, setError] = useState<unknown>(null)
@@ -214,13 +219,14 @@ export function useImportPreview(
   const after = next === null || next === first ? 0 : (asked[next - 1]?.seq ?? 0)
 
   useEffect(() => {
-    if (paused || settled.stale || flying.current || error !== null || next === null) return
+    if (paused || settled.stale || error !== null || next === null) return
+    if (flying.current || inFlight !== null) return
     const part = next
     const rows = sent[part - 1] ?? []
     const sig = sigs[part - 1] ?? ''
     flying.current = true
     void (async () => {
-      setInFlight(part)
+      setAsking((now) => ({ ...now, inFlight: part }))
       let failure: unknown = null
       let answer: PartAnswer | null = null
       let catchUps = 0
@@ -264,21 +270,22 @@ export function useImportPreview(
         // The answer covers the staged parts first..part; one the database no longer holds is
         // staged again from there (its answer no longer counts as current).
         const missing = firstMissing(answer, first, part)
-        setAsked((now) => {
-          const out: Record<number, Asked> = { ...now, [part]: done }
+        flying.current = false
+        setAsking((now) => {
+          const out: Record<number, Asked> = { ...now.asked, [part]: done }
           const lost = missing === null ? undefined : out[missing]
           if (missing !== null && lost) out[missing] = { ...lost, after: -1 }
-          return out
+          return { asked: out, inFlight: null }
         })
         if (missing !== null) {
           restaged.current += 1
           if (restaged.current > RESTAGE_TRIES) setError(new PreviewLostError())
         }
       } else {
+        flying.current = false
+        setAsking((now) => ({ ...now, inFlight: null }))
         setError(failure)
       }
-      flying.current = false
-      setInFlight(null)
     })()
   }, [
     paused,
@@ -312,7 +319,12 @@ export function useImportPreview(
     checking: !current && error === null,
     totals:
       last >= first && lastAnswer
-        ? { statement: lastAnswer.statement, room: lastAnswer.room, fits: lastAnswer.fits }
+        ? {
+            statement: lastAnswer.statement,
+            parts: lastAnswer.parts,
+            room: lastAnswer.room,
+            fits: lastAnswer.fits,
+          }
         : null,
     progress: { done: Math.max(0, validUpTo - first + 1), of: Math.max(0, last - first + 1) },
     error,
