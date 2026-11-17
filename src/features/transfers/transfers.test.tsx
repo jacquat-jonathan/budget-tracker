@@ -206,6 +206,9 @@ describe('creating a transfer [R-ACCOUNT-315] [R-ACCOUNT-233]', () => {
     await userEvent.click(within(dialog).getByRole('radio', { name: 'I do it myself' }))
     await userEvent.click(within(dialog).getByLabelText('Count it as spending in a category'))
     await choose(dialog, 'Category', 'Groceries')
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.create_transfer).toHaveBeenCalledWith(
@@ -233,6 +236,9 @@ describe('Save waits for the preview of what it sends [D-502] [R-APP-440]', () =
     )
     const dialog = await openAdd()
     const save = within(dialog).getByRole('button', { name: 'Save' })
+    // Just typed: the preview is not even asked yet (its debounce), and Save already waits.
+    expect(db.rpc.preview_create_transfer).not.toHaveBeenCalled()
+    expect(save).toBeDisabled()
     await waitFor(() => {
       expect(db.rpc.preview_create_transfer).toHaveBeenCalled()
     })

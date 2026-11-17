@@ -406,16 +406,16 @@ function TransferForm({
     current.toAccountId !== '' &&
     current.fromAccountId !== current.toAccountId &&
     (!linked || current.categoryId !== '')
-  const createInput = useDebounced(
+  const createNow =
     !editing && ready && firstDateOk && !firstDateInPast && (!past || fromPeriodId !== '')
       ? createArgs(current)
-      : null,
-  )
-  const updateInput = useDebounced(
+      : null
+  const updateNow =
     editing && base && ready && (current.firstDate === '' || isCalendarDate(current.firstDate))
       ? editArgs(base, current, correcting ? fromPeriod.id : null)
-      : null,
-  )
+      : null
+  const createInput = useDebounced(createNow)
+  const updateInput = useDebounced(updateNow)
   const createPreview = usePreviewCreateTransfer(budgetId, createInput.value)
   const updatePreview = usePreviewUpdateTransfer(
     budgetId,
@@ -424,7 +424,8 @@ function TransferForm({
   )
   const preview = editing ? updatePreview : createPreview
   const previewBehind = (editing ? updateInput.stale : createInput.stale) || preview.isFetching
-  const needsInput = editing ? updateInput.value === null : createInput.value === null
+  // What is typed now, not what was last asked: a save never goes ahead of its preview.
+  const needsInput = (editing ? updateNow : createNow) === null
   // Save waits for the preview of exactly what it will send (D-502).
   const previewWaits = !needsInput && (previewBehind || previewHolds(preview))
 
