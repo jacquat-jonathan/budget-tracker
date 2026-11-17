@@ -1084,6 +1084,7 @@ const core = {
         range: 'Today ({{today}}) or earlier.',
       },
     },
+    refused: 'This cannot be saved as it is: {{reason}}',
     thisPeriod: 'This period: {{start}} – {{end}}.',
     reopen: {
       title: 'What was recorded in this period will apply to the reopened period:',

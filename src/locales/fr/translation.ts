@@ -1128,6 +1128,7 @@ const core: Omit<Translation, LazyKey> = {
         range: 'Aujourd’hui ({{today}}) ou avant.',
       },
     },
+    refused: 'Impossible d’enregistrer ainsi : {{reason}}',
     thisPeriod: 'Cette période : du {{start}} au {{end}}.',
     reopen: {
       title: 'Ce qui a été enregistré dans cette période s’appliquera à la période rouverte :',

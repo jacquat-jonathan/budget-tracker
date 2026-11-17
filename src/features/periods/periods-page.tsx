@@ -542,6 +542,18 @@ function BoundaryForm({
       : action.kind === 'moveStart' && valid
         ? date
         : null
+  // R-ACCOUNT-560: an early salary or an expected date shows what it does to the transfers.
+  const payDate =
+    action.kind === 'resetExpected'
+      ? null
+      : (action.kind === 'early' || action.kind === 'expected') && valid
+        ? date
+        : undefined
+  const payPreview = usePayDateTransfersPreview(
+    budgetId,
+    action.kind === 'early' ? 'early' : 'expected',
+    payDate,
+  )
   const movePreview = useQuery({
     queryKey: [...budgetKeys.budget(budgetId), 'move-preview', period.id, moveTo ?? ''] as const,
     enabled: moveTo !== null,
@@ -693,6 +705,7 @@ function BoundaryForm({
             startMoved
           />
         )}
+        {payDate !== undefined && <PayDateTransfers preview={payPreview} />}
         {preview.result && (
           <Alert data-testid="boundary-preview">
             <CalendarRangeIcon aria-hidden />
@@ -718,7 +731,10 @@ function BoundaryForm({
               (action.kind === 'reopen' && previewHolds(reopenPreview)) ||
               // R-ACCOUNT-309: a move is confirmed only with its preview, never while refused.
               (moveTo !== null &&
-                (previewHolds(movePreview) || movePreview.data?.accepted !== true))
+                (previewHolds(movePreview) || movePreview.data?.accepted !== true)) ||
+              // An early salary or an expected date waits for its preview of the transfers.
+              (payDate !== undefined &&
+                (previewHolds(payPreview) || payPreview.data?.accepted !== true))
             }
           >
             {mutation.isPending
@@ -790,6 +806,89 @@ function MoveScheduleItem({
         </p>
       )}
     </>
+  )
+}
+
+type PayDatePreview =
+  Database['public']['Functions']['preview_record_early_pay_date']['Returns'][number]
+
+/**
+ * What recording an early salary, or setting (or resetting) the expected next pay date, does
+ * to the planned transfers: preview_record_early_pay_date / preview_set_expected_pay_date run
+ * the write on the current period and roll it back (D-613). `payDate` undefined: nothing to ask
+ * yet (no valid date typed); null: the reset to the projection.
+ */
+function usePayDateTransfersPreview(
+  budgetId: string,
+  kind: 'early' | 'expected',
+  payDate: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: [...budgetKeys.budget(budgetId), 'pay-date-transfers-preview', kind, payDate ?? ''],
+    enabled: payDate !== undefined,
+    staleTime: 0,
+    retry: previewRetry,
+    queryFn: async (): Promise<PayDatePreview | null> => {
+      const args = { p_budget_id: budgetId, ...(payDate ? { p_pay_date: payDate } : {}) }
+      const rows =
+        kind === 'early'
+          ? unwrap(
+              await supabase.rpc('preview_record_early_pay_date', {
+                ...args,
+                p_pay_date: payDate ?? '',
+              }),
+            )
+          : unwrap(await supabase.rpc('preview_set_expected_pay_date', args))
+      return rows[0] ?? null
+    },
+  })
+}
+
+/**
+ * The preview's answer in words: what it does to the transfers' transactions and ticks, or the
+ * reason the write would be refused (the save then stays disabled); a preview that failed to
+ * load offers to try again, a named error is said.
+ */
+function PayDateTransfers({ preview }: { preview: ReturnType<typeof usePayDateTransfersPreview> }) {
+  const { t } = useTranslation()
+  const errorMessage = useErrorMessage()
+  if (previewLoadFailed(preview)) {
+    return (
+      <PreviewLoadFailed
+        error={preview.error}
+        fetching={preview.isFetching}
+        onRetry={() => void preview.refetch()}
+      />
+    )
+  }
+  if (preview.isError) {
+    return (
+      <Alert variant="destructive" data-testid="pay-date-preview-error">
+        <AlertDescription>{errorMessage(preview.error)}</AlertDescription>
+      </Alert>
+    )
+  }
+  const answer = preview.data
+  if (answer === undefined) return <LoadingState rows={1} />
+  if (answer === null) return null
+  if (!answer.accepted) {
+    return (
+      <Alert variant="destructive" data-testid="pay-date-refused">
+        <AlertDescription>
+          {t('periods.refused', {
+            reason: t(dbErrorKey({ code: 'P0001', message: answer.refusal ?? '' })),
+          })}
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  return (
+    <TransferCounts
+      removed={answer.transfer_transactions_removed}
+      created={answer.transfer_transactions_created}
+      unplanned={answer.transfer_marks_unplanned}
+      moved={answer.transfer_transactions_moved}
+    />
   )
 }
 
