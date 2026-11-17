@@ -8,6 +8,7 @@ export type AuthErrorKey =
   | 'auth.errors.userAlreadyExists'
   | 'auth.errors.weakPassword'
   | 'auth.errors.samePassword'
+  | 'auth.errors.reauthenticationNeeded'
   | 'auth.errors.rateLimited'
   | 'auth.errors.network'
   | 'auth.errors.offline'
@@ -20,6 +21,7 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   email_exists: 'auth.errors.userAlreadyExists',
   weak_password: 'auth.errors.weakPassword',
   same_password: 'auth.errors.samePassword',
+  reauthentication_needed: 'auth.errors.reauthenticationNeeded',
   over_request_rate_limit: 'auth.errors.rateLimited',
   over_email_send_rate_limit: 'auth.errors.rateLimited',
 }

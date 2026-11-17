@@ -772,7 +772,7 @@ export const importEn = {
   },
   tokens: {
     title: 'Import tokens',
-    help: 'A token lets the import script of this project add transactions to this budget, and nothing else: it cannot read anything. Create one per session, and revoke it when the session is done.',
+    help: 'A token lets a program you trust add transactions to this budget for you, for example an assistant that reads your bank statements. It can only add transactions, which then wait for your review: it cannot read, change or delete anything. Make one for each use and revoke it when you are done.',
     create: 'Create a token',
     createTitle: 'Create an import token',
     name: 'Name',
@@ -783,7 +783,7 @@ export const importEn = {
     secretTitle: 'Your new token',
     secretOnce: 'Copy it now: it is shown only this once and cannot be shown again.',
     secretWhere:
-      'Put it in the environment of the session that runs the import script, as {{name}}: for a cloud session in the environment’s settings, on a computer in the shell that starts it.',
+      'Give it to the program as its instructions say. The import script reads it from {{name}} in the environment it runs in.',
     secretNever: 'Never paste it into a conversation: what is typed there is kept.',
     secretLabel: 'Token',
     copy: 'Copy the token',
@@ -817,7 +817,7 @@ export const importEn = {
     removeBody: 'The token goes from this list; its imports keep its name.',
     removed: 'Token deleted.',
     limit: 'A budget can have 10 tokens that can still be used.',
-    docs: 'How the script uses it: docs/import-script.md in the project.',
+    lifecycle: 'A token is shown only once, when you create it. To stop one, choose Revoke beside it below: it stops at once, and what it already added stays.',
   },
   rules: {
     title: 'Merchant rules',

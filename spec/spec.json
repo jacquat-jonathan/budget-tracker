@@ -8852,6 +8852,32 @@
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
         "code: src/features/debts/components/adjust-balance-dialog.tsx"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-533",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "Settings is split into four sections, each with its own heading, reached from a list of links at the top of the page: Budget (the current budget's name, end date, deletion), Members, Import (import tokens, merchant rules, remembered choices) and My account (display name, password). The import tokens are worded for a household: what a token is for (a program you trust adds transactions, which wait for review; it can read nothing), that it is shown only once, and how to stop it (Revoke); no project file is named.",
+      "related": ["R-AUTH-531", "R-IMPORT-006"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/settings/settings-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-AUTH-531",
+      "area": "auth",
+      "feature": "F-AUTH",
+      "statement": "A signed-in user can change their password in Settings, My account: the new password twice, at least as long as at sign-up (8 characters, R-AUTH-005), checked before anything is sent, saved with Supabase Auth's updateUser; a refusal is said in words (the same password, too weak, a recent sign-in needed, offline), and the fields are emptied once it is saved.",
+      "related": ["R-AUTH-005", "R-AUTH-011", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/settings/password-settings.tsx"
+      ]
     }
   ],
   "decisions": [
@@ -15447,6 +15473,46 @@
       "context": "The review's bulk category (R-IMPORT-530) makes two calls per row, one row after another: 75 rows are 150 requests, each taking the budget lock and catching up, and a session that ends half-way leaves a part done (said truthfully on the screen). One call would be faster, atomic or per-row by choice, and could check every row's date against the category once.",
       "status": "open",
       "related": ["R-IMPORT-530", "D-633", "R-IMPORT-209"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-367",
+      "question": "Should a member be able to change their email address in the app?",
+      "context": "Not built (owner brief, final fix round). It would take: a form calling supabase.auth.updateUser({ email }), with double_confirm_changes on (as in supabase/config.toml) both the old and the new address confirming by mail; a redirect URL for the confirmation link in the hosted project's settings; deciding what happens to pending invitations matched by email (invitations are matched to accounts by verified email); the profile and members list showing the new address; tests for both confirmations and a link that fails.",
+      "status": "open",
+      "related": ["R-AUTH-531", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-368",
+      "question": "Should a member be able to delete their own account from the app, and what happens to the budgets they own and the records they made?",
+      "context": "Not built (owner brief, final fix round). The database already copes with a deleted account in places (recorded_by null, \"a former member\", tokens ending with their creator). It would take: a database function (security definer, with the service role never in the browser) or an Edge Function to delete the auth user; a rule for budgets the user owns (delete them, or require an owner hand-over first, Q-369); a confirmation that names what goes; and tests that another member's view of shared budgets stays whole.",
+      "status": "open",
+      "related": ["Q-369", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-369",
+      "question": "Should a budget's owner be able to hand the budget over to another member (and then leave it)?",
+      "context": "Not built (owner brief, final fix round). Today the owner cannot leave or hand over; the walk-through noted it. It would take: a database function moving budgets.owner_id to a current member under the budget lock, with the owner-only rights (end date, deletion, removing members) following; deciding whether the new owner must accept; the members list and Settings saying who owns; pgTAP tests for access before and after.",
+      "status": "open",
+      "related": ["Q-368", "Q-370", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-370",
+      "question": "Should budgets have roles beyond owner and member (for example a member who can only read, or one who can record transactions but not change the plan)?",
+      "context": "Not built (owner brief, final fix round). Every member can do everything but the owner-only actions. Roles would take: a role column and checks in every write function and row-level security policy (C-RLS-003's shared helpers), screens that hide or explain what a role cannot do, an owner screen to set roles, and tests per role and table (C-DBTEST-002).",
+      "status": "open",
+      "related": ["Q-369", "R-APP-533"],
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]

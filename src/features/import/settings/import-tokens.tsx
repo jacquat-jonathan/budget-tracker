@@ -80,17 +80,17 @@ export function ImportTokensSettings() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 className="flex items-center gap-2">
+          <h3 className="flex items-center gap-2">
             <KeyRoundIcon className="size-4 text-muted-foreground" aria-hidden />
             {t('import.tokens.title')}
-          </h2>
+          </h3>
         </CardTitle>
         <CardDescription>{t('import.tokens.help')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
-            {t('import.tokens.limit')} {t('import.tokens.docs')}
+            {t('import.tokens.lifecycle')} {t('import.tokens.limit')}
           </p>
           <Button type="button" size="sm" onClick={() => setCreating(true)}>
             <PlusIcon aria-hidden />

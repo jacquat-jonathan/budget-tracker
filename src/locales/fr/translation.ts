@@ -208,6 +208,8 @@ const core: Omit<Translation, LazyKey> = {
       userAlreadyExists: 'Un compte existe déjà avec cette adresse e-mail.',
       weakPassword: 'Ce mot de passe est trop faible. Choisissez-en un plus long ou moins courant.',
       samePassword: 'Choisissez un mot de passe différent de l’actuel.',
+      reauthenticationNeeded:
+        'Par sécurité, déconnectez-vous puis reconnectez-vous, puis changez votre mot de passe.',
       rateLimited: 'Trop de tentatives. Patientez un instant, puis réessayez.',
       network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
       offline:
@@ -1275,8 +1277,26 @@ const core: Omit<Translation, LazyKey> = {
       alreadyDeleted: 'Ce budget a déjà été supprimé.',
       deleteOwnerOnly: 'Seul·e le ou la propriétaire peut supprimer le budget.',
     },
+    sections: {
+      label: 'Sections des paramètres',
+      budget: 'Budget',
+      members: 'Membres',
+      import: 'Importation',
+      importHelp:
+        'Ajouter des transactions depuis l’extérieur de l’application : jetons pour un programme de confiance, et ce que l’importation retient pour la prochaine fois.',
+      account: 'Mon compte',
+      accountHelp:
+        'Votre nom et votre mot de passe. Ils sont les mêmes dans tous les budgets dont vous êtes membre.',
+    },
+    password: {
+      title: 'Mot de passe',
+      description:
+        'Choisissez un nouveau mot de passe d’au moins {{min}} caractères et saisissez-le deux fois. Vous restez connecté ici.',
+      submit: 'Changer le mot de passe',
+      saved: 'Mot de passe changé.',
+    },
     account: {
-      title: 'Mon compte',
+      title: 'Nom affiché',
       description:
         'Connecté·e en tant que {{email}}. Votre nom affiché est celui que voient les autres membres.',
       descriptionNoEmail: 'Votre nom affiché est celui que voient les autres membres.',

@@ -67,10 +67,10 @@ export function MerchantRulesSettings() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 className="flex items-center gap-2">
+          <h3 className="flex items-center gap-2">
             <StoreIcon className="size-4 text-muted-foreground" aria-hidden />
             {t('import.rules.title')}
-          </h2>
+          </h3>
         </CardTitle>
         <CardDescription>{t('import.rules.help')}</CardDescription>
       </CardHeader>
@@ -345,9 +345,9 @@ export function RememberedChoicesSettings() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 ref={heading} tabIndex={-1} className="outline-none">
+          <h3 ref={heading} tabIndex={-1} className="outline-none">
             {t('import.choices.title')}
-          </h2>
+          </h3>
         </CardTitle>
         <CardDescription>{t('import.choices.help')}</CardDescription>
       </CardHeader>

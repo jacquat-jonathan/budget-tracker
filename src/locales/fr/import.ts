@@ -802,7 +802,7 @@ export const importFr: Translation['import'] = {
   },
   tokens: {
     title: 'Jetons d’importation',
-    help: 'Un jeton permet au script d’importation de ce projet d’ajouter des transactions à ce budget, et rien d’autre : il ne peut rien lire. Créez-en un par session, et révoquez-le une fois la session terminée.',
+    help: 'Un jeton permet à un programme de confiance d’ajouter des transactions à ce budget pour vous, par exemple un assistant qui lit vos relevés bancaires. Il ne peut qu’ajouter des transactions, qui attendent ensuite votre vérification : il ne peut rien lire, modifier ni supprimer. Créez-en un pour chaque usage et révoquez-le une fois terminé.',
     create: 'Créer un jeton',
     createTitle: 'Créer un jeton d’importation',
     name: 'Nom',
@@ -813,7 +813,7 @@ export const importFr: Translation['import'] = {
     secretTitle: 'Votre nouveau jeton',
     secretOnce: 'Copiez-le maintenant : il n’est affiché que cette fois et ne pourra plus l’être.',
     secretWhere:
-      'Placez-le dans l’environnement de la session qui exécute le script d’importation, sous {{name}} : pour une session dans le cloud, dans les réglages de l’environnement ; sur un ordinateur, dans le terminal qui la lance.',
+      'Donnez-le au programme comme l’indiquent ses instructions. Le script d’importation le lit dans {{name}}, dans l’environnement où il s’exécute.',
     secretNever: 'Ne le collez jamais dans une conversation : ce qui y est tapé est conservé.',
     secretLabel: 'Jeton',
     copy: 'Copier le jeton',
@@ -847,7 +847,7 @@ export const importFr: Translation['import'] = {
     removeBody: 'Le jeton disparaît de cette liste ; ses importations gardent son nom.',
     removed: 'Jeton supprimé.',
     limit: 'Un budget peut avoir 10 jetons encore utilisables.',
-    docs: 'Comment le script l’utilise : docs/import-script.md dans le projet.',
+    lifecycle: 'Un jeton n’est affiché qu’une fois, à sa création. Pour en arrêter un, choisissez Révoquer à côté de lui ci-dessous : il s’arrête aussitôt, et ce qu’il a déjà ajouté reste.',
   },
   rules: {
     title: 'Règles de commerçant',

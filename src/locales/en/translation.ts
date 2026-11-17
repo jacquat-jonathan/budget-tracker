@@ -202,6 +202,8 @@ const core = {
       userAlreadyExists: 'An account with this email address already exists.',
       weakPassword: 'This password is too weak. Choose a longer or less common one.',
       samePassword: 'Choose a password different from your current one.',
+      reauthenticationNeeded:
+        'For your safety, sign out and sign in again, then change your password.',
       rateLimited: 'Too many attempts. Wait a moment, then try again.',
       network: 'Cannot reach the server. Check your connection and try again.',
       offline: 'You are offline: nothing was sent. Try again once the connection is back.',
@@ -1224,8 +1226,25 @@ const core = {
       alreadyDeleted: 'This budget was already deleted.',
       deleteOwnerOnly: 'Only the owner can delete the budget.',
     },
+    sections: {
+      label: 'Settings sections',
+      budget: 'Budget',
+      members: 'Members',
+      import: 'Import',
+      importHelp:
+        'Adding transactions from outside the app: tokens for a program you trust, and what the import remembers for next time.',
+      account: 'My account',
+      accountHelp: 'Your own name and password. They are the same in every budget you belong to.',
+    },
+    password: {
+      title: 'Password',
+      description:
+        'Choose a new password of at least {{min}} characters and type it twice. You stay signed in here.',
+      submit: 'Change password',
+      saved: 'Password changed.',
+    },
     account: {
-      title: 'My account',
+      title: 'Display name',
       description: 'Signed in as {{email}}. Your display name is what the other members see.',
       descriptionNoEmail: 'Your display name is what the other members see.',
       saved: 'Display name saved.',

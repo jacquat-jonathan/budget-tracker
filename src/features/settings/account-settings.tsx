@@ -59,7 +59,7 @@ export function AccountSettings() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 className="text-lg font-semibold">{t('settings.account.title')}</h2>
+          <h3 className="text-base font-semibold">{t('settings.account.title')}</h3>
         </CardTitle>
         <CardDescription>
           {user?.email
