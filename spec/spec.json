@@ -7985,6 +7985,71 @@
       ]
     },
     {
+      "id": "R-ACCOUNT-310",
+      "area": "account",
+      "statement": "A pay-date transfer that names the income that is the primary income (in the periods since it became primary) behaves exactly as one that names no income: keyed by the scheduled pay date, due when the salary actually came, and never said to follow the primary instead.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-420", "D-422", "R-ACCOUNT-070", "R-ACCOUNT-071"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S1, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-311",
+      "area": "account",
+      "statement": "Ending the income a pay-date transfer chose (remove_income, remove_member, leave_budget in the current period) never rewrites what is already recorded: its occurrences of that period already due that day stay with their marks and transactions, and the transfer follows the primary income from the next occurrence not yet due, so nothing dated in the past appears.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-492", "D-426", "R-ACCOUNT-071", "R-ACCOUNT-305"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S2, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-312",
+      "area": "account",
+      "statement": "A reopen keeps a transfer that has a mark even when it would then be in force nowhere: it stays, listed as ended with its marks and their transactions until undone, and preview_reopen says it is ended (not removed) and that each such mark is no longer planned.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-424", "D-430", "R-ACCOUNT-305", "R-ACCOUNT-306"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S3, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-313",
+      "area": "account",
+      "statement": "preview_reopen takes the same optional pay date as the reopen and describes that reopen, also when the reopen at its default end would be refused.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-428", "R-ACCOUNT-303", "R-ACCOUNT-306"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S4, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-314",
+      "area": "account",
+      "statement": "A fixed-day transfer's next due date is found 13 months ahead, so a yearly or quarterly transfer shows it all year.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-420", "R-ACCOUNT-300"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S5, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
       "id": "R-PERIOD-300",
       "area": "period",
       "statement": "One catch-up step creates at most a bounded number of transactions per budget (4000, and about two seconds of work), leaving the rest due, none skipped; a step that stops before creating every one due never answers 0 from ensure_periods.",
@@ -12294,6 +12359,21 @@
       "related": ["D-424", "D-430", "D-467", "R-ACCOUNT-309", "R-PERIOD-100"],
       "source": [
         "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M3, 2026-11-16",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-492",
+      "title": "Ending a chosen income never rewrites what is already recorded",
+      "decision": "When the income a pay-date transfer chose ends from the current period (remove_income, remove_member, leave_budget), the day it ended is kept (incomes.ended_on). In that period the transfer keeps the income's occurrences due on or before that day, with their marks and transactions, and has the primary's occurrence only if it was not due yet that day; from the next period it follows the primary income. Ended from an earlier period (a correction) or deleted outright (D-426), the transfer follows the primary income in those periods as before.",
+      "why": "Ending the income after its transfer was made removed that transaction and recorded one dated weeks earlier for the primary salary, with no preview for these calls.",
+      "rejected": [
+        "A preview for remove_income, remove_member and leave_budget: with nothing rewritten there is nothing for it to announce about the transfers."
+      ],
+      "status": "accepted",
+      "related": ["D-426", "D-424", "R-ACCOUNT-311"],
+      "source": [
+        "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S2, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
     }
