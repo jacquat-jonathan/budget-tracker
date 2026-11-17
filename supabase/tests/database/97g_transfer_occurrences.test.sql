@@ -412,10 +412,11 @@ select results_eq(
   format($$select income_id, follows_primary from public.transfer_overview where id = %L$$, tests.id('i_t')),
   $$values (null::uuid, true)$$,
   'D-426: the transfer follows the primary income and says so (never silently reset)');
-select results_eq(
-  format($$select follows_primary, occurrence_date from public.get_transfer_checklist(%L) where transfer_id = %L$$, tests.id('i_p2'), tests.id('i_t')),
-  $$values (true, '2026-10-25'::date)$$,
-  'D-426: in the checklist too');
+select is((select count(*)::integer from public.get_transfer_checklist(tests.id('i_p2')) where transfer_id = tests.id('i_t')), 0,
+  'R-ACCOUNT-427: deleted in this period: the primary''s occurrence of this period (due 26 Oct, past that day) is not planned');
+-- a manual pay-date transfer of this period, overdue, for the dashboard below
+select tests.remember('i_manual', (select id from public.create_transfer(tests.id('i'), 'Manual', tests.id('i_main'), tests.id('i_sav'),
+  1000, 'pay_date', p_from_period_id => tests.this_period(tests.id('i')))));
 select tests.remember('i_auto', (select id from public.create_transfer(tests.id('i'), 'Automatic', tests.id('i_main'), tests.id('i_sav'),
   1000, 'day_of_month', p_day_of_month => 1, p_is_automatic => true, p_from_period_id => tests.this_period(tests.id('i')))));
 select results_eq(
@@ -498,8 +499,8 @@ select results_eq(format($$select occurrence_date from pg_temp.txs(%L)$$, tests.
 select results_eq(
   format($$select transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned
            from public.preview_set_primary_income(%L)$$, tests.id('v_inc')),
-  $$values (1, 1, 0)$$,
-  'R-ACCOUNT-310: a switch of the primary to the income the transfer chose makes it follow the primary from this period: the preview counts the transaction that moves');
+  $$values (0, 0, 0)$$,
+  'R-ACCOUNT-428: a switch of the primary to the income the transfer chose counts for it from the next period: nothing of this period moves, and the preview says so');
 select tests.remember('v_d', (select id from public.create_transfer(tests.id('v'), 'On the 26th', tests.id('v_main'),
   tests.id('v_sav'), 2000, 'day_of_month', p_day_of_month => 26, p_is_automatic => true, p_category_id => tests.id('v_cat'), p_from_period_id => tests.this_period(tests.id('v')))));
 select results_eq(

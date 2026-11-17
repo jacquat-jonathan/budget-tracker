@@ -4,15 +4,9 @@ import { en } from '@/locales/en/translation'
 import { fr } from '@/locales/fr/translation'
 import contract from '../../docs/database.md?raw'
 
-/**
- * The stable messages of the contract: its "Error messages" table, and the table of messages
- * the step 6 fix round 2 listed apart until the screens knew them (they do now).
- */
+/** The stable messages of the contract: the tables of its "Error messages" section. */
 function contractCodes(): string[] {
-  return [
-    ...tableCodes('## Error messages\n'),
-    ...tableCodes('## Error messages added by the step 6 fix round 2'),
-  ]
+  return tableCodes('## Error messages\n')
 }
 
 /** The codes of the table under one heading of the contract. */

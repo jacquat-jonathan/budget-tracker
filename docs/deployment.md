@@ -31,7 +31,11 @@ to 206 ms). Verify the hosted gateway's request body limit and whether it limits
 address. If the body limit is large (more than a few MB) or there is no rate limit, put a
 limit in front of the API (for example a proxy or the platform's network restrictions)
 before relying on tokens. Also: the first deployment freezes every migration file then present;
-from then on every database change is a new migration (D-450).
+from then on every database change is a new migration (D-450). Until then the chain is
+guaranteed **only as a whole**: three files call or read what a later file creates (the step 4
+file's `private.lock_and_catch_up` calls `private.catch_up_gate`, the step 5 comparison reads
+and the step 6 import read columns that the step 7 file adds), so apply all of them, in order,
+in one push; never a prefix of the chain.
 
 ### 2. Infomaniak: site folder and SSH access
 

@@ -71,7 +71,7 @@ below lists the rule ids it implements.
   | `list_import_batches`, `list_import_skipped_rows`, `list_import_choices` | 200 | `p_limit` (the tables themselves are not selectable) |
   | `merchant_rule_list` (one budget) | 500 | 500 rules a budget |
   | `account_overview`, `transfer_overview` (one budget) | 900 | 900 accounts / transfers per budget, void ones included |
-  | `get_money_flow` | about 900 | the incomes (500 in all), accounts and transfers (200 each, not void) in force in the period, plus two |
+  | `get_money_flow` | 1000 | the incomes, accounts and transfers in force in the period, its spending rows (one per top-level category) and the total: about 350 in practice; past 1000 (only after many corrections into the past) the last spending rows are left out and counted (`spending_rows_omitted`) |
   | `get_transfer_checklist` | 1000 | one row per occurrence (a transfer can have several in a long period) and per mark no longer planned; beyond 1000, the first 999 and a last row with `status` `'more'` (its `name` the number not listed) |
   | `preview_create_transfer`, `preview_update_transfer` | 60 | `p_count` |
   | `import_token_list` (one budget) | 30 | 10 that can be used, plus the newest 20 revoked or expired (pruned after 365 days) |
@@ -327,7 +327,11 @@ R-INCOME-050, R-CONCURRENCY-070)
 Member. `p_expected_revision`: **the budget's** (`my_budgets.revision`: the primary income
 is a budget field). Only an income in force in the current period. Re-projects the current
 period's end as above; show it first with `preview_set_primary_income` and send its
-`end_date` as `p_previewed_end_date`. Both incomes whose primary status changes get a new
+`end_date` as `p_previewed_end_date`. **Transfers** (R-ACCOUNT-428, D-527): the switch counts
+for them from the **next** period: nothing the current or an earlier period planned or
+recorded changes (the preview's three transfer counts are 0); from the next period a transfer
+naming the old primary follows its own pay dates and one naming the new primary the scheduled
+pay dates. Both incomes whose primary status changes get a new
 revision: an edit of either opened before the switch is refused with `record_changed`
 (R-CONCURRENCY-131). Errors: `income_not_found`, `record_changed`, `invalid_revision`,
 `income_ended`, `income_not_in_force`, `budget_ended`. (R-INCOME-007, R-INCOME-008,
@@ -451,13 +455,16 @@ before). The previous period's `end_is_manual` is true unless the boundary is on
 schedule's day, so moving it back clears the mark. A start on or before the opening of a debt
 that has an interest entry in the period is refused (`interest_before_opening`, D-467); moving
 the start later adds no interest (interest is computed once, when a period is created: D-386,
-R-DEBT-131). **Planned transfers** (D-491, R-ACCOUNT-309): what the app recorded by itself
-moves with the boundary, exactly as after a reopen and the salary recorded on the new day: a
-catch-up's transaction of an automatic pay-date transfer of the two periods whose due date the
-move changed is removed and made again on the new due date, in the right period (at the terms
-in force there; a member's edit of that transaction goes with it, as after a reopen); a
-member's own mark (done or skipped by hand, with its date) stays where the member put it. A
-fixed-day transaction keeps its date. Errors also: `period_not_found`,
+R-DEBT-131). **Planned transfers** (D-491, R-ACCOUNT-309, R-ACCOUNT-425): what the app
+recorded by itself **and nobody touched since** moves with the boundary, exactly as after a
+reopen and the salary recorded on the new day: a catch-up's transaction of an automatic
+pay-date transfer of the two periods whose due date the move changed is removed and made again
+on the new due date, in the right period (at the terms in force there). **What a member
+touched stays exactly as the member left it**: a mark of their own (done or skipped by hand,
+with its date), an occurrence made manual since, a transaction a member edited (amount,
+description, date or category). The preview counts only what moves. A fixed-day transaction
+keeps its date. **A move to the start the period already has** (no date while on schedule, or
+the day it starts) changes nothing and re-dates nothing (R-ACCOUNT-426). Errors also: `period_not_found`,
 `interest_before_opening`. Inverse: move it back. (R-PERIOD-100, D-152)
 
 **`preview_move_period_start(p_period_id, p_start_date = null) -> {period_id, scheduled_start, accepted, refusal, interest_removed, transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned}[]`**
@@ -658,14 +665,16 @@ R-DEBT-134)
 `transaction_not_found`, `record_changed`, `invalid_revision`, `debt_ended` (a payment of an
 ended debt). (R-DEBT-134)
 
-**`list_transactions(p_budget_id, p_limit = 50, p_from_date = null, p_to_date = null, p_category_id = null, p_kind = null, p_before_date = null, p_before_created_at = null, p_before_id = null, p_subscription_id = null, p_debt_id = null, p_awaiting_only = false) -> transaction_list[]`**
+**`list_transactions(p_budget_id, p_limit = 50, p_from_date = null, p_to_date = null, p_category_id = null, p_kind = null, p_before_date = null, p_before_created_at = null, p_before_id = null, p_subscription_id = null, p_debt_id = null, p_awaiting_only = false, p_to_review_only = false, p_import_batch_id = null, p_transfer_id = null) -> transaction_list[]`**
 Member. **The way to list transactions.** One page, newest first, in the stable order
 `date desc, created_at desc, id desc`, at most `p_limit` rows (1 to 200). Filters, all
 optional and combinable: `p_from_date` / `p_to_date` (inclusive; for a period, its
 `start_date` and `end_date`), `p_category_id` (a leaf, or a group with all its
 subcategories), `p_kind`, `p_subscription_id` (its charges and the transactions linked to
 it), `p_debt_id` (its payments), `p_awaiting_only` (the charges awaiting confirmation; each
-of these three reads its own index). **Next page**: pass the last row's `date`, `created_at` and `id`
+of these three reads its own index), `p_to_review_only` and `p_import_batch_id` (step 6),
+`p_transfer_id` (a planned transfer's transactions, D-525 answering Q-300; another budget's
+transfer: `transfer_not_found`). **Next page**: pass the last row's `date`, `created_at` and `id`
 as `p_before_date`, `p_before_created_at`, `p_before_id` (all three, unchanged, with the
 same filters); a page shorter than `p_limit` is the last. Pages stay correct when rows are
 added or edited meanwhile (no offsets). Cost: without filters, or with dates, each page is
@@ -1292,9 +1301,17 @@ it on. Staged parts are kept a day, at most 100 a budget. The answer is one obje
   the sum in rappen (`expense_count`, `expense_amount`, `refund_count`, `refund_amount`,
   `extra_income_count`, `extra_income_amount`);
 - `parts`: the part numbers `statement` covers; `room`: how many transactions the budget can
-  still take; `fits`: whether the statement's rows to import fit.
+  still take; `fits`: whether the statement's rows to import fit;
+- `written`: whether this part was already written (below).
+**A part already written** (D-522, answers Q-290) answers what its chunk recorded: `rows` are
+the write's own answers (with their `transaction_id`, `chunk`), `part` their totals, `written`
+true; `p_rows` is then not planned, nothing is staged and no later staged part is forgotten
+(a chunk whose answer is no longer kept: `chunk_expired`). A staged part is **no longer
+staged once its chunk is written**: `statement` and `parts` cover the parts staged and not yet
+written. So the screens may preview any part at any time; a written part shows what it did.
+Membership is checked before anything else, then the rows' size (R-IMPORT-421).
 Errors: `budget_not_found`, `invalid_batch`, `invalid_chunk` (the part), `invalid_rows`,
-`import_batch_conflict`, `batch_undone`, `catching_up`.
+`import_batch_conflict`, `batch_undone`, `chunk_expired`, `catching_up`.
 
 **`import_transactions(p_budget_id, p_batch_id, p_chunk, p_rows, p_source, p_statement_from = null, p_statement_to = null, p_to_categorise_name = null) -> import_row_result[]`**
 Member. Imports one chunk of a batch, exactly as the preview says, all or nothing.
@@ -1312,16 +1329,27 @@ Member. Imports one chunk of a batch, exactly as the preview says, all or nothin
 - **The transaction limit**: when the budget has no room for the rows to import, the chunk is
   refused before anything is written: `transaction_limit_reached` with detail
   `{"fits": n}` (how many rows would fit; a member only, never a token).
-- **Import storage is bounded per budget** (R-IMPORT-341, D-452), members and tokens
-  together: within any 24 hours at most **20 000 rows** submitted to a write and **50 new
-  batches** (`import_limit_reached`); kept at most **2 000 batches** (at the limit, the
-  oldest batches that hold no transaction and no skipped row any more go first;
-  `import_limit_reached` when none can), the newest **20 000 skipped rows** (older ones go:
+- **Import storage is bounded per budget** (R-IMPORT-341, R-IMPORT-420, D-452). Within any
+  24 hours: **200 new imports** (batches) started by members and, apart from those, **50**
+  started by tokens, so a token can never lock the members out; **20 000 rows** submitted to a
+  write in all, of which tokens at most **10 000** (members always keep 10 000). Kept: at most
+  **2 000 batches** (at the limit, the oldest batches that hold no transaction and no skipped
+  row any more go first), the newest **20 000 skipped rows** (older ones go:
   `list_import_skipped_rows` no longer lists them and they cannot be imported anyway; the
   batch's counts stay) and the newest **50 chunk answers**, none older than 7 days (a chunk
   sent again after its answer was forgotten answers `chunk_expired` and is never imported
-  twice). Worst case, measured with incompressible text at every limit: about 85 MB a day and
-  110 MB kept beyond the transactions.
+  twice). Each refusal is `import_limit_reached` with a **detail** naming the limit (JSON text
+  `{"limit": "..."}`, supabase-js `error.details`): `imports_per_day` (the members' 200 new
+  imports: the next one is possible 24 hours after the oldest of them; chunks of a batch
+  already started still go in), `rows_per_day` (20 000 rows in all), `imports_kept` (2 000
+  batches that all still hold something: undoing an old import frees one); a token call's
+  `error` is `import_limit_reached` for its own limits (`token_imports_per_day`,
+  `token_rows_per_day`) and for `rows_per_day`. Undoing an import does **not** give back the
+  day's imports or rows. Worst case, measured with incompressible text at every limit (re-check
+  of this round): a day adds at most about 82 MB (20 000 skipped rows of about 3 kB: 65 MB;
+  chunk answers: 15 MB; the 250 new batches and their recorded chunks: 1.4 MB), and all that is
+  kept beyond the transactions is at most about 120 MB (skipped rows 66 MB, chunk answers 19
+  MB, staged parts 11 MB, 2 000 batches with up to 200 000 recorded chunks about 25 MB).
 - Every argument is checked before anything of the budget. Errors: `invalid_name` (first),
   `budget_not_found`, `invalid_batch`, `invalid_chunk`, `invalid_source`, `invalid_date` (the
   range), `invalid_rows`, `import_batch_conflict` (the id is another budget's batch, also when
@@ -1329,7 +1357,10 @@ Member. Imports one chunk of a batch, exactly as the preview says, all or nothin
   `category_limit_reached`, `import_limit_reached`, `catching_up`.
 
 **`import_skipped_anyway(p_batch_id, p_skipped_row_ids = null) -> import_row_result[]`**
-Member. Imports skipped rows of a batch anyway (R-IMPORT-073, R-IMPORT-204, R-IMPORT-258): the
+Member. **Ids no longer kept** (D-523, answers Q-291): after the rows imported, each distinct
+id sent that is no longer a skipped row the batch keeps (the oldest go, D-452; or never one of
+this batch) answers one row with `action` `'not_kept'`, `reason` `'not_kept'`, `valid` false
+and every other field null: count them to say "n rows could no longer be imported". Imports skipped rows of a batch anyway (R-IMPORT-073, R-IMPORT-204, R-IMPORT-258): the
 given ones, or all that are not invalid and not already imported (at most 500 a call; call
 again for more). Each is planned again now with action `import`, its original kind and
 category dropped (the review decides), and answers with its original `chunk` and `row_no`. The
@@ -1366,7 +1397,9 @@ same statement still finds. Errors:
 - **`list_import_batches(p_budget_id, p_limit = 50, p_before_created_at = null, p_before_id = null) -> import_batch_list[]`**
   newest first, 1 to 200 a page (cursor: the last row's `created_at` and `id`). Columns:
   `id`, `budget_id`, `source`, `statement_from`, `statement_to`, `created_by` (null for a
-  token's batch), `created_by_name`, `token_id`, `token_name`, `created_at`, `chunk_count`,
+  token's batch), `created_by_name` (the creator's display name while a member of the budget,
+  whether or not they recorded anything; null once they are no longer a member: "a former
+  member"; R-IMPORT-422), `token_id`, `token_name`, `created_at`, `chunk_count`,
   `row_count`, `imported_count`, `duplicate_count`, `flagged_count`, `matched_count`,
   `chosen_skip_count`, `invalid_count` (these add up to `row_count`), `charges_confirmed_count`,
   `to_review_count`, `undone_at`, `undone_by`. Errors: `budget_not_found`, `invalid_limit`,
@@ -1401,7 +1434,9 @@ same statement still finds. Errors:
   to nothing, move to the category where it is in force on their date; `moved` says how many
   (R-IMPORT-260).
 - **`preview_merchant_rule(p_budget_id, p_fragment, p_category_id = null) -> {fragment, covered_by_rule_id, covered_by_fragment, rule_exists, would_move}`**
-  (R-IMPORT-347, D-457, answers Q-271) without writing: the fragment as it would be stored; the
+  (R-IMPORT-347, D-457, answers Q-271) without writing (membership is checked first, then the
+  fragment's raw length: over 1000 characters is `invalid_fragment` before any work on it, as
+  for `create_merchant_rule`; R-IMPORT-421): the fragment as it would be stored; the
   existing rule that already covers it (the one the import would pick for that key: the
   longest fragment it contains; null when none); whether a rule with this very fragment
   exists; and how many transactions waiting in "to categorise" the rule would move to
@@ -1586,8 +1621,10 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
 - **A pay date** (`'pay_date'`): one occurrence per pay date of its income in the period, due on
   the actual pay date plus `offset_days`, never after the last day of the period containing that
   pay date.
-  - The **primary income** (no income chosen, the primary income itself chosen, R-ACCOUNT-310, or
-    the chosen one not in force there or deleted):
+  - The **primary income** (no income chosen, the primary income itself chosen, R-ACCOUNT-310:
+    the income that was the primary one in that period, by the primary's history, a switch
+    counting from the period after it, R-ACCOUNT-428; or the chosen one not in force there or
+    deleted):
     one occurrence per period. Its key is the period's **scheduled pay date** (the date the
     schedule gave for the salary that started the period, stored on the period), its due date
     the period's start (the actual pay date, whatever moved it) plus the offset. An early
@@ -1621,10 +1658,29 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
     occurrence not yet due (the primary's occurrence of that period only if it was not due yet
     that day), so nothing dated in the past appears. Ended from an earlier period (a
     correction, `p_from_period_id`), the periods from then on follow the primary income.
+    **Deleted outright** in the current period (added and removed in it; R-ACCOUNT-427): what
+    the catch-up recorded for it in that period stays (listed with `planned` false, as a kept
+    mark), and the primary's occurrence of that period is planned only if it was not due yet
+    that day: nothing dated in the past appears.
 - Nothing before the transfer's **first counted day** (`starts_on`: the start of the period it
   was created in or corrected from, or that period's scheduled pay date when the salary came
   late; the day it was created when it was created with no period and no first date after the
-  period's start, D-493; it stays a date through a reopen).
+  period's start, D-493; it stays a date through a reopen). A primary occurrence counts when the
+  salary that started its period **came** on or after that day; the period's key is never
+  compared with it (R-ACCOUNT-420, D-520). The salary a transfer was made from (named, or made
+  on its period's first day) stays its occurrence wherever that salary is recorded again: a
+  reopen and the salary on an earlier day, or a start moved earlier.
+- **One key in two periods** (R-ACCOUNT-421, D-521). A key can lie outside its period, so a
+  period's scheduled pay date can equal a date of the period that contains it. When both are
+  paydays (a chosen income's pay date in one, the primary's key in the other: the transfer
+  switched between them) it is one occurrence, the earlier period's. When one is a **fixed
+  day** (a transfer changed from a pay date to a fixed day, or back), or the key was
+  **shifted** (it was taken, so the period got the next scheduled pay date no period had, D-528:
+  that key is not that period's payday), they are **two occurrences**, one in each period, with the same `occurrence_date`: each period's checklist
+  lists its own, and the mark calls tell them apart by `p_period_id` (as always, send the row's
+  period and key). Example: periods 8 Feb to 4 Mar (key 5 Mar, its salary of 8 Feb) and 5 Mar to
+  4 Apr; "Savings" changed from 5 Mar to a fixed day 5: the first lists key 5 Mar due 8 Feb,
+  the second key 5 Mar due 5 Mar, each with its own transaction.
 
 The read model: **one checklist row per occurrence**; **one mark per transfer and key**; one
 transaction per mark at most.
@@ -1777,7 +1833,13 @@ assumed done, or the catch-up's transaction). `status`:
 | `'more'` | the 1000th row of a period that lists more: `name` is how many more (only with very many unplanned marks; R-APP-170) | |
 
 `done_on` / `amount_moved`: the transaction's date and amount when it has one (an edit of the
-transaction shows here), else what was marked. `held_back`: an automatic linked occurrence due
+transaction shows here), else what was marked. **Assumed done** (`assumed` true, no mark,
+`mark_revision` 0): an automatic occurrence due and not linked to a category has no
+transaction; its row is `'done'` with `done_on` and `amount_moved` null: it counts as done on
+its `due_date`, for the planned `amount` (show those). From that state `undo_transfer_mark`
+answers `nothing_to_undo` (there is no mark) and `mark_transfer_not_done` is allowed (it records
+that the bank did not run it). The same holds for an automatic linked occurrence before the
+catch-up made its transaction (rare: the budget is full, `held_back`). `held_back`: an automatic linked occurrence due
 whose transaction waits for room (the budget holds 50 000 transactions); it is created, dated
 its due date, once there is room. `mark_revision`: the revision of the occurrence's mark, **0
 when nothing is marked**; send it as `p_expected_revision` (R-CONCURRENCY-230): a mark made or
@@ -1853,26 +1915,90 @@ figure**, never added to the subscriptions' `committed`: `get_period_progress(..
 "CHF 1000 of CHF 1500 planned as a transfer"; the subscriptions' figures and every existing
 total are unchanged. Ended transfers count only where they were in force.
 
-#### The money flow (R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-304, D-356)
+#### The money flow (R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-304, D-356, R-ACCOUNT-422, R-ACCOUNT-423, D-524)
 
-**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence}[]`**
+**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence, spendable, expected, transfer_share, spent, transfer_spent, yearly_amount, display_order, set_aside, spendable_amount, planned_spending, actual_spending, not_planned, left_amount, created_at, spending_rows_omitted}[]`**
 Member; for a chosen period (default the current one: `budget_ended` when there is none);
-catches up first. From the plan in force in that period only, never from transactions. Rows,
-in this order:
+catches up first. The flow runs **income -> accounts -> spending** (D-524, answers Q-301): the
+incomes, the accounts and the transfers between them come from the plan in force in that
+period only; the spending comes from the categories' plan and, for what was actually spent,
+from the period's transactions. Every figure is the database's: the screen adds and subtracts
+nothing. Rows, in this order (the columns a row does not use are null):
 
 | `row_kind` | One per | Fields |
 | --- | --- | --- |
 | `'income'` | income in force in the period | `id` = `source_id` (the income), `name`, `amount` (its amount then), `target_id` (its account then; **null: the "not assigned" node**), `user_id` |
-| `'not_assigned'` | at most one, only when an income names no account | `inflow` = `stays` (those incomes), `outflow` 0 |
-| `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning) |
+| `'not_assigned'` | at most one, only when an income names no account | `inflow` = `stays` (those incomes), `outflow` 0, `spendable` true |
+| `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning), **`spendable`** (R-ACCOUNT-423: true for the everyday kinds `'current'`, `'cash'`, `'credit_card'` and `'other'`; false for `'savings'`, `'third_pillar'`, `'tax_reserve'` and `'investment'`, whose `stays` is **set aside**), `created_at` (with `id`: a stable order, e.g. for colours by creation) |
 | `'transfer'` | transfer in force in the period | `id`, `name`, `source_id` (from account) -> `target_id` (to account), `amount` (**its monthly share**: what the plan moves per period), `planned_amount` and `cadence` (its real amount and cadence: "CHF 7'056.00 once a year"; `cadence` null for a pay date), `is_automatic` |
-| `'total'` | one | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up |
+| `'spending'` | top-level category (a group, or a category without a group) with something planned or spent in the period, in the categories' display order (`display_order`) | `id` (the category: a **stable key for its colour**), `name`, `expected` (its plan at the monthly share: a yearly expectation counts one twelfth, half up), `transfer_share` (the monthly share of planned transfers linked to it, at most `expected`: **those francs are drawn as transfers**, so they are left out here), **`amount` = `expected` - `transfer_share`** (planned spending), `yearly_amount` (the real amount of its yearly expectations, "CHF 2'400.00 a year"; null when none), **`spent`** (what the period's transactions spent in it, refunds deducted, **less** `transfer_spent`, the transactions of transfers linked to it), `is_negative` (spent more than planned) |
+| `'total'` | one, always last | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up, `set_aside` (the `stays` of the set-aside accounts), `spendable_amount` (= `amount` - `set_aside`), `planned_spending` (the spending rows' `amount`), `not_planned` (= `spendable_amount` - `planned_spending`; **may be negative**: `is_negative`), `actual_spending` (the spending rows' `spent`), `left_amount` (= `spendable_amount` - `actual_spending`; may be negative; one pooled figure for the spendable accounts together, no account has a "left" of its own), `spending_rows_omitted` (0; see below) |
 
-Everything adds up: the `stays` of the accounts and "not assigned" total the incomes. At most
-about 900 rows (500 incomes, 200 accounts and 200 transfers at the limits). Draw the Sankey from
-`'income'` and `'transfer'` rows (`source_id` -> `target_id`, null target = the
-`'not_assigned'` node). Errors: `budget_not_found`, `period_not_found`, `budget_ended`,
-`catching_up`.
+Everything adds up, and each sum is a field: the `stays` of the accounts and "not assigned"
+total the incomes; **income = `set_aside` + `spendable_amount`**; **`spendable_amount` =
+`planned_spending` + `not_planned`** (the plan) **= `actual_spending` + `left_amount`** (what
+happened). Expenses are not tied to accounts (and will not be): spending is drawn out of the
+pooled spendable remainder, never out of one account.
+
+**Every row is answered; there is no aggregate ("others") row**: the page draws what it
+chooses and points to the tables for the rest, never summing. **Rows: at most 1000**
+(R-APP-170). A budget built forwards has at most 50 incomes, 50 accounts and 50 transfers in
+force in a period (their limits) and at most 200 categories in force (500 in all, so at most
+500 spending rows), about 350 rows at most in practice. Only a past period filled by many
+corrections could pass 1000 (500 incomes, 200 accounts, 200 transfers in all): then the last
+spending rows, in display order, are left out and the total's `spending_rows_omitted` says how
+many; the totals still cover them. Transfer rows carry the transfer's `id`
+(`list_transactions(..., p_transfer_id)` lists its transactions, D-525); spending rows the
+category's `id` and `display_order`.
+
+**How the screen draws this.** Column 1: the incomes (`'income'` rows). Column 2 and further:
+the accounts, joined by the `'transfer'` bands (`source_id` -> `target_id`, width `amount`;
+a null target is the `'not_assigned'` node), as before. Last column: the spending. From each
+account with `spendable` true (and from "not assigned") its `stays` flows into one pooled
+"spendable" node of width `spendable_amount`; the accounts with `spendable` false end there
+(their `stays` is "set aside", total `set_aside`). Out of the spendable node: one band per
+`'spending'` row, width `amount` (planned) or `spent` (actual: the screen's toggle), coloured
+by the row's `id`, labelled with `name` and the figure (`yearly_amount` beside it when not
+null), with a warning when `is_negative`; then one band "not planned" (`not_planned`) or
+"left" (`left_amount`), drawn as a warning, not a band, when negative. A row whose
+`transfer_share` is not 0 can say "CHF 1'588.00 shown as transfers" (`transfer_spent` for
+the actual side). Nothing is computed by the screen but geometry.
+
+**Example** (current period 25 Oct to 24 Nov 2026, today 20 Nov). Ann's salary 6 000.00 and
+Ben's salary 4 000.00, both into Main (current). Accounts Main, Savings (savings), Pillar 3a
+(third_pillar). Transfers: "Savings" 1 000.00 on payday, Main -> Savings, automatic, linked to
+the category Savings (its transaction of 25 Oct was made); "Pillar 3a" 7 056.00 once a year on
+20 December, Main -> Pillar 3a, linked to the category Pillar: its monthly share is 588.00.
+Categories (five groups): Home (Rent 2 000.00, Energy 150.00), Food (Groceries 900.00,
+Restaurants 200.00), Transport (Train 300.00), Leisure (Holidays 2 400.00 a year, Hobbies
+150.00), Saving and pension (Savings 1 000.00, Pillar 7 056.00 a year). Spent so far: Rent
+2 000.00, Groceries 640.50, Restaurants 85.00, Train 120.00, Hobbies 60.00 (and the Savings
+transfer's 1 000.00). The read (amounts in francs; the API answers rappen):
+
+| row | figures |
+| --- | --- |
+| income Ann's salary | amount 6 000.00, target Main |
+| income Ben's salary | amount 4 000.00, target Main |
+| account Main | inflow 10 000.00, outflow 1 588.00, stays 8 412.00, spendable true |
+| account Pillar 3a | inflow 588.00, outflow 0, stays 588.00, spendable false |
+| account Savings | inflow 1 000.00, outflow 0, stays 1 000.00, spendable false |
+| transfer Pillar 3a | Main -> Pillar 3a, amount 588.00, planned_amount 7 056.00, cadence yearly |
+| transfer Savings | Main -> Savings, amount 1 000.00, planned_amount 1 000.00, cadence null |
+| spending Home | expected 2 150.00, transfer_share 0, amount 2 150.00, spent 2 000.00 |
+| spending Food | expected 1 100.00, transfer_share 0, amount 1 100.00, spent 725.50 |
+| spending Transport | expected 300.00, transfer_share 0, amount 300.00, spent 120.00 |
+| spending Leisure | expected 350.00, transfer_share 0, amount 350.00, yearly_amount 2 400.00, spent 60.00 |
+| spending Saving and pension | expected 1 588.00, transfer_share 1 588.00, amount 0, yearly_amount 7 056.00, spent 0, transfer_spent 1 000.00 |
+| total | amount 10 000.00, outflow 1 588.00, set_aside 1 588.00, spendable_amount 8 412.00, planned_spending 3 900.00, not_planned 4 512.00, actual_spending 2 905.50, left_amount 5 506.50 |
+
+10 000.00 = 1 588.00 set aside + 8 412.00 spendable; 8 412.00 = 3 900.00 planned + 4 512.00 not
+planned = 2 905.50 spent + 5 506.50 left. (This example is a test: `97j_db_fix3`.)
+
+Errors: `budget_not_found`, `period_not_found`, `budget_ended`, `catching_up`.
+
+A quarterly or yearly transfer linked to a category shows its whole amount **spent** in the
+month it runs (7 056.00 in December) against a monthly share planned (588.00): an open
+question for the owner (Q-310).
 
 **Dashboard** (R-ACCOUNT-241, D-395, D-494): **`get_transfers_to_do(p_budget_id) -> {transfers_to_do, transfers_overdue}[]`**
 (one row; member, else `budget_not_found`; reads only, no catch-up: read it after `my_budgets`
@@ -1889,7 +2015,9 @@ Accounts, transfers and their terms are merged like every validity and version t
 keyed by date. The merged period's scheduled pay date is no longer planned (its salary has not
 come), so the catch-up's transaction of a primary pay-date occurrence there goes, and comes back
 once the salary is recorded again, dated the day it came; a member's mark there stays, flagged,
-and is the same occurrence again then. Fixed-day occurrences keep their dates and marks (they
+and is the same occurrence again then. A transfer **ended in the merged period** now ends in the
+reopened one: what the catch-up recorded for the occurrences that this earlier end removes
+stays, listed as ended, as `end_transfer` keeps it (R-ACCOUNT-424). Fixed-day occurrences keep their dates and marks (they
 now belong to the reopened period). A transfer created in the merged period counts from its
 first counted day, so the reopened period gets no occurrence of its own earlier payday. A
 transfer ended in the merged period now ends in the reopened one; its marks there stay, listed
@@ -2046,21 +2174,14 @@ Step 2 messages:
 | `budget_ended` | no current period: the budget is past its end date |
 | `budget_limit_reached`, `member_limit_reached`, `invitation_limit_reached`, `income_limit_reached` | a limit (20 owned budgets, 20 members, 20 pending invitations, 50 incomes in force or 500 in all) |
 
-## Error messages added by the step 6 fix round 2
-
-Stable messages added by the second fix round of step 6 (D-451 to D-466). They are listed here,
-apart from the table above, until the screens know them (`src/lib/db-errors.ts` and both
-locales): until then a member who meets `import_limit_reached` or `chunk_expired` sees the
-generic message. The other four reach only the import script (`import_with_token`'s `error`
-column). `interest_before_opening` (D-467) is a refusal of `move_period_start` and its preview's
-`refusal`. Move them into the table above when the screens add them.
+Step 6 fix round 2 and step 7 messages (D-451 to D-467, D-452 as amended):
 
 | Message | Meaning |
 | --- | --- |
 | `token_busy`, `imports_busy` | another call of this token is working, or every slot for token work is taken: nothing was done or counted; send the same chunk again after a pause (token import's `error` column) |
 | `budget_busy` | the token import waited a second for its budget, held by another call: nothing written (counted); send again |
 | `call_cancelled` | the token import was cancelled (statement timeout): nothing written, counted; send again |
-| `import_limit_reached` | the budget's import storage is used up: 20 000 rows or 50 new batches within 24 hours, or 2 000 batches kept that all still hold something |
+| `import_limit_reached` | the budget's import storage is used up; the detail names the limit (`{"limit": ...}`): `imports_per_day` (the members' 200 new imports within 24 hours; tokens have 50 of their own), `rows_per_day` (20 000 rows within 24 hours, tokens at most 10 000 of them), `imports_kept` (2 000 batches kept that all still hold something); the day's limits free 24 hours after the oldest use, undoing an import does not give them back |
 | `chunk_expired` | that chunk was recorded but its answer is no longer kept: it is not imported again (list the batch's rows instead) |
 | `interest_before_opening` | the period's start cannot move to on or before the opening of a debt that has interest in that period (`move_period_start`, and the preview's `refusal`) |
 

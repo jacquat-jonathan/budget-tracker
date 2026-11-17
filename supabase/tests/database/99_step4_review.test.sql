@@ -89,6 +89,10 @@ select is((select count(*)::integer from public.debt_interest where debt_id = te
 select is_empty(format('select * from tests.step4_violations(%L)', tests.id('old')), 'R-DEBT-003: and the step 4 invariants hold');
 -- 40 years: a write catches up in full; reads in steps
 select tests.clear_authentication();
+-- the steps are counted in periods (120 a call): the step's time bound (2 s) is lifted here, so
+-- the count does not depend on the machine's speed (it is rolled back with the test)
+create or replace function private.limit_catch_up_work() returns interval
+language sql immutable set search_path = '' as $f$ select interval '1 hour' $f$;
 select tests.set_today('2067-01-20');
 select tests.authenticate_as('bob');
 create temp table steps (n integer) on commit drop;

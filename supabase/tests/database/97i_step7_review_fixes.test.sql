@@ -486,8 +486,8 @@ select pg_temp.day('2026-11-20');
 select public.set_primary_income(tests.id('st_inc'), (select revision from public.budgets where id = tests.id('st')));
 select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
   'R-ACCOUNT-310: set_primary_income settles the transfers before it answers');
-select is(pg_temp.txs(tests.id('st_t')), '2026-10-09,2026-10-25',
-  'R-ACCOUNT-310: the transfer that chose the new primary follows it from this period at once (the past period keeps the partner''s date)');
+select is(pg_temp.txs(tests.id('st_t')), '2026-10-09,2026-11-10',
+  'R-ACCOUNT-428: the transfer that chose the new primary keeps this period''s plan (the partner''s 10 Nov); it follows the primary from the next period');
 select public.set_expected_pay_date(tests.id('st'), (pg_temp.cur('st')).id, (pg_temp.cur('st')).revision, '2026-12-01');
 select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
   'R-ACCOUNT-302: set_expected_pay_date settles the transfers before it answers');
@@ -572,8 +572,12 @@ select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23', 'R-ACCOUNT-310
 select public.set_primary_income(tests.id('ps_inc'), (select revision from public.budgets where id = tests.id('ps')));
 select is((select end_date from public.periods where id = (pg_temp.cur('ps')).id), '2026-11-24'::date,
   'R-ACCOUNT-310: (the switch keeps the current period''s end)');
-select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23,2026-10-25',
-  'R-ACCOUNT-310: the transfer that chose the new primary gets the current period''s occurrence at once');
+select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23',
+  'R-ACCOUNT-428: the switch changes nothing the current period planned (no transaction dated 25 Oct appears)');
+select pg_temp.day('2026-11-26');
+select public.ensure_periods(tests.id('ps'));
+select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23,2026-11-25',
+  'R-ACCOUNT-310: from the next period the transfer that chose the new primary gets its scheduled pay date');
 
 -- the step's bound: one statement creates at most 4000 transactions (R-PERIOD-300, D-427)
 select tests.clear_authentication();
