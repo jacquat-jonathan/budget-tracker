@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-616 rules (605 active, 0 planned), 24 conventions, 381 decisions, 50 open questions. 0 rules and conventions are marked **TEST PENDING**.
+616 rules (605 active, 0 planned), 24 conventions, 382 decisions, 50 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -7899,6 +7899,21 @@ Signing out writes the time to local storage (shared by the browser's tabs); a s
 Related: R-AUTH-530, R-AUTH-025
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-636 The hosted migrations are checked by hand before a deploy, not by the Deploy workflow (accepted)
+
+docs/deployment.md makes "npx supabase migration list --remote" and "npx supabase db push --remote --dry-run" a numbered manual step before every deployment (and before the first one), because the Deploy workflow builds and uploads the app without knowing whether the hosted database has the release's migrations. No database credential or access token is added to CI. Backups are the owner's own data-only dumps (auth, public and private schemas, without the migration-filled private.period_keyed_tables), restored onto a project whose migrations were pushed first, as rehearsed on the local stack.
+
+**Why:** The final review found the guide silent on backups and on the migration check. A CI check would need the database password or a Supabase access token as a repository secret, which the owner has not asked for; the free plan's own backups could not be verified from the repository or the CLI.
+
+**Rejected:**
+
+- A CI job that pushes or checks migrations: it needs secrets in CI (brief: none).
+- A full dump of every schema: the restore is refused on the storage tables and collides on the migration-filled registry table (seen locally).
+
+Related: D-450, Q-280, Q-281
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: docs/deployment.md
 
 ## Open questions
 

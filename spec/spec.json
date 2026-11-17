@@ -14096,6 +14096,22 @@
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]
+    },
+    {
+      "id": "D-636",
+      "title": "The hosted migrations are checked by hand before a deploy, not by the Deploy workflow",
+      "decision": "docs/deployment.md makes \"npx supabase migration list --remote\" and \"npx supabase db push --remote --dry-run\" a numbered manual step before every deployment (and before the first one), because the Deploy workflow builds and uploads the app without knowing whether the hosted database has the release's migrations. No database credential or access token is added to CI. Backups are the owner's own data-only dumps (auth, public and private schemas, without the migration-filled private.period_keyed_tables), restored onto a project whose migrations were pushed first, as rehearsed on the local stack.",
+      "why": "The final review found the guide silent on backups and on the migration check. A CI check would need the database password or a Supabase access token as a repository secret, which the owner has not asked for; the free plan's own backups could not be verified from the repository or the CLI.",
+      "rejected": [
+        "A CI job that pushes or checks migrations: it needs secrets in CI (brief: none).",
+        "A full dump of every schema: the restore is refused on the storage tables and collides on the migration-filled registry table (seen locally)."
+      ],
+      "status": "accepted",
+      "related": ["D-450", "Q-280", "Q-281"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: docs/deployment.md"
+      ]
     }
   ],
   "conventions": [
