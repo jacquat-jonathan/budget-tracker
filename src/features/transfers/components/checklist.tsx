@@ -448,7 +448,7 @@ function ChecklistItem({
           ]
             .filter(Boolean)
             .map((part, index) => (
-              <span key={index} className="inline-flex min-w-0 items-center gap-x-2">
+              <span key={index} className="inline-flex min-w-0 items-baseline gap-x-2">
                 {index > 0 && <span aria-hidden>·</span>}
                 {part}
               </span>

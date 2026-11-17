@@ -349,7 +349,7 @@ export const transfersFr = {
     incomePayday: 'au jour de paie de « {{income}} », le {{date}}',
     incomePaydayUnnamed: 'au jour de paie de son revenu, le {{date}}',
     fixedDay: 'jour fixe du {{date}}',
-    fixedDayMoved: 'jour fixe du {{date}}, déplacé hors du week-end',
+    fixedDayMoved: 'jour fixe du {{date}}, déplacé hors du week‑end',
   },
   kinds: {
     label: 'Quand il a lieu',

@@ -535,7 +535,8 @@ function BoundaryForm({
   // R-ACCOUNT-313: the preview describes the reopen with the pay date the member chose.
   const reopenPreview = useReopenPreview(
     budgetId,
-    action.kind === 'reopen',
+    // Once written, the period it previewed is gone: it is not asked again while closing.
+    action.kind === 'reopen' && !mutation.isSuccess,
     action.kind === 'reopen' && valid ? date : null,
   )
   // R-DEBT-340: a start on or before the opening of a debt with interest in this period is
@@ -556,7 +557,7 @@ function BoundaryForm({
   const payPreview = usePayDateTransfersPreview(
     budgetId,
     action.kind === 'early' ? 'early' : 'expected',
-    payDate,
+    mutation.isSuccess ? undefined : payDate,
   )
   const movePreview = useQuery({
     queryKey: [...budgetKeys.budget(budgetId), 'move-preview', period.id, moveTo ?? ''] as const,
