@@ -267,6 +267,7 @@ function BasisTabs({ basis }: { basis: Basis }) {
 }
 
 /** The database's total row, four figures: nothing is added up on the page. */
+// R-ACCOUNT-447: every figure on the page is one the read returned.
 function Tiles({
   total,
   basis,

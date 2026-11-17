@@ -237,7 +237,7 @@ function hiddenNote(t: TFunction, layout: FlowLayout, tier: number): string | nu
 /**
  * The money flow of a period (R-ACCOUNT-006, R-ACCOUNT-422): incomes into their accounts, the
  * transfers between them, what stays spendable and what is set aside, and the spending by
- * category group, planned or actual. Drawn in SVG by the app (D-503, D-545): top to bottom on a
+ * category group, planned or actual. Drawn in SVG by the app (D-545): top to bottom on a
  * phone, left to right on a desktop; labels are HTML (they wrap, carry their word, never
  * collide); one scale for every bar and band; colours that follow the record. One named image;
  * the tables below carry every figure.

@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-577 rules (566 active, 0 planned), 24 conventions, 358 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
+587 rules (576 active, 0 planned), 24 conventions, 362 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -290,6 +290,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SHELL_
   - Related: D-502, D-505, D-540
   - Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
+- **R-APP-441** After "Try again" on a read that failed, the focus goes to the page's heading while the page reads again, never to the page's body.
+  _active · enforced by test · F-SHELL_
+  - Related: D-540
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
 
 ### Accounts and sign-in
 
@@ -1420,6 +1424,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-TRANSACTION_
   - Related: R-TRANSACTION-090, R-PERIOD-191
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/budgets/budget-queries.ts
+- **R-TRANSACTION-441** The transactions of one planned transfer (`/transactions?transfer=<id>`) are listed under a removable chip naming the transfer and its accounts, combined with the other filters and paging; a transfer the budget does not have (deleted meanwhile, another budget's, or not an id: transfer_not_found) never lists every transaction in its place: the page says so and offers the full list.
+  _active · enforced by test · F-TRANSACTION_
+  - Related: D-525, D-548, R-TRANSACTION-150
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
 
 ### Period progress and result
 
@@ -2287,6 +2295,26 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-257, D-088
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), the screens' asks and the screens reviewer's additions, 2026-11-17; code: supabase/migrations/20261119100000_import.sql
+- **R-IMPORT-441** The import preview follows preview_import_part's written parts (D-522): a part found written meanwhile shows what its chunk recorded and is not counted in the statement's totals, which come from the last part still staged; a part whose answer is no longer kept (chunk_expired) shows no rows and is said so; neither is staged again.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-522, R-IMPORT-340, R-IMPORT-361
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-IMPORT-442** An import stopped by import_limit_reached says which limit its detail names (new imports within 24 hours, rows within 24 hours, imports kept), what the member can do and when it frees up (a rolling 24 hours for the two daily limits, never by itself for the imports kept), with a general message when the detail names none; it never suggests undoing an import to get the day's allowance back.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-452, R-IMPORT-420, R-IMPORT-366
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-IMPORT-443** After importing skipped rows anyway, the screen says how many were imported and how many could not be because they are no longer kept, counting the rows the call answers not_kept (D-523), never guessing from how many rows came back.
+  _active · enforced by test · F-IMPORT_
+  - Related: D-523, R-IMPORT-368
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-IMPORT-444** A merchant rule's text longer than 100 characters once tidied is refused at its field before the database is asked (so a raw fragment over 1000 characters never is), and the database's invalid_fragment is said at the field too.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-421, D-547
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-IMPORT-445** The import history says "a former member" only when the batch names a member and the read gives no name for them (R-IMPORT-422); a token's batch whose token is gone says so, never "a former member".
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-422
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
 
 ### Accounts and planned transfers (money flow)
 
@@ -2488,6 +2516,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-527, R-ACCOUNT-310
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-446** The screens name a checklist occurrence by its transfer, its period and its date together, never by the date alone (the same date can be an occurrence of two periods): rows, the focus after a mark, the rows kept in place and the previews are keyed that way, and a mark is sent with the period of the row pressed.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-421, D-541, D-543
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-ACCOUNT-447** The money flow page shows only figures the read returned: its four tiles are the total row (incomes, set aside, planned spending or spent, not planned or left), every label and table cell is a row's own field, the page adds and subtracts nothing (only geometry is computed), a shortfall (not planned or left below 0) is said in words in the tiles, the diagram and the table, and spending rows the read left out are said near the spending table.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-422, R-ACCOUNT-235, D-545, C-LOGIC-003
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-ACCOUNT-448** In the money flow an account keeps its colour by its creation (created_at, then id) and a category group by its display order (then id), never by name or size: a rename or a filter recolours nothing; the eight hues repeat from the ninth with a dashed outline, and a legend names every swatch and pattern.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-545, D-546
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
 
 ### Concurrent edits
 
@@ -7177,7 +7217,7 @@ Related: R-ACCOUNT-315, R-ACCOUNT-233, R-ACCOUNT-300, D-493
 
 Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 
-### D-503 The money flow is drawn by the app in SVG, beside its tables (accepted)
+### D-503 The money flow is drawn by the app in SVG, beside its tables (superseded by D-545)
 
 The Money flow page draws get_money_flow as a Sankey-style diagram in SVG of its own (no chart library): incomes in the first column, each account one column right of the furthest account that sends it money (a band that closes a cycle is drawn as a loop below), accounts where money only stays in the last column; bars and bands on one scale; each label starts above its bar and has its column's room to the right (name, then the income's amount or what the plan leaves on the account, with a warning sign when it is negative), cut to that room; a column is at least 96 px wide, so a long chain of transfers on a phone makes the diagram wider than the screen and it scrolls in its own named frame, never the page; the incomes in --chart-1, accounts in --chart-2 to --chart-5 by their order in the read (later ones neutral), "not assigned" neutral. Accounts with no planned flow are listed in the table only. The same figures are three tables below it (incomes, transfers at their monthly share with their real amount and cadence, accounts with in, out and what stays) with the database's totals; a period picker keeps the period in the address. The page is a lazy chunk like the other charts.
 
@@ -7403,6 +7443,64 @@ A yearly transfer says its day and month (“Once a year on December 20”, from
 Related: D-504, D-503
 
 Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
+
+### D-545 The money flow page, from income to spending (supersedes D-503) (accepted)
+
+The Money flow page draws get_money_flow in an SVG of its own (no chart library, a lazy chunk), planned or actual (`?basis=actual`, planned by default, beside `?period=`): four tiles that are the total row; tiers of incomes, accounts by their chain of transfers, the pool (what stays on the spendable accounts, what is set aside) and the destinations (each category group's planned amount or what it spent, then "not planned" or "left"); bars and bands on one scale, a band that skips a tier keeps a lane there, money sent back to an earlier account is a dashed return loop. Below 600 px of room, or when a column would be narrower than 150 px, it runs top to bottom (no sideways scroll at 320 px), else left to right. Labels are HTML and carry their word ("stays … , spendable", "set aside", "planned", "spent … of …"); a legend explains every swatch and pattern. The eight largest incomes, accounts and destinations are drawn; the others are counted ("and n more: every figure is in the tables"), never summed. A group whose plan is carried by transfers (amount 0) is not drawn as spending (it is in "set aside"); one with its own spending and a transfer share is drawn at its own amount, its label naming the share shown as transfers. A shortfall extends the spendable bar, hatched, by the negative "not planned" or "left", and is said in words. Four tables (incomes, transfers with a link to their transactions, accounts with in, out and what stays, spendable or set aside, and the spending by group, planned and spent) carry every figure with the database's totals and become row blocks below 640 px.
+
+**Why:** The read now ends at spending (D-524) and the review found the old diagram clipped on a phone, coloured by name and without a legend (S-5, S-6). The owner asked for the money flow diagram by name and to keep it beautiful.
+
+**Rejected:**
+
+- An "others" bar summing what is not drawn: the page would add figures, and the read gives no aggregate row (D-524).
+- A sideways scroll frame on a phone (D-503): the flow runs top to bottom instead.
+- A "left" per account: left is one pooled figure (D-524).
+
+Related: D-503, D-524, D-525, R-ACCOUNT-447, R-ACCOUNT-448, Q-320
+
+Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+
+### D-546 Category group colours: on the money flow only, by display order (accepted)
+
+On the money flow a category group takes a hue by its display order (then id), from the fifth hue of the same eight-hue palette as the accounts (so that the first groups never share a colour with the first accounts); the budget and compare pages keep theirs for now (Q-320). Accounts take theirs by creation (created_at, then id). The palette is eight hues validated for colour-blind separation in light and dark, a ninth and later repeat them with a dashed outline.
+
+**Why:** The design asked for the colours the groups have on the budget and compare pages, but they have none stable there; the coordinator decided money flow only for now.
+
+**Rejected:**
+
+- Colours by name: a rename recoloured every account (review S-6).
+
+Related: D-545, R-ACCOUNT-448, Q-320, D-405
+
+Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+
+### D-547 Import limits said by their name; a rule's text refused at 100 characters (accepted)
+
+A run stopped by import_limit_reached reads the refusal's detail and gives one message per limit (new imports within 24 hours, rows within 24 hours, imports kept) or a general one; the general error text names the limits as they are and no longer suggests undoing an import. A merchant rule's field refuses a text over 100 characters once tidied (the stored fragment is 1 to 100 characters), stricter than the database's raw 1000-character bound, so neither refusal is reached from the field; invalid_fragment from the database is said at the field.
+
+**Why:** The old message suggested undoing an import, which gives back none of the day's allowance (D-452), and gave the limits wrongly (50 imports); a field that cut a pasted text at 100 characters silently saved something else than what was pasted.
+
+**Rejected:**
+
+- Refusing at 1000 characters only: 101 to 1000 would still be refused by the database after a round trip.
+
+Related: D-452, R-IMPORT-442, R-IMPORT-444, R-IMPORT-421
+
+Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+
+### D-548 A transfer filter that names no transfer of the budget is said, not dropped (accepted)
+
+Unlike a stale subscription or debt link (whose filter is dropped silently), `?transfer=` naming a transfer the budget does not have shows "This transfer is not in this budget" with "Show all transactions"; the list is not read meanwhile. The links from the planned transfers open all periods; the money flow's link opens the flow's period.
+
+**Why:** Dropping the filter would list every transaction of the period under a page the member opened for one transfer's transactions (the coordinator's brief).
+
+**Rejected:**
+
+- Dropping the filter as for subscriptions and debts.
+
+Related: D-525, R-TRANSACTION-441
+
+Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
 
 ## Open questions
 
@@ -7854,6 +7952,18 @@ Source: owner-request: coordinator brief for the step 7 screens fix round (revie
   - Context: A key is derived from the earlier periods (D-490): the previous period's projected end from its start. After a start moved more than 15 days later (the November salary on 12 Dec), the December period keyed 25 Dec, reopened and recorded again on 28 Dec, is keyed 25 Jan: a mark made by hand is no longer planned and the December transfer is to do again (re-check 3, scen7c I2). The same derivation keys every period with the next payday for good after a change of pay day. Options: (1) derive the key from the previous period's key (stable across moved starts and ends the shift after a pay-day change; every existing key may change once, nothing is deployed); (2) remember the keys of a reopened period's successors and give them back when the salary is recorded again; (3) leave it (a rare sequence; the mark stays listed and can be undone).
   - Related: D-490, D-420, R-ACCOUNT-307
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17
+- **Q-320** Should category groups have one colour each across the money flow, the budget page and Compare (by display order, as on the money flow), instead of Compare's colours by chart slot?
+  - Context: D-546 gives groups colours on the money flow only. The design proposed one helper for the budget page's group headers, Compare's default slots and the money flow; Compare colours by the member's chosen lines today, and the budget page uses none.
+  - Related: D-546, D-405, R-ACCOUNT-448
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **Q-321** Should get_money_flow answer a per-group remainder ("left" of a group: planned less spent) for the actual view's spending table?
+  - Context: The design's spending table had a "Left" column per group on the actual basis. The read gives each group's amount and spent but no remainder per group, and the page must not subtract (C-LOGIC-003), so the table shows Planned and Spent with the over-plan warning (is_negative) only. A column would need a field from the read.
+  - Related: D-524, R-ACCOUNT-422, D-545
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **Q-322** Should preview_update_transfer say, per occurrence, that it is already recorded (a transaction or a mark kept at the old terms), so the edit preview can say so?
+  - Context: The review's can-wait: after an amount edit the preview lists this period's already-recorded occurrence at the new amount with no mark, while its transaction keeps the old amount. The preview rows carry created_at_once, transactions_removed_count and marks_unplanned_count but nothing that says an occurrence is already recorded and stays as it is.
+  - Related: D-502, R-ACCOUNT-303
+  - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
 
 ## Glossary
 

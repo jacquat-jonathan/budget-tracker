@@ -190,6 +190,7 @@ export const PALETTE_SIZE = 8
  * (created_at, then id), so renaming recolours nothing; category groups by their display
  * order (then id). Slot n uses hue n mod 8; from the ninth on it is drawn with a dashed outline.
  */
+// R-ACCOUNT-448: colours follow the record (creation, display order), never its name or rank.
 export function accountSlots(accounts: readonly FlowAccount[]): Map<string, number> {
   const order = [...accounts].sort(
     (a, b) =>

@@ -181,7 +181,7 @@ describe('the mock database’s money flow answers as the database does [R-ACCOU
   })
 })
 
-describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422]', () => {
+describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422] [R-ACCOUNT-447]', () => {
   it('shows the database’s total row as four tiles, planned by default', async () => {
     const db = await openPage()
     expect(db.rpc.get_money_flow).toHaveBeenCalledWith({
@@ -461,7 +461,7 @@ describe('the diagram’s layout [R-ACCOUNT-235] [D-545]', () => {
     expect(layout.nodes.some((node) => node.id === REST)).toBe(false)
   })
 
-  it('colours accounts by creation and groups by display order, never by name or size', () => {
+  it('[R-ACCOUNT-448] colours accounts by creation and groups by display order, never by name or size', () => {
     const before = readMoneyFlow(moneyFlowRows(workedExamplePlan()))
     const renamed = workedExamplePlan()
     renamed.accounts[0]!.name = 'Zulu'

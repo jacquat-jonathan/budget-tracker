@@ -399,6 +399,7 @@ export const STORAGE_LIMITS = ['imports_per_day', 'rows_per_day', 'imports_kept'
 export type StorageLimit = (typeof STORAGE_LIMITS)[number]
 
 /** The limit an import_limit_reached refusal names (its detail `{"limit": ...}`), if known. */
+// R-IMPORT-442: each limit is said by its name; an unknown one by a general message.
 export function storageLimit(error: unknown): StorageLimit | null {
   const detail = dbErrorDetail(error) as { limit?: unknown } | null
   const limit = detail?.limit
