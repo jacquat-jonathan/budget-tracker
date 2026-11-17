@@ -1096,6 +1096,18 @@ as $$
          or t.planned_spending <> coalesce((select sum(x.amount) from mf as x where x.seq = t.seq and x.row_kind = 'spending'), 0)
          or t.actual_spending <> coalesce((select sum(x.spent) from mf as x where x.seq = t.seq and x.row_kind = 'spending'), 0))
   union all
+  -- R-ACCOUNT-520: the flow's figures and its two differences give the period's summary figures
+  select format('period %s: flow %s + %s / %s + %s / %s + %s, summary %s / %s / %s', t.seq, t.amount, t.extra_income_left_out,
+                t.planned_spending, t.set_aside_transfers_planned, t.actual_spending, t.set_aside_transfers_spent,
+                s.income_total, s.expected_total, s.spent_total)
+  from mf as t
+  join public.periods as p on p.budget_id = (select id from b) and p.seq = t.seq
+  join public.period_summaries as s on s.id = p.id
+  where t.row_kind = 'total'
+    and (t.amount + t.extra_income_left_out <> s.income_total or t.summary_income_total <> s.income_total
+         or t.planned_spending + t.set_aside_transfers_planned <> s.expected_total or t.summary_planned_total <> s.expected_total
+         or t.actual_spending + t.set_aside_transfers_spent <> s.spent_total or t.summary_spent_total <> s.spent_total)
+  union all
   select format('period %s: transfer %s at %s, its monthly share is %s', t.seq, t.name, t.amount,
                 case when t.cadence is null or t.cadence = 'monthly' then t.planned_amount
                      when t.cadence = 'quarterly' then (2 * t.planned_amount + 3) / 6

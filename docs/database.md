@@ -1979,7 +1979,7 @@ total are unchanged. Ended transfers count only where they were in force.
 
 #### The money flow (R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-304, D-356, R-ACCOUNT-422, R-ACCOUNT-423, D-524)
 
-**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence, spendable, expected, transfer_share, spent, transfer_spent, yearly_amount, display_order, set_aside, spendable_amount, planned_spending, actual_spending, not_planned, left_amount, created_at, spending_rows_omitted}[]`**
+**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence, spendable, expected, transfer_share, spent, transfer_spent, yearly_amount, display_order, set_aside, spendable_amount, planned_spending, actual_spending, not_planned, left_amount, created_at, spending_rows_omitted, summary_income_total, summary_planned_total, summary_spent_total, extra_income_left_out, set_aside_transfers_planned, set_aside_transfers_spent}[]`**
 Member; for a chosen period (default the current one: `budget_ended` when there is none);
 catches up first. The flow runs **income -> accounts -> spending** (D-524, answers Q-301): the
 incomes, the accounts and the transfers between them come from the plan in force in that
@@ -1994,7 +1994,7 @@ nothing. Rows, in this order (the columns a row does not use are null):
 | `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning), **`spendable`** (R-ACCOUNT-423: true for the everyday kinds `'current'`, `'cash'`, `'credit_card'` and `'other'`; false for `'savings'`, `'third_pillar'`, `'tax_reserve'` and `'investment'`, whose `stays` is **set aside**), `created_at` (with `id`: a stable order, e.g. for colours by creation) |
 | `'transfer'` | transfer in force in the period | `id`, `name`, `source_id` (from account) -> `target_id` (to account), `amount` (**its monthly share**: what the plan moves per period), `planned_amount` and `cadence` (its real amount and cadence: "CHF 7'056.00 once a year"; `cadence` null for a pay date), `is_automatic` |
 | `'spending'` | top-level category (a group, or a category without a group) with something planned or spent in the period, in the categories' display order (`display_order`) | `id` (the category: a **stable key for its colour**), `name`, `expected` (its plan at the monthly share: a yearly expectation counts one twelfth, half up), `transfer_share` (the monthly share of planned transfers linked to it **whose destination is a set-aside account** (savings, third pillar, tax reserve, investment), at most `expected`: **those francs leave the spendable pool as transfers**, so they are left out here; a linked transfer into an everyday account, a cash wallet, stays in the pool and counts as planned spending like any other, R-ACCOUNT-465, D-565), **`amount` = `expected` - `transfer_share`** (planned spending), `yearly_amount` (the real amount of its yearly expectations, "CHF 2'400.00 a year"; null when none), **`spent`** (what the period's transactions spent in it, refunds deducted, **less** `transfer_spent`, the transactions of those set-aside transfers), **`left_amount`** (= `amount` - `spent`: the group's own remainder on the actual basis, **negative when overspent**, the database's figure: the page never subtracts; Q-321, D-567), `is_negative` (spent more than planned) |
-| `'total'` | one, always last | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up, `set_aside` (the `stays` of the set-aside accounts), `spendable_amount` (= `amount` - `set_aside`), `planned_spending` (the spending rows' `amount`), `not_planned` (= `spendable_amount` - `planned_spending`; **may be negative**: `is_negative`), `actual_spending` (the spending rows' `spent`), `left_amount` (= `spendable_amount` - `actual_spending`; may be negative; one pooled figure for the spendable accounts together, no account has a "left" of its own), `spending_rows_omitted` (0; see below) |
+| `'total'` | one, always last | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up, `set_aside` (the `stays` of the set-aside accounts), `spendable_amount` (= `amount` - `set_aside`), `planned_spending` (the spending rows' `amount`), `not_planned` (= `spendable_amount` - `planned_spending`; **may be negative**: `is_negative`), `actual_spending` (the spending rows' `spent`), `left_amount` (= `spendable_amount` - `actual_spending`; may be negative; one pooled figure for the spendable accounts together, no account has a "left" of its own), `spending_rows_omitted` (0; see below); and the **reconciling line** (R-ACCOUNT-520, D-618, below): `summary_income_total`, `summary_planned_total`, `summary_spent_total`, `extra_income_left_out`, `set_aside_transfers_planned`, `set_aside_transfers_spent` (null on every other row) |
 
 Everything adds up, and each sum is a field: the `stays` of the accounts and "not assigned"
 total the incomes; **income = `set_aside` + `spendable_amount`**; **`spendable_amount` =
@@ -2054,7 +2054,30 @@ transfer's 1 000.00). The read (amounts in francs; the API answers rappen):
 | total | amount 10 000.00, outflow 1 588.00, set_aside 1 588.00, spendable_amount 8 412.00, planned_spending 3 900.00, not_planned 4 512.00, actual_spending 2 905.50, left_amount 5 506.50 |
 
 10 000.00 = 1 588.00 set aside + 8 412.00 spendable; 8 412.00 = 3 900.00 planned + 4 512.00 not
-planned = 2 905.50 spent + 5 506.50 left. (This example is a test: `97j_db_fix3`.)
+planned = 2 905.50 spent + 5 506.50 left. (This example is a test: `97j_db_fix3`.) Its reconciling
+line: `summary_income_total` 10 000.00, `extra_income_left_out` 0, `summary_planned_total`
+5 488.00, `set_aside_transfers_planned` 1 588.00, `summary_spent_total` 3 905.50,
+`set_aside_transfers_spent` 1 000.00: 3 900.00 + 1 588.00 = 5 488.00 and 2 905.50 + 1 000.00 =
+3 905.50, the figures the dashboard, budget, periods and compare pages show.
+
+**The reconciling line** (R-ACCOUNT-520, D-618). The other pages read `period_summaries`, whose
+"income", "planned" and "spent" are not the flow's: the flow leaves out the period's extra income
+(it is not plan) and counts what linked transfers into set-aside accounts carry as set aside,
+not as spending. So the total row answers the period's figures exactly as `period_summaries`
+gives them and the two differences as the database's own figures, for one line such as "Spent
+3'916.50 here, 4'916.50 on the budget page: 1'000.00 went to savings as transfers" with nothing
+added up by the page:
+
+- `summary_income_total` = `period_summaries.income_total` = `amount` + `extra_income_left_out`
+  (the period's extra income);
+- `summary_planned_total` = `period_summaries.expected_total` = `planned_spending` +
+  `set_aside_transfers_planned` (the spending rows' `transfer_share` added up);
+- `summary_spent_total` = `period_summaries.spent_total` = `actual_spending` +
+  `set_aside_transfers_spent` (the spending rows' `transfer_spent` added up).
+
+The two transfer sums cover every top-level category, also the rows left out at the row limit.
+There is no other difference: the three identities hold for every period (the property walk
+checks them after every step); should a later step add one, it gets a column of its own.
 
 **Second example: a linked transfer into an everyday account** (R-ACCOUNT-465). Income
 6 000.00 into Main; accounts Main (current), Cash (cash), Savings (savings). Transfer "Pocket

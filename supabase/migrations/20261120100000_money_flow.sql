@@ -3515,6 +3515,15 @@ $$;
 --   only; extra incomes are actual transactions, not plan), outflow = the transfers added up;
 --   set_aside + spendable_amount = income; planned_spending + not_planned = spendable_amount;
 --   actual_spending + left_amount = spendable_amount; is_negative = not_planned < 0.
+--   R-ACCOUNT-520 (D-618): the total row also answers the period's figures as the other pages
+--   show them (period_summaries: summary_income_total = salaries + extra income,
+--   summary_planned_total = expected_total, summary_spent_total = spent_total) and the two
+--   differences, the database's own figures: extra_income_left_out (the period's extra income,
+--   not plan) and set_aside_transfers_planned / set_aside_transfers_spent (what linked transfers
+--   into set-aside accounts carry: the sums of the spending rows' transfer_share and
+--   transfer_spent, rows left out at the row limit included), so that amount +
+--   extra_income_left_out = summary_income_total, planned_spending + set_aside_transfers_planned =
+--   summary_planned_total and actual_spending + set_aside_transfers_spent = summary_spent_total.
 create function private.limit_money_flow_rows() returns integer
 language sql immutable set search_path = '' as $$ select 1000 $$;
 
@@ -3535,7 +3544,9 @@ returns table (
   spendable boolean, expected bigint, transfer_share bigint, spent bigint, transfer_spent bigint,
   yearly_amount bigint, display_order integer, set_aside bigint, spendable_amount bigint,
   planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint,
-  created_at timestamptz, spending_rows_omitted integer
+  created_at timestamptz, spending_rows_omitted integer, summary_income_total bigint, summary_planned_total bigint,
+  summary_spent_total bigint, extra_income_left_out bigint, set_aside_transfers_planned bigint,
+  set_aside_transfers_spent bigint
 )
 language plpgsql
 stable
@@ -3637,7 +3648,16 @@ begin
                      where not private.account_is_spendable(acc.kind)), 0)::bigint as set_aside,
            coalesce((select pg_catalog.sum(s.expected - s.transfer_share) from top as s), 0)::bigint as planned,
            coalesce((select pg_catalog.sum(s.spent) from top as s), 0)::bigint as actual,
-           greatest((select pg_catalog.count(*) from top) - (select room.n from room), 0)::integer as omitted
+           greatest((select pg_catalog.count(*) from top) - (select room.n from room), 0)::integer as omitted,
+           -- R-ACCOUNT-520 (D-618): the period's figures as period_summaries gives them, and the
+           -- two differences, from every top-level row (those left out at the row limit included)
+           (private.salary_total(p_budget_id, p_seq) + (select private.extra_income_between(p_budget_id, per.start_date, per.end_date)
+                                                      from per))::bigint as summary_income,
+           private.expected_total(p_budget_id, p_seq)::bigint as summary_planned,
+           (select private.spent_total(p_budget_id, per.start_date, per.end_date) from per)::bigint as summary_spent,
+           (select private.extra_income_between(p_budget_id, per.start_date, per.end_date) from per)::bigint as extra_left_out,
+           coalesce((select pg_catalog.sum(s.transfer_share) from top as s), 0)::bigint as sa_planned,
+           coalesce((select pg_catalog.sum(s.transfer_spent) from top as s), 0)::bigint as sa_spent
   ),
   rows as (
     select 1 as o, 0::bigint as o2, 'income'::text as row_kind, inc.id, inc.name, inc.id as source_id,
@@ -3684,7 +3704,13 @@ begin
               -- Q-321 (D-567): a group's own remainder on the actual basis, negative when overspent
               when r.row_kind = 'spending' then r.amount - r.spent end,
          r.created_at,
-         case when r.row_kind = 'total' then sums.omitted end
+         case when r.row_kind = 'total' then sums.omitted end,
+         case when r.row_kind = 'total' then sums.summary_income end,
+         case when r.row_kind = 'total' then sums.summary_planned end,
+         case when r.row_kind = 'total' then sums.summary_spent end,
+         case when r.row_kind = 'total' then sums.extra_left_out end,
+         case when r.row_kind = 'total' then sums.sa_planned end,
+         case when r.row_kind = 'total' then sums.sa_spent end
   from rows as r cross join sums
   order by r.o, r.o2, r.name, r.id;
 end;
@@ -3699,7 +3725,9 @@ returns table (
   spendable boolean, expected bigint, transfer_share bigint, spent bigint, transfer_spent bigint,
   yearly_amount bigint, display_order integer, set_aside bigint, spendable_amount bigint,
   planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint,
-  created_at timestamptz, spending_rows_omitted integer
+  created_at timestamptz, spending_rows_omitted integer, summary_income_total bigint, summary_planned_total bigint,
+  summary_spent_total bigint, extra_income_left_out bigint, set_aside_transfers_planned bigint,
+  set_aside_transfers_spent bigint
 )
 language plpgsql
 security definer

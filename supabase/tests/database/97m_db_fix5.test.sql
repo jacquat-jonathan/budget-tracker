@@ -448,6 +448,7 @@ begin
                       and (o.occurrence_date = c.occurrence_date or o.occurrence_seq = c.occurrence_seq));
   raise exception '%', v_due || ' -> ' || coalesce(v_got, 'nothing') using errcode = 'P0060';
 exception when sqlstate 'P0060' then
+  execute 'discard plans';  -- no plan cached with the day moved to survives the rollback
   return sqlerrm;
 end $$;
 select is((select next_due_date from public.transfer_overview where id = tests.id('n_t')), '2026-12-10'::date,

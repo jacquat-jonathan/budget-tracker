@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-612 rules (594 active, 0 planned), 24 conventions, 383 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+613 rules (595 active, 0 planned), 24 conventions, 384 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2635,6 +2635,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-616
   - Source: owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-520** The money flow's total row answers the period's income, planned and spent totals as the other pages show them, with the extra income it leaves out and what linked transfers into set-aside accounts carry on the planned and the spent side, so that the flow's figure plus its difference is the summary's figure on each side.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-618, R-ACCOUNT-422, R-ACCOUNT-465
+  - Source: owner-request: coordinator addition to database fix round 5 (the money flow and the other pages say different figures), 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 
@@ -7919,6 +7923,21 @@ transfer_checklist_row gains occurrence_seq (a period's own occurrence: its peri
 Related: R-ACCOUNT-518, R-ACCOUNT-510, D-610
 
 Source: owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-618 The money flow answers a reconciling line with the other pages (accepted)
+
+get_money_flow's total row also answers the period's figures exactly as period_summaries gives them (summary_income_total = income_total, summary_planned_total = expected_total, summary_spent_total = spent_total) and the two differences as the database's own figures: extra_income_left_out (the period's extra income, which the flow leaves out) and set_aside_transfers_planned / set_aside_transfers_spent (the sums of the spending rows' transfer_share and transfer_spent, rows left out at the row limit included). flow + difference = summary on the income, planned and spent sides; no other difference exists today, and one added later gets a column of its own.
+
+**Why:** The final pass found two 'Spent' figures for one period (4 916.50 on the budget page, 3 916.50 on the money flow): each right by its own definition. The page must reconcile them without adding anything up itself (C-LOGIC-003).
+
+**Rejected:**
+
+- Letting the page subtract the two figures: the screens never compute money figures.
+- Changing the flow's figures to the summary's: the flow's definitions are decided (D-524, D-565).
+
+Related: D-524, D-565, D-567, R-ACCOUNT-520, R-ACCOUNT-422
+
+Source: owner-request: coordinator addition to database fix round 5 (the money flow and the other pages say different figures), 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 
 ## Open questions
 

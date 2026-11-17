@@ -414,6 +414,19 @@ select results_eq($$select amount, set_aside, spendable_amount, planned_spending
                      from wflow where row_kind = 'total'$$,
   $$values (1000000::bigint, 158800::bigint, 841200::bigint, 390000::bigint, 451200::bigint, 290550::bigint, 550650::bigint, false)$$,
   'R-ACCOUNT-422: the totals balance: income = set aside + spendable = set aside + planned + not planned = set aside + spent + left');
+select results_eq($$select summary_income_total, extra_income_left_out, summary_planned_total, set_aside_transfers_planned,
+                           summary_spent_total, set_aside_transfers_spent from wflow where row_kind = 'total'$$,
+  $$values (1000000::bigint, 0::bigint, 548800::bigint, 158800::bigint, 390550::bigint, 100000::bigint)$$,
+  'R-ACCOUNT-520: the reconciling line of the worked example: 3 900.00 + 1 588.00 planned, 2 905.50 + 1 000.00 spent, as the summary');
+select is((select count(*)::integer from wflow as f join public.period_summaries as s on s.id = f.period_id
+           where f.row_kind = 'total' and s.income_total = f.summary_income_total and s.expected_total = f.summary_planned_total
+             and s.spent_total = f.summary_spent_total
+             and f.planned_spending + f.set_aside_transfers_planned = s.expected_total
+             and f.actual_spending + f.set_aside_transfers_spent = s.spent_total), 1,
+  'R-ACCOUNT-520: the summary figures are period_summaries'' own, and flow + difference = summary');
+select is((select count(*)::integer from wflow where row_kind <> 'total' and num_nonnulls(summary_income_total, summary_planned_total,
+           summary_spent_total, extra_income_left_out, set_aside_transfers_planned, set_aside_transfers_spent) > 0), 0,
+  'R-ACCOUNT-520: only the total row carries them');
 select is((select count(*)::integer from wflow), 2 + 1 + 3 + 2 + 5, 'R-ACCOUNT-422: incomes, accounts, transfers, spending and the total, nothing else');
 select is((select row_kind from wflow order by row_kind = 'total', 1 limit 1 offset 12), 'total', 'R-ACCOUNT-422: the total stays the last row');
 select is((select spending_rows_omitted from wflow where row_kind = 'total'), 0, 'R-ACCOUNT-422: every row answered: nothing omitted');

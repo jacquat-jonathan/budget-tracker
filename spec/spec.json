@@ -8836,6 +8836,19 @@
         "owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
+    },
+    {
+      "id": "R-ACCOUNT-520",
+      "area": "account",
+      "statement": "The money flow's total row answers the period's income, planned and spent totals as the other pages show them, with the extra income it leaves out and what linked transfers into set-aside accounts carry on the planned and the spent side, so that the flow's figure plus its difference is the summary's figure on each side.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-618", "R-ACCOUNT-422", "R-ACCOUNT-465"],
+      "source": [
+        "owner-request: coordinator addition to database fix round 5 (the money flow and the other pages say different figures), 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
     }
   ],
   "decisions": [
@@ -14112,6 +14125,22 @@
       "related": ["R-ACCOUNT-518", "R-ACCOUNT-510", "D-610"],
       "source": [
         "owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-618",
+      "title": "The money flow answers a reconciling line with the other pages",
+      "decision": "get_money_flow's total row also answers the period's figures exactly as period_summaries gives them (summary_income_total = income_total, summary_planned_total = expected_total, summary_spent_total = spent_total) and the two differences as the database's own figures: extra_income_left_out (the period's extra income, which the flow leaves out) and set_aside_transfers_planned / set_aside_transfers_spent (the sums of the spending rows' transfer_share and transfer_spent, rows left out at the row limit included). flow + difference = summary on the income, planned and spent sides; no other difference exists today, and one added later gets a column of its own.",
+      "why": "The final pass found two 'Spent' figures for one period (4 916.50 on the budget page, 3 916.50 on the money flow): each right by its own definition. The page must reconcile them without adding anything up itself (C-LOGIC-003).",
+      "rejected": [
+        "Letting the page subtract the two figures: the screens never compute money figures.",
+        "Changing the flow's figures to the summary's: the flow's definitions are decided (D-524, D-565)."
+      ],
+      "status": "accepted",
+      "related": ["D-524", "D-565", "D-567", "R-ACCOUNT-520", "R-ACCOUNT-422"],
+      "source": [
+        "owner-request: coordinator addition to database fix round 5 (the money flow and the other pages say different figures), 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
     }

@@ -60,9 +60,9 @@
 --     income's scheduled pay dates, a fixed day exactly its calendar dates (R-ACCOUNT-512,
 --     R-ACCOUNT-513); every untouched transaction the app recorded sits on its occurrence's due date
 --     (R-ACCOUNT-462); every 6th step every mark a checklist shows is undone by one call built from
---     its row (pg_temp.undo_probe, R-ACCOUNT-510); every 10th step, for a few transfers, the clock
---     is moved to next_due_date and that day must produce exactly that occurrence, with no unmarked
---     one due before it (pg_temp.next_due_probe, R-ACCOUNT-464).
+--     its row (pg_temp.undo_probe, R-ACCOUNT-510); at the end of the walk, for the first transfers
+--     of every budget, the clock is moved to next_due_date and that day must produce exactly that
+--     occurrence, with no unmarked one due before it (pg_temp.next_due_probe, R-ACCOUNT-464).
 -- Closed totals now include the committed total. Before each step the budget is opened (its
 -- catch-up runs), so the charges a long absence left due count as what the budget held.
 begin;
@@ -70,7 +70,7 @@ begin;
 create temp table seeds (seed double precision) on commit drop;
 insert into seeds values (0.11), (0.23), (0.37), (0.41), (0.53), (0.67), (0.79), (0.83);
 create temp table prop_config (steps integer) on commit drop;
-insert into prop_config values (270);
+insert into prop_config values (300);
 
 create temp table runs (seed double precision, step integer, budget text, op text, outcome text) on commit drop;
 create temp table failures (seed double precision, step integer, budget text, op text, problem text) on commit drop;
@@ -261,8 +261,8 @@ begin
     end;
   end loop;
 end $$;
--- R-ACCOUNT-464 (D-612), by moving the clock: for the first few transfers in force (in the order the
--- run made them), next_due_date names a day; moved to that day (and caught up, as the app does),
+-- R-ACCOUNT-464 (D-612), by moving the clock: for the first eight transfers in force (in the order
+-- the run made them), next_due_date names a day; moved to that day (and caught up, as the app does),
 -- the transfer lists a planned occurrence due that day that had no mark before the move, and none
 -- due from the day before the move up to it without a mark before the move. Each move is rolled
 -- back. Call it as postgres; who: the member.
@@ -276,7 +276,7 @@ declare
   v_early text;
 begin
   for t in select x.id, x.name from public.transfers as x join made as m on m.id = x.id
-           where x.budget_id = b and x.end_seq is null order by m.ord limit 4 loop
+           where x.budget_id = b and x.end_seq is null order by m.ord limit 8 loop
     perform tests.authenticate_as(who);
     v_due := (select o.next_due_date from public.transfer_overview as o where o.id = t.id);
     perform tests.clear_authentication();
@@ -306,10 +306,10 @@ begin
       when sqlstate 'P0061' then return next sqlerrm;
       when others then return next format('next due date: transfer %s, moving the clock to %s: %s', t.name, v_due, sqlerrm);
     end;
-    -- private.today() is replaced inside the rolled-back block: replace it again here, so no cached
-    -- plan keeps the day of the probe
+    -- private.today() was replaced inside the rolled-back block: a plan cached there (a stable
+    -- function evaluated with the probe's day) can survive the rollback, so the cached plans go
     perform tests.clear_authentication();
-    perform tests.set_today(v_from);
+    execute 'discard plans';
   end loop;
   perform tests.clear_authentication();
 end $$;
@@ -1688,12 +1688,6 @@ begin
         end loop;
         perform tests.clear_authentication();
       end if;
-      -- fix round 5, next_due_date by moving the clock: every 10th step and the last
-      if v_step % 10 = 0 or v_step = v_steps then
-        for v_problem in select pg_temp.next_due_probe(v_budget, v_user) loop
-          insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
-        end loop;
-      end if;
       for v_problem in select pg_temp.charge_oracle(v_budget) union all select pg_temp.interest_oracle(v_budget)
                        union all select pg_temp.projection_oracle(v_budget) loop
         insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
@@ -1728,6 +1722,18 @@ begin
           insert into failures values (v_seed, v_step, v_name, v_op, 'the expectation just saved is not in force now');
         end if;
       end if;
+    end loop;
+  end loop;
+  -- fix round 5, next_due_date by moving the clock, for every budget of every seed at the end of the
+  -- walk: private.today() is replaced inside a rolled-back block there, and a plan cached with the
+  -- moved day can outlive the rollback in this session (seen as a debt projection with no end date
+  -- later in the walk), so the probes run last
+  for v_seed in select seed from seeds order by seed loop
+    v_user := 'prop' || replace(v_seed::text, '.', '_');
+    for v_name in select unnest(array['b1', 'b2', 'b3']) loop
+      for v_problem in select pg_temp.next_due_probe(tests.id(v_user || v_name), v_user) loop
+        insert into failures values (v_seed, v_steps + 1, v_name, 'next_due_probe', v_problem);
+      end loop;
     end loop;
   end loop;
 end;
