@@ -763,6 +763,19 @@ function LinkBadges({ row }: { row: Transaction }) {
       </Badge>
     )
   }
+  if (row.transfer_id) {
+    // A planned transfer's transaction (R-ACCOUNT-073, R-ACCOUNT-074), said in words.
+    return (
+      <Badge
+        variant="secondary"
+        className="hidden shrink-0 sm:inline-flex"
+        data-testid="transfer-made"
+      >
+        <ArrowLeftRightIcon aria-hidden />
+        {t('transfers.transaction.badge')}
+      </Badge>
+    )
+  }
   if (row.charge_date) {
     return (
       <Badge variant="secondary" className="hidden shrink-0 sm:inline-flex" data-testid="automatic">
@@ -784,7 +797,9 @@ function useLinkNote() {
         ? row.charge_date
           ? t('transactions.automaticOf', { name: row.subscription_name })
           : t('transactions.subscriptionOf', { name: row.subscription_name })
-        : null
+        : row.transfer_name
+          ? t('transfers.transaction.of', { name: row.transfer_name })
+          : null
 }
 
 function TransactionRow({
@@ -976,6 +991,12 @@ function DeleteTransactionBody({
             amount: formatMoney(transaction.amount),
             date: formatCalendarDate(transaction.date),
           })}
+          {/* R-ACCOUNT-240: deleting a transfer's transaction says the transfer did not happen. */}
+          {transaction.transfer_id && (
+            <span className="mt-2 block" data-testid="delete-transfer-note">
+              {t('transfers.transaction.deleteNote', { name: transaction.transfer_name ?? '' })}
+            </span>
+          )}
         </AlertDialogDescription>
       </AlertDialogHeader>
       {removal.gone && <GoneElsewhere />}

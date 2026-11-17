@@ -89,6 +89,30 @@ export const accountsEn = {
 }
 
 export const transfersEn = {
+  transaction: {
+    badge: 'Transfer',
+    of: 'Planned transfer “{{name}}”',
+    note: 'Recorded for the planned transfer “{{name}}”: its amount, date, category and note can change here; it stays an expense of that transfer.',
+    deleteNote:
+      'It was recorded for the planned transfer “{{name}}”: deleting it says the transfer did not happen (a standing order is then not done, a manual one to do again).',
+  },
+  quoted: '“{{name}}”',
+  followingIncome_one:
+    'The planned transfer {{names}} follows this payday: what was recorded for it stays, and from its next occurrence it follows the main income.',
+  followingIncome_other:
+    'The planned transfers {{names}} follow this payday: what was recorded for them stays, and from their next occurrence they follow the main income.',
+  counts: {
+    title: 'Planned transfers',
+    removed_one: '{{count}} transaction the app recorded for a transfer is removed.',
+    removed_other: '{{count}} transactions the app recorded for transfers are removed.',
+    created_one: '{{count}} transaction of a standing order is recorded.',
+    created_other: '{{count}} transactions of standing orders are recorded.',
+    movedNote: 'A transaction that moves to its new due date counts once in each.',
+    unplanned_one:
+      '{{count}} tick made by a member is no longer planned: it stays, flagged, until undone.',
+    unplanned_other:
+      '{{count}} ticks made by members are no longer planned: they stay, flagged, until undone.',
+  },
   card: {
     title_one: '{{count}} transfer to make',
     title_other: '{{count}} transfers to make',

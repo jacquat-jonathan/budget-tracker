@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2Icon, LockIcon, RepeatIcon } from 'lucide-react'
+import { ArrowRightLeftIcon, CheckCircle2Icon, LockIcon, RepeatIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -181,7 +181,10 @@ function TransactionForm({
   const live = useRecord('transaction_list', budgetId, opened?.id)
   const edit = useEditBase(opened, live, describe)
   const transaction = edit.base
-  const subscriptionLinked = transaction?.subscription_id != null
+  // A subscription's charge or a planned transfer's transaction stays an expense, its link
+  // not this form's (invalid_link otherwise).
+  const subscriptionLinked =
+    transaction?.subscription_id != null || transaction?.transfer_id != null
   const schema = useMemo(
     () => transactionSchema(range, subscriptionLinked),
     [range, subscriptionLinked],
@@ -516,6 +519,14 @@ function TransactionForm({
                 >
                   {t('states.retry')}
                 </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {transaction?.transfer_id && (
+            <Alert data-testid="transfer-note">
+              <ArrowRightLeftIcon aria-hidden />
+              <AlertDescription>
+                {t('transfers.transaction.note', { name: transaction.transfer_name ?? '' })}
               </AlertDescription>
             </Alert>
           )}

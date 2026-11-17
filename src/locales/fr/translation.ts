@@ -1136,6 +1136,8 @@ const core: Omit<Translation, LazyKey> = {
         other: '« {{name}} »',
         subscription: 'Abonnement « {{name}} »',
         debt: 'Dette « {{name}} »',
+        account: 'Compte « {{name}} »',
+        transfer: 'Virement planifié « {{name}} »',
       },
       changes: {
         added: 'ajouté dans cette période, il comptera dès la période rouverte.',
@@ -1146,6 +1148,12 @@ const core: Omit<Translation, LazyKey> = {
         other: 'ce changement passera à la période rouverte.',
         interest_removed:
           'les intérêts ajoutés au début de cette période sont retirés ; ils sont ajoutés de nouveau, une fois, quand la période recommence.',
+        transaction_removed:
+          'la transaction que l’application avait enregistrée pour son jour de paie est retirée ; elle revient quand ce salaire est de nouveau enregistré.',
+        transaction_created: 'sa transaction est enregistrée par l’application.',
+        mark_unplanned:
+          'une coche d’un membre n’est plus prévue : elle reste, signalée, et compte de nouveau quand ce salaire est de nouveau enregistré.',
+        mark_planned_again: 'une coche d’un membre est de nouveau prévue.',
       },
       categoryChanges: {
         added: 'ajoutée dans cette période, elle sera prévue à partir de la période rouverte.',

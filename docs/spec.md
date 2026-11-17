@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-564 rules (553 active, 0 planned), 24 conventions, 343 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
+564 rules (553 active, 0 planned), 24 conventions, 344 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -7145,6 +7145,18 @@ The Transfers page opens on the current period's checklist (another period by th
 **Rejected:** none recorded.
 
 Related: R-ACCOUNT-005, R-ACCOUNT-240, R-CONCURRENCY-230, R-ACCOUNT-301
+
+Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+
+### D-505 The earlier screens follow the step 7 contract (accepted)
+
+The reopen confirmation previews with the pay date the member typed (preview_reopen p_pay_date) and lists the transfers' rows one per occurrence (the transaction of a payday removed or recorded, a tick no longer planned or planned again; a transfer kept for its ticks as ended). The move-start confirmation shows the transfer counts of preview_move_period_start (a moved transaction once removed and once created) and keeps Save disabled until the preview accepts the move. The income edit and the primary switch show the transfer counts of their previews; removing an income names the planned transfers that follow its payday and says that what was recorded stays and they follow the main income from their next occurrence. A transaction made by a transfer says so in the list and its form (it stays an expense with no other link), and its delete confirmation says that deleting it means the transfer did not happen. The import's own-transfer rows are left as they are: the contract does not link them to planned transfers.
+
+**Why:** Owner brief for step 7; the contract of the database review fixes (D-490 to D-494).
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-313, R-ACCOUNT-309, R-ACCOUNT-311, R-ACCOUNT-240, R-ACCOUNT-303
 
 Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 

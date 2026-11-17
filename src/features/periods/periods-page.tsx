@@ -55,6 +55,7 @@ import {
   type DateRange,
 } from '@/features/periods/boundary-ranges'
 import { nextSalary } from '@/features/periods/next-salary'
+import { TransferCounts } from '@/features/transfers/components/transfer-counts'
 import { progressPath } from '@/features/progress/progress-path'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { isRecordChanged } from '@/hooks/use-edit-base'
@@ -525,7 +526,12 @@ function BoundaryForm({
   const outside = outsideRange !== null
   const valid = typed && !outside
   const budgetId = budget.id
-  const reopenPreview = useReopenPreview(budgetId, action.kind === 'reopen')
+  // R-ACCOUNT-313: the preview describes the reopen with the pay date the member chose.
+  const reopenPreview = useReopenPreview(
+    budgetId,
+    action.kind === 'reopen',
+    action.kind === 'reopen' && valid ? date : null,
+  )
   // R-DEBT-340: a start on or before the opening of a debt with interest in this period is
   // refused (D-467); the preview says so before the member confirms.
   const moveTo =
@@ -643,11 +649,23 @@ function BoundaryForm({
         )}
         {action.kind === 'reopen' && <ReopenPreview preview={reopenPreview} />}
         {movePreview.data?.accepted === false &&
-          movePreview.data.refusal === 'interest_before_opening' && (
+          movePreview.data.refusal !== 'already_on_schedule' && (
             <Alert variant="destructive" data-testid="move-refused">
-              <AlertDescription>{t('errors.db.interest_before_opening')}</AlertDescription>
+              <AlertDescription>
+                {movePreview.data.refusal === 'invalid_boundary'
+                  ? t('periods.moveScheduleRefused')
+                  : t(dbErrorKey({ code: 'P0001', message: movePreview.data.refusal }))}
+              </AlertDescription>
             </Alert>
           )}
+        {movePreview.data?.accepted === true && (
+          <TransferCounts
+            removed={movePreview.data.transfer_transactions_removed}
+            created={movePreview.data.transfer_transactions_created}
+            unplanned={movePreview.data.transfer_marks_unplanned}
+            moved
+          />
+        )}
         {preview.result && (
           <Alert data-testid="boundary-preview">
             <CalendarRangeIcon aria-hidden />
@@ -667,7 +685,9 @@ function BoundaryForm({
               mutation.isPending ||
               outside ||
               // R-PERIOD-053: a reopen is confirmed only with its list in front of the user.
-              (action.kind === 'reopen' && !reopenPreview.isSuccess)
+              (action.kind === 'reopen' && !reopenPreview.isSuccess) ||
+              // R-ACCOUNT-309: a move is confirmed only with its preview, never while refused.
+              (moveTo !== null && movePreview.data?.accepted !== true)
             }
           >
             {mutation.isPending
@@ -765,17 +785,22 @@ function ListConsistency({
 type ReopenChange = Database['public']['Functions']['preview_reopen']['Returns'][number]
 
 /** R-PERIOD-053: what reopening would move, from preview_reopen, before it is confirmed. */
-function useReopenPreview(budgetId: string, enabled: boolean) {
+function useReopenPreview(budgetId: string, enabled: boolean, payDate: string | null) {
   return useQuery({
-    queryKey: [...budgetKeys.budget(budgetId), 'preview-reopen'] as const,
+    queryKey: [...budgetKeys.budget(budgetId), 'preview-reopen', payDate ?? ''] as const,
     enabled,
     staleTime: 0,
     queryFn: async (): Promise<ReopenChange[]> =>
-      unwrap(await supabase.rpc('preview_reopen', { p_budget_id: budgetId })),
+      unwrap(
+        await supabase.rpc('preview_reopen', {
+          p_budget_id: budgetId,
+          ...(payDate ? { p_pay_date: payDate } : {}),
+        }),
+      ),
   })
 }
 
-const KNOWN_KINDS = ['income', 'category', 'subscription', 'debt'] as const
+const KNOWN_KINDS = ['income', 'category', 'subscription', 'debt', 'account', 'transfer'] as const
 const KNOWN_CHANGES = [
   'added',
   'ended',
@@ -783,6 +808,10 @@ const KNOWN_CHANGES = [
   'terms_changed',
   'made_primary',
   'interest_removed',
+  'transaction_removed',
+  'transaction_created',
+  'mark_unplanned',
+  'mark_planned_again',
 ] as const
 /** A category's changes have their own words (its expectation, "in use" rather than "count"). */
 const CATEGORY_CHANGES = ['added', 'ended', 'removed', 'terms_changed'] as const
@@ -822,7 +851,7 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
     <div className="flex flex-col gap-2 text-sm" data-testid="reopen-preview">
       <p className="font-medium">{t('periods.reopen.title')}</p>
       <ul className="flex list-disc flex-col gap-1 pl-5">
-        {preview.data.map((item) => {
+        {preview.data.map((item, index) => {
           // R-PERIOD-193: at most 1000 rows; the last says how many more are not listed.
           if (item.record_kind === 'more') {
             return (
@@ -851,7 +880,8 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
                   ? t(`periods.reopen.changes.${item.change as (typeof KNOWN_CHANGES)[number]}`)
                   : t('periods.reopen.changes.other')
           return (
-            <li key={`${item.record_kind}-${item.record_id}-${item.change}`}>
+            // A transfer has one row per occurrence the reopen affects: same record, same change.
+            <li key={`${item.record_kind}-${item.record_id}-${item.change}-${index}`}>
               {t('periods.reopen.item', { kind, change })}
               {item.replaces_previous && item.change !== 'removed'
                 ? ` ${t('periods.reopen.replaces')}`

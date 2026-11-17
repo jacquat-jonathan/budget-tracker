@@ -1093,6 +1093,8 @@ const core = {
         other: '“{{name}}”',
         subscription: 'Subscription “{{name}}”',
         debt: 'Debt “{{name}}”',
+        account: 'Account “{{name}}”',
+        transfer: 'Planned transfer “{{name}}”',
       },
       changes: {
         added: 'added in this period, it will count from the reopened period.',
@@ -1103,6 +1105,12 @@ const core = {
         other: 'this change will move to the reopened period.',
         interest_removed:
           'the interest added when this period started goes; it is added again, once, when the period starts again.',
+        transaction_removed:
+          'the transaction the app recorded for its payday goes; it comes back when that salary is recorded again.',
+        transaction_created: 'its transaction is recorded by the app.',
+        mark_unplanned:
+          'a tick made by a member is no longer planned: it stays, flagged, and counts again when that salary is recorded again.',
+        mark_planned_again: 'a tick made by a member is planned again.',
       },
       categoryChanges: {
         added: 'added in this period, it will be planned from the reopened period.',

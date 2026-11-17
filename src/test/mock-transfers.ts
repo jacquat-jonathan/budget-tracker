@@ -117,7 +117,9 @@ export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRo
   }
 }
 
-export function moneyFlowRow(overrides: Partial<MoneyFlowRow>): MoneyFlowRow {
+export function moneyFlowRow(overrides: {
+  [K in keyof MoneyFlowRow]?: MoneyFlowRow[K] | null
+}): MoneyFlowRow {
   // The generated type marks every column required; the contract leaves most of them null.
   return {
     row_kind: 'account',

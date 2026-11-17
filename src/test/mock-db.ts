@@ -486,7 +486,20 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         },
       ]
     }),
-    preview_move_period_start: handler(() => rpcError('not_mocked')),
+    // A move to a date the test typed is accepted and touches no transfer; without a date
+    // the period is on its schedule already. Tests of a refusal give their own answer.
+    preview_move_period_start: handler((args) => [
+      {
+        period_id: args.p_period_id,
+        scheduled_start: typeof args.p_start_date === 'string' ? args.p_start_date : '2026-10-23',
+        accepted: typeof args.p_start_date === 'string',
+        refusal: typeof args.p_start_date === 'string' ? null : 'already_on_schedule',
+        interest_removed: 0,
+        transfer_transactions_removed: 0,
+        transfer_transactions_created: 0,
+        transfer_marks_unplanned: 0,
+      },
+    ]),
     // list_periods: newest first, a page at a time (p_before_seq: the last row's seq).
     list_periods: handler((args) => {
       const limit = Number(args.p_limit ?? 120)

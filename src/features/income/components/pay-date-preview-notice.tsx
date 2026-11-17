@@ -6,6 +6,7 @@ import type { ExpectedPayDatePreview } from '@/features/income/pay-date-preview'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
 import { nextSalary } from '@/features/periods/next-salary'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { TransferCounts } from '@/features/transfers/components/transfer-counts'
 import { formatCalendarDate } from '@/lib/date'
 
 /**
@@ -47,24 +48,32 @@ export function PayDatePreviewNotice({
   const next = nextSalary({ end_date: end, end_is_manual: manual }, endDateEntered)
   const fmt = formatCalendarDate
   return (
-    <Alert data-testid="pay-date-preview">
-      <CalendarClockIcon aria-hidden />
-      <AlertDescription>
-        <p>
-          {manual
-            ? t('income.preview.manual', { end: fmt(end) })
-            : next.kind === 'expected'
-              ? t('income.preview.expected', { date: fmt(next.date), end: fmt(end) })
-              : t('income.preview.lastPeriod', { end: fmt(end) })}
-        </p>
-        {offer && (
+    <>
+      <Alert data-testid="pay-date-preview">
+        <CalendarClockIcon aria-hidden />
+        <AlertDescription>
           <p>
-            {offer.kind === 'early'
-              ? t('income.preview.arrivedDue', { date: fmt(offer.date) })
-              : t('income.preview.arrivedDueMoveStart', { date: fmt(offer.date) })}
+            {manual
+              ? t('income.preview.manual', { end: fmt(end) })
+              : next.kind === 'expected'
+                ? t('income.preview.expected', { date: fmt(next.date), end: fmt(end) })
+                : t('income.preview.lastPeriod', { end: fmt(end) })}
           </p>
-        )}
-      </AlertDescription>
-    </Alert>
+          {offer && (
+            <p>
+              {offer.kind === 'early'
+                ? t('income.preview.arrivedDue', { date: fmt(offer.date) })
+                : t('income.preview.arrivedDueMoveStart', { date: fmt(offer.date) })}
+            </p>
+          )}
+        </AlertDescription>
+      </Alert>
+      {/* R-ACCOUNT-303: what the change does to the planned transfers, as the write counts it. */}
+      <TransferCounts
+        removed={preview.data.transfer_transactions_removed}
+        created={preview.data.transfer_transactions_created}
+        unplanned={preview.data.transfer_marks_unplanned}
+      />
+    </>
   )
 }

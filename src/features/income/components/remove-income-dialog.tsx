@@ -29,6 +29,7 @@ import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useRecord } from '@/features/budgets/record-queries'
 import { useRecordViews } from '@/features/budgets/record-views'
 import { useEditBase } from '@/hooks/use-edit-base'
+import { useTransfers } from '@/features/transfers/transfer-queries'
 import { formatCalendarDate } from '@/lib/date'
 
 /**
@@ -104,6 +105,7 @@ function RemoveIncomeForm({
           <div className="flex flex-col gap-2">
             <p>{correct ? t('income.removeFromEarlier') : t('income.removeDescription')}</p>
             <p>{t('income.removeHistory')}</p>
+            <FollowingTransfers budgetId={income.budget_id} incomeId={income.id} />
           </div>
         </AlertDialogDescription>
       </AlertDialogHeader>
@@ -182,5 +184,29 @@ function RemoveIncomeForm({
         </Button>
       </AlertDialogFooter>
     </>
+  )
+}
+
+/**
+ * The planned transfers that follow this income's payday (transfer_overview.income_id): what
+ * was recorded stays, and they follow the main income from their next occurrence (D-492).
+ */
+// R-ACCOUNT-311: ending the chosen income never rewrites what is already recorded.
+function FollowingTransfers({ budgetId, incomeId }: { budgetId: string; incomeId: string }) {
+  const { t } = useTranslation()
+  const transfers = useTransfers(budgetId)
+  const following = (transfers.data ?? []).filter(
+    (transfer) => transfer.is_active && transfer.income_id === incomeId,
+  )
+  if (following.length === 0) return null
+  return (
+    <p data-testid="income-following-transfers">
+      {t('transfers.followingIncome', {
+        count: following.length,
+        names: following
+          .map((transfer) => t('transfers.quoted', { name: transfer.name }))
+          .join(', '),
+      })}
+    </p>
   )
 }
