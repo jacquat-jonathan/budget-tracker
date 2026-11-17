@@ -451,6 +451,101 @@ select pg_temp.day('2026-11-26');
 select results_eq(format($$select transfers_to_do, transfers_overdue from public.get_transfers_to_do(%L)$$, tests.id('c3')),
   $$values (0, 0)$$, 'R-ACCOUNT-241: a member reads them (no manual transfer here)');
 
+-- ===========================================================================
+-- The gaps the reviewer's mutants showed
+-- ===========================================================================
+-- a non-member on preview_move_period_start (C-DBTEST-002)
+select pg_temp.day('2026-11-26', 'ivan');
+select throws_ok(format($$select * from public.preview_move_period_start(%L, '2026-11-24')$$, (select id from public.periods
+                        where budget_id = tests.id('c3') and seq = 3)), 'P0001', 'period_not_found',
+  'R-PERIOD-133: another user cannot preview moving a period''s start');
+select pg_temp.day('2026-11-26');
+-- the writes that change the plan settle it before they answer (D-423): caught up at once
+select pg_temp.day('2026-11-20');
+select pg_temp.budget('st');
+select tests.remember('st_inc', public.add_income(tests.id('st'), 'Partner', 300000, 10, p_from_period_id => tests.id('st_p1')));
+select tests.remember('st_t', (select id from public.create_transfer(tests.id('st'), 'After the partner', tests.id('st_main'),
+  tests.id('st_sav'), 1000, 'pay_date', p_income_id => tests.id('st_inc'), p_is_automatic => true, p_category_id => tests.id('st_cat'),
+  p_from_period_id => tests.id('st_p1'))));
+select tests.remember('st_inv', public.invite_member(tests.id('st'), tests.get_user_email('ivan')));
+select pg_temp.day('2026-11-20', 'ivan');
+select public.accept_invitation(tests.id('st_inv'));
+select tests.remember('st_inc2', public.add_income(tests.id('st'), 'Ines', 200000, 15,
+  p_user_id => tests.get_user_id('ivan'), p_from_period_id => tests.id('st_p1')));
+select tests.remember('st_t2', (select id from public.create_transfer(tests.id('st'), 'After Ines', tests.id('st_main'),
+  tests.id('st_sav'), 1000, 'pay_date', p_income_id => tests.id('st_inc2'), p_is_automatic => true, p_category_id => tests.id('st_cat'),
+  p_from_period_id => tests.id('st_p1'))));
+select pg_temp.day('2026-11-20');
+select public.set_primary_income(tests.id('st_inc'), (select revision from public.budgets where id = tests.id('st')));
+select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
+  'R-ACCOUNT-310: set_primary_income settles the transfers before it answers');
+select is(pg_temp.txs(tests.id('st_t')), '2026-10-09,2026-10-25',
+  'R-ACCOUNT-310: the transfer that chose the new primary follows it from this period at once (the past period keeps the partner''s date)');
+select public.set_expected_pay_date(tests.id('st'), (pg_temp.cur('st')).id, (pg_temp.cur('st')).revision, '2026-12-01');
+select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
+  'R-ACCOUNT-302: set_expected_pay_date settles the transfers before it answers');
+select is(public.remove_income(tests.id('st_inc2'), (select revision from public.incomes where id = tests.id('st_inc2')),
+                               tests.id('st_p1')), 'deleted', 'R-ACCOUNT-311: (Ines''s income removed as a correction from the first period)');
+select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
+  'R-ACCOUNT-311: remove_income settles the transfers before it answers');
+select is(pg_temp.txs(tests.id('st_t2')), '2026-09-25,2026-10-25',
+  'R-ACCOUNT-311: (from then on the transfer follows the primary, recorded at once; this period''s payday was the partner''s, no longer due at the start)');
+select lives_ok(format($$select public.remove_member(%L, %L)$$, tests.id('st'), tests.get_user_id('ivan')), 'R-MEMBER-007: (Ines removed)');
+select is((select caught_up from public.my_budgets where id = tests.id('st')), true,
+  'R-MEMBER-007: removing a member settles the transfers before it answers');
+-- a fixed day's nominal day against a clamped first date, and the default first date on the
+-- period's start day (R-ACCOUNT-300)
+select is((select first_date || '/' || day_of_month from public.create_transfer(tests.id('st'), 'Month end', tests.id('st_main'),
+             tests.id('st_sav'), 1000, 'day_of_month', p_day_of_month => 31, p_first_date => '2026-11-30')),
+  '2026-11-30/31', 'R-ACCOUNT-300: a first date clamped to a short month keeps the nominal day 31');
+select is((select string_agg(due_date::text, ',') from public.preview_create_transfer(tests.id('st'), tests.id('st_main'), tests.id('st_sav'),
+             1000, 'day_of_month', p_day_of_month => 25, p_from_period_id => (pg_temp.cur('st')).id, p_count => 2)),
+  '2026-10-25,2026-11-25', 'R-ACCOUNT-300: with only the day and a period, the first date is the period''s start when it falls on that day');
+-- the retry digest covers the cadence and the first date (D-390)
+select tests.remember('st_req', extensions.gen_random_uuid());
+select tests.remember('st_y', (select id from public.create_transfer(tests.id('st'), 'Yearly', tests.id('st_main'), tests.id('st_sav'), 1000,
+  'day_of_month', p_cadence => 'yearly', p_first_date => '2027-03-01', p_client_id => tests.id('st_req'))));
+select throws_ok(format($$select * from public.create_transfer(%L, 'Yearly', %L, %L, 1000, 'day_of_month', p_cadence => 'quarterly',
+                          p_first_date => '2027-03-01', p_client_id => %L)$$, tests.id('st'), tests.id('st_main'), tests.id('st_sav'),
+                        tests.id('st_req')), 'P0001', 'request_reused', 'R-APP-340: the same client id with another cadence is refused');
+select throws_ok(format($$select * from public.create_transfer(%L, 'Yearly', %L, %L, 1000, 'day_of_month', p_cadence => 'yearly',
+                          p_first_date => '2027-04-01', p_client_id => %L)$$, tests.id('st'), tests.id('st_main'), tests.id('st_sav'),
+                        tests.id('st_req')), 'P0001', 'request_reused', 'R-APP-340: and with another first date');
+-- the committed total rounds each transfer's monthly share, not their sum (R-ACCOUNT-304)
+select pg_temp.budget('rd');
+select public.create_transfer(tests.id('rd'), 'A', tests.id('rd_main'), tests.id('rd_sav'), 100001, 'day_of_month',
+  p_cadence => 'yearly', p_first_date => '2027-03-01', p_category_id => tests.id('rd_cat'));
+select public.create_transfer(tests.id('rd'), 'B', tests.id('rd_main'), tests.id('rd_sav'), 100001, 'day_of_month',
+  p_cadence => 'yearly', p_first_date => '2027-04-01', p_category_id => tests.id('rd_cat'));
+select is((select transfer_committed_total from public.period_summaries where id = (pg_temp.cur('rd')).id), 16666::bigint,
+  'R-ACCOUNT-304: two yearly 1000.01 count 833.33 each in the period''s committed total (16666, not 16667)');
+
+-- the step's bound: one statement creates at most 4000 transactions (R-PERIOD-300, D-427)
+select tests.clear_authentication();
+create or replace function private.limit_catch_up_work() returns interval language sql immutable set search_path = '' as $$ select interval '1 hour' $$;
+select tests.set_today('2019-02-01');
+select tests.authenticate_as('ivan');
+select tests.remember('bd', public.create_budget('Bound', 'Salary', 600000, 25, 'none', '2019-01-01'));
+select tests.remember('bd_p1', (select id from public.periods where budget_id = tests.id('bd') and seq = 1));
+select tests.remember('bd_a', (select id from public.create_account(tests.id('bd'), 'Main', 'current', p_from_period_id => tests.id('bd_p1'))));
+select tests.remember('bd_b', (select id from public.create_account(tests.id('bd'), 'Savings', 'savings', p_from_period_id => tests.id('bd_p1'))));
+select tests.remember('bd_c', (select id from public.create_category(tests.id('bd'), 'Saving', p_amount => 100000, p_from_period_id => tests.id('bd_p1'))));
+select count(*) from generate_series(1, 45) as g,
+  lateral public.create_transfer(tests.id('bd'), 'T' || g, tests.id('bd_a'), tests.id('bd_b'), 100, 'pay_date', p_is_automatic => true,
+                                 p_from_period_id => tests.id('bd_p1'));
+select tests.clear_authentication();
+select tests.set_today('2026-11-26');
+select tests.authenticate_as('ivan');
+do $$ begin loop exit when public.ensure_periods(tests.id('bd')) = 0; end loop; end $$;
+select tests.clear_authentication();
+update public.transfer_versions set category_id = tests.id('bd_c') where budget_id = tests.id('bd');
+select is((select private.materialise_transfers(tests.id('bd'))), 4000,
+  'R-PERIOD-300: one statement creates at most 4000 transactions, however many are due');
+select cmp_ok((select count(*)::integer from public.transactions where budget_id = tests.id('bd')), '=', 4000,
+  'R-PERIOD-300: the rest stays due');
+select cmp_ok((select private.materialise_transfers(tests.id('bd'))), '>', 0, 'R-PERIOD-300: the next step goes on, none skipped');
+select tests.authenticate_as('iris');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;
