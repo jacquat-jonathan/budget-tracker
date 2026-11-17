@@ -15,6 +15,12 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
+/** Choose an option of one of the app's styled selects. */
+async function pick(trigger: HTMLElement, option: string) {
+  await userEvent.click(trigger)
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
+
 // The settings page is a lazy chunk: loaded once here, not inside the first test's time.
 beforeAll(async () => {
   await import('@/features/settings/settings-page')
@@ -219,7 +225,7 @@ describe('merchant rules [R-IMPORT-078]', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Edit the rule' })
     await userEvent.clear(within(dialog).getByLabelText('Merchant text'))
     await userEvent.type(within(dialog).getByLabelText('Merchant text'), 'coop pronto')
-    await userEvent.selectOptions(within(dialog).getByLabelText('Category'), 'cat-rent')
+    await pick(within(dialog).getByLabelText('Category'), 'Rent')
     await userEvent.click(within(dialog).getByRole('checkbox'))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() =>
@@ -319,7 +325,8 @@ describe('merchant rules [R-IMPORT-078]', () => {
     const rows = await screen.findAllByTestId('rule-row')
     await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Edit the rule coop' }))
     const dialog = await screen.findByRole('dialog', { name: 'Edit the rule' })
-    const options = within(within(dialog).getByLabelText('Category')).getAllByRole('option')
+    await userEvent.click(within(dialog).getByLabelText('Category'))
+    const options = within(await screen.findByRole('listbox')).getAllByRole('option')
     expect(options.map((option) => option.textContent)).not.toContain('Waiting')
     expect(options.map((option) => option.textContent)).not.toContain('Insurance')
   })

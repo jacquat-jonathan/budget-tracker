@@ -520,6 +520,8 @@ const core: Omit<Translation, LazyKey> = {
       'Un budget part de votre revenu et va d’un jour de paie au suivant. Vous pourrez ensuite ajouter d’autres revenus et inviter d’autres personnes.',
   },
   budgets: {
+    nameTaken:
+      'Vous avez déjà un budget appelé « {{name}} » : les deux se ressembleront dans le choix du budget. Vous pouvez tout de même l’enregistrer.',
     fields: {
       name: 'Nom du budget',
       namePlaceholder: 'Ménage',
@@ -715,6 +717,8 @@ const core: Omit<Translation, LazyKey> = {
     endedNoEdit: 'Le budget est terminé : les conditions ne peuvent plus changer.',
     addAppliesFrom:
       'Il compte dès la période en cours, sauf si vous en choisissez une plus ancienne. Les périodes passées ne changent pas autrement.',
+    addAppliesFromCurrent:
+      'Il compte dès la période en cours. Les périodes passées ne changent pas.',
     editAppliesFrom:
       'Les nouvelles conditions s’appliquent dès la période en cours, commencée le {{date}}. Les périodes passées gardent leurs conditions.',
     editAppliesFromNoPeriod:
@@ -766,6 +770,8 @@ const core: Omit<Translation, LazyKey> = {
     },
   },
   categories: {
+    nameTaken:
+      'Une autre catégorie s’appelle déjà « {{name}} » : les deux se ressembleront dans les listes. Vous pouvez tout de même l’enregistrer.',
     add: 'Ajouter une catégorie',
     addFirst: 'Ajouter votre première catégorie',
     addTitle: 'Ajouter une catégorie',
@@ -881,6 +887,8 @@ const core: Omit<Translation, LazyKey> = {
     },
     addAppliesFrom:
       'Elle est prévue à partir de la période en cours, sauf si vous en choisissez une antérieure. Les périodes passées ne changent pas autrement.',
+    addAppliesFromCurrent:
+      'Elle est prévue à partir de la période en cours. Les périodes passées ne changent pas.',
     editAppliesFrom:
       'Un nouveau montant s’applique à partir de la période en cours, commencée le {{date}}. Les périodes passées gardent le montant qu’elles avaient.',
     correctionAppliesFrom:
@@ -1305,6 +1313,7 @@ const core: Omit<Translation, LazyKey> = {
   },
   catchUp: catchUpFr,
   ui: {
+    skipToContent: 'Aller au contenu',
     close: 'Fermer',
     more: 'Plus',
     breadcrumb: 'Fil d’Ariane',

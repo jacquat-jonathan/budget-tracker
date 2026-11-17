@@ -39,6 +39,7 @@ import {
 } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { formatCalendarDate } from '@/lib/date'
+import { MetaLine } from '@/components/meta-line'
 
 type DialogState =
   | { kind: 'closed' }
@@ -210,9 +211,13 @@ function AccountCard({
               )}
             </div>
             <p className="truncate text-sm text-muted-foreground">
-              {[t(`accounts.kinds.${account.kind}`), account.bank_label, holder(account)]
-                .filter((part): part is string => Boolean(part))
-                .join(' · ')}
+              <MetaLine
+                parts={[
+                  { key: 'kind', content: t(`accounts.kinds.${account.kind}`) },
+                  Boolean(account.bank_label) && { key: 'bank', content: account.bank_label },
+                  { key: 'holder', content: holder(account) },
+                ]}
+              />
             </p>
           </div>
           <DropdownMenu>
@@ -282,9 +287,18 @@ function ClosedAccounts({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{account.name}</p>
                     <p className="truncate text-muted-foreground">
-                      {[t(`accounts.kinds.${account.kind}`), holder(account)].join(' · ')}
-                      {from &&
-                        ` · ${t('accounts.closedFrom', { date: formatCalendarDate(from.start_date) })}`}
+                      <MetaLine
+                        parts={[
+                          { key: 'kind', content: t(`accounts.kinds.${account.kind}`) },
+                          { key: 'holder', content: holder(account) },
+                          from && {
+                            key: 'closed',
+                            content: t('accounts.closedFrom', {
+                              date: formatCalendarDate(from.start_date),
+                            }),
+                          },
+                        ]}
+                      />
                     </p>
                   </div>
                   <Button

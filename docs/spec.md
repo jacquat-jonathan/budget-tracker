@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-616 rules (605 active, 0 planned), 24 conventions, 382 decisions, 50 open questions. 0 rules and conventions are marked **TEST PENDING**.
+627 rules (616 active, 0 planned), 24 conventions, 383 decisions, 50 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -318,6 +318,27 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SHELL_
   - Related: R-AUTH-531, R-IMPORT-006
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/settings/settings-page.tsx
+- **R-APP-534** Adding an income or a category says "unless you choose an earlier one" only when the form offers an earlier period; with only the current period it says it counts from the current period, and nothing about a choice that is not there.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-PERIOD-051
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/budget/components/category-form-dialog.tsx; code: src/features/income/components/income-form-dialog.tsx
+- **R-APP-535** A metadata line ("Refund · Groceries · Recorded by Ann", an account's kind and holder, a token's dates, a debt's payoff) joins its parts with a dot glued to the part before it, so a wrapped line never starts with a dot, and a part hidden on some widths takes its own dot with it.
+  _active · enforced by test · F-SHELL_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/meta-line.tsx
+- **R-APP-536** A debt's own page names the debt in the browser tab ("Car loan · Debts · Budget Tracker") and in the breadcrumb, after a link back to Debts.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-122
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/layout/page-detail.ts
+- **R-APP-537** When the system asks for reduced motion, nothing animates: dialogs, menus, sheets and toasts appear and go at once (one global CSS rule).
+  _active · enforced by review · F-SHELL_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/index.css
+- **R-APP-538** The signed-in app's first keyboard stop is a "Skip to content" link, shown when it has the focus, that moves the focus to the page past the sidebar's links.
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-001
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/layout/app-layout.tsx
+- **R-APP-539** A name already used (another category of the budget, another of my budgets; compared trimmed, ignoring case and accents) is warned about at the name field, in words, while typing ("both will look the same in lists"); it is never refused.
+  _active · enforced by test · F-CATEGORY_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/lib/same-name.ts
 
 ### Accounts and sign-in
 
@@ -1515,6 +1536,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PROGRESS_
   - Related: R-PROGRESS-530, R-PROGRESS-120, D-630
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/commitments.tsx
+- **R-PROGRESS-532** A period's progress leaves out the "To categorise" row when nothing is in it in that period (no transaction, nothing spent, nothing planned); it is listed as soon as something is. The read gives what is in it now, so a period it was emptied in looks the same (D-637).
+  _active · enforced by test · F-PROGRESS_
+  - Related: R-CATEGORY-250, D-637
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/period-progress-card.tsx
 
 ### Subscriptions
 
@@ -1922,6 +1947,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: R-COMPARE-282, D-485
   - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-COMPARE-530** On a phone, Compare's tables (the trend, the categories over time, side by side) show each row as a block, every figure under its column's name, so nothing is cut and nothing scrolls sideways; from the small breakpoint up they are tables. Every label of Compare's view and range choices meets 4.5:1 contrast in both themes.
+  _active · enforced by review · F-COMPARE_
+  - Related: R-COMPARE-190
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/compare/components/phone-table.ts
 
 ### Import
 
@@ -2371,6 +2400,17 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-209, R-IMPORT-081, D-633
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/import/components/review-categorise.tsx
+- **R-IMPORT-531** Undoing an import is confirmed by a toast with what the database did (deleted, kept as confirmed, kept as linked, charges that stay confirmed), as well as in place.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-206
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/import/components/batch-actions.tsx
+- **R-IMPORT-532** The import's preview rows, the CSV mapper and the merchant rules use the app's styled selects, like every other page; no native select is left.
+  _active · enforced by review · F-IMPORT_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/choice-select.tsx
+- **R-IMPORT-533** The CSV mapper fills in the columns from obvious header names (Date, Datum, Amount, Betrag, Montant, Description, Text, Libellé and the like) for the member to check and change; nothing is sent unseen.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-082
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/import/csv/csv-map.ts
 
 ### Accounts and planned transfers (money flow)
 
@@ -7914,6 +7954,20 @@ docs/deployment.md makes "npx supabase migration list --remote" and "npx supabas
 Related: D-450, Q-280, Q-281
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: docs/deployment.md
+
+### D-637 An empty "To categorise" row is left out of a period's progress (accepted)
+
+The progress view drops the "To categorise" row of a period when it has no transaction, nothing spent and nothing planned there. get_period_progress gives what is in the category now, not whether anything ever was, so a period whose waiting transactions were all given a category later looks the same and is also left out.
+
+**Why:** After the first import every past period showed a zero "To categorise" row (household walk-through). A row with only zeros says nothing; whether something waited there once is not something the household needs in the progress view.
+
+**Rejected:**
+
+- Asking the database for a history flag: no read has it, and the row would still be zeros.
+
+Related: R-PROGRESS-532
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
 ## Open questions
 

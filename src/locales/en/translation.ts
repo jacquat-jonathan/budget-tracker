@@ -502,6 +502,8 @@ const core = {
       'A budget starts from your income and runs from pay day to pay day. You can add more incomes and invite others afterwards.',
   },
   budgets: {
+    nameTaken:
+      'You already have a budget called “{{name}}”: both will look the same in the budget switcher. You can still save it.',
     fields: {
       name: 'Budget name',
       namePlaceholder: 'Household',
@@ -687,6 +689,7 @@ const core = {
     endedNoEdit: 'The budget has ended: terms can no longer change.',
     addAppliesFrom:
       'It counts from the current period, unless you choose an earlier one. Past periods are otherwise unchanged.',
+    addAppliesFromCurrent: 'It counts from the current period. Past periods are unchanged.',
     editAppliesFrom:
       'New terms apply from the current period, which started on {{date}}. Past periods keep the terms they had.',
     editAppliesFromNoPeriod: 'New terms apply from the current period. Past periods keep theirs.',
@@ -735,6 +738,8 @@ const core = {
     },
   },
   categories: {
+    nameTaken:
+      'Another category is already called “{{name}}”: both will look the same in lists. You can still save it.',
     add: 'Add category',
     addFirst: 'Add your first category',
     addTitle: 'Add a category',
@@ -841,6 +846,7 @@ const core = {
     },
     addAppliesFrom:
       'It is planned from the current period, unless you choose an earlier one. Past periods are otherwise unchanged.',
+    addAppliesFromCurrent: 'It is planned from the current period. Past periods are unchanged.',
     editAppliesFrom:
       'A new amount applies from the current period, which started on {{date}}. Past periods keep the amount they had.',
     correctionAppliesFrom:
@@ -1252,6 +1258,7 @@ const core = {
   },
   catchUp: catchUpEn,
   ui: {
+    skipToContent: 'Skip to content',
     close: 'Close',
     more: 'More',
     breadcrumb: 'Breadcrumb',

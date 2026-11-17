@@ -162,3 +162,18 @@
 [data-step-heading]:focus {
   outline: none;
 }
+
+/* R-APP-537: with "reduce motion" asked for, nothing animates: dialogs, menus and sheets appear
+   and go at once (a near-zero duration, so the end of an animation is still reported). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

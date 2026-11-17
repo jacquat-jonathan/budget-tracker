@@ -8878,6 +8878,150 @@
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
         "code: src/features/settings/password-settings.tsx"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-534",
+      "area": "app",
+      "feature": "F-CATEGORY",
+      "statement": "Adding an income or a category says \"unless you choose an earlier one\" only when the form offers an earlier period; with only the current period it says it counts from the current period, and nothing about a choice that is not there.",
+      "related": ["R-PERIOD-051"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/budget/components/category-form-dialog.tsx",
+        "code: src/features/income/components/income-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-535",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "A metadata line (\"Refund · Groceries · Recorded by Ann\", an account's kind and holder, a token's dates, a debt's payoff) joins its parts with a dot glued to the part before it, so a wrapped line never starts with a dot, and a part hidden on some widths takes its own dot with it.",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/meta-line.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-536",
+      "area": "app",
+      "feature": "F-DEBT",
+      "statement": "A debt's own page names the debt in the browser tab (\"Car loan · Debts · Budget Tracker\") and in the breadcrumb, after a link back to Debts.",
+      "related": ["R-DEBT-122"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/layout/page-detail.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "review",
+      "id": "R-APP-537",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "When the system asks for reduced motion, nothing animates: dialogs, menus, sheets and toasts appear and go at once (one global CSS rule).",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/index.css"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-538",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "The signed-in app's first keyboard stop is a \"Skip to content\" link, shown when it has the focus, that moves the focus to the page past the sidebar's links.",
+      "related": ["R-APP-001"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/layout/app-layout.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-539",
+      "area": "app",
+      "feature": "F-CATEGORY",
+      "statement": "A name already used (another category of the budget, another of my budgets; compared trimmed, ignoring case and accents) is warned about at the name field, in words, while typing (\"both will look the same in lists\"); it is never refused.",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/lib/same-name.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-IMPORT-531",
+      "area": "import",
+      "feature": "F-IMPORT",
+      "statement": "Undoing an import is confirmed by a toast with what the database did (deleted, kept as confirmed, kept as linked, charges that stay confirmed), as well as in place.",
+      "related": ["R-IMPORT-206"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/import/components/batch-actions.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "review",
+      "id": "R-IMPORT-532",
+      "area": "import",
+      "feature": "F-IMPORT",
+      "statement": "The import's preview rows, the CSV mapper and the merchant rules use the app's styled selects, like every other page; no native select is left.",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/choice-select.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-IMPORT-533",
+      "area": "import",
+      "feature": "F-IMPORT",
+      "statement": "The CSV mapper fills in the columns from obvious header names (Date, Datum, Amount, Betrag, Montant, Description, Text, Libellé and the like) for the member to check and change; nothing is sent unseen.",
+      "related": ["R-IMPORT-082"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/import/csv/csv-map.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PROGRESS-532",
+      "area": "progress",
+      "feature": "F-PROGRESS",
+      "statement": "A period's progress leaves out the \"To categorise\" row when nothing is in it in that period (no transaction, nothing spent, nothing planned); it is listed as soon as something is. The read gives what is in it now, so a period it was emptied in looks the same (D-637).",
+      "related": ["R-CATEGORY-250", "D-637"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/progress/period-progress-card.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "review",
+      "id": "R-COMPARE-530",
+      "area": "compare",
+      "feature": "F-COMPARE",
+      "statement": "On a phone, Compare's tables (the trend, the categories over time, side by side) show each row as a block, every figure under its column's name, so nothing is cut and nothing scrolls sideways; from the small breakpoint up they are tables. Every label of Compare's view and range choices meets 4.5:1 contrast in both themes.",
+      "related": ["R-COMPARE-190"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/compare/components/phone-table.ts"
+      ]
     }
   ],
   "decisions": [
@@ -14111,6 +14255,20 @@
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
         "code: docs/deployment.md"
+      ]
+    },
+    {
+      "id": "D-637",
+      "title": "An empty \"To categorise\" row is left out of a period's progress",
+      "decision": "The progress view drops the \"To categorise\" row of a period when it has no transaction, nothing spent and nothing planned there. get_period_progress gives what is in the category now, not whether anything ever was, so a period whose waiting transactions were all given a category later looks the same and is also left out.",
+      "why": "After the first import every past period showed a zero \"To categorise\" row (household walk-through). A row with only zeros says nothing; whether something waited there once is not something the household needs in the progress view.",
+      "rejected": [
+        "Asking the database for a history flag: no read has it, and the row would still be zeros."
+      ],
+      "status": "accepted",
+      "related": ["R-PROGRESS-532"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]
     }
   ],

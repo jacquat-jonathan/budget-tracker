@@ -98,6 +98,7 @@ import { useEditBase } from '@/hooks/use-edit-base'
 import { calendarMonth, formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { MetaLine } from '@/components/meta-line'
 
 type DialogState =
   | { kind: 'closed' }
@@ -947,23 +948,24 @@ function TransactionRow({
           <LinkBadges row={row} />
           <ReviewBadge row={row} />
         </div>
-        <span className="truncate text-xs text-muted-foreground">
-          {/* The parts that apply, joined: never a separator with nothing after it. */}
-          {[
-            row.kind === 'refund' ? (
-              <span key="refund" className="sm:hidden">
-                {t('transactions.kind.refund')}
-              </span>
-            ) : null,
-            linkNote(row),
-            row.description ? what : null,
-            row.recorded_by_name
-              ? t('transactions.recordedBy', { name: row.recorded_by_name })
-              : null,
-          ]
-            .filter((part) => part !== null)
-            .flatMap((part, index) => (index === 0 ? [part] : [' · ', part]))}
-        </span>
+        {/* The parts that apply: never a separator with nothing after it, or at a line's start. */}
+        <MetaLine
+          className="truncate text-xs text-muted-foreground"
+          testId="transaction-meta"
+          parts={[
+            row.kind === 'refund' && {
+              key: 'refund',
+              content: t('transactions.kind.refund'),
+              className: 'sm:hidden',
+            },
+            linkNote(row) !== null && { key: 'link', content: linkNote(row) },
+            Boolean(row.description) && { key: 'what', content: what },
+            row.recorded_by_name !== null && {
+              key: 'by',
+              content: t('transactions.recordedBy', { name: row.recorded_by_name }),
+            },
+          ]}
+        />
         {budgetId && row.review_state === 'to_review' && (
           <div className="mt-1.5 flex flex-wrap items-center gap-2" data-answer>
             <RowCategoryPicker budgetId={budgetId} row={row} onSaved={onCategorised} />

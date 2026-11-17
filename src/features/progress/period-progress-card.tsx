@@ -21,6 +21,7 @@ import {
 import { isOverCommitted } from '@/features/progress/commitment'
 import { unwrap, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { useToCategoriseIds } from '@/features/categories/category-queries'
 import type { Database } from '@/lib/database.types'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -257,6 +258,19 @@ function Totals({ period }: { period: PeriodSummary }) {
  */
 function ProgressTable({ rows, period }: { rows: ProgressRow[]; period: PeriodSummary }) {
   const { t } = useTranslation()
+  const { budgetId } = useCurrentBudget()
+  const toCategorise = useToCategoriseIds(budgetId)
+  // R-PROGRESS-532: "To categorise" with nothing in it in this period says nothing: not listed.
+  // (The read gives what is in it now; a period it was emptied in looks the same.)
+  const shown = rows.filter(
+    (row) =>
+      !(
+        toCategorise?.has(row.category_id) === true &&
+        row.transaction_count === 0 &&
+        row.spent === 0 &&
+        row.expected === 0
+      ),
+  )
   return (
     <div role="table" aria-label={t('progress.listLabel')} className="flex flex-col">
       <div role="rowgroup">
@@ -277,7 +291,7 @@ function ProgressTable({ rows, period }: { rows: ProgressRow[]; period: PeriodSu
         </div>
       </div>
       <div role="rowgroup" className="divide-y">
-        {rows.map((row) => (
+        {shown.map((row) => (
           <ProgressLine key={row.category_id} row={row} period={period} />
         ))}
       </div>

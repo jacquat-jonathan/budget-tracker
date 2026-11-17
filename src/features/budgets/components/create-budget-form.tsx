@@ -29,6 +29,8 @@ import {
   weekendRuleSchema,
 } from '@/lib/form-schemas'
 import { currentLanguage } from '@/lib/i18n'
+import { isSameName } from '@/lib/same-name'
+import { useBudgets } from '@/features/budgets/current-budget-context'
 
 const createBudgetSchema = z.object({
   name: nameSchema,
@@ -65,6 +67,9 @@ export function CreateBudgetForm({
       startMonth: '',
     },
   })
+  const { budgets } = useBudgets()
+  const typedName = useWatch({ control: form.control, name: 'name' })
+  const nameTaken = budgets.some((other) => isSameName(other.name, typedName))
   const [payDay, weekendRule, startMonth] = useWatch({
     control: form.control,
     name: ['payDay', 'weekendRule', 'startMonth'],
@@ -119,6 +124,7 @@ export function CreateBudgetForm({
             label={t('budgets.fields.name')}
             placeholder={t('budgets.fields.namePlaceholder')}
             autoComplete="off"
+            warning={nameTaken ? t('budgets.nameTaken', { name: typedName.trim() }) : null}
           />
           <CalendarDateField
             control={form.control}

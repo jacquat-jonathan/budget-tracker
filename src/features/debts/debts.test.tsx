@@ -252,6 +252,19 @@ describe('debt detail [R-DEBT-122]', () => {
     expect(db.rpc.get_debt_history).toHaveBeenCalledWith({ p_debt_id: DEBT_ID, p_limit: 1000 })
   })
 
+  it('names the debt in the browser tab and the breadcrumb [R-APP-536]', async () => {
+    mock.current = createSupabaseMock(fakeSession(), debtsDb())
+    renderRoutes(routes, `/debts/${DEBT_ID}`)
+    await screen.findByTestId('debt-history')
+    await waitFor(() => expect(document.title).toBe('Car loan · Debts · Budget Tracker'))
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(within(breadcrumb).getByRole('link', { name: 'Debts' })).toHaveAttribute(
+      'href',
+      '/debts',
+    )
+    expect(within(breadcrumb).getByText('Car loan')).toHaveAttribute('aria-current', 'page')
+  })
+
   it('says before saving that the amount is owed now and the date only places the adjustment [R-DEBT-530]', async () => {
     mock.current = createSupabaseMock(fakeSession(), debtsDb())
     renderRoutes(routes, `/debts/${DEBT_ID}`)

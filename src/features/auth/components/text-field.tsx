@@ -1,5 +1,5 @@
 import type { ParseKeys } from 'i18next'
-import { EyeIcon, EyeOffIcon } from 'lucide-react'
+import { EyeIcon, EyeOffIcon, TriangleAlertIcon } from 'lucide-react'
 import { useId, useState, type ComponentProps } from 'react'
 import { useController, type Control, type FieldPath, type FieldValues } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,8 @@ interface TextFieldProps<
   control: Control<TValues, unknown, TOut>
   name: FieldPath<TValues>
   label: string
+  /** A note that does not block saving (e.g. "this name is already used"), said in words. */
+  warning?: string | null
 }
 
 /** A labelled input bound to react-hook-form; shows its translated validation error. */
@@ -24,11 +26,13 @@ export function TextField<TValues extends FieldValues, TOut extends FieldValues 
   name,
   label,
   type = 'text',
+  warning,
   ...inputProps
 }: TextFieldProps<TValues, TOut>) {
   const { t } = useTranslation()
   const id = useId()
   const errorId = `${id}-error`
+  const warningId = `${id}-warning`
   const { field, fieldState } = useController({ control, name })
   const [revealed, setRevealed] = useState(false)
   const isPassword = type === 'password'
@@ -46,7 +50,10 @@ export function TextField<TValues extends FieldValues, TOut extends FieldValues 
           id={id}
           type={isPassword && revealed ? 'text' : type}
           aria-invalid={fieldState.invalid || undefined}
-          aria-describedby={message ? errorId : undefined}
+          aria-describedby={
+            [message ? errorId : null, warning ? warningId : null].filter(Boolean).join(' ') ||
+            undefined
+          }
           className={isPassword ? 'pr-9' : undefined}
         />
         {isPassword && (
@@ -61,6 +68,19 @@ export function TextField<TValues extends FieldValues, TOut extends FieldValues 
           >
             {revealed ? <EyeOffIcon /> : <EyeIcon />}
           </Button>
+        )}
+      </div>
+      {/* Announced as it appears while typing; it never blocks saving. */}
+      <div aria-live="polite" className="contents">
+        {warning && (
+          <p
+            id={warningId}
+            className="flex items-start gap-1.5 text-sm text-amber-800 dark:text-amber-200"
+            data-testid="field-warning"
+          >
+            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>{warning}</span>
+          </p>
         )}
       </div>
       {message && (

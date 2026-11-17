@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LockIcon } from 'lucide-react'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { z } from 'zod'
@@ -18,7 +18,7 @@ import {
   useRenameBudget,
   useSetBudgetEndDate,
 } from '@/features/budgets/budget-mutations'
-import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { useBudgets, useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { ConcurrentNotices } from '@/components/changed-elsewhere'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import type { MyBudget } from '@/features/budgets/budget-queries'
@@ -27,6 +27,7 @@ import { useConcurrentForm } from '@/hooks/use-concurrent-form'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { nameSchema, optionalCalendarDateSchema } from '@/lib/form-schemas'
+import { isSameName } from '@/lib/same-name'
 
 /** "Only the owner can …": shown instead of an owner-only control for a plain member. */
 export function OwnerOnlyNote({ children }: { children: string }) {
@@ -97,6 +98,11 @@ function RenameForm() {
   const sync = useConcurrentForm(form, base, valuesOf, () => rename.reset(), {
     error: rename.error,
   })
+  const { budgets } = useBudgets()
+  const typedName = useWatch({ control: form.control, name: 'name' })
+  const nameTaken = budgets.some(
+    (other) => other.id !== budgetId && isSameName(other.name, typedName),
+  )
 
   const onSubmit = form.handleSubmit(({ name }) =>
     rename.mutateAsync({ name, revision: (base.base ?? budget).revision }).then(
@@ -128,6 +134,7 @@ function RenameForm() {
               name="name"
               label={t('budgets.fields.name')}
               autoComplete="off"
+              warning={nameTaken ? t('budgets.nameTaken', { name: typedName.trim() }) : null}
             />
           </div>
           <Button

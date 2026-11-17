@@ -28,6 +28,12 @@ import { CategoryChart } from '@/features/compare/components/category-chart'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import {
+  PHONE_CELL,
+  PHONE_HEAD,
+  PHONE_NAME_3,
+  PHONE_ROW_3,
+} from '@/features/compare/components/phone-table'
 
 /** Changes one address parameter from its value at that moment (quick clicks all count). */
 export type UpdateParam = (key: string, next: (value: string | null) => string | null) => void
@@ -129,7 +135,7 @@ export function CategoriesView({
           {/* A focused cell is brought wholly into view, clear of the sticky column and header
               (the scroll padding): the browser alone leaves a half-visible cell where it is. */}
           <div
-            className="relative max-h-[70svh] scroll-pt-16 scroll-pl-28 overflow-auto rounded-md border sm:scroll-pl-56"
+            className="relative scroll-pt-16 scroll-pl-28 rounded-md sm:max-h-[70svh] sm:scroll-pl-56 sm:overflow-auto sm:border"
             onFocus={(event) => {
               const cell = (event.target as HTMLElement).closest('td')
               if (cell && typeof cell.scrollIntoView === 'function') {
@@ -139,11 +145,11 @@ export function CategoriesView({
             data-testid="categories-scroll"
           >
             <table
-              className="w-max min-w-full border-collapse text-sm"
+              className="min-w-full border-collapse text-sm max-sm:block sm:w-max"
               aria-label={t('compare.categories.tableLabel')}
               data-testid="categories-table"
             >
-              <thead className="sticky top-0 z-20 bg-card">
+              <thead className={cn('sticky top-0 z-20 bg-card', PHONE_HEAD)}>
                 <tr className="border-b">
                   <th
                     scope="col"
@@ -188,13 +194,16 @@ export function CategoriesView({
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="max-sm:block">
                 {rows.map(({ line, depth }) => (
                   <LineRow
                     key={line.category_id}
                     line={line}
                     depth={depth}
                     periods={periods}
+                    periodNames={periods.map((_, index) =>
+                      [labels[index]?.dayMonth, labels[index]?.year].filter(Boolean).join(' '),
+                    )}
                     showPlanned={showPlanned}
                     open={open.has(line.category_id)}
                     onToggleOpen={() =>
@@ -228,6 +237,7 @@ function LineRow({
   line,
   depth,
   periods,
+  periodNames,
   showPlanned,
   open,
   onToggleOpen,
@@ -238,6 +248,8 @@ function LineRow({
   line: CategoryLine
   depth: number
   periods: TrendPeriod[]
+  /** Each period's short name, over its figure on a phone. */
+  periodNames: string[]
   showPlanned: boolean
   open: boolean
   onToggleOpen: () => void
@@ -249,7 +261,7 @@ function LineRow({
   const pickId = `pick-${line.category_id}`
   return (
     <tr
-      className="border-b last:border-b-0 hover:bg-muted/40"
+      className={cn(PHONE_ROW_3, 'hover:bg-muted/40')}
       data-testid="category-line"
       data-depth={depth}
     >
@@ -257,6 +269,7 @@ function LineRow({
         scope="row"
         className={cn(
           'sticky left-0 z-10 w-28 max-w-28 min-w-28 bg-card px-2 py-2 text-left align-top font-normal sm:w-auto sm:max-w-72 sm:min-w-56 sm:px-3',
+          PHONE_NAME_3,
           depth > 0 && 'pl-4 sm:pl-8',
         )}
       >
@@ -310,10 +323,14 @@ function LineRow({
           line={line}
           period={period}
           index={index}
+          name={periodNames[index] ?? ''}
           showPlanned={showPlanned}
         />
       ))}
-      <td className="px-2 py-2 text-right align-top tabular-nums sm:px-3">
+      <td
+        className={cn('px-2 py-2 text-right align-top tabular-nums sm:px-3', PHONE_CELL)}
+        data-label={t('compare.categories.average')}
+      >
         {line.average_spent === null ? (
           <span className="block min-w-20 text-xs text-muted-foreground">
             {t('compare.categories.averageNone')}
@@ -342,11 +359,14 @@ function Cell({
   line,
   period,
   index,
+  name,
   showPlanned,
 }: {
   line: CategoryLine
   period: TrendPeriod
   index: number
+  /** The period's short name, over the figure on a phone. */
+  name: string
   showPlanned: boolean
 }) {
   const { t } = useTranslation()
@@ -362,8 +382,9 @@ function Cell({
   if (!inForce && spent === 0 && !recorded) {
     return (
       <td
-        className="px-2 py-2 text-right align-top text-muted-foreground sm:px-3"
+        className={cn('px-2 py-2 text-right align-top text-muted-foreground sm:px-3', PHONE_CELL)}
         data-testid="cell-not-in-force"
+        data-label={name}
       >
         <span aria-hidden>{t('compare.categories.notInForceShort')}</span>
         <span className="sr-only">{t('compare.categories.notInForce')}</span>
@@ -374,13 +395,14 @@ function Cell({
   const over = line.is_overspent[index] === true
   return (
     <td
-      className="px-2 py-2 text-right align-top tabular-nums sm:px-3"
+      className={cn('px-2 py-2 text-right align-top tabular-nums sm:px-3', PHONE_CELL)}
       data-over={over || undefined}
+      data-label={name}
     >
       {/* The amount on one line; the notes under it wrap, so a column stays narrow. */}
       <Link
         to={`${paths.transactions}?period=${period.period_id}&category=${line.category_id}`}
-        className="inline-flex flex-col items-end rounded whitespace-nowrap underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:flex-row sm:items-center sm:gap-1"
+        className="inline-flex flex-col items-start rounded whitespace-nowrap underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:flex-row sm:items-center sm:gap-1"
         aria-label={t('compare.categories.cell', {
           name: line.name,
           period: periodText,

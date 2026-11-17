@@ -847,7 +847,8 @@ export const importFr: Translation['import'] = {
     removeBody: 'Le jeton disparaît de cette liste ; ses importations gardent son nom.',
     removed: 'Jeton supprimé.',
     limit: 'Un budget peut avoir 10 jetons encore utilisables.',
-    lifecycle: 'Un jeton n’est affiché qu’une fois, à sa création. Pour en arrêter un, choisissez Révoquer à côté de lui ci-dessous : il s’arrête aussitôt, et ce qu’il a déjà ajouté reste.',
+    lifecycle:
+      'Un jeton n’est affiché qu’une fois, à sa création. Pour en arrêter un, choisissez Révoquer à côté de lui ci-dessous : il s’arrête aussitôt, et ce qu’il a déjà ajouté reste.',
   },
   rules: {
     title: 'Règles de commerçant',

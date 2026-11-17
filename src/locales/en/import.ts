@@ -817,7 +817,8 @@ export const importEn = {
     removeBody: 'The token goes from this list; its imports keep its name.',
     removed: 'Token deleted.',
     limit: 'A budget can have 10 tokens that can still be used.',
-    lifecycle: 'A token is shown only once, when you create it. To stop one, choose Revoke beside it below: it stops at once, and what it already added stays.',
+    lifecycle:
+      'A token is shown only once, when you create it. To stop one, choose Revoke beside it below: it stops at once, and what it already added stays.',
   },
   rules: {
     title: 'Merchant rules',
