@@ -114,6 +114,7 @@ export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRo
     planned: true,
     cadence: null,
     assumed: false,
+    occurrence_kind: 'payday',
     ...overrides,
   }
 }

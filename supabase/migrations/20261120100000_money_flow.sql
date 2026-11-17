@@ -22,6 +22,9 @@ create type public.account_kind as enum (
   'current', 'savings', 'third_pillar', 'tax_reserve', 'investment', 'cash', 'credit_card', 'other');
 -- R-ACCOUNT-070: an offset in days from a pay date, or a fixed day of the month
 create type public.transfer_schedule as enum ('pay_date', 'day_of_month');
+-- R-ACCOUNT-460: what kind of date an occurrence's key is: the period's own payday, a chosen
+-- income's pay date, a fixed day
+create type public.transfer_occurrence_kind as enum ('payday', 'income_payday', 'fixed_day');
 -- what a member did with an occurrence, or what the catch-up did ('done' with its transaction)
 create type public.transfer_mark as enum ('done', 'skipped', 'not_done');
 
@@ -100,6 +103,13 @@ create table public.transfers (
   settled_through date not null,
   next_due date,
   needs_check boolean not null default true,
+  -- R-ACCOUNT-427: the chosen income was deleted outright (added and removed in one period, the
+  -- current one) on income_gone_on, in period income_gone_seq: the primary's occurrence of that
+  -- period is planned only if it was not due yet that day, whatever terms are in force there
+  -- later (an edit from a later period, a reopen) and wherever that day lies once a salary is
+  -- recorded (D-564); null otherwise. Bookkeeping, like the watermark.
+  income_gone_seq integer,
+  income_gone_on date,
   revision integer not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -136,9 +146,6 @@ create table public.transfer_versions (
   -- D-426: the chosen income was deleted (added and removed in one period): the transfer
   -- follows the primary income, and says so (follows_primary)
   income_gone boolean not null default false,
-  -- R-ACCOUNT-427: the day the chosen income was deleted when that was in the period it began in,
-  -- the current one (added and removed in one period); null otherwise
-  income_gone_on date,
   is_automatic boolean not null,
   -- R-ACCOUNT-072: the category its transaction goes to; null: no transaction
   category_id uuid,
@@ -194,12 +201,15 @@ create table public.transfer_occurrences (
   revision integer not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  -- R-ACCOUNT-421: the mark of the later of two occurrences with this key that are not the same
-  -- payday (a fixed day and another period's scheduled pay date); false for every other mark
-  key_shared boolean not null default false,
+  -- R-ACCOUNT-460: what kind of date produced the key, a property of the occurrence itself
+  -- (D-560): 'payday' (the salary that started a period, keyed by its scheduled pay date),
+  -- 'income_payday' (a chosen income's pay date) or 'fixed_day' (a fixed-day date). Occurrences of
+  -- different kinds with one key are different occurrences, each with its own mark, whatever
+  -- other occurrences come or go; one key of one kind is one occurrence wherever it is listed
+  kind public.transfer_occurrence_kind not null,
   constraint transfer_occurrences_transfer_fk foreign key (transfer_id, budget_id)
     references public.transfers (id, budget_id) on delete cascade,
-  constraint transfer_occurrences_unique unique (transfer_id, occurrence_date, key_shared),
+  constraint transfer_occurrences_unique unique (transfer_id, occurrence_date, kind),
   constraint transfer_occurrences_id_budget_unique unique (id, budget_id),
   constraint transfer_occurrences_done_valid check (
     (mark = 'done') = (done_on is not null and amount is not null)),
@@ -238,9 +248,11 @@ create trigger accounts_set_updated_at before update on public.accounts
 create trigger accounts_bump_revision before update on public.accounts
   for each row execute function private.bump_revision('revision', 'updated_at');
 create trigger transfers_set_updated_at before update on public.transfers
-  for each row execute function private.touch_updated_at('settled_through', 'next_due', 'needs_check');
+  for each row execute function private.touch_updated_at('settled_through', 'next_due', 'needs_check', 'income_gone_seq',
+                                                         'income_gone_on');
 create trigger transfers_bump_revision before update on public.transfers
-  for each row execute function private.bump_revision('revision', 'updated_at', 'settled_through', 'next_due', 'needs_check');
+  for each row execute function private.bump_revision('revision', 'updated_at', 'settled_through', 'next_due', 'needs_check',
+                                                      'income_gone_seq', 'income_gone_on');
 create trigger transfer_versions_set_updated_at before update on public.transfer_versions
   for each row execute function private.set_updated_at();
 create trigger transfer_occurrences_set_updated_at before update on public.transfer_occurrences
@@ -311,7 +323,7 @@ begin
      or not exists (select 1 from public.budgets as b where b.id = old.budget_id) then
     return null;  -- R-ACCOUNT-308: nothing to mark while the budget is being deleted
   end if;
-  select pl.is_automatic into v_automatic from private.transfer_planned(o.transfer_id, o.occurrence_date, o.key_shared) as pl;
+  select pl.is_automatic into v_automatic from private.transfer_planned(o.transfer_id, o.occurrence_date, o.kind) as pl;
   if coalesce(v_automatic, false) then
     update public.transfer_occurrences
     set mark = 'not_done', done_on = null, amount = null, by_catch_up = false, recorded_by = (select auth.uid())
@@ -707,90 +719,20 @@ as $$
                  where i.id = p_income_id and i.first_seq <= p_seq and (i.end_seq is null or p_seq < i.end_seq))
 $$;
 
--- D-420, D-490: every period carries a scheduled pay date of the primary salary as its key
--- (pay_key): the date the schedule gave for it, the previous period's projected end plus one
--- (the projection rule, private.projected_end), whatever day the salary actually came (an
--- early salary, a late one recorded after a reopen, a moved start). The first period's is its
--- start. A period is never without a key: when that date is already another period's (a salary
--- recorded 15 or more days early, then the next one; several salaries in one month), the
--- period takes the next scheduled pay date no period has. Fixed when the period is created and
--- never moved: a reopen deletes the merged period with its key, and recording that salary
--- again derives the same key from the same earlier periods. Keys are unique in a budget and
--- can lie outside their period, so every lookup of an occurrence goes by the stored key.
+-- D-420, D-490, D-561: every period carries a scheduled pay date of the primary salary as its key
+-- (pay_key): the scheduled date of the salary that started it, whatever day it actually came (an
+-- early salary, a late one recorded after a reopen, a moved start). Derived when the period is
+-- created from the previous period's key (private.period_pay_key, after the primary's history
+-- below), never from its start, and never moved: a reopen deletes the merged period with its key,
+-- and recording that salary again derives the same key from the same earlier key. Keys strictly
+-- increase with the periods, so they are unique in a budget; a key can still lie outside its
+-- period (a salary that came early or late), so every lookup of an occurrence goes by the stored
+-- key.
 alter table public.periods add column pay_key date;
--- R-ACCOUNT-421: the key is not the date the projection gave (that one was taken: the next
--- scheduled pay date no period has); such a key names no payday of its own, so a payday on that
--- date in another period is another transfer, not the same one
-alter table public.periods add column pay_key_shifted boolean not null default false;
 -- D-492: the day an income was ended in the period it ends from (remove_income, remove_member,
 -- leave_budget in the current period); null when ended from another period or not ended
 alter table public.incomes add column ended_on date;
 create unique index periods_pay_key_unique on public.periods (budget_id, pay_key) where pay_key is not null;
-
-create function private.period_pay_key(p_budget_id uuid, p_seq integer, p_start date)
-returns date
-language plpgsql
-stable
-set search_path = ''
-as $$
-declare
-  v_prev public.periods;
-  v_key date;
-  v_terms record;
-  v_n integer := 0;
-begin
-  select p.* into v_prev from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq - 1;
-  if v_prev.id is null then
-    v_key := p_start;
-  else
-    v_key := private.projected_end(p_budget_id, v_prev.start_date, v_prev.seq) + 1;
-  end if;
-  select t.pay_day, t.weekend_rule into v_terms
-  from public.budgets as b cross join lateral private.terms_at(b.primary_income_id, p_seq) as t
-  where b.id = p_budget_id;
-  while v_n < 1200 and exists (select 1 from public.periods as p
-                               where p.budget_id = p_budget_id and p.pay_key = v_key and p.seq <> p_seq) loop
-    v_key := private.next_pay_date(v_key + 1, v_terms.pay_day, v_terms.weekend_rule);
-    v_n := v_n + 1;
-  end loop;
-  return v_key;
-end;
-$$;
-
-create function private.set_period_pay_key()
-returns trigger
-language plpgsql
-set search_path = ''
-as $$
-declare
-  v_prev public.periods;
-begin
-  if new.pay_key is null then
-    new.pay_key := private.period_pay_key(new.budget_id, new.seq, new.start_date);
-    select p.* into v_prev from public.periods as p where p.budget_id = new.budget_id and p.seq = new.seq - 1;
-    new.pay_key_shifted := new.pay_key <> case when v_prev.id is null then new.start_date
-                                               else private.projected_end(new.budget_id, v_prev.start_date, v_prev.seq) + 1 end;
-  end if;
-  return new;
-end;
-$$;
-create trigger periods_set_pay_key before insert on public.periods
-  for each row execute function private.set_period_pay_key();
-
--- periods that exist before this migration (none in a new database), in order
-do $$
-declare
-  r record;
-begin
-  for r in select p.id, p.budget_id, p.seq, p.start_date from public.periods as p order by p.budget_id, p.seq loop
-    update public.periods set pay_key = private.period_pay_key(r.budget_id, r.seq, r.start_date) where id = r.id;
-    update public.periods as p set pay_key_shifted = p.pay_key <> coalesce(
-      (select private.projected_end(r.budget_id, q.start_date, q.seq) + 1 from public.periods as q
-       where q.budget_id = r.budget_id and q.seq = r.seq - 1), p.start_date)
-    where p.id = r.id;
-  end loop;
-end;
-$$;
 
 -- The start of period p_seq (beyond the latest: the day after it; before the first: its start).
 create function private.seq_start(p_budget_id uuid, p_seq integer)
@@ -868,18 +810,26 @@ $$;
 -- R-ACCOUNT-428: which income was the primary one in which periods, kept as the primary changes
 -- (set_primary_income) and as a reopen merges the period a switch happened in, so that "is the
 -- primary" is answered per period: a switch never re-plans the past of a transfer that names
--- the old primary. Bookkeeping of the budgets row, read only by definer functions.
+-- the old primary. switched_on (D-562): the day of the switch a row starts with (null for the
+-- budget's first primary): the old primary's pay dates after it in the switch period are its own
+-- again, and the new primary's first key lies after it. Members read their budgets' rows (the
+-- plan reads them through security-invoker views, D-566).
 create table private.primary_incomes (
   budget_id uuid not null references public.budgets (id) on delete cascade,
   income_id uuid not null,
   from_seq integer not null,
   to_seq integer,
+  switched_on date,
   primary key (budget_id, from_seq),
   constraint primary_incomes_seq_valid check (from_seq >= 1 and (to_seq is null or to_seq > from_seq))
 );
 create index primary_incomes_income_idx on private.primary_incomes (income_id);
 alter table private.primary_incomes enable row level security;
 revoke all on table private.primary_incomes from public, anon, authenticated;
+grant select on table private.primary_incomes to authenticated;
+create policy "Members can read their budgets' primary history"
+  on private.primary_incomes for select to authenticated
+  using (budget_id in (select private.member_budget_ids()));
 insert into private.primary_incomes (budget_id, income_id, from_seq)
 select b.id, b.primary_income_id, 1 from public.budgets as b where b.primary_income_id is not null;
 
@@ -908,9 +858,11 @@ begin
       update private.primary_incomes as h set to_seq = v_eff
       where h.budget_id = new.id and h.to_seq is null;
     end if;
-    insert into private.primary_incomes (budget_id, income_id, from_seq)
-    values (new.id, new.primary_income_id, v_eff)
-    on conflict (budget_id, from_seq) do update set income_id = excluded.income_id, to_seq = null;
+    insert into private.primary_incomes (budget_id, income_id, from_seq, switched_on)
+    values (new.id, new.primary_income_id, v_eff,
+            case when tg_op = 'UPDATE' and old.primary_income_id is not null then private.today() end)
+    on conflict (budget_id, from_seq) do update
+      set income_id = excluded.income_id, to_seq = null, switched_on = excluded.switched_on;
   elsif old.primary_since_seq <> new.primary_since_seq then
     -- a reopen merged the period the switch was made in (private.rekey_period): the switch now
     -- counts from the period after the reopened one
@@ -929,15 +881,111 @@ $$;
 create trigger budgets_primary_incomes after insert or update of primary_income_id, primary_since_seq on public.budgets
   for each row execute function private.primary_incomes_track();
 
+-- Security invoker (D-566): a member reads only their budgets' history.
 create function private.income_is_primary_at(p_income_id uuid, p_seq integer)
 returns boolean
 language sql
 stable
-security definer
 set search_path = ''
 as $$
   select exists (select 1 from private.primary_incomes as h
                  where h.income_id = p_income_id and h.from_seq <= p_seq and (h.to_seq is null or p_seq < h.to_seq))
+$$;
+
+-- The budget's primary income for the transfers in period p_seq (its history; the current one
+-- when there is none).
+create function private.primary_income_at(p_budget_id uuid, p_seq integer)
+returns uuid
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(
+    (select h.income_id from private.primary_incomes as h
+     where h.budget_id = p_budget_id and h.from_seq <= p_seq and (h.to_seq is null or p_seq < h.to_seq)
+     order by h.from_seq desc limit 1),
+    (select b.primary_income_id from public.budgets as b where b.id = p_budget_id))
+$$;
+
+-- D-562: the day income p_income_id stopped being the primary one, when it is the primary in
+-- period p_seq and another income is from the next period on (a switch made in p_seq); null
+-- otherwise.
+create function private.primary_switch_day(p_income_id uuid, p_seq integer)
+returns date
+language sql
+stable
+set search_path = ''
+as $$
+  select n.switched_on
+  from private.primary_incomes as h
+  join private.primary_incomes as n on n.budget_id = h.budget_id and n.from_seq = h.to_seq
+  where h.income_id = p_income_id and h.from_seq <= p_seq and h.to_seq = p_seq + 1 and n.income_id <> p_income_id
+$$;
+
+-- D-561 (answers Q-311): the key of period p_seq starting on p_start. The first period's is its
+-- start. Then, while the primary income and its pay dates stay the same (the previous key is a
+-- pay date of the terms in force now), the next scheduled pay date after the previous key: a
+-- salary early or late, a moved start, a reopen and the salary recorded again on another day
+-- never move a key. When they change (a new pay day, another income made primary), the first pay
+-- date of the new terms after the previous key that is no more than the projection's 15 days
+-- before the period's start and, after a primary switch, after the switch day (the new primary's
+-- pay dates up to then were planned as its own, D-562).
+create function private.period_pay_key(p_budget_id uuid, p_seq integer, p_start date)
+returns date
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_prev date;
+  v_primary uuid := private.primary_income_at(p_budget_id, p_seq);
+  v_prev_primary uuid;
+  v_terms record;
+  v_switched date;
+begin
+  select p.pay_key into v_prev from public.periods as p where p.budget_id = p_budget_id and p.seq = p_seq - 1;
+  if v_prev is null then
+    return p_start;
+  end if;
+  v_prev_primary := private.primary_income_at(p_budget_id, p_seq - 1);
+  select t.pay_day, t.weekend_rule into v_terms from private.terms_at(v_primary, p_seq) as t;
+  if v_prev_primary = v_primary and private.next_pay_date(v_prev, v_terms.pay_day, v_terms.weekend_rule) = v_prev then
+    return private.next_pay_date(v_prev + 1, v_terms.pay_day, v_terms.weekend_rule);
+  end if;
+  if v_prev_primary is distinct from v_primary then
+    select h.switched_on into v_switched from private.primary_incomes as h
+    where h.budget_id = p_budget_id and h.from_seq = p_seq;
+  end if;
+  return private.next_pay_date(greatest(v_prev + 1, p_start - private.limit_projection_min_days(),
+                                        coalesce(v_switched + 1, v_prev + 1)),
+                               v_terms.pay_day, v_terms.weekend_rule);
+end;
+$$;
+
+create function private.set_period_pay_key()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.pay_key is null then
+    new.pay_key := private.period_pay_key(new.budget_id, new.seq, new.start_date);
+  end if;
+  return new;
+end;
+$$;
+create trigger periods_set_pay_key before insert on public.periods
+  for each row execute function private.set_period_pay_key();
+
+-- periods that exist before this migration (none in a new database), in order
+do $$
+declare
+  r record;
+begin
+  for r in select p.id, p.budget_id, p.seq, p.start_date from public.periods as p order by p.budget_id, p.seq loop
+    update public.periods set pay_key = private.period_pay_key(r.budget_id, r.seq, r.start_date) where id = r.id;
+  end loop;
+end;
 $$;
 
 -- R-ACCOUNT-300 to R-ACCOUNT-303, D-420, D-422: the occurrences of one transfer in one period
@@ -945,12 +993,15 @@ $$;
 -- * 'day_of_month': the dates of the calendar schedule (the subscriptions' own code,
 --   private.charge_dates: the anchor's phase, the nominal day clamped to the month) inside the
 --   period; key = due date. A short period may have none, a long one two.
--- * 'pay_date', the chosen income in force in the period: each of its actual pay dates in the
---   period (key), due that day plus the offset, never after the period's last day.
--- * 'pay_date', the primary income (no income chosen, the chosen one not in force there, or
---   deleted): one occurrence, keyed by the period's scheduled pay date (pay_key, from_pay_key),
---   due on the period's start (the actual pay date) plus the offset, never after the period's
+-- * 'pay_date', the chosen income in force in the period and not the primary there: each of its
+--   actual pay dates in the period (key), due that day plus the offset, never after the period's
 --   last day.
+-- * 'pay_date', the primary income (no income chosen, the chosen one the primary there, not in
+--   force there, or deleted): one occurrence, keyed by the period's scheduled pay date (pay_key,
+--   from_pay_key), due on the period's start (the actual pay date) plus the offset, never after
+--   the period's last day. When the chosen income is the primary in this period and another
+--   income is from the next one (a switch made here), its own pay dates in the period after the
+--   switch day are planned too, as a non-primary income's are (R-ACCOUNT-461).
 -- Nothing before the transfer's first counted day (p_starts_on): a fixed date or a chosen
 -- income's pay date on or after it; the primary's occurrence when the salary that started the
 -- period came on or after it (p_start), or when it is the salary the transfer was made from
@@ -960,7 +1011,7 @@ create function private.transfer_period_occurrences(
   p_seq integer, p_start date, p_end date, p_pay_key date, p_starts_on date,
   p_schedule public.transfer_schedule, p_cadence public.subscription_cadence, p_anchor date, p_day integer,
   p_offset integer, p_income_id uuid, p_income_gone boolean, p_starts_key date default null,
-  p_income_gone_on date default null
+  p_gone_seq integer default null, p_gone_on date default null
 )
 returns table (occurrence_date date, due_date date, follows_primary boolean, from_pay_key boolean)
 language plpgsql
@@ -969,6 +1020,8 @@ set search_path = ''
 as $$
 declare
   v_ended date;
+  v_switched date;
+  v_dates date[];
 begin
   if p_schedule = 'day_of_month' then
     return query select d, d, false, false
@@ -981,24 +1034,37 @@ begin
         and exists (select 1 from public.incomes as i
                     where i.id = p_income_id and i.end_seq = p_seq and i.ended_on is not null) then
     -- D-492: the chosen income ended in this period on ended_on: its occurrences already due
-    -- then stay; the primary's occurrence only when it was not due yet
+    -- then stay; the primary's occurrence only when it was not due yet (and is not one of them)
     v_ended := (select i.ended_on from public.incomes as i where i.id = p_income_id);
-    return query select d, least(d + p_offset, p_end), false, false
-                 from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on), p_end) as d
-                 where least(d + p_offset, p_end) <= v_ended;
+    select pg_catalog.array_agg(d) into v_dates
+    from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on), p_end) as d
+    where least(d + p_offset, p_end) <= v_ended;
+    return query select d, least(d + p_offset, p_end), false, false from pg_catalog.unnest(v_dates) as d;
     if p_pay_key is not null and (p_start >= p_starts_on or p_pay_key = p_starts_key)
-       and least(p_start + p_offset, p_end) > v_ended then
+       and least(p_start + p_offset, p_end) > v_ended and not (p_pay_key = any (coalesce(v_dates, '{}'))) then
       return query select p_pay_key, least(p_start + p_offset, p_end), true, true;
     end if;
-  elsif p_pay_key is not null and (p_start >= p_starts_on or p_pay_key = p_starts_key)
-        -- R-ACCOUNT-427: the chosen income deleted in this period on p_income_gone_on: the
-        -- primary's occurrence only when it was not due yet that day (nothing dated in the past)
-        and (p_income_gone_on is null or p_income_gone_on not between p_start and p_end
-             or least(p_start + p_offset, p_end) > p_income_gone_on) then
-    return query select p_pay_key, least(p_start + p_offset, p_end),
-                        (p_income_id is not null and not private.income_is_primary_at(p_income_id, p_seq))
-                          or coalesce(p_income_gone, false),
-                        true;
+  else
+    if p_pay_key is not null and (p_start >= p_starts_on or p_pay_key = p_starts_key)
+       -- R-ACCOUNT-427 (D-564): the chosen income deleted outright in this period on p_gone_on:
+       -- the primary's occurrence only when it was not due yet that day (nothing dated in the past)
+       and not (p_gone_seq is not distinct from p_seq and least(p_start + p_offset, p_end) <= p_gone_on) then
+      return query select p_pay_key, least(p_start + p_offset, p_end),
+                          (p_income_id is not null and not private.income_is_primary_at(p_income_id, p_seq))
+                            or coalesce(p_income_gone, false),
+                          true;
+    end if;
+    if p_income_id is not null and private.income_in_force(p_income_id, p_seq) then
+      -- the chosen income is the primary here; after a switch made in this period its pay dates
+      -- after the switch day are its own again
+      v_switched := private.primary_switch_day(p_income_id, p_seq);
+      if v_switched is not null then
+        return query select d, least(d + p_offset, p_end), false, false
+                     from private.income_pay_dates(p_income_id, p_seq, greatest(p_start, p_starts_on, v_switched + 1),
+                                                   p_end) as d
+                     where d is distinct from p_pay_key;
+      end if;
+    end if;
   end if;
 end;
 $$;
@@ -1006,12 +1072,15 @@ $$;
 -- The keys one transfer's terms give in one period, before any key is given to an earlier
 -- period (no row when the transfer is not in force there).
 create function private.transfer_raw_keys(p_transfer_id uuid, p_seq integer)
-returns table (occurrence_date date, from_pay_key boolean, fixed_day boolean)
+returns table (occurrence_date date, kind public.transfer_occurrence_kind, start_date date)
 language sql
 stable
 set search_path = ''
 as $$
-  select o.occurrence_date, o.from_pay_key, v.schedule = 'day_of_month'
+  select o.occurrence_date,
+         case when v.schedule = 'day_of_month' then 'fixed_day' when o.from_pay_key then 'payday'
+              else 'income_payday' end::public.transfer_occurrence_kind,
+         p.start_date
   from public.transfers as t
   join public.periods as p on p.budget_id = t.budget_id and p.seq = p_seq
   cross join lateral (
@@ -1021,19 +1090,17 @@ as $$
   ) as v
   cross join lateral private.transfer_period_occurrences(p.seq, p.start_date, p.end_date, p.pay_key, t.starts_on,
     v.schedule, v.cadence, v.anchor_date, v.day_of_month, v.offset_days, v.income_id, v.income_gone, t.starts_key,
-    v.income_gone_on) as o
+    t.income_gone_seq, t.income_gone_on) as o
   where t.id = p_transfer_id and t.first_seq <= p.seq and (t.end_seq is null or p.seq < t.end_seq)
 $$;
 
 -- The plan: every occurrence of the budget's transfers (or of one) in the periods p_seqs, at the
--- terms in force in its period. At most two periods can give a transfer the same key: the one
--- whose scheduled pay date it is (a primary occurrence) and the one containing that date (a
--- chosen income's pay date or a fixed-day date, after the transfer's terms changed). Both are
--- found by the key itself, wherever they lie, never by searching neighbouring periods.
--- R-ACCOUNT-421: when both are paydays (a chosen income's pay date and the primary's scheduled
--- pay date) they are the same payday and the key belongs to the earlier period (D-420, D-490);
--- when one is a fixed day they are two transfers, both planned, and the later period's
--- occurrence is told apart from the earlier one's by key_shared (its mark too).
+-- terms in force in its period. R-ACCOUNT-460, D-560: an occurrence is identified by its key and
+-- its kind (what kind of date produced the key: 'payday', the salary that started the period;
+-- 'income_payday', a chosen income's pay date; 'fixed_day'), both properties of the occurrence
+-- itself, never by whether another occurrence exists. Keys of one kind are unique to a
+-- transfer: period keys are unique, and a pay date or a fixed day lies in one period. Two
+-- periods can still give the same payday (below), found by the key itself wherever they lie.
 create function private.transfer_plan_seqs(p_budget_id uuid, p_transfer_id uuid, p_seqs integer[],
                                           p_manual_only boolean default false)
 returns table (
@@ -1041,7 +1108,7 @@ returns table (
   occurrence_date date, due_date date, follows_primary boolean, terms_from_seq integer,
   from_account_id uuid, to_account_id uuid, amount bigint, schedule public.transfer_schedule,
   cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
-  is_automatic boolean, category_id uuid, key_shared boolean
+  is_automatic boolean, category_id uuid, kind public.transfer_occurrence_kind
 )
 language plpgsql
 stable
@@ -1053,22 +1120,10 @@ begin
   select k.transfer_id, k.name, k.period_id, k.seq, k.start_date, k.end_date, k.occurrence_date, k.due_date,
          k.follows_primary, k.terms_from_seq, k.from_account_id, k.to_account_id, k.amount, k.schedule, k.cadence,
          k.offset_days, k.day_of_month, k.income_id, k.is_automatic, k.category_id,
-         -- the later of two periods that give this key, when the two are not the same payday
-         (k.from_pay_key and k.occurrence_date < k.start_date
-          and exists (select 1 from public.periods as x
-                      where x.budget_id = p_budget_id and x.start_date <= k.occurrence_date
-                        and x.end_date >= k.occurrence_date and x.seq < k.seq
-                        and exists (select 1 from private.transfer_raw_keys(k.transfer_id, x.seq) as r
-                                    where r.occurrence_date = k.occurrence_date and not r.from_pay_key
-                                      and (r.fixed_day or k.pay_key_shifted))))
-         or (not k.from_pay_key
-             and exists (select 1 from public.periods as y
-                         where y.budget_id = p_budget_id and y.pay_key = k.occurrence_date and y.seq < k.seq
-                           and (k.schedule = 'day_of_month' or y.pay_key_shifted)
-                           and exists (select 1 from private.transfer_raw_keys(k.transfer_id, y.seq) as r
-                                       where r.occurrence_date = k.occurrence_date and r.from_pay_key)))
+         case when k.schedule = 'day_of_month' then 'fixed_day' when k.from_pay_key then 'payday'
+              else 'income_payday' end::public.transfer_occurrence_kind
   from (
-    select t.id as transfer_id, t.name, p.id as period_id, p.seq, p.start_date, p.end_date, p.pay_key_shifted,
+    select t.id as transfer_id, t.name, p.id as period_id, p.seq, p.start_date, p.end_date,
            o.occurrence_date, o.due_date, o.follows_primary, o.from_pay_key, v.effective_from_seq as terms_from_seq,
            v.from_account_id, v.to_account_id, v.amount, v.schedule, v.cadence, v.offset_days, v.day_of_month,
            v.income_id, v.is_automatic, v.category_id
@@ -1082,29 +1137,32 @@ begin
     ) as v
     cross join lateral private.transfer_period_occurrences(p.seq, p.start_date, p.end_date, p.pay_key, t.starts_on,
       v.schedule, v.cadence, v.anchor_date, v.day_of_month, v.offset_days, v.income_id, v.income_gone, t.starts_key,
-      v.income_gone_on) as o
+      t.income_gone_seq, t.income_gone_on) as o
     where p.budget_id = p_budget_id and p.seq = any (p_seqs)
       and (p_transfer_id is null or t.id = p_transfer_id)
       and (not p_manual_only or not v.is_automatic)
   ) as k
-  -- a scheduled pay date before its period's start, which the period containing it gave first as
-  -- a chosen income's pay date (the same payday)
+  -- R-ACCOUNT-421 (D-560): the same payday given by two periods, a period's salary keyed d and a
+  -- chosen income's pay date d (the transfer moved between its chosen income and the primary
+  -- one), is one occurrence, listed by the earlier period; only when that salary came within the
+  -- projection's 15 days of its scheduled date d (otherwise it was another salary, an extra one in
+  -- the month: two paydays, two occurrences, two kinds).
+  -- a period's salary keyed before its start (it came late), which the earlier period containing
+  -- its scheduled date gave first as a chosen income's pay date
   where not (k.from_pay_key and k.occurrence_date < k.start_date
+             and k.start_date - k.occurrence_date < private.limit_projection_min_days()
              and exists (select 1 from public.periods as x
                          where x.budget_id = p_budget_id and x.start_date <= k.occurrence_date
                            and x.end_date >= k.occurrence_date and x.seq < k.seq
-                           and not k.pay_key_shifted
                            and exists (select 1 from private.transfer_raw_keys(k.transfer_id, x.seq) as r
-                                       where r.occurrence_date = k.occurrence_date and not r.from_pay_key
-                                         and not r.fixed_day)))
-    -- a chosen income's pay date that an earlier period has as its scheduled pay date, and gave
-    -- first (the same payday)
+                                       where r.occurrence_date = k.occurrence_date and r.kind = 'income_payday')))
+    -- a chosen income's pay date that an earlier period's salary (it came early) has as its key
     and not (not k.from_pay_key and k.schedule = 'pay_date'
              and exists (select 1 from public.periods as y
                          where y.budget_id = p_budget_id and y.pay_key = k.occurrence_date and y.seq < k.seq
-                           and not y.pay_key_shifted
+                           and y.pay_key - y.start_date < private.limit_projection_min_days()
                            and exists (select 1 from private.transfer_raw_keys(k.transfer_id, y.seq) as r
-                                       where r.occurrence_date = k.occurrence_date and r.from_pay_key)));
+                                       where r.occurrence_date = k.occurrence_date and r.kind = 'payday')));
 end;
 $$;
 
@@ -1116,7 +1174,7 @@ returns table (
   occurrence_date date, due_date date, follows_primary boolean, terms_from_seq integer,
   from_account_id uuid, to_account_id uuid, amount bigint, schedule public.transfer_schedule,
   cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
-  is_automatic boolean, category_id uuid, key_shared boolean
+  is_automatic boolean, category_id uuid, kind public.transfer_occurrence_kind
 )
 language sql
 stable
@@ -1135,7 +1193,7 @@ returns table (
   occurrence_date date, due_date date, follows_primary boolean, terms_from_seq integer,
   from_account_id uuid, to_account_id uuid, amount bigint, schedule public.transfer_schedule,
   cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
-  is_automatic boolean, category_id uuid, key_shared boolean
+  is_automatic boolean, category_id uuid, kind public.transfer_occurrence_kind
 )
 language sql
 stable
@@ -1150,14 +1208,15 @@ as $$
   where pl.occurrence_date = any (p_keys)
 $$;
 
--- The planned occurrence of a transfer with that key, if it is planned (no row otherwise).
-create function private.transfer_planned(p_transfer_id uuid, p_key date, p_key_shared boolean default false)
+-- The planned occurrence of a transfer with that key and kind, if it is planned (no row
+-- otherwise).
+create function private.transfer_planned(p_transfer_id uuid, p_key date, p_kind public.transfer_occurrence_kind)
 returns table (
   transfer_id uuid, name text, period_id uuid, seq integer, start_date date, end_date date,
   occurrence_date date, due_date date, follows_primary boolean, terms_from_seq integer,
   from_account_id uuid, to_account_id uuid, amount bigint, schedule public.transfer_schedule,
   cadence public.subscription_cadence, offset_days integer, day_of_month integer, income_id uuid,
-  is_automatic boolean, category_id uuid, key_shared boolean
+  is_automatic boolean, category_id uuid, kind public.transfer_occurrence_kind
 )
 language sql
 stable
@@ -1165,7 +1224,7 @@ set search_path = ''
 as $$
   select pl.* from public.transfers as t
   cross join lateral private.transfer_plan_keys(t.budget_id, t.id, array[p_key]) as pl
-  where t.id = p_transfer_id and pl.key_shared = p_key_shared
+  where t.id = p_transfer_id and pl.kind = p_kind
 $$;
 
 -- ===========================================================================
@@ -1284,8 +1343,12 @@ begin
       and o.done_on between v_current.start_date and v_today
       and exists (select 1 from public.transfer_versions as v
                   where v.transfer_id = o.transfer_id and v.income_id = old.id and v.effective_from_seq <= v_current.seq);
-    update public.transfer_versions set income_gone = true, income_id = null, income_gone_on = v_today
-    where income_id = old.id;
+    -- D-564: the guard belongs to that period, whatever terms later edits or a reopen put there
+    update public.transfers as t set income_gone_seq = v_current.seq, income_gone_on = v_today
+    where t.budget_id = old.budget_id
+      and exists (select 1 from public.transfer_versions as v
+                  where v.transfer_id = t.id and v.income_id = old.id and v.effective_from_seq <= v_current.seq);
+    update public.transfer_versions set income_gone = true, income_id = null where income_id = old.id;
   else
     update public.transfer_versions set income_gone = true, income_id = null where income_id = old.id;
   end if;
@@ -1496,8 +1559,9 @@ $$;
 
 -- R-ACCOUNT-074, R-ACCOUNT-302, D-423, D-424: the transfers' catch-up. For each transfer whose
 -- plan changed or whose next automatic linked occurrence is due, from its watermark on:
--- 1. its own marks (by_catch_up) whose occurrence is no longer planned, or no longer due, go,
---    with their transactions (a member's mark never goes here);
+-- 1. its own marks (by_catch_up) whose occurrence is no longer planned, or no longer due, or
+--    whose due date moved while nobody touched them (made again on the new date), go, with
+--    their transactions (a member's mark never goes here);
 -- 2. every planned occurrence of an automatic transfer linked to a category, due by the horizon
 --    (today, and not after the budget's last day), without a mark, gets one transaction:
 --    dated its due date, at the amount and in the category of the terms in force in its
@@ -1527,7 +1591,7 @@ declare
   v_stop boolean;
   v_bad uuid[];
   v_keys date[];
-  v_shared boolean[];
+  v_kinds public.transfer_occurrence_kind[];
   v_dues date[];
   v_amounts bigint[];
   v_categories uuid[];
@@ -1565,14 +1629,25 @@ begin
       where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w);
       if v_keys is not null then
         with planned as materialized (
-          select pl.occurrence_date, pl.key_shared from private.transfer_plan_keys(p_budget_id, t.id, v_keys) as pl
+          select pl.occurrence_date, pl.kind, pl.due_date, pl.is_automatic, pl.category_id
+          from private.transfer_plan_keys(p_budget_id, t.id, v_keys) as pl
           where pl.due_date <= v_upto
         )
         select pg_catalog.array_agg(o.id) into v_bad
         from public.transfer_occurrences as o
         where o.transfer_id = t.id and o.by_catch_up and (o.done_on > v_w or o.occurrence_date > v_w)
-          and not exists (select 1 from planned as p
-                          where p.occurrence_date = o.occurrence_date and p.key_shared = o.key_shared);
+          and (not exists (select 1 from planned as p
+                           where p.occurrence_date = o.occurrence_date and p.kind = o.kind)
+               -- R-ACCOUNT-462 (D-563): what it recorded by itself and nobody touched since sits on
+               -- its occurrence's due date, always: when the due date moved (a moved start, an
+               -- early salary that shortened the period, another offset, the same payday listed
+               -- by another period), it goes and is made again on the new date. Left as the
+               -- member left it: an occurrence made manual or unlinked since, a transaction edited.
+               or exists (select 1 from planned as p
+                          where p.occurrence_date = o.occurrence_date and p.kind = o.kind
+                            and p.due_date <> o.done_on and p.is_automatic and p.category_id is not null
+                            and not exists (select 1 from public.transactions as x
+                                            where x.transfer_occurrence_id = o.id and x.revision > 1)));
         perform private.drop_transfer_marks(v_bad);
       end if;
     end if;
@@ -1580,14 +1655,14 @@ begin
     --    time, so a step costs what it creates, not the transfer's whole history
     v_next := null;
     v_stop := false;
-    v_keys := '{}'; v_shared := '{}'; v_dues := '{}'; v_amounts := '{}'; v_categories := '{}';
+    v_keys := '{}'; v_kinds := '{}'; v_dues := '{}'; v_amounts := '{}'; v_categories := '{}';
     select pg_catalog.min(p.seq) into v_seq from public.periods as p
     where p.budget_id = p_budget_id and p.end_date > v_w;
     v_seq := greatest(coalesce(v_seq, v_latest + 1) - 1, 1);
     while not v_stop and v_seq <= v_latest loop
       v_to := least(v_seq + 59, v_latest);
       for r in
-        select pl.occurrence_date, pl.due_date, pl.amount, pl.category_id, pl.is_automatic, pl.key_shared
+        select pl.occurrence_date, pl.due_date, pl.amount, pl.category_id, pl.is_automatic, pl.kind
         from private.transfer_plan_range(p_budget_id, t.id, v_seq, v_to) as pl
         where pl.due_date > v_w
         order by pl.due_date, pl.occurrence_date
@@ -1595,7 +1670,7 @@ begin
         continue when not r.is_automatic or r.category_id is null;
         continue when exists (select 1 from public.transfer_occurrences as o
                               where o.transfer_id = t.id and o.occurrence_date = r.occurrence_date
-                                and o.key_shared = r.key_shared);
+                                and o.kind = r.kind);
         if r.due_date > v_upto then
           v_next := r.due_date;  -- due later
           v_stop := true;
@@ -1610,7 +1685,7 @@ begin
           exit;
         end if;
         v_keys := v_keys || r.occurrence_date;
-        v_shared := v_shared || r.key_shared;
+        v_kinds := v_kinds || r.kind;
         v_dues := v_dues || r.due_date;
         v_amounts := v_amounts || r.amount;
         v_categories := v_categories || r.category_id;
@@ -1619,17 +1694,17 @@ begin
     end loop;
     if pg_catalog.cardinality(v_keys) > 0 then
       with made as (
-        insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, key_shared, mark, done_on,
+        insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, kind, mark, done_on,
                                                  amount, by_catch_up)
-        select p_budget_id, t.id, u.k, u.shared, 'done', u.due, u.amount, true
-        from unnest(v_keys, v_shared, v_dues, v_amounts) as u (k, shared, due, amount)
-        on conflict (transfer_id, occurrence_date, key_shared) do nothing
-        returning id, occurrence_date, key_shared, done_on, amount
+        select p_budget_id, t.id, u.k, u.kind, 'done', u.due, u.amount, true
+        from unnest(v_keys, v_kinds, v_dues, v_amounts) as u (k, kind, due, amount)
+        on conflict (transfer_id, occurrence_date, kind) do nothing
+        returning id, occurrence_date, kind, done_on, amount
       )
       insert into public.transactions (budget_id, kind, amount, date, category_id, transfer_occurrence_id)
       select p_budget_id, 'expense', made.amount, made.done_on, u.category_id, made.id
-      from made join unnest(v_keys, v_shared, v_categories) as u (k, shared, category_id)
-        on u.k = made.occurrence_date and u.shared = made.key_shared;
+      from made join unnest(v_keys, v_kinds, v_categories) as u (k, kind, category_id)
+        on u.k = made.occurrence_date and u.kind = made.kind;
       get diagnostics v_inserted = row_count;
       v_room := v_room - v_inserted;
       v_step := v_step - v_inserted;
@@ -2424,16 +2499,16 @@ begin
   where o.budget_id = p_budget_id and (p_transfer_id is null or o.transfer_id = p_transfer_id)
     and o.occurrence_date >= p_from and not o.by_catch_up;
   with planned as materialized (
-    select distinct pl.transfer_id, pl.occurrence_date, pl.key_shared
+    select distinct pl.transfer_id, pl.occurrence_date, pl.kind
     from private.transfer_plan_keys(p_budget_id, p_transfer_id, v_keys) as pl
     where v_keys is not null
   )
   select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-           'id', o.id, 't', o.transfer_id, 'k', o.occurrence_date, 'c', o.by_catch_up,
+           'id', o.id, 't', o.transfer_id, 'k', o.occurrence_date, 's', o.kind, 'c', o.by_catch_up,
            'x', exists (select 1 from public.transactions as x where x.transfer_occurrence_id = o.id),
            'p', o.by_catch_up or exists (select 1 from planned as p
                                          where p.transfer_id = o.transfer_id and p.occurrence_date = o.occurrence_date
-                                           and p.key_shared = o.key_shared))),
+                                           and p.kind = o.kind))),
          '[]'::jsonb)
   into v_result
   from public.transfer_occurrences as o
@@ -2444,20 +2519,22 @@ end;
 $$;
 
 create function private.transfer_effect_rows(p_before jsonb, p_after jsonb)
-returns table (transfer_id uuid, occurrence_date date, change text)
+returns table (transfer_id uuid, occurrence_date date, change text, kind public.transfer_occurrence_kind)
 language sql
 immutable
 set search_path = ''
 as $$
-  with b as (select * from pg_catalog.jsonb_to_recordset(p_before) as r (id uuid, t uuid, k date, c boolean, x boolean, p boolean)),
-  a as (select * from pg_catalog.jsonb_to_recordset(p_after) as r (id uuid, t uuid, k date, c boolean, x boolean, p boolean))
-  select b.t, b.k, 'transaction_removed' from b where b.c and b.x and not exists (select 1 from a where a.id = b.id)
+  with b as (select * from pg_catalog.jsonb_to_recordset(p_before)
+                             as r (id uuid, t uuid, k date, s public.transfer_occurrence_kind, c boolean, x boolean, p boolean)),
+  a as (select * from pg_catalog.jsonb_to_recordset(p_after)
+                        as r (id uuid, t uuid, k date, s public.transfer_occurrence_kind, c boolean, x boolean, p boolean))
+  select b.t, b.k, 'transaction_removed', b.s from b where b.c and b.x and not exists (select 1 from a where a.id = b.id)
   union all
-  select a.t, a.k, 'transaction_created' from a where a.c and a.x and not exists (select 1 from b where b.id = a.id)
+  select a.t, a.k, 'transaction_created', a.s from a where a.c and a.x and not exists (select 1 from b where b.id = a.id)
   union all
-  select b.t, b.k, 'mark_unplanned' from b join a on a.id = b.id where not b.c and b.p and not a.p
+  select b.t, b.k, 'mark_unplanned', b.s from b join a on a.id = b.id where not b.c and b.p and not a.p
   union all
-  select b.t, b.k, 'mark_planned_again' from b join a on a.id = b.id where not b.c and not b.p and a.p
+  select b.t, b.k, 'mark_planned_again', b.s from b join a on a.id = b.id where not b.c and not b.p and a.p
 $$;
 
 -- Rows of the create and edit previews, read after the write (inside the preview's
@@ -2482,7 +2559,8 @@ declare
   v_created integer;
   v_removed integer;
   v_unplanned integer;
-  v_keys date[];
+  v_keys text[];
+  v_before_ids uuid[];
   v_rows jsonb := '[]'::jsonb;
   v_n integer := 0;
   v_budget_end date := private.budget_end_date(p_budget_id);
@@ -2494,14 +2572,19 @@ begin
   select pg_catalog.count(*) filter (where e.change = 'transaction_created'),
          pg_catalog.count(*) filter (where e.change = 'transaction_removed'),
          pg_catalog.count(*) filter (where e.change = 'mark_unplanned'),
-         pg_catalog.array_agg(e.occurrence_date) filter (where e.change = 'transaction_created' and e.transfer_id = p_transfer_id)
+         pg_catalog.array_agg(e.occurrence_date::text || '|' || e.kind::text)
+           filter (where e.change = 'transaction_created' and e.transfer_id = p_transfer_id)
   into v_created, v_removed, v_unplanned, v_keys
   from private.transfer_effect_rows(p_before, p_after) as e;
+  -- Q-322 (D-568): the marks this transfer had before the write
+  select pg_catalog.array_agg(b.id) into v_before_ids
+  from pg_catalog.jsonb_to_recordset(p_before) as b (id uuid, t uuid)
+  where b.t = p_transfer_id;
   select p.* into v_latest from public.periods as p where p.budget_id = p_budget_id order by p.seq desc limit 1;
   select t.* into v_t from public.transfers as t where t.id = p_transfer_id;
   for r in
     select pl.period_id, pl.start_date, pl.end_date, pl.occurrence_date, pl.due_date, pl.amount, pl.is_automatic,
-           pl.category_id, pl.follows_primary
+           pl.category_id, pl.follows_primary, pl.kind
     from private.transfer_plan_range(p_budget_id, p_transfer_id, p_from_seq, coalesce(p_to_seq - 1, v_latest.seq)) as pl
     order by pl.due_date, pl.occurrence_date
     limit p_count
@@ -2510,7 +2593,12 @@ begin
     v_rows := v_rows || pg_catalog.jsonb_build_object('period_id', r.period_id, 'start_date', r.start_date,
       'end_date', r.end_date, 'projected', false, 'occurrence_date', r.occurrence_date, 'due_date', r.due_date,
       'amount', r.amount, 'is_automatic', r.is_automatic, 'category_id', r.category_id,
-      'follows_primary', r.follows_primary, 'created_at_once', r.occurrence_date = any (coalesce(v_keys, '{}')));
+      'follows_primary', r.follows_primary,
+      'created_at_once', (r.occurrence_date::text || '|' || r.kind::text) = any (coalesce(v_keys, '{}')),
+      'occurrence_kind', r.kind,
+      'already_recorded', exists (select 1 from public.transfer_occurrences as o
+                                  where o.transfer_id = p_transfer_id and o.occurrence_date = r.occurrence_date
+                                    and o.kind = r.kind and o.id = any (coalesce(v_before_ids, '{}'))));
   end loop;
   if p_to_seq is null and v_latest.end_date >= private.today() and v_t.end_seq is null then
     select v.* into v_v from public.transfer_versions as v where v.transfer_id = p_transfer_id
@@ -2522,7 +2610,7 @@ begin
       exit when v_budget_end is not null and v_start > v_budget_end;
       v_end := private.future_period_end(p_budget_id, v_latest, v_k);
       for r in
-        select o.occurrence_date, o.due_date, o.follows_primary
+        select o.occurrence_date, o.due_date, o.follows_primary, o.from_pay_key
         from private.transfer_period_occurrences(v_latest.seq + v_k, v_start, v_end, v_start, v_t.starts_on, v_v.schedule,
           v_v.cadence, v_v.anchor_date, v_v.day_of_month, v_v.offset_days, v_v.income_id, v_v.income_gone) as o
         order by o.due_date, o.occurrence_date
@@ -2532,12 +2620,15 @@ begin
         v_rows := v_rows || pg_catalog.jsonb_build_object('period_id', null, 'start_date', v_start, 'end_date', v_end,
           'projected', true, 'occurrence_date', r.occurrence_date, 'due_date', r.due_date, 'amount', v_v.amount,
           'is_automatic', v_v.is_automatic, 'category_id', v_v.category_id, 'follows_primary', r.follows_primary,
-          'created_at_once', false);
+          'created_at_once', false, 'already_recorded', false,
+          'occurrence_kind', case when v_v.schedule = 'day_of_month' then 'fixed_day'
+                                  when r.from_pay_key then 'payday' else 'income_payday' end);
       end loop;
     end loop;
   end if;
   if v_n = 0 then
-    v_rows := pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('projected', false, 'created_at_once', false));
+    v_rows := pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object('projected', false, 'created_at_once', false,
+                                                                         'already_recorded', false));
   end if;
   return (select pg_catalog.jsonb_agg(e || pg_catalog.jsonb_build_object('created_at_once_count', v_created,
             'transactions_removed_count', v_removed, 'marks_unplanned_count', v_unplanned))
@@ -2654,7 +2745,8 @@ create function public.preview_create_transfer(
 returns table (
   period_id uuid, start_date date, end_date date, projected boolean, occurrence_date date, due_date date, amount bigint,
   is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean, created_at_once_count integer,
-  transactions_removed_count integer, marks_unplanned_count integer
+  transactions_removed_count integer, marks_unplanned_count integer, occurrence_kind public.transfer_occurrence_kind,
+  already_recorded boolean
 )
 language plpgsql
 security definer
@@ -2693,7 +2785,8 @@ begin
   return query select * from pg_catalog.jsonb_to_recordset(v_rows) as r (
     period_id uuid, start_date date, end_date date, projected boolean, occurrence_date date, due_date date,
     amount bigint, is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean,
-    created_at_once_count integer, transactions_removed_count integer, marks_unplanned_count integer);
+    created_at_once_count integer, transactions_removed_count integer, marks_unplanned_count integer,
+    occurrence_kind public.transfer_occurrence_kind, already_recorded boolean);
 end;
 $$;
 
@@ -2722,6 +2815,10 @@ declare
   v_name text;
   v_span record;
   v_terms record;
+  v_last integer;
+  v_seqs integer[];
+  v_keys date[];
+  v_kinds public.transfer_occurrence_kind[];
 begin
   if p_name is not null then
     v_name := private.clean_name(p_name);
@@ -2738,6 +2835,13 @@ begin
     perform private.assert_transfer_terms(v_transfer.budget_id, v_span.from_seq, v_span.to_seq, v_terms.from_account_id,
       v_terms.to_account_id, v_terms.amount, v_terms.schedule, v_terms.offset_days, v_terms.day_of_month,
       p_income_id, v_terms.is_automatic, v_terms.category_id, v_terms.cadence, v_terms.anchor_date);  -- D-396
+    if p_schedule is not null then
+      v_last := coalesce(v_span.to_seq - 1,
+                         (select pg_catalog.max(p.seq) from public.periods as p where p.budget_id = v_transfer.budget_id));
+      select pg_catalog.array_agg(pl.seq), pg_catalog.array_agg(pl.occurrence_date), pg_catalog.array_agg(pl.kind)
+      into v_seqs, v_keys, v_kinds
+      from private.transfer_plan_range(v_transfer.budget_id, v_transfer.id, v_span.from_seq, v_last) as pl;
+    end if;
     insert into public.transfer_versions (transfer_id, budget_id, effective_from_seq, from_account_id, to_account_id,
                                           amount, schedule, offset_days, day_of_month, income_id, is_automatic, category_id,
                                           cadence, anchor_date, income_gone)
@@ -2749,6 +2853,19 @@ begin
           schedule = excluded.schedule, offset_days = excluded.offset_days, day_of_month = excluded.day_of_month,
           income_id = excluded.income_id, is_automatic = excluded.is_automatic, category_id = excluded.category_id,
           cadence = excluded.cadence, anchor_date = excluded.anchor_date, income_gone = excluded.income_gone;
+    if v_keys is not null then
+      -- R-ACCOUNT-305, R-ACCOUNT-460: a payday changed to a fixed day on the same date in the same
+      -- period (or back) is the same transfer: its mark (and transaction) becomes the new kind's,
+      -- when the old occurrence is planned nowhere now and the new one has no mark of its own
+      update public.transfer_occurrences as o set kind = n.kind
+      from unnest(v_seqs, v_keys, v_kinds) as b (seq, k, kind)
+      join private.transfer_plan_range(v_transfer.budget_id, v_transfer.id, v_span.from_seq, v_last) as n
+        on n.seq = b.seq and n.occurrence_date = b.k and n.kind <> b.kind
+      where o.transfer_id = v_transfer.id and o.occurrence_date = b.k and o.kind = b.kind
+        and not exists (select 1 from public.transfer_occurrences as m
+                        where m.transfer_id = v_transfer.id and m.occurrence_date = b.k and m.kind = n.kind)
+        and not exists (select 1 from private.transfer_planned(v_transfer.id, b.k, b.kind));
+    end if;
     update public.transfers set name = coalesce(v_name, name), revision = revision + 1 where id = v_transfer.id;
     perform private.materialise_transfers(v_transfer.budget_id);
   elsif p_from_period_id is not null then
@@ -2774,7 +2891,8 @@ create function public.preview_update_transfer(
 returns table (
   period_id uuid, start_date date, end_date date, projected boolean, occurrence_date date, due_date date, amount bigint,
   is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean, created_at_once_count integer,
-  transactions_removed_count integer, marks_unplanned_count integer
+  transactions_removed_count integer, marks_unplanned_count integer, occurrence_kind public.transfer_occurrence_kind,
+  already_recorded boolean
 )
 language plpgsql
 security definer
@@ -2849,7 +2967,8 @@ begin
   return query select * from pg_catalog.jsonb_to_recordset(v_rows) as r (
     period_id uuid, start_date date, end_date date, projected boolean, occurrence_date date, due_date date,
     amount bigint, is_automatic boolean, category_id uuid, follows_primary boolean, created_at_once boolean,
-    created_at_once_count integer, transactions_removed_count integer, marks_unplanned_count integer);
+    created_at_once_count integer, transactions_removed_count integer, marks_unplanned_count integer,
+    occurrence_kind public.transfer_occurrence_kind, already_recorded boolean);
 end;
 $$;
 
@@ -2873,7 +2992,7 @@ begin
                and pl.due_date <= private.charge_horizon(p_transfer.budget_id)
                and not exists (select 1 from public.transfer_occurrences as o
                                where o.transfer_id = p_transfer.id and o.occurrence_date = pl.occurrence_date
-                                 and o.key_shared = pl.key_shared)) then
+                                 and o.kind = pl.kind)) then
     raise exception 'transfer_held_back' using errcode = 'P0001';
   end if;
   return case when p_seq <= p_transfer.first_seq
@@ -2916,7 +3035,7 @@ begin
   update public.transfer_occurrences as o set by_catch_up = false
   where o.transfer_id = v_transfer.id and o.by_catch_up
     and o.occurrence_date >= private.seq_start(v_transfer.budget_id, v_end) - 93
-    and not exists (select 1 from private.transfer_planned(v_transfer.id, o.occurrence_date, o.key_shared));
+    and not exists (select 1 from private.transfer_planned(v_transfer.id, o.occurrence_date, o.kind));
   perform private.materialise_transfers(v_transfer.budget_id);
   return 'ended';
 end;
@@ -2965,7 +3084,7 @@ begin
     from private.transfer_plan_range(v_t.budget_id, v_t.id, greatest(v_seq, v_t.first_seq),
                                      (select pg_catalog.max(p.seq) from public.periods as p where p.budget_id = v_t.budget_id)) as pl
     left join public.transfer_occurrences as o
-      on o.transfer_id = v_t.id and o.occurrence_date = pl.occurrence_date and o.key_shared = pl.key_shared
+      on o.transfer_id = v_t.id and o.occurrence_date = pl.occurrence_date and o.kind = pl.kind
     left join public.transactions as x on x.transfer_occurrence_id = o.id;
 end;
 $$;
@@ -3050,7 +3169,11 @@ create type public.transfer_checklist_row as (
   cadence public.subscription_cadence,
   -- done without a member's mark: an automatic occurrence assumed done (with the catch-up's
   -- transaction when linked)
-  assumed boolean
+  assumed boolean,
+  -- R-ACCOUNT-460: the occurrence's kind ('pay_date': a payday; 'day_of_month': a fixed day).
+  -- With occurrence_date it names the occurrence; a period can list a payday and a fixed day with
+  -- one key (the mark calls then take it as p_occurrence_kind)
+  occurrence_kind public.transfer_occurrence_kind
 );
 
 -- The name of whoever marked an occurrence, for members (also once they have left).
@@ -3075,7 +3198,8 @@ $$;
 -- unless marked not done. A done one linked to a category shows its transaction's date and
 -- amount, edits included (R-ACCOUNT-073).
 create function private.transfer_checklist(p_budget_id uuid, p_seq integer, p_transfer_id uuid default null,
-                                           p_occurrence_date date default null)
+                                           p_occurrence_date date default null,
+                                           p_occurrence_kind public.transfer_occurrence_kind default null)
 returns setof public.transfer_checklist_row
 language plpgsql
 stable
@@ -3103,14 +3227,14 @@ begin
       (select pg_catalog.array_agg(distinct d.occurrence_date) from dated as d
        where not exists (select 1 from live as l
                          where l.transfer_id = d.transfer_id and l.occurrence_date = d.occurrence_date
-                           and l.key_shared = d.key_shared))) as pl
+                           and l.kind = d.kind))) as pl
   ),
   orphan as (
     select o.* from dated as o
     where not exists (select 1 from live as l where l.transfer_id = o.transfer_id and l.occurrence_date = o.occurrence_date
-                                              and l.key_shared = o.key_shared)
+                                              and l.kind = o.kind)
       and not exists (select 1 from around as a where a.transfer_id = o.transfer_id and a.occurrence_date = o.occurrence_date
-                                                and a.key_shared = o.key_shared)
+                                                and a.kind = o.kind)
   )
   select * from (
   select pl.transfer_id, pl.period_id, pl.occurrence_date, pl.name, pl.from_account_id, fa.name as from_account_name,
@@ -3126,20 +3250,22 @@ begin
          coalesce(x.date, o.done_on), coalesce(x.amount, o.amount), x.id, x.revision,
          coalesce(o.revision, 0), o.recorded_by, private.marker_name(p_budget_id, o.recorded_by), false, true,
          pl.cadence,
-         (o.id is null and pl.is_automatic and pl.due_date <= private.today()) or coalesce(o.by_catch_up, false)
+         (o.id is null and pl.is_automatic and pl.due_date <= private.today()) or coalesce(o.by_catch_up, false),
+         pl.kind as occurrence_kind
   from live as pl
   join public.accounts as fa on fa.id = pl.from_account_id
   join public.accounts as ta on ta.id = pl.to_account_id
   left join public.categories as c on c.id = pl.category_id
   left join public.transfer_occurrences as o
-    on o.transfer_id = pl.transfer_id and o.occurrence_date = pl.occurrence_date and o.key_shared = pl.key_shared
+    on o.transfer_id = pl.transfer_id and o.occurrence_date = pl.occurrence_date and o.kind = pl.kind
   left join public.transactions as x on x.transfer_occurrence_id = o.id
   union all
   select t.id, per.id, o.occurrence_date, t.name, v.from_account_id, fa.name, v.to_account_id, ta.name, v.amount,
          null::date, v.is_automatic, v.category_id, c.name, o.mark::text, false, false, false,
          coalesce(x.date, o.done_on), coalesce(x.amount, o.amount), x.id, x.revision,
          o.revision, o.recorded_by, private.marker_name(p_budget_id, o.recorded_by),
-         not (t.first_seq <= per.seq and (t.end_seq is null or per.seq < t.end_seq)), false, v.cadence, o.by_catch_up
+         not (t.first_seq <= per.seq and (t.end_seq is null or per.seq < t.end_seq)), false, v.cadence, o.by_catch_up,
+         o.kind
   from orphan as o
   cross join per
   join public.transfers as t on t.id = o.transfer_id
@@ -3154,8 +3280,9 @@ begin
   left join public.categories as c on c.id = v.category_id
   left join public.transactions as x on x.transfer_occurrence_id = o.id
   ) as k
-  where p_occurrence_date is null or k.occurrence_date = p_occurrence_date
-  order by coalesce(k.due_date, k.occurrence_date), k.name, k.transfer_id, k.occurrence_date;
+  where (p_occurrence_date is null or k.occurrence_date = p_occurrence_date)
+    and (p_occurrence_kind is null or k.occurrence_kind = p_occurrence_kind)
+  order by coalesce(k.due_date, k.occurrence_date), k.name, k.transfer_id, k.occurrence_date, k.occurrence_kind;
 end;
 $$;
 
@@ -3203,16 +3330,18 @@ begin
 end;
 $$;
 
--- R-ACCOUNT-301, D-429: the occurrence a mark acts on, under the budget lock: one of the
--- transfer's checklist rows in that period (planned there, or a mark listed there), chosen by
--- p_occurrence_date, which is needed only when the period has several (occurrence_required);
--- none: transfer_not_in_force. Its mark is checked against the revision the client read (0: no
--- mark; R-CONCURRENCY-230).
+-- R-ACCOUNT-301, R-ACCOUNT-460, D-429: the occurrence a mark acts on, under the budget lock: one
+-- of the transfer's checklist rows in that period (planned there, or a mark listed there), chosen
+-- by p_occurrence_date and p_occurrence_kind, which are needed only when the period lists
+-- several (occurrence_required); none: transfer_not_in_force. The row names its occurrence (key and
+-- kind) and so its mark, planned or not, whatever other occurrences exist. Its mark is checked
+-- against the revision the client read (0: no mark; R-CONCURRENCY-230).
 create function private.lock_occurrence(p_transfer_id uuid, p_period_id uuid, p_occurrence_date date,
-                                        p_expected_revision integer)
+                                        p_expected_revision integer,
+                                        p_occurrence_kind public.transfer_occurrence_kind default null)
 returns table (budget_id uuid, seq integer, start_date date, end_date date, occurrence_date date, due_date date,
                amount bigint, is_automatic boolean, category_id uuid, mark_id uuid, mark public.transfer_mark,
-               by_catch_up boolean, planned boolean, starts_on date, key_shared boolean)
+               by_catch_up boolean, planned boolean, starts_on date, kind public.transfer_occurrence_kind)
 language plpgsql
 set search_path = ''
 as $$
@@ -3223,38 +3352,22 @@ declare
   v_row public.transfer_checklist_row;
   v_mark public.transfer_occurrences;
   v_period public.periods;
-  v_shared boolean;
 begin
   v_transfer := private.lock_transfer(p_transfer_id);
   v_seq := private.period_seq(v_transfer.budget_id, p_period_id);
   select pg_catalog.count(*)::integer into v_count
-  from private.transfer_checklist(v_transfer.budget_id, v_seq, v_transfer.id, p_occurrence_date);
+  from private.transfer_checklist(v_transfer.budget_id, v_seq, v_transfer.id, p_occurrence_date, p_occurrence_kind);
   if v_count = 0 then
     raise exception 'transfer_not_in_force' using errcode = 'P0001';
   end if;
-  -- two marks no longer planned with one key (R-ACCOUNT-421) listed in one period: one at a time
-  if v_count > 1 and (p_occurrence_date is null
-                      or exists (select 1 from private.transfer_checklist(v_transfer.budget_id, v_seq, v_transfer.id,
-                                                                          p_occurrence_date) as c where c.planned)) then
+  if v_count > 1 then
     raise exception 'occurrence_required' using errcode = 'P0001';
   end if;
-  select c.* into v_row from private.transfer_checklist(v_transfer.budget_id, v_seq, v_transfer.id, p_occurrence_date) as c
-  limit 1;
-  if v_row.planned then
-    -- R-ACCOUNT-421: the occurrence this period plans with that key, and so its mark
-    select pl.key_shared into v_shared
-    from private.transfer_plan_range(v_transfer.budget_id, v_transfer.id, v_seq, v_seq) as pl
-    where pl.occurrence_date = v_row.occurrence_date;
-    select o.* into v_mark from public.transfer_occurrences as o
-    where o.transfer_id = v_transfer.id and o.occurrence_date = v_row.occurrence_date and o.key_shared = v_shared;
-  else
-    select o.* into v_mark from public.transfer_occurrences as o
-    where o.transfer_id = v_transfer.id and o.occurrence_date = v_row.occurrence_date
-      and not exists (select 1 from private.transfer_planned(o.transfer_id, o.occurrence_date, o.key_shared))
-    order by o.key_shared
-    limit 1;
-    v_shared := v_mark.key_shared;
-  end if;
+  select c.* into v_row
+  from private.transfer_checklist(v_transfer.budget_id, v_seq, v_transfer.id, p_occurrence_date, p_occurrence_kind) as c;
+  select o.* into v_mark from public.transfer_occurrences as o
+  where o.transfer_id = v_transfer.id and o.occurrence_date = v_row.occurrence_date
+    and o.kind = v_row.occurrence_kind;
   if p_expected_revision is null then
     raise exception 'invalid_revision' using errcode = 'P0001';
   end if;
@@ -3264,7 +3377,7 @@ begin
   select p.* into v_period from public.periods as p where p.id = p_period_id;
   return query select v_transfer.budget_id, v_seq, v_period.start_date, v_period.end_date, v_row.occurrence_date,
                       v_row.due_date, v_row.amount, v_row.is_automatic, v_row.category_id, v_mark.id, v_mark.mark,
-                      v_mark.by_catch_up, v_row.planned, v_transfer.starts_on, coalesce(v_shared, false);
+                      v_mark.by_catch_up, v_row.planned, v_transfer.starts_on, v_row.occurrence_kind;
 end;
 $$;
 
@@ -3293,7 +3406,8 @@ $$;
 -- (default the planned amount). Linked to a category: its transaction is created, dated then.
 create function public.mark_transfer_done(
   p_transfer_id uuid, p_period_id uuid, p_expected_revision integer,
-  p_done_on date default null, p_amount bigint default null, p_occurrence_date date default null
+  p_done_on date default null, p_amount bigint default null, p_occurrence_date date default null,
+  p_occurrence_kind public.transfer_occurrence_kind default null
 )
 returns setof public.transfer_checklist_row
 language plpgsql
@@ -3307,7 +3421,8 @@ declare
   v_id uuid;
   v_today date := private.today();
 begin
-  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision);
+  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision,
+                                                 p_occurrence_kind);
   if not o.planned then
     raise exception 'transfer_not_in_force' using errcode = 'P0001';
   end if;
@@ -3327,20 +3442,21 @@ begin
   if v_amount not between 1 and private.limit_amount() then
     raise exception 'invalid_amount' using errcode = 'P0001';
   end if;
-  insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, key_shared, mark, done_on, amount,
+  insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, kind, mark, done_on, amount,
                                           recorded_by)
-  values (o.budget_id, p_transfer_id, o.occurrence_date, o.key_shared, 'done', v_date, v_amount, (select auth.uid()))
+  values (o.budget_id, p_transfer_id, o.occurrence_date, o.kind, 'done', v_date, v_amount, (select auth.uid()))
   returning id into v_id;
   if o.category_id is not null then
     perform private.create_transfer_transaction(o.budget_id, v_id, o.category_id, v_date, v_amount, (select auth.uid()));
   end if;
-  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date);
+  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date, o.kind);
 end;
 $$;
 
 -- R-ACCOUNT-005: a planned manual occurrence was skipped.
 create function public.skip_transfer(p_transfer_id uuid, p_period_id uuid, p_expected_revision integer,
-                                     p_occurrence_date date default null)
+                                     p_occurrence_date date default null,
+                                     p_occurrence_kind public.transfer_occurrence_kind default null)
 returns setof public.transfer_checklist_row
 language plpgsql
 security definer
@@ -3349,7 +3465,8 @@ as $$
 declare
   o record;
 begin
-  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision);
+  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision,
+                                                 p_occurrence_kind);
   if not o.planned then
     raise exception 'transfer_not_in_force' using errcode = 'P0001';
   end if;
@@ -3359,16 +3476,17 @@ begin
   if o.mark_id is not null then
     raise exception 'transfer_already_marked' using errcode = 'P0001';
   end if;
-  insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, key_shared, mark, recorded_by)
-  values (o.budget_id, p_transfer_id, o.occurrence_date, o.key_shared, 'skipped', (select auth.uid()));
-  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date);
+  insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, kind, mark, recorded_by)
+  values (o.budget_id, p_transfer_id, o.occurrence_date, o.kind, 'skipped', (select auth.uid()));
+  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date, o.kind);
 end;
 $$;
 
 -- R-ACCOUNT-004, D-353: a planned automatic occurrence did not happen (before or after its due
 -- date). Its transaction, if the catch-up made one, is deleted, and none is created for it again.
 create function public.mark_transfer_not_done(p_transfer_id uuid, p_period_id uuid, p_expected_revision integer,
-                                              p_occurrence_date date default null)
+                                              p_occurrence_date date default null,
+                                              p_occurrence_kind public.transfer_occurrence_kind default null)
 returns setof public.transfer_checklist_row
 language plpgsql
 security definer
@@ -3378,7 +3496,8 @@ declare
   o record;
   v_tx uuid;
 begin
-  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision);
+  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision,
+                                                 p_occurrence_kind);
   if not o.planned then
     raise exception 'transfer_not_in_force' using errcode = 'P0001';
   end if;
@@ -3386,8 +3505,8 @@ begin
     raise exception 'transfer_is_manual' using errcode = 'P0001';
   end if;
   if o.mark_id is null then
-    insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, key_shared, mark, recorded_by)
-    values (o.budget_id, p_transfer_id, o.occurrence_date, o.key_shared, 'not_done', (select auth.uid()));
+    insert into public.transfer_occurrences (budget_id, transfer_id, occurrence_date, kind, mark, recorded_by)
+    values (o.budget_id, p_transfer_id, o.occurrence_date, o.kind, 'not_done', (select auth.uid()));
   elsif o.mark = 'done' and o.by_catch_up then
     select x.id into v_tx from public.transactions as x where x.transfer_occurrence_id = o.mark_id;
     update public.transfer_occurrences set mark = 'not_done', done_on = null, amount = null, by_catch_up = false,
@@ -3397,7 +3516,7 @@ begin
   else
     raise exception 'transfer_already_marked' using errcode = 'P0001';
   end if;
-  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date);
+  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date, o.kind);
 end;
 $$;
 
@@ -3408,7 +3527,8 @@ $$;
 -- transaction of an automatic linked occurrence is already that state (nothing_to_undo: mark it
 -- not done).
 create function public.undo_transfer_mark(p_transfer_id uuid, p_period_id uuid, p_expected_revision integer,
-                                          p_occurrence_date date default null)
+                                          p_occurrence_date date default null,
+                                          p_occurrence_kind public.transfer_occurrence_kind default null)
 returns setof public.transfer_checklist_row
 language plpgsql
 security definer
@@ -3417,14 +3537,15 @@ as $$
 declare
   o record;
 begin
-  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision);
+  select * into o from private.lock_occurrence(p_transfer_id, p_period_id, p_occurrence_date, p_expected_revision,
+                                                 p_occurrence_kind);
   if o.mark_id is null
      or (o.planned and o.mark = 'done' and o.by_catch_up and o.is_automatic and o.category_id is not null) then
     raise exception 'nothing_to_undo' using errcode = 'P0001';
   end if;
   perform private.drop_transfer_marks(array[o.mark_id]);  -- the watermark moves back (D-423)
   perform private.materialise_transfers(o.budget_id);
-  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date);
+  return query select * from private.transfer_checklist(o.budget_id, o.seq, p_transfer_id, o.occurrence_date, o.kind);
 end;
 $$;
 
@@ -4114,7 +4235,7 @@ begin
   -- catch-up recorded for the occurrences that end removes stays, as end_transfer keeps it
   update public.transfer_occurrences as o set by_catch_up = false
   where o.transfer_id = any (coalesce(v_ended, '{}')) and o.by_catch_up
-    and not exists (select 1 from private.transfer_planned(o.transfer_id, o.occurrence_date, o.key_shared));
+    and not exists (select 1 from private.transfer_planned(o.transfer_id, o.occurrence_date, o.kind));
   perform private.materialise_transfers(p_budget_id);
   return query select s.* from public.period_summaries as s where s.id = v_previous.id;
 end;
@@ -4171,16 +4292,10 @@ begin
   -- the boundary, as after a reopen and the salary recorded on that day: the catch-up's own marks
   -- of the two periods whose due date the move changed go with their transactions, and the
   -- catch-up makes them again on the new due date. What a member touched stays exactly as the
-  -- member left it: a mark of their own, an occurrence made manual since, a transaction edited
-  -- (amount, description, date or category: its revision moved)
-  perform private.drop_transfer_marks((
-    select pg_catalog.array_agg(o.id)
-    from private.transfer_plan_range(v_budget_id, null, v_previous.seq, v_period.seq) as pl
-    join public.transfer_occurrences as o
-      on o.transfer_id = pl.transfer_id and o.occurrence_date = pl.occurrence_date and o.key_shared = pl.key_shared
-    where o.by_catch_up and o.mark = 'done' and o.done_on is distinct from pl.due_date
-      and pl.is_automatic
-      and not exists (select 1 from public.transactions as x where x.transfer_occurrence_id = o.id and x.revision > 1)));
+  -- member left it: a mark of their own, an occurrence made manual or unlinked since, a
+  -- transaction edited (amount, description, date or category: its revision moved). One rule for
+  -- every change of a due date, in the catch-up (R-ACCOUNT-462): the boundaries' triggers moved
+  -- the watermark back.
   perform private.materialise_transfers(v_budget_id);
 end;
 $function$
@@ -4742,7 +4857,7 @@ begin
   from public.periods as cur
   cross join lateral private.transfer_plan_range(p_budget_id, null, cur.seq - 1, cur.seq, true) as pl
   left join public.transfer_occurrences as o
-    on o.transfer_id = pl.transfer_id and o.occurrence_date = pl.occurrence_date and o.key_shared = pl.key_shared
+    on o.transfer_id = pl.transfer_id and o.occurrence_date = pl.occurrence_date and o.kind = pl.kind
   where cur.budget_id = p_budget_id and private.today() between cur.start_date and cur.end_date
     and not pl.is_automatic;
 end;
@@ -4911,7 +5026,9 @@ grant execute on function
   private.transfer_plan_seqs(uuid, uuid, integer[], boolean),
   private.transfer_raw_keys(uuid, integer),
   private.transfer_period_occurrences(integer, date, date, date, date, public.transfer_schedule,
-    public.subscription_cadence, date, integer, integer, uuid, boolean, date, date),
+    public.subscription_cadence, date, integer, integer, uuid, boolean, date, integer, date),
+  private.primary_income_at(uuid, integer),
+  private.primary_switch_day(uuid, integer),
   private.income_pay_dates(uuid, integer, date, date),
   private.transfer_monthly_amount(bigint, public.transfer_schedule, public.subscription_cadence),
   private.transfers_in_force(uuid, integer),
@@ -5032,10 +5149,10 @@ grant execute on function
   public.preview_end_transfer(uuid, uuid),
   public.get_transfer_terms(uuid, uuid),
   public.get_transfer_checklist(uuid),
-  public.mark_transfer_done(uuid, uuid, integer, date, bigint, date),
-  public.skip_transfer(uuid, uuid, integer, date),
-  public.mark_transfer_not_done(uuid, uuid, integer, date),
-  public.undo_transfer_mark(uuid, uuid, integer, date),
+  public.mark_transfer_done(uuid, uuid, integer, date, bigint, date, public.transfer_occurrence_kind),
+  public.skip_transfer(uuid, uuid, integer, date, public.transfer_occurrence_kind),
+  public.mark_transfer_not_done(uuid, uuid, integer, date, public.transfer_occurrence_kind),
+  public.undo_transfer_mark(uuid, uuid, integer, date, public.transfer_occurrence_kind),
   public.get_money_flow(uuid, uuid),
   public.add_income(uuid, text, bigint, integer, public.weekend_rule, uuid, uuid, uuid),
   public.update_income(uuid, integer, text, bigint, integer, public.weekend_rule, uuid, date, uuid, boolean),

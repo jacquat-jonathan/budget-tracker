@@ -216,12 +216,12 @@ $$;
 -- gave it before the step's operation (naive_snap) or gives it now; then all are recorded (as
 -- transactions the run may pick), by key, then by when the run made the transfer.
 create temp table naive_snap (transfer_id uuid, occurrence_date date, due_date date, amount bigint, category_id uuid,
-                              is_automatic boolean, key_shared boolean) on commit drop;
+                              is_automatic boolean, kind public.transfer_occurrence_kind) on commit drop;
 grant select, insert, delete on naive_snap to authenticated;
 create or replace function pg_temp.snap_naive(b uuid) returns void language sql as $$
   delete from naive_snap;
   insert into naive_snap select n.transfer_id, n.occurrence_date, n.due_date, n.amount, n.category_id, n.is_automatic,
-                                n.key_shared
+                                n.kind
   from tests.naive_occurrences(b) as n;
 $$;
 create or replace function pg_temp.transfer_oracle(b uuid) returns setof text language plpgsql as $$
@@ -236,9 +236,9 @@ begin
     join public.transfer_occurrences as o on o.id = x.transfer_occurrence_id
     join public.transfers as t on t.id = o.transfer_id
     left join tests.naive_occurrences(b) as n
-      on n.transfer_id = o.transfer_id and n.occurrence_date = o.occurrence_date and n.key_shared = o.key_shared
+      on n.transfer_id = o.transfer_id and n.occurrence_date = o.occurrence_date and n.kind = o.kind
     left join naive_snap as s
-      on s.transfer_id = o.transfer_id and s.occurrence_date = o.occurrence_date and s.key_shared = o.key_shared
+      on s.transfer_id = o.transfer_id and s.occurrence_date = o.occurrence_date and s.kind = o.kind
     where x.budget_id = b and o.by_catch_up and not exists (select 1 from made as m where m.id = x.id)
   loop
     if not ((r.date = r.due and r.amount = r.planned and r.category_id is not distinct from r.planned_category and r.is_automatic)

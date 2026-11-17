@@ -112,7 +112,7 @@ select is((select count(*)::integer from public.get_transfer_checklist(pg_temp.p
            where c.transfer_id = tests.id('f6_t')), 1,
   'R-ACCOUNT-301: the period containing the earlier keys lists only its own occurrence, not those planned elsewhere');
 select tests.clear_authentication();
-select is((select count(*)::integer from private.transfer_planned(tests.id('f6_t'), '2026-12-25')), 1,
+select is((select count(*)::integer from private.transfer_planned(tests.id('f6_t'), '2026-12-25', 'payday')), 1,
   'R-ACCOUNT-301: a key two periods away from the one containing it is found as planned');
 select tests.authenticate_as('iris');
 -- deleting the transaction of 2 December: not done, never created again
@@ -163,13 +163,14 @@ select lives_ok(format($$select * from public.update_transfer(%L, %s, p_income_i
                        tests.id('fk_t'), (select revision from public.transfers where id = tests.id('fk_t')), tests.id('fk_inc'),
                        tests.id('fk_p7')), 'R-ACCOUNT-071: (from the current period the transfer follows the partner, paid on the 25th)');
 select is((select count(*)::integer from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
-           where p.budget_id = tests.id('fk') and c.transfer_id = tests.id('fk_t') and c.occurrence_date = '2026-12-25' and c.planned), 1,
-  'R-ACCOUNT-301: the 25th of December is planned once, by the earlier period whose scheduled pay date it is');
+           where p.budget_id = tests.id('fk') and c.transfer_id = tests.id('fk_t') and c.occurrence_date = '2026-12-25' and c.planned), 2,
+  'R-ACCOUNT-421: key 25 Dec twice: the salary of 2 Dec (keyed 25 Dec, 23 days early: not that payday) and the partner''s own 25 Dec');
 select tests.clear_authentication();
-select is((select string_agg(pl.seq::text, ',') from private.transfer_plan_range(tests.id('fk'), tests.id('fk_t'), 1, 20) as pl
+select is((select string_agg(pl.seq::text || '/' || pl.kind, ',' order by pl.seq) from private.transfer_plan_range(tests.id('fk'), tests.id('fk_t'), 1, 20) as pl
            where pl.occurrence_date = '2026-12-25'),
-          ((select seq from public.periods where id = tests.id('fk_p7')) - 3)::text,
-  'R-ACCOUNT-301: the plan gives that key to the earlier period only');
+          ((select seq from public.periods where id = tests.id('fk_p7')) - 3)::text || '/payday,'
+            || (select seq from public.periods where id = tests.id('fk_p7'))::text || '/income_payday',
+  'R-ACCOUNT-460: two occurrences with that key, told apart by their kind');
 
 -- ===========================================================================
 -- M2 with C5: a budget whose transfer named two incomes is deleted, also within the transaction
@@ -397,8 +398,10 @@ select tests.remember('s4b_t', (select id from public.create_transfer(tests.id('
 select public.record_early_pay_date(tests.id('s4b'), (pg_temp.cur('s4b')).id, (pg_temp.cur('s4b')).revision, '2026-11-15');
 select pg_temp.day('2026-11-16');
 select public.ensure_periods(tests.id('s4b'));
-select is(pg_temp.reopen_check('s4b', '2026-11-17'), '0 announced, 0 removed',
-  'R-ACCOUNT-313: with another end the preview follows that end''s due-date cap, as the write does');
+select is(pg_temp.reopen_check('s4b', '2026-11-17'), '1 announced, 0 removed',
+  'R-ACCOUNT-313: with another end the preview follows that end''s due-date cap, as the write does (R-ACCOUNT-462: the transaction is made again on its new due date, one removed and one created)');
+select is((select string_agg(x.date::text, ',' order by x.date) from public.transaction_list as x where x.transfer_id = tests.id('s4b_t')), '2026-10-24,2026-11-16',
+  'R-ACCOUNT-462: the transaction the app made sits on the occurrence''s new due date (the period''s new last day)');
 
 -- ===========================================================================
 -- S5: next_due_date of a yearly or a far quarterly transfer (R-ACCOUNT-314; the reviewer's F5)
