@@ -420,14 +420,7 @@ function SpendingTable({
               )}
             </>,
             <>
-              {row.negative ? (
-                <Warn>
-                  {m(row.spent)}
-                  <span className="sr-only">{t('moneyFlow.table.overPlan')}</span>
-                </Warn>
-              ) : (
-                m(row.spent)
-              )}
+              {row.negative ? <Warn>{m(row.spent)}</Warn> : m(row.spent)}
               {row.negative && <Note>{t('moneyFlow.table.overPlan')}</Note>}
               {row.transferSpent !== 0 && (
                 <Note>
