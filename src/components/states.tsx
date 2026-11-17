@@ -21,6 +21,19 @@ export function LoadingState({ rows = 3, className }: { rows?: number; className
   )
 }
 
+/**
+ * "Try again" replaces the error with the loading state, and the button with it: the focus goes
+ * to the page's heading first, never to the page's body (it stays there if the read fails again;
+ * the error is announced as an alert).
+ */
+// R-APP-441: after "Try again" on a failed read, the focus is on the page's heading.
+function focusPageHeading(from: HTMLElement) {
+  const heading = (from.closest('main') ?? document).querySelector<HTMLElement>('h1')
+  if (!heading) return
+  if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
+  heading.focus()
+}
+
 /** A failed read: the translated reason and a way to try again. */
 export function ErrorState({
   error,
@@ -47,7 +60,14 @@ export function ErrorState({
       <p className="font-medium">{t('states.loadFailed')}</p>
       <p className="max-w-sm text-sm text-muted-foreground">{errorMessage(error)}</p>
       {onRetry && (
-        <Button variant="outline" size="sm" onClick={onRetry}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(event) => {
+            focusPageHeading(event.currentTarget)
+            onRetry()
+          }}
+        >
           {t('states.retry')}
         </Button>
       )}

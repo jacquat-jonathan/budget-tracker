@@ -637,6 +637,8 @@ const core: Omit<Translation, LazyKey> = {
     editPrimaryNote:
       'C’est le revenu principal : aucune période déjà commencée ne bouge. Seule la fin prévue de la période en cours suit la nouvelle date de paie (sauf si vous l’avez fixée à la main), jamais avant aujourd’hui.',
     primaryTitle: 'Faire de « {{name}} » le revenu principal ?',
+    primaryTransfersNote:
+      'Les virements planifiés le jour de paie suivent le nouveau revenu principal à partir de la période suivante. Dans cette période, rien ne change pour eux : leurs dates restent, et ce qui a déjà été enregistré ou coché reste tel quel.',
     primaryDescription:
       'Les périodes suivent alors le jour de paie de ce revenu. Les périodes déjà commencées ne bougent pas.',
     preview: {
@@ -1203,6 +1205,7 @@ const core: Omit<Translation, LazyKey> = {
     saved: 'Périodes mises à jour.',
     reset: 'Revenir',
     moveBack: 'Ramener',
+    moveNoChange: 'Cette période commence déjà le {{date}} : la déplacer à ce jour ne change rien.',
     moveScheduleRefused:
       'Ce début ne peut pas revenir sur le calendrier de paie maintenant : le jour que donne le calendrier est après aujourd’hui, ou une période ferait moins de 7 jours ou plus de 92. Il reste tel quel ; vous pouvez toujours le déplacer au jour de votre choix.',
     changedTitle: 'Les périodes ont changé pendant que cette fenêtre était ouverte',

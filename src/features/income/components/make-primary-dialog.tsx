@@ -21,6 +21,7 @@ import {
   useArrivedUnderNewTerms,
   useExpectedPayDatePreview,
 } from '@/features/income/pay-date-preview'
+import { useTransfers } from '@/features/transfers/transfer-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useEditBase } from '@/hooks/use-edit-base'
 import { previewHolds } from '@/lib/preview'
@@ -106,6 +107,10 @@ function PrimaryBody({
   const describe = (record: MyBudget) => views.budgetPrimary(record, incomes)
   const edit = useEditBase(budget, budget, describe)
   const enabled = currentPeriod !== null
+  const transfers = useTransfers(budgetId)
+  const paydayTransfers = (transfers.data ?? []).some(
+    (transfer) => transfer.is_active && transfer.schedule === 'pay_date',
+  )
   const preview = useExpectedPayDatePreview(
     budgetId,
     { kind: 'primary', incomeId: income.id },
@@ -128,6 +133,12 @@ function PrimaryBody({
           offer={arrivedOffer}
           endDateEntered={budget.end_date_entered}
         />
+      )}
+      {paydayTransfers && (
+        // R-ACCOUNT-428: a switch counts for the transfers from the next period (D-527).
+        <p className="text-sm text-muted-foreground" data-testid="primary-transfers-note">
+          {t('income.primaryTransfersNote')}
+        </p>
       )}
       {edit.changed && (
         <ChangedElsewhere

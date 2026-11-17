@@ -123,6 +123,8 @@ export const transfersFr = {
       '{{count}} transactions enregistrées par l’application pour des virements sont retirées.',
     created_one: '{{count}} transaction d’un ordre permanent est enregistrée.',
     created_other: '{{count}} transactions d’ordres permanents sont enregistrées.',
+    movedKeeps:
+      'Seul ce que l’application a enregistré d’elle-même, et que personne n’a modifié depuis, passe à sa nouvelle échéance. Une coche, un virement rendu manuel et une transaction modifiée par un membre restent exactement tels quels.',
     movedNote: 'Une transaction déplacée à sa nouvelle échéance compte une fois de chaque côté.',
     unplanned_one:
       '{{count}} coche d’un membre n’est plus prévue : elle reste, signalée, jusqu’à son annulation.',

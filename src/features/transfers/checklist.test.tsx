@@ -431,6 +431,34 @@ describe('a standing order counts as done from its due date [R-ACCOUNT-004]', ()
     )
   })
 
+  it('[D-526] an assumed-done standing order offers no Undo (it would be nothing to undo), and “did not happen”', async () => {
+    const db = await openPage(standingOrderDb())
+    const plain = row('Plain order')
+    expect(within(plain).queryByRole('button', { name: /Undo/ })).not.toBeInTheDocument()
+    // As the database: undo there answers nothing_to_undo.
+    expect(() =>
+      db.rpc.undo_transfer_mark({
+        p_transfer_id: 'tr-plain',
+        p_period_id: 'period-2',
+        p_occurrence_date: '2026-11-01',
+        p_expected_revision: 0,
+      }),
+    ).toThrow('nothing_to_undo')
+    await userEvent.click(
+      within(plain).getByRole('button', { name: '“Plain order” did not happen' }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.mark_transfer_not_done).toHaveBeenCalledWith(
+        expect.objectContaining({
+          p_transfer_id: 'tr-plain',
+          p_period_id: 'period-2',
+          p_occurrence_date: '2026-11-01',
+          p_expected_revision: 0,
+        }),
+      )
+    })
+  })
+
   it('undoing “did not happen” leads back to done by standing order on its due date', async () => {
     const db = await openPage(standingOrderDb())
     await userEvent.click(screen.getByRole('button', { name: 'Undo the tick of “Said order”' }))
@@ -460,6 +488,46 @@ describe('a standing order counts as done from its due date [R-ACCOUNT-004]', ()
     expect(db.rpc.undo_transfer_mark).toHaveBeenCalledWith(
       expect.objectContaining({ p_transfer_id: 'tr-kept', p_expected_revision: 1 }),
     )
+  })
+})
+
+describe('one date, two periods [R-ACCOUNT-446] [R-ACCOUNT-421]', () => {
+  it('two rows of a transfer with the same date in two periods are two rows; a mark acts on the one pressed', async () => {
+    const db = checklistDb()
+    db.checklist = [
+      checklistRow({
+        period_id: 'period-1',
+        due_date: '2026-10-22',
+        occurrence_date: '2026-10-23',
+      }),
+      checklistRow({
+        period_id: 'period-2',
+        due_date: '2026-10-25',
+        occurrence_date: '2026-10-23',
+      }),
+    ]
+    // The checklist of the current period lists both (the earlier one kept with its date).
+    db.rpc.get_transfer_checklist.mockImplementation(() =>
+      db.checklist.map((item) => ({ ...item })),
+    )
+    await openPage(db)
+    const rows = screen.getAllByTestId('checklist-row')
+    expect(rows).toHaveLength(2)
+    const second = rows.find((element) => element.textContent.includes('25.10.2026'))!
+    await userEvent.click(
+      within(second).getByRole('button', { name: 'Skip “Joint account” this time' }),
+    )
+    await waitFor(() => {
+      expect(db.rpc.skip_transfer).toHaveBeenCalledWith(
+        expect.objectContaining({ p_period_id: 'period-2', p_occurrence_date: '2026-10-23' }),
+      )
+    })
+    // The focus stays on the row acted on, not on its twin of the other period.
+    await waitFor(() => {
+      const focused = document.activeElement?.closest('[data-testid="checklist-row"]')
+      expect(focused?.textContent).toContain('25.10.2026')
+    })
+    expect(screen.getAllByTestId('checklist-row')).toHaveLength(2)
   })
 })
 

@@ -614,6 +614,8 @@ const core = {
     editPrimaryNote:
       'This is the primary income: no period that has started moves. Only the current period’s expected end follows the new pay date (unless you set it by hand), never before today.',
     primaryTitle: 'Make “{{name}}” the primary income?',
+    primaryTransfersNote:
+      'Planned transfers on payday follow the new primary income from the next period. In this period nothing about them changes: their dates stay, and what was already recorded or ticked stays as it is.',
     primaryDescription:
       'Periods then follow this income’s pay day. Periods that have started do not move.',
     preview: {
@@ -1155,6 +1157,7 @@ const core = {
     saved: 'Periods updated.',
     reset: 'Reset',
     moveBack: 'Move back',
+    moveNoChange: 'This period already starts on {{date}}: moving it there changes nothing.',
     moveScheduleRefused:
       'This start cannot go back to the schedule now: the day the pay schedule gives for it is after today, or it would make a period shorter than 7 days or longer than 92. It stays as it is; you can still move it to a day you choose.',
     changedTitle: 'The periods changed while you had this open',

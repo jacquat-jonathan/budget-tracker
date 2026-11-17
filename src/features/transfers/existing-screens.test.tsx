@@ -128,11 +128,26 @@ describe('moving a period’s start follows the step 7 contract [R-ACCOUNT-309]'
     expect(counts).toHaveTextContent('1 transaction the app recorded for a transfer is removed.')
     expect(counts).toHaveTextContent('1 transaction of a standing order is recorded.')
     expect(counts).toHaveTextContent('counts once in each')
+    // R-ACCOUNT-425: what a member touched stays.
+    expect(within(counts).getByTestId('moved-keeps')).toHaveTextContent(
+      'Only what the app recorded by itself, and nobody changed since, moves to its new due date. A tick, a transfer made manual and a transaction a member edited stay exactly as they are.',
+    )
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
 
     await typeDate(dialog, /Day the salary arrived/, '20.10.2026')
     await within(dialog).findByTestId('move-refused')
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
+  it('[R-ACCOUNT-426] a move to the start the period already has says it changes nothing', async () => {
+    const db = householdDb()
+    const dialog = await periodAction(db, 'This period’s salary actually arrived on another day')
+    await typeDate(dialog, /Day the salary arrived/, '23.10.2026')
+    expect(await within(dialog).findByTestId('move-no-change')).toHaveTextContent(
+      'This period already starts on 23.10.2026: moving it there changes nothing.',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(dialog).queryByTestId('move-refused')).not.toBeInTheDocument()
   })
 
   it('Save waits while the preview loads, and when it failed offers to try again [R-APP-440]', async () => {
@@ -198,6 +213,44 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     expect(await within(dialog).findByTestId('income-following-transfers')).toHaveTextContent(
       'The planned transfer “Joint share” follows this payday: what was recorded for it stays, and from its next occurrence it follows the main income.',
     )
+  })
+
+  it('[R-ACCOUNT-428] making another income primary says transfers follow it from the next period; this one stays', async () => {
+    const db = householdDb(undefined, {
+      income_overview: [
+        incomeRow(),
+        incomeRow({ id: 'income-2', name: 'Sam’s salary', is_primary: false }),
+      ],
+      transfer_overview: [transferRow({ name: 'Savings', schedule: 'pay_date' })],
+    })
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/income')
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Sam’s salary' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Make primary' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(await within(dialog).findByTestId('primary-transfers-note')).toHaveTextContent(
+      'Planned transfers on payday follow the new primary income from the next period. In this period nothing about them changes',
+    )
+    // Its preview answers 0 / 0 / 0, truthfully: no count is shown.
+    await within(dialog).findByTestId('pay-date-preview')
+    expect(within(dialog).queryByTestId('transfer-counts')).not.toBeInTheDocument()
+  })
+
+  it('without planned payday transfers, making an income primary says nothing about them', async () => {
+    const db = householdDb(undefined, {
+      income_overview: [
+        incomeRow(),
+        incomeRow({ id: 'income-2', name: 'Sam’s salary', is_primary: false }),
+      ],
+      transfer_overview: [transferRow({ schedule: 'day_of_month', day_of_month: 3 })],
+    })
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/income')
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Sam’s salary' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Make primary' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await within(dialog).findByTestId('pay-date-preview')
+    expect(within(dialog).queryByTestId('primary-transfers-note')).not.toBeInTheDocument()
   })
 
   it('a new pay day for the main income says what its preview does to transfers', async () => {

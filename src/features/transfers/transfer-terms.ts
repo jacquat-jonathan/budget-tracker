@@ -149,6 +149,17 @@ export function editArgs(
  * can be undone. Every state has a way out.
  */
 // R-ACCOUNT-005 R-ACCOUNT-240: the marks the contract allows, from every state.
+/**
+ * An occurrence on the page: its transfer, its period and its date. The same date can be an
+ * occurrence of two periods (R-ACCOUNT-421), so the date alone never names one.
+ */
+// R-ACCOUNT-446: rows, focus and the rows kept in place are keyed with the period.
+export function occurrenceKey(
+  row: Pick<ChecklistRow, 'transfer_id' | 'period_id' | 'occurrence_date'>,
+): string {
+  return `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.occurrence_date ?? ''}`
+}
+
 export function actionsFor(row: ChecklistRow) {
   const marked = (row.mark_revision ?? 0) > 0
   const assumed = row.assumed === true

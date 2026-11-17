@@ -668,6 +668,16 @@ function BoundaryForm({
               </AlertDescription>
             </Alert>
           )}
+        {action.kind === 'moveStart' &&
+          moveTo !== null &&
+          movePreview.data?.refusal === 'already_on_schedule' && (
+            // R-ACCOUNT-426: a move to the start the period already has changes nothing.
+            <Alert data-testid="move-no-change">
+              <AlertDescription>
+                {t('periods.moveNoChange', { date: fmt(moveTo) })}
+              </AlertDescription>
+            </Alert>
+          )}
         {movePreview.data?.accepted === true && (
           <TransferCounts
             removed={movePreview.data.transfer_transactions_removed}

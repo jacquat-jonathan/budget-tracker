@@ -117,6 +117,8 @@ export const transfersEn = {
     created_one: '{{count}} transaction of a standing order is recorded.',
     created_other: '{{count}} transactions of standing orders are recorded.',
     movedNote: 'A transaction that moves to its new due date counts once in each.',
+    movedKeeps:
+      'Only what the app recorded by itself, and nobody changed since, moves to its new due date. A tick, a transfer made manual and a transaction a member edited stay exactly as they are.',
     unplanned_one:
       '{{count}} tick made by a member is no longer planned: it stays, flagged, until undone.',
     unplanned_other:

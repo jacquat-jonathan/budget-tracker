@@ -33,6 +33,12 @@ export function TransferCounts({
         {moved && r > 0 && c > 0 && (
           <p className="text-muted-foreground">{t('transfers.counts.movedNote')}</p>
         )}
+        {/* R-ACCOUNT-425: only what the app recorded by itself and nobody touched moves. */}
+        {moved && (
+          <p className="text-muted-foreground" data-testid="moved-keeps">
+            {t('transfers.counts.movedKeeps')}
+          </p>
+        )}
         {u > 0 && <p>{t('transfers.counts.unplanned', { count: u })}</p>}
       </div>
     </div>

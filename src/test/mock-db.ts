@@ -517,18 +517,25 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     }),
     // A move to a date the test typed is accepted and touches no transfer; without a date
     // the period is on its schedule already. Tests of a refusal give their own answer.
-    preview_move_period_start: handler((args) => [
-      {
-        period_id: args.p_period_id,
-        scheduled_start: typeof args.p_start_date === 'string' ? args.p_start_date : '2026-10-23',
-        accepted: typeof args.p_start_date === 'string',
-        refusal: typeof args.p_start_date === 'string' ? null : 'already_on_schedule',
-        interest_removed: 0,
-        transfer_transactions_removed: 0,
-        transfer_transactions_created: 0,
-        transfer_marks_unplanned: 0,
-      },
-    ]),
+    // A move to the start the period already has is refused as a no-op (R-ACCOUNT-426), as the
+    // database answers it: already_on_schedule, every count 0.
+    preview_move_period_start: handler((args) => {
+      const start = db.tables.period_summaries.find((p) => p.id === args.p_period_id)?.start_date
+      const typed = typeof args.p_start_date === 'string' ? args.p_start_date : null
+      const moves = typed !== null && typed !== start
+      return [
+        {
+          period_id: args.p_period_id,
+          scheduled_start: typed ?? '2026-10-23',
+          accepted: moves,
+          refusal: moves ? null : 'already_on_schedule',
+          interest_removed: 0,
+          transfer_transactions_removed: 0,
+          transfer_transactions_created: 0,
+          transfer_marks_unplanned: 0,
+        },
+      ]
+    }),
     // list_periods: newest first, a page at a time (p_before_seq: the last row's seq).
     list_periods: handler((args) => {
       const limit = Number(args.p_limit ?? 120)

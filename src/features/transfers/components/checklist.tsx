@@ -32,7 +32,7 @@ import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
 import { usePeriodParam } from '@/features/budgets/use-period-param'
 import { MarkDoneDialog } from '@/features/transfers/components/mark-done-dialog'
 import { targetOf, useMarks } from '@/features/transfers/transfer-mutations'
-import { actionsFor } from '@/features/transfers/transfer-terms'
+import { actionsFor, occurrenceKey } from '@/features/transfers/transfer-terms'
 import { useChecklist, type ChecklistRow } from '@/features/transfers/transfer-queries'
 import { FromTo } from '@/features/transfers/components/transfer-bits'
 import { formatCalendarDate } from '@/lib/date'
@@ -148,7 +148,7 @@ export function Checklist({
   // After a mark, the focus stays on the row it acted on (its first action, else the row).
   const focusKey = useRef<string | null>(null)
   const rows = checklist.data ?? []
-  const keys = rows.map((row) => `${row.transfer_id}-${row.occurrence_date}-${row.mark_revision}`)
+  const keys = rows.map((row) => `${occurrenceKey(row)}-${row.mark_revision}`)
   const joined = keys.join(',')
   useEffect(() => {
     const key = focusKey.current
@@ -168,7 +168,7 @@ export function Checklist({
     keys: new Set(),
   })
   const keep = (row: ChecklistRow) => {
-    const key = `${row.transfer_id}-${row.occurrence_date}`
+    const key = occurrenceKey(row)
     focusKey.current = key
     setKept((before) => ({
       period: period?.id ?? '',
@@ -179,7 +179,7 @@ export function Checklist({
   const open: ChecklistRow[] = []
   const settled: ChecklistRow[] = []
   for (const row of rows) {
-    const key = `${row.transfer_id}-${row.occurrence_date}`
+    const key = occurrenceKey(row)
     if (row.status !== 'more' && isSettled(row) && !keptKeys.has(key)) settled.push(row)
     else open.push(row)
   }
@@ -195,7 +195,7 @@ export function Checklist({
       </li>
     ) : (
       <ChecklistItem
-        key={`${row.transfer_id}-${row.occurrence_date}-${index}`}
+        key={`${occurrenceKey(row)}-${index}`}
         row={row}
         busy={busy}
         onDone={() => {
@@ -357,7 +357,7 @@ function ChecklistItem({
     <li
       className="flex flex-col gap-2 p-3 outline-none sm:flex-row sm:items-center sm:gap-4"
       data-testid="checklist-row"
-      data-key={`${row.transfer_id}-${row.occurrence_date}`}
+      data-key={occurrenceKey(row)}
       tabIndex={-1}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">

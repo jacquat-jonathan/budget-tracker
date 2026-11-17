@@ -74,7 +74,7 @@ export function TransferPreviewBox({
             <ul className="flex flex-col divide-y rounded-md border bg-background">
               {preview.rows.map((row) => (
                 <li
-                  key={`${row.occurrence_date}-${row.due_date}`}
+                  key={`${row.period_id}-${row.occurrence_date}-${row.due_date}`}
                   className="flex flex-wrap items-baseline justify-between gap-x-3 px-2.5 py-1.5"
                   data-testid="preview-occurrence"
                 >

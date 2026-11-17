@@ -17,6 +17,7 @@ import {
 import { formatMoney } from '@/lib/money'
 import { householdDb } from '@/test/budget-fixtures'
 import { workedExamplePlan } from '@/test/money-flow-fixtures'
+import { rpcError } from '@/test/mock-db'
 import { moneyFlowRows, type MoneyFlowPlan } from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
@@ -318,6 +319,21 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422]', 
     expect(await screen.findByTestId('spending-omitted')).toHaveTextContent(
       '3 more category groups are not listed (the read stops at 1000 rows): the totals include them.',
     )
+  })
+
+  it('[R-APP-441] after “Try again” on a failed read, the focus is on the page’s heading, not lost', async () => {
+    const db = householdDb()
+    db.moneyFlowPlans = [workedExamplePlan()]
+    const read = db.rpc.get_money_flow.getMockImplementation()!
+    db.rpc.get_money_flow.mockImplementation(() => rpcError('period_not_found'))
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/money-flow')
+    const retry = await screen.findByRole('button', { name: 'Try again' }, { timeout: 4000 })
+    db.rpc.get_money_flow.mockImplementation(read)
+    await userEvent.click(retry)
+    expect(screen.getByRole('heading', { level: 1, name: 'Money flow' })).toHaveFocus()
+    await screen.findByTestId('money-flow-table')
+    expect(screen.getByRole('heading', { level: 1, name: 'Money flow' })).toHaveFocus()
   })
 
   it('reads another period when one is chosen', async () => {
