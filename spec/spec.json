@@ -12792,6 +12792,16 @@
       "status": "accepted",
       "related": ["R-ACCOUNT-236"],
       "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
+    },
+    {
+      "id": "D-502",
+      "title": "How the transfer form asks for its schedule and for the past",
+      "decision": "A transfer is \"After payday\" (an offset of 0 to 31 days and whose payday, the main income by default, sending no income) or \"On a fixed day\": monthly by its day of the month (p_day_of_month), quarterly or yearly by its next due date (p_first_date, which sets the phase; today or later). The earlier occurrences are asked for only with \"It already ran: record what happened since…\", off by default, which sends p_from_period_id (the current period or an earlier one) and lets a quarterly or yearly first date lie in the past. Every create and edit shows the database's preview of exactly the arguments the save sends: the next six due dates and amounts, what is recorded at once, and the counts of the app's transactions removed and members' ticks no longer planned. Save stays disabled while the preview refuses.",
+      "why": "D-493 asks the form to send p_from_period_id or p_first_date only when the member chose to record the past; a quarterly or yearly schedule cannot be phased by its day alone, and a first date today or later plans nothing before today.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-315", "R-ACCOUNT-233", "R-ACCOUNT-300", "D-493"],
+      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
     }
   ],
   "conventions": [
@@ -14069,6 +14079,14 @@
       "status": "open",
       "related": ["D-452", "D-484", "R-IMPORT-368"],
       "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "Q-300",
+      "question": "Can list_transactions filter by planned transfer (p_transfer_id), as it does by subscription and debt?",
+      "context": "A transfer linked to a category has transactions (transfer_overview.transaction_count), but the screens cannot list them: there is no filter for them, so the transfer card offers no \"its transactions\" link as subscriptions and debts do.",
+      "status": "open",
+      "related": ["R-ACCOUNT-072", "R-APP-170"],
+      "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
     }
   ]
 }

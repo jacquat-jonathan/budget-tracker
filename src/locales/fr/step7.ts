@@ -92,3 +92,177 @@ export const accountsFr = {
     viewLabel: 'Versé sur',
   },
 }
+
+export const transfersFr = {
+  add: 'Planifier un virement',
+  addFirst: 'Planifier votre premier virement',
+  addTitle: 'Planifier un virement',
+  addDescription:
+    'De l’argent qui passe d’un de vos comptes à un autre selon un calendrier : après la paie ou à jour fixe.',
+  editTitle: 'Modifier le virement',
+  editDescription:
+    'Les nouvelles conditions valent dès maintenant ; les périodes passées gardent les leurs.',
+  created: 'Virement « {{name}} » planifié.',
+  saved: 'Virement « {{name}} » enregistré.',
+  deleted: 'Virement « {{name}} » supprimé.',
+  ended: 'Virement « {{name}} » terminé. Ce qui a été enregistré reste.',
+  changedNotShown:
+    'Quelqu’un a modifié ce virement entre-temps, d’une façon que cette fenêtre ne montre pas. Vérifiez puis enregistrez à nouveau.',
+  endedElsewhere:
+    'Quelqu’un a terminé ce virement entre-temps : plus rien ne peut changer dès maintenant.',
+  endedBudget: 'Le budget est terminé : les virements ne se modifient plus que dans ses périodes.',
+  correctionWarning: 'Cela réécrit le plan des périodes corrigées et leurs listes à cocher.',
+  correctionAppliesFrom:
+    'Les nouvelles conditions valent dès la période choisie jusqu’à son prochain changement. L’aperçu dit d’abord ce qui change.',
+  editAppliesFrom:
+    'Les nouvelles conditions valent dès la période en cours (dès le {{date}}). Les périodes passées et ce qui a déjà été enregistré restent.',
+  addFromToday:
+    'Il est planifié dès aujourd’hui : rien d’antérieur à aujourd’hui n’est enregistré.',
+  addRecordsPast:
+    'Il est planifié dès la période choisie : ce qui était dû depuis est listé, et les ordres permanents liés à une catégorie sont enregistrés tout de suite.',
+  needAccounts: 'Ajoutez d’abord vos comptes',
+  needAccountsNone:
+    'Un virement fait passer de l’argent entre deux de vos comptes. Les comptes sont facultatifs : le reste de l’application fonctionne sans eux.',
+  needAccountsOne: 'Vous avez un compte. Un virement relie deux comptes : ajoutez-en un deuxième.',
+  goToAccounts: 'Aller aux comptes',
+  plannedTitle: 'Virements planifiés',
+  empty: 'Aucun virement planifié pour l’instant',
+  emptyHelp:
+    'Un ordre permanent vers l’épargne le jour de paie, le versement annuel au 3e pilier, la part pour le compte commun…',
+  to: 'vers',
+  fromTo: '{{from}} vers {{to}}',
+  countsIn: 'Compté comme dépense dans {{category}}',
+  noCategory: 'Pas compté comme dépense',
+  followsPrimary: 'Son revenu a pris fin : il suit désormais le jour de paie du revenu principal.',
+  nextDue: 'Prochaine échéance',
+  noNextDue: 'Aucune prévue',
+  today: 'aujourd’hui',
+  monthlyShare: 'Par mois',
+  actionsFor: 'Actions pour {{name}}',
+  edit: 'Modifier',
+  endedTitle_one: '{{count}} virement terminé',
+  endedTitle_other: '{{count}} virements terminés',
+  endedHelp: 'Les périodes passées gardent les virements terminés, avec ce qui a été enregistré.',
+  lastCounted: 'compté pour la dernière fois dans la période finissant le {{date}}',
+  errors: {
+    toCategorise:
+      'Un virement ne peut pas compter dans « à catégoriser » : choisissez une autre catégorie.',
+  },
+  fields: {
+    name: 'Nom',
+    namePlaceholder: 'Épargne, 3e pilier, compte commun…',
+    accounts: 'Comptes',
+    from: 'Depuis',
+    to: 'Vers',
+    amount: 'Montant',
+    amountEach: 'Montant à chaque fois',
+    amountPer: {
+      quarterly: 'Montant tous les trois mois',
+      yearly: 'Montant une fois par an',
+    },
+    mode: 'Comment il se fait',
+    when: 'Quand',
+    offset: 'Jour',
+    income: 'Paie de qui',
+    incomeHelp: 'Celle du revenu principal, sauf si vous en choisissez une autre.',
+    primaryIncome: 'Le revenu principal',
+    cadence: 'Fréquence',
+    day: 'Jour du mois',
+    nextDue: 'Prochaine échéance',
+    nextDueHelp: 'Il se répète ce jour-là ; aujourd’hui ou plus tard.',
+    newNextDue: 'Nouvelle prochaine échéance (facultatif)',
+    newNextDueHelp: 'Laissez vide pour garder le calendrier.',
+    linked: 'Le compter comme dépense dans une catégorie',
+    linkedHelp:
+      'Pour l’épargne, le 3e pilier ou les impôts : une fois fait, sa transaction y est enregistrée, sans double saisie.',
+    category: 'Catégorie',
+    categoryHelp: 'Son montant prévu est engagé dans cette catégorie à chaque période.',
+    past: 'Il a déjà eu lieu : enregistrer ce qui s’est passé depuis…',
+    pastHelp:
+      'Laissez décoché pour commencer aujourd’hui. Coché, ce qui était dû depuis est aussi planifié.',
+    pastFrom: 'Depuis',
+    thisPeriod: 'Le début de cette période',
+  },
+  mode: {
+    automatic: 'Ordre permanent',
+    manual: 'Je le fais moi-même',
+    automaticShort: 'Ordre permanent',
+    manualShort: 'Manuel',
+    automaticHelp: 'La banque s’en charge : il compte comme fait à son échéance, rien à cocher.',
+    manualHelp: 'Vous le faites et le cochez dans la liste.',
+  },
+  schedule: {
+    pay_date: 'Après la paie',
+    day_of_month: 'À jour fixe',
+  },
+  cadence: {
+    monthly: 'Chaque mois',
+    quarterly: 'Tous les trois mois',
+    yearly: 'Une fois par an',
+  },
+  when: {
+    payday: 'Le jour de paie',
+    after_one: '{{count}} jour après la paie',
+    after_other: '{{count}} jours après la paie',
+    ofIncome: '{{when}} (« {{income}} »)',
+    monthly: 'Chaque mois {{day}}',
+    quarterly: 'Tous les trois mois {{day}}',
+    yearly: 'Une fois par an {{day}}',
+  },
+  amountPer: {
+    quarterly: '{{amount}} tous les trois mois',
+    yearly: '{{amount}} une fois par an',
+  },
+  preview: {
+    title: 'Ce que fait l’enregistrement',
+    needsInput: 'Choisissez les comptes et un montant pour voir les échéances.',
+    none: 'Aucune échéance à ces conditions dans les périodes à venir.',
+    atOnceRow: 'enregistré tout de suite',
+    projected: 'estimé',
+    followsPrimary:
+      'Le revenu choisi n’y est pas en vigueur : il suit le jour de paie du revenu principal.',
+    createdAtOnce_one:
+      'L’enregistrement crée {{count}} transaction tout de suite : sa date est passée.',
+    createdAtOnce_other:
+      'L’enregistrement crée {{count}} transactions tout de suite : leurs dates sont passées.',
+    nothingAtOnce: 'Rien n’est enregistré tout de suite.',
+    nothingBeforeToday: 'Rien d’antérieur à aujourd’hui n’est enregistré.',
+    transactionsRemoved_one:
+      'Il retire {{count}} transaction que l’application avait enregistrée pour une date qui n’est plus prévue.',
+    transactionsRemoved_other:
+      'Il retire {{count}} transactions que l’application avait enregistrées pour des dates qui ne sont plus prévues.',
+    marksUnplanned_one:
+      '{{count}} coche d’un membre n’est plus prévue : elle reste dans sa liste, signalée, jusqu’à son annulation.',
+    marksUnplanned_other:
+      '{{count}} coches de membres ne sont plus prévues : elles restent dans leurs listes, signalées, jusqu’à leur annulation.',
+  },
+  end: {
+    title: 'Terminer « {{name}} » ?',
+    deleteTitle: 'Supprimer « {{name}} » ?',
+    refused: 'Il ne peut pas se terminer maintenant : {{reason}}',
+    deletes: 'Il n’a jamais compté et rien n’a été enregistré pour lui : il est supprimé.',
+    ends: 'Plus d’échéance dès la période commencée le {{date}}.',
+    endsNoPeriod: 'Plus d’échéance dès la période choisie.',
+    fromEarlier: 'Plus d’échéance dès la période choisie ; les périodes suivantes changent.',
+    removes_one: 'Il retire {{count}} échéance prévue que personne n’a cochée.',
+    removes_other: 'Il retire {{count}} échéances prévues que personne n’a cochées.',
+    keepsMarks_one:
+      '{{count}} coche ({{transactions}} avec sa transaction) reste, signalée comme terminée dans sa liste.',
+    keepsMarks_other:
+      '{{count}} coches ({{transactions}} avec leurs transactions) restent, signalées comme terminées dans leurs listes.',
+    recordedStays: 'Ce qui a été coché et enregistré reste ; les périodes antérieures le gardent.',
+    earlierLabel: 'Le terminer dès une période antérieure',
+    earlierWarning: 'Cela réécrit le plan et les listes à cocher des périodes corrigées.',
+    from: 'Terminé dès',
+    confirm: 'Terminer le virement',
+    delete: 'Supprimer le virement',
+  },
+  checklist: {
+    changedElsewhere:
+      'Quelqu’un a coché ou modifié ce virement entre-temps : la liste montre maintenant où il en est.',
+    markedDone: '« {{name}} » fait : {{amount}}.',
+    markedSkipped: '« {{name}} » sauté pour cette fois.',
+    markedNotDone: '« {{name}} » marqué comme non fait.',
+    undone: '« {{name}} » est revenu tel qu’il était prévu.',
+  },
+}
