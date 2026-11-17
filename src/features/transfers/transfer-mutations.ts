@@ -97,6 +97,9 @@ export interface MarkTarget {
   revision: number
   name: string
   amount: number
+  /** False for a tick no longer planned: undoing it removes it rather than restoring a plan. */
+  planned?: boolean
+  withTransaction?: boolean
 }
 
 /** The mark target of a checklist row: its period, its key, and the mark revision read. */
@@ -108,6 +111,8 @@ export function targetOf(row: ChecklistRow): MarkTarget {
     revision: row.mark_revision ?? 0,
     name: row.name ?? '',
     amount: row.amount ?? 0,
+    planned: row.planned !== false,
+    withTransaction: row.transaction_id !== null,
   }
 }
 
@@ -161,7 +166,13 @@ export function useMarks(budgetId: string, options: { errorDisplay?: 'toast' | '
   const undo = useAppMutation<unknown, MarkTarget>({
     ...common,
     mutationFn: async (row) => unwrap(await supabase.rpc('undo_transfer_mark', target(row))),
-    success: (_data, row) => t('transfers.checklist.undone', { name: row.name }),
+    // A tick no longer planned is not put back as planned: it goes, with its transaction.
+    success: (_data, row) =>
+      row.planned === false
+        ? row.withTransaction
+          ? t('transfers.checklist.undoneUnplannedWithTransaction', { name: row.name })
+          : t('transfers.checklist.undoneUnplanned', { name: row.name })
+        : t('transfers.checklist.undone', { name: row.name }),
   })
   return { done, skip, notDone, undo }
 }

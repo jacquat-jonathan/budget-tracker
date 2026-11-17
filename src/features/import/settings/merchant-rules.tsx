@@ -160,7 +160,11 @@ export function MerchantRulesSettings() {
   )
 }
 
-/** A rule's fragment once tidied (docs/database.md: 1 to 100 characters). */
+/**
+ * A rule's fragment once tidied (docs/database.md: 1 to 100 characters). Spaces are trimmed and
+ * inner runs of them count as one, as the database tidies them; what else it tidies (its
+ * punctuation, leading words) the client cannot foresee: its invalid_fragment is said instead.
+ */
 const FRAGMENT_MAX = 100
 
 function EditRuleDialog({
@@ -202,7 +206,8 @@ function EditRuleDialog({
   }, [categories.data, rule.category_id])
   // R-IMPORT-444: a fragment is 1 to 100 characters once tidied; longer is refused at the field,
   // before the database is asked (which refuses it too: invalid_fragment, said at the field).
-  const tooLong = fragment.trim().length > FRAGMENT_MAX
+  const tidied = fragment.trim().replace(/\s+/g, ' ').length
+  const tooLong = tidied > FRAGMENT_MAX
   const save = useAppMutation<number>({
     errorDisplay: 'inline',
     mutationFn: async () =>
@@ -263,7 +268,7 @@ function EditRuleDialog({
               {tooLong
                 ? t('import.rules.fragmentTooLong', {
                     max: FRAGMENT_MAX,
-                    count: fragment.trim().length,
+                    count: tidied,
                   })
                 : dbErrorCode(save.error) === 'invalid_fragment'
                   ? t('import.rules.fragmentInvalid', { max: FRAGMENT_MAX })

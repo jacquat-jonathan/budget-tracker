@@ -113,9 +113,9 @@ const core: Omit<Translation, LazyKey> = {
     nameRequired: 'Saisissez un nom.',
     nameTooLong: 'Utilisez au maximum 100 caractères.',
     amountRequired: 'Saisissez un montant.',
-    amountInvalid: 'Saisissez un montant comme 5200 ou 5’200.50.',
+    amountInvalid: "Saisissez un montant comme 5200 ou 5'200.50.",
     amountTooSmall: 'Le montant doit être supérieur à zéro.',
-    amountTooLarge: 'Le montant ne peut pas dépasser CHF 10’000’000.',
+    amountTooLarge: "Le montant ne peut pas dépasser CHF 10'000'000.",
     dateRequired: 'Saisissez une date.',
     dateInvalid: 'Saisissez une date au format jj.mm.aaaa, par exemple 25.01.2027.',
     amountNegative: 'Le montant ne peut pas être négatif.',
@@ -254,7 +254,7 @@ const core: Omit<Translation, LazyKey> = {
       interest_before_opening:
         'Le début de la période ne peut pas être placé à l’ouverture ou avant l’ouverture d’une dette qui a des intérêts dans cette période : choisissez un début plus tardif.',
       import_limit_reached:
-        'Ce budget a atteint une de ses limites d’importation (200 nouvelles importations ou 20’000 lignes en 24 heures, ou 2’000 importations conservées). Rien n’a été écrit. Les limites journalières se libèrent à mesure que l’utilisation la plus ancienne dépasse 24 heures.',
+        "Ce budget a atteint une de ses limites d’importation (200 nouvelles importations ou 20'000 lignes en 24 heures, ou 2'000 importations conservées). Rien n’a été écrit. Les limites journalières se libèrent à mesure que l’utilisation la plus ancienne dépasse 24 heures.",
       chunk_expired:
         'Cette partie a déjà été enregistrée, mais sa réponse n’est plus conservée : elle n’est pas importée à nouveau. Consultez les lignes de l’importation dans l’historique.',
       token_busy:
@@ -277,7 +277,7 @@ const core: Omit<Translation, LazyKey> = {
         'Le revenu de ce membre est le revenu principal. Désignez d’abord un autre revenu principal.',
       already_member: 'Cette personne est déjà membre du budget.',
       invalid_name: 'Saisissez un nom de 1 à 100 caractères.',
-      invalid_amount: 'Le montant doit être compris entre CHF 0.01 et CHF 10’000’000.',
+      invalid_amount: "Le montant doit être compris entre CHF 0.01 et CHF 10'000'000.",
       invalid_pay_day: 'Le jour de paie doit être compris entre 1 et 31.',
       invalid_weekend_rule: 'Choisissez une des règles de week-end.',
       invalid_email: 'Saisissez une adresse e-mail valide.',

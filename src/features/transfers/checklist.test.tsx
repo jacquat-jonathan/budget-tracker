@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { routes } from '@/app/routes'
 import { actionsFor } from '@/features/transfers/transfer-terms'
 import { formatMoney } from '@/lib/money'
-import { budgetRow, categoriesDb } from '@/test/budget-fixtures'
+import { budgetRow, categoriesDb, periodRow } from '@/test/budget-fixtures'
 import { rpcError } from '@/test/mock-db'
 import { accountRow, checklistRow, transferRow } from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
@@ -475,6 +475,23 @@ describe('a standing order counts as done from its due date [R-ACCOUNT-004]', ()
     })
   })
 
+  it('the mock answers as the database: undoing “did not happen” on a linked standing order due is a fresh mark, revision 1', () => {
+    const db = standingOrderDb()
+    Object.assign(db.checklist[1]!, { category_id: 'cat-savings', category_name: 'Savings' })
+    const [after] = db.rpc.undo_transfer_mark({
+      p_transfer_id: 'tr-said',
+      p_period_id: 'period-2',
+      p_occurrence_date: '2026-11-03',
+      p_expected_revision: 2,
+    }) as { mark_revision: number; status: string; assumed: boolean; done_on: string }[]
+    expect(after).toMatchObject({
+      status: 'done',
+      assumed: true,
+      done_on: '2026-11-03',
+      mark_revision: 1,
+    })
+  })
+
   it('the app’s transaction kept on a transfer made manual can be undone', async () => {
     const db = await openPage(standingOrderDb())
     const kept = row('Kept order')
@@ -589,5 +606,145 @@ describe('the dashboard’s transfers to make [R-ACCOUNT-241]', () => {
     await new Promise((resolve) => setTimeout(resolve, 200))
     expect(db.rpc.get_transfers_to_do).not.toHaveBeenCalled()
     expect(screen.queryByTestId('transfers-to-do')).not.toBeInTheDocument()
+  })
+})
+
+describe('the note about the period before, and rows that wait [R-ACCOUNT-241] [D-543]', () => {
+  it('counts only the manual transfers still to do there, never a standing order', async () => {
+    const db = checklistDb()
+    db.checklist.push(
+      checklistRow({
+        period_id: 'period-1',
+        transfer_id: 'tr-savings',
+        name: 'Savings',
+        occurrence_date: '2026-10-20',
+        due_date: '2026-10-20',
+        is_automatic: true,
+        status: 'upcoming',
+        is_overdue: false,
+      }),
+      checklistRow({
+        period_id: 'period-1',
+        transfer_id: 'tr-auto',
+        name: 'Auto',
+        occurrence_date: '2026-10-21',
+        due_date: '2026-10-21',
+        is_automatic: true,
+        status: 'to_do',
+      }),
+    )
+    await openPage(db)
+    expect(await screen.findByTestId('checklist-previous-open')).toHaveTextContent(
+      '1 transfer is still to do in the period before (25.09.2026 to 22.10.2026).',
+    )
+  })
+
+  it('says nothing about the period before on a past period’s checklist', async () => {
+    const db = checklistDb()
+    db.tables.period_summaries.unshift(
+      periodRow({
+        id: 'period-0',
+        seq: 0,
+        start_date: '2026-08-25',
+        end_date: '2026-09-24',
+        is_current: false,
+        end_is_manual: true,
+      }),
+    )
+    db.checklist.push(
+      checklistRow({
+        period_id: 'period-0',
+        occurrence_date: '2026-08-25',
+        due_date: '2026-08-27',
+      }),
+    )
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transfers?period=period-1')
+    expect(await screen.findByText('due 27.09.2026')).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(screen.queryByTestId('checklist-previous-open')).not.toBeInTheDocument()
+  })
+
+  it('a row waiting for room in the budget stays among the open rows, not folded away', async () => {
+    const db = checklistDb()
+    db.checklist = [
+      checklistRow({
+        transfer_id: 'tr-wait',
+        name: 'Waiting order',
+        is_automatic: true,
+        status: 'done',
+        held_back: true,
+        is_overdue: false,
+      }),
+    ]
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/transfers')
+    const open = await screen.findByTestId('checklist-open')
+    expect(within(open).getByTestId('checklist-row')).toHaveTextContent('Waiting for room')
+    expect(screen.queryByTestId('checklist-settled-toggle')).not.toBeInTheDocument()
+  })
+})
+
+describe('after a mark whose row goes, the focus goes somewhere sensible [R-APP-481]', () => {
+  it('undoing a tick no longer planned says it is removed with its transaction and focuses the next row', async () => {
+    const db = checklistDb()
+    db.checklist = [
+      checklistRow({
+        transfer_id: 'tr-moved',
+        name: 'Moved order',
+        occurrence_date: '2026-10-28',
+        status: 'done',
+        planned: false,
+        done_on: '2026-10-28',
+        category_id: 'cat-savings',
+        category_name: 'Savings',
+        transaction_id: 'tx-moved',
+        mark_revision: 2,
+      }),
+      checklistRow(),
+    ]
+    await openPage(db)
+    await userEvent.click(screen.getByRole('button', { name: 'Undo the tick of “Moved order”' }))
+    expect(
+      await screen.findByText(
+        '“Moved order” is no longer planned here: its tick is removed, with its transaction.',
+      ),
+    ).toBeInTheDocument()
+    // Toasts of earlier tests may linger in the shared toaster: look for this row's own.
+    expect(screen.queryByText('“Moved order” is back as it was planned.')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(document.activeElement).toBe(within(row('Joint account')).getAllByRole('button')[0])
+    })
+  })
+
+  it('a skip on a transfer ended meanwhile: the row is gone and the focus is on the list’s heading', async () => {
+    const db = checklistDb()
+    db.checklist = [checklistRow()]
+    db.rpc.skip_transfer.mockImplementation(() => {
+      db.checklist = []
+      return rpcError('transfer_not_in_force')
+    })
+    await openPage(db)
+    await userEvent.click(screen.getByRole('button', { name: 'Skip “Joint account” this time' }))
+    await waitFor(() => {
+      expect(screen.queryAllByTestId('checklist-row')).toHaveLength(0)
+    })
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Checklist' }))
+    })
+    expect(document.activeElement).not.toBe(document.body)
+  })
+})
+
+describe('the checklist and the planned transfers are history entries [R-APP-480]', () => {
+  it('Back returns to the other view instead of leaving the page', async () => {
+    mock.current = createSupabaseMock(fakeSession(), checklistDb())
+    const { router } = renderRoutes(routes, '/transfers')
+    await screen.findByTestId('checklist')
+    await userEvent.click(screen.getByRole('link', { name: 'Planned transfers (2)' }))
+    await screen.findAllByTestId('transfer-card')
+    await router.navigate(-1)
+    expect(await screen.findByTestId('checklist')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/transfers')
   })
 })

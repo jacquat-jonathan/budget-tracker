@@ -191,7 +191,7 @@ describe('the transactions of one planned transfer [D-525] [R-TRANSACTION-441]',
     await userEvent.click(await screen.findByRole('button', { name: 'Show older transactions' }))
     await waitFor(() => {
       expect(db.rpc.list_transactions).toHaveBeenCalledWith(
-        expect.objectContaining({ p_transfer_id: PILLAR, p_before_date: expect.any(String) }),
+        expect.objectContaining({ p_transfer_id: PILLAR, p_before_date: expect.any(String) as string }),
       )
     })
     for (const [args] of db.rpc.list_transactions.mock.calls) {

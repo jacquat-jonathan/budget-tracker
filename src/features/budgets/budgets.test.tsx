@@ -150,7 +150,7 @@ describe('first-run setup [R-BUDGET-050]', () => {
     await userEvent.type(screen.getByLabelText('Name'), 'Salary')
     await userEvent.type(screen.getByLabelText('Amount per month'), 'abc')
     await userEvent.click(screen.getByRole('button', { name: 'Create budget' }))
-    expect(await screen.findByText('Enter an amount such as 5200 or 5’200.50.')).toBeInTheDocument()
+    expect(await screen.findByText("Enter an amount such as 5200 or 5'200.50.")).toBeInTheDocument()
 
     await userEvent.clear(screen.getByLabelText('Amount per month'))
     await userEvent.type(screen.getByLabelText('Amount per month'), '100')

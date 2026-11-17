@@ -601,7 +601,7 @@ describe('[R-IMPORT-366] a run the database stops says why in its own words', ()
     ],
     [null, 'has reached one of its import limits', 'Try again later with the same file'],
   ])(
-    '[R-IMPORT-442] says which import limit was reached (%s), what to do and when it frees up; no undo hint',
+    '[R-IMPORT-442] says which import limit was reached (%s), what to do and when it frees up; undo only frees an import kept',
     async (limit, what, when) => {
       const db = categoriesDb()
       db.rpc.import_transactions.mockImplementation((args) => {
@@ -622,7 +622,12 @@ describe('[R-IMPORT-366] a run the database stops says why in its own words', ()
       expect(stopped).toHaveTextContent(what)
       expect(stopped).toHaveTextContent(when)
       expect(stopped).toHaveTextContent('Nothing of this part was written.')
-      expect(stopped).not.toHaveTextContent(/undo/i)
+      // Undoing never gives back the day's allowance; it does free a place among the imports kept.
+      if (limit === 'imports_kept')
+        expect(stopped).toHaveTextContent(
+          'undo an old import in the import history, and once it holds no transaction and no skipped row its place is free',
+        )
+      else expect(stopped).not.toHaveTextContent(/undo/i)
       expect(screen.getByText('The part before it is recorded.')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
       expect(screen.queryByText(/was refused/)).not.toBeInTheDocument()
@@ -659,7 +664,7 @@ describe('[R-IMPORT-366] a run the database stops says why in its own words', ()
       // On resume the start page says so too.
       open(db)
       expect(await screen.findByTestId('pending-stopped-by')).toHaveTextContent(
-        'It stopped at a part recorded so long ago that its answer is no longer kept.',
+        'It stopped at a part that was recorded but whose answer is no longer kept (answers are kept 7 days, and only the newest 50).',
       )
       await chooseCsv(text)
       await userEvent.click(screen.getByRole('button', { name: 'Check 600 rows' }))

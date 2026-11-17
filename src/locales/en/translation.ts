@@ -109,9 +109,9 @@ const core = {
     nameRequired: 'Enter a name.',
     nameTooLong: 'Use at most 100 characters.',
     amountRequired: 'Enter an amount.',
-    amountInvalid: 'Enter an amount such as 5200 or 5’200.50.',
+    amountInvalid: "Enter an amount such as 5200 or 5'200.50.",
     amountTooSmall: 'The amount must be more than zero.',
-    amountTooLarge: 'The amount can be at most CHF 10’000’000.',
+    amountTooLarge: "The amount can be at most CHF 10'000'000.",
     dateRequired: 'Enter a date.',
     dateInvalid: 'Enter a date as dd.mm.yyyy, for example 25.01.2027.',
     amountNegative: 'The amount cannot be negative.',
@@ -247,7 +247,7 @@ const core = {
       interest_before_opening:
         'The period’s start cannot move onto or before the opening of a debt that has interest in that period: choose a later start.',
       import_limit_reached:
-        'This budget has reached one of its import limits (200 new imports or 20’000 rows within 24 hours, or 2’000 imports kept). Nothing was written. The daily limits free up as the oldest use passes 24 hours.',
+        "This budget has reached one of its import limits (200 new imports or 20'000 rows within 24 hours, or 2'000 imports kept). Nothing was written. The daily limits free up as the oldest use passes 24 hours.",
       chunk_expired:
         'That part was already recorded, but its answer is no longer kept: it is not imported again. See the import’s rows in the history instead.',
       token_busy:
@@ -269,7 +269,7 @@ const core = {
         'This member’s income is the primary income. Make another income primary first.',
       already_member: 'This person is already a member of the budget.',
       invalid_name: 'Enter a name of 1 to 100 characters.',
-      invalid_amount: 'The amount must be between CHF 0.01 and CHF 10’000’000.',
+      invalid_amount: "The amount must be between CHF 0.01 and CHF 10'000'000.",
       invalid_pay_day: 'The pay day must be between 1 and 31.',
       invalid_weekend_rule: 'Choose one of the weekend rules.',
       invalid_email: 'Enter a valid email address.',

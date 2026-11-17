@@ -711,7 +711,8 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
         transaction_revision: linked ? 1 : null,
         recorded_by: null,
         recorded_by_name: null,
-        mark_revision: linked ? (row.mark_revision ?? 0) + 1 : 0,
+        // As the database: the catch-up's transaction is a fresh mark, revision 1.
+        mark_revision: linked ? 1 : 0,
       })
       return [{ ...row }]
     },

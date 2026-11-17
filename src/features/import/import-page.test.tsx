@@ -338,8 +338,11 @@ describe('a large import in parts [R-IMPORT-208] [R-IMPORT-322]', () => {
         'Part 1 was recorded meanwhile, by another device or tab',
       )
       expect(screen.getByTestId('preview-expired-note')).toHaveTextContent(
-        'Part 2 was recorded long ago and its answer is no longer kept',
+        'Part 2 was recorded, but its answer is no longer kept (answers are kept 7 days, and only the newest 50)',
       )
+      // The rows of the part written meanwhile cannot be changed: they are sent unchanged.
+      const first = screen.getAllByTestId('preview-row')[0]!
+      expect(within(first).getByRole('checkbox')).toBeDisabled()
       // The counts are the staged part 3's only: 200 rows, not 1200.
       expect(screen.getByTestId('count-import')).toHaveTextContent('200')
       expect(screen.getByTestId('import-button')).toHaveTextContent('Import 200')
@@ -698,6 +701,12 @@ describe('the import history names who imported [R-IMPORT-445] [R-IMPORT-422]', 
         token_name: 'Laptop',
       }),
       batch('b-token-gone', '2026-11-12T10:00:00+00:00', { created_by: null }),
+      // A deleted token: the read keeps its name, its id null.
+      batch('b-token-named-gone', '2026-11-11T12:00:00+00:00', {
+        created_by: null,
+        token_id: null,
+        token_name: 'Old script',
+      }),
       // An empty name is a name (the read gives null for a former member, nothing else).
       batch('b-empty', '2026-11-11T10:00:00+00:00', { created_by_name: '' }),
     ]
@@ -708,8 +717,11 @@ describe('the import history names who imported [R-IMPORT-445] [R-IMPORT-422]', 
       expect.stringContaining('By a former member'),
       expect.stringContaining('By the token “Laptop”'),
       expect.stringContaining('By an import token, since deleted'),
+      expect.stringContaining('By the token “Old script”, since deleted'),
       expect.not.stringContaining('former member'),
     ])
+    // A token still there is not said to be deleted.
+    expect(rows[2]!.textContent).not.toContain('since deleted')
   })
 })
 

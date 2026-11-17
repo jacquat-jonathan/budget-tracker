@@ -147,6 +147,8 @@ export function Checklist({
   const listRef = useRef<HTMLDivElement>(null)
   // After a mark, the focus stays on the row it acted on (its first action, else the row).
   const focusKey = useRef<string | null>(null)
+  /** The keys of the open rows when the mark was made: where the row acted on stood. */
+  const focusAround = useRef<string[]>([])
   const rows = checklist.data ?? []
   const keys = rows.map((row) => `${occurrenceKey(row)}-${row.mark_revision}`)
   const joined = keys.join(',')
@@ -154,10 +156,23 @@ export function Checklist({
     const key = focusKey.current
     if (key === null) return
     const frame = window.requestAnimationFrame(() => {
-      const item = listRef.current?.querySelector<HTMLElement>(`[data-key="${key}"]`)
-      if (!item) return
+      const list = listRef.current
+      const item = list?.querySelector<HTMLElement>(`[data-key="${key}"]`)
       focusKey.current = null
-      ;(item.querySelector<HTMLElement>('button') ?? item).focus()
+      if (item) {
+        ;(item.querySelector<HTMLElement>('button') ?? item).focus()
+        return
+      }
+      // R-APP-481: the row is gone (undone and no longer planned, or its transfer ended
+      // meanwhile): the next row that was after it, else the one before, else the heading.
+      const around = focusAround.current
+      const at = around.indexOf(key)
+      const candidates = [...around.slice(at + 1), ...around.slice(0, Math.max(0, at)).reverse()]
+      const next = candidates
+        .map((other) => list?.querySelector<HTMLElement>(`[data-key="${other}"]`))
+        .find((element) => element)
+      if (next) (next.querySelector<HTMLElement>('button') ?? next).focus()
+      else document.getElementById('checklist-title')?.focus()
     })
     return () => window.cancelAnimationFrame(frame)
   }, [joined])
@@ -170,6 +185,7 @@ export function Checklist({
   const keep = (row: ChecklistRow) => {
     const key = occurrenceKey(row)
     focusKey.current = key
+    focusAround.current = [...open, ...settled].map((item) => occurrenceKey(item))
     setKept((before) => ({
       period: period?.id ?? '',
       keys: new Set([...(before.period === period?.id ? before.keys : []), key]),

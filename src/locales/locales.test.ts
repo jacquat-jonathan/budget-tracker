@@ -51,4 +51,16 @@ describe('locales [C-I18N-001] [R-I18N-001]', () => {
       }
     }
   })
+
+  it('write a number’s thousands with the straight apostrophe, as amounts are formatted', () => {
+    for (const [language, source, keys] of [
+      ['en', en, enKeys],
+      ['fr', fr, frKeys],
+    ] as const) {
+      for (const key of keys) {
+        const value = valueAt(source, key)
+        if (typeof value === 'string') expect(value, `${language}.${key}`).not.toMatch(/\d’\d{3}/)
+      }
+    }
+  })
 })

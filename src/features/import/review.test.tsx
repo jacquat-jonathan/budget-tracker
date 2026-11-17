@@ -228,6 +228,37 @@ describe('one click to always put a merchant in a category [R-IMPORT-007] [R-IMP
     )
   })
 
+  it('[R-IMPORT-444] a rule the database refuses as invalid_fragment is said in words, not as an error code', async () => {
+    const db = reviewDb()
+    db.rpc.update_transaction.mockImplementation(() => [
+      {
+        ...db.tables.transaction_list[1],
+        category_id: 'cat-groceries',
+        category_name: 'Groceries',
+        in_to_categorise: false,
+        revision: 2,
+      },
+    ])
+    db.rpc.create_merchant_rule.mockImplementation(() => rpcError('invalid_fragment'))
+    open(db, '/transactions?period=all&review=1')
+    const rows = await screen.findAllByTestId('transaction-row')
+    await userEvent.click(
+      within(rows[1]!).getByRole('button', { name: /Actions for COOP PRONTO 12/ }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit transaction' })
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Category' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Groceries' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    const offer = await screen.findByTestId('rule-offer')
+    await userEvent.click(within(offer).getByRole('button', { name: 'Always' }))
+    expect(
+      await screen.findByText(
+        'This merchant’s text is too long to become a rule (100 characters at most once tidied). Nothing was created.',
+      ),
+    ).toBeInTheDocument()
+  })
+
   it('counts the others waiting for the same merchant', async () => {
     const db = reviewDb()
     db.tables.transaction_list[2] = {

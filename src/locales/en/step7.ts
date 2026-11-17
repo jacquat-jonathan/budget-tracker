@@ -367,6 +367,9 @@ export const transfersEn = {
     markedSkipped: '“{{name}}” skipped for this time.',
     markedNotDone: '“{{name}}” marked as not done.',
     undone: '“{{name}}” is back as it was planned.',
+    undoneUnplanned: '“{{name}}” is no longer planned here: its tick is removed.',
+    undoneUnplannedWithTransaction:
+      '“{{name}}” is no longer planned here: its tick is removed, with its transaction.',
   },
 }
 

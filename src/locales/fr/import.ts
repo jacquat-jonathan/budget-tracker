@@ -220,7 +220,7 @@ export const importFr: Translation['import'] = {
     decimalFromPoint: 'Lu dans les montants : décimales après un point ({{lines}}).',
     decimalFromComma: 'Lu dans les montants : décimales après une virgule ({{lines}}).',
     decimalUndecided:
-      'Les montants ne disent pas quel signe sépare les décimales : {{lines}} : ces montants peuvent se lire en milliers ou en décimales (1.200 vaut 1’200 ou 1.20). Choisissez-le : rien n’est supposé.',
+      "Les montants ne disent pas quel signe sépare les décimales : {{lines}} : ces montants peuvent se lire en milliers ou en décimales (1.200 vaut 1'200 ou 1.20). Choisissez-le : rien n’est supposé.",
     decimalContradictory:
       'Les montants se contredisent : certains ont des décimales après un point ({{point}}), d’autres après une virgule ({{comma}}). Ce fichier ne peut pas être lu sans risque : vérifiez-le ou exportez-le à nouveau.',
     description: 'Description',
@@ -283,9 +283,9 @@ export const importFr: Translation['import'] = {
       writtenMeanwhile_other:
         'Les parties {{parts}} ont été enregistrées entre-temps, par un autre appareil ou onglet : leurs lignes montrent ce qu’elles ont enregistré, et les chiffres ci-dessus ne les comptent pas. Elles sont renvoyées telles quelles et n’enregistrent rien.',
       expiredMeanwhile_one:
-        'La partie {{parts}} a été enregistrée il y a longtemps et sa réponse n’est plus conservée : ses lignes ne peuvent pas être montrées, et elle n’est pas importée à nouveau. Ce qu’elle a importé figure dans l’historique des importations.',
+        'La partie {{parts}} a été enregistrée, mais sa réponse n’est plus conservée (les réponses sont gardées 7 jours, et seulement les 50 plus récentes) : ses lignes ne peuvent pas être montrées, et elle n’est pas importée à nouveau. Ce qu’elle a importé figure dans l’historique des importations.',
       expiredMeanwhile_other:
-        'Les parties {{parts}} ont été enregistrées il y a longtemps et leurs réponses ne sont plus conservées : leurs lignes ne peuvent pas être montrées, et elles ne sont pas importées à nouveau. Ce qu’elles ont importé figure dans l’historique des importations.',
+        'Les parties {{parts}} ont été enregistrées, mais leurs réponses ne sont plus conservées (les réponses sont gardées 7 jours, et seulement les 50 plus récentes) : leurs lignes ne peuvent pas être montrées, et elles ne sont pas importées à nouveau. Ce qu’elles ont importé figure dans l’historique des importations.',
       allRecorded:
         'Toutes les parties ont été enregistrées par l’importation interrompue. Les renvoyer n’enregistre rien et montre ce qu’elles ont enregistré.',
       kinds: {
@@ -501,9 +501,9 @@ export const importFr: Translation['import'] = {
         imports_per_day:
           'La partie {{part}} n’a pas été importée : les membres de ce budget ont commencé 200 nouvelles importations au cours des dernières 24 heures, le maximum. Rien de cette partie n’a été écrit. La limite porte sur 24 heures glissantes : une nouvelle importation peut commencer 24 heures après la plus ancienne de ces 200. Rouvrez alors le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
         rows_per_day:
-          'La partie {{part}} n’a pas été importée : ce budget a reçu 20’000 lignes importées au cours des dernières 24 heures, le maximum. Rien de cette partie n’a été écrit. La limite porte sur 24 heures glissantes : des lignes peuvent de nouveau être importées à mesure que les plus anciennes dépassent 24 heures. Réessayez plus tard avec le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+          "La partie {{part}} n’a pas été importée : ce budget a reçu 20'000 lignes importées au cours des dernières 24 heures, le maximum. Rien de cette partie n’a été écrit. La limite porte sur 24 heures glissantes : des lignes peuvent de nouveau être importées à mesure que les plus anciennes dépassent 24 heures. Réessayez plus tard avec le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.",
         imports_kept:
-          'La partie {{part}} n’a pas été importée : ce budget conserve au plus 2’000 importations, et chacune contient encore des transactions ou des lignes ignorées. Rien de cette partie n’a été écrit. Cela ne se libère pas avec le temps : une importation libère sa place quand elle ne contient plus rien. Rouvrez ensuite le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+          "La partie {{part}} n’a pas été importée : ce budget conserve au plus 2'000 importations, et chacune contient encore des transactions ou des lignes ignorées. Rien de cette partie n’a été écrit. Cela ne se libère pas avec le temps : annulez une ancienne importation dans l’historique, et dès qu’elle ne contient plus ni transaction ni ligne ignorée, sa place est libre. Rouvrez ensuite le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.",
         unknown:
           'La partie {{part}} n’a pas été importée : ce budget a atteint une de ses limites d’importation. Rien de cette partie n’a été écrit. Réessayez plus tard avec le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
       },
@@ -526,7 +526,7 @@ export const importFr: Translation['import'] = {
       storage:
         'Elle s’est arrêtée à une des limites d’importation du budget (nouvelles importations ou lignes en 24 heures, ou importations conservées). Ouvrez le même fichier plus tard pour la terminer : ce qui a été enregistré ne l’est pas deux fois.',
       expired:
-        'Elle s’est arrêtée à une partie enregistrée il y a si longtemps que sa réponse n’est plus conservée. Ouvrez le même fichier pour envoyer les parties suivantes ; ce que cette partie a importé se trouve dans l’historique.',
+        'Elle s’est arrêtée à une partie enregistrée dont la réponse n’est plus conservée (les réponses sont gardées 7 jours, et seulement les 50 plus récentes). Ouvrez le même fichier pour envoyer les parties suivantes ; ce que cette partie a importé se trouve dans l’historique.',
     },
     resumed:
       'C’est le relevé de l’importation interrompue : elle continue sous la même importation, et les parties déjà enregistrées ne le sont pas deux fois.',
@@ -682,6 +682,7 @@ export const importFr: Translation['import'] = {
     byToken: 'Par le jeton',
     byUnknown: 'Par un ancien membre',
     byDeletedToken: 'Par un jeton d’importation, supprimé depuis',
+    tokenDeleted: ', supprimé depuis',
     when: 'Le {{date}}',
     period: 'Relevé du {{from}} au {{to}}',
     counts: '{{rows}} lignes : {{imported}} importées, {{skipped}} non importées',

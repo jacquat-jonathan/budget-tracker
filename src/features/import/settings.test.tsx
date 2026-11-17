@@ -274,6 +274,27 @@ describe('merchant rules [R-IMPORT-078]', () => {
     expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('[R-IMPORT-444] counts the fragment as the database tidies it: spaces trimmed, inner runs as one', async () => {
+    const db = settingsDb()
+    open(db)
+    const rows = await screen.findAllByTestId('rule-row')
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Edit the rule coop' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the rule' })
+    const field = within(dialog).getByLabelText('Merchant text')
+    await userEvent.clear(field)
+    await userEvent.click(field)
+    // 100 characters once tidied, 160 as typed: taken.
+    await userEvent.paste(`   ${'ab   '.repeat(33)}x   `)
+    expect(within(dialog).getByTestId('fragment-error')).toBeEmptyDOMElement()
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    // 102 once tidied ("… x y"): refused at the field, counted as tidied.
+    await userEvent.type(field, 'y')
+    expect(within(dialog).getByTestId('fragment-error')).toHaveTextContent(
+      'At most 100 characters: this has 102.',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
   it('the mock refuses a raw fragment over 1000 characters as the database does', () => {
     const db = settingsDb()
     expect(() =>

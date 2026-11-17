@@ -262,7 +262,7 @@ describe('every save that shows a preview waits for it; after “Try again” th
                   try {
                     resolve(value())
                   } catch (error) {
-                    reject(error)
+                    reject(error instanceof Error ? error : new Error(String(error)))
                   }
                 },
               }),

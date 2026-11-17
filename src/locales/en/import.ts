@@ -209,7 +209,7 @@ export const importEn = {
     decimalFromPoint: 'Read from the amounts: decimals after a point ({{lines}}).',
     decimalFromComma: 'Read from the amounts: decimals after a comma ({{lines}}).',
     decimalUndecided:
-      'The amounts do not say which mark separates the decimals: {{lines}} could be thousands or decimals (1.200 is 1’200 or 1.20). Choose it: nothing is assumed.',
+      "The amounts do not say which mark separates the decimals: {{lines}} could be thousands or decimals (1.200 is 1'200 or 1.20). Choose it: nothing is assumed.",
     decimalContradictory:
       'The amounts contradict each other: some use a point for decimals ({{point}}), others a comma ({{comma}}). This file cannot be read safely: check it, or export it again.',
     description: 'Description',
@@ -270,9 +270,9 @@ export const importEn = {
       writtenMeanwhile_other:
         'Parts {{parts}} were recorded meanwhile, by another device or tab: their rows show what they recorded, and the counts above do not include them. They are sent again unchanged and record nothing.',
       expiredMeanwhile_one:
-        'Part {{parts}} was recorded long ago and its answer is no longer kept: its rows cannot be shown, and it is not imported again. What it imported is in the import history.',
+        'Part {{parts}} was recorded, but its answer is no longer kept (answers are kept 7 days, and only the newest 50): its rows cannot be shown, and it is not imported again. What it imported is in the import history.',
       expiredMeanwhile_other:
-        'Parts {{parts}} were recorded long ago and their answers are no longer kept: their rows cannot be shown, and they are not imported again. What they imported is in the import history.',
+        'Parts {{parts}} were recorded, but their answers are no longer kept (answers are kept 7 days, and only the newest 50): their rows cannot be shown, and they are not imported again. What they imported is in the import history.',
       allRecorded:
         'Every part was recorded by the interrupted import. Sending them again records nothing and shows what they recorded.',
       kinds: {
@@ -488,7 +488,7 @@ export const importEn = {
         rows_per_day:
           "Part {{part}} was not imported: this budget has taken 20'000 imported rows within the last 24 hours, the most it takes. Nothing of this part was written. The limit is a rolling 24 hours: rows can be imported again as the oldest of them pass 24 hours. Try again later with the same file: what was already recorded is not recorded twice.",
         imports_kept:
-          "Part {{part}} was not imported: this budget keeps at most 2'000 imports, and every one of them still holds transactions or skipped rows. Nothing of this part was written. This does not free up with time: an import frees its place once it holds nothing any more. Then open the same file again: what was already recorded is not recorded twice.",
+          "Part {{part}} was not imported: this budget keeps at most 2'000 imports, and every one of them still holds transactions or skipped rows. Nothing of this part was written. This does not free up with time: undo an old import in the import history, and once it holds no transaction and no skipped row its place is free. Then open the same file again: what was already recorded is not recorded twice.",
         unknown:
           'Part {{part}} was not imported: this budget has reached one of its import limits. Nothing of this part was written. Try again later with the same file: what was already recorded is not recorded twice.',
       },
@@ -511,7 +511,7 @@ export const importEn = {
       storage:
         'It stopped at one of the budget’s import limits (new imports or rows within 24 hours, or imports kept). Open the same file later to finish it: what was recorded is not recorded twice.',
       expired:
-        'It stopped at a part recorded so long ago that its answer is no longer kept. Open the same file to send the parts after it; what that part imported is in the history.',
+        'It stopped at a part that was recorded but whose answer is no longer kept (answers are kept 7 days, and only the newest 50). Open the same file to send the parts after it; what that part imported is in the history.',
     },
     resumed:
       'This is the statement of the interrupted import: it continues under the same import, and the parts already recorded are not recorded twice.',
@@ -660,6 +660,7 @@ export const importEn = {
     byToken: 'By the token',
     byUnknown: 'By a former member',
     byDeletedToken: 'By an import token, since deleted',
+    tokenDeleted: ', since deleted',
     when: 'On {{date}}',
     period: 'Statement {{from}} – {{to}}',
     counts: '{{rows}} rows: {{imported}} imported, {{skipped}} not imported',

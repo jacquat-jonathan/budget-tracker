@@ -93,6 +93,8 @@ function BatchItem({ budgetId, batch }: { budgetId: string; batch: ImportBatch }
                 {t('import.history.byToken')} {t('import.history.quote.open')}
                 <ExternalText>{batch.token_name}</ExternalText>
                 {t('import.history.quote.close')}
+                {/* R-IMPORT-445: the read keeps a deleted token's name, its id null. */}
+                {batch.token_id === null && t('import.history.tokenDeleted')}
               </>
             ) : batch.created_by === null ? (
               // A token's batch whose token is gone: never "a former member".

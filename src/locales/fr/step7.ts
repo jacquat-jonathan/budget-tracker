@@ -383,6 +383,9 @@ export const transfersFr = {
     markedSkipped: '« {{name}} » ignoré pour cette fois.',
     markedNotDone: '« {{name}} » marqué comme non fait.',
     undone: '« {{name}} » est revenu tel qu’il était prévu.',
+    undoneUnplanned: '« {{name}} » n’est plus prévu ici : sa coche est retirée.',
+    undoneUnplannedWithTransaction:
+      '« {{name}} » n’est plus prévu ici : sa coche est retirée, avec sa transaction.',
   },
 }
 
