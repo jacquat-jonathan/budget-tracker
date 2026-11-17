@@ -217,6 +217,98 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
   })
 })
 
+describe('a standing order counts as done from its due date [R-ACCOUNT-004]', () => {
+  function standingOrderDb() {
+    const db = checklistDb()
+    db.checklist = [
+      // Due, no category: no transaction and no mark, so the database gives no done date.
+      checklistRow({
+        transfer_id: 'tr-plain',
+        name: 'Plain order',
+        is_automatic: true,
+        due_date: '2026-11-01',
+        occurrence_date: '2026-11-01',
+        status: 'done',
+        assumed: true,
+        is_overdue: false,
+        done_on: null,
+        amount_moved: null,
+        mark_revision: 0,
+      }),
+      // Said not to have happened by a member: undo leads back to assumed done.
+      checklistRow({
+        transfer_id: 'tr-said',
+        name: 'Said order',
+        is_automatic: true,
+        due_date: '2026-11-03',
+        occurrence_date: '2026-11-03',
+        status: 'not_done',
+        is_overdue: false,
+        mark_revision: 2,
+        recorded_by_name: 'Sam',
+      }),
+      // The app's transaction kept from when it was automatic, now manual: undo deletes it.
+      checklistRow({
+        transfer_id: 'tr-kept',
+        name: 'Kept order',
+        is_automatic: false,
+        category_id: 'cat-savings',
+        category_name: 'Savings',
+        due_date: '2026-11-02',
+        occurrence_date: '2026-11-02',
+        status: 'done',
+        assumed: true,
+        is_overdue: false,
+        done_on: '2026-11-02',
+        amount_moved: 150_000,
+        transaction_id: 'tx-kept',
+        mark_revision: 1,
+      }),
+    ]
+    return db
+  }
+
+  it('an unlinked standing order due says “Done by standing order on” its due date', async () => {
+    await openPage(standingOrderDb())
+    expect(within(row('Plain order')).getByTestId('checklist-status')).toHaveTextContent(
+      /^Done by standing order on 01\.11\.2026$/,
+    )
+  })
+
+  it('undoing “did not happen” leads back to done by standing order on its due date', async () => {
+    const db = await openPage(standingOrderDb())
+    await userEvent.click(screen.getByRole('button', { name: 'Undo the tick of “Said order”' }))
+    await waitFor(() => {
+      expect(within(row('Said order')).getByTestId('checklist-status')).toHaveTextContent(
+        /^Done by standing order on 03\.11\.2026$/,
+      )
+    })
+    // As the database answers it: no mark and no date of its own.
+    expect(db.checklist.find((item) => item.transfer_id === 'tr-said')).toMatchObject({
+      done_on: null,
+      mark_revision: 0,
+      assumed: true,
+    })
+  })
+
+  it('the app’s transaction kept on a transfer made manual can be undone', async () => {
+    const db = await openPage(standingOrderDb())
+    const kept = row('Kept order')
+    expect(within(kept).getByTestId('checklist-status')).toHaveTextContent(
+      'Done by standing order on 02.11.2026',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Undo the tick of “Kept order”' }))
+    await waitFor(() => {
+      expect(within(row('Kept order')).getByTestId('checklist-status')).toHaveTextContent(
+        'Overdue',
+      )
+    })
+    expect(db.rpc.undo_transfer_mark).toHaveBeenCalledWith(
+      expect.objectContaining({ p_transfer_id: 'tr-kept', p_expected_revision: 1 }),
+    )
+  })
+})
+
 describe('what can be done from each state [R-ACCOUNT-240]', () => {
   it('every state has a way out, and only the marks the contract allows', () => {
     const base = checklistRow()

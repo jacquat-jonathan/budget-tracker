@@ -461,24 +461,38 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
       if (!row.is_automatic) rpcError('transfer_is_manual')
       return mark(row, { status: 'not_done', transaction_id: null, done_on: null })
     },
+    // As the database: no mark, or the catch-up's own transaction of an automatic linked
+    // occurrence, is nothing to undo; the catch-up's transaction kept on an occurrence made
+    // manual is undone (its transaction deleted). Back unmarked, an automatic occurrence due is
+    // assumed done: with a category the catch-up's transaction (dated its due date, its own
+    // mark), without one no mark at all (done_on null, mark_revision 0).
     undo_transfer_mark: (args) => {
       const row = occurrence(args)
-      if ((row.mark_revision ?? 0) === 0 || row.assumed) rpcError('nothing_to_undo')
+      const catchUps =
+        row.planned !== false &&
+        row.status === 'done' &&
+        row.assumed === true &&
+        row.is_automatic === true &&
+        row.category_id !== null
+      if ((row.mark_revision ?? 0) === 0 || catchUps) rpcError('nothing_to_undo')
       if (row.planned === false) {
         db.checklist = db.checklist.filter((item) => item !== row)
         return []
       }
       const due = row.due_date !== null && row.due_date <= today()
+      const assumed = row.is_automatic === true && due
+      const linked = assumed && row.category_id !== null
       Object.assign(row, {
         status: row.is_automatic ? (due ? 'done' : 'upcoming') : 'to_do',
-        assumed: row.is_automatic && due,
-        is_overdue: !row.is_automatic && due,
-        done_on: row.is_automatic && due ? row.due_date : null,
-        amount_moved: row.is_automatic && due ? row.amount : null,
-        transaction_id: null,
+        assumed,
+        is_overdue: !row.is_automatic && row.due_date !== null && row.due_date < today(),
+        done_on: linked ? row.due_date : null,
+        amount_moved: linked ? row.amount : null,
+        transaction_id: linked ? `tx-${row.transfer_id}-catch-up` : null,
+        transaction_revision: linked ? 1 : null,
         recorded_by: null,
         recorded_by_name: null,
-        mark_revision: 0,
+        mark_revision: linked ? (row.mark_revision ?? 0) + 1 : 0,
       })
       return [{ ...row }]
     },

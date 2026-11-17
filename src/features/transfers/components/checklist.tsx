@@ -47,7 +47,9 @@ function useStatus() {
   const { t } = useTranslation()
   return (row: ChecklistRow): StatusView => {
     const by = row.recorded_by_name
-    const done = row.done_on ? formatCalendarDate(row.done_on) : ''
+    // R-ACCOUNT-004: an automatic occurrence with no transaction counts as done from its due date.
+    const doneOn = row.done_on ?? (row.assumed ? row.due_date : null)
+    const done = doneOn ? formatCalendarDate(doneOn) : ''
     if (row.planned === false) {
       return { icon: BanIcon, label: t('transfers.checklist.status.unplanned'), tone: 'warn' }
     }
