@@ -123,6 +123,13 @@ select is((select mark::text from public.transfer_occurrences where transfer_id 
   'not_done', 'R-ACCOUNT-240: deleting the transaction of an occurrence keyed far away marks it not done');
 select is(pg_temp.txs(tests.id('f6_t')), '2026-09-25,2026-10-25,2026-11-25,2026-12-09,2026-12-16',
   'R-ACCOUNT-240: and the catch-up does not create it again');
+-- undoing that not-done mark, keyed far after its period, brings the transaction back (D-423:
+-- the watermark goes back to the period that plans the key)
+select is((select count(*)::integer from public.undo_transfer_mark(tests.id('f6_t'), pg_temp.period_at('f6', '2026-12-02'),
+             (select revision from public.transfer_occurrences where transfer_id = tests.id('f6_t') and occurrence_date = '2026-12-25'),
+             '2026-12-25')) >= 0, true, 'R-ACCOUNT-240: (the not-done mark is undone)');
+select is(pg_temp.txs(tests.id('f6_t')), '2026-09-25,2026-10-25,2026-11-25,2026-12-02,2026-12-09,2026-12-16',
+  'R-ACCOUNT-240: undone, the automatic occurrence keyed two periods away has its transaction again');
 -- ending the transfer from the last period keeps the catch-up's marks still planned as its own
 select is(public.end_transfer(tests.id('f6_t'), (select revision from public.transfers where id = tests.id('f6_t')),
                               pg_temp.period_at('f6', '2026-12-25')), 'ended', 'R-ACCOUNT-234: (ended from the last period)');
@@ -519,6 +526,54 @@ select public.create_transfer(tests.id('rd'), 'B', tests.id('rd_main'), tests.id
   p_cadence => 'yearly', p_first_date => '2027-04-01', p_category_id => tests.id('rd_cat'));
 select is((select transfer_committed_total from public.period_summaries where id = (pg_temp.cur('rd')).id), 16666::bigint,
   'R-ACCOUNT-304: two yearly 1000.01 count 833.33 each in the period''s committed total (16666, not 16667)');
+
+-- an occurrence of the ended income not yet due on the day it ended is not planned (R-ACCOUNT-311)
+select pg_temp.day('2026-11-20');
+select pg_temp.budget('nd');
+select tests.remember('nd_inc', public.add_income(tests.id('nd'), 'Partner', 300000, 10, 'none', null, tests.id('nd_p1')));
+select tests.remember('nd_t', (select id from public.create_transfer(tests.id('nd'), 'Two weeks after the partner', tests.id('nd_main'),
+  tests.id('nd_sav'), 1000, 'pay_date', p_offset_days => 15, p_income_id => tests.id('nd_inc'), p_is_automatic => true,
+  p_category_id => tests.id('nd_cat'), p_from_period_id => tests.id('nd_p1'))));
+select is(public.remove_income(tests.id('nd_inc'), (select revision from public.incomes where id = tests.id('nd_inc'))), 'ended',
+  'R-ACCOUNT-311: (ended on 20 November, before the occurrence of 10 November was due on the 24th)');
+select pg_temp.day('2026-11-24');
+select public.ensure_periods(tests.id('nd'));
+select is(pg_temp.txs(tests.id('nd_t')), '2026-10-24', 'R-ACCOUNT-311: an occurrence not yet due when the income ended is not made');
+-- a scheduled pay date lying in the period before (a late salary) loses its key to that period's
+-- chosen income paid that day (D-420, D-490)
+select pg_temp.day('2026-11-25');
+select pg_temp.budget('lk');
+select tests.remember('lk_inc', public.add_income(tests.id('lk'), 'Partner', 300000, 25, 'none', null, tests.id('lk_p1')));
+select tests.remember('lk_t', (select id from public.create_transfer(tests.id('lk'), 'After the partner', tests.id('lk_main'),
+  tests.id('lk_sav'), 1000, 'pay_date', p_income_id => tests.id('lk_inc'), p_from_period_id => tests.id('lk_p1'))));
+select public.ensure_periods(tests.id('lk'));
+select public.reopen_previous_period(tests.id('lk'), (pg_temp.cur('lk')).id, (pg_temp.cur('lk')).revision, '2026-12-05');
+select pg_temp.day('2026-11-28');
+select public.record_early_pay_date(tests.id('lk'), (pg_temp.cur('lk')).id, (pg_temp.cur('lk')).revision, '2026-11-28');
+select lives_ok(format($$select * from public.update_transfer(%L, %s, p_clear_income => true, p_from_period_id => %L)$$,
+                       tests.id('lk_t'), (select revision from public.transfers where id = tests.id('lk_t')), (pg_temp.cur('lk')).id),
+  'R-ACCOUNT-071: (from the late salary''s period the transfer follows the primary, keyed 25 November)');
+select tests.clear_authentication();
+select is((select string_agg(pl.start_date::text, ',') from private.transfer_plan_range(tests.id('lk'), tests.id('lk_t'), 1, 9) as pl
+           where pl.occurrence_date = '2026-11-25'), '2026-10-25',
+  'R-ACCOUNT-301: the 25th of November is planned once, by the period containing it, where the partner was paid that day');
+select tests.authenticate_as('iris');
+
+-- a primary switch to an income with the same projected end still looks at the transfers that
+-- chose it (R-ACCOUNT-310): here the partner, paid on the 25th or the Friday before, was not paid
+-- in the current period; as the primary it gives the period's scheduled pay date
+select pg_temp.day('2026-11-16');
+select pg_temp.budget('ps');
+select tests.remember('ps_inc', public.add_income(tests.id('ps'), 'Partner', 300000, 25, 'previous', null, tests.id('ps_p1')));
+select tests.remember('ps_t', (select id from public.create_transfer(tests.id('ps'), 'After the partner', tests.id('ps_main'),
+  tests.id('ps_sav'), 1000, 'pay_date', p_income_id => tests.id('ps_inc'), p_is_automatic => true, p_category_id => tests.id('ps_cat'),
+  p_from_period_id => tests.id('ps_p1'))));
+select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23', 'R-ACCOUNT-310: (the partner was paid on 25 September and Friday 23 October, both in the first period: none in the current one)');
+select public.set_primary_income(tests.id('ps_inc'), (select revision from public.budgets where id = tests.id('ps')));
+select is((select end_date from public.periods where id = (pg_temp.cur('ps')).id), '2026-11-24'::date,
+  'R-ACCOUNT-310: (the switch keeps the current period''s end)');
+select is(pg_temp.txs(tests.id('ps_t')), '2026-09-25,2026-10-23,2026-10-25',
+  'R-ACCOUNT-310: the transfer that chose the new primary gets the current period''s occurrence at once');
 
 -- the step's bound: one statement creates at most 4000 transactions (R-PERIOD-300, D-427)
 select tests.clear_authentication();
