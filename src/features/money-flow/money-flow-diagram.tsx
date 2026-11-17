@@ -156,7 +156,7 @@ export function MoneyFlowDiagram({ flow, title }: { flow: MoneyFlow; title: stri
                 ? node.height * (node.stays / node.value)
                 : 0
             return (
-              <g key={node.id} data-testid="flow-node">
+              <g key={node.id} data-testid="flow-node" data-node={node.id}>
                 <title>
                   {`${nodeName(node)}: ${node.kind === 'income' ? formatMoney(node.value) : t('moneyFlow.nodeTitle', { in: formatMoney(node.inflow), out: formatMoney(node.outflow), stays: formatMoney(node.stays) })}`}
                 </title>
@@ -202,6 +202,7 @@ export function MoneyFlowDiagram({ flow, title }: { flow: MoneyFlow; title: stri
                   {fit(nodeName(node), room, nameSize)}
                 </text>
                 <text
+                  data-testid="flow-node-value"
                   x={node.x}
                   y={node.y - 6}
                   textAnchor="start"

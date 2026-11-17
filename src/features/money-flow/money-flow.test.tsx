@@ -179,6 +179,25 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235]', () => {
       .getAllByTestId('flow-account-row')
       .find((element) => element.textContent.startsWith('Sam account'))!
     expect(sam).toHaveTextContent(`${money(-40_000)}(more planned out than in)`)
+    // Each column its own figure: what comes in, what goes out, what stays.
+    const alex = within(table)
+      .getAllByTestId('flow-account-row')
+      .find((element) => element.textContent.startsWith('Alex account'))!
+    expect(
+      within(alex)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent.replace(/\s/g, ' ')),
+    ).toEqual([money(650_000), money(258_800), money(391_200)])
+    // Under an account, what stays on it; under an income, its amount.
+    const value = (id: string) =>
+      within(diagram)
+        .getAllByTestId('flow-node')
+        .find((node) => node.getAttribute('data-node') === id)
+        ?.querySelector('[data-testid="flow-node-value"]')
+        ?.textContent?.replace(/\s/g, ' ')
+    expect(value('acc-a')).toContain(money(391_200))
+    expect(value('acc-j')).toContain(money(670_000))
+    expect(value('income:inc-s')).toContain(money(480_000))
     expect(table).toHaveTextContent('not its balance')
   })
 
@@ -229,9 +248,16 @@ describe('the diagram’s layout [R-ACCOUNT-235]', () => {
     expect(column('acc-p')).toBe(layout.columns - 1)
     // An account with no planned flow is listed, not drawn.
     expect(layout.idle).toEqual(['Cash'])
-    // One scale: bands are as wide as their amounts.
+    // One scale: bands are as wide as their amounts, on the bars' own scale.
     const band = (id: string) => layout.links.find((link) => link.id === id)!.width
     expect(band('tr-j2') / band('tr-j1')).toBeCloseTo(520_000 / 150_000, 5)
+    const node = (id: string) => layout.nodes.find((item) => item.id === id)!
+    const perRappen = node('income:inc-a').height / 650_000
+    expect(node('income:inc-s').height / 480_000).toBeCloseTo(perRappen, 9)
+    expect(band('tr-j2') / 520_000).toBeCloseTo(perRappen, 9)
+    // An income's band is exactly as thick as its bar.
+    const incomeBand = layout.links.find((link) => link.source === 'income:inc-a')!
+    expect(incomeBand.width).toBeCloseTo(node('income:inc-a').height, 6)
     // Nothing drawn outside the width it has.
     for (const node of layout.nodes) expect(node.x + layout.nodeWidth).toBeLessThanOrEqual(390)
   })
