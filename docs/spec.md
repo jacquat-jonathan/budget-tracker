@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-564 rules (553 active, 0 planned), 24 conventions, 341 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
+564 rules (553 active, 0 planned), 24 conventions, 343 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -7124,6 +7124,30 @@ Related: R-ACCOUNT-315, R-ACCOUNT-233, R-ACCOUNT-300, D-493
 
 Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 
+### D-503 The money flow is drawn by the app in SVG, beside its tables (accepted)
+
+The Money flow page draws get_money_flow as a Sankey-style diagram in SVG of its own (no chart library): incomes in the first column, each account one column right of the furthest account that sends it money (a band that closes a cycle is drawn as a loop below), accounts where money only stays in the last column; bars and bands on one scale; each label above its bar (name, then what stays, the amount short in words and a warning sign when more is planned out than in), cut to the room its column has; the incomes in --chart-1, accounts in --chart-2 to --chart-5 by their order in the read (later ones neutral), "not assigned" neutral. Accounts with no planned flow are listed in the table only. The same figures are three tables below it (incomes, transfers at their monthly share with their real amount and cadence, accounts with in, out and what stays) with the database's totals; a period picker keeps the period in the address. The page is a lazy chunk like the other charts.
+
+**Why:** Recharts' Sankey cannot lay labels above bars nor handle money sent back between accounts, and at 390 px its side labels collide; the diagram needs no chart library, so the page chunk stays small. Every figure is the database's; only geometry is computed.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-304, D-405
+
+Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+
+### D-504 The checklist lives on the Transfers page, a period at a time (accepted)
+
+The Transfers page opens on the current period's checklist (another period by the picker or ?period=); each row says its due date (never its key), amount (the amount moved beside the planned one when they differ), accounts, category, and its state in words with an icon (to do, overdue, standing order, done on a date by a member, done by standing order, skipped, did not happen, waiting for room, no longer planned, ended). Its buttons are only the marks the contract allows from that state: Done (a dialog with the date, today in the current period else the due date, and the amount moved) and Skip for a manual one to do, Did not happen for a standing order not marked by a member, Undo for any member's mark and every mark no longer planned. Each mark sends the row's key and mark revision; a refusal because it changed meanwhile says so and the list is read again; the focus stays on the row.
+
+**Why:** Owner brief: the checklist per period, past periods viewable and correctable, stale marks handled like every concurrent edit.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-005, R-ACCOUNT-240, R-CONCURRENCY-230, R-ACCOUNT-301
+
+Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -7561,6 +7585,10 @@ Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 - **Q-300** Can list_transactions filter by planned transfer (p_transfer_id), as it does by subscription and debt?
   - Context: A transfer linked to a category has transactions (transfer_overview.transaction_count), but the screens cannot list them: there is no filter for them, so the transfer card offers no "its transactions" link as subscriptions and debts do.
   - Related: R-ACCOUNT-072, R-APP-170
+  - Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+- **Q-301** Should get_money_flow give where the money goes beyond the accounts: spending by category group (planned expectations), and which account it is spent from?
+  - Context: The owner brief asks the diagram to show spending by category group and what is left; the read gives incomes, accounts, transfers and what stays on each account only (and a transfer row does not say the category it counts in). The page shows what it has and says that spending is not part of the plan it draws. Needed: rows of kind spending (category group, planned amount, the account it is taken from or none), or a decision that the flow ends at the accounts.
+  - Related: R-ACCOUNT-006, R-ACCOUNT-235, D-356, D-503
   - Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 
 ## Glossary

@@ -306,3 +306,55 @@ export const transfersEn = {
     undone: '“{{name}}” is back as it was planned.',
   },
 }
+
+export const moneyFlowEn = {
+  period: 'Period',
+  currentPeriod: '{{label}} (current)',
+  notAssigned: 'Not assigned',
+  notAssignedHelp:
+    '“Not assigned”: incomes that name no account yet. Say in the income where it arrives.',
+  short: '{{amount}} short',
+  staysShort: '{{amount}} stays',
+  nodeTitle: 'in {{in}}, out {{out}}, stays {{stays}}',
+  bandIncome: '{{name}}: {{amount}}',
+  bandTransfer: '{{name}}: {{amount}} a month',
+  diagramTitle:
+    'Money flow of the period {{period}}: incomes of {{incomes}}, of which transfers move {{transfers}}. Every figure is in the tables below.',
+  empty: 'No income in this period',
+  emptyHelp: 'The money flow starts with the incomes in force in a period.',
+  incomesTotal: 'Incomes this period',
+  transfersTotal: 'Moved by transfers (per month)',
+  howToRead:
+    'Read it from left to right: each income into its account, then the transfers. The bands are as wide as the amounts; what is left on an account shows to its right. A quarterly or yearly transfer counts its monthly share.',
+  spendingNote:
+    'The plan only: what was actually spent is in the budget and the transactions. No account balance is kept.',
+  next: {
+    title: 'To see more of your money flow',
+    accounts: 'Add your accounts: where the salaries arrive and where money is put aside.',
+    accountsAction: 'Add accounts',
+    assign: 'Say which account each income arrives on.',
+    assignAction: 'Go to income',
+    transfers: 'Plan the transfers after payday: savings, the joint account, the third pillar…',
+    transfersAction: 'Plan a transfer',
+  },
+  table: {
+    incomes: 'Incomes',
+    income: 'Income',
+    into: 'Arrives on',
+    amount: 'Amount',
+    totalIncomes: 'Total incomes',
+    transfers: 'Transfers',
+    transfer: 'Transfer',
+    fromTo: 'From and to',
+    perMonth: 'Per month',
+    totalTransfers: 'Total moved',
+    accounts: 'Accounts',
+    account: 'Account',
+    in: 'In',
+    out: 'Out',
+    stays: 'Stays',
+    negative: '(more planned out than in)',
+    noBalance:
+      '“Stays” is what the plan leaves on an account this period, not its balance: balances are not tracked.',
+  },
+}

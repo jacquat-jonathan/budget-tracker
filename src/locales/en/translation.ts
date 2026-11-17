@@ -2,7 +2,7 @@ import { catchUpEn } from '@/locales/en/catch-up'
 import type { compareEn } from '@/locales/en/compare'
 import type { importEn } from '@/locales/en/import'
 import type { chargesEn, correctionsEn, debtsEn, subscriptionsEn } from '@/locales/en/step4'
-import type { accountsEn, transfersEn } from '@/locales/en/step7'
+import type { accountsEn, moneyFlowEn, transfersEn } from '@/locales/en/step7'
 
 const core = {
   app: {
@@ -1217,6 +1217,7 @@ interface LazyStrings {
   import: typeof importEn
   accounts: typeof accountsEn
   transfers: typeof transfersEn
+  moneyFlow: typeof moneyFlowEn
 }
 export type LazyKey = keyof LazyStrings
 

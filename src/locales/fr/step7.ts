@@ -319,3 +319,56 @@ export const transfersFr = {
     undone: '« {{name}} » est revenu tel qu’il était prévu.',
   },
 }
+
+export const moneyFlowFr = {
+  period: 'Période',
+  currentPeriod: '{{label}} (en cours)',
+  notAssigned: 'Non attribué',
+  notAssignedHelp:
+    '« Non attribué » : les revenus qui n’indiquent pas encore de compte. Précisez dans le revenu où il arrive.',
+  short: 'il manque {{amount}}',
+  staysShort: '{{amount}} restent',
+  nodeTitle: 'entrées {{in}}, sorties {{out}}, reste {{stays}}',
+  bandIncome: '{{name}} : {{amount}}',
+  bandTransfer: '{{name}} : {{amount}} par mois',
+  diagramTitle:
+    'Flux financiers de la période {{period}} : revenus de {{incomes}}, dont {{transfers}} déplacés par des virements. Tous les montants figurent dans les tableaux ci-dessous.',
+  empty: 'Aucun revenu dans cette période',
+  emptyHelp: 'Les flux financiers partent des revenus en vigueur dans une période.',
+  incomesTotal: 'Revenus de la période',
+  transfersTotal: 'Déplacé par les virements (par mois)',
+  howToRead:
+    'Lisez de gauche à droite : chaque revenu vers son compte, puis les virements. Les bandes sont aussi larges que les montants ; ce qui reste sur un compte figure à sa droite. Un virement trimestriel ou annuel compte sa part mensuelle.',
+  spendingNote:
+    'Seulement le plan : ce qui a réellement été dépensé figure dans le budget et les transactions. Aucun solde n’est tenu.',
+  next: {
+    title: 'Pour voir davantage de vos flux financiers',
+    accounts:
+      'Ajoutez vos comptes : là où arrivent les salaires et là où l’argent est mis de côté.',
+    accountsAction: 'Ajouter des comptes',
+    assign: 'Indiquez sur quel compte arrive chaque revenu.',
+    assignAction: 'Aller aux revenus',
+    transfers: 'Planifiez les virements après la paie : épargne, compte commun, 3e pilier…',
+    transfersAction: 'Planifier un virement',
+  },
+  table: {
+    incomes: 'Revenus',
+    income: 'Revenu',
+    into: 'Arrive sur',
+    amount: 'Montant',
+    totalIncomes: 'Total des revenus',
+    transfers: 'Virements',
+    transfer: 'Virement',
+    fromTo: 'De et vers',
+    perMonth: 'Par mois',
+    totalTransfers: 'Total déplacé',
+    accounts: 'Comptes',
+    account: 'Compte',
+    in: 'Entrées',
+    out: 'Sorties',
+    stays: 'Reste',
+    negative: '(plus de sorties prévues que d’entrées)',
+    noBalance:
+      '« Reste » est ce que le plan laisse sur un compte pendant la période, pas son solde : les soldes ne sont pas suivis.',
+  },
+}
