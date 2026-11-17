@@ -138,9 +138,30 @@ describe('one category for several review rows [R-IMPORT-530]', () => {
     expect(await within(bar).findByTestId('review-bulk-outcome')).toHaveTextContent(
       '2 saved and confirmed.',
     )
+    // A toast too: the list (and the bar) can go once every row is done.
+    expect(document.querySelector('[data-sonner-toast]')).toHaveTextContent(
+      '2 saved and confirmed.',
+    )
     const updated = db.rpc.update_transaction.mock.calls.map(([args]) => args.p_transaction_id)
     expect(updated).toEqual(['imp-1', 'imp-3'])
     expect(db.rpc.confirm_import).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps saying what it did once every row is done and the list is empty', async () => {
+    const db = reviewDb()
+    open(db)
+    await screen.findAllByTestId('transaction-row')
+    const bar = screen.getByTestId('review-bulk')
+    await userEvent.click(within(bar).getByRole('checkbox', { name: 'Select all 4 shown' }))
+    await userEvent.click(
+      within(bar).getByRole('combobox', { name: 'Category for the selected ones' }),
+    )
+    await userEvent.click(await screen.findByRole('option', { name: 'Rent' }))
+    await userEvent.click(
+      within(bar).getByRole('button', { name: 'Set the category and confirm 4' }),
+    )
+    await waitFor(() => expect(screen.queryAllByTestId('transaction-row')).toHaveLength(0))
+    expect(screen.getByTestId('review-bulk-outcome')).toHaveTextContent('4 saved and confirmed.')
   })
 
   it('stops at the first failure and says truthfully how many were saved and which were not', async () => {

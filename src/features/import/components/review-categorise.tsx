@@ -76,16 +76,14 @@ export function ReviewCategorise({
   )
   return (
     <SelectionContext.Provider value={selection}>
-      {eligible.length > 0 && (
-        <BulkBar
-          budgetId={budgetId}
-          eligible={eligible}
-          selected={shown}
-          onSelect={setSelected}
-          running={running}
-          onRunning={setRunning}
-        />
-      )}
+      <BulkBar
+        budgetId={budgetId}
+        eligible={eligible}
+        selected={shown}
+        onSelect={setSelected}
+        running={running}
+        onRunning={setRunning}
+      />
       {children}
     </SelectionContext.Provider>
   )
@@ -132,6 +130,7 @@ function BulkBar({
   )
   const tops = all.filter((category) => category.parent_id === null)
   const chosen = eligible.filter((row) => selected.has(row.id))
+  const hidden = eligible.length === 0 && outcome === null
   const allSelected = chosen.length === eligible.length
 
   const run = async () => {
@@ -173,11 +172,14 @@ function BulkBar({
     }
     const notSaved = stopped ? queue.slice(queue.indexOf(stopped.row)) : []
     setOutcome({ total: queue.length, saved, stopped, notSaved })
+    // Also a toast: when every row is done the list (and this bar) may go away.
+    if (!stopped) toast.success(t('import.review.bulk.allDone', { count: saved }))
     onSelect(left)
     onRunning(false)
     void queryClient.invalidateQueries({ queryKey: budgetKeys.budget(budgetId) })
   }
 
+  if (hidden) return null
   return (
     <section
       className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4"

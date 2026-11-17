@@ -387,63 +387,62 @@ export function TransactionsPage() {
           onClose={() => setRuleOffer(null)}
         />
       )}
-      {transferGone ? (
-        <Alert data-testid="transfer-gone">
-          <TriangleAlertIcon aria-hidden />
-          <AlertTitle>{t('transfers.filterGone.title')}</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-2">
-            <p>{t('transfers.filterGone.body')}</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setFilter('transfer', null)}
-            >
-              {t('transfers.filterGone.back')}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      ) : !ready || list.isPending ? (
-        <LoadingState rows={5} />
-      ) : list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : rows.length === 0 && transfer ? (
-        // R-TRANSACTION-480: what is true of a transfer that lists nothing, not "no match".
-        <EmptyState
-          icon={ArrowLeftRightIcon}
-          title={
-            transfer.category_id
-              ? t('transfers.filterEmpty.noneTitle', { name: transfer.name })
-              : t('transfers.filterEmpty.uncountedTitle', { name: transfer.name })
-          }
-          description={
-            !transfer.category_id
-              ? t('transfers.filterEmpty.uncounted')
-              : period
-                ? t('transfers.filterEmpty.nonePeriod')
-                : t('transactions.emptyFilteredHelp')
-          }
-        />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={ArrowLeftRightIcon}
-          title={filtered ? t('transactions.emptyFiltered') : t('transactions.empty')}
-          description={filtered ? t('transactions.emptyFilteredHelp') : t('transactions.emptyHelp')}
-          action={
-            range && (
-              <Button onClick={() => setDialog({ kind: 'add' })}>
-                <PlusIcon />
-                {t('transactions.add')}
+      {/* The review's tools stay while the list empties, so a run's outcome stays in view. */}
+      <ReviewTools active={toReviewOnly || importBatchId !== null} budgetId={budgetId} rows={rows}>
+        {transferGone ? (
+          <Alert data-testid="transfer-gone">
+            <TriangleAlertIcon aria-hidden />
+            <AlertTitle>{t('transfers.filterGone.title')}</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-2">
+              <p>{t('transfers.filterGone.body')}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFilter('transfer', null)}
+              >
+                {t('transfers.filterGone.back')}
               </Button>
-            )
-          }
-        />
-      ) : (
-        <ReviewTools
-          active={toReviewOnly || importBatchId !== null}
-          budgetId={budgetId}
-          rows={rows}
-        >
+            </AlertDescription>
+          </Alert>
+        ) : !ready || list.isPending ? (
+          <LoadingState rows={5} />
+        ) : list.isError ? (
+          <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+        ) : rows.length === 0 && transfer ? (
+          // R-TRANSACTION-480: what is true of a transfer that lists nothing, not "no match".
+          <EmptyState
+            icon={ArrowLeftRightIcon}
+            title={
+              transfer.category_id
+                ? t('transfers.filterEmpty.noneTitle', { name: transfer.name })
+                : t('transfers.filterEmpty.uncountedTitle', { name: transfer.name })
+            }
+            description={
+              !transfer.category_id
+                ? t('transfers.filterEmpty.uncounted')
+                : period
+                  ? t('transfers.filterEmpty.nonePeriod')
+                  : t('transactions.emptyFilteredHelp')
+            }
+          />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon={ArrowLeftRightIcon}
+            title={filtered ? t('transactions.emptyFiltered') : t('transactions.empty')}
+            description={
+              filtered ? t('transactions.emptyFilteredHelp') : t('transactions.emptyHelp')
+            }
+            action={
+              range && (
+                <Button onClick={() => setDialog({ kind: 'add' })}>
+                  <PlusIcon />
+                  {t('transactions.add')}
+                </Button>
+              )
+            }
+          />
+        ) : (
           <TransactionList
             rows={rows}
             budgetId={budgetId}
@@ -456,8 +455,8 @@ export function TransactionsPage() {
             }}
             onCategorised={(before, after) => setRuleOffer({ before, after })}
           />
-        </ReviewTools>
-      )}
+        )}
+      </ReviewTools>
       {list.hasNextPage && (
         <Button
           variant="outline"
