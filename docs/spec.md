@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-564 rules (553 active, 0 planned), 24 conventions, 340 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
+564 rules (553 active, 0 planned), 24 conventions, 341 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -7112,6 +7112,18 @@ Related: R-ACCOUNT-236
 
 Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 
+### D-502 How the transfer form asks for its schedule and for the past (accepted)
+
+A transfer is "After payday" (an offset of 0 to 31 days and whose payday, the main income by default, sending no income) or "On a fixed day": monthly by its day of the month (p_day_of_month), quarterly or yearly by its next due date (p_first_date, which sets the phase; today or later). The earlier occurrences are asked for only with "It already ran: record what happened since…", off by default, which sends p_from_period_id (the current period or an earlier one) and lets a quarterly or yearly first date lie in the past. Every create and edit shows the database's preview of exactly the arguments the save sends: the next six due dates and amounts, what is recorded at once, and the counts of the app's transactions removed and members' ticks no longer planned. Save stays disabled while the preview refuses.
+
+**Why:** D-493 asks the form to send p_from_period_id or p_first_date only when the member chose to record the past; a quarterly or yearly schedule cannot be phased by its day alone, and a first date today or later plans nothing before today.
+
+**Rejected:** none recorded.
+
+Related: R-ACCOUNT-315, R-ACCOUNT-233, R-ACCOUNT-300, D-493
+
+Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -7546,6 +7558,10 @@ Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
   - Context: The contract says older skipped rows cannot be imported anyway, not whether the call skips such ids silently, answers fewer rows, or refuses. The screens send only listed ids and say so when fewer rows come back (D-484).
   - Related: D-452, D-484, R-IMPORT-368
   - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **Q-300** Can list_transactions filter by planned transfer (p_transfer_id), as it does by subscription and debt?
+  - Context: A transfer linked to a category has transactions (transfer_overview.transaction_count), but the screens cannot list them: there is no filter for them, so the transfer card offers no "its transactions" link as subscriptions and debts do.
+  - Related: R-ACCOUNT-072, R-APP-170
+  - Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
 
 ## Glossary
 

@@ -252,10 +252,51 @@ export function useTransferTermsAt(
       const inForce = row?.in_force === true
       return {
         inForce,
-        terms: inForce && row ? row : null,
+        terms: row?.in_force === true ? row : null,
         termsFromPeriodId: (row?.terms_from_period_id as string | null | undefined) ?? null,
         untilPeriodId: (row?.until_period_id as string | null | undefined) ?? null,
       }
+    },
+  })
+}
+
+export type ChecklistRow = Database['public']['CompositeTypes']['transfer_checklist_row']
+
+/**
+ * One period's checklist (get_transfer_checklist): one row per occurrence, plus the marks no
+ * longer planned whose key lies there, as the database orders them (at most 1000 rows, the
+ * last one 'more' beyond that; R-APP-170). It catches up first: read after ensure_periods.
+ */
+export function useChecklist(
+  budgetId: string,
+  periodId: string | null,
+): PeriodRead<ChecklistRow[]> {
+  return usePeriodDependentQuery(
+    budgetId,
+    budgetKeys.checklist(budgetId, periodId ?? ''),
+    async () =>
+      periodId === null
+        ? []
+        : unwrap(await supabase.rpc('get_transfer_checklist', { p_period_id: periodId })),
+  )
+}
+
+export interface TransfersToDo {
+  toDo: number
+  overdue: number
+}
+
+/**
+ * The dashboard's counts (get_transfers_to_do, D-494): read only once my_budgets says the
+ * budget is caught up, since the call does not catch up itself.
+ */
+export function useTransfersToDo(budgetId: string, caughtUp: boolean) {
+  return useQuery({
+    queryKey: budgetKeys.transfersToDo(budgetId),
+    enabled: caughtUp,
+    queryFn: async (): Promise<TransfersToDo> => {
+      const row = unwrap(await supabase.rpc('get_transfers_to_do', { p_budget_id: budgetId }))[0]
+      return { toDo: row?.transfers_to_do ?? 0, overdue: row?.transfers_overdue ?? 0 }
     },
   })
 }

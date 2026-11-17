@@ -1,4 +1,5 @@
 import type {
+  ChecklistRow,
   CreateArgs,
   TransferCadence,
   TransferSchedule,
@@ -139,4 +140,31 @@ export function editArgs(
   }
   if (correction && Object.keys(terms).length > 0) terms.p_from_period_id = correction
   return terms
+}
+
+/**
+ * What can be done with an occurrence, from its state as the checklist gives it (the
+ * contract's table): a manual one to do is done or skipped; an automatic one not yet marked by
+ * a member can be said not to have happened; any member's mark, or a mark no longer planned,
+ * can be undone. Every state has a way out.
+ */
+// R-ACCOUNT-005 R-ACCOUNT-240: the marks the contract allows, from every state.
+export function actionsFor(row: ChecklistRow) {
+  const marked = (row.mark_revision ?? 0) > 0
+  const assumed = row.assumed === true
+  const planned = row.planned !== false
+  const automatic = row.is_automatic === true
+  const memberMark = marked && !assumed
+  return {
+    done: planned && !automatic && row.status === 'to_do',
+    skip: planned && !automatic && row.status === 'to_do',
+    notDone:
+      planned &&
+      automatic &&
+      !memberMark &&
+      (row.status === 'upcoming' || (row.status === 'done' && assumed)),
+    // The catch-up's own transaction of a manual occurrence kept from when it was automatic
+    // is a mark too (assumed): undo leads out of it.
+    undo: !planned ? marked : memberMark || (marked && assumed && !automatic),
+  }
 }

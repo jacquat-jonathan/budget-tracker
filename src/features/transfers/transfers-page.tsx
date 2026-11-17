@@ -1,15 +1,12 @@
 import {
-  ArrowRightIcon,
   ArrowRightLeftIcon,
   CalendarOffIcon,
   ChevronDownIcon,
   EllipsisVerticalIcon,
-  HandIcon,
   LandmarkIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
-  ZapIcon,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -19,7 +16,6 @@ import { paths } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -41,6 +37,7 @@ import {
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useCategoryPath } from '@/features/subscriptions/subscription-views'
 import { Checklist } from '@/features/transfers/components/checklist'
+import { FromTo, ModeBadge } from '@/features/transfers/components/transfer-bits'
 import { EndTransferDialog } from '@/features/transfers/components/end-transfer-dialog'
 import { TransferFormDialog } from '@/features/transfers/components/transfer-form-dialog'
 import { isVoidTransfer, useTransfers, type Transfer } from '@/features/transfers/transfer-queries'
@@ -206,31 +203,6 @@ export function TransfersPage() {
         onClose={close}
       />
     </div>
-  )
-}
-
-/** Standing order or manual, in words and with an icon (never colour alone). */
-export function ModeBadge({ automatic }: { automatic: boolean }) {
-  const { t } = useTranslation()
-  const Icon = automatic ? ZapIcon : HandIcon
-  return (
-    <Badge variant={automatic ? 'secondary' : 'outline'} className="shrink-0">
-      <Icon aria-hidden />
-      {t(automatic ? 'transfers.mode.automaticShort' : 'transfers.mode.manualShort')}
-    </Badge>
-  )
-}
-
-/** "Salary account → Savings", the arrow said in words to a screen reader. */
-export function FromTo({ from, to }: { from: string; to: string }) {
-  const { t } = useTranslation()
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1">
-      <span className="truncate">{from}</span>
-      <ArrowRightIcon className="size-3.5 shrink-0" aria-hidden />
-      <span className="sr-only">{t('transfers.to')}</span>
-      <span className="truncate">{to}</span>
-    </span>
   )
 }
 

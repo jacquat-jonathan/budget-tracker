@@ -107,7 +107,10 @@ describe('planned transfers [R-ACCOUNT-002] [R-ACCOUNT-003]', () => {
     mock.current = createSupabaseMock(fakeSession(), categoriesDb())
     renderRoutes(routes, '/transfers')
     expect(await screen.findByText('Add your accounts first')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Go to accounts' })).toHaveAttribute('href', '/accounts')
+    expect(screen.getByRole('link', { name: 'Go to accounts' })).toHaveAttribute(
+      'href',
+      '/accounts',
+    )
     expect(screen.getByRole('button', { name: 'Plan a transfer' })).toBeDisabled()
   })
 })
@@ -346,7 +349,11 @@ describe('the arguments of an edit [R-VERSION-071]', () => {
   it('unlinking clears the category; a fixed day sends its cadence and day or date', () => {
     expect(editArgs(base, { ...values, linked: false }, null)).toEqual({ p_clear_category: true })
     expect(
-      editArgs(base, { ...values, schedule: 'day_of_month', cadence: 'monthly', dayOfMonth: 5 }, null),
+      editArgs(
+        base,
+        { ...values, schedule: 'day_of_month', cadence: 'monthly', dayOfMonth: 5 },
+        null,
+      ),
     ).toEqual({ p_schedule: 'day_of_month', p_cadence: 'monthly', p_day_of_month: 5 })
     expect(
       editArgs(

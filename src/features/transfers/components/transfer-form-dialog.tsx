@@ -279,7 +279,7 @@ function TransferForm({
   })
   const watched = useWatch({ control: form.control }) as Partial<Input>
   const schedule = watched.schedule ?? 'pay_date'
-  const cadence = (watched.cadence ?? 'monthly')
+  const cadence = watched.cadence ?? 'monthly'
   const past = watched.past === true
   const fromPeriodId = watched.fromPeriodId ?? ''
   const linked = watched.linked === true

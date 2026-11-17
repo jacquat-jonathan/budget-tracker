@@ -2,7 +2,12 @@ import { useTranslation } from 'react-i18next'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap } from '@/features/budgets/budget-queries'
-import type { CreateArgs, Transfer, TransferTermsArgs } from '@/features/transfers/transfer-queries'
+import type {
+  ChecklistRow,
+  CreateArgs,
+  Transfer,
+  TransferTermsArgs,
+} from '@/features/transfers/transfer-queries'
 import { useAppMutation } from '@/hooks/use-app-mutation'
 import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
@@ -92,6 +97,18 @@ export interface MarkTarget {
   revision: number
   name: string
   amount: number
+}
+
+/** The mark target of a checklist row: its period, its key, and the mark revision read. */
+export function targetOf(row: ChecklistRow): MarkTarget {
+  return {
+    transferId: row.transfer_id ?? '',
+    periodId: row.period_id ?? '',
+    occurrenceDate: row.occurrence_date ?? '',
+    revision: row.mark_revision ?? 0,
+    name: row.name ?? '',
+    amount: row.amount ?? 0,
+  }
 }
 
 const target = (row: MarkTarget) => ({
