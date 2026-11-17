@@ -169,6 +169,22 @@ select lives_ok(format($$select * from public.undo_transfer_mark(%L, %L, 1, '202
 select is((select string_agg(mark::text || '/' || key_shared, ',') from public.transfer_occurrences where transfer_id = tests.id('d_m')),
   'done/false', 'R-ACCOUNT-421: only the earlier period''s mark is left');
 
+-- D2: the same with a key the projection gave (not shifted): a salary 16 days early (9 Nov,
+-- keyed 25 Nov), then the transfer changed to a fixed day 25 from the period 25 Nov..
+select pg_temp.day('2026-11-09');
+select pg_temp.budget('d2');
+select tests.remember('d2_t', pg_temp.new_transfer('d2', 'Savings on payday', p_from => tests.id('d2_p1')));
+select public.record_early_pay_date(tests.id('d2'), (pg_temp.cur('d2')).id, (pg_temp.cur('d2')).revision, '2026-11-09');
+select pg_temp.day('2026-11-26');
+select public.ensure_periods(tests.id('d2'));
+select is((select pay_key::text || '/' || pay_key_shifted from public.periods where budget_id = tests.id('d2') and start_date = '2026-11-09'),
+  '2026-11-25/false', 'R-ACCOUNT-421: (setup) the early period is keyed 25 Nov by the projection');
+select public.update_transfer(tests.id('d2_t'), (select revision from public.transfers where id = tests.id('d2_t')),
+  p_schedule => 'day_of_month', p_day_of_month => 25, p_first_date => '2026-11-25');
+select is(pg_temp.txs(tests.id('d2_t')), '2026-09-25,2026-10-25,2026-11-09,2026-11-25',
+  'R-ACCOUNT-421: the payday of 9 Nov (keyed 25 Nov) and the fixed 25 Nov are two transfers');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('d2')), 'R-ACCOUNT-421: the model agrees (D2)');
+
 -- ===========================================================================
 -- E, the other way: a fixed day 25 until the salary came late (28 Nov, keyed 25 Nov), then a pay
 -- date from that period: the fixed 25 Nov and the payday of 28 Nov are both recorded
@@ -405,14 +421,20 @@ select results_eq($$select amount, set_aside, spendable_amount, planned_spending
   'R-ACCOUNT-422: the totals balance: income = set aside + spendable = set aside + planned + not planned = set aside + spent + left');
 select is((select count(*)::integer from wflow), 2 + 1 + 3 + 2 + 5, 'R-ACCOUNT-422: incomes, accounts, transfers, spending and the total, nothing else');
 select is((select row_kind from wflow order by row_kind = 'total', 1 limit 1 offset 12), 'total', 'R-ACCOUNT-422: the total stays the last row');
+select is((select spending_rows_omitted from wflow where row_kind = 'total'), 0, 'R-ACCOUNT-422: every row answered: nothing omitted');
+select is((select count(*)::integer from wflow where row_kind = 'account' and created_at is not null), 3,
+  'R-ACCOUNT-422: account rows carry created_at, a stable order for colours (with id)');
 -- the 1000-row bound: with room for two spending rows, the second adds up the other four
 select tests.clear_authentication();
 savepoint mf_rows;
 create or replace function private.limit_money_flow_rows() returns integer language sql immutable set search_path = '' as $f$ select 10 $f$;
 select pg_temp.day('2026-11-20');
-select results_eq($$select name, amount, spent from public.get_money_flow(tests.id('w')) where row_kind = 'spending' order by display_order$$,
-  $$values ('Home', 215000::bigint, 200000::bigint), ('4', 175000, 90550)$$,
-  'R-ACCOUNT-422: at the row limit the last spending row adds up the rest (its name: how many), so the totals stay whole');
+select results_eq($$select name from public.get_money_flow(tests.id('w')) where row_kind = 'spending' order by display_order$$,
+  $$values ('Home'), ('Food')$$,
+  'R-ACCOUNT-422: past the row limit the last spending rows are left out (no aggregate row)');
+select results_eq($$select spending_rows_omitted, planned_spending, actual_spending from public.get_money_flow(tests.id('w')) where row_kind = 'total'$$,
+  $$values (3, 390000::bigint, 290550::bigint)$$,
+  'R-ACCOUNT-422: the total says how many, and its totals still cover them');
 select is((select count(*)::integer from public.get_money_flow(tests.id('w'))), 10, 'R-ACCOUNT-422: never more rows than the limit');
 rollback to savepoint mf_rows;
 
@@ -504,6 +526,32 @@ select ok(pg_temp.txs(tests.id('sw_t')) like '2026-09-25,2026-10-25,2026-11-25,2
   'R-ACCOUNT-428: from the next period it follows the Salary''s own pay dates (25 Dec), as a chosen income');
 select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('sw')), 'R-ACCOUNT-428: the model agrees');
 
+-- the reviewer's case: a salary 16 days early (9 Nov), so the next period's key is shifted to
+-- 25 Dec; a switch on 1 Dec; the Salary's own 25 Dec in the period after is its own transfer
+-- (a shifted key is no payday, D-528)
+select pg_temp.day('2026-11-09');
+select pg_temp.budget('se');
+select tests.remember('se_par', public.add_income(tests.id('se'), 'Partner', 300000, 10, p_from_period_id => tests.id('se_p1')));
+select tests.remember('se_t', (select id from public.create_transfer(tests.id('se'), 'Savings', tests.id('se_main'), tests.id('se_sav'),
+  100000, 'pay_date', p_income_id => tests.id('se_inc'), p_is_automatic => true, p_category_id => tests.id('se_cat'),
+  p_from_period_id => tests.id('se_p1'))));
+select public.record_early_pay_date(tests.id('se'), (pg_temp.cur('se')).id, (pg_temp.cur('se')).revision, '2026-11-09');
+select pg_temp.day('2026-12-01');
+select public.ensure_periods(tests.id('se'));
+select is((select pay_key::text || '/' || pay_key_shifted from public.periods where budget_id = tests.id('se') and start_date = '2026-11-25'),
+  '2026-12-25/true', 'D-528: (setup) the period of 25 Nov is keyed 25 Dec, shifted');
+select results_eq(format($$select transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned
+                           from public.preview_set_primary_income(%L)$$, tests.id('se_par')),
+  $$values (0, 0, 0)$$, 'R-ACCOUNT-428: (the reviewer''s E) the preview says nothing recorded changes');
+select public.set_primary_income(tests.id('se_par'), (select revision from public.budgets where id = tests.id('se')),
+  (select end_date from public.preview_set_primary_income(tests.id('se_par'))));
+select is(pg_temp.txs(tests.id('se_t')), '2026-09-25,2026-10-25,2026-11-09,2026-11-25', 'R-ACCOUNT-428: nothing recorded is removed');
+select pg_temp.day('2026-12-26');
+select public.ensure_periods(tests.id('se'));
+select is(pg_temp.txs(tests.id('se_t')), '2026-09-25,2026-10-25,2026-11-09,2026-11-25,2026-12-25',
+  'D-528: the Salary''s own 25 Dec is its own transfer, not the shifted key of the period before');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('se')), 'D-528: the model agrees');
+
 -- ===========================================================================
 -- Step 7 should-fix 3: an income added and removed in one period (R-ACCOUNT-427)
 -- ===========================================================================
@@ -556,6 +604,19 @@ select is(pg_temp.txs(tests.id('mv_manual')), '2026-11-25', 'R-ACCOUNT-425: made
 select results_eq(format($$select date, amount, description from public.transaction_list where transfer_id = %L$$, tests.id('mv_edit')),
   $$values ('2026-11-25'::date, 98000::bigint, 'bank fee taken off')$$,
   'R-ACCOUNT-425: its transaction edited by a member: it stays exactly as edited');
+
+-- a move with no change, where a transaction's due date changed for another reason (an offset
+-- edited after it ran: what was recorded stays, R-ACCOUNT-305): it is not re-dated
+select pg_temp.day('2026-11-30');
+select pg_temp.budget('mn');
+select tests.remember('mn_t', (select id from public.create_transfer(tests.id('mn'), 'Three days on', tests.id('mn_main'), tests.id('mn_sav'),
+  1000, 'pay_date', p_offset_days => 3, p_is_automatic => true, p_category_id => tests.id('mn_cat'), p_from_period_id => (pg_temp.cur('mn')).id)));
+select public.update_transfer(tests.id('mn_t'), (select revision from public.transfers where id = tests.id('mn_t')), p_offset_days => 1);
+select is(pg_temp.txs(tests.id('mn_t')), '2026-11-28', 'R-ACCOUNT-426: (setup) recorded on 28 Nov, due now 26 Nov');
+select results_eq(format($$select transfer_transactions_removed, transfer_transactions_created from public.preview_move_period_start(%L)$$,
+                         (pg_temp.cur('mn')).id), $$values (0, 0)$$, 'R-ACCOUNT-426: the preview of a move with no change counts nothing');
+select public.move_period_start((pg_temp.cur('mn')).id, (pg_temp.cur('mn')).revision);
+select is(pg_temp.txs(tests.id('mn_t')), '2026-11-28', 'R-ACCOUNT-426: and the move does not re-date it');
 
 -- ===========================================================================
 -- What the reviewer's surviving mutants showed untested (re-check 3), step 7
@@ -664,6 +725,9 @@ select public.preview_import_part(tests.id('i'), tests.id('pp'), 3, pg_temp.row1
 select is((public.preview_import_part(tests.id('i'), tests.id('pp'), 2, pg_temp.row1(8202)) -> 'parts')::text, '[1, 2]',
   'R-IMPORT-340: previewing part 2 again forgets the staged parts from it on (part 3)');
 select tests.clear_authentication();
+select is((select array_agg(part order by part) from private.import_preview_parts where batch_id = tests.id('pp')), array[1, 2],
+  'R-IMPORT-340: part 3 is no longer staged');
+select tests.clear_authentication();
 update private.import_preview_parts set created_at = now() - interval '25 hours' where batch_id = tests.id('pp') and part = 1;
 select pg_temp.day('2026-11-16');
 select is((public.preview_import_part(tests.id('i'), tests.id('pp'), 2, pg_temp.row1(8202)) -> 'parts')::text, '[2]',
@@ -707,14 +771,16 @@ select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, 
 select tests.clear_authentication();
 rollback to savepoint window24;
 -- an answer older than 7 days is forgotten: sending the chunk again answers chunk_expired
+-- (a budget of its own, far from the 50 answers kept)
 select tests.remember('old_b', gen_random_uuid());
 select pg_temp.day('2026-11-16');
-select public.import_transactions(tests.id('i'), tests.id('old_b'), 1, pg_temp.row1(8601), 'csv');
+select tests.remember('i7', public.create_budget('Seven days', 'Salary', 600000, 25, 'none', '2026-09-01'));
+select public.import_transactions(tests.id('i7'), tests.id('old_b'), 1, pg_temp.row1(8601), 'csv');
 select tests.clear_authentication();
 update private.import_chunks set created_at = now() - interval '8 days' where batch_id = tests.id('old_b');
 select pg_temp.day('2026-11-16');
-select public.import_transactions(tests.id('i'), gen_random_uuid(), 1, pg_temp.row1(8602), 'csv');
-select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, %L, 1, %L, 'csv')$$, tests.id('i'), tests.id('old_b'), pg_temp.row1(8601))),
+select public.import_transactions(tests.id('i7'), gen_random_uuid(), 1, pg_temp.row1(8602), 'csv');
+select is(pg_temp.refusal(format($$select * from public.import_transactions(%L, %L, 1, %L, 'csv')$$, tests.id('i7'), tests.id('old_b'), pg_temp.row1(8601))),
   'chunk_expired', 'R-IMPORT-341: an answer older than 7 days is forgotten; the chunk is never imported twice');
 -- the rule preview: covered by the longest fragment; would_move counts only what is to review
 select tests.remember('rc', (select id from public.create_category(tests.id('i'), 'Groceries')));

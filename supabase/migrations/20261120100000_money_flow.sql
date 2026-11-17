@@ -3477,9 +3477,11 @@ $$;
 --   transfers linked to it (transfer_share, at most expected: those francs are drawn as
 --   transfers), spent = the period's spending less the transactions of transfers
 --   (transfer_spent), yearly_amount = the real amount of its yearly expectations (null: none),
---   is_negative = spent more than planned. At most limit_money_flow_rows() rows in all: past
---   that, the last spending row (id null, name the number of categories it stands for) adds
---   up the rest, so the totals stay whole;
+--   is_negative = spent more than planned. Every row is answered (no aggregate row); only past
+--   limit_money_flow_rows() rows in all (a past period after many corrections; never in a
+--   budget built forwards) the last spending rows are left out, the total row says how many
+--   (spending_rows_omitted) and its totals still cover them;
+-- * account rows carry created_at (with id: a stable order for colours);
 -- * 'total': amount = inflow = the incomes added up (= period_summaries.salary_total: salaries
 --   only; extra incomes are actual transactions, not plan), outflow = the transfers added up;
 --   set_aside + spendable_amount = income; planned_spending + not_planned = spendable_amount;
@@ -3503,7 +3505,8 @@ returns table (
   is_automatic boolean, period_id uuid, planned_amount bigint, cadence public.subscription_cadence,
   spendable boolean, expected bigint, transfer_share bigint, spent bigint, transfer_spent bigint,
   yearly_amount bigint, display_order integer, set_aside bigint, spendable_amount bigint,
-  planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint
+  planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint,
+  created_at timestamptz, spending_rows_omitted integer
 )
 language plpgsql
 stable
@@ -3526,7 +3529,7 @@ begin
   ),
   tr as (select * from private.transfers_in_force(p_budget_id, p_seq)),
   acc as (
-    select a.id, a.name, a.kind, a.user_id,
+    select a.id, a.name, a.kind, a.user_id, a.created_at,
            coalesce((select pg_catalog.sum(inc.amount) from inc where inc.account_id = a.id), 0)
              + coalesce((select pg_catalog.sum(tr.monthly_amount) from tr where tr.to_account_id = a.id), 0) as inflow,
            coalesce((select pg_catalog.sum(tr.monthly_amount) from tr where tr.from_account_id = a.id), 0) as outflow
@@ -3575,21 +3578,15 @@ begin
     select t.id, t.name, t.display_order, t.expected, t.transfer_share, t.spent, t.transfer_spent, t.yearly_amount,
            t.n as o
     from top as t
-    where (select pg_catalog.count(*) from top) <= (select room.n from room) or t.n < (select room.n from room)
-    union all
-    select null, (pg_catalog.count(*))::text, pg_catalog.min(t.display_order), pg_catalog.sum(t.expected)::bigint,
-           pg_catalog.sum(t.transfer_share)::bigint, pg_catalog.sum(t.spent)::bigint, pg_catalog.sum(t.transfer_spent)::bigint,
-           pg_catalog.sum(t.yearly_amount)::bigint, (select room.n from room)
-    from top as t
-    where (select pg_catalog.count(*) from top) > (select room.n from room) and t.n >= (select room.n from room)
-    having pg_catalog.count(*) > 0
+    where t.n <= (select room.n from room)
   ),
   sums as (
     select coalesce((select pg_catalog.sum(inc.amount) from inc), 0)::bigint as income,
            coalesce((select pg_catalog.sum(acc.inflow - acc.outflow) from acc
                      where not private.account_is_spendable(acc.kind)), 0)::bigint as set_aside,
-           coalesce((select pg_catalog.sum(s.expected - s.transfer_share) from spend as s), 0)::bigint as planned,
-           coalesce((select pg_catalog.sum(s.spent) from spend as s), 0)::bigint as actual
+           coalesce((select pg_catalog.sum(s.expected - s.transfer_share) from top as s), 0)::bigint as planned,
+           coalesce((select pg_catalog.sum(s.spent) from top as s), 0)::bigint as actual,
+           greatest((select pg_catalog.count(*) from top) - (select room.n from room), 0)::integer as omitted
   ),
   rows as (
     select 1 as o, 0::bigint as o2, 'income'::text as row_kind, inc.id, inc.name, inc.id as source_id,
@@ -3598,30 +3595,30 @@ begin
            inc.user_id, null::boolean as is_automatic, null::bigint as planned_amount,
            null::public.subscription_cadence as cadence, null::boolean as spendable, null::bigint as expected,
            null::bigint as transfer_share, null::bigint as spent, null::bigint as transfer_spent,
-           null::bigint as yearly_amount, null::integer as display_order
+           null::bigint as yearly_amount, null::integer as display_order, null::timestamptz as created_at
     from inc
     union all
     select 2, 0, 'not_assigned', null, null, null, null, null, pg_catalog.sum(inc.amount)::bigint, 0::bigint,
-           pg_catalog.sum(inc.amount)::bigint, false, null, null, null, null, null, true, null, null, null, null, null, null
+           pg_catalog.sum(inc.amount)::bigint, false, null, null, null, null, null, true, null, null, null, null, null, null, null
     from inc where inc.account_id is null having pg_catalog.count(*) > 0
     union all
     select 3, 0, 'account', acc.id, acc.name, null, null, null, acc.inflow::bigint, acc.outflow::bigint,
            (acc.inflow - acc.outflow)::bigint, acc.inflow < acc.outflow, acc.kind, acc.user_id, null, null, null,
-           private.account_is_spendable(acc.kind), null, null, null, null, null, null
+           private.account_is_spendable(acc.kind), null, null, null, null, null, null, acc.created_at
     from acc
     union all
     select 4, 0, 'transfer', tr.transfer_id, tr.name, tr.from_account_id, tr.to_account_id, tr.monthly_amount, null, null,
-           null, null, null, null, tr.is_automatic, tr.amount, tr.cadence, null, null, null, null, null, null, null
+           null, null, null, null, tr.is_automatic, tr.amount, tr.cadence, null, null, null, null, null, null, null, null
     from tr
     union all
     select 5, s.o, 'spending', s.id, s.name, null, null, (s.expected - s.transfer_share)::bigint, null, null, null,
            s.spent > s.expected - s.transfer_share, null, null, null, null, null, null, s.expected, s.transfer_share,
-           s.spent, s.transfer_spent, s.yearly_amount, s.display_order
+           s.spent, s.transfer_spent, s.yearly_amount, s.display_order, null
     from spend as s
     union all
     select 6, 0, 'total', null, null, null, null, sums.income, sums.income,
            coalesce((select pg_catalog.sum(tr.monthly_amount) from tr), 0)::bigint, null,
-           sums.income - sums.set_aside < sums.planned, null, null, null, null, null, null, null, null, null, null, null, null
+           sums.income - sums.set_aside < sums.planned, null, null, null, null, null, null, null, null, null, null, null, null, null
     from sums
   )
   select r.row_kind, r.id, r.name, r.source_id, r.target_id, r.amount, r.inflow, r.outflow, r.stays, r.is_negative,
@@ -3632,7 +3629,9 @@ begin
          case when r.row_kind = 'total' then sums.planned end,
          case when r.row_kind = 'total' then sums.actual end,
          case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.planned end,
-         case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.actual end
+         case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.actual end,
+         r.created_at,
+         case when r.row_kind = 'total' then sums.omitted end
   from rows as r cross join sums
   order by r.o, r.o2, r.name, r.id;
 end;
@@ -3646,7 +3645,8 @@ returns table (
   is_automatic boolean, period_id uuid, planned_amount bigint, cadence public.subscription_cadence,
   spendable boolean, expected bigint, transfer_share bigint, spent bigint, transfer_spent bigint,
   yearly_amount bigint, display_order integer, set_aside bigint, spendable_amount bigint,
-  planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint
+  planned_spending bigint, actual_spending bigint, not_planned bigint, left_amount bigint,
+  created_at timestamptz, spending_rows_omitted integer
 )
 language plpgsql
 security definer

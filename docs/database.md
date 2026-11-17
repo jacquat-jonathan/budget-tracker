@@ -71,7 +71,7 @@ below lists the rule ids it implements.
   | `list_import_batches`, `list_import_skipped_rows`, `list_import_choices` | 200 | `p_limit` (the tables themselves are not selectable) |
   | `merchant_rule_list` (one budget) | 500 | 500 rules a budget |
   | `account_overview`, `transfer_overview` (one budget) | 900 | 900 accounts / transfers per budget, void ones included |
-  | `get_money_flow` | about 900 | the incomes (500 in all), accounts and transfers (200 each, not void) in force in the period, plus two |
+  | `get_money_flow` | 1000 | the incomes, accounts and transfers in force in the period, its spending rows (one per top-level category) and the total: about 350 in practice; past 1000 (only after many corrections into the past) the last spending rows are left out and counted (`spending_rows_omitted`) |
   | `get_transfer_checklist` | 1000 | one row per occurrence (a transfer can have several in a long period) and per mark no longer planned; beyond 1000, the first 999 and a last row with `status` `'more'` (its `name` the number not listed) |
   | `preview_create_transfer`, `preview_update_transfer` | 60 | `p_count` |
   | `import_token_list` (one budget) | 30 | 10 that can be used, plus the newest 20 revoked or expired (pruned after 365 days) |
@@ -1917,7 +1917,7 @@ total are unchanged. Ended transfers count only where they were in force.
 
 #### The money flow (R-ACCOUNT-006, R-ACCOUNT-235, R-ACCOUNT-304, D-356, R-ACCOUNT-422, R-ACCOUNT-423, D-524)
 
-**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence, spendable, expected, transfer_share, spent, transfer_spent, yearly_amount, display_order, set_aside, spendable_amount, planned_spending, actual_spending, not_planned, left_amount}[]`**
+**`get_money_flow(p_budget_id, p_period_id = null) -> {row_kind, id, name, source_id, target_id, amount, inflow, outflow, stays, is_negative, account_kind, user_id, is_automatic, period_id, planned_amount, cadence, spendable, expected, transfer_share, spent, transfer_spent, yearly_amount, display_order, set_aside, spendable_amount, planned_spending, actual_spending, not_planned, left_amount, created_at, spending_rows_omitted}[]`**
 Member; for a chosen period (default the current one: `budget_ended` when there is none);
 catches up first. The flow runs **income -> accounts -> spending** (D-524, answers Q-301): the
 incomes, the accounts and the transfers between them come from the plan in force in that
@@ -1929,10 +1929,10 @@ nothing. Rows, in this order (the columns a row does not use are null):
 | --- | --- | --- |
 | `'income'` | income in force in the period | `id` = `source_id` (the income), `name`, `amount` (its amount then), `target_id` (its account then; **null: the "not assigned" node**), `user_id` |
 | `'not_assigned'` | at most one, only when an income names no account | `inflow` = `stays` (those incomes), `outflow` 0, `spendable` true |
-| `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning), **`spendable`** (R-ACCOUNT-423: true for the everyday kinds `'current'`, `'cash'`, `'credit_card'` and `'other'`; false for `'savings'`, `'third_pillar'`, `'tax_reserve'` and `'investment'`, whose `stays` is **set aside**) |
+| `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning), **`spendable`** (R-ACCOUNT-423: true for the everyday kinds `'current'`, `'cash'`, `'credit_card'` and `'other'`; false for `'savings'`, `'third_pillar'`, `'tax_reserve'` and `'investment'`, whose `stays` is **set aside**), `created_at` (with `id`: a stable order, e.g. for colours by creation) |
 | `'transfer'` | transfer in force in the period | `id`, `name`, `source_id` (from account) -> `target_id` (to account), `amount` (**its monthly share**: what the plan moves per period), `planned_amount` and `cadence` (its real amount and cadence: "CHF 7'056.00 once a year"; `cadence` null for a pay date), `is_automatic` |
 | `'spending'` | top-level category (a group, or a category without a group) with something planned or spent in the period, in the categories' display order (`display_order`) | `id` (the category: a **stable key for its colour**), `name`, `expected` (its plan at the monthly share: a yearly expectation counts one twelfth, half up), `transfer_share` (the monthly share of planned transfers linked to it, at most `expected`: **those francs are drawn as transfers**, so they are left out here), **`amount` = `expected` - `transfer_share`** (planned spending), `yearly_amount` (the real amount of its yearly expectations, "CHF 2'400.00 a year"; null when none), **`spent`** (what the period's transactions spent in it, refunds deducted, **less** `transfer_spent`, the transactions of transfers linked to it), `is_negative` (spent more than planned) |
-| `'total'` | one, always last | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up, `set_aside` (the `stays` of the set-aside accounts), `spendable_amount` (= `amount` - `set_aside`), `planned_spending` (the spending rows' `amount`), `not_planned` (= `spendable_amount` - `planned_spending`; **may be negative**: `is_negative`), `actual_spending` (the spending rows' `spent`), `left_amount` (= `spendable_amount` - `actual_spending`; may be negative) |
+| `'total'` | one, always last | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up, `set_aside` (the `stays` of the set-aside accounts), `spendable_amount` (= `amount` - `set_aside`), `planned_spending` (the spending rows' `amount`), `not_planned` (= `spendable_amount` - `planned_spending`; **may be negative**: `is_negative`), `actual_spending` (the spending rows' `spent`), `left_amount` (= `spendable_amount` - `actual_spending`; may be negative; one pooled figure for the spendable accounts together, no account has a "left" of its own), `spending_rows_omitted` (0; see below) |
 
 Everything adds up, and each sum is a field: the `stays` of the accounts and "not assigned"
 total the incomes; **income = `set_aside` + `spendable_amount`**; **`spendable_amount` =
@@ -1940,11 +1940,16 @@ total the incomes; **income = `set_aside` + `spendable_amount`**; **`spendable_a
 happened). Expenses are not tied to accounts (and will not be): spending is drawn out of the
 pooled spendable remainder, never out of one account.
 
-**Rows: at most 1000** (R-APP-170). Incomes, accounts and transfers in force are bounded by
-their limits (50 each in force in a period); spending rows fill the room left (at most 200
-categories are in force). Should the rows reach 1000, the last spending row stands for the
-rest: `id` null, `name` the number of categories it adds up, its figures their sums, so the
-totals stay whole.
+**Every row is answered; there is no aggregate ("others") row**: the page draws what it
+chooses and points to the tables for the rest, never summing. **Rows: at most 1000**
+(R-APP-170). A budget built forwards has at most 50 incomes, 50 accounts and 50 transfers in
+force in a period (their limits) and at most 200 categories in force (500 in all, so at most
+500 spending rows), about 350 rows at most in practice. Only a past period filled by many
+corrections could pass 1000 (500 incomes, 200 accounts, 200 transfers in all): then the last
+spending rows, in display order, are left out and the total's `spending_rows_omitted` says how
+many; the totals still cover them. Transfer rows carry the transfer's `id`
+(`list_transactions(..., p_transfer_id)` lists its transactions, D-525); spending rows the
+category's `id` and `display_order`.
 
 **How the screen draws this.** Column 1: the incomes (`'income'` rows). Column 2 and further:
 the accounts, joined by the `'transfer'` bands (`source_id` -> `target_id`, width `amount`;
