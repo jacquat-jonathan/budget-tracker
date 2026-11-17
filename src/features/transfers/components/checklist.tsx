@@ -366,27 +366,34 @@ function ChecklistItem({
           </span>
         </div>
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-          <FromTo from={row.from_account_name ?? ''} to={row.to_account_name ?? ''} />
-          <span aria-hidden>·</span>
-          <span>
-            {row.due_date
-              ? t('transfers.checklist.due', { date: formatCalendarDate(row.due_date) })
-              : t('transfers.checklist.noDue')}
-          </span>
-          {moved && (
-            <>
-              <span aria-hidden>·</span>
-              <span>
+          {/* Each part carries the separator before it, so a "·" never ends a line. */}
+          {[
+            <FromTo
+              key="accounts"
+              from={row.from_account_name ?? ''}
+              to={row.to_account_name ?? ''}
+            />,
+            <span key="due">
+              {row.due_date
+                ? t('transfers.checklist.due', { date: formatCalendarDate(row.due_date) })
+                : t('transfers.checklist.noDue')}
+            </span>,
+            moved && (
+              <span key="planned">
                 {t('transfers.checklist.planned', { amount: formatMoney(row.amount ?? 0) })}
               </span>
-            </>
-          )}
-          {row.category_name && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{t('transfers.countsIn', { category: row.category_name })}</span>
-            </>
-          )}
+            ),
+            row.category_name && (
+              <span key="category">{t('transfers.countsIn', { category: row.category_name })}</span>
+            ),
+          ]
+            .filter(Boolean)
+            .map((part, index) => (
+              <span key={index} className="inline-flex min-w-0 items-center gap-x-2">
+                {index > 0 && <span aria-hidden>·</span>}
+                {part}
+              </span>
+            ))}
         </span>
         <span
           className={cn('flex items-center gap-1.5 text-sm', TONES[status.tone])}

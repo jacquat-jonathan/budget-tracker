@@ -205,7 +205,7 @@ export function MoneyFlowTable({
 function Frame({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="font-medium">{label}</h3>
+      <h2 className="font-medium">{label}</h2>
       <div
         className="overflow-x-auto rounded-xl border"
         role="region"

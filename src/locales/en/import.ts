@@ -481,7 +481,7 @@ export const importEn = {
       storage:
         'Part {{part}} was not imported: this budget has imported as much as it can for now.',
       storageWhat:
-        "A budget takes at most 20'000 rows and 50 imports within 24 hours, and keeps 2'000 imports. Nothing of this part was written; the parts before it are recorded. Try again later with the same file, or open it again then: what was recorded is not recorded twice.",
+        "A budget takes at most 20'000 rows and 50 imports within 24 hours, and keeps 2'000 imports. Nothing of this part was written. Try again later with the same file, or open it again then: what was recorded is not recorded twice.",
       expired:
         'Part {{part}} had already been recorded, but the budget no longer keeps its answer (answers are kept 7 days, the newest 50). It is not imported again.',
       expiredWhat:

@@ -73,7 +73,7 @@ function ViewTabs({ view, plannedCount }: { view: View; plannedCount: number }) 
         'inline-flex min-h-9 flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:flex-none',
         view === value
           ? 'bg-background text-foreground shadow-sm'
-          : 'text-muted-foreground hover:text-foreground',
+          : 'text-foreground/70 hover:text-foreground',
       )}
       data-testid={`view-${value}`}
     >

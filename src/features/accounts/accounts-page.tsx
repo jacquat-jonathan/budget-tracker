@@ -291,7 +291,7 @@ function ClosedAccounts({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={t('accounts.actionsFor', { name: account.name })}
+                    aria-label={t('accounts.editFor', { name: account.name })}
                     onClick={() => onEdit(account)}
                   >
                     <PencilIcon />

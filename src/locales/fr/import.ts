@@ -496,7 +496,7 @@ export const importFr: Translation['import'] = {
       storage:
         'La partie {{part}} n’a pas été importée : ce budget a importé autant qu’il le peut pour l’instant.',
       storageWhat:
-        "Un budget reçoit au plus 20'000 lignes et 50 importations en 24 heures, et garde 2'000 importations. Rien de cette partie n’a été écrit ; les parties qui la précèdent sont enregistrées. Réessayez plus tard avec le même fichier, ou ouvrez-le à nouveau à ce moment : ce qui a été enregistré ne l’est pas deux fois.",
+        "Un budget reçoit au plus 20'000 lignes et 50 importations en 24 heures, et garde 2'000 importations. Rien de cette partie n’a été écrit. Réessayez plus tard avec le même fichier, ou ouvrez-le à nouveau à ce moment : ce qui a été enregistré ne l’est pas deux fois.",
       expired:
         'La partie {{part}} avait déjà été enregistrée, mais le budget ne garde plus sa réponse (les réponses sont gardées 7 jours, les 50 plus récentes). Elle n’est pas importée à nouveau.',
       expiredWhat:

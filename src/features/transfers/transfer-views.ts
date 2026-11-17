@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useCategoryPath, useChargeDayText } from '@/features/subscriptions/subscription-views'
 import type { Transfer, TransferCadence } from '@/features/transfers/transfer-queries'
 import type { FieldView } from '@/hooks/use-edit-base'
+import { calendarMonth, isCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 
 /** The terms a sentence is made of: a transfer's, or a checklist or flow row's. */
@@ -13,11 +14,13 @@ interface ScheduleTerms {
   cadence: TransferCadence | null
   income_name: string | null
   follows_primary?: boolean
+  /** A yearly schedule says its month: the first date's (its phase). */
+  first_date?: string | null
 }
 
 /** "On payday", "2 days after payday of “Sam’s salary”", "Every month on the 1st"… */
 export function useScheduleText() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const dayText = useChargeDayText()
   return (terms: ScheduleTerms) => {
     if (terms.schedule === 'pay_date') {
@@ -28,6 +31,17 @@ export function useScheduleText() {
       return terms.income_name && !terms.follows_primary
         ? t('transfers.when.ofIncome', { when, income: terms.income_name })
         : when
+    }
+    if (terms.cadence === 'yearly' && terms.first_date && isCalendarDate(terms.first_date)) {
+      const { year, month } = calendarMonth(terms.first_date)
+      const day = Number(terms.first_date.slice(8, 10))
+      // A fixed UTC instant formatted in UTC: no time zone can move it to another day.
+      const date = new Intl.DateTimeFormat(i18n.language, {
+        day: 'numeric',
+        month: 'long',
+        timeZone: 'UTC',
+      }).format(Date.UTC(year, month - 1, day))
+      return t('transfers.when.yearlyOn', { date })
     }
     return t(`transfers.when.${terms.cadence ?? 'monthly'}`, {
       day: dayText(terms.day_of_month ?? 1),

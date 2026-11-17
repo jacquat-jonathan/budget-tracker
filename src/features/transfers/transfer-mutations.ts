@@ -129,6 +129,9 @@ export function useMarks(budgetId: string, options: { errorDisplay?: 'toast' | '
     record_changed: 'transfers.checklist.changedElsewhere',
     transfer_already_marked: 'transfers.checklist.changedElsewhere',
     nothing_to_undo: 'transfers.checklist.changedElsewhere',
+    // Ended or changed by another member meanwhile: the checklist shows where it stands.
+    transfer_not_in_force: 'transfers.checklist.changedElsewhere',
+    transfer_not_found: 'transfers.checklist.changedElsewhere',
   } as const
   const common = { errorMessages, invalidate: () => affected(budgetId) }
   const done = useAppMutation<unknown, MarkTarget & { doneOn: string; amountMoved: number }>({

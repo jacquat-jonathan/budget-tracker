@@ -30,6 +30,7 @@ export const accountsEn = {
   formerMember: '{{name}} (former member)',
   inUse: 'In use',
   inUseHelp: 'An income or a planned transfer uses it.',
+  editFor: 'Edit {{name}}',
   actionsFor: 'Actions for {{name}}',
   edit: 'Edit',
   closeAction: 'Close account',
@@ -232,6 +233,7 @@ export const transfersEn = {
     monthly: 'Every month {{day}}',
     quarterly: 'Every three months {{day}}',
     yearly: 'Once a year {{day}}',
+    yearlyOn: 'Once a year on {{date}}',
   },
   amountPer: {
     quarterly: '{{amount}} every three months',

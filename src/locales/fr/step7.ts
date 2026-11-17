@@ -34,6 +34,7 @@ export const accountsFr = {
   formerMember: '{{name}} (ancien membre)',
   inUse: 'Utilisé',
   inUseHelp: 'Un revenu ou un virement planifié l’utilise.',
+  editFor: 'Modifier {{name}}',
   actionsFor: 'Actions pour {{name}}',
   edit: 'Modifier',
   closeAction: 'Clôturer le compte',
@@ -244,6 +245,7 @@ export const transfersFr = {
     monthly: 'Chaque mois {{day}}',
     quarterly: 'Tous les trois mois {{day}}',
     yearly: 'Une fois par an {{day}}',
+    yearlyOn: 'Une fois par an, le {{date}}',
   },
   amountPer: {
     quarterly: '{{amount}} tous les trois mois',

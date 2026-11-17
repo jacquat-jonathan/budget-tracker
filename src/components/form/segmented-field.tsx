@@ -48,7 +48,7 @@ export function SegmentedField<TValues extends FieldValues, TOut extends FieldVa
             key={option.value}
             value={option.value}
             className={cn(
-              'min-w-0 rounded-md px-2 py-1.5 text-center text-sm leading-tight font-medium text-balance break-words text-muted-foreground transition-colors outline-none',
+              'min-w-0 rounded-md px-2 py-1.5 text-center text-sm leading-tight font-medium text-balance break-words text-foreground/70 transition-colors outline-none',
               'hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
               'data-[state=checked]:bg-background data-[state=checked]:text-foreground data-[state=checked]:shadow-sm',
             )}

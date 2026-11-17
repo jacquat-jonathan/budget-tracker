@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-565 rules (554 active, 0 planned), 24 conventions, 348 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
+565 rules (554 active, 0 planned), 24 conventions, 349 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -7213,6 +7213,18 @@ The Transfers page shows its checklist and its planned transfers as two views of
 - Jump links in one long page: at the limits the planned list still starts thousands of pixels down on a phone.
 
 Related: D-500, D-501, D-504, R-ACCOUNT-005, R-ACCOUNT-241
+
+Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
+
+### D-544 Small wording and accessibility fixes of the step 7 screens (accepted)
+
+A yearly transfer says its day and month (“Once a year on December 20”, from its first date, formatted without a time zone). A mark refused because the transfer ended or no longer has that occurrence (transfer_not_found, transfer_not_in_force) says, like a stale mark, that someone changed it meanwhile and the checklist shows where it stands. In French, Skip is “Ignorer” (“Ignoré”), and an account’s first period is “Pris en compte dès la période”. A closed account’s button is named “Edit …”. The money flow’s table headings are level 2 under the page title. Unselected segments use the foreground at 70 % (above 4.5:1 on the muted background). A checklist row’s parts carry their “·” before them, so a separator never ends a line.
+
+**Why:** Can-wait findings of the review of the step 7 screens (b952f93).
+
+**Rejected:** none recorded.
+
+Related: D-504, D-503
 
 Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
 

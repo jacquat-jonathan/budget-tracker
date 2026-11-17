@@ -98,7 +98,7 @@ describe('planned transfers [R-ACCOUNT-002] [R-ACCOUNT-003]', () => {
 
     // A yearly one: its real amount and cadence, and the monthly share the plan counts.
     const pillar = card('Third pillar')
-    expect(pillar).toHaveTextContent(`Once a year on the 20th · ${money(705_600)} once a year`)
+    expect(pillar).toHaveTextContent(`Once a year on December 20 · ${money(705_600)} once a year`)
     expect(pillar).toHaveTextContent('Manual')
     expect(within(pillar).getByTestId('monthly-share')).toHaveTextContent(money(58_800))
     expect(within(pillar).getByTestId('next-due')).toHaveTextContent('20.12.2026')
