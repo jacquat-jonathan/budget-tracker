@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-648 rules (629 active, 0 planned), 24 conventions, 398 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
+650 rules (631 active, 0 planned), 24 conventions, 399 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1540,6 +1540,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PROGRESS_
   - Related: R-CATEGORY-250, D-637
   - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/period-progress-card.tsx
+- **R-PROGRESS-533** Under a period's planned total, when a category in force is committed above its own plan, the committed figures are worded "Includes up to CHF x" (subscriptions, planned transfers) instead of "Includes CHF x": part of such a figure lies outside the planned total, and the page does not claim otherwise.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-PROGRESS-530, R-PROGRESS-531
+  - Source: owner-request: coordinator brief for the screens fixes, 2026-11-17; code: src/features/progress/commitments.tsx
 
 ### Subscriptions
 
@@ -2340,7 +2344,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-321, D-475
   - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
-- **R-IMPORT-365** The one-click merchant rule offer appears in view wherever the saved row is, never scrolls the page and never takes the focus; "show only the N to review" shows those N, in every period.
+- **R-IMPORT-365** The one-click merchant rule offer appears in view wherever the saved row is, never scrolls the page, never takes the focus and never covers the last row (the page ends with room for it); "show only the N to review" shows those N, in every period.
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-007, R-IMPORT-209, D-476
   - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
@@ -2736,7 +2740,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: R-ACCOUNT-510, R-ACCOUNT-518, D-617, D-650, R-ACCOUNT-460
   - Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
-- **R-ACCOUNT-552** Every checklist row and every previewed occurrence says what it is for, from what the row carries: a period's own as its period's dates, a named income's payday as that income and its scheduled date, a fixed day as its scheduled date and that the weekend rule moved it when its due date differs; a mark kept with another period's number says it is not this period's; the buttons of a transfer listed more than once in a period say which occurrence they act on.
+- **R-ACCOUNT-552** Every checklist row and every previewed occurrence says what it is for, from what the row carries: a period's own as its period's dates, a named income's payday as that income and its scheduled date (beside the due date it does not repeat that date: it says the payday itself, or how many days after the payday the due date is; a transfer that no longer follows an income says so), a fixed day as its scheduled date and that the weekend rule moved it when its due date differs; a mark kept with another period's number says it is not this period's; the buttons of a transfer listed more than once in a period say which occurrence they act on.
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-650, R-ACCOUNT-518, R-ACCOUNT-005
   - Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
@@ -2776,6 +2780,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: Q-355, Q-356, R-ACCOUNT-517, R-PERIOD-053
   - Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
+- **R-ACCOUNT-562** When an edit from now changes a transfer's kind (a fixed day, a named income's payday, the main income's payday) and its checklist for the current period lists to-dos of the kind it leaves that nobody ticked off and that have no transaction, the edit form says that they are dropped and that only the new schedule's occurrences remain, with their number; nothing is said when there are none, when the kind is not changed or when the edit is a correction of an earlier period (D-655, Q-357).
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-655, Q-357, R-ACCOUNT-555, R-ACCOUNT-303
+  - Source: owner-request: coordinator brief for the screens fixes, 2026-11-17
 
 ### Concurrent edits
 
@@ -8248,6 +8256,21 @@ The form holds the kind ('period', 'income_payday', 'fixed_day') rather than the
 Related: D-610, D-611, R-ACCOUNT-550
 
 Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
+
+### D-655 Dropped to-dos are said in the edit form, from the checklist the page already has (accepted)
+
+Q-357 stays as the owner left it: "from now" is the start of the current period, so an edit that changes a transfer's kind drops the current period's occurrences of the schedule it leaves. The edit form says so (R-ACCOUNT-562) when the current period's checklist lists to-dos of that kind that nobody ticked off and that have no transaction (the preview already counts transactions and marks); it reads that checklist, which the page holds, and asks the database nothing new.
+
+**Why:** An unmarked to-do has no transaction and no mark, so no preview count mentions it, yet it disappears from the checklist. The rows are the database's answer; the screen only counts them. A figure from the database would be more exact for a schedule whose dates change within one kind, which this note does not claim to cover.
+
+**Rejected:**
+
+- A new figure in the preview functions: a database change and a regenerated contract for a sentence the checklist already supports.
+- Keeping the to-do: that is option 2 or 3 of Q-357, the owner's decision.
+
+Related: Q-357, R-ACCOUNT-555, R-ACCOUNT-562
+
+Source: owner-request: coordinator brief for the screens fixes, 2026-11-17
 
 ### D-654 A moved transaction is said once, as a move (accepted)
 

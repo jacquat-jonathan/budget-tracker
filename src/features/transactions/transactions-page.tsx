@@ -323,7 +323,12 @@ export function TransactionsPage() {
   ].filter((item): item is { key: string; label: string } => !!item)
 
   return (
-    <div className="flex flex-col gap-6">
+    // R-IMPORT-365: the rule offer is fixed at the bottom of the window from md up; the page ends
+    // with room for it, so it never covers the last row's category picker.
+    <div
+      className={cn('flex flex-col gap-6', ruleOffer && 'md:pb-56')}
+      data-rule-offer={ruleOffer ? '' : undefined}
+    >
       {header}
       {ready && ended && (
         <Alert>

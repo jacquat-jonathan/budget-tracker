@@ -18,7 +18,7 @@ import {
   CommittedTotal,
   OverCommittedBadge,
 } from '@/features/progress/commitments'
-import { isOverCommitted } from '@/features/progress/commitment'
+import { isOverCommitted, someOverCommitted } from '@/features/progress/commitment'
 import { unwrap, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useToCategoriseIds } from '@/features/categories/category-queries'
@@ -177,7 +177,7 @@ export function PeriodProgressCard({ className }: { className?: string }) {
           <LoadingState rows={3} />
         ) : (
           <>
-            <Totals period={period} />
+            <Totals period={period} rows={progress.data ?? []} />
             {progress.isError ? (
               <ErrorState error={progress.error} onRetry={() => void progress.refetch()} />
             ) : !progress.data ? (
@@ -208,7 +208,18 @@ export function PeriodProgressCard({ className }: { className?: string }) {
 }
 
 /** The period's figures, as the database adds them up. R-PROGRESS-002: a surplus or a deficit. */
-function Totals({ period }: { period: PeriodSummary }) {
+function Totals({
+  period,
+  rows,
+}: {
+  period: PeriodSummary
+  rows: readonly {
+    in_force: boolean
+    expected: number
+    committed: number
+    transfer_committed: number
+  }[]
+}) {
   const { t } = useTranslation()
   const result = period.result ?? 0
   const left = period.left_to_assign ?? 0
@@ -226,6 +237,15 @@ function Totals({ period }: { period: PeriodSummary }) {
           <>
             {/* R-PROGRESS-120: right under the planned figure it is part of, saying so. */}
             <CommittedTotal
+              someCategoryOver={someOverCommitted(
+                rows
+                  .filter((row) => row.in_force)
+                  .map((row) => ({
+                    planned: row.expected,
+                    subscriptions: row.committed,
+                    transfers: row.transfer_committed,
+                  })),
+              )}
               commitment={{
                 planned: period.expected_total ?? 0,
                 subscriptions: period.committed_total ?? 0,

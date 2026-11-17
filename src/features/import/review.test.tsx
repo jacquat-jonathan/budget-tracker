@@ -215,6 +215,9 @@ describe('one click to always put a merchant in a category [R-IMPORT-007] [R-IMP
     // In view wherever the row is (fixed in the window), and it takes no focus by itself: a
     // stray Enter must not create a rule.
     expect(offer.className).toContain('fixed')
+    // R-IMPORT-365: and it never covers the last row: the page ends with room for it, only while
+    // the offer is there.
+    expect(document.querySelector('[data-rule-offer]')?.className).toContain('md:pb-56')
     expect(within(offer).getByRole('button', { name: 'Always' })).not.toHaveFocus()
     expect(offer).not.toContainElement(document.activeElement as HTMLElement | null)
     await userEvent.click(within(offer).getByRole('button', { name: 'Always' }))

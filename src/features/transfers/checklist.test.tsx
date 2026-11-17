@@ -792,9 +792,10 @@ describe('every row says what it is for, and a mark acts on exactly its row [R-A
     expect(within(row('Joint account')).getByTestId('checklist-occurrence')).toHaveTextContent(
       forPeriod,
     )
-    expect(within(row('Ben savings')).getByTestId('checklist-occurrence')).toHaveTextContent(
-      'on the payday of “Ben”, 10.11.2026',
-    )
+    // Due on the payday itself: the date is beside "due", not said a second time.
+    const ben = within(row('Ben savings')).getByTestId('checklist-occurrence')
+    expect(ben).toHaveTextContent('on the payday of “Ben”')
+    expect(ben).not.toHaveTextContent('10.11.2026')
     const rent = row('Rent share')
     expect(rent).toHaveTextContent('due 30.10.2026')
     expect(within(rent).getByTestId('checklist-occurrence')).toHaveTextContent(
@@ -804,6 +805,61 @@ describe('every row says what it is for, and a mark acts on exactly its row [R-A
     expect(
       within(row('Joint account')).getByRole('button', { name: 'Skip “Joint account” this time' }),
     ).toBeInTheDocument()
+  })
+
+  it('[R-ACCOUNT-552] a due date after the payday is said as days after it, never as a second, contradicting date', async () => {
+    const db = checklistDb()
+    db.checklist = [
+      checklistRow({
+        transfer_id: 'tr-ben',
+        name: 'Ben savings',
+        income_id: 'inc-ben',
+        income_name: 'Ben',
+        occurrence_date: '2026-11-10',
+        due_date: '2026-11-12',
+        is_overdue: false,
+      }),
+    ]
+    await openPage(db)
+    const ben = row('Ben savings')
+    expect(ben).toHaveTextContent('due 12.11.2026')
+    expect(within(ben).getByTestId('checklist-occurrence')).toHaveTextContent(
+      '2 days after the payday of “Ben” (10.11.2026)',
+    )
+    expect(within(ben).getByTestId('checklist-occurrence')).not.toHaveTextContent('on the payday')
+  })
+
+  it('[R-ACCOUNT-552] a tick kept for a transfer that no longer follows an income says so, with its date when it is not due', async () => {
+    const db = checklistDb()
+    const kept = (overrides: Partial<ReturnType<typeof checklistRow>>) => ({
+      ...checklistRow({
+        transfer_id: 'tr-ben',
+        name: 'Ben savings',
+        occurrence_kind: 'income_payday',
+        occurrence_date: '2026-11-10',
+        ...overrides,
+      }),
+      income_id: null,
+      income_name: null,
+    })
+    db.checklist = [
+      kept({ due_date: '2026-11-10' }),
+      kept({
+        name: 'Ben old',
+        occurrence_date: '2026-10-30',
+        due_date: null,
+        status: 'skipped',
+        mark_revision: 1,
+        planned: false,
+      }),
+    ]
+    await openPage(db)
+    expect(
+      within(rowWith('Ben savings', '10.11.2026')).getByTestId('checklist-occurrence'),
+    ).toHaveTextContent(/^on a payday of an income this transfer no longer follows$/)
+    expect(
+      within(rowWith('Ben old', '30.10.2026')).getByTestId('checklist-occurrence'),
+    ).toHaveTextContent('on a payday of an income this transfer no longer follows, 30.10.2026')
   })
 
   it('two kinds on one date: Done, Skip and Undo act on their own twin and send its kind and date or number', async () => {

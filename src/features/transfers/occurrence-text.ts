@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import type { OccurrenceKind } from '@/features/transfers/transfer-queries'
-import { formatCalendarDate } from '@/lib/date'
+import { calendarDayNumber, formatCalendarDate } from '@/lib/date'
 
 /** An occurrence as a checklist or preview row names it (R-ACCOUNT-510, R-ACCOUNT-518). */
 export interface OccurrenceNames {
@@ -14,6 +14,13 @@ export interface OccurrenceNames {
   dueDate: string | null
   /** The income an 'income_payday' occurrence follows. */
   incomeName: string | null
+  /**
+   * A row of a transfer's own schedule (checklist, preview): a null income name then means the
+   * transfer no longer follows an income, not that the page does not know it.
+   */
+  incomeDropped?: boolean
+  /** Its due date is shown right beside it: a payday's date is not said a second time. */
+  besideDue?: boolean
 }
 
 /** The period a number names, as the page has it: its dates, and whether it is the row's own. */
@@ -49,13 +56,36 @@ export function useOccurrenceText() {
           end: fmt(period.end),
         })
       }
-      case 'income_payday':
-        return row.incomeName
-          ? t('transfers.occurrence.incomePayday', {
-              income: row.incomeName,
-              date: row.date ? fmt(row.date) : '',
-            })
-          : t('transfers.occurrence.incomePaydayUnnamed', { date: row.date ? fmt(row.date) : '' })
+      case 'income_payday': {
+        const date = row.date ? fmt(row.date) : ''
+        const income = row.incomeName
+        const dropped = row.incomeDropped === true
+        // R-ACCOUNT-552: beside its due date, say how far the due date is from the payday
+        // instead of the payday's date: the same date twice, or two dates that seem to disagree.
+        const apart =
+          row.besideDue && row.date && row.dueDate
+            ? calendarDayNumber(row.dueDate) - calendarDayNumber(row.date)
+            : null
+        if (apart !== null && apart >= 0) {
+          if (income) {
+            return apart === 0
+              ? t('transfers.occurrence.incomePaydayOn', { income })
+              : t('transfers.occurrence.incomePaydayAfter', { income, count: apart, date })
+          }
+          if (dropped) {
+            return apart === 0
+              ? t('transfers.occurrence.incomePaydayDroppedOn')
+              : t('transfers.occurrence.incomePaydayDroppedAfter', { count: apart, date })
+          }
+        }
+        if (income) return t('transfers.occurrence.incomePayday', { income, date })
+        return t(
+          dropped
+            ? 'transfers.occurrence.incomePaydayDropped'
+            : 'transfers.occurrence.incomePaydayUnnamed',
+          { date },
+        )
+      }
       case 'fixed_day':
         // The weekend rule moved its due date off the scheduled one: both are said.
         return row.date && row.dueDate && row.dueDate !== row.date

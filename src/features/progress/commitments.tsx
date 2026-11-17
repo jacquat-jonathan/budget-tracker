@@ -41,7 +41,18 @@ function OverSentence({ commitment }: { commitment: Commitment }) {
  * more is committed than planned, one sentence that says so.
  */
 // R-PROGRESS-530: the transfers' committed amount shown apart from the subscriptions'.
-export function CommittedTotal({ commitment }: { commitment: Commitment }) {
+// R-PROGRESS-533: "up to" when a category's commitment exceeds its own plan.
+export function CommittedTotal({
+  commitment,
+  someCategoryOver = false,
+}: {
+  commitment: Commitment
+  /**
+   * A category is committed above its own plan: part of a committed figure is then not inside the
+   * planned total, so it is said as "up to", never as all inside it.
+   */
+  someCategoryOver?: boolean
+}) {
   const { t } = useTranslation()
   if (!hasCommitment(commitment)) return null
   if (isOverCommitted(commitment)) {
@@ -55,12 +66,19 @@ export function CommittedTotal({ commitment }: { commitment: Commitment }) {
     <span className="block" data-testid="progress-committed">
       {commitment.subscriptions > 0 && (
         <span className="block" data-testid="committed-subscriptions">
-          {t('progress.plannedIncludes', { amount: formatMoney(commitment.subscriptions) })}
+          {t(someCategoryOver ? 'progress.plannedIncludesUpTo' : 'progress.plannedIncludes', {
+            amount: formatMoney(commitment.subscriptions),
+          })}
         </span>
       )}
       {commitment.transfers > 0 && (
         <span className="block" data-testid="committed-transfers">
-          {t('progress.plannedIncludesTransfers', { amount: formatMoney(commitment.transfers) })}
+          {t(
+            someCategoryOver
+              ? 'progress.plannedIncludesTransfersUpTo'
+              : 'progress.plannedIncludesTransfers',
+            { amount: formatMoney(commitment.transfers) },
+          )}
         </span>
       )}
     </span>

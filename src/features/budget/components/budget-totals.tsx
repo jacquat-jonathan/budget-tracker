@@ -12,7 +12,14 @@ import { formatCalendarDate } from '@/lib/date'
  * refusal (R-CATEGORY-071).
  */
 // R-CATEGORY-006: left to assign is per period, from the database.
-export function BudgetTotals({ period }: { period: PeriodSummary }) {
+export function BudgetTotals({
+  period,
+  someCategoryOver = false,
+}: {
+  period: PeriodSummary
+  /** A category on the page is committed above its own plan (R-PROGRESS-533). */
+  someCategoryOver?: boolean
+}) {
   const { t } = useTranslation()
   const left = period.left_to_assign ?? 0
   return (
@@ -36,6 +43,7 @@ export function BudgetTotals({ period }: { period: PeriodSummary }) {
             testId="total-expected"
             hint={
               <CommittedTotal
+                someCategoryOver={someCategoryOver}
                 commitment={{
                   planned: period.expected_total ?? 0,
                   subscriptions: period.committed_total ?? 0,

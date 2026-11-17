@@ -33,7 +33,7 @@ import { ToCategoriseBadge } from '@/components/to-categorise-badge'
 import { EndCategoryDialog } from '@/features/budget/components/end-category-dialog'
 import { BudgetTotals } from '@/features/budget/components/budget-totals'
 import { CommittedCell, OverCommittedBadge } from '@/features/progress/commitments'
-import { isOverCommitted } from '@/features/progress/commitment'
+import { isOverCommitted, someOverCommitted } from '@/features/progress/commitment'
 import { useCurrentPeriod, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useReorderCategories } from '@/features/categories/category-mutations'
@@ -138,7 +138,20 @@ export function BudgetPage() {
           <AlertDescription>{t('categories.endedBudget')}</AlertDescription>
         </Alert>
       )}
-      {current.data && <BudgetTotals period={current.data} />}
+      {current.data && (
+        <BudgetTotals
+          period={current.data}
+          someCategoryOver={someOverCommitted(
+            all
+              .filter((category) => category.is_active === true)
+              .map((category) => ({
+                planned: category.monthly_amount ?? 0,
+                subscriptions: category.committed_amount ?? 0,
+                transfers: category.transfer_committed_amount ?? 0,
+              })),
+          )}
+        />
+      )}
       {tree.active.length === 0 ? (
         <EmptyState
           icon={PiggyBankIcon}

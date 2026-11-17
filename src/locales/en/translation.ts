@@ -1007,6 +1007,8 @@ const core = {
     toBudget: 'Go to the budget',
     plannedIncludes: 'Includes {{amount}} for subscriptions',
     plannedIncludesTransfers: 'Includes {{amount}} for planned transfers',
+    plannedIncludesUpTo: 'Includes up to {{amount}} for subscriptions',
+    plannedIncludesTransfersUpTo: 'Includes up to {{amount}} for planned transfers',
     rowPlannedIncludes: 'The {{expected}} planned include {{amount}} for subscriptions',
     rowPlannedIncludesTransfers:
       'The {{expected}} planned include {{amount}} for planned transfers',

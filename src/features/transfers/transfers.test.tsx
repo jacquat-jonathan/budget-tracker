@@ -1,7 +1,9 @@
+import type { ParseKeys } from 'i18next'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { routes } from '@/app/routes'
+import i18n from '@/lib/i18n'
 import { editArgs, type TransferFormValues } from '@/features/transfers/transfer-terms'
 import { formatMoney } from '@/lib/money'
 import { categoriesDb, incomeRow } from '@/test/budget-fixtures'
@@ -76,6 +78,8 @@ async function choose(dialog: HTMLElement, label: string, option: string) {
   await userEvent.click(within(dialog).getByLabelText(label))
   await userEvent.click(await screen.findByRole('option', { name: option }))
 }
+
+const radio = (dialog: HTMLElement, name: RegExp) => within(dialog).getByRole('radio', { name })
 
 async function openAdd() {
   await userEvent.click(screen.getByRole('button', { name: 'Plan a transfer' }))
@@ -326,6 +330,134 @@ describe('Save waits for the preview of what it sends [D-502] [R-APP-440]', () =
   })
 })
 
+describe('the transfer form’s wording [R-ACCOUNT-315] [R-ACCOUNT-550]', () => {
+  it('asks for an account in the From and To selects before one is chosen', async () => {
+    await openPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Plan a transfer' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('From')).toHaveTextContent('Choose an account')
+    expect(within(dialog).getByLabelText('To')).toHaveTextContent('Choose an account')
+    await choose(dialog, 'From', 'Salary account')
+    expect(within(dialog).getByLabelText('From')).toHaveTextContent('Salary account')
+    expect(within(dialog).getByLabelText('To')).toHaveTextContent('Choose an account')
+  })
+
+  it('says once that nothing dated before today is recorded', async () => {
+    await openPage()
+    const dialog = await openAdd()
+    await within(within(dialog).getByTestId('transfer-preview')).findByText('25.11.2026')
+    const text = dialog.textContent
+    expect(text.split('before today').length - 1).toBe(1)
+    expect(dialog).toHaveTextContent('It plans from today.')
+  })
+
+  it('explains the weekend rule that is chosen, and only that one', async () => {
+    await openPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Plan a transfer' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(
+      within(dialog).getByRole('radio', { name: /^On a fixed day of the month/ }),
+    )
+    expect(dialog).toHaveTextContent('It is due on that day, even when it falls on a Saturday')
+    expect(dialog).not.toHaveTextContent('Nearest:')
+    await choose(dialog, 'On a Saturday or Sunday', 'The working day before')
+    expect(dialog).toHaveTextContent('A Saturday or a Sunday goes to the Friday before.')
+    expect(dialog).toHaveTextContent(
+      'The checklist still shows the scheduled date; only the due date moves.',
+    )
+    expect(dialog).not.toHaveTextContent('even when it falls on a Saturday')
+    await choose(dialog, 'On a Saturday or Sunday', 'The nearest working day')
+    expect(dialog).toHaveTextContent('A Saturday goes to the Friday, a Sunday to the Monday.')
+    expect(dialog).not.toHaveTextContent('Friday before')
+  })
+})
+
+describe('the same wording in French [R-ACCOUNT-552] [R-ACCOUNT-562]', () => {
+  const fr = (key: ParseKeys, options: Record<string, unknown> = {}) =>
+    i18n.t(key, { lng: 'fr', ...options })
+  it('says a payday, days after it, and an income no longer followed', () => {
+    expect(fr('transfers.occurrence.incomePaydayOn', { income: 'Ben' })).toBe(
+      'au jour de paie de «\u202fBen\u202f»',
+    )
+    expect(
+      fr('transfers.occurrence.incomePaydayAfter', { income: 'Ben', count: 2, date: '10.11.2026' }),
+    ).toBe('2 jours après le jour de paie de «\u202fBen\u202f» (10.11.2026)')
+    expect(
+      fr('transfers.occurrence.incomePaydayDroppedAfter', { count: 1, date: '10.11.2026' }),
+    ).toBe('1 jour après un jour de paie d’un revenu que ce virement ne suit plus (10.11.2026)')
+    expect(fr('transfers.occurrence.incomePaydayDropped', { date: '10.11.2026' })).toBe(
+      'à un jour de paie d’un revenu que ce virement ne suit plus, le 10.11.2026',
+    )
+  })
+  it('says the weekend rule chosen, the dropped to-dos and the “up to” figure', () => {
+    expect(fr('transfers.weekendRule.help.nearest')).toContain('Un samedi passe au vendredi')
+    expect(fr('transfers.weekendRule.help.nearest')).not.toContain('Le plus proche')
+    expect(fr('transfers.preview.oldToDosDropped', { count: 2 })).toBe(
+      '2 échéances à faire de cette période selon l’ancien calendrier ne sont pas cochées\u202f: elles disparaissent, seules celles du nouveau calendrier restent.',
+    )
+    expect(fr('progress.plannedIncludesTransfersUpTo', { amount: 'CHF 10' })).toBe(
+      'Dont jusqu’à CHF 10 pour des virements planifiés',
+    )
+    expect(fr('transfers.fields.accountPlaceholder')).toBe('Choisir un compte')
+  })
+})
+
+describe('an edit that leaves a schedule drops its to-dos of this period [R-ACCOUNT-562] [D-655]', () => {
+  async function editPillar(checklist: ReturnType<typeof checklistRow>[]) {
+    const db = transfersDb()
+    db.checklist = checklist
+    await openPage(db)
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Third pillar' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    return screen.findByRole('dialog')
+  }
+  const todo = (overrides: Parameters<typeof checklistRow>[0] = {}) =>
+    checklistRow({
+      transfer_id: 'tr-pillar',
+      name: 'Third pillar',
+      cadence: 'yearly',
+      occurrence_date: '2026-11-12',
+      due_date: '2026-11-12',
+      ...overrides,
+    })
+
+  it('says it, with the number, only once the kind is changed', async () => {
+    const dialog = await editPillar([
+      todo(),
+      todo({ occurrence_date: '2026-11-15', due_date: '2026-11-15' }),
+    ])
+    expect(within(dialog).queryByTestId('old-todos-dropped')).not.toBeInTheDocument()
+    await userEvent.click(radio(dialog, /^On the main income’s payday/))
+    expect(await within(dialog).findByTestId('old-todos-dropped')).toHaveTextContent(
+      '2 to-dos of this period under the old schedule are not ticked off: they are dropped',
+    )
+    await userEvent.click(radio(dialog, /^On a fixed day of the month/))
+    await waitFor(() => {
+      expect(within(dialog).queryByTestId('old-todos-dropped')).not.toBeInTheDocument()
+    })
+  })
+
+  it('says nothing for a to-do somebody ticked off, one recorded, another transfer’s or another kind', async () => {
+    const dialog = await editPillar([
+      todo({ status: 'done', mark_revision: 2, done_on: '2026-11-12' }),
+      todo({ occurrence_date: '2026-11-13', due_date: '2026-11-13', transaction_id: 'tx-1' }),
+      checklistRow({ transfer_id: 'tr-savings', due_date: '2026-11-12' }),
+      todo({ occurrence_kind: 'period', occurrence_date: null }),
+    ])
+    await userEvent.click(radio(dialog, /^On the main income’s payday/))
+    await within(dialog).findByTestId('transfer-preview')
+    expect(within(dialog).queryByTestId('old-todos-dropped')).not.toBeInTheDocument()
+  })
+
+  it('says one in the singular', async () => {
+    const dialog = await editPillar([todo()])
+    await userEvent.click(radio(dialog, /^On a named income’s payday/))
+    expect(await within(dialog).findByTestId('old-todos-dropped')).toHaveTextContent(
+      '1 to-do of this period under the old schedule is not ticked off: it is dropped',
+    )
+  })
+})
+
 describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => {
   it('previews exactly what the save sends, with what it does to recorded occurrences [R-ACCOUNT-555]', async () => {
     const db = await openPage()
@@ -524,8 +656,38 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
     })
     const rows = within(preview).getAllByTestId('preview-occurrence')
     expect(rows[0]).toHaveTextContent('25.11.2026 · for the period 23.10.2026 to 24.11.2026')
-    expect(rows[1]).toHaveTextContent('25.11.2026 · on its income’s payday, 25.11.2026')
+    expect(rows[1]).toHaveTextContent(
+      '25.11.2026 · on a payday of an income this transfer no longer follows',
+    )
     expect(rows[2]).toHaveTextContent('30.11.2026 · fixed day 29.11.2026, moved off the weekend')
+  })
+
+  it('[R-ACCOUNT-552] a previewed payday due later says how many days after it, and does not repeat the date', async () => {
+    const db = await openPage()
+    db.rpc.preview_update_transfer.mockImplementation(() => [
+      previewRow({
+        due_date: '2026-11-12',
+        occurrence_kind: 'income_payday',
+        occurrence_date: '2026-11-10',
+      }),
+      previewRow({
+        due_date: '2026-12-11',
+        occurrence_kind: 'income_payday',
+        occurrence_date: '2026-12-10',
+      }),
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const preview = within(dialog).getByTestId('transfer-preview')
+    await waitFor(() => {
+      expect(within(preview).getAllByTestId('preview-occurrence')).toHaveLength(2)
+    })
+    const rows = within(preview).getAllByTestId('preview-occurrence')
+    expect(rows[0]).toHaveTextContent(
+      '12.11.2026 · 2 days after a payday of an income this transfer no longer follows (10.11.2026)',
+    )
+    expect(rows[1]).toHaveTextContent('1 day after a payday')
   })
 
   it('[R-ACCOUNT-551] the mock previews the kind the terms give, its date or number, and whether a mark is kept', () => {
@@ -620,8 +782,6 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
 })
 
 describe('three kinds a household understands [R-ACCOUNT-550] [R-ACCOUNT-553]', () => {
-  const radio = (dialog: HTMLElement, name: RegExp) => within(dialog).getByRole('radio', { name })
-
   it('offers three plain choices with the main-versus-named paragraph and its example; a weekend rule only for a fixed day', async () => {
     const db = await openPage()
     const dialog = await openAdd()
@@ -713,7 +873,7 @@ describe('three kinds a household understands [R-ACCOUNT-550] [R-ACCOUNT-553]', 
       }),
     ])
     const occurrence = await within(dialog).findByTestId('preview-occurrence')
-    expect(occurrence).toHaveTextContent('20.11.2026 · on the payday of “Sam’s salary”, 20.11.2026')
+    expect(occurrence).toHaveTextContent('20.11.2026 · on the payday of “Sam’s salary”')
     await waitFor(() => {
       expect(save).toBeEnabled()
     })

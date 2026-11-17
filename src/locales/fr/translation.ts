@@ -1050,6 +1050,8 @@ const core: Omit<Translation, LazyKey> = {
     toBudget: 'Aller au budget',
     plannedIncludes: 'Dont {{amount}} pour des abonnements',
     plannedIncludesTransfers: 'Dont {{amount}} pour des virements planifiés',
+    plannedIncludesUpTo: 'Dont jusqu’à {{amount}} pour des abonnements',
+    plannedIncludesTransfersUpTo: 'Dont jusqu’à {{amount}} pour des virements planifiés',
     rowPlannedIncludes: 'Les {{expected}} prévus comprennent {{amount}} d’abonnements',
     rowPlannedIncludesTransfers:
       'Les {{expected}} prévus comprennent {{amount}} de virements planifiés',

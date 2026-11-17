@@ -17,3 +17,8 @@ export interface Commitment {
 export function isOverCommitted({ planned, subscriptions, transfers }: Commitment): boolean {
   return subscriptions + transfers > planned
 }
+
+/** Some line of a list is committed above its own plan. */
+export function someOverCommitted(lines: readonly Commitment[]): boolean {
+  return lines.some(isOverCommitted)
+}

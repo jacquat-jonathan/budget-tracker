@@ -181,8 +181,7 @@ export const transfersFr = {
     'Les nouvelles conditions valent dès la période choisie jusqu’à son prochain changement. L’aperçu dit d’abord ce qui change.',
   editAppliesFrom:
     '« Dès maintenant » veut dire dès le début de la période en cours, le {{date}}, et non dès aujourd’hui : les échéances de cette période suivent aussi les nouvelles conditions. Les coches des membres restent ; ce que l’application a enregistré d’elle-même peut se déplacer ou partir, comme le dit l’aperçu. Les périodes passées gardent leurs conditions.',
-  addFromToday:
-    'Il est planifié dès aujourd’hui : rien d’antérieur à aujourd’hui n’est enregistré.',
+  addFromToday: 'Il est planifié dès aujourd’hui.',
   addRecordsPast:
     'Il est planifié dès la période choisie : ce qui était dû depuis est listé, et les ordres permanents liés à une catégorie sont enregistrés tout de suite.',
   needAccounts: 'Ajoutez d’abord vos comptes',
@@ -219,6 +218,7 @@ export const transfersFr = {
     accounts: 'Comptes',
     from: 'Depuis',
     to: 'Vers',
+    accountPlaceholder: 'Choisir un compte',
     amount: 'Montant',
     amountEach: 'Montant à chaque fois',
     amountPer: {
@@ -311,6 +311,10 @@ export const transfersFr = {
       'Parmi elles, {{count}} sont des transactions déplacées à leurs nouvelles échéances : chacune compte une fois comme retirée et une fois comme enregistrée.',
     editedGoes:
       'Une transaction modifiée par un membre part aussi quand son échéance elle-même disparaît ; celle dont seule la date change reste telle que le membre l’a laissée.',
+    oldToDosDropped_one:
+      '{{count}} échéance à faire de cette période selon l’ancien calendrier n’est pas cochée : elle disparaît, seules celles du nouveau calendrier restent.',
+    oldToDosDropped_other:
+      '{{count}} échéances à faire de cette période selon l’ancien calendrier ne sont pas cochées : elles disparaissent, seules celles du nouveau calendrier restent.',
     marksUnplanned_one:
       '{{count}} coche d’un membre n’est plus prévue : elle reste dans sa liste, signalée, jusqu’à son annulation.',
     marksUnplanned_other:
@@ -347,7 +351,16 @@ export const transfersFr = {
     periodGone:
       'gardé de la période qu’une réouverture a fusionnée avec celle-ci, pas de cette période',
     incomePayday: 'au jour de paie de « {{income}} », le {{date}}',
-    incomePaydayUnnamed: 'au jour de paie de son revenu, le {{date}}',
+    incomePaydayOn: 'au jour de paie de « {{income}} »',
+    incomePaydayAfter_one: '{{count}} jour après le jour de paie de « {{income}} » ({{date}})',
+    incomePaydayAfter_other: '{{count}} jours après le jour de paie de « {{income}} » ({{date}})',
+    incomePaydayUnnamed: 'au jour de paie d’un revenu, le {{date}}',
+    incomePaydayDropped: 'à un jour de paie d’un revenu que ce virement ne suit plus, le {{date}}',
+    incomePaydayDroppedOn: 'à un jour de paie d’un revenu que ce virement ne suit plus',
+    incomePaydayDroppedAfter_one:
+      '{{count}} jour après un jour de paie d’un revenu que ce virement ne suit plus ({{date}})',
+    incomePaydayDroppedAfter_other:
+      '{{count}} jours après un jour de paie d’un revenu que ce virement ne suit plus ({{date}})',
     fixedDay: 'jour fixe du {{date}}',
     fixedDayMoved: 'jour fixe du {{date}}, déplacé hors du week‑end',
   },
@@ -373,7 +386,14 @@ export const transfersFr = {
     previous: 'Le jour ouvrable précédent',
     next: 'Le jour ouvrable suivant',
     nearest: 'Le jour ouvrable le plus proche',
-    help: 'Le plus proche : un samedi passe au vendredi, un dimanche au lundi. La liste à cocher garde sa date ; seule l’échéance se déplace.',
+    help: {
+      none: 'Il est dû ce jour-là, même si c’est un samedi ou un dimanche.',
+      previous:
+        'Un samedi ou un dimanche passe au vendredi précédent. La liste à cocher montre toujours la date prévue ; seule l’échéance se déplace.',
+      next: 'Un samedi ou un dimanche passe au lundi suivant. La liste à cocher montre toujours la date prévue ; seule l’échéance se déplace.',
+      nearest:
+        'Un samedi passe au vendredi, un dimanche au lundi. La liste à cocher montre toujours la date prévue ; seule l’échéance se déplace.',
+    },
   },
   checklist: {
     title: 'Liste à cocher',

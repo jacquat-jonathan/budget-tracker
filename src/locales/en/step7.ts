@@ -171,7 +171,7 @@ export const transfersEn = {
     'The new terms apply from the period you chose until its next change. The preview says first what changes.',
   editAppliesFrom:
     '“From now” means from the start of the current period, {{date}}, not from today: this period’s occurrences follow the new terms too. Members’ ticks stay; what the app recorded by itself can move or go, as the preview says. Past periods keep their terms.',
-  addFromToday: 'It plans from today: nothing dated before today is recorded.',
+  addFromToday: 'It plans from today.',
   addRecordsPast:
     'It plans from the period you chose: what was due since then is listed, and standing orders linked to a category are recorded at once.',
   needAccounts: 'Add your accounts first',
@@ -207,6 +207,7 @@ export const transfersEn = {
     accounts: 'Accounts',
     from: 'From',
     to: 'To',
+    accountPlaceholder: 'Choose an account',
     amount: 'Amount',
     amountEach: 'Amount each time',
     amountPer: {
@@ -295,6 +296,10 @@ export const transfersEn = {
       'Of these, {{count}} are transactions moved to their new due dates: each counts once as removed and once as recorded.',
     editedGoes:
       'A transaction a member edited goes too when its occurrence itself goes; one whose date only moves stays where the member left it.',
+    oldToDosDropped_one:
+      '{{count}} to-do of this period under the old schedule is not ticked off: it is dropped, and only the new schedule’s occurrences remain.',
+    oldToDosDropped_other:
+      '{{count}} to-dos of this period under the old schedule are not ticked off: they are dropped, and only the new schedule’s occurrences remain.',
     marksUnplanned_one:
       '{{count}} tick a member made is no longer planned: it stays in its checklist, flagged, until undone.',
     marksUnplanned_other:
@@ -330,7 +335,16 @@ export const transfersEn = {
     periodOther: 'kept from the period {{start}} to {{end}}, not this one',
     periodGone: 'kept from the period a reopen merged into this one, not this period’s own',
     incomePayday: 'on the payday of “{{income}}”, {{date}}',
-    incomePaydayUnnamed: 'on its income’s payday, {{date}}',
+    incomePaydayOn: 'on the payday of “{{income}}”',
+    incomePaydayAfter_one: '{{count}} day after the payday of “{{income}}” ({{date}})',
+    incomePaydayAfter_other: '{{count}} days after the payday of “{{income}}” ({{date}})',
+    incomePaydayUnnamed: 'on the payday of an income, {{date}}',
+    incomePaydayDropped: 'on a payday of an income this transfer no longer follows, {{date}}',
+    incomePaydayDroppedOn: 'on a payday of an income this transfer no longer follows',
+    incomePaydayDroppedAfter_one:
+      '{{count}} day after a payday of an income this transfer no longer follows ({{date}})',
+    incomePaydayDroppedAfter_other:
+      '{{count}} days after a payday of an income this transfer no longer follows ({{date}})',
     fixedDay: 'fixed day {{date}}',
     fixedDayMoved: 'fixed day {{date}}, moved off the weekend',
   },
@@ -355,7 +369,14 @@ export const transfersEn = {
     previous: 'The working day before',
     next: 'The next working day',
     nearest: 'The nearest working day',
-    help: 'Nearest: a Saturday goes to the Friday, a Sunday to the Monday. The checklist keeps its date; only when it is due moves.',
+    help: {
+      none: 'It is due on that day, even when it falls on a Saturday or a Sunday.',
+      previous:
+        'A Saturday or a Sunday goes to the Friday before. The checklist still shows the scheduled date; only the due date moves.',
+      next: 'A Saturday or a Sunday goes to the Monday after. The checklist still shows the scheduled date; only the due date moves.',
+      nearest:
+        'A Saturday goes to the Friday, a Sunday to the Monday. The checklist still shows the scheduled date; only the due date moves.',
+    },
   },
   checklist: {
     title: 'Checklist',

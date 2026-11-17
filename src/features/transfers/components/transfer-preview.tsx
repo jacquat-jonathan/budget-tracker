@@ -57,6 +57,8 @@ export function TransferPreviewBox({
         seq: row.occurrence_seq,
         dueDate: row.due_date,
         incomeName,
+        incomeDropped: true,
+        besideDue: true,
       },
       () => ({ start: row.start_date, end: row.end_date, own: true }),
     )

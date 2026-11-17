@@ -461,7 +461,7 @@ describe('a transfer’s transaction in the transactions list [R-ACCOUNT-240]', 
       )
     })
     expect(row('payday')).toHaveTextContent(
-      'Planned transfer “Savings”, on its income’s payday, 10.11.2026',
+      'Planned transfer “Savings”, on the payday of an income, 10.11.2026',
     )
     expect(row('fixed')).toHaveTextContent('Planned transfer “Savings”, fixed day 01.11.2026')
     expect(row('far')).toHaveTextContent(/Planned transfer “Savings”(?!,)/)

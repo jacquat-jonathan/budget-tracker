@@ -48,7 +48,7 @@ function progressRow(overrides: Record<string, unknown>) {
  * planned, CHF 29.90 of subscriptions and CHF 100 of transfers inside it. The period: CHF 3000
  * planned, CHF 151.82 of subscriptions and CHF 1300 of transfers.
  */
-function committedDb(): MockDb {
+function committedDb(hobbiesTransfers = 20_000): MockDb {
   const db = categoriesDb({
     period_summaries: [
       periodRow({
@@ -70,7 +70,7 @@ function committedDb(): MockDb {
       sort_order: 4,
       amount: 15_000,
       monthly_amount: 15_000,
-      transfer_committed_amount: 20_000,
+      transfer_committed_amount: hobbiesTransfers,
     }),
   ]
   db.rpc.get_period_progress.mockImplementation(() => [
@@ -83,7 +83,7 @@ function committedDb(): MockDb {
       spent: 0,
       result: 15_000,
       display_order: 1,
-      transfer_committed: 20_000,
+      transfer_committed: hobbiesTransfers,
     }),
   ])
   return db
@@ -97,7 +97,7 @@ function rowNamed(rows: HTMLElement[], name: string): HTMLElement {
 
 describe('the transfers’ committed amount, apart from the subscriptions’ [R-PROGRESS-530]', () => {
   it('is shown on the budget page under the period’s plan and under each category’s amount', async () => {
-    mock.current = createSupabaseMock(fakeSession(), committedDb())
+    mock.current = createSupabaseMock(fakeSession(), committedDb(10_000))
     renderRoutes(routes, '/budget')
     const groceries = rowNamed(await screen.findAllByTestId('category-row'), 'Groceries')
     const committed = within(groceries).getByTestId('category-committed')
@@ -120,7 +120,7 @@ describe('the transfers’ committed amount, apart from the subscriptions’ [R-
   })
 
   it('is shown in the period progress, for the period and per category, from the database’s figures', async () => {
-    mock.current = createSupabaseMock(fakeSession(), committedDb())
+    mock.current = createSupabaseMock(fakeSession(), committedDb(10_000))
     renderRoutes(routes, '/')
     const totals = await screen.findByTestId('progress-totals')
     const committed = within(totals).getByTestId('progress-committed')
@@ -136,6 +136,38 @@ describe('the transfers’ committed amount, apart from the subscriptions’ [R-
       `The ${money(90_000)} planned include ${money(10_000)} for planned transfers`,
     )
     expect(plain(groceries)).toContain(`incl. ${money(10_000)} for planned transfers`)
+  })
+})
+
+describe('the period’s total when a category is committed above its plan [R-PROGRESS-533]', () => {
+  it('says "up to" on the budget page and in the period progress, never that all of it is inside', async () => {
+    mock.current = createSupabaseMock(fakeSession(), committedDb())
+    const { unmount } = renderRoutes(routes, '/budget')
+    const total = await screen.findByTestId('total-expected')
+    expect(plain(within(total).getByTestId('committed-transfers'))).toBe(
+      `Includes up to ${money(130_000)} for planned transfers`,
+    )
+    expect(plain(within(total).getByTestId('committed-subscriptions'))).toBe(
+      `Includes up to ${money(15_182)} for subscriptions`,
+    )
+    unmount()
+    renderRoutes(routes, '/')
+    const totals = await screen.findByTestId('progress-totals')
+    await screen.findAllByTestId('progress-row')
+    expect(
+      plain(
+        within(within(totals).getByTestId('progress-committed')).getByTestId('committed-transfers'),
+      ),
+    ).toBe(`Includes up to ${money(130_000)} for planned transfers`)
+  })
+
+  it('keeps "Includes" when every category holds its commitments', async () => {
+    mock.current = createSupabaseMock(fakeSession(), committedDb(10_000))
+    renderRoutes(routes, '/budget')
+    const total = await screen.findByTestId('total-expected')
+    expect(plain(within(total).getByTestId('committed-transfers'))).toBe(
+      `Includes ${money(130_000)} for planned transfers`,
+    )
   })
 })
 

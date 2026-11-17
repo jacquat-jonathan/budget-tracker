@@ -159,7 +159,7 @@ export function Checklist({
       ? { start: found.start_date, end: found.end_date, own: found.id === period?.id }
       : null
   }
-  const describe = (row: ChecklistRow) =>
+  const describe = (row: ChecklistRow, besideDue = false) =>
     occurrenceText(
       {
         kind: row.occurrence_kind,
@@ -167,6 +167,8 @@ export function Checklist({
         seq: row.occurrence_seq,
         dueDate: row.due_date,
         incomeName: row.income_name,
+        incomeDropped: true,
+        besideDue,
       },
       periodOf,
     )
@@ -238,6 +240,7 @@ export function Checklist({
         key={`${occurrenceKey(row)}-${index}`}
         row={row}
         occurrence={describe(row)}
+        occurrenceBesideDue={describe(row, true)}
         twinned={(listed.get(row.transfer_id ?? '') ?? 0) > 1}
         busy={busy}
         onDone={() => {
@@ -380,6 +383,7 @@ export function Checklist({
 function ChecklistItem({
   row,
   occurrence,
+  occurrenceBesideDue,
   twinned,
   busy,
   onDone,
@@ -388,6 +392,8 @@ function ChecklistItem({
   row: ChecklistRow
   /** What the occurrence is for, in words (its period, its income's payday, its fixed day). */
   occurrence: string
+  /** The same, as said beside the due date: a payday's date is not repeated there. */
+  occurrenceBesideDue: string
   /** The transfer has another row here: its buttons say which occurrence they act on. */
   twinned: boolean
   busy: boolean
@@ -432,9 +438,9 @@ function ChecklistItem({
                 ? t('transfers.checklist.due', { date: formatCalendarDate(row.due_date) })
                 : t('transfers.checklist.noDue')}
             </span>,
-            occurrence && (
+            occurrenceBesideDue && (
               <span key="for" data-testid="checklist-occurrence">
-                {occurrence}
+                {occurrenceBesideDue}
               </span>
             ),
             moved && (

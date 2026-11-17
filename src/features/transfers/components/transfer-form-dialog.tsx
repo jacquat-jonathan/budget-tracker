@@ -56,6 +56,7 @@ import {
   TRANSFER_WEEKEND_RULES,
   usePreviewCreateTransfer,
   usePreviewUpdateTransfer,
+  useChecklist,
   useTransferRecord,
   useTransferTermsAt,
   type Transfer,
@@ -397,6 +398,27 @@ function TransferForm({
     ]
   }, [choices.data, transfer])
 
+  // R-ACCOUNT-559: an edit from now drops this period's occurrences of the schedule it leaves
+  // when the kind changes; the to-dos nobody ticked off are counted from the period's checklist
+  // the page already has (the preview counts transactions and marks, not these).
+  const periodChecklist = useChecklist(
+    budgetId,
+    editing && !correcting ? (currentPeriod?.id ?? null) : null,
+  )
+  const leavingKind = base ? kindOf(base) : null
+  const droppedToDos =
+    editing && !correcting && leavingKind !== null && leavingKind !== kind
+      ? (periodChecklist.data ?? []).filter(
+          (row) =>
+            row.transfer_id === transfer.id &&
+            row.occurrence_kind === leavingKind &&
+            row.planned !== false &&
+            (row.status === 'to_do' || row.status === 'upcoming') &&
+            (row.mark_revision ?? 0) === 0 &&
+            row.transaction_id === null,
+        ).length
+      : 0
+
   // The preview: the database's answer for exactly the arguments the save will send.
   const current = { ...(watched as Values) }
   const typedAmount =
@@ -536,12 +558,14 @@ function TransferForm({
             control={form.control}
             name="fromAccountId"
             label={t('transfers.fields.from')}
+            placeholder={t('transfers.fields.accountPlaceholder')}
             options={accountOptions}
           />
           <SelectField
             control={form.control}
             name="toAccountId"
             label={t('transfers.fields.to')}
+            placeholder={t('transfers.fields.accountPlaceholder')}
             options={accountOptions}
           />
         </div>
@@ -635,7 +659,7 @@ function TransferForm({
               control={form.control}
               name="weekendRule"
               label={t('transfers.weekendRule.label')}
-              description={t('transfers.weekendRule.help')}
+              description={t(`transfers.weekendRule.help.${watched.weekendRule ?? 'none'}`)}
               options={TRANSFER_WEEKEND_RULES.map((rule) => ({
                 value: rule,
                 label: t(`transfers.weekendRule.${rule}`),
@@ -685,6 +709,11 @@ function TransferForm({
                 : null
             }
           />
+        )}
+        {droppedToDos > 0 && !notInForce && (
+          <p className="text-sm text-muted-foreground" data-testid="old-todos-dropped">
+            {t('transfers.preview.oldToDosDropped', { count: droppedToDos })}
+          </p>
         )}
         <Alert>
           <InfoIcon aria-hidden />
