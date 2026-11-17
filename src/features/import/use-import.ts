@@ -58,6 +58,13 @@ export interface PartAnswer {
   room: number
   /** Whether the rows to import of the parts covered fit. */
   fits: boolean
+  /**
+   * The part was already written (D-522): its rows are what its chunk recorded, and it is no
+   * longer staged, so `statement` and `parts` do not cover it.
+   */
+  written: boolean
+  /** A written part whose answer is no longer kept (chunk_expired): no rows to show. */
+  expired?: boolean
 }
 
 const TOTAL_KEYS: readonly (keyof PreviewTotals)[] = [
@@ -99,6 +106,21 @@ export function readPartAnswer(value: Json): PartAnswer {
     parts: Array.isArray(source.parts) ? source.parts.map(Number) : [],
     room: typeof source.room === 'number' ? source.room : 0,
     fits: source.fits === true,
+    written: source.written === true,
+  }
+}
+
+/** A written part whose answer the database no longer keeps: nothing to show, nothing staged. */
+function expiredAnswer(): PartAnswer {
+  return {
+    rows: [],
+    part: totalsOf(null),
+    statement: totalsOf(null),
+    parts: [],
+    room: 0,
+    fits: true,
+    written: true,
+    expired: true,
   }
 }
 
@@ -112,6 +134,13 @@ export interface PreviewState {
   totals: { statement: PreviewTotals; parts: number[]; room: number; fits: boolean } | null
   /** Parts with a current answer, of the parts to preview. */
   progress: { done: number; of: number }
+  /**
+   * Parts found already written while previewing (another device carried on the import): their
+   * rows show what they recorded, the totals do not count them. `expired`: of those, the ones
+   * whose answer is no longer kept (no rows to show).
+   */
+  written: number[]
+  expired: number[]
   error: unknown
   retry: () => void
 }
@@ -153,10 +182,20 @@ export class PreviewLostError extends Error {
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
 
-/** The first part of first..part that the answer does not cover, or null. */
-function firstMissing(answer: PartAnswer, first: number, part: number): number | null {
+/**
+ * The first part of first..part that the answer does not cover, or null. A written part is no
+ * longer staged (D-522): it is never expected among the parts covered.
+ */
+function firstMissing(
+  answer: PartAnswer,
+  first: number,
+  part: number,
+  written: ReadonlySet<number>,
+): number | null {
   const covered = new Set(answer.parts)
-  for (let earlier = first; earlier <= part; earlier += 1) if (!covered.has(earlier)) return earlier
+  for (let earlier = first; earlier <= part; earlier += 1) {
+    if (!covered.has(earlier) && !written.has(earlier)) return earlier
+  }
   return null
 }
 
@@ -167,8 +206,9 @@ function firstMissing(answer: PartAnswer, first: number, part: number): number |
  * part brings are the whole statement's. A choice changed in part k asks parts k to the last
  * again (debounced); an answer for earlier choices stays on screen, marked as being checked,
  * never shown as current. Parts before `firstPart` (recorded by an interrupted import) are not
- * previewed: the database would plan them as new, and a recorded part answers what it recorded.
- * Once the import starts nothing is asked any more.
+ * previewed: they are sent again unchanged, and answer what they recorded. A part found written
+ * meanwhile answers what its chunk recorded (D-522) and is no longer staged; one whose answer is
+ * gone (chunk_expired) has no rows to show. Once the import starts nothing is asked any more.
  */
 // R-IMPORT-361: one part at a time, in order, never once the import has started.
 export function useImportPreview(
@@ -202,6 +242,8 @@ export function useImportPreview(
   const [error, setError] = useState<unknown>(null)
   const restaged = useRef(0)
   const seq = useRef(0)
+  // Parts that answered as written: no longer staged, never expected among the parts covered.
+  const written = useRef(new Set<number>())
   const first = Math.max(1, firstPart)
   const last = parts.length
 
@@ -233,6 +275,7 @@ export function useImportPreview(
       let tries = 0
       for (;;) {
         try {
+          // R-IMPORT-441: a written part's answer is what it recorded, an expired one has none.
           const result = await supabase.rpc('preview_import_part', {
             p_budget_id: budgetId,
             p_batch_id: batchId,
@@ -243,6 +286,10 @@ export function useImportPreview(
           answer = readPartAnswer(result.data)
           break
         } catch (thrown) {
+          if (dbErrorCode(thrown) === 'chunk_expired') {
+            answer = expiredAnswer()
+            break
+          }
           if (dbErrorCode(thrown) === 'catching_up' && catchUps < 3) {
             catchUps += 1
             try {
@@ -269,7 +316,10 @@ export function useImportPreview(
         const done: Asked = { sig, after, seq: seq.current, answer }
         // The answer covers the staged parts first..part; one the database no longer holds is
         // staged again from there (its answer no longer counts as current).
-        const missing = firstMissing(answer, first, part)
+        if (answer.written) written.current.add(part)
+        else written.current.delete(part)
+        // A written part's answer says nothing of the staged parts (its `parts` is null).
+        const missing = answer.written ? null : firstMissing(answer, first, part, written.current)
         flying.current = false
         setAsking((now) => {
           const out: Record<number, Asked> = { ...now.asked, [part]: done }
@@ -311,7 +361,15 @@ export function useImportPreview(
       answers.push({ entry, result: data?.[at], stale: stale && data !== undefined })
     })
   })
-  const lastAnswer = asked[last]?.answer
+  // The totals come from the last part answered that is still staged: a written part's answer
+  // covers only what it recorded.
+  const answered = Array.from({ length: last - first + 1 }, (_, index) => first + index)
+    .map((part) => ({ part, answer: asked[part]?.answer }))
+    .filter((item) => item.answer !== undefined)
+  const lastAnswer =
+    asked[last]?.answer === undefined
+      ? undefined
+      : [...answered].reverse().find((item) => item.answer?.written !== true)?.answer
   const current = !settled.stale && next === null && inFlight === null
   return {
     answers,
@@ -327,6 +385,8 @@ export function useImportPreview(
           }
         : null,
     progress: { done: Math.max(0, validUpTo - first + 1), of: Math.max(0, last - first + 1) },
+    written: answered.filter((item) => item.answer?.written === true).map((item) => item.part),
+    expired: answered.filter((item) => item.answer?.expired === true).map((item) => item.part),
     error,
     retry: () => {
       restaged.current = 0
@@ -335,13 +395,26 @@ export function useImportPreview(
   }
 }
 
+export const STORAGE_LIMITS = ['imports_per_day', 'rows_per_day', 'imports_kept'] as const
+export type StorageLimit = (typeof STORAGE_LIMITS)[number]
+
+/** The limit an import_limit_reached refusal names (its detail `{"limit": ...}`), if known. */
+export function storageLimit(error: unknown): StorageLimit | null {
+  const detail = dbErrorDetail(error) as { limit?: unknown } | null
+  const limit = detail?.limit
+  return (STORAGE_LIMITS as readonly unknown[]).includes(limit) ? (limit as StorageLimit) : null
+}
+
 export type RunStop =
   | { kind: 'limit'; part: number; fits: number | null }
   | { kind: 'network'; part: number }
   | { kind: 'busy'; part: number }
   | { kind: 'refused'; part: number; error: unknown }
-  /** The budget's import storage is used up for the day (import_limit_reached). */
-  | { kind: 'storage'; part: number }
+  /**
+   * An import limit of the budget (import_limit_reached): `limit` is the detail's name of it
+   * (imports_per_day, rows_per_day, imports_kept), null when the refusal names none.
+   */
+  | { kind: 'storage'; part: number; limit: StorageLimit | null }
   /** A recorded part whose answer is no longer kept (chunk_expired): not imported again. */
   | { kind: 'expired'; part: number }
 
@@ -537,7 +610,7 @@ export function useImportRun(budgetId: string) {
             // R-IMPORT-366: the import limit and a forgotten answer stop the run in their own words.
             if (code === 'import_limit_reached') {
               note(answers.length, 'storage')
-              stop({ kind: 'storage', part })
+              stop({ kind: 'storage', part, limit: storageLimit(error) })
               return
             }
             if (code === 'chunk_expired') {

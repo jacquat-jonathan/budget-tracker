@@ -265,10 +265,14 @@ export const importEn = {
       checkingPart: 'Checking part {{part}} of {{parts}}…',
       onePart: 'part {{part}}',
       partRange: 'parts {{from}} to {{to}}',
-      recordedIncluded_one:
-        'These counts include part 1, recorded by the interrupted import, as it was checked before it was sent. It is sent again unchanged: it records nothing and answers what it recorded.',
-      recordedIncluded_other:
-        'These counts include parts 1 to {{count}}, recorded by the interrupted import, as they were checked before they were sent. They are sent again unchanged: they record nothing and answer what they recorded.',
+      writtenMeanwhile_one:
+        'Part {{parts}} was recorded meanwhile, by another device or tab: its rows show what it recorded, and the counts above do not include it. It is sent again unchanged and records nothing.',
+      writtenMeanwhile_other:
+        'Parts {{parts}} were recorded meanwhile, by another device or tab: their rows show what they recorded, and the counts above do not include them. They are sent again unchanged and record nothing.',
+      expiredMeanwhile_one:
+        'Part {{parts}} was recorded long ago and its answer is no longer kept: its rows cannot be shown, and it is not imported again. What it imported is in the import history.',
+      expiredMeanwhile_other:
+        'Parts {{parts}} were recorded long ago and their answers are no longer kept: their rows cannot be shown, and they are not imported again. What they imported is in the import history.',
       allRecorded:
         'Every part was recorded by the interrupted import. Sending them again records nothing and shows what they recorded.',
       kinds: {
@@ -478,10 +482,16 @@ export const importEn = {
         'Part {{part}} could not be sent: the connection keeps failing. Check it and continue: what was already recorded is not recorded twice.',
       busy: 'Part {{part}} could not be recorded: the budget stayed busy and did not answer in time. Nothing of that part was written. Continue in a moment: what was already recorded is not recorded twice.',
       other: 'Part {{part}} was refused: {{reason}}',
-      storage:
-        'Part {{part}} was not imported: this budget has imported as much as it can for now.',
-      storageWhat:
-        "A budget takes at most 20'000 rows and 50 imports within 24 hours, and keeps 2'000 imports. Nothing of this part was written. Try again later with the same file, or open it again then: what was recorded is not recorded twice.",
+      storage: {
+        imports_per_day:
+          "Part {{part}} was not imported: this budget's members have started 200 new imports within the last 24 hours, the most it takes. Nothing of this part was written. The limit is a rolling 24 hours: a new import can start 24 hours after the oldest of those 200. Open the same file then: what was already recorded is not recorded twice.",
+        rows_per_day:
+          "Part {{part}} was not imported: this budget has taken 20'000 imported rows within the last 24 hours, the most it takes. Nothing of this part was written. The limit is a rolling 24 hours: rows can be imported again as the oldest of them pass 24 hours. Try again later with the same file: what was already recorded is not recorded twice.",
+        imports_kept:
+          "Part {{part}} was not imported: this budget keeps at most 2'000 imports, and every one of them still holds transactions or skipped rows. Nothing of this part was written. This does not free up with time: an import frees its place once it holds nothing any more. Then open the same file again: what was already recorded is not recorded twice.",
+        unknown:
+          'Part {{part}} was not imported: this budget has reached one of its import limits. Nothing of this part was written. Try again later with the same file: what was already recorded is not recorded twice.',
+      },
       expired:
         'Part {{part}} had already been recorded, but the budget no longer keeps its answer (answers are kept 7 days, the newest 50). It is not imported again.',
       expiredWhat:
@@ -499,7 +509,7 @@ export const importEn = {
     body: 'An import of a {{source}} started on {{date}} stopped after part {{confirmed}} of {{parts}}. Open the same file again to finish it: the parts already recorded are not recorded twice.',
     stoppedBy: {
       storage:
-        "It stopped because this budget had imported as much as it can for now (20'000 rows or 50 imports within 24 hours). Open the same file later to finish it.",
+        'It stopped at one of the budget’s import limits (new imports or rows within 24 hours, or imports kept). Open the same file later to finish it: what was recorded is not recorded twice.',
       expired:
         'It stopped at a part recorded so long ago that its answer is no longer kept. Open the same file to send the parts after it; what that part imported is in the history.',
     },
@@ -649,6 +659,7 @@ export const importEn = {
     by: 'By',
     byToken: 'By the token',
     byUnknown: 'By a former member',
+    byDeletedToken: 'By an import token, since deleted',
     when: 'On {{date}}',
     period: 'Statement {{from}} – {{to}}',
     counts: '{{rows}} rows: {{imported}} imported, {{skipped}} not imported',
@@ -695,6 +706,8 @@ export const importEn = {
     details: 'From the statement',
     rule: {
       title: 'Always put this merchant in this category?',
+      tooLong:
+        'This merchant’s text is too long to become a rule (100 characters at most once tidied). Nothing was created.',
       body: 'Next imports put “{{key}}” in {{category}}.',
       alsoMove_one: 'Also move the {{count}} other transaction waiting in “To categorise” for it.',
       alsoMove_other:
@@ -781,6 +794,10 @@ export const importEn = {
     empty: 'No rule yet. Categorise an imported transaction to be offered one.',
     fragment: 'Merchant text',
     fragmentHelp: 'Lower case, without accents or punctuation, as the budget compares it.',
+    fragmentTooLong_one: 'At most {{max}} characters: this has {{count}}.',
+    fragmentTooLong_other: 'At most {{max}} characters: this has {{count}}.',
+    fragmentInvalid:
+      'The budget does not take this text as a rule: it must have 1 to {{max}} characters once tidied (lower case, without accents or punctuation).',
     category: 'Category',
     ended: 'Its category has ended: it applies only where the category is in use.',
     edit: 'Edit',

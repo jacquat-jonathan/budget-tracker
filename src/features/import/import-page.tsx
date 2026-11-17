@@ -369,16 +369,19 @@ function ImportFlow({
     started,
     stage.recordedParts + 1,
   )
-  // The rows of the parts the interrupted import recorded, by key, with their part.
+  // The rows of the parts already recorded, by key, with their part: those the interrupted
+  // import recorded, and those the preview found written meanwhile (D-522).
+  const writtenKey = preview.written.join(',')
   const locked = useMemo(() => {
+    const written = new Set(writtenKey === '' ? [] : writtenKey.split(',').map(Number))
     const out = new Map<number, number>()
-    chunksOf(draft.entries)
-      .slice(0, stage.recordedParts)
-      .forEach((entries, index) => {
-        for (const entry of entries) out.set(entry.key, index + 1)
-      })
+    chunksOf(draft.entries).forEach((entries, index) => {
+      const part = index + 1
+      if (part > stage.recordedParts && !written.has(part)) return
+      for (const entry of entries) out.set(entry.key, part)
+    })
     return out
-  }, [draft, stage.recordedParts])
+  }, [draft, stage.recordedParts, writtenKey])
   const importButton = useRef<HTMLButtonElement>(null)
   const importBar = useRef<HTMLDivElement>(null)
   const categories = useCategories(budgetId)
@@ -689,7 +692,9 @@ function RunView({
                 : stop.kind === 'busy'
                   ? t('import.run.stopped.busy', { part: stop.part })
                   : stop.kind === 'storage'
-                    ? t('import.run.stopped.storage', { part: stop.part })
+                    ? t(`import.run.stopped.storage.${stop.limit ?? 'unknown'}`, {
+                        part: stop.part,
+                      })
                     : stop.kind === 'expired'
                       ? t('import.run.stopped.expired', { part: stop.part })
                       : t('import.run.stopped.other', {
@@ -697,9 +702,6 @@ function RunView({
                           reason: errorMessage(stop.error),
                         })}
           </p>
-          {stop.kind === 'storage' && (
-            <p className="text-sm">{t('import.run.stopped.storageWhat')}</p>
-          )}
           {stop.kind === 'expired' && (
             <p className="text-sm">{t('import.run.stopped.expiredWhat')}</p>
           )}

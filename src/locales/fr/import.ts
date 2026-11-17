@@ -278,10 +278,14 @@ export const importFr: Translation['import'] = {
       checkingPart: 'Vérification de la partie {{part}} sur {{parts}}…',
       onePart: 'de la partie {{part}}',
       partRange: 'des parties {{from}} à {{to}}',
-      recordedIncluded_one:
-        'Ces chiffres comprennent la partie 1, enregistrée par l’importation interrompue, telle qu’elle a été vérifiée avant son envoi. Elle est renvoyée telle quelle : elle n’enregistre rien et répond ce qu’elle a enregistré.',
-      recordedIncluded_other:
-        'Ces chiffres comprennent les parties 1 à {{count}}, enregistrées par l’importation interrompue, telles qu’elles ont été vérifiées avant leur envoi. Elles sont renvoyées telles quelles : elles n’enregistrent rien et répondent ce qu’elles ont enregistré.',
+      writtenMeanwhile_one:
+        'La partie {{parts}} a été enregistrée entre-temps, par un autre appareil ou onglet : ses lignes montrent ce qu’elle a enregistré, et les chiffres ci-dessus ne la comptent pas. Elle est renvoyée telle quelle et n’enregistre rien.',
+      writtenMeanwhile_other:
+        'Les parties {{parts}} ont été enregistrées entre-temps, par un autre appareil ou onglet : leurs lignes montrent ce qu’elles ont enregistré, et les chiffres ci-dessus ne les comptent pas. Elles sont renvoyées telles quelles et n’enregistrent rien.',
+      expiredMeanwhile_one:
+        'La partie {{parts}} a été enregistrée il y a longtemps et sa réponse n’est plus conservée : ses lignes ne peuvent pas être montrées, et elle n’est pas importée à nouveau. Ce qu’elle a importé figure dans l’historique des importations.',
+      expiredMeanwhile_other:
+        'Les parties {{parts}} ont été enregistrées il y a longtemps et leurs réponses ne sont plus conservées : leurs lignes ne peuvent pas être montrées, et elles ne sont pas importées à nouveau. Ce qu’elles ont importé figure dans l’historique des importations.',
       allRecorded:
         'Toutes les parties ont été enregistrées par l’importation interrompue. Les renvoyer n’enregistre rien et montre ce qu’elles ont enregistré.',
       kinds: {
@@ -493,10 +497,16 @@ export const importFr: Translation['import'] = {
         'La partie {{part}} n’a pas pu être envoyée : la connexion échoue sans cesse. Vérifiez-la et continuez : ce qui a déjà été enregistré ne l’est pas deux fois.',
       busy: 'La partie {{part}} n’a pas pu être enregistrée : le budget est resté occupé et n’a pas répondu à temps. Rien de cette partie n’a été écrit. Continuez dans un moment : ce qui a déjà été enregistré ne l’est pas deux fois.',
       other: 'La partie {{part}} a été refusée : {{reason}}',
-      storage:
-        'La partie {{part}} n’a pas été importée : ce budget a importé autant qu’il le peut pour l’instant.',
-      storageWhat:
-        "Un budget reçoit au plus 20'000 lignes et 50 importations en 24 heures, et garde 2'000 importations. Rien de cette partie n’a été écrit. Réessayez plus tard avec le même fichier, ou ouvrez-le à nouveau à ce moment : ce qui a été enregistré ne l’est pas deux fois.",
+      storage: {
+        imports_per_day:
+          'La partie {{part}} n’a pas été importée : les membres de ce budget ont commencé 200 nouvelles importations au cours des dernières 24 heures, le maximum. Rien de cette partie n’a été écrit. La limite porte sur 24 heures glissantes : une nouvelle importation peut commencer 24 heures après la plus ancienne de ces 200. Rouvrez alors le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+        rows_per_day:
+          'La partie {{part}} n’a pas été importée : ce budget a reçu 20’000 lignes importées au cours des dernières 24 heures, le maximum. Rien de cette partie n’a été écrit. La limite porte sur 24 heures glissantes : des lignes peuvent de nouveau être importées à mesure que les plus anciennes dépassent 24 heures. Réessayez plus tard avec le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+        imports_kept:
+          'La partie {{part}} n’a pas été importée : ce budget conserve au plus 2’000 importations, et chacune contient encore des transactions ou des lignes ignorées. Rien de cette partie n’a été écrit. Cela ne se libère pas avec le temps : une importation libère sa place quand elle ne contient plus rien. Rouvrez ensuite le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+        unknown:
+          'La partie {{part}} n’a pas été importée : ce budget a atteint une de ses limites d’importation. Rien de cette partie n’a été écrit. Réessayez plus tard avec le même fichier : ce qui a déjà été enregistré ne l’est pas deux fois.',
+      },
       expired:
         'La partie {{part}} avait déjà été enregistrée, mais le budget ne garde plus sa réponse (les réponses sont gardées 7 jours, les 50 plus récentes). Elle n’est pas importée à nouveau.',
       expiredWhat:
@@ -514,7 +524,7 @@ export const importFr: Translation['import'] = {
     body: 'Une importation ({{source}}) commencée le {{date}} s’est arrêtée après la partie {{confirmed}} sur {{parts}}. Ouvrez à nouveau le même fichier pour la terminer : les parties déjà enregistrées ne le sont pas deux fois.',
     stoppedBy: {
       storage:
-        "Elle s’est arrêtée parce que ce budget avait importé autant qu’il le peut pour l’instant (20'000 lignes ou 50 importations en 24 heures). Ouvrez le même fichier plus tard pour la terminer.",
+        'Elle s’est arrêtée à une des limites d’importation du budget (nouvelles importations ou lignes en 24 heures, ou importations conservées). Ouvrez le même fichier plus tard pour la terminer : ce qui a été enregistré ne l’est pas deux fois.',
       expired:
         'Elle s’est arrêtée à une partie enregistrée il y a si longtemps que sa réponse n’est plus conservée. Ouvrez le même fichier pour envoyer les parties suivantes ; ce que cette partie a importé se trouve dans l’historique.',
     },
@@ -671,6 +681,7 @@ export const importFr: Translation['import'] = {
     by: 'Par',
     byToken: 'Par le jeton',
     byUnknown: 'Par un ancien membre',
+    byDeletedToken: 'Par un jeton d’importation, supprimé depuis',
     when: 'Le {{date}}',
     period: 'Relevé du {{from}} au {{to}}',
     counts: '{{rows}} lignes : {{imported}} importées, {{skipped}} non importées',
@@ -718,6 +729,8 @@ export const importFr: Translation['import'] = {
     details: 'Du relevé',
     rule: {
       title: 'Toujours mettre ce commerçant dans cette catégorie ?',
+      tooLong:
+        'Le texte de ce commerçant est trop long pour devenir une règle (100 caractères au plus une fois mis en forme). Rien n’a été créé.',
       body: 'Les prochaines importations mettront « {{key}} » dans {{category}}.',
       alsoMove_one:
         'Déplacer aussi l’autre transaction ({{count}}) qui l’attend dans « À catégoriser ».',
@@ -812,6 +825,10 @@ export const importFr: Translation['import'] = {
       'Aucune règle pour l’instant. Catégorisez une transaction importée pour qu’on vous en propose une.',
     fragment: 'Texte du commerçant',
     fragmentHelp: 'En minuscules, sans accents ni ponctuation, tel que le budget le compare.',
+    fragmentTooLong_one: '{{max}} caractères au plus : ce texte en a {{count}}.',
+    fragmentTooLong_other: '{{max}} caractères au plus : ce texte en a {{count}}.',
+    fragmentInvalid:
+      'Le budget ne prend pas ce texte comme règle : il doit avoir de 1 à {{max}} caractères une fois mis en forme (minuscules, sans accents ni ponctuation).',
     category: 'Catégorie',
     ended: 'Sa catégorie a pris fin : elle ne s’applique que là où la catégorie est en usage.',
     edit: 'Modifier',

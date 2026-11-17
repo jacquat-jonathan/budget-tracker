@@ -33,6 +33,7 @@ import {
 } from '@/features/import/import-queries'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatTimestampWithTime } from '@/lib/date'
+import { dbErrorCode } from '@/lib/db-errors'
 import { supabase } from '@/lib/supabase'
 
 /**
@@ -159,6 +160,9 @@ export function MerchantRulesSettings() {
   )
 }
 
+/** A rule's fragment once tidied (docs/database.md: 1 to 100 characters). */
+const FRAGMENT_MAX = 100
+
 function EditRuleDialog({
   budgetId,
   rule,
@@ -196,6 +200,9 @@ function EditRuleDialog({
         }
       })
   }, [categories.data, rule.category_id])
+  // R-IMPORT-444: a fragment is 1 to 100 characters once tidied; longer is refused at the field,
+  // before the database is asked (which refuses it too: invalid_fragment, said at the field).
+  const tooLong = fragment.trim().length > FRAGMENT_MAX
   const save = useAppMutation<number>({
     errorDisplay: 'inline',
     mutationFn: async () =>
@@ -227,7 +234,7 @@ function EditRuleDialog({
             <DialogTitle>{t('import.rules.editTitle')}</DialogTitle>
             <DialogDescription>{t('import.rules.help')}</DialogDescription>
           </DialogHeader>
-          {save.isError && (
+          {save.isError && dbErrorCode(save.error) !== 'invalid_fragment' && (
             <Alert variant="destructive">
               <AlertDescription>{errorMessage(save.error)}</AlertDescription>
             </Alert>
@@ -237,13 +244,30 @@ function EditRuleDialog({
             <Input
               id={`${id}-fragment`}
               value={fragment}
-              maxLength={100}
-              onChange={(event) => setFragment(event.target.value)}
-              aria-describedby={`${id}-fragment-help`}
+              onChange={(event) => {
+                setFragment(event.target.value)
+                if (save.isError) save.reset()
+              }}
+              aria-describedby={`${id}-fragment-help ${id}-fragment-error`}
+              aria-invalid={tooLong || dbErrorCode(save.error) === 'invalid_fragment'}
               className="font-mono"
             />
             <p id={`${id}-fragment-help`} className="text-xs text-muted-foreground">
               {t('import.rules.fragmentHelp')}
+            </p>
+            <p
+              id={`${id}-fragment-error`}
+              className="text-sm text-destructive empty:hidden"
+              data-testid="fragment-error"
+            >
+              {tooLong
+                ? t('import.rules.fragmentTooLong', {
+                    max: FRAGMENT_MAX,
+                    count: fragment.trim().length,
+                  })
+                : dbErrorCode(save.error) === 'invalid_fragment'
+                  ? t('import.rules.fragmentInvalid', { max: FRAGMENT_MAX })
+                  : ''}
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -274,7 +298,7 @@ function EditRuleDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={save.isPending || fragment.trim() === ''}>
+            <Button type="submit" disabled={save.isPending || fragment.trim() === '' || tooLong}>
               {save.isPending ? t('common.saving') : t('common.save')}
             </Button>
           </DialogFooter>

@@ -293,7 +293,10 @@ export function RuleOffer({
   const covered = !answer || Boolean(answer.covered_by_rule_id) || answer.rule_exists
   const others = answer?.would_move ?? 0
   const create = useAppMutation<{ moved: number } | null>({
-    errorMessages: { category_to_categorise: 'import.toCategorise.errors.rule' },
+    errorMessages: {
+      category_to_categorise: 'import.toCategorise.errors.rule',
+      invalid_fragment: 'import.review.rule.tooLong',
+    },
     mutationFn: async () =>
       unwrap(
         await supabase.rpc('create_merchant_rule', {

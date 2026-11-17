@@ -583,12 +583,30 @@ describe('a long preview [R-IMPORT-321] [R-IMPORT-364]', () => {
 })
 
 describe('[R-IMPORT-366] a run the database stops says why in its own words', () => {
-  it(
-    'says the import limit was reached, what is recorded, and says it again when the import is resumed',
-    async () => {
+  it.each([
+    [
+      'imports_per_day',
+      'members have started 200 new imports within the last 24 hours',
+      'a new import can start 24 hours after the oldest of those 200',
+    ],
+    [
+      'rows_per_day',
+      "has taken 20'000 imported rows within the last 24 hours",
+      'rows can be imported again as the oldest of them pass 24 hours',
+    ],
+    [
+      'imports_kept',
+      "keeps at most 2'000 imports, and every one of them still holds",
+      'This does not free up with time',
+    ],
+    [null, 'has reached one of its import limits', 'Try again later with the same file'],
+  ])(
+    '[R-IMPORT-442] says which import limit was reached (%s), what to do and when it frees up; no undo hint',
+    async (limit, what, when) => {
       const db = categoriesDb()
       db.rpc.import_transactions.mockImplementation((args) => {
-        if (args.p_chunk === 2) rpcError('import_limit_reached')
+        if (args.p_chunk === 2)
+          rpcError('import_limit_reached', 'P0001', limit === null ? undefined : { limit })
         return (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
           ...plannedRow(row, index + 1),
           chunk: Number(args.p_chunk),
@@ -599,19 +617,19 @@ describe('[R-IMPORT-366] a run the database stops says why in its own words', ()
       await chooseCsv(text)
       await userEvent.click(screen.getByRole('button', { name: 'Check 600 rows' }))
       await userEvent.click(await importButtonReady())
-      expect(await screen.findByTestId('run-stopped')).toHaveTextContent(
-        'Part 2 was not imported: this budget has imported as much as it can for now.',
-      )
-      expect(
-        screen.getByText(/at most 20'000 rows and 50 imports within 24 hours/),
-      ).toBeInTheDocument()
+      const stopped = await screen.findByTestId('run-stopped')
+      expect(stopped).toHaveTextContent('Part 2 was not imported:')
+      expect(stopped).toHaveTextContent(what)
+      expect(stopped).toHaveTextContent(when)
+      expect(stopped).toHaveTextContent('Nothing of this part was written.')
+      expect(stopped).not.toHaveTextContent(/undo/i)
       expect(screen.getByText('The part before it is recorded.')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
       expect(screen.queryByText(/was refused/)).not.toBeInTheDocument()
       view.unmount()
       open(db)
       expect(await screen.findByTestId('pending-stopped-by')).toHaveTextContent(
-        'It stopped because this budget had imported as much as it can for now',
+        'It stopped at one of the budget’s import limits',
       )
     },
     MANY_ROWS_MS,

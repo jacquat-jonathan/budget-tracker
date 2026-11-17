@@ -245,6 +245,48 @@ describe('merchant rules [R-IMPORT-078]', () => {
     )
   })
 
+  it('[R-IMPORT-444] refuses a fragment over 100 characters at the field, and says the database’s invalid_fragment there', async () => {
+    const db = settingsDb()
+    open(db)
+    const rows = await screen.findAllByTestId('rule-row')
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Edit the rule coop' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit the rule' })
+    const field = within(dialog).getByLabelText('Merchant text')
+    await userEvent.clear(field)
+    // Pasted, not cut short silently: 1001 characters.
+    await userEvent.click(field)
+    await userEvent.paste('x'.repeat(1001))
+    expect(field).toHaveValue('x'.repeat(1001))
+    expect(within(dialog).getByTestId('fragment-error')).toHaveTextContent(
+      "At most 100 characters: this has 1'001.",
+    )
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    // 100 is taken by the field; the database's own refusal is said at the field too.
+    await userEvent.clear(field)
+    await userEvent.paste('y'.repeat(100))
+    expect(within(dialog).getByTestId('fragment-error')).toBeEmptyDOMElement()
+    db.rpc.update_merchant_rule.mockImplementationOnce(() => rpcError('invalid_fragment'))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(dialog).findByTestId('fragment-error')).toHaveTextContent(
+      'The budget does not take this text as a rule: it must have 1 to 100 characters once tidied',
+    )
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('the mock refuses a raw fragment over 1000 characters as the database does', () => {
+    const db = settingsDb()
+    expect(() =>
+      db.rpc.preview_merchant_rule({ p_budget_id: BUDGET_ID, p_fragment: 'x'.repeat(1001) }),
+    ).toThrow('invalid_fragment')
+    expect(() =>
+      db.rpc.preview_merchant_rule({ p_budget_id: 'another', p_fragment: 'x'.repeat(1001) }),
+    ).toThrow('budget_not_found')
+    expect(() =>
+      db.rpc.create_merchant_rule({ p_budget_id: BUDGET_ID, p_fragment: 'x'.repeat(1001) }),
+    ).toThrow('invalid_fragment')
+  })
+
   it('offers neither "to categorise" nor a group as a rule’s category', async () => {
     const db = settingsDb()
     db.tables.category_overview[0] = {

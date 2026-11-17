@@ -94,11 +94,15 @@ function BatchItem({ budgetId, batch }: { budgetId: string; batch: ImportBatch }
                 <ExternalText>{batch.token_name}</ExternalText>
                 {t('import.history.quote.close')}
               </>
-            ) : batch.created_by_name ? (
+            ) : batch.created_by === null ? (
+              // A token's batch whose token is gone: never "a former member".
+              t('import.history.byDeletedToken')
+            ) : batch.created_by_name !== null ? (
               <>
                 {t('import.history.by')} <ExternalText>{batch.created_by_name}</ExternalText>
               </>
             ) : (
+              // R-IMPORT-445: "a former member" only when the read names no one (R-IMPORT-422).
               t('import.history.byUnknown')
             )}
           </span>

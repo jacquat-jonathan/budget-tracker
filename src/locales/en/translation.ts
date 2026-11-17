@@ -246,7 +246,7 @@ const core = {
       interest_before_opening:
         'The period’s start cannot move onto or before the opening of a debt that has interest in that period: choose a later start.',
       import_limit_reached:
-        'This budget has imported as much as it can for now (20’000 rows or 50 imports within 24 hours, or 2’000 imports kept). Nothing of this part was written. Try again tomorrow, or undo an import you no longer need.',
+        'This budget has reached one of its import limits (200 new imports or 20’000 rows within 24 hours, or 2’000 imports kept). Nothing was written. The daily limits free up as the oldest use passes 24 hours.',
       chunk_expired:
         'That part was already recorded, but its answer is no longer kept: it is not imported again. See the import’s rows in the history instead.',
       token_busy:

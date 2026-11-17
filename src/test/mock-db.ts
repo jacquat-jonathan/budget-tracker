@@ -82,6 +82,8 @@ export interface MockDb {
   readFailures: Map<RelationName, MockError>
   /** preview_import_part's staged parts, by batch then part. */
   staged: Record<string, Record<number, ImportRowResult[]>>
+  /** import_transactions' recorded answers, by batch then chunk (a written part, D-522). */
+  written: Record<string, Record<number, ImportRowResult[]>>
   /** get_transfer_checklist's rows, every period's (the marks change them in place). */
   checklist: ChecklistRow[]
   /** The plans get_money_flow reads, one per period (moneyFlowRows builds its rows). */
@@ -234,6 +236,23 @@ export function stagedPart(
     parts,
     room,
     fits: toImport <= room,
+    written: false,
+  }
+}
+
+/**
+ * preview_import_part for a part whose chunk is written (D-522): what that chunk recorded, its
+ * totals, `written` true, `statement` and `parts` null (as the database answers), nothing staged.
+ */
+export function writtenPart(rows: ImportRowResult[], room: number) {
+  return {
+    rows,
+    part: partTotals(rows),
+    statement: null,
+    parts: null,
+    room,
+    fits: true,
+    written: true,
   }
 }
 
@@ -244,6 +263,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     rpc: {} as MockDb['rpc'],
     readFailures,
     staged: {},
+    written: {},
     checklist: [],
     moneyFlowPlans: [],
     failNextRead: (relation, error) => {
@@ -525,23 +545,90 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     // Step 6: import. The plan is the mock's simple default (plannedRow); tests of the
     // database's decisions give these their own answers.
     preview_import: handler((args) => rowsOf(args).map((row, index) => plannedRow(row, index + 1))),
-    import_transactions: handler((args) =>
-      rowsOf(args).map((row, index) => ({
+    // A chunk sent again answers what it answered the first time; writing a chunk removes the
+    // part staged for it (D-522).
+    import_transactions: handler((args) => {
+      const batch = String(args.p_batch_id)
+      const chunk = Number(args.p_chunk)
+      const before = db.written[batch]?.[chunk]
+      if (before) return before.map((row) => ({ ...row }))
+      const answer = rowsOf(args).map((row, index) => ({
         ...plannedRow(row, index + 1),
-        chunk: Number(args.p_chunk),
+        chunk,
         transaction_id: `imported-${String(args.p_chunk)}-${index + 1}`,
-      })),
-    ),
+      }))
+      db.written[batch] = { ...db.written[batch], [chunk]: answer }
+      db.staged[batch] = Object.fromEntries(
+        Object.entries(db.staged[batch] ?? {}).filter(([part]) => Number(part) !== chunk),
+      )
+      return answer
+    }),
     // A part's rows as preview_import plans them, with the totals of the part and of the parts
     // staged so far in this batch (kept per batch here, forgotten from a part previewed again).
-    preview_import_part: handler((args) =>
-      stagedPart(
+    preview_import_part: handler((args) => {
+      const written = db.written[String(args.p_batch_id)]?.[Number(args.p_part)]
+      if (written) return writtenPart(written, 50_000 - db.tables.transaction_list.length)
+      return stagedPart(
         db,
         args,
         rowsOf(args).map((row, index) => plannedRow(row, index + 1)),
-      ),
-    ),
-    import_skipped_anyway: handler(() => []),
+      )
+    }),
+    // As the database (D-523): the batch's skipped rows sent (or all, at most 500) that are
+    // still kept, not invalid and not imported are imported, in statement order, each planned
+    // again with its kind and category dropped, its original chunk and row number; the batch's
+    // counts move to the imported ones. Then each distinct id sent that is not a skipped row the
+    // batch keeps answers one row: action and reason 'not_kept', valid false, all else null.
+    import_skipped_anyway: handler((args) => {
+      const batch = db.tables.import_batch_list.find((row) => row.id === args.p_batch_id)
+      if (!batch) rpcError('import_batch_not_found')
+      if (batch.undone_at !== null) rpcError('batch_undone')
+      const ids = Array.isArray(args.p_skipped_row_ids)
+        ? [...new Set(args.p_skipped_row_ids as string[])]
+        : null
+      const kept = db.tables.import_skipped_rows
+        .filter((row) => row.batch_id === batch.id)
+        .sort((a, b) => a.chunk - b.chunk || a.row_no - b.row_no)
+      const counts: Record<string, keyof typeof batch> = {
+        duplicate: 'duplicate_count',
+        flagged: 'flagged_count',
+        matched: 'matched_count',
+        chosen: 'chosen_skip_count',
+      }
+      const imported = kept
+        .filter((row) => ids === null || ids.includes(row.id))
+        .filter((row) => row.reason !== 'invalid' && row.imported_transaction_id === null)
+        .slice(0, 500)
+        .map((row) => {
+          row.imported_transaction_id = `tx-${row.id}`
+          const count = counts[row.reason]
+          if (count) (batch[count] as number) -= 1
+          batch.imported_count += 1
+          batch.to_review_count = (batch.to_review_count ?? 0) + 1
+          // Its kind from its direction, into "to categorise" (the real call names that
+          // category's id; the mock has none), with the transaction it made.
+          return {
+            ...plannedRow(row.row_data as Record<string, unknown>, row.row_no),
+            category_id: null,
+            category_source: 'to_categorise',
+            match_is_charge: null,
+            chunk: row.chunk,
+            transaction_id: row.imported_transaction_id,
+          }
+        })
+      const keptIds = new Set(kept.map((row) => row.id))
+      const notKept = (ids ?? [])
+        .filter((id) => !keptIds.has(id))
+        .map(() => ({
+          ...Object.fromEntries(
+            Object.keys(plannedRow({ date: '', amount: 0 }, 0)).map((key) => [key, null]),
+          ),
+          action: 'not_kept',
+          reason: 'not_kept',
+          valid: false,
+        }))
+      return [...imported, ...notKept]
+    }),
     import_with_token: handler(() => rpcError('not_mocked')),
     confirm_import: handler((args) => {
       const row = db.tables.transaction_list.find((item) => item.id === args.p_transaction_id)
@@ -606,10 +693,14 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     }),
     // The fragment as stored (lower case, trimmed), the rule the import would pick for it (the
     // longest fragment it contains) and how many waiting in "to categorise" it would move.
+    // As the database: membership first, then the raw length (over 1000: invalid_fragment before
+    // any work, R-IMPORT-421), then the fragment as stored (1 to 100 characters).
     preview_merchant_rule: handler((args) => {
-      const fragment = (typeof args.p_fragment === 'string' ? args.p_fragment : '')
-        .toLowerCase()
-        .trim()
+      if (!db.tables.my_budgets.some((budget) => budget.id === args.p_budget_id))
+        rpcError('budget_not_found')
+      const raw = typeof args.p_fragment === 'string' ? args.p_fragment : ''
+      if (raw.length > 1000) rpcError('invalid_fragment')
+      const fragment = raw.toLowerCase().trim()
       if (fragment === '' || fragment.length > 100) rpcError('invalid_fragment')
       const rules = db.tables.merchant_rule_list.filter(
         (rule) => rule.budget_id === args.p_budget_id,
@@ -650,10 +741,20 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     ]),
     revoke_import_token: handler(() => null),
     delete_import_token: handler(() => null),
-    create_merchant_rule: handler((args) => [
-      { rule_id: 'new-rule-id', fragment: String(args.p_fragment), revision: 1, moved: 0 },
-    ]),
+    create_merchant_rule: handler((args) => {
+      const fragment = String(args.p_fragment)
+      if (fragment.length > 1000 || fragment.trim() === '' || fragment.trim().length > 100)
+        rpcError('invalid_fragment')
+      return [
+        { rule_id: 'new-rule-id', fragment: fragment.toLowerCase().trim(), revision: 1, moved: 0 },
+      ]
+    }),
     update_merchant_rule: handler((args) => {
+      if (typeof args.p_fragment === 'string') {
+        const fragment = args.p_fragment
+        if (fragment.length > 1000 || fragment.trim() === '' || fragment.trim().length > 100)
+          rpcError('invalid_fragment')
+      }
       const rule = db.tables.merchant_rule_list.find((row) => row.id === args.p_rule_id)
       if (!rule) rpcError('merchant_rule_not_found')
       if (rule.revision !== args.p_expected_revision) rpcError('record_changed')

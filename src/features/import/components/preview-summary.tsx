@@ -36,14 +36,9 @@ export function PreviewSummary({
   const statement = totals?.statement
   const allRecorded = recordedParts >= parts
   const checkingPart = preview.progress.done + recordedParts + 1
-  // The check of the recorded parts made before the interruption may still be kept (a day):
-  // the totals then cover them too, as they were checked with the rows that were sent.
-  const covered = new Set(totals?.parts ?? [])
-  const recordedCounted =
-    recordedParts > 0 &&
-    Array.from({ length: recordedParts }, (_, index) => index + 1).every((part) =>
-      covered.has(part),
-    )
+  // D-522: a part once written is no longer staged, so the totals never cover the parts
+  // recorded before the interruption, nor those found written meanwhile.
+  const writtenNow = preview.written.filter((part) => !preview.expired.includes(part))
   return (
     <div
       className="flex flex-col gap-2"
@@ -108,12 +103,7 @@ export function PreviewSummary({
               {t('import.preview.summary.room', { count: totals.room })}
             </p>
           )}
-          {recordedParts > 0 && recordedCounted && (
-            <p className="text-sm text-muted-foreground" data-testid="preview-recorded-note">
-              {t('import.preview.summary.recordedIncluded', { count: recordedParts })}
-            </p>
-          )}
-          {recordedParts > 0 && !recordedCounted && (
+          {recordedParts > 0 && (
             <p className="text-sm text-muted-foreground" data-testid="preview-recorded-note">
               {t('import.preview.summary.recordedNote', {
                 range:
@@ -121,6 +111,22 @@ export function PreviewSummary({
                     ? t('import.preview.summary.onePart', { part: parts })
                     : t('import.preview.summary.partRange', { from: recordedParts + 1, to: parts }),
                 count: recordedParts,
+              })}
+            </p>
+          )}
+          {writtenNow.length > 0 && (
+            <p className="text-sm text-muted-foreground" data-testid="preview-written-note">
+              {t('import.preview.summary.writtenMeanwhile', {
+                count: writtenNow.length,
+                parts: writtenNow.join(', '),
+              })}
+            </p>
+          )}
+          {preview.expired.length > 0 && (
+            <p className="text-sm text-muted-foreground" data-testid="preview-expired-note">
+              {t('import.preview.summary.expiredMeanwhile', {
+                count: preview.expired.length,
+                parts: preview.expired.join(', '),
               })}
             </p>
           )}

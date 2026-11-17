@@ -7,7 +7,7 @@ import { toImportBatch } from '@/features/import/statements/import-rows'
 import type { StatementReadResult } from '@/features/import/statements/types'
 import type { Tables } from '@/lib/database.types'
 import { BUDGET_ID, categoriesDb, transactionRow } from '@/test/budget-fixtures'
-import { plannedRow, rpcError, stagedPart, type MockDb } from '@/test/mock-db'
+import { plannedRow, rpcError, stagedPart, writtenPart, type MockDb } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { FIXTURE_NAMES, loadFixture, type FixtureName } from '@/test/statement-fixtures'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
@@ -310,6 +310,69 @@ describe('a large import in parts [R-IMPORT-208] [R-IMPORT-322]', () => {
     WHOLE_STATEMENT_MS,
   )
 
+  it(
+    '[R-IMPORT-441] a part found written meanwhile shows what it recorded and is not counted; an expired one has no rows',
+    async () => {
+      const db = categoriesDb()
+      const preview = db.rpc.preview_import_part.getMockImplementation()!
+      // Another device wrote part 1 meanwhile; part 2's answer was recorded long ago.
+      db.rpc.preview_import_part.mockImplementation((args) => {
+        if (args.p_part === 1) {
+          const rows = (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
+            ...plannedRow(row, index + 1),
+            chunk: 1,
+            transaction_id: `written-${index + 1}`,
+          }))
+          return writtenPart(rows, 40_000)
+        }
+        if (args.p_part === 2) rpcError('chunk_expired')
+        return preview(args)
+      })
+      open(db)
+      await chooseCsv(csvOf(1200))
+      await userEvent.click(screen.getByRole('button', { name: "Check 1'200 rows" }))
+      await importButtonReady()
+      // Each part asked once: the written one is not staged again and again.
+      expect(db.rpc.preview_import_part.mock.calls.map(([args]) => args.p_part)).toEqual([1, 2, 3])
+      expect(screen.getByTestId('preview-written-note')).toHaveTextContent(
+        'Part 1 was recorded meanwhile, by another device or tab',
+      )
+      expect(screen.getByTestId('preview-expired-note')).toHaveTextContent(
+        'Part 2 was recorded long ago and its answer is no longer kept',
+      )
+      // The counts are the staged part 3's only: 200 rows, not 1200.
+      expect(screen.getByTestId('count-import')).toHaveTextContent('200')
+      expect(screen.getByTestId('import-button')).toHaveTextContent('Import 200')
+    },
+    WHOLE_STATEMENT_MS,
+  )
+
+  it(
+    '[R-IMPORT-441] when the last part was written meanwhile, the totals are the staged parts’ before it',
+    async () => {
+      const db = categoriesDb()
+      const preview = db.rpc.preview_import_part.getMockImplementation()!
+      db.rpc.preview_import_part.mockImplementation((args) => {
+        if (args.p_part === 3) {
+          const rows = (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
+            ...plannedRow(row, index + 1),
+            chunk: 3,
+            transaction_id: `written-${index + 1}`,
+          }))
+          return writtenPart(rows, 40_000)
+        }
+        return preview(args)
+      })
+      open(db)
+      await chooseCsv(csvOf(1200))
+      await userEvent.click(screen.getByRole('button', { name: "Check 1'200 rows" }))
+      await importButtonReady()
+      expect(screen.getByTestId('count-import')).toHaveTextContent("1'000")
+      expect(screen.getByTestId('preview-written-note')).toHaveTextContent('Part 3 was recorded')
+    },
+    WHOLE_STATEMENT_MS,
+  )
+
   // Proven against the mock database only: the refusal was not reproduced in a browser (that
   // needs a budget filled to 50 000 transactions); the database's own tests cover the refusal.
   it('stops on the transaction limit, says how many would fit, and that nothing of that part was written', async () => {
@@ -446,34 +509,7 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
         action: ['import', 'skip_duplicate', 'skip_flagged', 'confirm_match'][index] ?? 'import',
       }))
     })
-    // Imported anyway: the rows say so, and the batch counts them to review.
-    db.rpc.import_skipped_anyway.mockImplementation((args) => {
-      const ids = args.p_skipped_row_ids as string[]
-      const batch = db.tables.import_batch_list[0]
-      const counts = {
-        duplicate: 'duplicate_count',
-        flagged: 'flagged_count',
-        matched: 'matched_count',
-        chosen: 'chosen_skip_count',
-      } as const
-      for (const row of db.tables.import_skipped_rows) {
-        if (!ids.includes(row.id)) continue
-        row.imported_transaction_id = `tx-${row.id}`
-        // The batch's counts move from the skip reason to the imported ones.
-        const count = (counts as Partial<Record<string, (typeof counts)[keyof typeof counts]>>)[
-          row.reason
-        ]
-        if (batch && count) {
-          batch[count] -= 1
-          batch.imported_count += 1
-        }
-      }
-      if (batch) batch.to_review_count = (batch.to_review_count ?? 0) + ids.length
-      return ids.map((_, index) => ({
-        ...plannedRow({ date: '2026-10-02', amount: 200, direction: 'debit' }, index + 2),
-        chunk: 1,
-      }))
-    })
+    // Imported anyway: the mock's import_skipped_anyway answers as the database does.
     db.rpc.undo_import_batch.mockImplementation(() => [
       { deleted: 4, kept_confirmed: 0, kept_linked: 0, charges_confirmed: 1 },
     ])
@@ -557,6 +593,25 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
     )
   })
 
+  it('[R-IMPORT-443] says how many of the rows sent could not be imported because they are no longer kept', async () => {
+    const db = afterDb()
+    open(db)
+    await chooseCsv(csvOf(4))
+    await userEvent.click(screen.getByRole('button', { name: 'Check 4 rows' }))
+    await userEvent.click(await importButtonReady())
+    await screen.findByTestId('skipped-rows')
+    await userEvent.click(screen.getByRole('button', { name: 'Import all skipped rows anyway' }))
+    const dialog = await screen.findByRole('alertdialog')
+    // Meanwhile the budget's oldest skipped row went (it keeps its newest 20 000).
+    db.tables.import_skipped_rows = db.tables.import_skipped_rows.filter(
+      (row) => row.id !== 'skipped-1',
+    )
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import 3 rows anyway' }))
+    expect(await screen.findByTestId('anyway-done')).toHaveTextContent(
+      '2 rows imported anyway; 1 more were no longer kept and could not be imported.',
+    )
+  })
+
   it('[R-IMPORT-363] follows what happens after it: counts after "import anyway", the undo’s numbers, the undo itself', async () => {
     const db = afterDb()
     open(db)
@@ -599,6 +654,62 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
     expect(result).not.toHaveTextContent('They count in your totals now')
     expect(screen.queryByRole('button', { name: /Import anyway/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Review the imported/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('the import history names who imported [R-IMPORT-445] [R-IMPORT-422]', () => {
+  it('“a former member” only when the read names no one; a token gone is never a former member', async () => {
+    const db = categoriesDb()
+    const batch = (
+      id: string,
+      createdAt: string,
+      fields: Partial<Tables<'import_batch_list'>>,
+    ): Tables<'import_batch_list'> => ({
+      id,
+      budget_id: BUDGET_ID,
+      source: 'csv',
+      statement_from: null,
+      statement_to: null,
+      created_by: 'user-1',
+      created_by_name: null,
+      token_id: null,
+      token_name: null,
+      created_at: createdAt,
+      chunk_count: 1,
+      row_count: 1,
+      imported_count: 1,
+      duplicate_count: 0,
+      flagged_count: 0,
+      matched_count: 0,
+      chosen_skip_count: 0,
+      invalid_count: 0,
+      charges_confirmed_count: 0,
+      to_review_count: 0,
+      undone_at: null,
+      undone_by: null,
+      ...fields,
+    })
+    db.tables.import_batch_list = [
+      batch('b-member', '2026-11-15T10:00:00+00:00', { created_by_name: 'Alex' }),
+      batch('b-former', '2026-11-14T10:00:00+00:00', { created_by_name: null }),
+      batch('b-token', '2026-11-13T10:00:00+00:00', {
+        created_by: null,
+        token_id: 'tok-1',
+        token_name: 'Laptop',
+      }),
+      batch('b-token-gone', '2026-11-12T10:00:00+00:00', { created_by: null }),
+      // An empty name is a name (the read gives null for a former member, nothing else).
+      batch('b-empty', '2026-11-11T10:00:00+00:00', { created_by_name: '' }),
+    ]
+    open(db)
+    const rows = await screen.findAllByTestId('import-batch')
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining('By Alex'),
+      expect.stringContaining('By a former member'),
+      expect.stringContaining('By the token “Laptop”'),
+      expect.stringContaining('By an import token, since deleted'),
+      expect.not.stringContaining('former member'),
+    ])
   })
 })
 

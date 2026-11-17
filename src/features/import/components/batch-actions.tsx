@@ -137,13 +137,14 @@ export function SkippedRows({
     [skipped.data],
   )
   const existing = useExistingTransactions(budgetId, matchIds)
-  const [done, setDone] = useState<{ count: number; sent: number } | null>(null)
+  const [done, setDone] = useState<{ count: number; notKept: number } | null>(null)
   const [asking, setAsking] = useState<{ ids: string[] | 'all' } | null>(null)
   const focusAfter = useRef<string | null>(null)
-  const anyway = useAppMutation<{ count: number; sent: number }, string[]>({
+  const anyway = useAppMutation<{ count: number; notKept: number }, string[]>({
     errorDisplay: 'inline',
     mutationFn: async (ids) => {
       let count = 0
+      let notKept = 0
       for (let start = 0; start < ids.length; start += ANYWAY_CALL) {
         const rows = unwrap(
           await supabase.rpc('import_skipped_anyway', {
@@ -152,8 +153,11 @@ export function SkippedRows({
           }),
         )
         count += rows.filter((row) => row.action === 'import').length
+        // R-IMPORT-443: each id no longer kept answers a row of its own (D-523): said as such,
+        // never guessed from how many rows came back.
+        notKept += rows.filter((row) => row.action === 'not_kept').length
       }
-      return { count, sent: ids.length }
+      return { count, notKept }
     },
     onSuccess: (answer) => {
       setDone(answer)
@@ -247,10 +251,10 @@ export function SkippedRows({
       </div>
       {done !== null && (
         <p role="status" className="text-sm" data-testid="anyway-done">
-          {done.count < done.sent
+          {done.notKept > 0
             ? t('import.skipped.importedAnywayFewer', {
                 count: done.count,
-                missing: done.sent - done.count,
+                missing: done.notKept,
               })
             : t('import.skipped.importedAnywayDone', { count: done.count })}
         </p>

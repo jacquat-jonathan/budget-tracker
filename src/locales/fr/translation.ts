@@ -253,7 +253,7 @@ const core: Omit<Translation, LazyKey> = {
       interest_before_opening:
         'Le début de la période ne peut pas être placé à l’ouverture ou avant l’ouverture d’une dette qui a des intérêts dans cette période : choisissez un début plus tardif.',
       import_limit_reached:
-        'Ce budget a importé autant qu’il le peut pour l’instant (20’000 lignes ou 50 importations en 24 heures, ou 2’000 importations conservées). Rien de cette partie n’a été écrit. Réessayez demain, ou annulez une importation dont vous n’avez plus besoin.',
+        'Ce budget a atteint une de ses limites d’importation (200 nouvelles importations ou 20’000 lignes en 24 heures, ou 2’000 importations conservées). Rien n’a été écrit. Les limites journalières se libèrent à mesure que l’utilisation la plus ancienne dépasse 24 heures.',
       chunk_expired:
         'Cette partie a déjà été enregistrée, mais sa réponse n’est plus conservée : elle n’est pas importée à nouveau. Consultez les lignes de l’importation dans l’historique.',
       token_busy:
