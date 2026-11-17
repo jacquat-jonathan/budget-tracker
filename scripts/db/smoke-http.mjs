@@ -676,7 +676,11 @@ const tokenTooMany = await rpc(null, 'import_with_token', {
   p_token: tokenMade.body[0].token,
   p_batch_id: crypto.randomUUID(),
   p_chunk: 1,
-  p_rows: Array.from({ length: 251 }, (_, i) => ({ date: today, amount: 1 + i, direction: 'debit' })),
+  p_rows: Array.from({ length: 251 }, (_, i) => ({
+    date: today,
+    amount: 1 + i,
+    direction: 'debit',
+  })),
 })
 check(
   ok(tokenTooMany) && tokenTooMany.body[0]?.error === 'invalid_rows',
@@ -769,6 +773,8 @@ const transferArgs = {
   p_offset_days: 0,
   p_is_automatic: true,
   p_category_id: food.body[0].id,
+  // the whole current period, its payday included (with no period, nothing before today: D-493)
+  p_from_period_id: periods.at(-1).id,
 }
 const transferPreview = await rpc(alice, 'preview_create_transfer', { ...transferArgs, p_count: 3 })
 const transfer = await rpc(alice, 'create_transfer', { ...transferArgs, p_name: 'To savings' })
