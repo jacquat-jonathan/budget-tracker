@@ -302,7 +302,7 @@ describe('the preview, the run and a busy budget [R-IMPORT-321] [R-IMPORT-322] [
     expect(screen.getByTestId('count-import')).toHaveTextContent('700 to import')
   })
 
-  it('[R-IMPORT-340] says when the rows to import do not fit, and offers no import', async () => {
+  it('[R-IMPORT-370] says when the rows to import do not fit, and offers no import', async () => {
     const db = categoriesDb()
     db.rpc.preview_import_part.mockImplementation((args) =>
       stagedPart(

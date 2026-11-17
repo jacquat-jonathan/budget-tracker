@@ -6956,7 +6956,7 @@
       "feature": "F-IMPORT",
       "status": "active",
       "enforcement": "test",
-      "related": ["R-IMPORT-252", "D-442"],
+      "related": ["R-IMPORT-252", "D-442", "D-478"],
       "source": [
         "owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16",
         "code: src/features/import/use-import.ts"
@@ -7858,27 +7858,29 @@
     {
       "id": "R-IMPORT-361",
       "area": "import",
-      "statement": "The preview asks at most two parts at once and asks nothing once the import has started, nor after it; an answer the database gave up on (statement timeout, PostgreSQL 57014) is said as \"busy\", never as a refusal, and asked or sent again with the same batch, part and rows.",
+      "statement": "The preview asks one part at a time, in order (part n once part n - 1 has answered), with preview_import_part under the import's batch; a choice changed in a part asks that part and the ones after it again, never those before; a part the database no longer holds (kept a day, at most 100 a budget) is staged again from there; nothing is asked once the import has started, nor after it; an answer the database gave up on (statement timeout, PostgreSQL 57014) is said as \"busy\", never as a refusal, and asked or sent again with the same batch, part and rows.",
       "feature": "F-IMPORT",
       "status": "active",
       "enforcement": "test",
-      "related": ["R-IMPORT-321", "R-IMPORT-322", "D-473"],
+      "related": ["R-IMPORT-321", "R-IMPORT-322", "D-473", "D-455", "D-478"],
       "source": [
         "owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16",
-        "owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16"
+        "owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16",
+        "owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"
       ]
     },
     {
       "id": "R-IMPORT-362",
       "area": "import",
-      "statement": "When an interrupted import is resumed, the rows of the parts it had recorded are shown as recorded and cannot be changed, and their part is sent again unchanged; the note about rows that turned out differently names every possible cause and points to the list below only for rows that are in it.",
+      "statement": "When an interrupted import is resumed, the rows of the parts it had recorded are shown as recorded and cannot be changed, are not previewed again (the preview starts at the first part not recorded, and its totals say which parts they cover), and their part is sent again unchanged; the note about rows that turned out differently names every possible cause and points to the list below only for rows that are in it.",
       "feature": "F-IMPORT",
       "status": "active",
       "enforcement": "test",
-      "related": ["R-IMPORT-323", "D-443"],
+      "related": ["R-IMPORT-323", "D-443", "D-479"],
       "source": [
         "owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16",
-        "owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16"
+        "owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16",
+        "owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"
       ]
     },
     {
@@ -7919,6 +7921,66 @@
         "owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16",
         "owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16"
       ]
+    },
+    {
+      "id": "R-IMPORT-366",
+      "area": "import",
+      "statement": "An import the database stops with import_limit_reached or chunk_expired says so in its own words, never as a refusal of a part: what the limit is or that the part was recorded long ago and is not imported again, what is recorded, and what the member can do (try again later; send the parts after the expired one, whose rows are then not counted in the result); the start page says it again when the import is resumed.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-341", "D-452", "D-482"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "R-IMPORT-367",
+      "area": "import",
+      "statement": "A preview row says \"Last time you chose\" only for a choice the budget remembers (remembered_choice with its choice_key), never for a default; Settings lists the remembered choices with when they were made (an own transfer without description in words, never its key) and lets a member forget one after a confirmation that says what the next import does instead, the focus then on the card.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-345", "R-IMPORT-346", "D-456", "D-458", "D-483"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "R-IMPORT-368",
+      "area": "import",
+      "statement": "When a batch counts more skipped rows than are still listed (a budget keeps its newest 20 000), the list of skipped rows and the question before importing all of them anyway say how many older ones can no longer be listed or imported anyway; an import anyway that imports fewer rows than were sent says how many were no longer kept.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-341", "R-IMPORT-360", "D-484"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "R-IMPORT-369",
+      "area": "import",
+      "statement": "When the session ends or the member loses the budget while an import was being sent from this device, the screen that follows says what was recorded is kept, and whether it can be finished: after signing in, by opening the same file; for a budget no longer theirs, not from this device.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-323", "R-BUDGET-055", "D-486"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "R-IMPORT-370",
+      "area": "import",
+      "statement": "Before importing, the preview shows the whole statement's totals as the database gives them (rows per action; the rows to import by kind, count and sum) and the room left; when the rows to import do not fit, it says how many are set to import and how many the budget can take, and offers no import.",
+      "feature": "F-IMPORT",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-IMPORT-340", "D-455", "D-480"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "R-COMPARE-366",
+      "area": "compare",
+      "statement": "A comparison chart that scrolls scales its value axis to the periods in view, again whenever it is scrolled, and keeps its first and last period labels inside the chart when a period is narrower than a label.",
+      "feature": "F-COMPARE",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-COMPARE-282", "D-485"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
     }
   ],
   "decisions": [
@@ -12006,12 +12068,13 @@
       "decision": "The preview of a part waits for a free place among two; a part asked again meanwhile drops its waiting call. Once the import starts, no part is previewed (the queries are disabled, so the invalidation after the run reads nothing again). A statement timeout (57014, HTTP 500) is \"busy\" (errors.busy): the preview asks again up to three times, one, two and three seconds apart, then says so with \"Check again\"; the run sends the same part again after the same waits, says \"the budget was busy: part n was sent again\", and after three stops with \"Continue in a moment\", which resends the same batch.",
       "why": "Review S-8: ten previews at once for 5 000 rows, every part previewed again after the run, and timeouts shown as \"refused\".",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["R-IMPORT-321", "R-IMPORT-322", "R-IMPORT-361"],
       "source": [
         "owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16",
         "owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16"
-      ]
+      ],
+      "supersededBy": "D-478"
     },
     {
       "id": "D-474",
@@ -12064,6 +12127,108 @@
         "owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16",
         "owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16"
       ]
+    },
+    {
+      "id": "D-478",
+      "title": "The preview asks the parts in order, one at a time (revises D-473)",
+      "decision": "useImportPreview asks preview_import_part for part n once part n - 1 has answered, under the batch the import will use, never two at once; an answer is current while its part's rows are the ones now chosen and it was asked after the current answer of the part before. A choice changed in part k asks k to the last again (debounced 400 ms); answers for earlier choices stay on screen marked as being checked. The answer's `parts` must cover the parts asked: a part the database no longer holds (a day old, or pushed out of the 100 a budget keeps by another statement's check) is staged again from there, at most three times, then the page says the checks were not kept, with \"Check again\". A statement timeout or a lost answer is asked again three times, one, two and three seconds apart, then said with \"Check again\"; catching_up catches the budget up and asks again. Nothing is asked once the import has started (the run's answers are the truth). The run keeps D-473's busy and lost-answer resends. Files above 100 parts of 500 never reach the preview (D-471).",
+      "why": "D-455 and Q-270/Q-274: the database now previews a statement as its write will do it, which only holds if the parts are asked in order; two parts at once would each miss what the other absorbs.",
+      "rejected": [
+        "Keep two previews at once: the second part would not take the first one's absorptions into account."
+      ],
+      "status": "accepted",
+      "related": ["R-IMPORT-361", "R-IMPORT-340", "D-455", "D-473"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-479",
+      "title": "A resumed import previews only the parts it did not record",
+      "decision": "Resuming an interrupted import (D-443), the parts it recorded are not previewed: preview_import_part would plan them as new rows against what their own write absorbed, and a recorded part answers what it recorded whatever is sent. The preview starts at the first part not recorded; their rows are shown as recorded and locked (R-IMPORT-362). The totals cover the parts the answer lists: when the check made before the interruption is still kept (a day), they include the recorded parts as checked then, and say so; otherwise they are those of the parts still to send, and say which.",
+      "why": "The database knows the written chunks for absorption but does not answer a written part with its record in the preview (Q-290).",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-362", "D-443", "D-455", "Q-290"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-480",
+      "title": "A statement that does not fit is not offered",
+      "decision": "When preview_import_part answers fits false for the whole statement, the page says how many rows are set to import and how many transactions the budget can take, and the Import button is disabled (\"Too many rows for the room left\") until rows are skipped or room is made. While it fits, the room left is said under the totals.",
+      "why": "The write would stop at the part that no longer fits, with earlier parts already written: better said before anything is sent.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-370", "D-455"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-481",
+      "title": "A \"to categorise\" category the import will make",
+      "decision": "A row going to a \"to categorise\" category that does not exist yet (category_source to_categorise, category_id null in the preview, D-455's exception) reads \"To categorise (made by this import)\"; the write's new id is no difference from the preview (only the action is compared).",
+      "why": "The documented exception should read naturally, not as a missing category.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-340", "D-447"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-482",
+      "title": "Run stops of their own: the import limit and a forgotten answer",
+      "decision": "import_limit_reached stops the run with what the limit is (20 000 rows and 50 imports within 24 hours, 2 000 imports kept), that nothing of that part was written and the parts before it are recorded, and \"Try again\"; chunk_expired stops it saying the part was recorded long ago, is not imported again and that its rows are in the history, with \"Send the parts after part n\", after which an expired part answers no rows and the result says its rows are not counted. The device note of the interrupted import records which of the two stopped it, and the start page says it. token_busy, imports_busy, budget_busy and call_cancelled have words in both languages (src/lib/db-errors.ts); they reach only the import script.",
+      "why": "Review round 2 brief: \"Part n was refused: …\" is the wrong frame for a limit or an expired answer.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-366", "D-452", "D-443"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-483",
+      "title": "Forgetting a remembered choice in Settings",
+      "decision": "Each remembered choice has \"Forget\" (named with its entry); a confirmation says that the next import of the entry applies the default again (skip for a card bill payment, an own transfer and a salary; import for a transfer to a person) and that rows already imported or skipped stay; on success a toast says so and the focus goes to the card's heading (the row is gone). The key own_transfer is said as \"a transfer between your own accounts without a description\". The preview says \"Last time you chose\" only with remembered_choice and choice_key.",
+      "why": "D-456, D-458: only members' choices are remembered, and one can be forgotten.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-367", "D-456", "D-458"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-484",
+      "title": "Skipped rows no longer kept are counted from the batch",
+      "decision": "Once every page of a batch's skipped rows is read, the batch's counts of rows still skipped (duplicate, flagged, matched, chosen, invalid: get_import_batch) minus the rows listed and not imported anyway is how many older skipped rows the budget no longer keeps; the list and the \"import all anyway\" question say so. An import anyway that answers fewer rows than were sent says how many were no longer kept.",
+      "why": "The budget keeps its newest 20 000 skipped rows (D-452); the batch's counts stay.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-368", "D-452", "D-474"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-485",
+      "title": "The comparison value axis follows the periods in view",
+      "decision": "ChartFrame computes the value axis for the periods in view (from the scroll position, by whole periods) and the charts are drawn on it (allowDataOverflow, so periods out of view may leave the plot); the first and the last period labels are anchored at the chart's edge when a period is narrower than a label (38 px).",
+      "why": "Review: at 320 px on \"Last 24\" the last label was clipped and the axis was scaled to periods out of view.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-COMPARE-366", "R-COMPARE-282"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-486",
+      "title": "An import cut by the end of the session or the loss of the budget",
+      "decision": "The sign-in page says, when this device holds a note of an interrupted import, that what it recorded is kept and that opening the same file after signing in finishes it; the notice of a lost budget (R-BUDGET-055) says how many parts of an import under way there were recorded, that they stay in that budget for its members and that it cannot be continued from here.",
+      "why": "Review: after the session ended or the member was removed, nothing was said about the import.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-IMPORT-369", "R-IMPORT-323", "R-BUDGET-055"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "D-487",
+      "title": "Times, quotes and date-format names in the import screens",
+      "decision": "The history, token rows, remembered choices and the interrupted-import note show the local date and time (dd.mm.yyyy, hh:mm, formatTimestampWithTime); the quotes around a token's name and a remembered entry come from the strings (“…” in English, « … » in French); the CSV date-format choices are named per language (DD.MM.YYYY, JJ.MM.AAAA).",
+      "why": "Review cheap list.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["R-I18N-001"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
     }
   ],
   "conventions": [
@@ -13301,6 +13466,22 @@
         "code: supabase/migrations/20261117100000_subscriptions_debts.sql"
       ],
       "resolvedBy": "D-467"
+    },
+    {
+      "id": "Q-290",
+      "question": "Should preview_import_part answer a part already written in its batch with what it recorded (or refuse it), and leave staged parts of a written chunk out of `statement`?",
+      "context": "It plans a written part as new rows against everything the batch absorbed, its own write included, so its answer is wrong; and a part staged before it was written still counts in `statement` for a day. The screens therefore never preview a recorded part (D-479) and say which parts the totals cover.",
+      "status": "open",
+      "related": ["D-455", "D-479", "R-IMPORT-362"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "Q-291",
+      "question": "What does import_skipped_anyway answer for ids of skipped rows that are no longer kept?",
+      "context": "The contract says older skipped rows cannot be imported anyway, not whether the call skips such ids silently, answers fewer rows, or refuses. The screens send only listed ids and say so when fewer rows come back (D-484).",
+      "status": "open",
+      "related": ["D-452", "D-484", "R-IMPORT-368"],
+      "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
     }
   ]
 }

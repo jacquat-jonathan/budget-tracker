@@ -62,6 +62,7 @@ export function ChartFrame({
   const [start, setStart] = useState<number | null>(null)
   const from = scrolls ? Math.min(count - visible, Math.max(0, start ?? count - visible)) : 0
   const to = scrolls ? from + visible : count
+  // R-COMPARE-366: the value axis follows the periods in view.
   const axis = useMemo(() => axisFor(from, to), [axisFor, from, to])
   useLayoutEffect(() => {
     // Opens on the newest periods, on a period's edge: no period is ever cut.

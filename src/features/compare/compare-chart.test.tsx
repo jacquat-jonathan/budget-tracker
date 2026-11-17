@@ -122,7 +122,7 @@ describe('a chart wider than its frame [R-COMPARE-282]', () => {
     expect(screen.queryByTestId('chart-scrolls')).not.toBeInTheDocument()
   })
 
-  it('scales the value axis to the periods in view, and again when scrolled', () => {
+  it('[R-COMPARE-366] scales the value axis to the periods in view, and again when scrolled', () => {
     width = 250
     // The axis goes up to the last period in view (each period's index in thousands).
     const axisFor = vi.fn((_from: number, to: number) => ({
@@ -145,7 +145,7 @@ describe('a chart wider than its frame [R-COMPARE-282]', () => {
     expect(screen.getByTestId('value-axis')).toHaveTextContent("CHF010'000")
   })
 
-  it('keeps the first and the last period label inside the chart when a period is narrower than a label', () => {
+  it('[R-COMPARE-366] keeps the first and the last period label inside the chart when a period is narrower than a label', () => {
     const labels = new Map([
       ['a', { dayMonth: '25.09.', year: null }],
       ['b', { dayMonth: '25.10.', year: null }],

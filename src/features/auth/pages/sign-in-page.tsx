@@ -21,7 +21,7 @@ export function SignInPage() {
   const { t } = useTranslation()
   const location = useLocation()
   const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
-  // An import was being sent when the session ended: what it recorded is kept.
+  // R-IMPORT-369: an import was being sent when the session ended; what it recorded is kept.
   const [interrupted] = useState(hasAnyPendingImport)
 
   const form = useForm<SignInValues>({

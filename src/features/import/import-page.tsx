@@ -397,6 +397,7 @@ function ImportFlow({
   // Every part was recorded before the interruption: nothing to preview, the run finishes it.
   const allRecorded = stage.recordedParts >= parts
   const toImport = totals ? totals.statement.import + totals.statement.confirm_match : 0
+  // R-IMPORT-370: rows that do not fit the room left are not offered for import.
   const canImport =
     preview.current && (allRecorded || (totals !== null && totals.fits && toImport > 0))
   // The answers of the preview as they were when the import started, to compare afterwards.

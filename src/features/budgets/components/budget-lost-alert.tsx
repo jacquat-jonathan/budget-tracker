@@ -14,7 +14,7 @@ export function BudgetLostAlert() {
   const { t } = useTranslation()
   const { lostBudget, dismissLostBudget } = useBudgets()
   if (!lostBudget) return null
-  // An import into it was under way on this device: what it recorded stays there.
+  // R-IMPORT-369: an import into it was under way on this device: what it recorded stays there.
   const pending = readPendingImport(lostBudget.id)
   return (
     <Alert data-testid="budget-lost" role="alert">

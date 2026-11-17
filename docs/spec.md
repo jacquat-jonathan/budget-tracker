@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-541 rules (532 active, 0 planned), 24 conventions, 309 decisions, 42 open questions. 0 rules and conventions are marked **TEST PENDING**.
+547 rules (538 active, 0 planned), 24 conventions, 319 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1850,6 +1850,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: R-COMPARE-071
   - Source: owner-request: coordinator, independent review of the step 4 and step 5 screens at a24615e, 2026-11-16; code: src/features/compare/components/trend-view.tsx
+- **R-COMPARE-366** A comparison chart that scrolls scales its value axis to the periods in view, again whenever it is scrolled, and keeps its first and last period labels inside the chart when a period is narrower than a label.
+  _active · enforced by test · F-COMPARE_
+  - Related: R-COMPARE-282, D-485
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
 
 ### Import
 
@@ -2157,7 +2161,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/statement-words.ts
 - **R-IMPORT-321** The preview is asked under the batch id the import will use, with exactly the rows it will send; a changed choice is asked again (debounced), the rows whose answer is on its way are marked as being checked and never shown as current, and the import is offered only once every part has a current answer; the summary counts the rows the database answered, and no amount is added up in the client.
   _active · enforced by test · F-IMPORT_
-  - Related: R-IMPORT-252, D-442
+  - Related: R-IMPORT-252, D-442, D-478
   - Source: owner-request: coordinator brief for the step 6 screens (part B, import), 2026-11-16; code: src/features/import/use-import.ts
 - **R-IMPORT-322** The import sends its parts in order under one batch id; a part whose answer is lost is sent again with the same number and the same rows; a budget that must catch up first is caught up and the part sent again; the transaction limit stops the import and says how many rows would fit and that nothing of that part was written.
   _active · enforced by test · F-IMPORT_
@@ -2223,14 +2227,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-204, D-474
   - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
-- **R-IMPORT-361** The preview asks at most two parts at once and asks nothing once the import has started, nor after it; an answer the database gave up on (statement timeout, PostgreSQL 57014) is said as "busy", never as a refusal, and asked or sent again with the same batch, part and rows.
+- **R-IMPORT-361** The preview asks one part at a time, in order (part n once part n - 1 has answered), with preview_import_part under the import's batch; a choice changed in a part asks that part and the ones after it again, never those before; a part the database no longer holds (kept a day, at most 100 a budget) is staged again from there; nothing is asked once the import has started, nor after it; an answer the database gave up on (statement timeout, PostgreSQL 57014) is said as "busy", never as a refusal, and asked or sent again with the same batch, part and rows.
   _active · enforced by test · F-IMPORT_
-  - Related: R-IMPORT-321, R-IMPORT-322, D-473
-  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
-- **R-IMPORT-362** When an interrupted import is resumed, the rows of the parts it had recorded are shown as recorded and cannot be changed, and their part is sent again unchanged; the note about rows that turned out differently names every possible cause and points to the list below only for rows that are in it.
+  - Related: R-IMPORT-321, R-IMPORT-322, D-473, D-455, D-478
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16; owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-IMPORT-362** When an interrupted import is resumed, the rows of the parts it had recorded are shown as recorded and cannot be changed, are not previewed again (the preview starts at the first part not recorded, and its totals say which parts they cover), and their part is sent again unchanged; the note about rows that turned out differently names every possible cause and points to the list below only for rows that are in it.
   _active · enforced by test · F-IMPORT_
-  - Related: R-IMPORT-323, D-443
-  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+  - Related: R-IMPORT-323, D-443, D-479
+  - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16; owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
 - **R-IMPORT-363** The result of an import follows what happens after it: rows imported anyway are added to its count, the undo question gives the batch’s own number still to review, and after an undo the result says the import was undone.
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-204, R-IMPORT-206
@@ -2243,6 +2247,26 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-007, R-IMPORT-209, D-476
   - Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+- **R-IMPORT-366** An import the database stops with import_limit_reached or chunk_expired says so in its own words, never as a refusal of a part: what the limit is or that the part was recorded long ago and is not imported again, what is recorded, and what the member can do (try again later; send the parts after the expired one, whose rows are then not counted in the result); the start page says it again when the import is resumed.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-341, D-452, D-482
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-IMPORT-367** A preview row says "Last time you chose" only for a choice the budget remembers (remembered_choice with its choice_key), never for a default; Settings lists the remembered choices with when they were made (an own transfer without description in words, never its key) and lets a member forget one after a confirmation that says what the next import does instead, the focus then on the card.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-345, R-IMPORT-346, D-456, D-458, D-483
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-IMPORT-368** When a batch counts more skipped rows than are still listed (a budget keeps its newest 20 000), the list of skipped rows and the question before importing all of them anyway say how many older ones can no longer be listed or imported anyway; an import anyway that imports fewer rows than were sent says how many were no longer kept.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-341, R-IMPORT-360, D-484
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-IMPORT-369** When the session ends or the member loses the budget while an import was being sent from this device, the screen that follows says what was recorded is kept, and whether it can be finished: after signing in, by opening the same file; for a budget no longer theirs, not from this device.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-323, R-BUDGET-055, D-486
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-IMPORT-370** Before importing, the preview shows the whole statement's totals as the database gives them (rows per action; the rows to import by kind, count and sum) and the room left; when the rows to import do not fit, it says how many are set to import and how many the budget can take, and offers no import.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-340, D-455, D-480
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
 
 ### Accounts and planned transfers (money flow)
 
@@ -6542,7 +6566,7 @@ Related: R-IMPORT-326, D-446
 
 Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
 
-### D-473 Preview calls are limited, paused for the run, and a busy budget is not a refusal (accepted)
+### D-473 Preview calls are limited, paused for the run, and a busy budget is not a refusal (superseded by D-478)
 
 The preview of a part waits for a free place among two; a part asked again meanwhile drops its waiting call. Once the import starts, no part is previewed (the queries are disabled, so the invalidation after the run reads nothing again). A statement timeout (57014, HTTP 500) is "busy" (errors.busy): the preview asks again up to three times, one, two and three seconds apart, then says so with "Check again"; the run sends the same part again after the same waits, says "the budget was busy: part n was sent again", and after three stops with "Continue in a moment", which resends the same batch.
 
@@ -6601,6 +6625,128 @@ src/test/setup.ts loads every string group before a file's tests unless the file
 Related: D-448
 
 Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-11-16; owner-request: review of the step 6 screens (M-1, S-1 to S-13), 2026-11-16
+
+### D-478 The preview asks the parts in order, one at a time (revises D-473) (accepted)
+
+useImportPreview asks preview_import_part for part n once part n - 1 has answered, under the batch the import will use, never two at once; an answer is current while its part's rows are the ones now chosen and it was asked after the current answer of the part before. A choice changed in part k asks k to the last again (debounced 400 ms); answers for earlier choices stay on screen marked as being checked. The answer's `parts` must cover the parts asked: a part the database no longer holds (a day old, or pushed out of the 100 a budget keeps by another statement's check) is staged again from there, at most three times, then the page says the checks were not kept, with "Check again". A statement timeout or a lost answer is asked again three times, one, two and three seconds apart, then said with "Check again"; catching_up catches the budget up and asks again. Nothing is asked once the import has started (the run's answers are the truth). The run keeps D-473's busy and lost-answer resends. Files above 100 parts of 500 never reach the preview (D-471).
+
+**Why:** D-455 and Q-270/Q-274: the database now previews a statement as its write will do it, which only holds if the parts are asked in order; two parts at once would each miss what the other absorbs.
+
+**Rejected:**
+
+- Keep two previews at once: the second part would not take the first one's absorptions into account.
+
+Related: R-IMPORT-361, R-IMPORT-340, D-455, D-473
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-479 A resumed import previews only the parts it did not record (accepted)
+
+Resuming an interrupted import (D-443), the parts it recorded are not previewed: preview_import_part would plan them as new rows against what their own write absorbed, and a recorded part answers what it recorded whatever is sent. The preview starts at the first part not recorded; their rows are shown as recorded and locked (R-IMPORT-362). The totals cover the parts the answer lists: when the check made before the interruption is still kept (a day), they include the recorded parts as checked then, and say so; otherwise they are those of the parts still to send, and say which.
+
+**Why:** The database knows the written chunks for absorption but does not answer a written part with its record in the preview (Q-290).
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-362, D-443, D-455, Q-290
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-480 A statement that does not fit is not offered (accepted)
+
+When preview_import_part answers fits false for the whole statement, the page says how many rows are set to import and how many transactions the budget can take, and the Import button is disabled ("Too many rows for the room left") until rows are skipped or room is made. While it fits, the room left is said under the totals.
+
+**Why:** The write would stop at the part that no longer fits, with earlier parts already written: better said before anything is sent.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-370, D-455
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-481 A "to categorise" category the import will make (accepted)
+
+A row going to a "to categorise" category that does not exist yet (category_source to_categorise, category_id null in the preview, D-455's exception) reads "To categorise (made by this import)"; the write's new id is no difference from the preview (only the action is compared).
+
+**Why:** The documented exception should read naturally, not as a missing category.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-340, D-447
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-482 Run stops of their own: the import limit and a forgotten answer (accepted)
+
+import_limit_reached stops the run with what the limit is (20 000 rows and 50 imports within 24 hours, 2 000 imports kept), that nothing of that part was written and the parts before it are recorded, and "Try again"; chunk_expired stops it saying the part was recorded long ago, is not imported again and that its rows are in the history, with "Send the parts after part n", after which an expired part answers no rows and the result says its rows are not counted. The device note of the interrupted import records which of the two stopped it, and the start page says it. token_busy, imports_busy, budget_busy and call_cancelled have words in both languages (src/lib/db-errors.ts); they reach only the import script.
+
+**Why:** Review round 2 brief: "Part n was refused: …" is the wrong frame for a limit or an expired answer.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-366, D-452, D-443
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-483 Forgetting a remembered choice in Settings (accepted)
+
+Each remembered choice has "Forget" (named with its entry); a confirmation says that the next import of the entry applies the default again (skip for a card bill payment, an own transfer and a salary; import for a transfer to a person) and that rows already imported or skipped stay; on success a toast says so and the focus goes to the card's heading (the row is gone). The key own_transfer is said as "a transfer between your own accounts without a description". The preview says "Last time you chose" only with remembered_choice and choice_key.
+
+**Why:** D-456, D-458: only members' choices are remembered, and one can be forgotten.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-367, D-456, D-458
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-484 Skipped rows no longer kept are counted from the batch (accepted)
+
+Once every page of a batch's skipped rows is read, the batch's counts of rows still skipped (duplicate, flagged, matched, chosen, invalid: get_import_batch) minus the rows listed and not imported anyway is how many older skipped rows the budget no longer keeps; the list and the "import all anyway" question say so. An import anyway that answers fewer rows than were sent says how many were no longer kept.
+
+**Why:** The budget keeps its newest 20 000 skipped rows (D-452); the batch's counts stay.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-368, D-452, D-474
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-485 The comparison value axis follows the periods in view (accepted)
+
+ChartFrame computes the value axis for the periods in view (from the scroll position, by whole periods) and the charts are drawn on it (allowDataOverflow, so periods out of view may leave the plot); the first and the last period labels are anchored at the chart's edge when a period is narrower than a label (38 px).
+
+**Why:** Review: at 320 px on "Last 24" the last label was clipped and the axis was scaled to periods out of view.
+
+**Rejected:** none recorded.
+
+Related: R-COMPARE-366, R-COMPARE-282
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-486 An import cut by the end of the session or the loss of the budget (accepted)
+
+The sign-in page says, when this device holds a note of an interrupted import, that what it recorded is kept and that opening the same file after signing in finishes it; the notice of a lost budget (R-BUDGET-055) says how many parts of an import under way there were recorded, that they stay in that budget for its members and that it cannot be continued from here.
+
+**Why:** Review: after the session ended or the member was removed, nothing was said about the import.
+
+**Rejected:** none recorded.
+
+Related: R-IMPORT-369, R-IMPORT-323, R-BUDGET-055
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+
+### D-487 Times, quotes and date-format names in the import screens (accepted)
+
+The history, token rows, remembered choices and the interrupted-import note show the local date and time (dd.mm.yyyy, hh:mm, formatTimestampWithTime); the quotes around a token's name and a remembered entry come from the strings (“…” in English, « … » in French); the CSV date-format choices are named per language (DD.MM.YYYY, JJ.MM.AAAA).
+
+**Why:** Review cheap list.
+
+**Rejected:** none recorded.
+
+Related: R-I18N-001
+
+Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
 
 ## Open questions
 
@@ -7020,6 +7166,14 @@ Source: owner-request: coordinator brief for the step 6 screens fix round, 2026-
   - Context: D-386 removes the period's interest entry when its start moves to on or before the opening (a trigger in the step 4 migration, private.drop_interest_before_opening) and adds nothing when it moves later again, because interest is computed once, when the period is created. So after a start moves onto the opening day and back, the debt is lower for good by the removed entry (120.00 in the re-review), and the next period's entry keeps the balance it was computed on (debt_interest.balance 1 212 000 while the history's balance before it is now 1 200 000). Options: (a) refuse the move while the period holds an interest entry of a debt opened on or after the new start (a refusal code, shown by preview_move_period_start as it already counts interest_removed): the history stays exact and nothing is lost, at the cost of a restriction; (b) keep the entry but mark it suspended while the start is on or before the opening, and restore it when the start moves after the opening again: the round trip is exact, but while suspended the later entries' balance disagrees by the suspended amount; (c) on any removal, recompute every later entry of that debt from the history: balance always agrees, but amounts the member has seen change, and a move back still loses the entry unless combined with (b). Recommended: (a). Any option changes the step 4 migration's trigger and its preview, which under D-450 is a new migration (or the money-flow rewrite), so it was not fixed in this round.
   - Related: D-386, D-272, R-DEBT-131
   - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **Q-290** Should preview_import_part answer a part already written in its batch with what it recorded (or refuse it), and leave staged parts of a written chunk out of `statement`?
+  - Context: It plans a written part as new rows against everything the batch absorbed, its own write included, so its answer is wrong; and a part staged before it was written still counts in `statement` for a day. The screens therefore never preview a recorded part (D-479) and say which parts the totals cover.
+  - Related: D-455, D-479, R-IMPORT-362
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **Q-291** What does import_skipped_anyway answer for ids of skipped rows that are no longer kept?
+  - Context: The contract says older skipped rows cannot be imported anyway, not whether the call skips such ids silently, answers fewer rows, or refuses. The screens send only listed ids and say so when fewer rows come back (D-484).
+  - Related: D-452, D-484, R-IMPORT-368
+  - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
 
 ## Glossary
 

@@ -534,6 +534,7 @@ export function useImportRun(budgetId: string) {
               })
               return
             }
+            // R-IMPORT-366: the import limit and a forgotten answer stop the run in their own words.
             if (code === 'import_limit_reached') {
               note(answers.length, 'storage')
               stop({ kind: 'storage', part })
