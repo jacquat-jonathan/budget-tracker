@@ -1228,7 +1228,7 @@ const core = {
     password: {
       title: 'Password',
       description:
-        'Choose a new password of at least {{min}} characters and type it twice. You stay signed in here.',
+        'Choose a new password of at least {{min}} characters and type it twice. You stay signed in here; other browsers where you are signed in may have to sign in again.',
       submit: 'Change password',
       saved: 'Password changed.',
     },

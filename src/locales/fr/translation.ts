@@ -1279,7 +1279,7 @@ const core: Omit<Translation, LazyKey> = {
     password: {
       title: 'Mot de passe',
       description:
-        'Choisissez un nouveau mot de passe d’au moins {{min}} caractères et saisissez-le deux fois. Vous restez connecté ici.',
+        'Choisissez un nouveau mot de passe d’au moins {{min}} caractères et saisissez-le deux fois. Vous restez connecté ici ; les autres navigateurs où vous êtes connecté peuvent devoir se reconnecter.',
       submit: 'Changer le mot de passe',
       saved: 'Mot de passe changé.',
     },
