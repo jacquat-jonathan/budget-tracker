@@ -240,14 +240,15 @@ describe('one click to always put a merchant in a category [R-IMPORT-007] [R-IMP
       in_to_categorise: true,
       merchant_key: 'shell',
     }
-    db.rpc.update_transaction.mockImplementation(() => [
-      {
-        ...db.tables.transaction_list[0],
+    db.rpc.update_transaction.mockImplementation(() => {
+      db.tables.transaction_list[0] = {
+        ...db.tables.transaction_list[0]!,
         category_id: 'cat-groceries',
         category_name: 'Groceries',
         in_to_categorise: false,
-      },
-    ])
+      }
+      return [db.tables.transaction_list[0]]
+    })
     open(db, '/transactions?period=all&review=1')
     const rows = await screen.findAllByTestId('transaction-row')
     await userEvent.click(within(rows[0]!).getByRole('button', { name: /Actions for/ }))
@@ -259,8 +260,44 @@ describe('one click to always put a merchant in a category [R-IMPORT-007] [R-IMP
     expect(await screen.findByTestId('rule-offer')).toHaveTextContent(
       'Also move the 1 other transaction waiting in “To categorise” for it.',
     )
-    expect(db.rpc.list_transactions).toHaveBeenCalledWith(
-      expect.objectContaining({ p_to_review_only: true, p_category_id: TO_CATEGORISE }),
+    // The database counts them (D-457), all of them, not a page of the newest.
+    expect(db.rpc.preview_merchant_rule).toHaveBeenCalledWith({
+      p_budget_id: BUDGET_ID,
+      p_fragment: 'shell',
+      p_category_id: 'cat-groceries',
+    })
+  })
+
+  it('says the real number that moves when thousands wait [R-IMPORT-202]', async () => {
+    const db = reviewDb()
+    db.rpc.update_transaction.mockImplementation(() => [
+      {
+        ...db.tables.transaction_list[1],
+        category_id: 'cat-groceries',
+        category_name: 'Groceries',
+        in_to_categorise: false,
+        revision: 2,
+      },
+    ])
+    db.rpc.preview_merchant_rule.mockImplementation(() => [
+      {
+        fragment: 'coop pronto 12',
+        covered_by_rule_id: null,
+        covered_by_fragment: null,
+        rule_exists: false,
+        would_move: 5_097,
+      },
+    ])
+    open(db, '/transactions?period=all&review=1')
+    const rows = await screen.findAllByTestId('transaction-row')
+    await userEvent.click(within(rows[1]!).getByRole('button', { name: /Actions for/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Edit transaction' })
+    await userEvent.click(within(dialog).getByRole('combobox', { name: 'Category' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Groceries' }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await screen.findByTestId('rule-offer')).toHaveTextContent(
+      "Also move the 5'097 other transactions waiting in “To categorise” for it.",
     )
   })
 
