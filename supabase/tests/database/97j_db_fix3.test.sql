@@ -460,5 +460,102 @@ select is(pg_temp.refusal(format($$select * from public.undo_transfer_mark(%L, %
 select is((select status from public.mark_transfer_not_done(tests.id('u_t'), (pg_temp.cur('w')).id, 0)), 'not_done',
   'R-ACCOUNT-004: "did not happen" is allowed from that state');
 
+-- ===========================================================================
+-- Step 7 should-fix 1: a reopen keeps what an ended standing order recorded (R-ACCOUNT-424)
+-- ===========================================================================
+select pg_temp.day('2026-11-26');
+select pg_temp.budget('r');
+select tests.remember('r_t', pg_temp.new_transfer('r', 'Standing order', p_from => tests.id('r_p1')));
+select is(pg_temp.txs(tests.id('r_t')), '2026-09-25,2026-10-25,2026-11-25', 'R-ACCOUNT-424: (setup) three transactions recorded');
+select public.end_transfer(tests.id('r_t'), (select revision from public.transfers where id = tests.id('r_t')));
+select is((select count(*)::integer from public.preview_reopen(tests.id('r'), '2026-11-28')
+           where record_kind = 'transfer' and change = 'transaction_removed'), 0,
+  'R-ACCOUNT-424: the reopen preview removes no transaction of the ended order');
+select public.reopen_previous_period(tests.id('r'), (pg_temp.cur('r')).id, (pg_temp.cur('r')).revision, '2026-11-28');
+select is(pg_temp.txs(tests.id('r_t')), '2026-09-25,2026-10-25,2026-11-25',
+  'R-ACCOUNT-424: after the reopen both transactions of the period stay (the 25 Oct one was deleted)');
+select is((select rows from pg_temp.rows('r', tests.id('r_t')) where seq = 2), '2026-10-25/-/done/unplanned;2026-11-25/-/done/unplanned',
+  'R-ACCOUNT-424: listed as ended, not planned');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('r')), 'R-ACCOUNT-424: the model agrees');
+
+-- ===========================================================================
+-- Step 7 should-fix 2: a primary switch never re-plans what its period planned (R-ACCOUNT-428)
+-- ===========================================================================
+select pg_temp.day('2026-11-26');
+select pg_temp.budget('sw');
+select tests.remember('sw_partner', public.add_income(tests.id('sw'), 'Partner', 400000, 10, 'none', p_from_period_id => tests.id('sw_p1')));
+select tests.remember('sw_t', (select id from public.create_transfer(tests.id('sw'), 'Savings', tests.id('sw_main'), tests.id('sw_sav'),
+  100000, 'pay_date', p_income_id => tests.id('sw_inc'), p_is_automatic => true, p_category_id => tests.id('sw_cat'),
+  p_from_period_id => tests.id('sw_p1'))));
+select is(pg_temp.txs(tests.id('sw_t')), '2026-09-25,2026-10-25,2026-11-25', 'R-ACCOUNT-428: (setup) it names the Salary, the primary');
+select results_eq(format($$select transfer_transactions_removed, transfer_transactions_created, transfer_marks_unplanned
+                           from public.preview_set_primary_income(%L)$$, tests.id('sw_partner')),
+  $$values (0, 0, 0)$$, 'R-ACCOUNT-428: the switch''s preview says nothing recorded changes');
+select public.set_primary_income(tests.id('sw_partner'), (select revision from public.budgets where id = tests.id('sw')),
+  (select end_date from public.preview_set_primary_income(tests.id('sw_partner'))));
+select is(pg_temp.txs(tests.id('sw_t')), '2026-09-25,2026-10-25,2026-11-25',
+  'R-ACCOUNT-428: after the switch every period keeps what it planned and recorded');
+select is((select string_agg(rows, ' ' order by seq) from pg_temp.rows('sw', tests.id('sw_t'))),
+  '2026-09-25/2026-09-25/done 2026-10-25/2026-10-25/done 2026-11-25/2026-11-25/done',
+  'R-ACCOUNT-428: the checklists are unchanged');
+select pg_temp.day('2027-01-12');
+select public.ensure_periods(tests.id('sw'));
+select ok(pg_temp.txs(tests.id('sw_t')) like '2026-09-25,2026-10-25,2026-11-25,2026-12-25%',
+  'R-ACCOUNT-428: from the next period it follows the Salary''s own pay dates (25 Dec), as a chosen income');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('sw')), 'R-ACCOUNT-428: the model agrees');
+
+-- ===========================================================================
+-- Step 7 should-fix 3: an income added and removed in one period (R-ACCOUNT-427)
+-- ===========================================================================
+select pg_temp.day('2026-11-12');
+select pg_temp.budget('h');
+select tests.remember('h_inc2', public.add_income(tests.id('h'), 'Side job', 30000, 10, 'none'));
+select tests.remember('h_t', (select id from public.create_transfer(tests.id('h'), 'After the side job', tests.id('h_main'), tests.id('h_sav'),
+  30000, 'pay_date', p_income_id => tests.id('h_inc2'), p_is_automatic => true, p_category_id => tests.id('h_cat'),
+  p_from_period_id => (pg_temp.cur('h')).id)));
+select is(pg_temp.txs(tests.id('h_t')), '2026-11-10', 'R-ACCOUNT-427: (setup) recorded on the side job''s pay date');
+select is(public.remove_income(tests.id('h_inc2'), (select revision from public.incomes where id = tests.id('h_inc2'))), 'deleted',
+  'R-ACCOUNT-427: (the income is deleted outright)');
+select is(pg_temp.txs(tests.id('h_t')), '2026-11-10',
+  'R-ACCOUNT-427: what was recorded stays, and nothing dated 25 Oct (the primary''s payday, past) appears');
+select is((select follows_primary from public.transfer_overview where id = tests.id('h_t')), true,
+  'R-ACCOUNT-427: it follows the primary income from now, and says so');
+select pg_temp.day('2026-11-26');
+select public.ensure_periods(tests.id('h'));
+select is(pg_temp.txs(tests.id('h_t')), '2026-11-10,2026-11-25', 'R-ACCOUNT-427: the next payday has its transfer');
+select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('h')), 'R-ACCOUNT-427: the model agrees');
+
+-- ===========================================================================
+-- Step 7 should-fixes 4 and 5: a moved start moves only what nobody touched; a move with no
+-- change changes nothing (R-ACCOUNT-425, R-ACCOUNT-426)
+-- ===========================================================================
+select pg_temp.day('2026-11-26');
+select pg_temp.budget('mv');
+select tests.remember('mv_plain', pg_temp.new_transfer('mv', 'Plain', p_from => (pg_temp.cur('mv')).id));
+select tests.remember('mv_manual', pg_temp.new_transfer('mv', 'Made manual', p_from => (pg_temp.cur('mv')).id));
+select tests.remember('mv_edit', pg_temp.new_transfer('mv', 'Edited', p_from => (pg_temp.cur('mv')).id));
+select public.update_transfer(tests.id('mv_manual'), (select revision from public.transfers where id = tests.id('mv_manual')),
+  p_is_automatic => false);
+select public.update_transaction(x.id, x.revision, 'expense', 98000, x.date, x.category_id, 'bank fee taken off')
+from public.transaction_list as x where x.transfer_id = tests.id('mv_edit');
+create temp table mv_before on commit drop as
+  select x.id, x.transfer_id from public.transaction_list as x where x.budget_id = tests.id('mv');
+grant select on mv_before to authenticated;
+-- no change: on schedule already, nothing moves (5)
+select public.move_period_start((pg_temp.cur('mv')).id, (pg_temp.cur('mv')).revision);
+select is((select count(*)::integer from public.transaction_list as x join mv_before as b on b.id = x.id
+           where x.budget_id = tests.id('mv')), 3, 'R-ACCOUNT-426: a move with no change re-dates nothing (same transactions)');
+select pg_temp.day('2026-11-27');
+select results_eq(format($$select transfer_transactions_removed, transfer_transactions_created from public.preview_move_period_start(%L, '2026-11-27')$$,
+                         (pg_temp.cur('mv')).id),
+  $$values (1, 1)$$, 'R-ACCOUNT-425: the preview counts only what nobody touched');
+select public.move_period_start(pg_temp.period_at('mv', '2026-11-26'), (select revision from public.periods where id = pg_temp.period_at('mv', '2026-11-26')),
+  '2026-11-27');
+select is(pg_temp.txs(tests.id('mv_plain')), '2026-11-27', 'R-ACCOUNT-425: the app''s own transaction moves to the new due date');
+select is(pg_temp.txs(tests.id('mv_manual')), '2026-11-25', 'R-ACCOUNT-425: made manual since: it stays as the member left it');
+select results_eq(format($$select date, amount, description from public.transaction_list where transfer_id = %L$$, tests.id('mv_edit')),
+  $$values ('2026-11-25'::date, 98000::bigint, 'bank fee taken off')$$,
+  'R-ACCOUNT-425: its transaction edited by a member: it stays exactly as edited');
+
 select * from finish();
 rollback;

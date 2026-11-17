@@ -832,7 +832,9 @@ $$;
 -- fixed when the model first sees it (the start of its first period, or that period's key when
 -- earlier; the day it was made when the run says it made it with no period and no first date),
 -- and the key of the salary it was made from (none when made from a later day).
-create table if not exists tests.model_period_keys (period_id uuid primary key, budget_id uuid not null, key date not null);
+create table if not exists tests.model_period_keys (period_id uuid primary key, budget_id uuid not null, key date not null,
+                                                   shifted boolean not null default false);
+alter table tests.model_period_keys add column if not exists shifted boolean not null default false;
 create table if not exists tests.model_transfer_starts (transfer_id uuid primary key, starts_on date not null,
                                                        starts_key date);
 alter table tests.model_transfer_starts add column if not exists starts_key date;
@@ -863,6 +865,7 @@ declare
   p record;
   v_prev public.periods;
   v_key date;
+  v_shifted boolean;
   v_day integer;
   v_rule public.weekend_rule;
   t record;
@@ -884,10 +887,12 @@ begin
     else
       v_key := tests.naive_next_pay(v_prev.start_date + 15, v_day, v_rule);
     end if;
+    v_shifted := false;
     while exists (select 1 from tests.model_period_keys as m where m.budget_id = budget and m.key = v_key) loop
       v_key := tests.naive_next_pay(v_key + 1, v_day, v_rule);
+      v_shifted := true;
     end loop;
-    insert into tests.model_period_keys values (p.id, budget, v_key);
+    insert into tests.model_period_keys values (p.id, budget, v_key, v_shifted);
   end loop;
   for t in select x.* from public.transfers as x
            where x.budget_id = budget
@@ -926,7 +931,8 @@ drop function if exists tests.naive_occurrences(uuid);
 drop function if exists tests.naive_occurrence_candidates(uuid);
 create or replace function tests.naive_occurrence_candidates(budget uuid)
 returns table (transfer_id uuid, seq integer, period_id uuid, occurrence_date date, due_date date,
-               is_automatic boolean, category_id uuid, amount bigint, fixed_day boolean)
+               is_automatic boolean, category_id uuid, amount bigint, fixed_day boolean, from_pay_key boolean,
+               key_shifted boolean)
 language plpgsql
 volatile
 security definer
@@ -943,6 +949,7 @@ declare
   v_starts date;
   v_starts_key date;
   v_key date;
+  v_shifted boolean;
   v_ended date;
   v_primary boolean;
 begin
@@ -953,12 +960,14 @@ begin
     for p in select y.* from public.periods as y
              where y.budget_id = budget and y.seq >= t.first_seq and (t.end_seq is null or y.seq < t.end_seq)
              order by y.seq loop
-      v_key := (select m.key from tests.model_period_keys as m where m.period_id = p.id);
+      select m.key, m.shifted into v_key, v_shifted from tests.model_period_keys as m where m.period_id = p.id;
       select x.* into v from public.transfer_versions as x
       where x.transfer_id = t.id and x.effective_from_seq <= p.seq order by x.effective_from_seq desc limit 1;
       transfer_id := t.id; seq := p.seq; period_id := p.id;
       is_automatic := v.is_automatic; category_id := v.category_id; amount := v.amount;
       fixed_day := v.schedule::text = 'day_of_month';
+      from_pay_key := false;
+      key_shifted := false;
       if v.schedule::text = 'day_of_month' then
         for k in select c from tests.naive_charge_dates(v.anchor_date, v.cadence::text, v.day_of_month,
                                                          greatest(p.start_date, v_starts), p.end_date) as c loop
@@ -968,9 +977,11 @@ begin
       else
         v_pay_day := null;
         v_ended := null;
-        -- the income chosen is the primary one in this period: as none chosen (R-ACCOUNT-310)
-        v_primary := exists (select 1 from public.budgets as bb
-                             where bb.id = budget and bb.primary_income_id = v.income_id and p.seq >= bb.primary_since_seq);
+        -- the income chosen is the primary one in this period: as none chosen (R-ACCOUNT-310), by
+        -- the stored history of the primary (R-ACCOUNT-428)
+        v_primary := exists (select 1 from private.primary_incomes as h
+                             where h.budget_id = budget and h.income_id = v.income_id and h.from_seq <= p.seq
+                               and (h.to_seq is null or p.seq < h.to_seq));
         if v.income_id is not null and not v_primary then
           select iv.pay_day, iv.weekend_rule into v_pay_day, v_rule
           from public.incomes as i join public.income_versions as iv on iv.income_id = i.id
@@ -998,9 +1009,14 @@ begin
           end loop;
         end if;
         if (v_pay_day is null or v_ended is not null) and (p.start_date >= v_starts or v_key = v_starts_key)
-           and (v_ended is null or least(p.start_date + v.offset_days, p.end_date) > v_ended) then
+           and (v_ended is null or least(p.start_date + v.offset_days, p.end_date) > v_ended)
+           -- R-ACCOUNT-427: the chosen income deleted in this period that day
+           and (v.income_gone_on is null or v.income_gone_on not between p.start_date and p.end_date
+                or least(p.start_date + v.offset_days, p.end_date) > v.income_gone_on) then
           occurrence_date := v_key; due_date := least(p.start_date + v.offset_days, p.end_date);
+          from_pay_key := true; key_shifted := v_shifted;
           return next;
+          from_pay_key := false; key_shifted := false;
         end if;
       end if;
     end loop;
@@ -1008,9 +1024,10 @@ begin
 end;
 $$;
 
--- A key two periods give a transfer belongs to the earlier one when both are paydays (D-420,
--- D-490); when one of them is a fixed day both are occurrences, the later one with key_shared
--- (R-ACCOUNT-421).
+-- A key two periods give a transfer belongs to the earlier one when both are the same payday (a
+-- chosen income's pay date and a scheduled pay date the projection gave: D-420, D-490); when one
+-- of them is a fixed day, or the scheduled pay date was shifted (the next one no period had),
+-- both are occurrences, the later one with key_shared (R-ACCOUNT-421).
 drop function if exists tests.naive_occurrences(uuid);
 create or replace function tests.naive_occurrences(budget uuid)
 returns table (transfer_id uuid, seq integer, period_id uuid, occurrence_date date, due_date date,
@@ -1024,9 +1041,10 @@ as $$
          g.rn > 1
   from (select c.*,
                pg_catalog.row_number() over (partition by c.transfer_id, c.occurrence_date order by c.seq) as rn,
-               pg_catalog.bool_or(c.fixed_day) over (partition by c.transfer_id, c.occurrence_date) as any_fixed
+               pg_catalog.bool_or(c.fixed_day or (c.from_pay_key and c.key_shifted))
+                 over (partition by c.transfer_id, c.occurrence_date) as two_transfers
         from tests.naive_occurrence_candidates(budget) as c) as g
-  where g.rn = 1 or g.any_fixed
+  where g.rn = 1 or g.two_transfers
 $$;
 
 -- Step 7 invariants of one budget (the property walk checks them after every step, once the
