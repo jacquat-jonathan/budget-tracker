@@ -14,6 +14,7 @@ create or replace function pg_temp.conn() returns text language sql as $$
                 host(inet_server_addr()), inet_server_port())
 $$;
 select extensions.dblink_connect(c, pg_temp.conn()) from unnest(array['setup', 'one', 'two']) as c;
+select extensions.dblink_exec(c, $$set statement_timeout = '60s'$$) from unnest(array['setup', 'one', 'two']) as c;  -- a regression fails, never hangs
 select extensions.dblink_exec('setup', $$delete from auth.users where email like 'race7+%@test.local'$$);
 
 create or replace function pg_temp.mkuser(tag text) returns uuid language plpgsql as $$
@@ -114,7 +115,8 @@ select is(pg_temp.send_and_wait('two', format($$select status from public.mark_t
   'R-CONCURRENCY-230: the second member''s mark waits for the first');
 select extensions.dblink_exec('one', 'commit');
 select is(pg_temp.result('two'), 'error: record_changed', 'R-CONCURRENCY-230: and is refused: it was marked meanwhile');
-select is(pg_temp.q('setup', format($$select count(*)::text from public.transaction_list where transfer_id = %L and transfer_period_id = %L$$,
+select is(pg_temp.q('setup', format($$select count(*)::text from public.transaction_list where transfer_id = %L
+                                      and transfer_occurrence_date = (select pay_key from public.periods where id = %L)$$,
                                     pg_temp.id('t'), pg_temp.id('pc'))), '1',
   'R-ACCOUNT-073: one transaction for the occurrence');
 

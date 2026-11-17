@@ -624,6 +624,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     preview_end_transfer: handler(() => rpcError('not_mocked')),
     get_transfer_terms: handler(() => rpcError('not_mocked')),
     get_transfer_checklist: handler(() => rpcError('not_mocked')),
+    get_transfers_to_do: handler(() => rpcError('not_mocked')),
     get_money_flow: handler(() => rpcError('not_mocked')),
     mark_transfer_done: handler(() => rpcError('not_mocked')),
     mark_transfer_not_done: handler(() => rpcError('not_mocked')),

@@ -25,10 +25,10 @@ $$;
 -- ===========================================================================
 -- 1. not done by mistake, something else settles, the mark undone
 select tests.remember('t1', (select id from public.create_transfer(tests.id('b'), 'Standing order', tests.id('main'), tests.id('sav'), 100000,
-  'day_of_month', p_day_of_month => 20, p_is_automatic => true, p_category_id => tests.id('cat'))));
+  'day_of_month', p_day_of_month => 20, p_is_automatic => true, p_category_id => tests.id('cat'), p_from_period_id => tests.this_period(tests.id('b')))));
 select is((select status from public.mark_transfer_not_done(tests.id('t1'), tests.id('cur'), 0) where transfer_id = tests.id('t1')),
   'not_done', 'setup: marked not done by mistake');
-select count(*) from public.create_transfer(tests.id('b'), 'Other', tests.id('main'), tests.id('sav'), 5000, 'day_of_month', p_day_of_month => 28);
+select count(*) from public.create_transfer(tests.id('b'), 'Other', tests.id('main'), tests.id('sav'), 5000, 'day_of_month', p_day_of_month => 28, p_from_period_id => tests.this_period(tests.id('b')));
 select is((select status from public.undo_transfer_mark(tests.id('t1'), tests.id('cur'), 1) where transfer_id = tests.id('t1')),
   'upcoming', 'R-ACCOUNT-240: the mark undone, it is upcoming again');
 select tests.clear_authentication();
@@ -36,23 +36,23 @@ select tests.set_today('2026-11-21');
 select tests.authenticate_as('ann');
 select public.ensure_periods(tests.id('b'));
 select is(pg_temp.row_of(tests.id('t1'), tests.id('cur')), row('done', false, true)::text,
-  'R-ACCOUNT-074 D-393: once due it is done with its transaction (the watermark went back with the mark)');
+  'R-ACCOUNT-074 D-423: once due it is done with its transaction (the watermark went back with the mark)');
 select is((select caught_up from public.my_budgets where id = tests.id('b')), true, 'R-PERIOD-130: and the budget is caught up');
 -- 2. manual, marked done, made automatic, its transaction deleted: not done
 select tests.remember('t2', (select id from public.create_transfer(tests.id('b'), 'Manual then automatic', tests.id('main'), tests.id('sav'), 2000,
-  'day_of_month', p_day_of_month => 18, p_category_id => tests.id('cat'))));
+  'day_of_month', p_day_of_month => 18, p_category_id => tests.id('cat'), p_from_period_id => tests.this_period(tests.id('b')))));
 select count(*) from public.mark_transfer_done(tests.id('t2'), tests.id('cur'), 0);
 select count(*) from public.update_transfer(tests.id('t2'), 1, p_is_automatic => true);
 select public.delete_transaction(t.id, t.revision) from public.transaction_list as t where t.transfer_id = tests.id('t2');
 select is(pg_temp.row_of(tests.id('t2'), tests.id('cur')), row('not_done', false, false)::text,
-  'R-ACCOUNT-240 D-393: deleting the transaction of an automatic transfer says it did not happen, whoever marked it');
+  'R-ACCOUNT-240 D-423: deleting the transaction of an automatic transfer says it did not happen, whoever marked it');
 -- 3. manual, skipped, made automatic, the mark undone: done with its transaction
 select tests.remember('t3', (select id from public.create_transfer(tests.id('b'), 'Skipped then automatic', tests.id('main'), tests.id('sav'), 3000,
-  'day_of_month', p_day_of_month => 17, p_category_id => tests.id('cat'))));
+  'day_of_month', p_day_of_month => 17, p_category_id => tests.id('cat'), p_from_period_id => tests.this_period(tests.id('b')))));
 select count(*) from public.skip_transfer(tests.id('t3'), tests.id('cur'), 0);
 select count(*) from public.update_transfer(tests.id('t3'), 1, p_is_automatic => true);
 select is((select row(status, transaction_id is not null)::text from public.undo_transfer_mark(tests.id('t3'), tests.id('cur'), 1) where transfer_id = tests.id('t3')),
-  row('done', true)::text, 'R-ACCOUNT-240 D-393: undone, the automatic occurrence gets its transaction at once');
+  row('done', true)::text, 'R-ACCOUNT-240 D-423: undone, the automatic occurrence gets its transaction at once');
 -- 4. the same with a mark that is not the catch-up's, its transaction deleted after the terms went manual again
 select is((select count(*)::integer from public.transaction_list where transfer_id in (tests.id('t1'), tests.id('t3'))), 2,
   'R-ACCOUNT-074: one transaction each');
@@ -64,7 +64,7 @@ select is_empty(format('select * from tests.moneyflow_violations(%L)', tests.id(
 select tests.remember('side', public.add_income(tests.id('b'), 'Side', 100000, 1, 'nearest',
   p_from_period_id => (select id from public.periods where budget_id = tests.id('b') and seq = 1)));
 select tests.remember('t5', (select id from public.create_transfer(tests.id('b'), 'Side order', tests.id('main'), tests.id('sav'), 1000,
-  'pay_date', p_offset_days => 2, p_income_id => tests.id('side'))));
+  'pay_date', p_offset_days => 2, p_income_id => tests.id('side'), p_from_period_id => tests.this_period(tests.id('b')))));
 select public.remove_income(tests.id('side'), (select revision from public.incomes where id = tests.id('side')));
 select lives_ok(format('select * from public.preview_update_transfer(%L)', tests.id('t5')),
   'D-396: the preview with no argument works once the chosen income has ended');
@@ -85,7 +85,7 @@ do $$ begin
 end $$;
 select tests.authenticate_as('ann');
 select tests.remember('t6', (select id from public.create_transfer(tests.id('b'), 'Held', tests.id('main'), tests.id('sav'), 7000,
-  'pay_date', p_offset_days => 0, p_is_automatic => true, p_category_id => tests.id('cat'))));
+  'pay_date', p_offset_days => 0, p_is_automatic => true, p_category_id => tests.id('cat'), p_from_period_id => tests.this_period(tests.id('b')))));
 select is((select row(status, held_back)::text from public.get_transfer_checklist(
              (select id from public.periods where budget_id = tests.id('b') and private.today() between start_date and end_date))
            where transfer_id = tests.id('t6')), row('done', true)::text, 'setup: its transaction is held back');
@@ -94,7 +94,7 @@ select throws_ok(format('select public.end_transfer(%L, %s)', tests.id('t6'), (s
 select is((select refusal from public.preview_end_transfer(tests.id('t6'))), 'transfer_held_back', 'D-397: the preview says so');
 select is((select row(bool_or(created_at_once), min(created_at_once_count))::text
            from public.preview_create_transfer(tests.id('b'), tests.id('main'), tests.id('sav'), 100, 'pay_date', p_offset_days => 0,
-                                               p_is_automatic => true, p_category_id => tests.id('cat'), p_count => 3)),
+                                               p_is_automatic => true, p_category_id => tests.id('cat'), p_count => 3, p_from_period_id => tests.this_period(tests.id('b')))),
           row(false, 0)::text, 'D-398: in a full budget the preview creates nothing at once, and says how many (0)');
 select tests.clear_authentication();
 create or replace function private.limit_transactions() returns integer language sql immutable set search_path = '' as $f$ select 50000 $f$;

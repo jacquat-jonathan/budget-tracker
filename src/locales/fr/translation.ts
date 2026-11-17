@@ -320,6 +320,11 @@ const core: Omit<Translation, LazyKey> = {
       adjustment_not_found: 'Cet ajustement de solde n’existe plus.',
       subscription_ended: 'Cet abonnement est terminé (pour cette période).',
       debt_ended: 'Cette dette est terminée (pour cette période).',
+      before_transfer_start: 'Cette date précède le début du virement planifié.',
+      invalid_first_date:
+        'Cette première date ne convient pas au calendrier (elle doit tomber le jour choisi, au plus dix ans à l’avance).',
+      occurrence_required:
+        'Cette période compte plusieurs exécutions de ce virement : choisissez laquelle.',
       before_debt_opened:
         'Cette date précède l’ouverture de la dette : remboursements et ajustements commencent à sa date d’ouverture.',
       catching_up:

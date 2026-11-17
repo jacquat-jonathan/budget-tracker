@@ -27,7 +27,7 @@ select tests.remember('sub', (select id from public.create_subscription(tests.id
 select tests.remember('acc1', (select id from public.create_account(tests.id('b'), 'Main', 'current')));
 select tests.remember('acc2', (select id from public.create_account(tests.id('b'), 'Savings', 'savings')));
 select tests.remember('tr', (select id from public.create_transfer(tests.id('b'), 'Saving', tests.id('acc1'), tests.id('acc2'), 1000, 'day_of_month',
-                                                                   p_day_of_month => 1)));
+                                                                   p_day_of_month => 1, p_from_period_id => tests.this_period(tests.id('b')))));
 
 -- ===========================================================================
 -- A charge awaiting confirmation wins a tie of possible matches (R-IMPORT-261)
@@ -50,7 +50,7 @@ select count(*) from public.import_transactions(tests.id('b'), tests.id('ib'), 1
   {"date": "2026-11-12", "amount": 702, "direction": "debit", "description": "Linked transfer"}]', 'csv');
 select count(*) from public.mark_transfer_done(tests.id('tr'), (select id from public.periods where budget_id = tests.id('b') and '2026-11-16' between start_date and end_date), 0);
 select tests.clear_authentication();
-select tests.remember('occ', (select id from public.transfer_occurrences where transfer_id = tests.id('tr') order by period_id limit 1));
+select tests.remember('occ', (select id from public.transfer_occurrences where transfer_id = tests.id('tr') order by occurrence_date limit 1));
 update public.transactions set subscription_id = tests.id('sub'), category_id = tests.id('gym_cat')
 where import_batch_id = tests.id('ib') and description = 'Linked sub';
 -- only the database links a transfer's transaction, at its creation: planted as an import

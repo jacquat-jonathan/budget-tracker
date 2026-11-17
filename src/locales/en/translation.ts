@@ -312,6 +312,10 @@ const core = {
       debt_ended: 'This debt has ended (for that period).',
       before_debt_opened:
         'This date is before the debt was opened: payments and adjustments start on its opening date.',
+      before_transfer_start: 'This date is before the planned transfer starts counting.',
+      invalid_first_date:
+        'This first date is not valid for the schedule (it must fall on the chosen day, at most ten years ahead).',
+      occurrence_required: 'This period has several executions of this transfer: choose which one.',
       catching_up:
         'Nothing was saved: the budget was still catching up on the time since your last visit. It is caught up now: what you entered is still here, save again.',
       charge_held_back:

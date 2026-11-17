@@ -676,7 +676,11 @@ const tokenTooMany = await rpc(null, 'import_with_token', {
   p_token: tokenMade.body[0].token,
   p_batch_id: crypto.randomUUID(),
   p_chunk: 1,
-  p_rows: Array.from({ length: 251 }, (_, i) => ({ date: today, amount: 1 + i, direction: 'debit' })),
+  p_rows: Array.from({ length: 251 }, (_, i) => ({
+    date: today,
+    amount: 1 + i,
+    direction: 'debit',
+  })),
 })
 check(
   ok(tokenTooMany) && tokenTooMany.body[0]?.error === 'invalid_rows',
@@ -769,6 +773,8 @@ const transferArgs = {
   p_offset_days: 0,
   p_is_automatic: true,
   p_category_id: food.body[0].id,
+  // the whole current period, its payday included (with no period, nothing before today: D-493)
+  p_from_period_id: periods.at(-1).id,
 }
 const transferPreview = await rpc(alice, 'preview_create_transfer', { ...transferArgs, p_count: 3 })
 const transfer = await rpc(alice, 'create_transfer', { ...transferArgs, p_name: 'To savings' })
@@ -837,6 +843,70 @@ check(
   'close_account refuses an account in use and names the transfer in the detail',
   closeInUse,
 )
+// step 7, the occurrence model: a yearly fixed-day transfer (cadence, first date, monthly
+// share), occurrences keyed by date, the previews' counts, a mark naming its occurrence
+const pillarArgs = {
+  p_budget_id: budget,
+  p_from_account_id: mainAccount.body[0].id,
+  p_to_account_id: savingsAccount.body[0].id,
+  p_amount: 705600,
+  p_schedule: 'day_of_month',
+  p_cadence: 'yearly',
+  p_first_date: periods.at(-1).start_date,
+}
+const pillarPreview = await rpc(alice, 'preview_create_transfer', { ...pillarArgs, p_count: 2 })
+const pillar = await rpc(alice, 'create_transfer', { ...pillarArgs, p_name: 'Third pillar' })
+check(
+  ok(pillarPreview) &&
+    ok(pillar) &&
+    pillar.body[0]?.cadence === 'yearly' &&
+    pillar.body[0]?.monthly_amount === 58800 &&
+    pillar.body[0]?.first_date === periods.at(-1).start_date &&
+    pillarPreview.body.length === 2 &&
+    pillarPreview.body.every(
+      (row) =>
+        'occurrence_date' in row &&
+        'transactions_removed_count' in row &&
+        'marks_unplanned_count' in row,
+    ),
+  'create_transfer: a yearly transfer with its first date, its monthly share, and the preview with its counts',
+  [pillarPreview, pillar],
+)
+const pillarRow = (
+  await rpc(bob, 'get_transfer_checklist', { p_period_id: periods.at(-1).id })
+).body?.find((row) => row.transfer_id === pillar.body[0].id)
+const pillarDone = await rpc(bob, 'mark_transfer_done', {
+  p_transfer_id: pillar.body[0].id,
+  p_period_id: periods.at(-1).id,
+  p_expected_revision: 0,
+  p_occurrence_date: pillarRow?.occurrence_date,
+})
+const pillarFlow = (await rpc(alice, 'get_money_flow', { p_budget_id: budget })).body?.find(
+  (row) => row.id === pillar.body[0].id,
+)
+check(
+  pillarRow?.occurrence_date === periods.at(-1).start_date &&
+    pillarRow?.planned === true &&
+    ok(pillarDone) &&
+    pillarDone.body[0]?.status === 'done' &&
+    pillarFlow?.amount === 58800 &&
+    pillarFlow?.planned_amount === 705600 &&
+    pillarFlow?.cadence === 'yearly',
+  'the checklist names the occurrence by its date, a mark names it back, the money flow carries the monthly share and the real amount',
+  [pillarRow, pillarDone, pillarFlow],
+)
+const twice = await rpc(bob, 'skip_transfer', {
+  p_transfer_id: pillar.body[0].id,
+  p_period_id: periods.at(-1).id,
+  p_expected_revision: 1,
+  p_occurrence_date: '1999-01-01',
+})
+check(
+  refused(twice, 'transfer_not_in_force'),
+  'a mark naming a date that is no occurrence is refused',
+  twice,
+)
+
 const endPreview = await rpc(alice, 'preview_end_transfer', { p_transfer_id: transfer.body[0].id })
 const transferNow = (await get(alice, `transfer_overview?id=eq.${transfer.body[0].id}`)).body[0]
 const ended = await rpc(alice, 'end_transfer', {
@@ -847,10 +917,12 @@ const endedChecklist = await rpc(bob, 'get_transfer_checklist', { p_period_id: p
 const endedRow = endedChecklist.body?.find((row) => row.transfer_id === transfer.body[0].id)
 check(
   ok(endPreview) &&
-    JSON.stringify(endPreview.body) === '[{"outcome":"ended","refusal":null}]' &&
+    JSON.stringify(endPreview.body) ===
+      '[{"outcome":"ended","refusal":null,"occurrences_removed":0,"marks_kept":1,"transactions_kept":0}]' &&
     ok(ended) &&
     ended.body === 'ended' &&
     endedRow?.is_ended === true &&
+    endedRow.planned === false &&
     endedRow.status === 'not_done',
   'end_transfer does what its preview said, and keeps the mark: the checklist still lists the transfer, flagged as ended',
   [endPreview, ended, endedRow],

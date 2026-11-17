@@ -91,8 +91,6 @@ export function budgetRow(overrides: Partial<Tables<'my_budgets'>> = {}): Tables
     charges_awaiting: 0,
     to_review: 0,
     to_categorise_category_id: null,
-    transfers_to_do: 0,
-    transfers_overdue: 0,
     first_period_start: '2026-09-25',
     created_at: '2026-10-01T10:00:00+00:00',
     updated_at: '2026-10-01T10:00:00+00:00',
@@ -257,7 +255,7 @@ export function transactionRow(
     in_to_categorise: false,
     transfer_id: null,
     transfer_name: null,
-    transfer_period_id: null,
+    transfer_occurrence_date: null,
     ...overrides,
   }
 }
