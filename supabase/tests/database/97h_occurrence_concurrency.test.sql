@@ -207,7 +207,8 @@ select extensions.dblink_exec('one', 'commit');
 select is(pg_temp.result('two'), 'ended', 'R-ACCOUNT-234: and ends it');
 select is(pg_temp.q('setup', format($$select count(*)::text || '/' || bool_and(not o.by_catch_up)::text
                                      from public.transaction_list as x join public.transfer_occurrences as o on o.transfer_id = x.transfer_id
-                                     and o.occurrence_date = x.transfer_occurrence_date where x.transfer_id = %L$$, pg_temp.id('a'))), '1/true',
+                                     and (o.occurrence_date = x.transfer_occurrence_date or o.occurrence_seq = x.transfer_occurrence_seq)
+                                     where x.transfer_id = %L$$, pg_temp.id('a'))), '1/true',
   'R-ACCOUNT-234: the transaction made stays, kept by the end');
 
 -- ===========================================================================

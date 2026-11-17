@@ -116,7 +116,7 @@ select is(pg_temp.send_and_wait('two', format($$select status from public.mark_t
 select extensions.dblink_exec('one', 'commit');
 select is(pg_temp.result('two'), 'error: record_changed', 'R-CONCURRENCY-230: and is refused: it was marked meanwhile');
 select is(pg_temp.q('setup', format($$select count(*)::text from public.transaction_list where transfer_id = %L
-                                      and transfer_occurrence_date = (select pay_key from public.periods where id = %L)$$,
+                                      and transfer_occurrence_seq = (select seq from public.periods where id = %L)$$,
                                     pg_temp.id('t'), pg_temp.id('pc'))), '1',
   'R-ACCOUNT-073: one transaction for the occurrence');
 

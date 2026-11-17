@@ -35,6 +35,8 @@ begin
   perform tests.remember(n || '_sav', (select id from public.create_account(b, 'Savings', 'savings', p_from_period_id => p1)));
   perform tests.remember(n || '_cat', (select id from public.create_category(b, 'Saving', p_amount => 100000, p_from_period_id => p1)));
 end $$;
+-- a transfer's transactions: the occurrence they belong to (a dated one by its date; a period's own
+-- one has none, its number is transfer_occurrence_seq), date and amount
 create function pg_temp.txs(t uuid) returns table (occurrence_date date, date date, amount bigint) language sql as $$
   select x.transfer_occurrence_date, x.date, x.amount from public.transaction_list as x where x.transfer_id = t order by x.date, x.id
 $$;
@@ -53,8 +55,8 @@ select tests.remember('m2_p3', pg_temp.period_at(tests.id('m2'), '2026-11-26'));
 select tests.remember('m2_t', (select id from public.create_transfer(tests.id('m2'), 'New standing order', tests.id('m2_main'),
   tests.id('m2_sav'), 10000, 'pay_date', p_is_automatic => true, p_category_id => tests.id('m2_cat'), p_from_period_id => tests.this_period(tests.id('m2')))));
 select results_eq(format($$select * from pg_temp.txs(%L)$$, tests.id('m2_t')),
-  $$values ('2026-11-25'::date, '2026-11-25'::date, 10000::bigint)$$,
-  'R-ACCOUNT-302: (setup) created on the 26th, its payday of the 25th has its transaction');
+  $$values (null::date, '2026-11-25'::date, 10000::bigint)$$,
+  'R-ACCOUNT-302: (setup) created on the 26th, its period''s own occurrence (the salary of the 25th) has its transaction');
 select is((select starts_on from public.transfers where id = tests.id('m2_t')), '2026-11-25'::date,
   'R-ACCOUNT-302: a transfer counts from the start of the period it is created in (starts_on)');
 select results_eq(
@@ -73,13 +75,13 @@ select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, 
                        (select revision from public.periods where id = tests.id('m2_p2'))),
   'R-ACCOUNT-302: the salary arrives on the 28th');
 select results_eq(format($$select * from pg_temp.txs(%L)$$, tests.id('m2_t')),
-  $$values ('2026-11-25'::date, '2026-11-28'::date, 10000::bigint)$$,
-  'R-ACCOUNT-302: one expense for one standing order (the reviewer''s M2: two), keyed by the scheduled payday, dated the actual one');
+  $$values (null::date, '2026-11-28'::date, 10000::bigint)$$,
+  'R-ACCOUNT-302: one expense for one standing order (the reviewer''s M2: two), the period''s own, dated the day the salary came');
 select results_eq(
-  format($$select occurrence_date, due_date, status from public.get_transfer_checklist(%L) where transfer_id = %L$$,
+  format($$select occurrence_seq, due_date, status from public.get_transfer_checklist(%L) where transfer_id = %L$$,
          pg_temp.period_at(tests.id('m2'), '2026-11-28'), tests.id('m2_t')),
-  $$values ('2026-11-25'::date, '2026-11-28'::date, 'done')$$,
-  'R-ACCOUNT-302: the checklist shows the key and the due date (the actual pay date plus the offset)');
+  $$values (3, '2026-11-28'::date, 'done')$$,
+  'R-ACCOUNT-302: the checklist shows the period''s number and the due date (the actual pay date plus the offset)');
 select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('m2')), 'R-ACCOUNT-302: the invariants hold');
 -- once more, the salary recorded on another, earlier day
 select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)$$, tests.id('m2'),
@@ -90,7 +92,7 @@ select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, 
                        (select revision from public.periods where id = tests.id('m2_p2'))),
   'R-ACCOUNT-302: (the salary recorded on the 24th instead)');
 select results_eq(format($$select * from pg_temp.txs(%L)$$, tests.id('m2_t')),
-  $$values ('2026-11-25'::date, '2026-11-24'::date, 10000::bigint)$$,
+  $$values (null::date, '2026-11-24'::date, 10000::bigint)$$,
   'R-ACCOUNT-302: still one, dated the day the salary came');
 
 -- a member's done on that payday survives the reopen as the same occurrence
@@ -102,17 +104,17 @@ select lives_ok(format($$select * from public.reopen_previous_period(%L, %L, %s)
                        (select revision from public.periods where id = tests.id('m2_p3c'))),
   'R-ACCOUNT-306: (reopened with a member''s mark on the payday)');
 select results_eq(
-  format($$select occurrence_date, status, planned, transaction_id from public.get_transfer_checklist(%L) where transfer_id = %L$$,
+  format($$select occurrence_seq, status, planned, transaction_id from public.get_transfer_checklist(%L) where transfer_id = %L$$,
          tests.id('m2_p2'), tests.id('m2_manual')),
-  format($$values ('2026-11-25'::date, 'done', false, %L::uuid)$$, tests.id('m2_mtx')),
+  format($$values (3, 'done', false, %L::uuid)$$, tests.id('m2_mtx')),
   'R-ACCOUNT-301: a member''s mark never goes silently: kept with its transaction, listed by its date, flagged');
 select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, '2026-11-28')$$, tests.id('m2'), tests.id('m2_p2'),
                        (select revision from public.periods where id = tests.id('m2_p2'))),
   'R-ACCOUNT-302: (recorded again)');
 select results_eq(
-  format($$select occurrence_date, status, planned, transaction_id from public.get_transfer_checklist(%L) where transfer_id = %L$$,
+  format($$select occurrence_seq, status, planned, transaction_id from public.get_transfer_checklist(%L) where transfer_id = %L$$,
          pg_temp.period_at(tests.id('m2'), '2026-11-28'), tests.id('m2_manual')),
-  format($$values ('2026-11-25'::date, 'done', true, %L::uuid)$$, tests.id('m2_mtx')),
+  format($$values (3, 'done', true, %L::uuid)$$, tests.id('m2_mtx')),
   'R-ACCOUNT-301: and is the same occurrence again, with its transaction');
 
 -- ===========================================================================
@@ -397,7 +399,7 @@ select lives_ok(format($$select * from public.update_transfer(%L, 2, p_is_automa
                        tests.id('c_t'), tests.id('c_cat'), tests.id('c_p1')),
   'Q-221: the correction');
 select results_eq(format($$select occurrence_date, amount from pg_temp.txs(%L)$$, tests.id('c_t')),
-  $$values ('2026-09-25'::date, 1000::bigint)$$,
+  $$values (null::date, 1000::bigint)$$,
   'R-VERSION-071: the past period''s transaction takes that period''s terms (1000), not the latest (3000), and only up to the next change');
 
 -- ===========================================================================
@@ -542,8 +544,7 @@ select results_eq(
   format($$select occurrence_date, due_date from public.get_transfer_checklist(%L) where transfer_id = %L$$, tests.id('e2_p2'), tests.id('e2_t')),
   $$values ('2026-11-15'::date, '2026-11-24'::date)$$,
   'R-ACCOUNT-301: a pay date plus the offset, never after the end of the period containing the pay date');
--- a key two periods give (the chosen income, then the primary one after a late salary) belongs
--- to the earlier period
+-- the chosen income paid on the primary's day, the primary's salary late, the chosen income ended
 select pg_temp.budget('e3');
 select tests.remember('e3_inc', public.add_income(tests.id('e3'), 'Partner', 300000, 25, 'none', null, tests.id('e3_p1')));
 select tests.remember('e3_t', (select id from public.create_transfer(tests.id('e3'), 'Partner''s', tests.id('e3_main'), tests.id('e3_sav'),
@@ -560,8 +561,8 @@ select results_eq(
                   (select count(*)::integer from public.get_transfer_checklist(%2$L) where transfer_id = %3$L)$$,
          tests.id('e3_p2'), tests.id('e3_p3'), tests.id('e3_t')),
   $$values ('2026-10-25,2026-11-25', 0)$$,
-  'R-ACCOUNT-301: the 25th of November, the partner''s pay date and the primary''s scheduled one, is one occurrence, of the earlier period');
--- a salary recorded 15 or more days early, then the next on its scheduled day: each period its own key (D-490)
+  'R-ACCOUNT-301: the partner''s 25 November is its own occurrence, in the period containing it; ended on 28 Nov, the late period''s own (due that day) is not planned (D-492)');
+-- a salary recorded 16 days early, then the next on its scheduled day: each period its own occurrence
 select pg_temp.budget('e4');
 select tests.remember('e4_t', (select id from public.create_transfer(tests.id('e4'), 'Payday', tests.id('e4_main'), tests.id('e4_sav'),
   100, 'pay_date', p_from_period_id => tests.id('e4_p1'))));
@@ -570,10 +571,10 @@ select lives_ok(format($$select * from public.record_early_pay_date(%L, %L, %s, 
 select pg_temp.day('2026-11-26');
 select public.ensure_periods(tests.id('e4'));
 select results_eq(
-  format($$select p.start_date, p.pay_key, (select string_agg(c.occurrence_date::text, ',') from public.get_transfer_checklist(p.id) as c where c.transfer_id = %L)
+  format($$select p.start_date, (select string_agg(c.occurrence_seq || '/' || c.due_date, ',') from public.get_transfer_checklist(p.id) as c where c.transfer_id = %L)
            from public.periods as p where p.budget_id = %L and p.seq >= 3 order by p.seq$$, tests.id('e4_t'), tests.id('e4')),
-  $$values ('2026-11-09'::date, '2026-11-25'::date, '2026-11-25'), ('2026-11-25'::date, '2026-12-25'::date, '2026-12-25')$$,
-  'R-ACCOUNT-307: the next period, created on the scheduled day the early salary already took, takes the next scheduled pay date and has its occurrence');
+  $$values ('2026-11-09'::date, '3/2026-11-09'), ('2026-11-25'::date, '4/2026-11-25')$$,
+  'R-ACCOUNT-511: two salaries in one month, two periods, each with its own occurrence');
 -- a due date that moves after today: the catch-up's transaction goes until it is due again
 select pg_temp.budget('e5');
 select tests.remember('e5_inc', public.add_income(tests.id('e5'), 'Partner', 300000, 20, 'none', null, tests.id('e5_p1')));
@@ -603,8 +604,8 @@ select lives_ok(format($$select * from public.mark_transfer_done(%L, %L, 0)$$, t
 select lives_ok(format($$select * from public.update_transfer(%L, 1, p_is_automatic => true)$$, tests.id('e6_t')), 'R-ACCOUNT-305: (made automatic)');
 select throws_ok(format($$select * from public.mark_transfer_not_done(%L, %L, 1)$$, tests.id('e6_t'), tests.id('e6_p2')),
   'P0001', 'transfer_already_marked', 'R-ACCOUNT-305: a member''s done stays: not done is refused until it is undone');
--- created in a period whose salary came late: its payday is its own (the first counted day is
--- the scheduled pay date)
+-- created in a period whose salary came late: the period's own occurrence is its (it counts from
+-- that period)
 select pg_temp.budget('e7');
 select lives_ok(format($$select * from public.set_expected_pay_date(%L, %L, %s, '2026-11-28')$$, tests.id('e7'), tests.id('e7_p2'),
                        (select revision from public.periods where id = tests.id('e7_p2'))), 'R-ACCOUNT-302: (the salary is expected on the 28th)');
@@ -612,11 +613,11 @@ select pg_temp.day('2026-11-28');
 select public.ensure_periods(tests.id('e7'));
 select tests.remember('e7_t', (select id from public.create_transfer(tests.id('e7'), 'Payday', tests.id('e7_main'), tests.id('e7_sav'), 100, 'pay_date', p_from_period_id => tests.this_period(tests.id('e7')))));
 select results_eq(
-  format($$select t.starts_on, c.occurrence_date, c.due_date from public.transfers as t
+  format($$select t.starts_on, c.occurrence_seq, c.due_date from public.transfers as t
            cross join lateral public.get_transfer_checklist(%L) as c where t.id = %L and c.transfer_id = t.id$$,
          pg_temp.period_at(tests.id('e7'), '2026-11-28'), tests.id('e7_t')),
-  $$values ('2026-11-25'::date, '2026-11-25'::date, '2026-11-28'::date)$$,
-  'R-ACCOUNT-305: created in a period whose salary came late, it counts from the scheduled pay date, so that payday is its own');
+  $$values ('2026-11-28'::date, 3, '2026-11-28'::date)$$,
+  'R-ACCOUNT-511: created in a period whose salary came late, its own occurrence is the period''s, due the day the salary came');
 -- a new day keeps a yearly transfer's month
 select pg_temp.budget('e8');
 select tests.remember('e8_t', (select id from public.create_transfer(tests.id('e8'), 'Yearly', tests.id('e8_main'), tests.id('e8_sav'),
