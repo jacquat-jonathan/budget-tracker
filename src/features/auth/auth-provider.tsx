@@ -6,6 +6,11 @@ import { bootstrapAuth, type AccountSwitch } from '@/features/auth/auth-bootstra
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import { dropParkedLink, type AuthLinkError } from '@/features/auth/auth-redirect'
 import { endRecovery, isRecoveryFor, RECOVERY_KEY, startRecovery } from '@/features/auth/recovery'
+import {
+  hasStoredSession,
+  markSignOutRequested,
+  wasSignOutRequested,
+} from '@/features/auth/session-ended'
 import { sessionKey } from '@/features/auth/session-identity'
 import { supabase } from '@/lib/supabase'
 
@@ -27,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accountSwitch, setAccountSwitch] = useState<AccountSwitch | null>(null)
   // Bumped when the recovery flag changes, so `recovery` is recomputed.
   const [recoveryVersion, setRecoveryVersion] = useState(0)
+  const [sessionEnded, setSessionEnded] = useState(false)
   // Session identity (sessionKey) of the current session; undefined until first known.
   const currentKey = useRef<string | null | undefined>(undefined)
   // User whose data the query cache holds; undefined until first known.
@@ -62,6 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLinkError(null)
         setAccountSwitch(null)
       }
+      // R-AUTH-530: a session that disappears without the user signing out has ended.
+      if (next) setSessionEnded(false)
+      else if (currentKey.current && !wasSignOutRequested()) setSessionEnded(true)
       currentKey.current = nextKey
       if (event === 'SIGNED_OUT') endRecovery()
       if (event === 'PASSWORD_RECOVERY' && next) startRecovery(next)
@@ -69,9 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRecoveryVersion((version) => version + 1)
     })
 
+    // A stored session that no longer restores (expired or revoked while the tab was closed).
+    const stored = hasStoredSession()
     bootstrapAuth()
       .then((result) => {
         if (!active) return
+        if (!result.session && stored && !wasSignOutRequested()) setSessionEnded(true)
         currentKey.current = sessionKey(result.session)
         applySession(result.session)
         setLinkError(result.linkError)
@@ -123,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const dismissAccountSwitch = useCallback(() => setAccountSwitch(null), [])
 
   const signOut = useCallback(async () => {
+    markSignOutRequested()
     endRecovery()
     dropParkedLink()
     setRecoveryVersion((version) => version + 1)
@@ -145,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accountSwitch,
       dismissAccountSwitch,
       signOut,
+      sessionEnded,
     }),
     [
       session,
@@ -156,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accountSwitch,
       dismissAccountSwitch,
       signOut,
+      sessionEnded,
     ],
   )
 

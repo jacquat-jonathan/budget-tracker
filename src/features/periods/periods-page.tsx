@@ -498,11 +498,13 @@ function BoundaryForm({
   const { period } = action
   const today = period.today ?? period.end_date
   const fmt = formatCalendarDate
-  // Reset takes no date; reopening may take one (otherwise the projection).
+  // Reset takes no date; every other action needs one.
   const hasField = action.kind !== 'resetExpected' && action.kind !== 'moveSchedule'
-  const optional = action.kind === 'reopen'
 
   const { budget } = useCurrentBudget()
+  // R-PERIOD-530: a reopen names the day the salary is now expected, offered as the next pay
+  // day the app announces (never left to the database's projection, a month later).
+  const announced = nextSalary(period, budget.end_date_entered)
   // R-PERIOD-054: the dates the database can accept, for "arrived early" and "moved start".
   const range: DateRange | null =
     action.kind === 'early'
@@ -517,9 +519,11 @@ function BoundaryForm({
         ? (action.date ?? range?.max ?? today)
         : action.kind === 'moveStart'
           ? (action.date ?? period.start_date)
-          : ''
+          : action.kind === 'reopen' && announced.kind === 'expected'
+            ? announced.date
+            : ''
   const form = useForm<DateInput, unknown, DateValues>({
-    resolver: zodResolver(optional || !hasField ? optionalDate : requiredDate),
+    resolver: zodResolver(hasField ? requiredDate : optionalDate),
     defaultValues: { date: defaultDate },
   })
   const date = useWatch({ control: form.control, name: 'date' })
@@ -593,8 +597,9 @@ function BoundaryForm({
             ? t('periods.preview.reopenUntil', {
                 start: fmt(action.previous.start_date),
                 end: fmt(addDays(date, -1)),
+                date: fmt(date),
               })
-            : t('periods.preview.reopenProjected', { start: fmt(action.previous.start_date) }),
+            : null,
           undo: t('periods.undo.reopen', { date: fmt(period.start_date) }),
         }
       case 'moveStart':

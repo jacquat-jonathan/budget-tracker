@@ -195,7 +195,7 @@ export function ImportPage() {
   }
 
   return (
-    <div className="flex max-w-4xl min-w-0 flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <PageHeader title={t('import.title')} description={t('import.description')} />
       <h2 ref={heading} className="sr-only">
         {t('import.title')}

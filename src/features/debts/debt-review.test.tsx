@@ -231,7 +231,7 @@ describe('debt dialogs [R-DEBT-122]', () => {
     const { queryClient } = await openDebt(db)
     await userEvent.click(screen.getByRole('button', { name: 'Adjust balance' }))
     const dialog = await screen.findByRole('dialog')
-    await userEvent.type(within(dialog).getByLabelText('Balance on your statement'), '11000')
+    await userEvent.type(within(dialog).getByLabelText('What you owe now'), '11000')
     db.tables.debt_overview = [debtRow({ first_seq: 1, remaining: 1_100_000, revision: 2 })]
     await act(async () => {
       await queryClient.invalidateQueries()

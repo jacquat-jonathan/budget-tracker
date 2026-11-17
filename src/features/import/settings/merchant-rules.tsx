@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ExternalText } from '@/components/external-text'
-import { NativeSelect } from '@/components/native-select'
+import { ChoiceSelect } from '@/components/choice-select'
 import { ErrorState, LoadingState } from '@/components/states'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,7 @@ import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatTimestampWithTime } from '@/lib/date'
 import { dbErrorCode } from '@/lib/db-errors'
 import { supabase } from '@/lib/supabase'
+import { MetaLine } from '@/components/meta-line'
 
 /**
  * Merchant rules (US-IMPORT-005): each rule's text and category, a rule whose category ended
@@ -67,10 +68,10 @@ export function MerchantRulesSettings() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 className="flex items-center gap-2">
+          <h3 className="flex items-center gap-2">
             <StoreIcon className="size-4 text-muted-foreground" aria-hidden />
             {t('import.rules.title')}
-          </h2>
+          </h3>
         </CardTitle>
         <CardDescription>{t('import.rules.help')}</CardDescription>
       </CardHeader>
@@ -277,17 +278,12 @@ function EditRuleDialog({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${id}-category`}>{t('import.rules.category')}</Label>
-            <NativeSelect
+            <ChoiceSelect
               id={`${id}-category`}
               value={categoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
-            >
-              {choices.map((choice) => (
-                <option key={choice.id} value={choice.id}>
-                  {choice.name}
-                </option>
-              ))}
-            </NativeSelect>
+              onValueChange={setCategoryId}
+              options={choices.map((choice) => ({ value: choice.id, label: choice.name }))}
+            />
           </div>
           <div className="flex items-start gap-2">
             <Checkbox
@@ -345,9 +341,9 @@ export function RememberedChoicesSettings() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 ref={heading} tabIndex={-1} className="outline-none">
+          <h3 ref={heading} tabIndex={-1} className="outline-none">
             {t('import.choices.title')}
-          </h2>
+          </h3>
         </CardTitle>
         <CardDescription>{t('import.choices.help')}</CardDescription>
       </CardHeader>
@@ -377,11 +373,18 @@ export function RememberedChoicesSettings() {
                       <ExternalText>{choice.counterparty_key}</ExternalText>
                     </span>
                   )}
-                  <span className="text-xs text-muted-foreground">
-                    {flagName(t, choice.flag)}
-                    {' · '}
-                    {t('import.choices.by', { date: formatTimestampWithTime(choice.updated_at) })}
-                  </span>
+                  <MetaLine
+                    className="text-xs text-muted-foreground"
+                    parts={[
+                      { key: 'flag', content: flagName(t, choice.flag) },
+                      {
+                        key: 'by',
+                        content: t('import.choices.by', {
+                          date: formatTimestampWithTime(choice.updated_at),
+                        }),
+                      },
+                    ]}
+                  />
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="font-medium">

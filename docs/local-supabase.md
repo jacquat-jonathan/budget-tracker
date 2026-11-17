@@ -47,10 +47,44 @@ hosted project.
   locally; password-reset and magic-link emails land here.
 - **Database**: `postgresql://postgres:postgres@127.0.0.1:54322/postgres` (psql, TablePlus...).
 
-Email confirmation is off locally, so signing up signs you in at once. Auth redirects are
-allowed to the Vite dev server (http://localhost:5173 and 127.0.0.1:5173, including
-`/reset-password`) and the preview server on port 4173. Changes to `config.toml`
-need `npm run db:stop && npm run db:start`.
+Email confirmation is **off** locally (`enable_confirmations = false` under `[auth.email]` in
+`config.toml`), so signing up signs you in at once, and `npm run db:smoke` relies on that.
+Production runs with it **on** (`docs/deployment.md`, step 4). Auth redirects are allowed to
+the Vite dev server (http://localhost:5173 and 127.0.0.1:5173, including `/reset-password`)
+and the preview server on port 4173. Changes to `config.toml` need
+`npm run db:stop && npm run db:start`.
+
+### Rehearse the confirmed sign-up locally
+
+To walk the production path (sign up, "check your inbox", the confirmation link, the reset
+link) without changing the committed config, run a **copy** of the stack:
+
+1. Copy `supabase/` to a scratch folder, for example `/tmp/bt-confirm/supabase`.
+2. In the copy's `config.toml`: set `project_id` to another name and every port to free ones
+   (so it does not clash with your usual stack), set `enable_confirmations = true` under
+   `[auth.email]`, and add your app's address to `site_url` and `additional_redirect_urls`.
+   To try the bilingual email templates of `docs/deployment.md`, save them as
+   `supabase/templates/confirmation.html` and `recovery.html` in the copy and add:
+
+   ```toml
+   [auth.email.template.confirmation]
+   subject = "Confirmez votre adresse e-mail / Confirm your email address"
+   content_path = "./supabase/templates/confirmation.html"
+
+   [auth.email.template.recovery]
+   subject = "Choisissez un nouveau mot de passe / Choose a new password"
+   content_path = "./supabase/templates/recovery.html"
+   ```
+
+3. `npx supabase start --workdir /tmp/bt-confirm`, and point `.env.local` at the copy's API
+   port and publishable key.
+4. Sign up in the app; the confirmation email lands in the copy's mail inbox (Mailpit, the
+   `[local_smtp]` port, `/` in a browser). Open its link: you are signed in. "Forgot your
+   password?" sends the reset email to the same inbox.
+5. `npx supabase stop --no-backup --workdir /tmp/bt-confirm` when done.
+
+The first email sent just after the stack starts can still use the built-in template (the
+custom one is fetched once the gateway is up); send again after a few seconds.
 
 ## Add a migration
 
@@ -260,6 +294,9 @@ npx supabase db push --remote
 ```
 
 `--remote` is required: without it the CLI targets the local stack. `seed.sql` is not
-pushed. Then set up the hosted Auth URLs as described in `docs/deployment.md`.
+pushed. The first push applies the whole chain at once (D-450); see `docs/deployment.md` for
+the full first deployment, the hosted Auth settings, backups (`npx supabase db dump`) and
+what to check after each step.
 
-Free-tier projects pause after a week without activity; resume them from the dashboard.
+Free-tier projects pause after a week without activity; resume them from the dashboard
+(`docs/deployment.md`, "The free project pauses after a week without use").

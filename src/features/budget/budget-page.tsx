@@ -32,6 +32,8 @@ import { CategoryHistoryDialog } from '@/features/budget/components/category-his
 import { ToCategoriseBadge } from '@/components/to-categorise-badge'
 import { EndCategoryDialog } from '@/features/budget/components/end-category-dialog'
 import { BudgetTotals } from '@/features/budget/components/budget-totals'
+import { CommittedCell, OverCommittedBadge } from '@/features/progress/commitments'
+import { isOverCommitted } from '@/features/progress/commitment'
 import { useCurrentPeriod, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useReorderCategories } from '@/features/categories/category-mutations'
@@ -278,9 +280,14 @@ function CategoryRow({
 }) {
   const { t } = useTranslation()
   const sub = category.parent_id !== null
+  const commitment = {
+    planned: category.monthly_amount ?? 0,
+    subscriptions: category.committed_amount ?? 0,
+    transfers: category.transfer_committed_amount ?? 0,
+  }
   return (
     <div className="flex items-center gap-3 px-4 py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-[6rem] flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={cn('line-clamp-2 break-words', sub ? 'text-sm' : 'font-medium')}
@@ -290,6 +297,7 @@ function CategoryRow({
           </span>
           {category.is_group && <Badge variant="secondary">{t('categories.group')}</Badge>}
           {category.is_to_categorise && <ToCategoriseBadge />}
+          {isOverCommitted(commitment) && <OverCommittedBadge />}
         </div>
         {category.is_to_categorise && (
           <span className="text-xs text-muted-foreground" data-testid="to-categorise-note">
@@ -305,10 +313,10 @@ function CategoryRow({
           <span className="text-xs text-muted-foreground">{t('categories.groupNote')}</span>
         )}
       </div>
-      <span className="flex shrink-0 flex-col items-end">
+      <span className="flex max-w-[60%] min-w-0 flex-col items-end text-right">
         <span
           className={cn(
-            'text-right tabular-nums',
+            'text-right whitespace-nowrap tabular-nums',
             category.is_group ? 'font-semibold' : sub ? 'text-sm' : 'font-medium',
           )}
           data-testid="category-amount"
@@ -321,15 +329,12 @@ function CategoryRow({
             formatMoney(category.monthly_amount ?? 0)
           )}
         </span>
-        {(category.committed_amount ?? 0) > 0 && (
-          // R-PROGRESS-120: under the amount it is part of, never next to the name.
-          <span
-            className="text-right text-xs text-muted-foreground tabular-nums"
-            data-testid="category-committed"
-          >
-            {t('progress.includes', { amount: formatMoney(category.committed_amount ?? 0) })}
-          </span>
-        )}
+        {/* R-PROGRESS-120: under the amount it is part of, never next to the name. */}
+        <CommittedCell
+          commitment={commitment}
+          className="text-right text-xs text-muted-foreground"
+          testId="category-committed"
+        />
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

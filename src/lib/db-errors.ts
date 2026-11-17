@@ -1,4 +1,5 @@
 import type { ParseKeys } from 'i18next'
+import { OfflineError } from '@/lib/online'
 
 /**
  * Errors from the database, mapped to translation keys. RPCs raise SQLSTATE P0001 with a
@@ -146,6 +147,7 @@ export type DbErrorKey =
   | 'errors.forbidden'
   | 'errors.invalidValue'
   | 'errors.network'
+  | 'errors.offline'
   | 'errors.busy'
   | 'errors.generic'
 
@@ -227,6 +229,7 @@ export function dbErrorKey(
   error: unknown,
   overrides: DbErrorOverrides = {},
 ): DbErrorKey | ParseKeys {
+  if (error instanceof OfflineError) return 'errors.offline'
   const code = dbErrorCode(error)
   if (code) return overrides[code] ?? `errors.db.${code}`
   const like = asErrorLike(error)

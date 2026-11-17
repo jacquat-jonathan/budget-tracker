@@ -5,7 +5,6 @@ import { catchUpFr } from '@/locales/fr/catch-up'
 const core: Omit<Translation, LazyKey> = {
   app: {
     name: 'Budget Tracker',
-    tagline: 'Le budget de votre ménage, période après période.',
   },
   common: {
     loading: 'Chargement…',
@@ -13,10 +12,6 @@ const core: Omit<Translation, LazyKey> = {
     save: 'Enregistrer',
     cancel: 'Annuler',
     actions: 'Actions',
-    comingSoon: {
-      title: 'Bientôt disponible',
-      description: 'Cette section est en préparation. Elle apparaîtra ici dès qu’elle sera prête.',
-    },
   },
   nav: {
     label: 'Menu',
@@ -45,13 +40,6 @@ const core: Omit<Translation, LazyKey> = {
     debts: {
       description: 'Ce que vous devez, son évolution et la date prévue du dernier remboursement.',
     },
-    periods: {
-      description: 'D’un jour de paie au suivant, de la plus récente à la plus ancienne.',
-    },
-    compare: {
-      description:
-        'Comment vos périodes se comparent : la tendance, chaque catégorie au fil du temps, et deux périodes côte à côte.',
-    },
     moneyFlow: {
       description:
         'D’où vient l’argent d’une période et où il va, selon le plan ou tel que cela s’est passé.',
@@ -62,10 +50,6 @@ const core: Omit<Translation, LazyKey> = {
         'L’argent qui passe d’un compte à l’autre selon un calendrier, et la liste à cocher de la période.',
     },
     income: { description: 'Les revenus qui composent votre budget mensuel.' },
-    import: {
-      description:
-        'Importez un relevé bancaire ou un fichier CSV plutôt que de saisir chaque transaction.',
-    },
     settings: { description: 'Le budget, les personnes qui le partagent et votre compte.' },
   },
   userMenu: {
@@ -98,6 +82,7 @@ const core: Omit<Translation, LazyKey> = {
   },
   validation: {
     bankLabelTooLong: 'Utilisez au plus 100 caractères.',
+    accountKindRequired: 'Choisissez de quel type de compte il s’agit.',
     accountRequired: 'Choisissez un compte.',
     sameAccount: 'Choisissez deux comptes différents.',
     incomeRequired: 'Choisissez le revenu dont il suit le jour de paie.',
@@ -135,6 +120,9 @@ const core: Omit<Translation, LazyKey> = {
       description: 'Bon retour parmi nous. Connectez-vous pour accéder à votre budget.',
       submit: 'Se connecter',
       forgotPassword: 'Mot de passe oublié ?',
+      sessionEndedTitle: 'Votre session a pris fin',
+      sessionEnded:
+        'Vous avez été déconnecté. Ce que vous aviez saisi sans l’enregistrer n’a pas été conservé : saisissez-le à nouveau après vous être connecté. Vous reviendrez à la page où vous étiez.',
       importInterrupted:
         'Une importation était en cours d’envoi depuis cet appareil quand la session s’est terminée. Ce qu’elle avait enregistré est conservé. Connectez-vous et ouvrez le même fichier sur la page Importer pour la terminer : rien n’est enregistré deux fois.',
       noAccount: 'Pas encore de compte ?',
@@ -205,8 +193,12 @@ const core: Omit<Translation, LazyKey> = {
       userAlreadyExists: 'Un compte existe déjà avec cette adresse e-mail.',
       weakPassword: 'Ce mot de passe est trop faible. Choisissez-en un plus long ou moins courant.',
       samePassword: 'Choisissez un mot de passe différent de l’actuel.',
+      reauthenticationNeeded:
+        'Par sécurité, déconnectez-vous puis reconnectez-vous, puis changez votre mot de passe.',
       rateLimited: 'Trop de tentatives. Patientez un instant, puis réessayez.',
       network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+      offline:
+        'Vous êtes hors ligne : rien n’a été envoyé. Réessayez une fois la connexion revenue.',
       generic: 'Une erreur s’est produite. Veuillez réessayer.',
     },
     accountSwitched: {
@@ -229,6 +221,17 @@ const core: Omit<Translation, LazyKey> = {
     description: 'Une erreur inattendue est survenue. Recharger la page suffit généralement.',
     reload: 'Recharger la page',
   },
+  offline: {
+    notice: 'Vous êtes hors ligne.',
+    noticeDetail:
+      'Ce qui est affiché reste ; rien ne peut être enregistré avant le retour de la connexion.',
+  },
+  pageLoad: {
+    title: 'Cette page n’a pas pu être chargée',
+    offline: 'Vous êtes hors ligne. Elle se charge d’elle-même dès le retour de la connexion.',
+    online: 'Ses fichiers n’ont pas pu être téléchargés. Vérifiez votre connexion et réessayez.',
+    retry: 'Réessayer',
+  },
   config: {
     missingTitle: 'L’application n’est pas configurée',
     missingDescription:
@@ -245,6 +248,8 @@ const core: Omit<Translation, LazyKey> = {
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
     busy: 'Le budget est occupé et a mis trop de temps à répondre : rien n’a été changé. Réessayez dans un moment.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+    offline:
+      'Vous êtes hors ligne : rien n’a été enregistré. Réessayez une fois la connexion revenue ; ce que vous avez saisi est toujours là.',
     networkAdd:
       'La connexion a été coupée avant la réponse. Ce que vous avez saisi est toujours là : enregistrez à nouveau une fois connecté. Sans risque : ce sera enregistré une seule fois, même si le premier enregistrement a abouti.',
     networkSave:
@@ -341,7 +346,7 @@ const core: Omit<Translation, LazyKey> = {
       invalid_first_date:
         'Cette première date ne convient pas au calendrier (elle doit tomber le jour choisi, au plus dix ans à l’avance).',
       occurrence_required:
-        'Cette période compte plusieurs exécutions de ce virement : choisissez laquelle.',
+        'Cette période compte plusieurs exécutions de ce virement : choisissez laquelle.',
       before_debt_opened:
         'Cette date précède l’ouverture de la dette : remboursements et ajustements commencent à sa date d’ouverture.',
       catching_up:
@@ -500,6 +505,8 @@ const core: Omit<Translation, LazyKey> = {
       'Un budget part de votre revenu et va d’un jour de paie au suivant. Vous pourrez ensuite ajouter d’autres revenus et inviter d’autres personnes.',
   },
   budgets: {
+    nameTaken:
+      'Vous avez déjà un budget appelé « {{name}} » : les deux se ressembleront dans le choix du budget. Vous pouvez tout de même l’enregistrer.',
     fields: {
       name: 'Nom du budget',
       namePlaceholder: 'Ménage',
@@ -629,7 +636,6 @@ const core: Omit<Translation, LazyKey> = {
       label: 'Corriger une période passée',
       removeLabel: 'Le supprimer depuis une période passée',
       help: 'Seulement pour corriger une erreur : normalement, un changement s’applique dès la période en cours.',
-      from: 'Appliquer dès',
       removeFrom: 'Supprimer dès',
       warning:
         'Cela modifie des périodes passées : leurs totaux de revenus sont recalculés dès la période choisie jusqu’au prochain changement déjà enregistré.',
@@ -695,6 +701,8 @@ const core: Omit<Translation, LazyKey> = {
     endedNoEdit: 'Le budget est terminé : les conditions ne peuvent plus changer.',
     addAppliesFrom:
       'Il compte dès la période en cours, sauf si vous en choisissez une plus ancienne. Les périodes passées ne changent pas autrement.',
+    addAppliesFromCurrent:
+      'Il compte dès la période en cours. Les périodes passées ne changent pas.',
     editAppliesFrom:
       'Les nouvelles conditions s’appliquent dès la période en cours, commencée le {{date}}. Les périodes passées gardent leurs conditions.',
     editAppliesFromNoPeriod:
@@ -746,6 +754,8 @@ const core: Omit<Translation, LazyKey> = {
     },
   },
   categories: {
+    nameTaken:
+      'Une autre catégorie s’appelle déjà « {{name}} » : les deux se ressembleront dans les listes. Vous pouvez tout de même l’enregistrer.',
     add: 'Ajouter une catégorie',
     addFirst: 'Ajouter votre première catégorie',
     addTitle: 'Ajouter une catégorie',
@@ -861,6 +871,8 @@ const core: Omit<Translation, LazyKey> = {
     },
     addAppliesFrom:
       'Elle est prévue à partir de la période en cours, sauf si vous en choisissez une antérieure. Les périodes passées ne changent pas autrement.',
+    addAppliesFromCurrent:
+      'Elle est prévue à partir de la période en cours. Les périodes passées ne changent pas.',
     editAppliesFrom:
       'Un nouveau montant s’applique à partir de la période en cours, commencée le {{date}}. Les périodes passées gardent le montant qu’elles avaient.',
     correctionAppliesFrom:
@@ -1036,11 +1048,22 @@ const core: Omit<Translation, LazyKey> = {
     emptyHelp:
       'Prévoyez vos dépenses par catégorie sur la page Budget, puis enregistrez vos transactions.',
     toBudget: 'Aller au budget',
-    committedExceeds:
-      'Les abonnements à eux seuls font {{committed}}, plus que les {{planned}} prévus.',
     plannedIncludes: 'Dont {{amount}} pour des abonnements',
+    plannedIncludesTransfers: 'Dont {{amount}} pour des virements planifiés',
     rowPlannedIncludes: 'Les {{expected}} prévus comprennent {{amount}} d’abonnements',
+    rowPlannedIncludesTransfers:
+      'Les {{expected}} prévus comprennent {{amount}} de virements planifiés',
     includes: 'dont {{amount}} d’abonnements',
+    includesTransfers: 'dont {{amount}} de virements planifiés',
+    committedSubscriptions: '{{amount}} engagés pour des abonnements',
+    committedTransfers: '{{amount}} engagés pour des virements planifiés',
+    overCommitted: 'Engagé au-delà du prévu',
+    overCommittedSubscriptions:
+      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements, pour {{planned}} prévus.',
+    overCommittedTransfers:
+      'Les engagements dépassent le prévu : {{transfers}} de virements planifiés, pour {{planned}} prévus.',
+    overCommittedBoth:
+      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements et {{transfers}} de virements planifiés, pour {{planned}} prévus.',
   },
   periods: {
     older: 'Périodes plus anciennes…',
@@ -1117,8 +1140,9 @@ const core: Omit<Translation, LazyKey> = {
         title: 'Le salaire de cette période n’est pas encore arrivé',
         description:
           'Cette période est fusionnée avec la précédente, qui redevient la période en cours jusqu’à l’arrivée du salaire.',
-        field: 'Salaire désormais attendu le (facultatif)',
-        range: 'Après aujourd’hui ({{today}}) ; laissez vide pour la date prévue.',
+        field: 'Salaire désormais attendu le',
+        range:
+          'Après aujourd’hui ({{today}}). Prérempli avec le prochain jour de paie du calendrier : si le salaire est seulement en retard, saisissez le jour où vous l’attendez maintenant.',
       },
       moveStart: {
         title: 'Le salaire de cette période est arrivé un autre jour',
@@ -1135,7 +1159,6 @@ const core: Omit<Translation, LazyKey> = {
       more_one: 'Et 1 autre changement, non listé.',
       more_other: 'Et {{count}} autres changements, non listés.',
       nothing: 'Rien n’a été enregistré dans cette période : seules les dates changent.',
-      failed: 'Impossible de lister le contenu de cette période : {{reason}}',
       required: 'L’enregistrement attend cette liste : c’est elle que vous confirmez.',
       kinds: {
         income: 'Revenu « {{name}} »',
@@ -1186,13 +1209,9 @@ const core: Omit<Translation, LazyKey> = {
       early:
         'Cette période se terminera le {{end}}, et une nouvelle période commencera le {{start}}.',
       reopenUntil:
-        'La période précédente (dès le {{start}}) redevient la période en cours et se terminera le {{end}} ; cette période disparaît.',
-      reopenProjected:
-        'La période précédente (dès le {{start}}) redevient la période en cours jusqu’à sa fin prévue ; cette période disparaît.',
+        'La période précédente (dès le {{start}}) redevient la période en cours et se terminera le {{end}} ; le salaire est alors attendu le {{date}}. Cette période disparaît.',
       moveStart:
         'La période précédente se terminera le {{end}}, et celle-ci commencera le {{start}}.',
-      moveSchedule:
-        'La limite revient au jour que donne le calendrier de paie, et sa marque « fixée à la main » disparaît.',
       moveScheduleTo:
         'Cette période commencera le {{start}}, jour que donne le calendrier de paie, et la précédente se terminera le {{end}} ; la marque « fixée à la main » disparaît.',
     },
@@ -1248,8 +1267,26 @@ const core: Omit<Translation, LazyKey> = {
       alreadyDeleted: 'Ce budget a déjà été supprimé.',
       deleteOwnerOnly: 'Seul·e le ou la propriétaire peut supprimer le budget.',
     },
+    sections: {
+      label: 'Sections des paramètres',
+      budget: 'Budget',
+      members: 'Membres',
+      import: 'Importation',
+      importHelp:
+        'Ajouter des transactions depuis l’extérieur de l’application : jetons pour un programme de confiance, et ce que l’importation retient pour la prochaine fois.',
+      account: 'Mon compte',
+      accountHelp:
+        'Votre nom et votre mot de passe. Ils sont les mêmes dans tous les budgets dont vous êtes membre.',
+    },
+    password: {
+      title: 'Mot de passe',
+      description:
+        'Choisissez un nouveau mot de passe d’au moins {{min}} caractères et saisissez-le deux fois. Vous restez connecté ici ; les autres navigateurs où vous êtes connecté peuvent devoir se reconnecter.',
+      submit: 'Changer le mot de passe',
+      saved: 'Mot de passe changé.',
+    },
     account: {
-      title: 'Mon compte',
+      title: 'Nom affiché',
       description:
         'Connecté·e en tant que {{email}}. Votre nom affiché est celui que voient les autres membres.',
       descriptionNoEmail: 'Votre nom affiché est celui que voient les autres membres.',
@@ -1258,6 +1295,7 @@ const core: Omit<Translation, LazyKey> = {
   },
   catchUp: catchUpFr,
   ui: {
+    skipToContent: 'Aller au contenu',
     close: 'Fermer',
     more: 'Plus',
     breadcrumb: 'Fil d’Ariane',

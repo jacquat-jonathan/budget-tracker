@@ -27,6 +27,7 @@ async function openPeriods(db = householdDb()) {
 }
 
 const CURRENT = 'the period 23.10.2026 – 24.11.2026'
+const REQUIRED_DATE = 'Enter a date.'
 const PREVIOUS = 'the period 25.09.2026 – 22.10.2026'
 
 async function choose(row: HTMLElement, range: string, action: string) {
@@ -130,21 +131,38 @@ describe('periods page [R-PERIOD-051]', () => {
       'Nothing was recorded in this period: only the dates change.',
     )
     const preview = within(dialog).getByTestId('boundary-preview')
+    // R-PERIOD-530: the date is asked, filled in with the next pay day the app announces.
+    expect(within(dialog).getByLabelText('Salary now expected on')).toHaveValue('25.11.2026')
     expect(preview).toHaveTextContent(
-      'The previous period (from 25.09.2026) is current again until its projected end',
+      'The previous period (from 25.09.2026) is current again and will end on 24.11.2026; the salary is then expected on 25.11.2026.',
     )
     expect(preview).toHaveTextContent(
       'To undo the dates: use “The salary arrived early” with 23.10.2026.',
     )
-    // Without a date: the projection.
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() => {
       expect(db.rpc.reopen_previous_period).toHaveBeenCalledWith({
         p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
         p_period_id: 'period-2',
         p_expected_revision: 1,
+        p_pay_date: '2026-11-25',
       })
     })
+  })
+
+  it('never leaves the expected day to the projection: an empty date is refused [R-PERIOD-530]', async () => {
+    const { db, rows } = await openPeriods()
+
+    const dialog = await choose(rows[0]!, CURRENT, 'This period’s salary has not arrived yet')
+    await within(dialog).findByTestId('reopen-preview')
+    expect(within(dialog).getByLabelText('Salary now expected on')).toHaveAccessibleDescription(
+      /if the salary is only late, enter the day you now expect it/,
+    )
+    await userEvent.clear(within(dialog).getByLabelText('Salary now expected on'))
+    expect(within(dialog).queryByTestId('boundary-preview')).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(await within(dialog).findByText(REQUIRED_DATE)).toBeInTheDocument()
+    expect(db.rpc.reopen_previous_period).not.toHaveBeenCalled()
   })
 
   it('lists what the reopen would move before it is confirmed [R-PERIOD-053]', async () => {
@@ -204,8 +222,10 @@ describe('periods page [R-PERIOD-051]', () => {
     )
     expect(preview).toHaveTextContent('“Groceries”: this change will move to the reopened period.')
     expect(preview).toHaveTextContent('restores the dates only, not these changes')
+    // It describes the reopen with the day that will be sent.
     expect(db.rpc.preview_reopen).toHaveBeenCalledWith({
       p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+      p_pay_date: '2026-11-25',
     })
   })
 
@@ -388,6 +408,7 @@ describe('periods page [R-PERIOD-051]', () => {
       p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
       p_period_id: 'period-2',
       p_expected_revision: 1,
+      p_pay_date: '2026-11-25',
     })
   })
 

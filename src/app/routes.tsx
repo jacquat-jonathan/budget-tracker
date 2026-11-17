@@ -1,11 +1,14 @@
-import { lazy, Suspense } from 'react'
-import { Outlet, type RouteObject } from 'react-router'
+import { Suspense } from 'react'
+import { Outlet, useLocation, type RouteObject } from 'react-router'
 
 import type { NavKey, PageHandle } from '@/app/navigation'
+import { lazyPage } from '@/app/lazy-page'
 import { debtRoute, paths } from '@/app/paths'
 import { ProtectedRoute, PublicOnlyRoute } from '@/app/route-guards'
 import { FullPageSpinner } from '@/components/full-page-spinner'
 import { AppLayout } from '@/components/layout/app-layout'
+import { OfflineNotice } from '@/components/offline-notice'
+import { PageLoadBoundary } from '@/components/page-load-boundary'
 import { RouteError } from '@/components/route-error'
 import { BudgetsRoute, RequireBudget, RequireNoBudget } from '@/features/budgets/budget-routes'
 import { loadStrings } from '@/locales/lazy-strings'
@@ -19,103 +22,109 @@ function withStrings<T>(page: Promise<T>): Promise<T> {
 }
 
 // Every page is its own chunk, loaded on first visit.
-const SignInPage = lazy(() =>
+const SignInPage = lazyPage(() =>
   import('@/features/auth/pages/sign-in-page').then((m) => ({ default: m.SignInPage })),
 )
-const SignUpPage = lazy(() =>
+const SignUpPage = lazyPage(() =>
   import('@/features/auth/pages/sign-up-page').then((m) => ({ default: m.SignUpPage })),
 )
-const ForgotPasswordPage = lazy(() =>
+const ForgotPasswordPage = lazyPage(() =>
   import('@/features/auth/pages/forgot-password-page').then((m) => ({
     default: m.ForgotPasswordPage,
   })),
 )
-const ResendConfirmationPage = lazy(() =>
+const ResendConfirmationPage = lazyPage(() =>
   import('@/features/auth/pages/resend-confirmation-page').then((m) => ({
     default: m.ResendConfirmationPage,
   })),
 )
-const ResetPasswordPage = lazy(() =>
+const ResetPasswordPage = lazyPage(() =>
   import('@/features/auth/pages/reset-password-page').then((m) => ({
     default: m.ResetPasswordPage,
   })),
 )
-const NotFoundPage = lazy(() =>
+const NotFoundPage = lazyPage(() =>
   import('@/features/not-found/not-found-page').then((m) => ({ default: m.NotFoundPage })),
 )
-const DashboardPage = lazy(() =>
+const DashboardPage = lazyPage(() =>
   withStrings(import('@/features/dashboard/dashboard-page')).then((m) => ({
     default: m.DashboardPage,
   })),
 )
-const BudgetPage = lazy(() =>
+const BudgetPage = lazyPage(() =>
   withStrings(import('@/features/budget/budget-page')).then((m) => ({ default: m.BudgetPage })),
 )
-const TransactionsPage = lazy(() =>
+const TransactionsPage = lazyPage(() =>
   withStrings(import('@/features/transactions/transactions-page')).then((m) => ({
     default: m.TransactionsPage,
   })),
 )
-const SubscriptionsPage = lazy(() =>
+const SubscriptionsPage = lazyPage(() =>
   withStrings(import('@/features/subscriptions/subscriptions-page')).then((m) => ({
     default: m.SubscriptionsPage,
   })),
 )
-const DebtsPage = lazy(() =>
+const DebtsPage = lazyPage(() =>
   withStrings(import('@/features/debts/debts-page')).then((m) => ({ default: m.DebtsPage })),
 )
 // The chart library (Recharts) is only in this page's chunk: the first load does not carry it.
-const DebtDetailPage = lazy(() =>
+const DebtDetailPage = lazyPage(() =>
   withStrings(import('@/features/debts/debt-detail-page')).then((m) => ({
     default: m.DebtDetailPage,
   })),
 )
 // Recharts stays in the Compare page's chunk, out of the first load.
-const ComparePage = lazy(() =>
+const ComparePage = lazyPage(() =>
   withStrings(import('@/features/compare/compare-page')).then((m) => ({ default: m.ComparePage })),
 )
-const PeriodsPage = lazy(() =>
+const PeriodsPage = lazyPage(() =>
   withStrings(import('@/features/periods/periods-page')).then((m) => ({ default: m.PeriodsPage })),
 )
-const MoneyFlowPage = lazy(() =>
+const MoneyFlowPage = lazyPage(() =>
   withStrings(import('@/features/money-flow/money-flow-page')).then((m) => ({
     default: m.MoneyFlowPage,
   })),
 )
-const AccountsPage = lazy(() =>
+const AccountsPage = lazyPage(() =>
   withStrings(import('@/features/accounts/accounts-page')).then((m) => ({
     default: m.AccountsPage,
   })),
 )
-const TransfersPage = lazy(() =>
+const TransfersPage = lazyPage(() =>
   withStrings(import('@/features/transfers/transfers-page')).then((m) => ({
     default: m.TransfersPage,
   })),
 )
-const IncomePage = lazy(() =>
+const IncomePage = lazyPage(() =>
   withStrings(import('@/features/income/income-page')).then((m) => ({ default: m.IncomePage })),
 )
 // The import page; pdf.js, the statement parsers and the CSV code load from it on demand.
-const ImportPage = lazy(() =>
+const ImportPage = lazyPage(() =>
   withStrings(import('@/features/import/import-page')).then((m) => ({ default: m.ImportPage })),
 )
-const WelcomePage = lazy(() =>
+const WelcomePage = lazyPage(() =>
   import('@/features/budgets/pages/welcome-page').then((m) => ({ default: m.WelcomePage })),
 )
-const NewBudgetPage = lazy(() =>
+const NewBudgetPage = lazyPage(() =>
   import('@/features/budgets/pages/new-budget-page').then((m) => ({ default: m.NewBudgetPage })),
 )
-const SettingsPage = lazy(() =>
+const SettingsPage = lazyPage(() =>
   withStrings(import('@/features/settings/settings-page')).then((m) => ({
     default: m.SettingsPage,
   })),
 )
 
 function SuspenseOutlet() {
+  const { pathname } = useLocation()
   return (
-    <Suspense fallback={<FullPageSpinner />}>
-      <Outlet />
-    </Suspense>
+    <>
+      <PageLoadBoundary key={pathname}>
+        <Suspense fallback={<FullPageSpinner />}>
+          <Outlet />
+        </Suspense>
+      </PageLoadBoundary>
+      <OfflineNotice />
+    </>
   )
 }
 

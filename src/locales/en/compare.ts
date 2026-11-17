@@ -42,6 +42,7 @@ export const compareEn = {
     planned: 'Planned',
     result: 'Result',
     committed: 'Subscriptions',
+    transferCommitted: 'Planned transfers',
   },
   trend: {
     title: 'Income and spending',

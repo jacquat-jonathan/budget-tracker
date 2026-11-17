@@ -125,7 +125,7 @@ export function ComparePage() {
                   to={linkTo(item)}
                   aria-current={item === view ? 'page' : undefined}
                   className={cn(
-                    'inline-flex h-8 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                    'inline-flex h-8 items-center rounded-md px-3 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                     item === view && 'bg-background text-foreground shadow-sm',
                   )}
                   data-testid={`view-${item}`}
@@ -218,7 +218,7 @@ function CountChoice({ value, onChange }: { value: Count; onChange: (count: Coun
           onClick={() => onChange(count)}
           onKeyDown={(event) => move(event, index)}
           className={cn(
-            'h-7 rounded-md px-2.5 text-sm whitespace-nowrap text-muted-foreground tabular-nums hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+            'h-7 rounded-md px-2.5 text-sm whitespace-nowrap text-foreground/80 tabular-nums hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
             count === value && 'bg-primary text-primary-foreground hover:text-primary-foreground',
           )}
         >

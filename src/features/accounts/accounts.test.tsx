@@ -83,10 +83,35 @@ describe('accounts page [R-ACCOUNT-001]', () => {
     expect(await screen.findByText('No accounts yet')).toBeInTheDocument()
     expect(screen.getByText(/the rest of the app works without them/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Add your first account' }))
-    // The first account of a household is most often its salary account.
+    // No kind is chosen for the user, not even for the first account [R-ACCOUNT-530].
     expect(within(await screen.findByRole('dialog')).getByLabelText('Kind')).toHaveTextContent(
-      'Current or salary account',
+      'Choose a kind',
     )
+  })
+
+  it('starts the kind empty and requires it, saying what the kind changes [R-ACCOUNT-530]', async () => {
+    const db = await openPage()
+    // A second account: once it silently started as "Savings".
+    await userEvent.click(screen.getByRole('button', { name: 'Add account' }))
+    const dialog = await screen.findByRole('dialog')
+    const kind = within(dialog).getByLabelText('Kind')
+    expect(kind).toHaveTextContent('Choose a kind')
+    expect(kind).toHaveAccessibleDescription(
+      /everyday account .* is spendable; .* savings, third pillar, tax reserve or investment account is set aside/,
+    )
+    await userEvent.type(within(dialog).getByLabelText('Name'), 'Joint account')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    expect(
+      await within(dialog).findByText('Choose what kind of account it is.'),
+    ).toBeInTheDocument()
+    expect(db.rpc.create_account).not.toHaveBeenCalled()
+    await choose(dialog, 'Kind', 'Current or salary account')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.create_account).toHaveBeenCalledWith(
+        expect.objectContaining({ p_name: 'Joint account', p_kind: 'current' }),
+      )
+    })
   })
 
   it('creates an account with its kind, bank and holder, once per action', async () => {

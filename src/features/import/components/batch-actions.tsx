@@ -425,6 +425,14 @@ export function UndoImport({
     errorDisplay: 'inline',
     mutationFn: async () =>
       unwrap(await supabase.rpc('undo_import_batch', { p_batch_id: batchId }))[0] ?? null,
+    // R-IMPORT-531: an undo is confirmed by a toast too, wherever it was started.
+    success: (result) =>
+      t('import.undo.done', {
+        deleted: formatCount(result?.deleted ?? 0),
+        confirmed: formatCount(result?.kept_confirmed ?? 0),
+        linked: formatCount(result?.kept_linked ?? 0),
+        charges: formatCount(result?.charges_confirmed ?? 0),
+      }),
     onSuccess: (result) => {
       setAnswer(result)
       setOpen(false)

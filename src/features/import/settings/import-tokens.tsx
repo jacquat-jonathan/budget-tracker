@@ -27,6 +27,7 @@ import { useImportTokens, type ImportToken } from '@/features/import/import-quer
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatTimestampWithTime } from '@/lib/date'
 import { supabase } from '@/lib/supabase'
+import { MetaLine } from '@/components/meta-line'
 
 /** The database's bounds for a token's life (create_import_token). */
 export const TOKEN_DAYS_DEFAULT = 30
@@ -80,17 +81,17 @@ export function ImportTokensSettings() {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2 className="flex items-center gap-2">
+          <h3 className="flex items-center gap-2">
             <KeyRoundIcon className="size-4 text-muted-foreground" aria-hidden />
             {t('import.tokens.title')}
-          </h2>
+          </h3>
         </CardTitle>
         <CardDescription>{t('import.tokens.help')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
-            {t('import.tokens.limit')} {t('import.tokens.docs')}
+            {t('import.tokens.lifecycle')} {t('import.tokens.limit')}
           </p>
           <Button type="button" size="sm" onClick={() => setCreating(true)}>
             <PlusIcon aria-hidden />
@@ -134,25 +135,34 @@ export function ImportTokensSettings() {
                             date: formatTimestampWithTime(token.created_at),
                           })}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {token.last_used_at
-                        ? t('import.tokens.lastUsed', {
-                            date: formatTimestampWithTime(token.last_used_at),
-                          })
-                        : t('import.tokens.neverUsed')}
-                      {' · '}
-                      {state === 'revoked' && token.revoked_at
-                        ? t('import.tokens.revokedOn', {
-                            date: formatTimestampWithTime(token.revoked_at),
-                          })
-                        : state === 'expired'
-                          ? t('import.tokens.expiredOn', {
-                              date: formatTimestampWithTime(token.expires_at),
-                            })
-                          : t('import.tokens.expiresOn', {
-                              date: formatTimestampWithTime(token.expires_at),
-                            })}
-                    </span>
+                    <MetaLine
+                      className="text-xs text-muted-foreground"
+                      parts={[
+                        {
+                          key: 'used',
+                          content: token.last_used_at
+                            ? t('import.tokens.lastUsed', {
+                                date: formatTimestampWithTime(token.last_used_at),
+                              })
+                            : t('import.tokens.neverUsed'),
+                        },
+                        {
+                          key: 'state',
+                          content:
+                            state === 'revoked' && token.revoked_at
+                              ? t('import.tokens.revokedOn', {
+                                  date: formatTimestampWithTime(token.revoked_at),
+                                })
+                              : state === 'expired'
+                                ? t('import.tokens.expiredOn', {
+                                    date: formatTimestampWithTime(token.expires_at),
+                                  })
+                                : t('import.tokens.expiresOn', {
+                                    date: formatTimestampWithTime(token.expires_at),
+                                  }),
+                        },
+                      ]}
+                    />
                     {state === 'stopped' && (
                       <span className="text-xs">{t('import.tokens.stoppedHelp')}</span>
                     )}

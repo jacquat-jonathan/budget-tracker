@@ -7,7 +7,6 @@ import type { accountsEn, moneyFlowEn, transfersEn } from '@/locales/en/step7'
 const core = {
   app: {
     name: 'Budget Tracker',
-    tagline: 'Your household budget, period by period.',
   },
   common: {
     loading: 'Loading…',
@@ -15,10 +14,6 @@ const core = {
     save: 'Save',
     cancel: 'Cancel',
     actions: 'Actions',
-    comingSoon: {
-      title: 'Coming soon',
-      description: 'This section is on its way. It will appear here once it is ready.',
-    },
   },
   nav: {
     label: 'Menu',
@@ -45,11 +40,6 @@ const core = {
     transactions: { description: 'Everything you spend and receive, period by period.' },
     subscriptions: { description: 'Recurring charges and when the next one is due.' },
     debts: { description: 'What you owe, how it shrinks and when it will be paid off.' },
-    periods: { description: 'Pay day to pay day, newest first.' },
-    compare: {
-      description:
-        'How your periods compare: the trend, each category over time, and any two side by side.',
-    },
     moneyFlow: {
       description:
         'Where the money of a period comes from and where it goes, by the plan or as it happened.',
@@ -60,9 +50,6 @@ const core = {
         'Money that moves between your accounts on a schedule, and this period’s checklist.',
     },
     income: { description: 'The incomes that make up your monthly budget.' },
-    import: {
-      description: 'Bring in a bank statement or a CSV file instead of typing each transaction.',
-    },
     settings: { description: 'The budget, the people who share it, and your account.' },
   },
   userMenu: {
@@ -95,6 +82,7 @@ const core = {
   },
   validation: {
     bankLabelTooLong: 'Use at most 100 characters.',
+    accountKindRequired: 'Choose what kind of account it is.',
     accountRequired: 'Choose an account.',
     sameAccount: 'Choose two different accounts.',
     incomeRequired: 'Choose the income whose payday it follows.',
@@ -131,6 +119,9 @@ const core = {
       description: 'Welcome back. Sign in to your budget.',
       submit: 'Sign in',
       forgotPassword: 'Forgot your password?',
+      sessionEndedTitle: 'Your session ended',
+      sessionEnded:
+        'You were signed out. What you had typed and not yet saved was not kept: enter it again after signing in. You will go back to the page you were on.',
       importInterrupted:
         'An import was being sent from this device when the session ended. What it had recorded is kept. Sign in and open the same file on the Import page to finish it: nothing is recorded twice.',
       noAccount: 'No account yet?',
@@ -199,8 +190,11 @@ const core = {
       userAlreadyExists: 'An account with this email address already exists.',
       weakPassword: 'This password is too weak. Choose a longer or less common one.',
       samePassword: 'Choose a password different from your current one.',
+      reauthenticationNeeded:
+        'For your safety, sign out and sign in again, then change your password.',
       rateLimited: 'Too many attempts. Wait a moment, then try again.',
       network: 'Cannot reach the server. Check your connection and try again.',
+      offline: 'You are offline: nothing was sent. Try again once the connection is back.',
       generic: 'Something went wrong. Please try again.',
     },
     accountSwitched: {
@@ -223,6 +217,16 @@ const core = {
     description: 'An unexpected error occurred. Reloading the page usually helps.',
     reload: 'Reload the page',
   },
+  offline: {
+    notice: 'You are offline.',
+    noticeDetail: 'What is on screen stays; nothing can be saved until the connection is back.',
+  },
+  pageLoad: {
+    title: 'This page could not be loaded',
+    offline: 'You are offline. It loads by itself once the connection is back.',
+    online: 'Its files could not be downloaded. Check your connection and try again.',
+    retry: 'Try again',
+  },
   config: {
     missingTitle: 'The app is not configured',
     missingDescription:
@@ -238,6 +242,8 @@ const core = {
     invalidValue: 'One of the values is not accepted. Check the form and try again.',
     busy: 'The budget is busy and took too long to answer: nothing was changed. Try again in a moment.',
     network: 'Cannot reach the server. Check your connection and try again.',
+    offline:
+      'You are offline: nothing was saved. Try again once the connection is back; what you typed is still here.',
     networkAdd:
       'The connection failed before the answer came back. What you entered is still here: save again once you are connected. It is safe: it will be recorded only once, even if the first save went through.',
     networkSave:
@@ -484,6 +490,8 @@ const core = {
       'A budget starts from your income and runs from pay day to pay day. You can add more incomes and invite others afterwards.',
   },
   budgets: {
+    nameTaken:
+      'You already have a budget called “{{name}}”: both will look the same in the budget switcher. You can still save it.',
     fields: {
       name: 'Budget name',
       namePlaceholder: 'Household',
@@ -606,7 +614,6 @@ const core = {
       label: 'Correct an earlier period',
       removeLabel: 'Remove it from an earlier period',
       help: 'Only to fix a mistake: normally a change applies from the current period.',
-      from: 'Apply from',
       removeFrom: 'Remove from',
       warning:
         'This changes past periods: their income totals are recomputed from the period you choose until the next change already recorded.',
@@ -669,6 +676,7 @@ const core = {
     endedNoEdit: 'The budget has ended: terms can no longer change.',
     addAppliesFrom:
       'It counts from the current period, unless you choose an earlier one. Past periods are otherwise unchanged.',
+    addAppliesFromCurrent: 'It counts from the current period. Past periods are unchanged.',
     editAppliesFrom:
       'New terms apply from the current period, which started on {{date}}. Past periods keep the terms they had.',
     editAppliesFromNoPeriod: 'New terms apply from the current period. Past periods keep theirs.',
@@ -717,6 +725,8 @@ const core = {
     },
   },
   categories: {
+    nameTaken:
+      'Another category is already called “{{name}}”: both will look the same in lists. You can still save it.',
     add: 'Add category',
     addFirst: 'Add your first category',
     addTitle: 'Add a category',
@@ -823,6 +833,7 @@ const core = {
     },
     addAppliesFrom:
       'It is planned from the current period, unless you choose an earlier one. Past periods are otherwise unchanged.',
+    addAppliesFromCurrent: 'It is planned from the current period. Past periods are unchanged.',
     editAppliesFrom:
       'A new amount applies from the current period, which started on {{date}}. Past periods keep the amount they had.',
     correctionAppliesFrom:
@@ -994,11 +1005,22 @@ const core = {
     empty: 'Nothing planned or spent in this period',
     emptyHelp: 'Plan your spending in categories on the Budget page, then record transactions.',
     toBudget: 'Go to the budget',
-    committedExceeds:
-      'Subscriptions alone come to {{committed}}, more than the {{planned}} planned.',
     plannedIncludes: 'Includes {{amount}} for subscriptions',
+    plannedIncludesTransfers: 'Includes {{amount}} for planned transfers',
     rowPlannedIncludes: 'The {{expected}} planned include {{amount}} for subscriptions',
+    rowPlannedIncludesTransfers:
+      'The {{expected}} planned include {{amount}} for planned transfers',
     includes: 'incl. {{amount}} for subscriptions',
+    includesTransfers: 'incl. {{amount}} for planned transfers',
+    committedSubscriptions: '{{amount}} committed for subscriptions',
+    committedTransfers: '{{amount}} committed for planned transfers',
+    overCommitted: 'Committed above plan',
+    overCommittedSubscriptions:
+      'More is committed than planned: {{subscriptions}} for subscriptions, against {{planned}} planned.',
+    overCommittedTransfers:
+      'More is committed than planned: {{transfers}} for planned transfers, against {{planned}} planned.',
+    overCommittedBoth:
+      'More is committed than planned: {{subscriptions}} for subscriptions and {{transfers}} for planned transfers, against {{planned}} planned.',
   },
   periods: {
     older: 'Older periods…',
@@ -1073,8 +1095,9 @@ const core = {
         title: 'This period’s salary has not arrived yet',
         description:
           'This period is merged into the previous one, which is current again until the salary arrives.',
-        field: 'Salary now expected on (optional)',
-        range: 'After today ({{today}}); leave empty to use the projected date.',
+        field: 'Salary now expected on',
+        range:
+          'After today ({{today}}). Filled in with the next pay day of the schedule: if the salary is only late, enter the day you now expect it.',
       },
       moveStart: {
         title: 'This period’s salary arrived on another day',
@@ -1091,7 +1114,6 @@ const core = {
       more_one: 'And 1 more change, not listed.',
       more_other: 'And {{count}} more changes, not listed.',
       nothing: 'Nothing was recorded in this period: only the dates change.',
-      failed: 'Could not list what this period holds: {{reason}}',
       required: 'Saving waits for this list: what it shows is what you confirm.',
       kinds: {
         income: 'Income “{{name}}”',
@@ -1141,12 +1163,8 @@ const core = {
       resetExpected: 'The end of this period will follow the projected pay date again.',
       early: 'This period will end on {{end}}, and a new period starts on {{start}}.',
       reopenUntil:
-        'The previous period (from {{start}}) is current again and will end on {{end}}; this period disappears.',
-      reopenProjected:
-        'The previous period (from {{start}}) is current again until its projected end; this period disappears.',
+        'The previous period (from {{start}}) is current again and will end on {{end}}; the salary is then expected on {{date}}. This period disappears.',
       moveStart: 'The previous period will end on {{end}}, and this one starts on {{start}}.',
-      moveSchedule:
-        'The boundary goes back to the day the schedule gives, and its “set by hand” mark is cleared.',
       moveScheduleTo:
         'This period will start on {{start}}, the day the schedule gives, and the previous one end on {{end}}; the “set by hand” mark is cleared.',
     },
@@ -1199,8 +1217,25 @@ const core = {
       alreadyDeleted: 'This budget was already deleted.',
       deleteOwnerOnly: 'Only the owner can delete the budget.',
     },
+    sections: {
+      label: 'Settings sections',
+      budget: 'Budget',
+      members: 'Members',
+      import: 'Import',
+      importHelp:
+        'Adding transactions from outside the app: tokens for a program you trust, and what the import remembers for next time.',
+      account: 'My account',
+      accountHelp: 'Your own name and password. They are the same in every budget you belong to.',
+    },
+    password: {
+      title: 'Password',
+      description:
+        'Choose a new password of at least {{min}} characters and type it twice. You stay signed in here; other browsers where you are signed in may have to sign in again.',
+      submit: 'Change password',
+      saved: 'Password changed.',
+    },
     account: {
-      title: 'My account',
+      title: 'Display name',
       description: 'Signed in as {{email}}. Your display name is what the other members see.',
       descriptionNoEmail: 'Your display name is what the other members see.',
       saved: 'Display name saved.',
@@ -1208,6 +1243,7 @@ const core = {
   },
   catchUp: catchUpEn,
   ui: {
+    skipToContent: 'Skip to content',
     close: 'Close',
     more: 'More',
     breadcrumb: 'Breadcrumb',

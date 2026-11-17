@@ -30,6 +30,11 @@ interface SelectFieldProps<TValues extends FieldValues, TOut extends FieldValues
   className?: string
   /** A last entry that is an action, not a value (e.g. "Older periods…"): the value stays. */
   more?: MoreOption
+  /**
+   * Shown while nothing is chosen: with a placeholder, "" means "nothing chosen" (no option
+   * may then have the value "").
+   */
+  placeholder?: string
 }
 
 export interface MoreOption {
@@ -59,6 +64,7 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
   numeric = false,
   className,
   more,
+  placeholder,
 }: SelectFieldProps<TValues, TOut>) {
   const { t } = useTranslation()
   const id = useId()
@@ -75,7 +81,11 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
       <Select
         name={fieldName}
         value={
-          typeof value === 'string' || typeof value === 'number' ? toSelect(String(value)) : ''
+          placeholder !== undefined && value === ''
+            ? ''
+            : typeof value === 'string' || typeof value === 'number'
+              ? toSelect(String(value))
+              : ''
         }
         disabled={disabled}
         onValueChange={(next) => {
@@ -95,7 +105,7 @@ export function SelectField<TValues extends FieldValues, TOut extends FieldValue
           aria-invalid={fieldState.invalid || undefined}
           aria-describedby={description ? `${id}-description` : undefined}
         >
-          <SelectValue />
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent position="popper" className="max-h-72">
           {options.map((option) => (
