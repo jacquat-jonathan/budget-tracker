@@ -1624,7 +1624,21 @@ its **key** (`occurrence_date`), never by a period, and has a **due date** (`due
 - Nothing before the transfer's **first counted day** (`starts_on`: the start of the period it
   was created in or corrected from, or that period's scheduled pay date when the salary came
   late; the day it was created when it was created with no period and no first date after the
-  period's start, D-493; it stays a date through a reopen).
+  period's start, D-493; it stays a date through a reopen). A primary occurrence counts when the
+  salary that started its period **came** on or after that day; the period's key is never
+  compared with it (R-ACCOUNT-420, D-520). The salary a transfer was made from (named, or made
+  on its period's first day) stays its occurrence wherever that salary is recorded again: a
+  reopen and the salary on an earlier day, or a start moved earlier.
+- **One key in two periods** (R-ACCOUNT-421, D-521). A key can lie outside its period, so a
+  period's scheduled pay date can equal a date of the period that contains it. When both are
+  paydays (a chosen income's pay date in one, the primary's key in the other: the transfer
+  switched between them) it is one occurrence, the earlier period's. When one is a **fixed
+  day** (a transfer changed from a pay date to a fixed day, or back), they are **two
+  occurrences**, one in each period, with the same `occurrence_date`: each period's checklist
+  lists its own, and the mark calls tell them apart by `p_period_id` (as always, send the row's
+  period and key). Example: periods 8 Feb to 4 Mar (key 5 Mar, its salary of 8 Feb) and 5 Mar to
+  4 Apr; "Savings" changed from 5 Mar to a fixed day 5: the first lists key 5 Mar due 8 Feb,
+  the second key 5 Mar due 5 Mar, each with its own transaction.
 
 The read model: **one checklist row per occurrence**; **one mark per transfer and key**; one
 transaction per mark at most.
