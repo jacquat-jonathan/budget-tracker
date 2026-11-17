@@ -17,7 +17,7 @@ import {
 import { formatMoney } from '@/lib/money'
 import { householdDb } from '@/test/budget-fixtures'
 import { shortNames } from '@/features/money-flow/money-flow-words'
-import { chainPlan, workedExamplePlan } from '@/test/money-flow-fixtures'
+import { cashWalletPlan, chainPlan, workedExamplePlan } from '@/test/money-flow-fixtures'
 import { rpcError } from '@/test/mock-db'
 import { moneyFlowRows, transferRow, type MoneyFlowPlan } from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
@@ -264,7 +264,7 @@ describe('the money flow page [R-ACCOUNT-006] [R-ACCOUNT-235] [R-ACCOUNT-422] [R
     expect(text(within(table).getByTestId('total-spendable'))).toBe(money(841_200))
     expect(text(within(table).getByTestId('total-set-aside'))).toBe(money(158_800))
     expect(row('flow-spending-row', 'Saving and pension')).toContain(
-      `Planned${money(0)}${money(705_600)} a year${money(158_800)} shown as transfersSpent${money(0)}${money(100_000)} moved by transfers`,
+      `Planned${money(0)}${money(705_600)} a year${money(158_800)} set aside by transfersSpent${money(0)}${money(100_000)} set aside by transfers`,
     )
     expect(text(within(table).getByTestId('total-planned'))).toBe(money(390_000))
     expect(text(within(table).getByTestId('total-spent'))).toBe(money(290_550))
@@ -768,18 +768,18 @@ describe('labels say the read’s figures with their words [R-ACCOUNT-447]', () 
     expect(label('acc-buffer')).toBe(`stays ${money(60_000)}, set aside`)
   })
 
-  it('on Actual, a group says what it spent of its planned spending and what its transfers moved', async () => {
+  it('on Actual, a group says what it spent of its planned spending and what its transfers set aside', async () => {
     const plan = workedExamplePlan()
     plan.categories[4]!.expected = 188_800
     plan.categories[4]!.spent = 125_000
     await openAt(plan, 1100)
     expect(label('group:grp-saving')).toBe(
-      `planned ${money(30_000)} · ${money(705_600)} a year · ${money(158_800)} shown as transfers`,
+      `planned ${money(30_000)} · ${money(705_600)} a year · ${money(158_800)} set aside by transfers`,
     )
     await userEvent.click(screen.getByTestId('basis-actual'))
     await screen.findByRole('heading', { name: /^What actually happened/ })
     expect(label('group:grp-saving')).toBe(
-      `spent ${money(25_000)} of ${money(30_000)} · ${money(705_600)} a year · ${money(100_000)} moved by transfers`,
+      `spent ${money(25_000)} of ${money(30_000)} · ${money(705_600)} a year · ${money(100_000)} set aside by transfers`,
     )
   })
 
@@ -964,5 +964,174 @@ describe('the accounts table', () => {
     await openAt(chainPlan(), 1100)
     expect(text(screen.getByTestId('not-assigned-out'))).toBe('–nothing goes out')
     vi.restoreAllMocks()
+  })
+})
+
+describe('each group’s own remainder on the Actual basis [R-ACCOUNT-502] [D-567]', () => {
+  const leftOf = (name: string) =>
+    text(
+      within(
+        screen
+          .getAllByTestId('flow-spending-row')
+          .find((element) => text(element).startsWith(name))!,
+      ).getByTestId('flow-spending-left'),
+    )
+
+  it('shows the read’s left_amount per group, never planned less spent worked out here', async () => {
+    const plan = workedExamplePlan()
+    const db = householdDb()
+    db.moneyFlowPlans = [plan]
+    // A read whose remainder is not the page's own arithmetic: the page must show the read's.
+    const rows = moneyFlowRows(plan).map((row) =>
+      row.row_kind === 'spending' && row.name === 'Home' ? { ...row, left_amount: 12_345 } : row,
+    )
+    db.rpc.get_money_flow.mockImplementation(() => rows)
+    mock.current = createSupabaseMock(fakeSession(), db)
+    renderRoutes(routes, '/money-flow?basis=actual')
+    await screen.findByTestId('money-flow-table')
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    expect(leftOf('Home')).toBe(money(12_345))
+    expect(screen.getByTestId('spending-table')).not.toHaveTextContent(money(15_000))
+  })
+
+  it('the worked example: every group’s left, the column named on a phone, the totals pooled', async () => {
+    await openPage([workedExamplePlan()], '/money-flow?basis=actual')
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    expect(leftOf('Home')).toBe(money(15_000))
+    expect(leftOf('Food')).toBe(money(37_450))
+    expect(leftOf('Transport')).toBe(money(18_000))
+    expect(leftOf('Leisure')).toBe(money(29_000))
+    expect(leftOf('Saving and pension')).toBe(money(0))
+    // The row block says each figure's column (the label shows below 640 px).
+    const home = screen
+      .getAllByTestId('flow-spending-row')
+      .find((element) => text(element).startsWith('Home'))!
+    expect(text(home)).toContain(
+      `Planned${money(215_000)}Spent${money(200_000)}Left${money(15_000)}`,
+    )
+    const table = screen.getByTestId('spending-table')
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((cell) => text(cell)),
+    ).toEqual(['Category group', 'Planned', 'Spent', 'Left'])
+    // The total row keeps the read's pooled figures: no sum of the groups' remainders.
+    expect(text(within(table).getByTestId('total-left'))).toBe(`${money(550_650)}left`)
+    expect(text(within(table).getByTestId('total-spent'))).toBe(money(290_550))
+  })
+
+  it('an overspent group says so in words beside its remainder below nothing', async () => {
+    await openPage([chainPlan()], '/money-flow?basis=actual')
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    expect(leftOf('Home')).toBe(`${money(-10_000)}more spent than planned`)
+    expect(leftOf('Food')).toBe(money(25_000))
+  })
+
+  it('on the Planned basis the table has no Left column', async () => {
+    await openPage()
+    const table = screen.getByTestId('spending-table')
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((cell) => text(cell)),
+    ).toEqual(['Category group', 'Planned', 'Spent'])
+    expect(within(table).queryByTestId('flow-spending-left')).not.toBeInTheDocument()
+  })
+})
+
+describe('a linked transfer into an everyday account stays spending [R-ACCOUNT-465] [D-565]', () => {
+  it('the mock answers the second worked example as docs/database.md does', () => {
+    const rows = moneyFlowRows(cashWalletPlan())
+    const of = (kind: string, name: string | null) =>
+      rows.find((row) => row.row_kind === kind && row.name === name)!
+    expect(of('account', 'Cash')).toMatchObject({
+      inflow: 50_000,
+      outflow: 0,
+      stays: 50_000,
+      spendable: true,
+    })
+    expect(of('account', 'Main')).toMatchObject({
+      inflow: 600_000,
+      outflow: 50_000,
+      stays: 550_000,
+      spendable: true,
+    })
+    expect(of('account', 'Savings')).toMatchObject({
+      inflow: 0,
+      outflow: 0,
+      stays: 0,
+      spendable: false,
+    })
+    expect(of('spending', 'Pocket money')).toMatchObject({
+      expected: 50_000,
+      transfer_share: 0,
+      amount: 50_000,
+      spent: 50_000,
+      transfer_spent: 0,
+      left_amount: 0,
+    })
+    expect(of('spending', 'Food')).toMatchObject({
+      expected: 80_000,
+      transfer_share: 0,
+      amount: 80_000,
+      spent: 30_000,
+      left_amount: 50_000,
+    })
+    expect(of('total', null)).toMatchObject({
+      amount: 600_000,
+      set_aside: 0,
+      spendable_amount: 600_000,
+      planned_spending: 130_000,
+      not_planned: 470_000,
+      actual_spending: 80_000,
+      left_amount: 520_000,
+    })
+  })
+
+  it('the page shows the pocket money as planned and spent, never as set aside by transfers', async () => {
+    await openPage([cashWalletPlan()], '/money-flow?basis=actual')
+    await screen.findByRole('heading', { name: /^What actually happened/ })
+    const table = screen.getByTestId('money-flow-table')
+    const pocket = within(table)
+      .getAllByTestId('flow-spending-row')
+      .find((element) => text(element).startsWith('Pocket money'))!
+    expect(text(pocket)).toBe(
+      `Pocket moneyPlanned${money(50_000)}Spent${money(50_000)}Left${money(0)}`,
+    )
+    expect(table).not.toHaveTextContent('set aside by transfers')
+    const cash = within(table)
+      .getAllByTestId('flow-account-row')
+      .find((element) => text(element).startsWith('Cash'))!
+    expect(text(cash)).toContain(`Stays${money(50_000)}spendable`)
+    expect(text(within(table).getByTestId('total-spendable'))).toBe(money(600_000))
+    expect(text(within(table).getByTestId('total-set-aside'))).toBe(money(0))
+    expect(text(within(table).getByTestId('total-planned'))).toBe(money(130_000))
+    expect(text(within(table).getByTestId('total-spent'))).toBe(money(80_000))
+    expect(text(within(table).getByTestId('total-not-planned'))).toBe(
+      `${money(470_000)}not planned`,
+    )
+    expect(text(within(table).getByTestId('total-left'))).toBe(`${money(520_000)}left`)
+  })
+
+  it('a share into a set-aside account still leaves the pool, and only its transactions are set aside', () => {
+    // The worked example with the Savings standing order sent to a cash wallet instead.
+    const plan = workedExamplePlan()
+    plan.accounts.push({
+      id: 'acc-wallet',
+      name: 'Wallet',
+      kind: 'cash',
+      createdAt: '2026-10-01T08:03:00+00:00',
+    })
+    plan.transfers[0]!.to = 'acc-wallet'
+    const saving = moneyFlowRows(plan).find((row) => row.name === 'Saving and pension')!
+    // Only Pillar 3a (third pillar) is set aside: 588.00 of 1 588.00; the Savings 1 000.00 spent
+    // into the wallet is spending.
+    expect(saving).toMatchObject({
+      transfer_share: 58_800,
+      amount: 100_000,
+      spent: 100_000,
+      transfer_spent: 0,
+      left_amount: 0,
+    })
   })
 })

@@ -32,6 +32,7 @@ const STALE = new Set<string>([
   'record_changed',
   'transfer_already_marked',
   'transfer_not_in_force',
+  'occurrence_required',
 ])
 
 type DoneMutation = UseMutationResult<
@@ -114,6 +115,7 @@ function DoneForm({
   const errorMessage = useErrorMessage({
     record_changed: 'transfers.checklist.changedElsewhere',
     transfer_already_marked: 'transfers.checklist.changedElsewhere',
+    occurrence_required: 'transfers.checklist.listChanged',
   })
   const today = period?.today ?? null
   const schema = useMemo(

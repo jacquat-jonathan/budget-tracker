@@ -32,7 +32,7 @@ import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
 import { usePeriodParam } from '@/features/budgets/use-period-param'
 import { MarkDoneDialog } from '@/features/transfers/components/mark-done-dialog'
 import { targetOf, useMarks } from '@/features/transfers/transfer-mutations'
-import { actionsFor, occurrenceKey } from '@/features/transfers/transfer-terms'
+import { actionsFor, occurrenceKey, rowsNeedingKind } from '@/features/transfers/transfer-terms'
 import { useChecklist, type ChecklistRow } from '@/features/transfers/transfer-queries'
 import { FromTo } from '@/features/transfers/components/transfer-bits'
 import { formatCalendarDate } from '@/lib/date'
@@ -150,6 +150,8 @@ export function Checklist({
   /** The keys of the open rows when the mark was made: where the row acted on stood. */
   const focusAround = useRef<string[]>([])
   const rows = checklist.data ?? []
+  // D-600: a row says its kind only where a twin of the same transfer would read the same.
+  const sayKind = rowsNeedingKind(rows, occurrenceKey)
   const keys = rows.map((row) => `${occurrenceKey(row)}-${row.mark_revision}`)
   const joined = keys.join(',')
   useEffect(() => {
@@ -213,6 +215,7 @@ export function Checklist({
       <ChecklistItem
         key={`${occurrenceKey(row)}-${index}`}
         row={row}
+        sayKind={sayKind.has(occurrenceKey(row))}
         busy={busy}
         onDone={() => {
           keep(row)
@@ -353,11 +356,14 @@ export function Checklist({
 
 function ChecklistItem({
   row,
+  sayKind,
   busy,
   onDone,
   onAct,
 }: {
   row: ChecklistRow
+  /** Another row of this transfer here would read the same: say which kind of date this is. */
+  sayKind: boolean
   busy: boolean
   onDone: () => void
   onAct: (kind: 'skip' | 'notDone' | 'undo') => void
@@ -365,7 +371,12 @@ function ChecklistItem({
   const { t } = useTranslation()
   const status = useStatus()(row)
   const actions = actionsFor(row)
-  const name = row.name ?? ''
+  const kind =
+    sayKind && row.occurrence_kind ? t(`transfers.checklist.kind.${row.occurrence_kind}`) : null
+  // The buttons of two twins are told apart by their names too.
+  const name = kind
+    ? t('transfers.checklist.nameWithKind', { name: row.name ?? '', kind })
+    : (row.name ?? '')
   const Icon = status.icon
   const moved =
     row.amount_moved !== null && row.amount_moved !== row.amount && row.status === 'done'
@@ -378,7 +389,7 @@ function ChecklistItem({
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-baseline justify-between gap-3">
-          <span className="truncate font-medium">{name}</span>
+          <span className="truncate font-medium">{row.name ?? ''}</span>
           <span className="shrink-0 font-medium tabular-nums">
             {formatMoney(moved ? (row.amount_moved ?? 0) : (row.amount ?? 0))}
           </span>
@@ -396,6 +407,11 @@ function ChecklistItem({
                 ? t('transfers.checklist.due', { date: formatCalendarDate(row.due_date) })
                 : t('transfers.checklist.noDue')}
             </span>,
+            kind && (
+              <span key="kind" data-testid="checklist-kind">
+                {kind}
+              </span>
+            ),
             moved && (
               <span key="planned">
                 {t('transfers.checklist.planned', { amount: formatMoney(row.amount ?? 0) })}

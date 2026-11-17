@@ -45,14 +45,19 @@ export interface FlowSpending {
   id: string
   name: string
   expected: number
-  /** The monthly share of the planned transfers linked to it: drawn as transfers. */
+  /**
+   * The monthly share of the planned transfers linked to it that go to a set-aside account:
+   * drawn as those transfers (set aside), not as spending (R-ACCOUNT-465).
+   */
   transferShare: number
   /** Planned spending: expected less the transfers' share. */
   amount: number
   yearly: number | null
-  /** Spent in the period, less the transactions of the linked transfers. */
+  /** Spent in the period, less the transactions of those transfers to set-aside accounts. */
   spent: number
   transferSpent: number
+  /** The group's own remainder on the actual basis, the read's figure: negative when overspent. */
+  left: number
   /** Spent more than planned. */
   negative: boolean
   displayOrder: number
@@ -148,6 +153,7 @@ export function readMoneyFlow(rows: readonly Row[]): MoneyFlow {
           yearly: typeof row.yearly_amount === 'number' ? row.yearly_amount : null,
           spent: n(row.spent),
           transferSpent: n(row.transfer_spent),
+          left: n(row.left_amount),
           negative: row.is_negative === true,
           displayOrder: n(row.display_order),
         })

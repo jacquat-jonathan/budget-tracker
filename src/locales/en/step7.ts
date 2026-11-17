@@ -123,7 +123,8 @@ export const transfersEn = {
     removed_other: '{{count}} transactions the app recorded for transfers are removed.',
     created_one: '{{count}} transaction of a standing order is recorded.',
     created_other: '{{count}} transactions of standing orders are recorded.',
-    movedNote: 'A transaction that moves to its new due date counts once in each.',
+    movedNote:
+      'A transaction that moves to a new due date counts once in each: it is removed and recorded again on that date.',
     movedKeeps:
       'Only what the app recorded by itself, and nobody changed since, moves to its new due date. A tick, a transfer made manual and a transaction a member edited stay exactly as they are.',
     unplanned_one:
@@ -270,9 +271,12 @@ export const transfersEn = {
     nothingAtOnce: 'Nothing is recorded at once.',
     nothingBeforeToday: 'Nothing dated before today is recorded.',
     transactionsRemoved_one:
-      'It removes {{count}} transaction the app recorded by itself for a date that is no longer planned.',
+      'It removes {{count}} transaction the app recorded by itself: its date is no longer planned, or its due date moves.',
     transactionsRemoved_other:
-      'It removes {{count}} transactions the app recorded by itself for dates that are no longer planned.',
+      'It removes {{count}} transactions the app recorded by itself: their dates are no longer planned, or their due dates move.',
+    movedNote:
+      'A transaction whose due date moves is removed and recorded again on its new due date, so it counts once in each: nothing is lost. The preview does not say which ones move.',
+    alreadyRecorded: 'already recorded, stays as it is',
     marksUnplanned_one:
       '{{count}} tick a member made is no longer planned: it stays in its checklist, flagged, until undone.',
     marksUnplanned_other:
@@ -363,6 +367,14 @@ export const transfersEn = {
     },
     changedElsewhere:
       'Someone ticked or changed this transfer meanwhile: the checklist now shows where it stands.',
+    listChanged:
+      'This period’s checklist changed meanwhile: it is shown again as it now stands. Check the row and try again.',
+    kind: {
+      payday: 'on the payday that started the period',
+      income_payday: 'on its chosen income’s payday',
+      fixed_day: 'on its fixed day',
+    },
+    nameWithKind: '{{name}}, {{kind}}',
     markedDone: '“{{name}}” done: {{amount}}.',
     markedSkipped: '“{{name}}” skipped for this time.',
     markedNotDone: '“{{name}}” marked as not done.',
@@ -450,8 +462,8 @@ export const moneyFlowEn = {
     spent: 'spent {{spent}} of {{amount}}',
     overPlan: 'More was spent than planned.',
     yearly: '{{amount}} a year',
-    viaTransfers: '{{amount}} shown as transfers',
-    viaTransfersSpent: '{{amount}} moved by transfers',
+    viaTransfers: '{{amount}} set aside by transfers',
+    viaTransfersSpent: '{{amount}} set aside by transfers',
     notPlanned: 'not planned {{amount}}',
     left: 'left {{amount}}',
   },
@@ -494,7 +506,7 @@ export const moneyFlowEn = {
     repeat: 'Dashed outline: a colour used again, from the ninth on',
     loop: 'Dashed band with an arrow, money sent back to an earlier account: {{name}}, from {{from}} to {{to}}, {{amount}} a month',
     scale:
-      'Bands are as wide as the amounts, on one scale. A quarterly or yearly transfer counts its monthly share. A category’s share planned as transfers shows as the transfer, not as spending.',
+      'Bands are as wide as the amounts, on one scale. A quarterly or yearly transfer counts its monthly share. A category’s share planned as transfers to savings, pillar, tax or investment accounts shows as the transfer, set aside, not as spending; a transfer to an everyday account, such as a cash wallet, counts as spending.',
     colour:
       'A band has the colour of where it comes from; a band into a category group has the group’s colour.',
     thicker:
@@ -539,6 +551,8 @@ export const moneyFlowEn = {
     planned: 'Planned',
     spent: 'Spent',
     overPlan: 'more than planned',
+    groupLeft: 'Left',
+    overspent: 'more spent than planned',
     totalSpending: 'Total',
     remains: 'What remains',
     remainsHelp: 'Of {{amount}} spendable',
@@ -553,9 +567,9 @@ export const moneyFlowEn = {
       '{{count}} more category groups are not listed (the read stops at 1000 rows): the totals include them.',
     spendingHelp: {
       planned:
-        'Planned: the categories’ expectations at their monthly share, less what planned transfers carry. Spent: the period’s transactions, refunds deducted, less the transfers’ own.',
+        'Planned: the categories’ expectations at their monthly share, less what planned transfers to set-aside accounts carry. Spent: the period’s transactions, refunds deducted, less those transfers’ own. A transfer to an everyday account counts as spending.',
       actual:
-        'Spent: the period’s transactions, refunds deducted, less the transfers’ own. Planned: the categories’ expectations at their monthly share, less what planned transfers carry.',
+        'Spent: the period’s transactions, refunds deducted, less those of transfers to set-aside accounts. Planned: the categories’ expectations at their monthly share, less what those transfers carry. Left: a group’s planned spending less what it spent, below nothing when more was spent. What remains is left of the whole spendable amount.',
     },
   },
 }

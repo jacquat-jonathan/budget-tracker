@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-601 rules (590 active, 0 planned), 24 conventions, 372 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
+604 rules (593 active, 0 planned), 24 conventions, 375 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2584,6 +2584,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-545, R-ACCOUNT-235
   - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
+- **R-ACCOUNT-500** The screens name a checklist occurrence by its transfer, its period, its key and its kind together: rows, the focus after a mark, the rows kept in place, the folded settled rows and the preview rows are keyed that way, and every mark call sends the row’s period, key and kind, so two rows of one transfer with one key in one period are each marked and undone on their own; a refusal occurrence_required says the list changed and reads it again; a row says its kind in words only where another row of the same transfer would otherwise read the same.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-446, R-ACCOUNT-460, D-560, D-600
+  - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+- **R-ACCOUNT-501** The create and edit previews of a transfer say on a row whose occurrence is already recorded (already_recorded) that it stays as it is, and say a transaction removed while one is recorded at once as possibly one moved to its new due date, counted once in each, never as a loss.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-568, Q-322, R-ACCOUNT-303, R-ACCOUNT-462, D-601, Q-350
+  - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+- **R-ACCOUNT-502** On the actual basis the money flow’s spending table shows each category group’s own remainder as the read answers it (left_amount), in the table and in the phone row blocks, with words when the group is overspent (is_negative); the total row keeps the read’s pooled figures, and no remainder is worked out by the page.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-567, R-ACCOUNT-447, C-LOGIC-003, D-602
+  - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
 
 ### Concurrent edits
 
@@ -7708,6 +7720,51 @@ Related: D-545, R-ACCOUNT-481
 
 Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
 
+### D-600 A checklist or preview row says its kind of date only where a twin would read the same (accepted)
+
+Rows are told apart by period, key and kind (D-560) everywhere the page keys them. A row says what kind of date it is only when another row of the same transfer in the same list has the same due date (or neither has one, two ticks no longer planned): “on the payday that started the period” (payday), “on its chosen income’s payday” (income_payday), “on its fixed day” (fixed_day), in French « au jour de paie qui a ouvert la période », « au jour de paie de son revenu choisi », « à son jour fixe »; the same words complete the names of that row’s buttons (“Skip “Savings, on its fixed day” this time”). Ordinary rows say nothing more, and the key is never shown.
+
+**Why:** Two rows of one transfer with one key in one period exist (D-560) and otherwise read exactly the same, buttons included; saying the kind on every row would be noise for the usual household.
+
+**Rejected:**
+
+- Saying the kind on every row: noise on the rows that are never confused.
+- Naming the income (“on Ben’s payday”): the checklist row does not carry the income of its occurrence, and the transfer’s income now may not be the one an older occurrence had.
+- Showing the key: keys are identifiers, never dates to show (D-490).
+
+Related: D-560, R-ACCOUNT-500, D-504
+
+Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+
+### D-601 The primary switch and the transfer previews say what the database now does (accepted)
+
+The make-primary dialog says, when payday transfers are planned: a transfer that names an income keeps happening on each of that income’s paydays, whichever income is the primary; one on “The main income” follows the new primary income from its next payday, which starts the next period; nothing already recorded or ticked changes (D-562). The transfer previews say a removed transaction of the app is removed because its date is no longer planned or its due date moves (D-563), and when the same preview also records transactions at once, that a transaction whose due date moves counts once in each, nothing being lost, and that the preview does not say which ones move (Q-350). The note that a moved transaction counts once in each shows wherever transfer counts show both a removal and a creation, not only for a moved start.
+
+**Why:** The previous sentence (“In this period nothing about them changes”) became untrue with D-562, and “for a date that is no longer planned” is untrue for a transaction re-dated under D-563. The previews give counts only, so a move cannot be told from a loss and a new transaction.
+
+**Rejected:**
+
+- Wording every removal and creation pair as a move: the counts can be a removal of one occurrence and a creation of another.
+
+Related: D-562, D-563, D-568, R-ACCOUNT-501, Q-350, D-505
+
+Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+
+### D-602 The money flow’s actual table has a Left column; the share words name what is set aside (accepted)
+
+On the actual basis the spending table has a third column, Left, with each group’s left_amount (D-567), a warning and “more spent than planned” when the group is overspent; the total row has no figure there (the read gives no sum of the groups’ remainders) and the “What remains” row puts the pooled left of the whole spendable amount in that column. Planned keeps two columns. A group’s share carried by transfers is said “… set aside by transfers” on both bases (it covers only transfers into set-aside accounts, D-565), and the legend and the table’s help say that a transfer into an everyday account, a cash wallet, counts as spending.
+
+**Why:** Q-321 is answered by the read (D-567); “shown as transfers” and “moved by transfers” read as if every linked transfer were left out, which D-565 made untrue.
+
+**Rejected:**
+
+- Summing the groups’ remainders for the total row: the page would add figures (C-LOGIC-003), and the sum is not the pooled left.
+- Planned less spent worked out by the page: the read answers it.
+
+Related: D-567, D-565, D-545, R-ACCOUNT-502, R-ACCOUNT-465
+
+Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+
 ## Open questions
 
 - **Q-001** (resolved by D-045) May a member add, edit or remove an income that belongs to another member?
@@ -8168,8 +8225,12 @@ Source: owner-request: coordinator brief for the money flow polish round (diagra
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
 - **Q-322** (resolved by D-568) Should preview_update_transfer say, per occurrence, that it is already recorded (a transaction or a mark kept at the old terms), so the edit preview can say so?
   - Context: The review's can-wait: after an amount edit the preview lists this period's already-recorded occurrence at the new amount with no mark, while its transaction keeps the old amount. The preview rows carry created_at_once, transactions_removed_count and marks_unplanned_count but nothing that says an occurrence is already recorded and stays as it is.
-  - Related: D-502, R-ACCOUNT-303
+  - Related: D-502, R-ACCOUNT-303, R-ACCOUNT-501
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **Q-350** Should preview_create_transfer and preview_update_transfer (and the other previews with transfer counts) say which occurrence a removed transaction belongs to, or flag a transaction re-dated to its new due date (removed and created for the same key and kind), so the screens can say “moves from 25.11 to 28.11” instead of a removal and a creation?
+  - Context: D-563 re-dates the app’s own untouched transactions when a due date moves; the previews count that as one removed and one created. created_at_once names the occurrence created, but nothing names the one removed, and already_recorded is false for a re-dated mark (its id changes), so the screen cannot tell a move from a loss and a new transaction. It says both counts and that a move counts once in each (D-601).
+  - Related: D-563, D-568, R-ACCOUNT-462, R-ACCOUNT-501, D-601
+  - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
 
 ## Glossary
 

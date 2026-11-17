@@ -388,12 +388,18 @@ function SpendingTable({
   const m = formatMoney
   const total = flow.total
   const omitted = total?.omitted ?? 0
+  // R-ACCOUNT-502: on the actual basis each group says what it has left, the read's own figure.
+  const actual = basis === 'actual'
   return (
     <div className="flex flex-col gap-2" data-testid="money-flow-spending">
       <AmountTable
         caption={t('moneyFlow.table.spending')}
         first={t('moneyFlow.table.group')}
-        columns={[{ label: t('moneyFlow.table.planned') }, { label: t('moneyFlow.table.spent') }]}
+        columns={[
+          { label: t('moneyFlow.table.planned') },
+          { label: t('moneyFlow.table.spent') },
+          ...(actual ? [{ label: t('moneyFlow.table.groupLeft') }] : []),
+        ]}
         rows={flow.spending.map((row) => ({
           key: row.id,
           testId: 'flow-spending-row',
@@ -414,14 +420,7 @@ function SpendingTable({
               )}
             </>,
             <>
-              {row.negative ? (
-                <Warn>
-                  {m(row.spent)}
-                  <span className="sr-only">{t('moneyFlow.table.overPlan')}</span>
-                </Warn>
-              ) : (
-                m(row.spent)
-              )}
+              {row.negative ? <Warn>{m(row.spent)}</Warn> : m(row.spent)}
               {row.negative && <Note>{t('moneyFlow.table.overPlan')}</Note>}
               {row.transferSpent !== 0 && (
                 <Note>
@@ -429,6 +428,20 @@ function SpendingTable({
                 </Note>
               )}
             </>,
+            ...(actual
+              ? [
+                  <span key="left" data-testid="flow-spending-left">
+                    {row.negative ? (
+                      <>
+                        <Warn>{m(row.left)}</Warn>
+                        <Note>{t('moneyFlow.table.overspent')}</Note>
+                      </>
+                    ) : (
+                      m(row.left)
+                    )}
+                  </span>,
+                ]
+              : []),
           ],
         }))}
         footer={
@@ -445,6 +458,9 @@ function SpendingTable({
                     <span key="a" data-testid="total-spent">
                       {m(total.actualSpending)}
                     </span>,
+                    // No total of the groups' remainders: the read gives none; what is left of
+                    // the whole spendable amount is the line below.
+                    ...(actual ? [''] : []),
                   ],
                 },
                 {
@@ -472,6 +488,8 @@ function SpendingTable({
                         </>
                       )}
                     </span>,
+                    // On the actual basis the pooled left stands in the column of what is left.
+                    ...(actual ? [''] : []),
                     <span key="l" data-testid="total-left">
                       {total.left < 0 ? (
                         <>

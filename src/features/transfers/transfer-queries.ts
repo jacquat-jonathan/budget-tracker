@@ -272,6 +272,7 @@ export function useTransferTermsAt(
 }
 
 export type ChecklistRow = Database['public']['CompositeTypes']['transfer_checklist_row']
+export type OccurrenceKind = Database['public']['Enums']['transfer_occurrence_kind']
 
 /**
  * One period's checklist (get_transfer_checklist): one row per occurrence, plus the marks no

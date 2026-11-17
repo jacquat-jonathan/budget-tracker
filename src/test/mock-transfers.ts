@@ -84,7 +84,14 @@ export function transferRow(
   }
 }
 
+/**
+ * A checklist row. Its kind is what the database derives (D-560) unless a test names it: a
+ * fixed-day occurrence ('fixed_day', its row has a cadence), else the period's payday; a row of a
+ * chosen income that is not the primary there ('income_payday') is named by the test, or derived
+ * from the transfer's terms by occurrenceKindOf.
+ */
 export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRow {
+  const cadence = overrides.cadence ?? null
   return {
     transfer_id: 'tr-joint',
     period_id: 'period-2',
@@ -114,9 +121,27 @@ export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRo
     planned: true,
     cadence: null,
     assumed: false,
-    occurrence_kind: 'payday',
+    occurrence_kind: cadence === null ? 'payday' : 'fixed_day',
     ...overrides,
   }
+}
+
+type OccurrenceKind = Database['public']['Enums']['transfer_occurrence_kind']
+
+/**
+ * The kind of an occurrence of a transfer's terms, as private.transfer_period_occurrences
+ * derives it: a fixed day is 'fixed_day'; a pay date of a chosen income in force there that is
+ * not the primary one is 'income_payday'; otherwise (no income, the primary chosen, or the
+ * chosen one not in force: it follows the primary) the period's 'payday'.
+ */
+export function occurrenceKindOf(
+  terms: { schedule: string | null; income_id: string | null },
+  incomes: readonly Pick<Tables<'income_overview'>, 'id' | 'is_primary' | 'is_active'>[],
+): OccurrenceKind {
+  if (terms.schedule === 'day_of_month') return 'fixed_day'
+  const income = incomes.find((item) => item.id === terms.income_id)
+  if (income && income.is_active === true && income.is_primary !== true) return 'income_payday'
+  return 'payday'
 }
 
 /** Every column get_money_flow answers, null where the row does not use it (as the database). */
@@ -191,6 +216,8 @@ export interface MoneyFlowPlan {
     automatic?: boolean
     /** The top-level category its share is committed in. */
     category?: string | null
+    /** What its transactions spent in the period (in its category, so in `spent` there too). */
+    spent?: number
   }[]
   categories: {
     id: string
@@ -201,8 +228,6 @@ export interface MoneyFlowPlan {
     yearly?: number | null
     /** What the period's transactions spent in it, refunds deducted, the transfers' included. */
     spent?: number
-    /** Of `spent`, the transactions of transfers linked to it. */
-    transferSpent?: number
   }[]
 }
 
@@ -253,15 +278,31 @@ export function moneyFlowRows(plan: MoneyFlowPlan, limit = 1000): MoneyFlowRow[]
     const spendable = !['savings', 'third_pillar', 'tax_reserve', 'investment'].includes(a.kind)
     return { ...a, inflow, outflow, spendable }
   })
+  // R-ACCOUNT-465 (D-565): only a linked transfer into a set-aside account leaves the pool; one
+  // into an everyday account (a cash wallet) is planned spending and spent like any other.
+  const setAsideKinds = ['savings', 'third_pillar', 'tax_reserve', 'investment']
+  const toSetAside = (t: { to: string }) =>
+    setAsideKinds.includes(plan.accounts.find((a) => a.id === t.to)?.kind ?? 'current')
   const top = [...plan.categories]
     .map((c) => {
-      const committed = sum(transfers.filter((t) => t.category === c.id).map((t) => t.monthly))
+      const linked = transfers.filter((t) => t.category === c.id && toSetAside(t))
+      const committed = sum(linked.map((t) => t.monthly))
       const share = Math.min(committed, c.expected)
       const spent = c.spent ?? 0
-      const transferSpent = c.transferSpent ?? 0
-      return { ...c, committed, share, gross: spent, spent: spent - transferSpent, transferSpent }
+      const transferSpent = sum(linked.map((t) => t.spent ?? 0))
+      // get_period_progress's transfer_committed: every linked transfer's monthly share.
+      const allCommitted = sum(transfers.filter((t) => t.category === c.id).map((t) => t.monthly))
+      return {
+        ...c,
+        committed,
+        allCommitted,
+        share,
+        gross: spent,
+        spent: spent - transferSpent,
+        transferSpent,
+      }
     })
-    .filter((c) => c.expected !== 0 || c.gross !== 0 || c.committed !== 0)
+    .filter((c) => c.expected !== 0 || c.gross !== 0 || c.allCommitted !== 0)
     .sort((a, b) => a.displayOrder - b.displayOrder)
   const unassigned = plan.incomes.filter((i) => i.accountId === null)
   const room = Math.max(
@@ -341,6 +382,8 @@ export function moneyFlowRows(plan: MoneyFlowPlan, limit = 1000): MoneyFlowRow[]
         transfer_share: c.share,
         spent: c.spent,
         transfer_spent: c.transferSpent,
+        // D-567: the group's own remainder, negative when overspent.
+        left_amount: c.expected - c.share - c.spent,
         yearly_amount: c.yearly ?? null,
         display_order: c.displayOrder,
       }),
@@ -411,15 +454,26 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
       .map((item) => ({ kind: 'transfer', id: item.id, name: item.name })),
   ]
 
-  /** The checklist row a mark acts on (one occurrence, named when there are several). */
+  /**
+   * The checklist row a mark acts on, as private.lock_occurrence chooses it: the transfer's rows
+   * in that period narrowed by p_occurrence_date and p_occurrence_kind when given; none:
+   * transfer_not_in_force; several (the call named fewer than the period lists):
+   * occurrence_required.
+   */
   const occurrence = (args: Args) => {
+    const date = str(args.p_occurrence_date)
+    const kind = str(args.p_occurrence_kind)
     const rows = db.checklist.filter(
-      (row) => row.transfer_id === args.p_transfer_id && row.period_id === args.p_period_id,
+      (row) =>
+        row.transfer_id === args.p_transfer_id &&
+        row.period_id === args.p_period_id &&
+        row.status !== 'more' &&
+        (date === null || row.occurrence_date === date) &&
+        (kind === null || row.occurrence_kind === kind),
     )
     if (rows.length === 0) rpcError('transfer_not_in_force')
-    const date = str(args.p_occurrence_date)
-    if (date === null && rows.length > 1) rpcError('occurrence_required')
-    const row = date === null ? rows[0] : rows.find((item) => item.occurrence_date === date)
+    if (rows.length > 1) rpcError('occurrence_required')
+    const row = rows[0]
     if (!row) rpcError('transfer_not_in_force')
     if (typeof args.p_expected_revision !== 'number') rpcError('invalid_revision')
     if ((row.mark_revision ?? 0) !== args.p_expected_revision) rpcError('record_changed')
@@ -593,15 +647,49 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
     },
     // The plan is the database's: a test gives the rows it expects; by default the terms
     // govern one occurrence on the transfer's next due date and nothing is created at once.
-    preview_create_transfer: () => [
-      previewRow({ due_date: '2026-11-25', occurrence_date: '2026-11-25' }),
+    // Each row carries its occurrence's kind as the terms derive it (occurrenceKindOf) and,
+    // for an edit, already_recorded when the occurrence had a mark that the change keeps (D-568).
+    preview_create_transfer: (args) => [
+      previewRow({
+        due_date: '2026-11-25',
+        occurrence_date: '2026-11-25',
+        occurrence_kind: occurrenceKindOf(
+          { schedule: str(args.p_schedule), income_id: str(args.p_income_id) },
+          db.tables.income_overview,
+        ),
+      }),
     ],
     preview_update_transfer: (args) => {
       const row = transfer(args.p_transfer_id)
+      const schedule = str(args.p_schedule) ?? row.schedule
+      const income =
+        args.p_clear_income === true || schedule === 'day_of_month'
+          ? null
+          : (str(args.p_income_id) ?? row.income_id)
+      const kind = occurrenceKindOf({ schedule, income_id: income }, db.tables.income_overview)
+      const date = row.next_due_date ?? '2026-11-25'
+      // A new schedule can move the due date: the catch-up's own untouched mark then goes and is
+      // made again (D-563), so it is not "kept"; a member's mark always is (as the database).
+      const moves =
+        args.p_schedule !== undefined ||
+        args.p_offset_days !== undefined ||
+        args.p_day_of_month !== undefined ||
+        args.p_first_date !== undefined
+      const recorded = db.checklist.some(
+        (item) =>
+          item.transfer_id === row.id &&
+          item.occurrence_date === date &&
+          item.occurrence_kind === kind &&
+          item.planned !== false &&
+          (item.mark_revision ?? 0) > 0 &&
+          (!moves || item.assumed !== true),
+      )
       return [
         previewRow({
-          due_date: row.next_due_date ?? '2026-11-25',
-          occurrence_date: row.next_due_date ?? '2026-11-25',
+          due_date: date,
+          occurrence_date: date,
+          occurrence_kind: kind,
+          already_recorded: recorded,
           amount: typeof args.p_amount === 'number' ? args.p_amount : row.amount,
         }),
       ]
@@ -781,6 +869,8 @@ export function previewRow(overrides: Partial<TransferPreviewRow> = {}): Transfe
     created_at_once_count: 0,
     transactions_removed_count: 0,
     marks_unplanned_count: 0,
+    occurrence_kind: 'payday',
+    already_recorded: false,
     ...overrides,
   } as TransferPreviewRow
 }

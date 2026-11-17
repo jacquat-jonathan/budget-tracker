@@ -15,7 +15,7 @@ export function TransferCounts({
   removed: number | null | undefined
   created: number | null | undefined
   unplanned: number | null | undefined
-  /** A moved start: a transaction made again on its new date counts once each way (D-491). */
+  /** A moved start: only what nobody touched moves (D-491, R-ACCOUNT-425). */
   moved?: boolean
 }) {
   const { t } = useTranslation()
@@ -30,7 +30,8 @@ export function TransferCounts({
         <p className="font-medium">{t('transfers.counts.title')}</p>
         {r > 0 && <p>{t('transfers.counts.removed', { count: r })}</p>}
         {c > 0 && <p>{t('transfers.counts.created', { count: c })}</p>}
-        {moved && r > 0 && c > 0 && (
+        {/* R-ACCOUNT-462: any change can move the app's own transaction to a new due date. */}
+        {r > 0 && c > 0 && (
           <p className="text-muted-foreground">{t('transfers.counts.movedNote')}</p>
         )}
         {/* R-ACCOUNT-425: only what the app recorded by itself and nobody touched moves. */}
