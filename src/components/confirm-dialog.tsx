@@ -34,6 +34,11 @@ interface ConfirmDialogProps {
   typeToConfirm?: string
   /** Not ready to confirm yet (what it would do is still being read). */
   disabled?: boolean
+  /**
+   * Where the focus goes when the dialog closes, when its trigger may be gone by then (the
+   * confirmed action removed it); by default the focus returns to the trigger.
+   */
+  returnFocus?: () => HTMLElement | null
 }
 
 /** Confirmation for an action with consequences, with its pending state and error inline. */
@@ -50,6 +55,7 @@ export function ConfirmDialog({
   destructive = false,
   typeToConfirm,
   disabled = false,
+  returnFocus,
 }: ConfirmDialogProps) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage(errorMessages)
@@ -65,7 +71,14 @@ export function ConfirmDialog({
         onOpenChange(next)
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          const target = returnFocus?.()
+          if (!target || !target.isConnected) return
+          event.preventDefault()
+          target.focus()
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription asChild>

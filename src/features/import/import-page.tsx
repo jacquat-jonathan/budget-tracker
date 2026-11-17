@@ -65,7 +65,7 @@ import {
 } from '@/features/import/use-import'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { isBusyError } from '@/lib/db-errors'
-import { formatTimestamp } from '@/lib/date'
+import { formatTimestampWithTime } from '@/lib/date'
 
 // The CSV mapping step and its parser are a chunk of their own, loaded when a CSV is opened.
 const CsvMapper = lazy(() =>
@@ -208,7 +208,7 @@ export function ImportPage() {
             <p>
               {t('import.pending.body', {
                 source: t(`import.sources.${(pending.source || 'other') as 'csv'}`),
-                date: pending.startedAt ? formatTimestamp(pending.startedAt) : '—',
+                date: pending.startedAt ? formatTimestampWithTime(pending.startedAt) : '—',
                 confirmed: pending.confirmedParts,
                 parts: pending.parts,
               })}

@@ -1,5 +1,6 @@
+import type { TFunction } from 'i18next'
 import { PencilIcon, StoreIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react'
-import { useId, useMemo, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -27,10 +28,11 @@ import { useCategories } from '@/features/categories/category-queries'
 import {
   useMerchantRules,
   useRememberedChoices,
+  type RememberedChoice,
   type MerchantRule,
 } from '@/features/import/import-queries'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
-import { formatTimestamp } from '@/lib/date'
+import { formatTimestampWithTime } from '@/lib/date'
 import { supabase } from '@/lib/supabase'
 
 /**
@@ -283,20 +285,40 @@ function EditRuleDialog({
 }
 
 /**
- * The choices remembered for flagged entries (list_import_choices). The database offers no way
- * to forget one (Q-272): the card says how to change one instead.
+ * The choices members made for flagged entries (list_import_choices: only a choice a member
+ * sent is remembered, D-456), each with a way to forget it (forget_import_choice, D-458): the
+ * next import of that entry then applies the default again.
  */
 // R-IMPORT-092: what is remembered is visible.
 export function RememberedChoicesSettings() {
   const { t } = useTranslation()
   const { budgetId } = useCurrentBudget()
   const choices = useRememberedChoices(budgetId)
-  const FLAGS = ['card_bill_payment', 'own_transfer', 'transfer_to_person', 'salary'] as const
+  const heading = useRef<HTMLHeadingElement>(null)
+  const [forgetting, setForgetting] = useState<RememberedChoice | null>(null)
+  const forget = useAppMutation<boolean, RememberedChoice>({
+    errorDisplay: 'inline',
+    mutationFn: async (choice) =>
+      unwrap(
+        await supabase.rpc('forget_import_choice', {
+          p_budget_id: budgetId,
+          p_flag: choice.flag,
+          p_counterparty_key: choice.counterparty_key,
+        }),
+      ),
+    success: (forgotten) =>
+      forgotten ? t('import.choices.forgotten') : t('import.choices.alreadyForgotten'),
+    onSuccess: () => setForgetting(null),
+    invalidate: () => [[...budgetKeys.imports(budgetId), 'choices']],
+  })
+  const entryName = (choice: RememberedChoice) => choiceEntry(t, choice)
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <h2>{t('import.choices.title')}</h2>
+          <h2 ref={heading} tabIndex={-1} className="outline-none">
+            {t('import.choices.title')}
+          </h2>
         </CardTitle>
         <CardDescription>{t('import.choices.help')}</CardDescription>
       </CardHeader>
@@ -316,24 +338,41 @@ export function RememberedChoicesSettings() {
               <li
                 key={`${choice.flag}|${choice.counterparty_key}`}
                 className="flex flex-wrap items-start justify-between gap-2 p-3"
+                data-testid="choice-row"
               >
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="font-mono">
-                    <ExternalText>{choice.counterparty_key}</ExternalText>
-                  </span>
+                  {choice.counterparty_key === OWN_TRANSFER_KEY ? (
+                    <span>{t('import.choices.ownTransferKey')}</span>
+                  ) : (
+                    <span className="font-mono">
+                      <ExternalText>{choice.counterparty_key}</ExternalText>
+                    </span>
+                  )}
                   <span className="text-xs text-muted-foreground">
-                    {(FLAGS as readonly string[]).includes(choice.flag)
-                      ? t(`import.preview.flags.${choice.flag as (typeof FLAGS)[number]}`)
-                      : choice.flag}
+                    {flagName(t, choice.flag)}
                     {' · '}
-                    {t('import.choices.by', { date: formatTimestamp(choice.updated_at) })}
+                    {t('import.choices.by', { date: formatTimestampWithTime(choice.updated_at) })}
                   </span>
                 </div>
-                <span className="font-medium">
-                  {choice.choice === 'import' || choice.choice === 'skip'
-                    ? t(`import.choices.choice.${choice.choice}`)
-                    : choice.choice}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="font-medium">
+                    {choice.choice === 'import' || choice.choice === 'skip'
+                      ? t(`import.choices.choice.${choice.choice}`)
+                      : t('import.choices.choice.other')}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    aria-label={t('import.choices.forgetFor', { entry: entryName(choice) })}
+                    onClick={() => {
+                      forget.reset()
+                      setForgetting(choice)
+                    }}
+                  >
+                    {t('import.choices.forget')}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -349,8 +388,59 @@ export function RememberedChoicesSettings() {
             {t('import.choices.more')}
           </Button>
         )}
-        <p className="text-xs text-muted-foreground">{t('import.choices.noForget')}</p>
       </CardContent>
+      <ConfirmDialog
+        open={forgetting !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setForgetting(null)
+            forget.reset()
+          }
+        }}
+        title={t('import.choices.forgetTitle')}
+        description={
+          forgetting ? (
+            <p>
+              {t('import.choices.forgetBody', {
+                entry: entryName(forgetting),
+                flag: flagName(t, forgetting.flag),
+                then: t(`import.choices.default.${defaultOf(forgetting.flag)}`),
+              })}
+            </p>
+          ) : null
+        }
+        confirmLabel={t('import.choices.forget')}
+        onConfirm={() => forgetting && forget.mutate(forgetting)}
+        pending={forget.isPending}
+        error={forget.error}
+        // The row it was opened from is gone once forgotten: the card's heading takes the focus.
+        returnFocus={() => (forget.isSuccess ? heading.current : null)}
+      />
     </Card>
   )
+}
+
+/** The key a choice for an own transfer without description and merchant is kept under. */
+const OWN_TRANSFER_KEY = 'own_transfer'
+
+const FLAGS = ['card_bill_payment', 'own_transfer', 'transfer_to_person', 'salary'] as const
+type Flag = (typeof FLAGS)[number]
+
+function isFlag(flag: string): flag is Flag {
+  return (FLAGS as readonly string[]).includes(flag)
+}
+
+function flagName(t: TFunction, flag: string): string {
+  return isFlag(flag) ? t(`import.preview.flags.${flag}`) : t('import.choices.otherFlag')
+}
+
+/** What an import does with the entry once its choice is forgotten (R-IMPORT-091). */
+function defaultOf(flag: string): 'import' | 'skip' {
+  return flag === 'transfer_to_person' ? 'import' : 'skip'
+}
+
+function choiceEntry(t: TFunction, choice: RememberedChoice): string {
+  return choice.counterparty_key === OWN_TRANSFER_KEY
+    ? t('import.choices.ownTransferKey')
+    : t('import.choices.quoted', { text: choice.counterparty_key })
 }

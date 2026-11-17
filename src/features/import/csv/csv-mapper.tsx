@@ -20,6 +20,7 @@ import { formatCount } from '@/lib/money'
 
 import {
   amountCells,
+  DATE_FORMAT_KEYS,
   DATE_FORMATS,
   dateFormatsFor,
   decimalEvidence,
@@ -300,7 +301,7 @@ export function CsvMapper({
               <option value="">{t('import.csv.dateFormatChoose')}</option>
               {DATE_FORMATS.map((format) => (
                 <option key={format} value={format}>
-                  {format.toUpperCase()}
+                  {t(`import.csv.dateFormats.${DATE_FORMAT_KEYS[format]}`)}
                 </option>
               ))}
             </NativeSelect>

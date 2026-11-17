@@ -660,3 +660,31 @@ describe('[R-IMPORT-366] a run the database stops says why in its own words', ()
     MANY_ROWS_MS,
   )
 })
+
+describe('[R-IMPORT-367] a remembered choice is worded as the member’s only when a member made it', () => {
+  it('says "Last time you chose" for a remembered choice, and nothing for a default', async () => {
+    const db = categoriesDb()
+    db.rpc.preview_import_part.mockImplementation((args) =>
+      stagedPart(
+        db,
+        args,
+        (args.p_rows as Record<string, unknown>[]).map((row, index) => ({
+          ...plannedRow(row, index + 1),
+          action: 'skip_flagged',
+          flag: 'own_transfer',
+          // Row 1: a member chose skip last time. Row 2: skipped by default, nothing remembered.
+          remembered_choice: index === 0 ? 'skip' : null,
+          choice_key: index === 0 ? 'shop 1' : 'shop 2',
+        })),
+      ),
+    )
+    open(db)
+    await chooseCsv(csvOf(2))
+    await userEvent.click(screen.getByRole('button', { name: 'Check 2 rows' }))
+    await screen.findByTestId('count-skip_flagged')
+    const rows = screen.getAllByTestId('preview-row')
+    expect(rows[0]).toHaveTextContent('Last time you chose: skip.')
+    expect(rows[1]).not.toHaveTextContent('Last time you chose')
+    expect(rows[1]).toHaveTextContent('Money moved between your own accounts: not spending.')
+  })
+})

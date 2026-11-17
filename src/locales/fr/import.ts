@@ -195,6 +195,15 @@ export const importFr: Translation['import'] = {
     dateFormatNone:
       'Aucun format ne lit toutes les dates de cette colonne : vérifiez la colonne, ou choisissez-en un.',
     dateFormatChoose: 'Choisir…',
+    dateFormats: {
+      dmyDot: 'JJ.MM.AAAA',
+      dmyShortDot: 'JJ.MM.AA',
+      mdyDot: 'MM.JJ.AAAA',
+      dmySlash: 'JJ/MM/AAAA',
+      mdySlash: 'MM/JJ/AAAA',
+      ymdDash: 'AAAA-MM-JJ',
+      dmyDash: 'JJ-MM-AAAA',
+    },
     amountMode: 'Montants',
     amountSigned: 'Une colonne, avec un signe',
     amountSplit: 'Deux colonnes : sorties et entrées',
@@ -644,6 +653,7 @@ export const importFr: Translation['import'] = {
     undone: 'Annulée le {{date}}',
   },
   history: {
+    quote: { open: '« ', close: ' »' },
     title: 'Historique des importations',
     help: 'Chaque importation de ce budget, la plus récente d’abord : qui, à partir de quoi, et ce qu’est devenue chaque ligne.',
     empty: 'Aucune importation pour l’instant.',
@@ -814,12 +824,21 @@ export const importFr: Translation['import'] = {
   },
   choices: {
     title: 'Choix mémorisés',
-    help: 'Ce que vous avez choisi la dernière fois pour les lignes signalées (paiements de facture de carte, virements, salaires), proposé à nouveau pour le même commerçant.',
+    help: 'Ce qu’un membre a choisi pour les lignes signalées (paiements de facture de carte, virements, salaires), proposé à nouveau pour le même commerçant. Ce que l’importation a fait par défaut n’est pas mémorisé.',
     empty: 'Rien de mémorisé pour l’instant.',
-    choice: { import: 'Importer', skip: 'Ignorer' },
     by: 'Choisi le {{date}}',
-    noForget:
-      'Le budget ne permet pas encore d’oublier un choix : choisissez autrement à la prochaine importation, et c’est ce choix qui sera mémorisé.',
     more: 'Afficher plus',
+    choice: { import: 'Importer', skip: 'Ignorer', other: 'Un autre choix' },
+    otherFlag: 'Un autre type de ligne signalée',
+    ownTransferKey: 'Un virement entre vos propres comptes sans description',
+    forget: 'Oublier',
+    forgetFor: 'Oublier le choix pour {{entry}}',
+    forgetTitle: 'Oublier ce choix ?',
+    forgetBody:
+      'La prochaine importation de {{entry}} ({{flag}}) ne propose plus ce qui avait été choisi : elle applique à nouveau le choix par défaut, {{then}}. Les lignes déjà importées ou ignorées restent telles quelles.',
+    default: { import: 'l’importer', skip: 'l’ignorer' },
+    forgotten: 'Choix oublié.',
+    alreadyForgotten: 'Ce choix avait déjà été oublié.',
+    quoted: '« {{text}} »',
   },
 }

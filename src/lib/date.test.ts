@@ -5,6 +5,7 @@ import {
   daysInclusive,
   formatCalendarDate,
   formatTimestamp,
+  formatTimestampWithTime,
   isCalendarDate,
   parseDate,
   toCalendarDate,
@@ -67,6 +68,19 @@ describe('formatTimestamp [R-DATE-001]', () => {
 
   it('rejects an invalid Date', () => {
     expect(() => formatTimestamp(new Date('nope'))).toThrow(RangeError)
+  })
+})
+
+describe('formatTimestampWithTime [R-DATE-001]', () => {
+  it('shows the local (Zurich) date and time of the instant, 24 hours', () => {
+    expect(formatTimestampWithTime('2026-03-01T23:30:00+00:00')).toBe('02.03.2026, 00:30')
+    expect(formatTimestampWithTime('2026-06-30T13:05:00Z')).toBe('30.06.2026, 15:05')
+    expect(formatTimestampWithTime(new Date(2026, 0, 5, 9, 7))).toBe('05.01.2026, 09:07')
+  })
+
+  it('rejects what formatTimestamp rejects [C-DATE-001]', () => {
+    expect(() => formatTimestampWithTime('2026-03-01')).toThrow(RangeError)
+    expect(() => formatTimestampWithTime('2026-03-01T10:00:00')).toThrow(RangeError)
   })
 })
 

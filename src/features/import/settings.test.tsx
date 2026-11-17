@@ -262,14 +262,59 @@ describe('merchant rules [R-IMPORT-078]', () => {
   })
 })
 
-describe('remembered choices [R-IMPORT-092]', () => {
-  it('are listed, and the card says how to change one', async () => {
+describe('remembered choices [R-IMPORT-092] [R-IMPORT-346] [R-IMPORT-367]', () => {
+  it('lists the members’ choices with when they were made, an own transfer in words', async () => {
     const db = settingsDb()
+    db.tables.import_choices.push({
+      budget_id: BUDGET_ID,
+      flag: 'own_transfer',
+      counterparty_key: 'own_transfer',
+      choice: 'import',
+      updated_at: '2026-11-03T13:05:00+00:00',
+      updated_by: DEFAULT_USER_ID,
+    })
     open(db)
     const list = await screen.findByTestId('choice-list')
-    expect(list).toHaveTextContent('mustermann jonas')
-    expect(list).toHaveTextContent('transfer between your own accounts')
-    expect(list).toHaveTextContent('Skip')
-    expect(screen.getByText(/does not offer to forget a choice yet/)).toBeInTheDocument()
+    const rows = within(list).getAllByTestId('choice-row')
+    expect(rows[0]).toHaveTextContent('mustermann jonas')
+    expect(rows[0]).toHaveTextContent('transfer between your own accounts')
+    expect(rows[0]).toHaveTextContent('Chosen on 02.11.2026, 11:00')
+    expect(rows[0]).toHaveTextContent('Skip')
+    // The key own_transfer is a transfer without description, never shown as a raw key.
+    expect(rows[1]).toHaveTextContent('A transfer between your own accounts without a description')
+    expect(rows[1]).not.toHaveTextContent('own_transfer')
+    expect(screen.getByText(/What the import did by default is not remembered/)).toBeInTheDocument()
+  })
+
+  it('forgets one after asking, says what the next import does, and puts the focus on the card', async () => {
+    const db = settingsDb()
+    open(db)
+    await screen.findByTestId('choice-list')
+    const button = screen.getByRole('button', { name: 'Forget the choice for “mustermann jonas”' })
+    await userEvent.click(button)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Forget this choice?' })
+    expect(dialog).toHaveTextContent(
+      'The next import of “mustermann jonas” (transfer between your own accounts) no longer proposes what was chosen: it applies the default again, skip it.',
+    )
+    // Cancel changes nothing and gives the focus back to the button.
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(button).toHaveFocus())
+    expect(db.rpc.forget_import_choice).not.toHaveBeenCalled()
+    await userEvent.click(button)
+    await userEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Forget' }),
+    )
+    await waitFor(() =>
+      expect(db.rpc.forget_import_choice).toHaveBeenCalledWith({
+        p_budget_id: BUDGET_ID,
+        p_flag: 'own_transfer',
+        p_counterparty_key: 'mustermann jonas',
+      }),
+    )
+    expect(await screen.findByText('Choice forgotten.')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing remembered yet.')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Remembered choices' })).toHaveFocus(),
+    )
   })
 })

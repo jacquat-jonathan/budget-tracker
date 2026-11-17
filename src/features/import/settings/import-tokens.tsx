@@ -25,7 +25,7 @@ import { unwrap } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { useImportTokens, type ImportToken } from '@/features/import/import-queries'
 import { useAppMutation, useErrorMessage } from '@/hooks/use-app-mutation'
-import { formatTimestamp } from '@/lib/date'
+import { formatTimestampWithTime } from '@/lib/date'
 import { supabase } from '@/lib/supabase'
 
 /** The database's bounds for a token's life (create_import_token). */
@@ -128,25 +128,29 @@ export function ImportTokensSettings() {
                       {token.created_by_name
                         ? t('import.tokens.createdBy', {
                             name: token.created_by_name,
-                            date: formatTimestamp(token.created_at),
+                            date: formatTimestampWithTime(token.created_at),
                           })
                         : t('import.tokens.createdByUnknown', {
-                            date: formatTimestamp(token.created_at),
+                            date: formatTimestampWithTime(token.created_at),
                           })}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {token.last_used_at
-                        ? t('import.tokens.lastUsed', { date: formatTimestamp(token.last_used_at) })
+                        ? t('import.tokens.lastUsed', {
+                            date: formatTimestampWithTime(token.last_used_at),
+                          })
                         : t('import.tokens.neverUsed')}
                       {' · '}
                       {state === 'revoked' && token.revoked_at
-                        ? t('import.tokens.revokedOn', { date: formatTimestamp(token.revoked_at) })
+                        ? t('import.tokens.revokedOn', {
+                            date: formatTimestampWithTime(token.revoked_at),
+                          })
                         : state === 'expired'
                           ? t('import.tokens.expiredOn', {
-                              date: formatTimestamp(token.expires_at),
+                              date: formatTimestampWithTime(token.expires_at),
                             })
                           : t('import.tokens.expiresOn', {
-                              date: formatTimestamp(token.expires_at),
+                              date: formatTimestampWithTime(token.expires_at),
                             })}
                     </span>
                     {state === 'stopped' && (

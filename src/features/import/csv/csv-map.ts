@@ -28,6 +28,17 @@ export const DATE_FORMATS = [
 ] as const
 export type DateFormat = (typeof DATE_FORMATS)[number]
 
+/** The key of each format's name in the strings (the letters differ by language: JJ.MM.AAAA). */
+export const DATE_FORMAT_KEYS = {
+  'dd.mm.yyyy': 'dmyDot',
+  'dd.mm.yy': 'dmyShortDot',
+  'mm.dd.yyyy': 'mdyDot',
+  'dd/mm/yyyy': 'dmySlash',
+  'mm/dd/yyyy': 'mdySlash',
+  'yyyy-mm-dd': 'ymdDash',
+  'dd-mm-yyyy': 'dmyDash',
+} as const satisfies Record<DateFormat, string>
+
 export type DecimalMark = '.' | ','
 
 export interface CsvMapping {

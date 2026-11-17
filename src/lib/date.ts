@@ -57,6 +57,21 @@ export function formatCalendarDate(value: string): string {
  * invalid input and for a bare "YYYY-MM-DD" (use formatCalendarDate for those).
  */
 export function formatTimestamp(value: Date | string): string {
+  return formatLocal(instant(value))
+}
+
+/**
+ * Format an instant as the user's local date and time, "dd.mm.yyyy, hh:mm" (24 hours), where
+ * the hour matters (when an import ran, when a token was last used). Same input rules as
+ * formatTimestamp.
+ */
+export function formatTimestampWithTime(value: Date | string): string {
+  const date = instant(value)
+  return `${formatLocal(date)}, ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** A Date from a Date or an ISO timestamp with a time and a zone; RangeError otherwise. */
+function instant(value: Date | string): Date {
   let date: Date
   if (typeof value === 'string') {
     if (!TIMESTAMP.test(value)) {
@@ -72,7 +87,7 @@ export function formatTimestamp(value: Date | string): string {
     date = value
   }
   if (Number.isNaN(date.getTime())) throw new RangeError(`Invalid date: ${String(value)}`)
-  return formatLocal(date)
+  return date
 }
 
 /** The local calendar date of a Date as "YYYY-MM-DD", e.g. today's date for a new record. */

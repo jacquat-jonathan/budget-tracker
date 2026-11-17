@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SkippedRows, UndoImport } from '@/features/import/components/batch-actions'
 import { useImportBatches, type ImportBatch } from '@/features/import/import-queries'
-import { formatCalendarDate, formatTimestamp } from '@/lib/date'
+import { formatCalendarDate, formatTimestampWithTime } from '@/lib/date'
 import { formatCount } from '@/lib/money'
 
 const KNOWN_SOURCES = ['migros_account', 'migros_card', 'yuh', 'csv', 'script', 'other'] as const
@@ -87,10 +87,12 @@ function BatchItem({ budgetId, batch }: { budgetId: string; batch: ImportBatch }
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="font-medium">{source}</span>
           <span className="text-sm text-muted-foreground">
-            {t('import.history.when', { date: formatTimestamp(batch.created_at) })} ·{' '}
+            {t('import.history.when', { date: formatTimestampWithTime(batch.created_at) })} ·{' '}
             {batch.token_name !== null ? (
               <>
-                {t('import.history.byToken')} “<ExternalText>{batch.token_name}</ExternalText>”
+                {t('import.history.byToken')} {t('import.history.quote.open')}
+                <ExternalText>{batch.token_name}</ExternalText>
+                {t('import.history.quote.close')}
               </>
             ) : batch.created_by_name ? (
               <>
@@ -110,7 +112,7 @@ function BatchItem({ budgetId, batch }: { budgetId: string; batch: ImportBatch }
           )}
           {undone && batch.undone_at && (
             <span className="text-sm font-medium">
-              {t('import.undo.undone', { date: formatTimestamp(batch.undone_at) })}
+              {t('import.undo.undone', { date: formatTimestampWithTime(batch.undone_at) })}
             </span>
           )}
         </div>

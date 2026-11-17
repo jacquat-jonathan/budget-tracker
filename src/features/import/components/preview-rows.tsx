@@ -627,7 +627,11 @@ function RowNotes({
   ) {
     notes.push(t(`import.preview.flagNote.${result.flag as 'salary'}`))
   }
-  if (result.remembered_choice === 'import' || result.remembered_choice === 'skip') {
+  // R-IMPORT-367: only a choice a member made is worded as theirs (D-456); a default never is.
+  if (
+    result.choice_key !== null &&
+    (result.remembered_choice === 'import' || result.remembered_choice === 'skip')
+  ) {
     notes.push(
       t('import.preview.remembered', {
         choice: t(`import.preview.rememberedChoice.${result.remembered_choice}`),
