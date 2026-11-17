@@ -457,7 +457,7 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
   it('[R-ACCOUNT-500] two previewed occurrences on one due date say their kind; others do not', async () => {
     const db = await openPage()
     db.rpc.preview_update_transfer.mockImplementation(() => [
-      previewRow({ due_date: '2026-11-25', occurrence_kind: 'payday' }),
+      previewRow({ due_date: '2026-11-25', occurrence_kind: 'period' }),
       previewRow({ due_date: '2026-11-25', occurrence_kind: 'income_payday' }),
       previewRow({ due_date: '2026-12-25', occurrence_date: '2026-12-25' }),
     ])
@@ -483,7 +483,7 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
       p_transfer_id: 'tr-savings',
       p_amount: 120_000,
     }) as { occurrence_kind: string; already_recorded: boolean }[]
-    expect(kept).toMatchObject({ occurrence_kind: 'payday', already_recorded: true })
+    expect(kept).toMatchObject({ occurrence_kind: 'period', already_recorded: true })
     // As my stack answered (probe2.cjs): a new offset re-dates the catch-up's own transaction
     // (D-563), so its occurrence is not "kept"; a member's tick is.
     db.checklist[0]!.assumed = true

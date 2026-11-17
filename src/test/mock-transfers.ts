@@ -74,6 +74,8 @@ export function transferRow(
     follows_primary: false,
     next_due_date: '2026-11-25',
     starts_on: '2026-09-25',
+    starts_seq: 1,
+    weekend_rule: null,
     has_history: true,
     removal_deletes: false,
     transaction_count: 0,
@@ -121,7 +123,10 @@ export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRo
     planned: true,
     cadence: null,
     assumed: false,
-    occurrence_kind: cadence === null ? 'payday' : 'fixed_day',
+    occurrence_kind: cadence === null ? 'period' : 'fixed_day',
+    occurrence_seq: null,
+    income_id: null,
+    income_name: null,
     ...overrides,
   }
 }
@@ -130,9 +135,9 @@ type OccurrenceKind = Database['public']['Enums']['transfer_occurrence_kind']
 
 /**
  * The kind of an occurrence of a transfer's terms, as private.transfer_period_occurrences
- * derives it: a fixed day is 'fixed_day'; a pay date of a chosen income in force there that is
- * not the primary one is 'income_payday'; otherwise (no income, the primary chosen, or the
- * chosen one not in force: it follows the primary) the period's 'payday'.
+ * derives it: a fixed day is 'fixed_day'; a pay date of a chosen income in force there is
+ * 'income_payday' (whichever income is the primary); otherwise (no income, or the chosen one not
+ * in force: it follows the main income) the period's own 'period'.
  */
 export function occurrenceKindOf(
   terms: { schedule: string | null; income_id: string | null },
@@ -140,8 +145,8 @@ export function occurrenceKindOf(
 ): OccurrenceKind {
   if (terms.schedule === 'day_of_month') return 'fixed_day'
   const income = incomes.find((item) => item.id === terms.income_id)
-  if (income && income.is_active === true && income.is_primary !== true) return 'income_payday'
-  return 'payday'
+  if (income && income.is_active === true) return 'income_payday'
+  return 'period'
 }
 
 /** Every column get_money_flow answers, null where the row does not use it (as the database). */
@@ -869,8 +874,10 @@ export function previewRow(overrides: Partial<TransferPreviewRow> = {}): Transfe
     created_at_once_count: 0,
     transactions_removed_count: 0,
     marks_unplanned_count: 0,
-    occurrence_kind: 'payday',
+    occurrence_kind: 'period',
     already_recorded: false,
+    occurrence_seq: null,
+    transactions_moved_count: 0,
     ...overrides,
   } as TransferPreviewRow
 }

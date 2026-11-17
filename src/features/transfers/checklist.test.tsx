@@ -206,7 +206,7 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
         p_transfer_id: 'tr-joint',
         p_period_id: 'period-2',
         p_occurrence_date: '2026-10-23',
-        p_occurrence_kind: 'payday',
+        p_occurrence_kind: 'period',
         p_expected_revision: 0,
         p_done_on: '2026-11-15',
         p_amount: 140_000,
@@ -223,7 +223,7 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
         p_transfer_id: 'tr-joint',
         p_period_id: 'period-2',
         p_occurrence_date: '2026-10-23',
-        p_occurrence_kind: 'payday',
+        p_occurrence_kind: 'period',
         p_expected_revision: 1,
       })
     })
@@ -828,7 +828,7 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
       expect(db.rpc.mark_transfer_done).toHaveBeenCalledWith(
         expect.objectContaining({
           p_occurrence_date: '2026-11-20',
-          p_occurrence_kind: 'payday',
+          p_occurrence_kind: 'period',
           p_expected_revision: 0,
         }),
       )
@@ -857,7 +857,7 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
     )
     await waitFor(() => {
       expect(db.rpc.undo_transfer_mark).toHaveBeenLastCalledWith(
-        expect.objectContaining({ p_occurrence_kind: 'payday', p_expected_revision: 1 }),
+        expect.objectContaining({ p_occurrence_kind: 'period', p_expected_revision: 1 }),
       )
     })
     await waitFor(() => {
@@ -986,7 +986,7 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
     await userEvent.click(screen.getByRole('button', { name: 'Undo the tick of “Old order”' }))
     await waitFor(() => {
       expect(db.rpc.undo_transfer_mark).toHaveBeenLastCalledWith(
-        expect.objectContaining({ p_occurrence_kind: 'payday', p_expected_revision: 2 }),
+        expect.objectContaining({ p_occurrence_kind: 'period', p_expected_revision: 2 }),
       )
     })
     await waitFor(() => {
@@ -1047,7 +1047,7 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
       p_occurrence_kind: 'fixed_day',
     }) as ChecklistRowType[]
     expect(skipped).toMatchObject({ occurrence_kind: 'fixed_day', status: 'skipped' })
-    expect(db.checklist[0]).toMatchObject({ occurrence_kind: 'payday', status: 'to_do' })
+    expect(db.checklist[0]).toMatchObject({ occurrence_kind: 'period', status: 'to_do' })
     // Only the kind, with one row of that kind there, names it too.
     expect(() =>
       db.rpc.undo_transfer_mark({
@@ -1062,7 +1062,7 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
     [
       'two ticks no longer planned (97k_db_fix4 “two”)',
       [
-        { kind: 'payday', due: null, status: 'done', planned: false, revision: 1 },
+        { kind: 'period', due: null, status: 'done', planned: false, revision: 1 },
         { kind: 'fixed_day', due: null, status: 'done', planned: false, revision: 1 },
       ],
       {
@@ -1077,7 +1077,7 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
     [
       'a tick no longer planned and a fixed day to do (97k_db_fix4 “ok”)',
       [
-        { kind: 'payday', due: null, status: 'done', planned: false, revision: 1 },
+        { kind: 'period', due: null, status: 'done', planned: false, revision: 1 },
         { kind: 'fixed_day', due: '2026-11-25', status: 'to_do', planned: true, revision: 0 },
       ],
       {
@@ -1126,10 +1126,10 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
         }),
       ),
       undoStale: refusal(() =>
-        db.rpc.undo_transfer_mark({ ...key, p_expected_revision: 7, p_occurrence_kind: 'payday' }),
+        db.rpc.undo_transfer_mark({ ...key, p_expected_revision: 7, p_occurrence_kind: 'period' }),
       ),
       skipUnplanned: refusal(() =>
-        db.rpc.skip_transfer({ ...key, p_expected_revision: 1, p_occurrence_kind: 'payday' }),
+        db.rpc.skip_transfer({ ...key, p_expected_revision: 1, p_occurrence_kind: 'period' }),
       ),
       notDoneManual: refusal(() =>
         db.rpc.mark_transfer_not_done({
@@ -1142,7 +1142,7 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
   })
 
   it('the mock derives a row’s kind as the database does, not a constant payday', () => {
-    expect(checklistRow().occurrence_kind).toBe('payday')
+    expect(checklistRow().occurrence_kind).toBe('period')
     expect(checklistRow({ cadence: 'yearly' }).occurrence_kind).toBe('fixed_day')
     const incomes = [
       { id: 'inc-ann', is_primary: true, is_active: true },
@@ -1152,14 +1152,14 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
     expect(occurrenceKindOf({ schedule: 'day_of_month', income_id: null }, incomes)).toBe(
       'fixed_day',
     )
-    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: null }, incomes)).toBe('payday')
-    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ann' }, incomes)).toBe('payday')
+    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: null }, incomes)).toBe('period')
+    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ann' }, incomes)).toBe('period')
     expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ben' }, incomes)).toBe(
       'income_payday',
     )
     // A chosen income no longer in force: it follows the primary's payday.
     expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-gone' }, incomes)).toBe(
-      'payday',
+      'period',
     )
   })
 })

@@ -370,7 +370,7 @@ export const transfersEn = {
     listChanged:
       'This period’s checklist changed meanwhile: it is shown again as it now stands. Check the row and try again.',
     kind: {
-      payday: 'on the payday that started the period',
+      period: 'on the payday that started the period',
       income_payday: 'on its chosen income’s payday',
       fixed_day: 'on its fixed day',
     },

@@ -533,9 +533,33 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
           transfer_transactions_removed: 0,
           transfer_transactions_created: 0,
           transfer_marks_unplanned: 0,
+          transfer_transactions_moved: 0,
         },
       ]
     }),
+    // The salary early or expected on another day: accepted, touching no transfer.
+    preview_record_early_pay_date: handler((args) => [
+      {
+        period_id: args.p_budget_id,
+        accepted: true,
+        refusal: null,
+        transfer_transactions_removed: 0,
+        transfer_transactions_created: 0,
+        transfer_marks_unplanned: 0,
+        transfer_transactions_moved: 0,
+      },
+    ]),
+    preview_set_expected_pay_date: handler((args) => [
+      {
+        period_id: args.p_budget_id,
+        accepted: true,
+        refusal: null,
+        transfer_transactions_removed: 0,
+        transfer_transactions_created: 0,
+        transfer_marks_unplanned: 0,
+        transfer_transactions_moved: 0,
+      },
+    ]),
     // list_periods: newest first, a page at a time (p_before_seq: the last row's seq).
     list_periods: handler((args) => {
       const limit = Number(args.p_limit ?? 120)

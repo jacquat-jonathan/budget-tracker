@@ -256,6 +256,8 @@ export function transactionRow(
     transfer_id: null,
     transfer_name: null,
     transfer_occurrence_date: null,
+    transfer_occurrence_kind: null,
+    transfer_occurrence_seq: null,
     ...overrides,
   }
 }

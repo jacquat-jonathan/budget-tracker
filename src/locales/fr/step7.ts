@@ -386,7 +386,7 @@ export const transfersFr = {
     listChanged:
       'La liste de cette période a changé entre-temps : elle est affichée à nouveau telle qu’elle est maintenant. Vérifiez la ligne et réessayez.',
     kind: {
-      payday: 'au jour de paie qui a ouvert la période',
+      period: 'au jour de paie qui a ouvert la période',
       income_payday: 'au jour de paie de son revenu choisi',
       fixed_day: 'à son jour fixe',
     },
