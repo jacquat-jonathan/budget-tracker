@@ -81,6 +81,17 @@ export function useImportBatches(budgetId: string) {
   return { ...query, data }
 }
 
+/** One batch by its id (get_import_batch, D-459): its counts as the list gives them. */
+export function useImportBatch(budgetId: string, batchId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...budgetKeys.imports(budgetId), 'batch', batchId] as const,
+    enabled,
+    staleTime: 0,
+    queryFn: async (): Promise<ImportBatch | null> =>
+      unwrap(await supabase.rpc('get_import_batch', { p_batch_id: batchId }))[0] ?? null,
+  })
+}
+
 /** Skipped rows per page of list_import_skipped_rows (1 to 200). */
 export const SKIPPED_PAGE = 100
 

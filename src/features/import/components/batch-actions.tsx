@@ -11,7 +11,7 @@ import { unwrap } from '@/features/budgets/budget-queries'
 import { reasonText } from '@/features/import/statement-words'
 import {
   useExistingTransactions,
-  useImportBatches,
+  useImportBatch,
   useSkippedRows,
   type ExistingTransaction,
   type SkippedRow,
@@ -383,8 +383,8 @@ export function UndoImport({
   const [open, setOpen] = useState(false)
   const [answer, setAnswer] = useState<UndoAnswer | null>(null)
   // The batch's own count, read again when the dialog opens: imports anyway since are in it.
-  const batches = useImportBatches(budgetId)
-  const batch = batches.data?.find((item) => item.id === batchId)
+  const batches = useImportBatch(budgetId, batchId, open)
+  const batch = batches.data
   const stillToReview = batch?.to_review_count ?? toReview
   const undo = useAppMutation<UndoAnswer | null>({
     errorDisplay: 'inline',
@@ -417,7 +417,6 @@ export function UndoImport({
         size="sm"
         onClick={() => {
           setOpen(true)
-          void batches.refetch()
         }}
       >
         <Undo2Icon aria-hidden />
