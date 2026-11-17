@@ -564,6 +564,14 @@ export const importEn = {
     importAllAnyway: 'Import all skipped rows anyway',
     importedAnywayDone_one: '{{count}} row imported anyway.',
     importedAnywayDone_other: '{{count}} rows imported anyway.',
+    importedAnywayFewer_one:
+      '{{count}} row imported anyway; {{missing}} more were no longer kept and could not be imported.',
+    importedAnywayFewer_other:
+      '{{count}} rows imported anyway; {{missing}} more were no longer kept and could not be imported.',
+    gone_one:
+      "{{count}} older skipped row of this import is no longer kept (a budget keeps its newest 20'000 skipped rows): it is still counted, but can no longer be listed or imported anyway.",
+    gone_other:
+      "{{count}} older skipped rows of this import are no longer kept (a budget keeps its newest 20'000 skipped rows): they are still counted, but can no longer be listed or imported anyway.",
     anywayFailed: 'The rows could not be imported anyway. Try again.',
     kinds: {
       salary: 'Skipped: a salary already planned as income',
@@ -608,6 +616,10 @@ export const importEn = {
       },
       twice_one: 'If it is what the import thought, it will count twice in your totals.',
       twice_other: 'If they are what the import thought, they will count twice in your totals.',
+      gone_one:
+        "Not counted here: {{count}} older skipped row of this import, no longer kept (a budget keeps its newest 20'000), which can no longer be imported anyway.",
+      gone_other:
+        "Not counted here: {{count}} older skipped rows of this import, no longer kept (a budget keeps its newest 20'000), which can no longer be imported anyway.",
       confirm_one: 'Import it anyway',
       confirm_other: 'Import {{count}} rows anyway',
     },

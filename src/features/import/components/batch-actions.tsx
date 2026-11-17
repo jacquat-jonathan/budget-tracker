@@ -127,6 +127,8 @@ export function SkippedRows({
 }) {
   const { t } = useTranslation()
   const skipped = useSkippedRows(budgetId, batchId)
+  // The batch's own counts: they stay when the oldest skipped rows of the budget go.
+  const batch = useImportBatch(budgetId, batchId)
   const matchIds = useMemo(
     () =>
       (skipped.data ?? []).flatMap((row) =>
@@ -135,10 +137,10 @@ export function SkippedRows({
     [skipped.data],
   )
   const existing = useExistingTransactions(budgetId, matchIds)
-  const [done, setDone] = useState<number | null>(null)
+  const [done, setDone] = useState<{ count: number; sent: number } | null>(null)
   const [asking, setAsking] = useState<{ ids: string[] | 'all' } | null>(null)
   const focusAfter = useRef<string | null>(null)
-  const anyway = useAppMutation<number, string[]>({
+  const anyway = useAppMutation<{ count: number; sent: number }, string[]>({
     errorDisplay: 'inline',
     mutationFn: async (ids) => {
       let count = 0
@@ -151,12 +153,12 @@ export function SkippedRows({
         )
         count += rows.filter((row) => row.action === 'import').length
       }
-      return count
+      return { count, sent: ids.length }
     },
-    onSuccess: (count) => {
-      setDone(count)
+    onSuccess: (answer) => {
+      setDone(answer)
       setAsking(null)
-      onImported?.(count)
+      onImported?.(answer.count)
     },
     invalidate: () => [budgetKeys.budget(budgetId)],
   })
@@ -179,6 +181,18 @@ export function SkippedRows({
       document.querySelector<HTMLElement>(`[data-skipped-state="${id}"]`)?.focus()
     })
   }, [done, rows])
+  // R-IMPORT-368: a budget keeps its newest 20 000 skipped rows; the batch still counts older
+  // ones that went, which can no longer be listed or imported anyway. Known once every page of
+  // the batch's rows is read.
+  const stillSkipped = batch.data
+    ? batch.data.duplicate_count +
+      batch.data.flagged_count +
+      batch.data.matched_count +
+      batch.data.chosen_skip_count +
+      batch.data.invalid_count
+    : null
+  const listedSkipped = rows.filter((row) => row.imported_transaction_id === null).length
+  const gone = stillSkipped === null || hasNextPage ? 0 : Math.max(0, stillSkipped - listedSkipped)
   if (skipped.isError)
     return <ErrorState error={skipped.error} onRetry={() => void skipped.refetch()} />
   if (!skipped.data) return <LoadingState rows={2} />
@@ -233,7 +247,12 @@ export function SkippedRows({
       </div>
       {done !== null && (
         <p role="status" className="text-sm" data-testid="anyway-done">
-          {t('import.skipped.importedAnywayDone', { count: done })}
+          {done.count < done.sent
+            ? t('import.skipped.importedAnywayFewer', {
+                count: done.count,
+                missing: done.sent - done.count,
+              })
+            : t('import.skipped.importedAnywayDone', { count: done.count })}
         </p>
       )}
       {anyway.error !== null && asking === null && (
@@ -241,8 +260,15 @@ export function SkippedRows({
           {t('import.skipped.anywayFailed')}
         </p>
       )}
+      {gone > 0 && (
+        <p className="text-sm text-muted-foreground" data-testid="skipped-gone">
+          {t('import.skipped.gone', { count: gone })}
+        </p>
+      )}
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('import.skipped.none')}</p>
+        gone > 0 ? null : (
+          <p className="text-sm text-muted-foreground">{t('import.skipped.none')}</p>
+        )
       ) : (
         <ul className="flex flex-col divide-y rounded-lg border text-sm">
           {rows.map((row) => {
@@ -342,6 +368,11 @@ export function SkippedRows({
               <span className="font-medium">
                 {t('import.skipped.ask.twice', { count: askedRows.length })}
               </span>
+              {asking?.ids === 'all' && gone > 0 && (
+                <span data-testid="anyway-gone">
+                  {t('import.skipped.ask.gone', { count: gone })}
+                </span>
+              )}
             </>
           )
         }

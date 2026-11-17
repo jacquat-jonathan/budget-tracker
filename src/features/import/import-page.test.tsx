@@ -449,9 +449,23 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
     // Imported anyway: the rows say so, and the batch counts them to review.
     db.rpc.import_skipped_anyway.mockImplementation((args) => {
       const ids = args.p_skipped_row_ids as string[]
-      for (const row of db.tables.import_skipped_rows)
-        if (ids.includes(row.id)) row.imported_transaction_id = `tx-${row.id}`
       const batch = db.tables.import_batch_list[0]
+      const counts = {
+        duplicate: 'duplicate_count',
+        flagged: 'flagged_count',
+        matched: 'matched_count',
+        chosen: 'chosen_skip_count',
+      } as const
+      for (const row of db.tables.import_skipped_rows) {
+        if (!ids.includes(row.id)) continue
+        row.imported_transaction_id = `tx-${row.id}`
+        // The batch's counts move from the skip reason to the imported ones.
+        const count = counts[row.reason as keyof typeof counts]
+        if (batch && count) {
+          batch[count] -= 1
+          batch.imported_count += 1
+        }
+      }
       if (batch) batch.to_review_count = (batch.to_review_count ?? 0) + ids.length
       return ids.map((_, index) => ({
         ...plannedRow({ date: '2026-10-02', amount: 200, direction: 'debit' }, index + 2),
@@ -511,6 +525,34 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
       }),
     )
     expect(await screen.findByTestId('anyway-done')).toHaveTextContent('3 rows imported anyway.')
+  })
+
+  it('[R-IMPORT-368] says when older skipped rows are no longer kept and cannot be imported anyway', async () => {
+    const db = afterDb()
+    const write = db.rpc.import_transactions.getMockImplementation()
+    db.rpc.import_transactions.mockImplementation((args) => {
+      const answer = write?.(args)
+      // Two more duplicates than are still listed: the budget's oldest skipped rows went.
+      const batch = db.tables.import_batch_list[0]
+      if (batch) {
+        batch.duplicate_count = 3
+        batch.row_count = 6
+      }
+      return answer
+    })
+    open(db)
+    await chooseCsv(csvOf(4))
+    await userEvent.click(screen.getByRole('button', { name: 'Check 4 rows' }))
+    await userEvent.click(await importButtonReady())
+    expect(await screen.findByTestId('skipped-gone')).toHaveTextContent(
+      "2 older skipped rows of this import are no longer kept (a budget keeps its newest 20'000 skipped rows): they are still counted, but can no longer be listed or imported anyway.",
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Import all skipped rows anyway' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(dialog).toHaveTextContent('Import 3 skipped rows anyway?')
+    expect(within(dialog).getByTestId('anyway-gone')).toHaveTextContent(
+      'Not counted here: 2 older skipped rows of this import, no longer kept',
+    )
   })
 
   it('[R-IMPORT-363] follows what happens after it: counts after "import anyway", the undo’s numbers, the undo itself', async () => {

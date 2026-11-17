@@ -582,6 +582,14 @@ export const importFr: Translation['import'] = {
     importAllAnyway: 'Importer quand même toutes les lignes ignorées',
     importedAnywayDone_one: '{{count}} ligne importée quand même.',
     importedAnywayDone_other: '{{count}} lignes importées quand même.',
+    importedAnywayFewer_one:
+      '{{count}} ligne importée quand même ; {{missing}} autres n’étaient plus conservées et n’ont pas pu être importées.',
+    importedAnywayFewer_other:
+      '{{count}} lignes importées quand même ; {{missing}} autres n’étaient plus conservées et n’ont pas pu être importées.',
+    gone_one:
+      "{{count}} ligne ignorée plus ancienne de cette importation n’est plus conservée (un budget garde ses 20'000 lignes ignorées les plus récentes) : elle est encore comptée, mais ne peut plus être affichée ni importée quand même.",
+    gone_other:
+      "{{count}} lignes ignorées plus anciennes de cette importation ne sont plus conservées (un budget garde ses 20'000 lignes ignorées les plus récentes) : elles sont encore comptées, mais ne peuvent plus être affichées ni importées quand même.",
     anywayFailed: 'Les lignes n’ont pas pu être importées quand même. Réessayez.',
     kinds: {
       salary: 'Ignorée : un salaire déjà prévu comme revenu',
@@ -630,6 +638,10 @@ export const importFr: Translation['import'] = {
         'Si elle est ce que l’importation a pensé, elle comptera deux fois dans vos totaux.',
       twice_other:
         'Si elles sont ce que l’importation a pensé, elles compteront deux fois dans vos totaux.',
+      gone_one:
+        "Non comptée ici : {{count}} ligne ignorée plus ancienne de cette importation, plus conservée (un budget garde les 20'000 plus récentes), qui ne peut plus être importée quand même.",
+      gone_other:
+        "Non comptées ici : {{count}} lignes ignorées plus anciennes de cette importation, plus conservées (un budget garde les 20'000 plus récentes), qui ne peuvent plus être importées quand même.",
       confirm_one: 'L’importer quand même',
       confirm_other: 'Importer quand même {{count}} lignes',
     },
