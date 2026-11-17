@@ -8825,6 +8825,20 @@
         "code: src/app/lazy-page.ts",
         "code: src/components/page-load-boundary.tsx"
       ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-AUTH-530",
+      "area": "auth",
+      "feature": "F-AUTH",
+      "statement": "When the session ends without the user signing out (it expired or was revoked while a page was open, or a stored session no longer restores when the app opens), the sign-in page says \"Your session ended\", that what had been typed and not saved was not kept and must be entered again, and that signing in returns to the page the user was on (which it does, R-AUTH-001). A sign-out the user asked for, in any tab of the browser, and a visitor who was never signed in, get no such notice. What was typed is not kept.",
+      "related": ["R-AUTH-001", "R-AUTH-003", "D-635"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/auth/auth-provider.tsx",
+        "code: src/features/auth/session-ended.ts"
+      ]
     }
   ],
   "decisions": [
@@ -14026,6 +14040,20 @@
       ],
       "status": "accepted",
       "related": ["R-APP-530", "R-APP-531", "R-APP-532"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-635",
+      "title": "An ended session is told apart from a sign-out by a short-lived mark in local storage",
+      "decision": "Signing out writes the time to local storage (shared by the browser's tabs); a session that disappears (any auth event with no session after one, or a stored Supabase session that does not restore at start) more than a minute after the last sign-out is reported as ended on the sign-in page. Typed values are not kept: keeping them would mean storing a form's content in the browser across users and budgets, which is neither trivial nor safe.",
+      "why": "The walk-through's session died mid-form and the user landed on sign-in with no word. Supabase reports an expired and a requested sign-out with the same event.",
+      "rejected": [
+        "Keeping what was typed in session storage and restoring it after sign-in: another user may sign in on the same tab, and a restored form may belong to a budget the user no longer has."
+      ],
+      "status": "accepted",
+      "related": ["R-AUTH-530", "R-AUTH-025"],
       "source": [
         "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
       ]

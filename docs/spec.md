@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-612 rules (601 active, 0 planned), 24 conventions, 380 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+613 rules (602 active, 0 planned), 24 conventions, 381 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -404,6 +404,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-AUTH_
   - Related: R-AUTH-017
   - Source: code: src/features/auth/pages/reset-password-page.tsx
+- **R-AUTH-530** When the session ends without the user signing out (it expired or was revoked while a page was open, or a stored session no longer restores when the app opens), the sign-in page says "Your session ended", that what had been typed and not saved was not kept and must be entered again, and that signing in returns to the page the user was on (which it does, R-AUTH-001). A sign-out the user asked for, in any tab of the browser, and a visitor who was never signed in, get no such notice. What was typed is not kept.
+  _active · enforced by test · F-AUTH_
+  - Related: R-AUTH-001, R-AUTH-003, D-635
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/auth/auth-provider.tsx; code: src/features/auth/session-ended.ts
 
 ### Profiles
 
@@ -7867,6 +7871,20 @@ Writes no longer pause while the browser is offline (TanStack Query's default fo
 - Holding the write and saying it will go out once the connection is back: the household may close the tab or change the record meanwhile, and a concurrency refusal would then arrive out of context.
 
 Related: R-APP-530, R-APP-531, R-APP-532
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-635 An ended session is told apart from a sign-out by a short-lived mark in local storage (accepted)
+
+Signing out writes the time to local storage (shared by the browser's tabs); a session that disappears (any auth event with no session after one, or a stored Supabase session that does not restore at start) more than a minute after the last sign-out is reported as ended on the sign-in page. Typed values are not kept: keeping them would mean storing a form's content in the browser across users and budgets, which is neither trivial nor safe.
+
+**Why:** The walk-through's session died mid-form and the user landed on sign-in with no word. Supabase reports an expired and a requested sign-out with the same event.
+
+**Rejected:**
+
+- Keeping what was typed in session storage and restoring it after sign-in: another user may sign in on the same tab, and a restored form may belong to a budget the user no longer has.
+
+Related: R-AUTH-530, R-AUTH-025
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 

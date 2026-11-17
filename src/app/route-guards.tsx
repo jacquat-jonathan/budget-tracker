@@ -6,13 +6,16 @@ import { useAuth } from '@/features/auth/auth-context'
 
 /** Renders its child routes only for a signed-in user; otherwise sends them to sign-in. */
 export function ProtectedRoute() {
-  const { session, loading, recovery } = useAuth()
+  const { session, loading, recovery, sessionEnded } = useAuth()
   const location = useLocation()
 
   if (loading) return <FullPageSpinner />
   // R-AUTH-001: signed out, to sign-in and back to the page asked for.
   if (!session) {
-    const state: RedirectState = { from: `${location.pathname}${location.search}${location.hash}` }
+    const state: RedirectState = {
+      from: `${location.pathname}${location.search}${location.hash}`,
+      ...(sessionEnded ? { sessionEnded: true } : {}),
+    }
     return <Navigate to={paths.signIn} replace state={state} />
   }
   // Signed in by a password-recovery link: choose a new password first, wherever it landed.

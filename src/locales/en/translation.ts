@@ -131,6 +131,9 @@ const core = {
       description: 'Welcome back. Sign in to your budget.',
       submit: 'Sign in',
       forgotPassword: 'Forgot your password?',
+      sessionEndedTitle: 'Your session ended',
+      sessionEnded:
+        'You were signed out. What you had typed and not yet saved was not kept: enter it again after signing in. You will go back to the page you were on.',
       importInterrupted:
         'An import was being sent from this device when the session ended. What it had recorded is kept. Sign in and open the same file on the Import page to finish it: nothing is recorded twice.',
       noAccount: 'No account yet?',

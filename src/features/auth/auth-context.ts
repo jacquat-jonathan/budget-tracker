@@ -23,6 +23,11 @@ export interface AuthContextValue {
   accountSwitch: AccountSwitch | null
   dismissAccountSwitch: () => void
   signOut: () => Promise<void>
+  /**
+   * The session ended without the user signing out (expired, revoked, or a stored session
+   * that no longer works): sign-in says so.
+   */
+  sessionEnded: boolean
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

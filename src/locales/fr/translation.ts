@@ -135,6 +135,9 @@ const core: Omit<Translation, LazyKey> = {
       description: 'Bon retour parmi nous. Connectez-vous pour accéder à votre budget.',
       submit: 'Se connecter',
       forgotPassword: 'Mot de passe oublié ?',
+      sessionEndedTitle: 'Votre session a pris fin',
+      sessionEnded:
+        'Vous avez été déconnecté. Ce que vous aviez saisi sans l’enregistrer n’a pas été conservé : saisissez-le à nouveau après vous être connecté. Vous reviendrez à la page où vous étiez.',
       importInterrupted:
         'Une importation était en cours d’envoi depuis cet appareil quand la session s’est terminée. Ce qu’elle avait enregistré est conservé. Connectez-vous et ouvrez le même fichier sur la page Importer pour la terminer : rien n’est enregistré deux fois.',
       noAccount: 'Pas encore de compte ?',
