@@ -59,13 +59,7 @@ export const subscriptionsEn = {
   preview: {
     title: 'Upcoming charges',
     needsDate: 'Enter a date to see the charge dates.',
-    failed: 'The charge dates could not be computed for this date.',
     due: 'recorded at once, to confirm',
-    new: 'Calculated by the budget from the first charge date and the cadence.',
-    date: 'The next charge is on the date you entered; the later ones follow at the cadence.',
-    kept: 'The schedule stays as it is.',
-    cadence:
-      'With a new cadence and no new date, the schedule continues from the next charge, {{date}}.',
     none: 'No charge on these terms before the budget ends.',
     atOnce_one: 'Saving records 1 charge at once, dated in the past, for you to confirm.',
     atOnce_other:
@@ -74,7 +68,6 @@ export const subscriptionsEn = {
     atOnceAtLeast_other:
       'Saving records at least {{count}} charges at once, dated in the past, for you to confirm.',
     cadenceKeepsDay: 'Changing only how often keeps the charge day: {{day}}.',
-    refused: 'These terms cannot be saved: {{reason}}',
   },
   day: {
     plain_ordinal_one: 'on the {{count}}st',

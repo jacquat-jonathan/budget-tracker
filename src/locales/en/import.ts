@@ -344,7 +344,6 @@ export const importEn = {
       label: 'Change the selected rows',
     },
     showMore: 'Show {{count}} more rows',
-    action: 'What happens',
     actionChoice: 'Import or skip',
     choose: { import: 'Import', skip: 'Skip' },
     actions: {
@@ -450,8 +449,6 @@ export const importEn = {
     partsNote:
       'They are checked in order, each with what the parts before it take (duplicates, matches) and the choices they send: the counts above are the whole statement’s.',
     ended: 'This budget has ended: rows dated after its last day cannot be imported.',
-    limit:
-      "This budget holds 50'000 transactions at most. If there is not room for every row, nothing of that part is written and the import says how many would fit.",
     toCategoriseName: 'To categorise',
   },
   run: {
@@ -469,7 +466,6 @@ export const importEn = {
       'The budget was busy and did not answer in time: part {{part}} was sent again ({{count}} time). It is recorded once.',
     busy_other:
       'The budget was busy and did not answer in time: part {{part}} was sent again ({{count}} times). It is recorded once.',
-    leaveWarning: 'The import is still being sent. Leave anyway?',
     stopped: {
       title: 'The import stopped',
       limit_one:
@@ -516,7 +512,6 @@ export const importEn = {
     resumed:
       'This is the statement of the interrupted import: it continues under the same import, and the parts already recorded are not recorded twice.',
     forget: 'Forget it',
-    history: 'See the import history',
   },
   result: {
     title: 'Import done',
@@ -561,10 +556,6 @@ export const importEn = {
     title: 'Rows not imported',
     none: 'Every row was imported.',
     reasons: {
-      duplicate: 'Already in the budget',
-      flagged: 'Flagged: {{flag}}',
-      matched: 'Already entered',
-      chosen: 'Skipped by you',
       invalid: 'Cannot be imported: {{reason}}',
     },
     importedAnyway: 'Imported anyway',
@@ -663,13 +654,11 @@ export const importEn = {
     tokenDeleted: ', since deleted',
     when: 'On {{date}}',
     period: 'Statement {{from}} – {{to}}',
-    counts: '{{rows}} rows: {{imported}} imported, {{skipped}} not imported',
     rows_one: '{{count}} row',
     rows_other: '{{count}} rows',
     toReview_one: '{{count}} still to review',
     toReview_other: '{{count}} still to review',
     details: 'Rows not imported and undo',
-    review: 'Review',
     more: 'Show older imports',
     breakdown: {
       imported: 'Imported',
@@ -686,7 +675,6 @@ export const importEn = {
     cardBody_one: '{{count}} imported transaction waits for your review.',
     cardBody_other: '{{count}} imported transactions wait for your review.',
     cardLink: 'Review them',
-    filter: 'To review',
     filterChip: 'To review',
     showOnly_one: 'Show only the {{count}} to review',
     showOnly_other: 'Show only the {{count}} to review',
@@ -734,7 +722,6 @@ export const importEn = {
         'They are still selected: choose another category, or correct the one that was refused, and try again.',
     },
     imported: 'Imported from {{source}}',
-    details: 'From the statement',
     rule: {
       title: 'Always put this merchant in this category?',
       tooLong:
@@ -755,7 +742,6 @@ export const importEn = {
     mark: 'Where imported transactions wait for a category',
     restrictions:
       'This is where imported transactions wait until you give them a category. It can be renamed, but takes no plan and no subcategory, and cannot be removed while it holds transactions.',
-    noPlan: 'No plan: it only holds imports waiting for a category.',
     noPlanShort: 'No plan',
     cannotEnd: 'Not while it holds transactions: give them a category first.',
     errors: {
@@ -832,7 +818,6 @@ export const importEn = {
       'The budget does not take this text as a rule: it must have 1 to {{max}} characters once tidied (lower case, without accents or punctuation).',
     category: 'Category',
     ended: 'Its category has ended: it applies only where the category is in use.',
-    edit: 'Edit',
     editFor: 'Edit the rule {{fragment}}',
     editTitle: 'Edit the rule',
     apply: 'Also apply it now to the imported transactions waiting in “To categorise”',

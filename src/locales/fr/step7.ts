@@ -39,7 +39,6 @@ export const accountsFr = {
   edit: 'Modifier',
   closeAction: 'Clôturer le compte',
   deleteAction: 'Supprimer le compte',
-  seeTransfers: 'Virements planifiés',
   fields: {
     name: 'Nom',
     namePlaceholder: 'Compte salaire, épargne, compte commun…',
@@ -91,8 +90,6 @@ export const accountsFr = {
     fieldHelp:
       'Le compte sur lequel ce revenu arrive : c’est là que commencent les flux financiers.',
     none: 'Non attribué',
-    noAccounts: 'Ajoutez des comptes pour indiquer où ce revenu arrive.',
-    paidInto: 'Versé sur {{name}}',
     viewLabel: 'Versé sur',
   },
 }

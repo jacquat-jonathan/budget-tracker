@@ -35,7 +35,6 @@ export const accountsEn = {
   edit: 'Edit',
   closeAction: 'Close account',
   deleteAction: 'Delete account',
-  seeTransfers: 'Planned transfers',
   fields: {
     name: 'Name',
     namePlaceholder: 'Salary account, savings, joint account…',
@@ -86,8 +85,6 @@ export const accountsEn = {
     field: 'Paid into',
     fieldHelp: 'The account this income arrives on: it is where the money flow starts.',
     none: 'Not assigned',
-    noAccounts: 'Add accounts to say where this income arrives.',
-    paidInto: 'Paid into {{name}}',
     viewLabel: 'Paid into',
   },
 }

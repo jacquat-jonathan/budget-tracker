@@ -5,7 +5,6 @@ import { catchUpFr } from '@/locales/fr/catch-up'
 const core: Omit<Translation, LazyKey> = {
   app: {
     name: 'Budget Tracker',
-    tagline: 'Le budget de votre ménage, période après période.',
   },
   common: {
     loading: 'Chargement…',
@@ -13,10 +12,6 @@ const core: Omit<Translation, LazyKey> = {
     save: 'Enregistrer',
     cancel: 'Annuler',
     actions: 'Actions',
-    comingSoon: {
-      title: 'Bientôt disponible',
-      description: 'Cette section est en préparation. Elle apparaîtra ici dès qu’elle sera prête.',
-    },
   },
   nav: {
     label: 'Menu',
@@ -45,13 +40,6 @@ const core: Omit<Translation, LazyKey> = {
     debts: {
       description: 'Ce que vous devez, son évolution et la date prévue du dernier remboursement.',
     },
-    periods: {
-      description: 'D’un jour de paie au suivant, de la plus récente à la plus ancienne.',
-    },
-    compare: {
-      description:
-        'Comment vos périodes se comparent : la tendance, chaque catégorie au fil du temps, et deux périodes côte à côte.',
-    },
     moneyFlow: {
       description:
         'D’où vient l’argent d’une période et où il va, selon le plan ou tel que cela s’est passé.',
@@ -62,10 +50,6 @@ const core: Omit<Translation, LazyKey> = {
         'L’argent qui passe d’un compte à l’autre selon un calendrier, et la liste à cocher de la période.',
     },
     income: { description: 'Les revenus qui composent votre budget mensuel.' },
-    import: {
-      description:
-        'Importez un relevé bancaire ou un fichier CSV plutôt que de saisir chaque transaction.',
-    },
     settings: { description: 'Le budget, les personnes qui le partagent et votre compte.' },
   },
   userMenu: {
@@ -651,7 +635,6 @@ const core: Omit<Translation, LazyKey> = {
       label: 'Corriger une période passée',
       removeLabel: 'Le supprimer depuis une période passée',
       help: 'Seulement pour corriger une erreur : normalement, un changement s’applique dès la période en cours.',
-      from: 'Appliquer dès',
       removeFrom: 'Supprimer dès',
       warning:
         'Cela modifie des périodes passées : leurs totaux de revenus sont recalculés dès la période choisie jusqu’au prochain changement déjà enregistré.',
@@ -1174,7 +1157,6 @@ const core: Omit<Translation, LazyKey> = {
       more_one: 'Et 1 autre changement, non listé.',
       more_other: 'Et {{count}} autres changements, non listés.',
       nothing: 'Rien n’a été enregistré dans cette période : seules les dates changent.',
-      failed: 'Impossible de lister le contenu de cette période : {{reason}}',
       required: 'L’enregistrement attend cette liste : c’est elle que vous confirmez.',
       kinds: {
         income: 'Revenu « {{name}} »',
@@ -1228,8 +1210,6 @@ const core: Omit<Translation, LazyKey> = {
         'La période précédente (dès le {{start}}) redevient la période en cours et se terminera le {{end}} ; le salaire est alors attendu le {{date}}. Cette période disparaît.',
       moveStart:
         'La période précédente se terminera le {{end}}, et celle-ci commencera le {{start}}.',
-      moveSchedule:
-        'La limite revient au jour que donne le calendrier de paie, et sa marque « fixée à la main » disparaît.',
       moveScheduleTo:
         'Cette période commencera le {{start}}, jour que donne le calendrier de paie, et la précédente se terminera le {{end}} ; la marque « fixée à la main » disparaît.',
     },

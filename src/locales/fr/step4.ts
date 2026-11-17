@@ -63,13 +63,7 @@ export const subscriptionsFr: Translation['subscriptions'] = {
   preview: {
     title: 'Prochains prélèvements',
     needsDate: 'Saisissez une date pour voir les dates de prélèvement.',
-    failed: 'Les dates de prélèvement n’ont pas pu être calculées pour cette date.',
     due: 'enregistré aussitôt, à confirmer',
-    new: 'Calculées par le budget à partir de la date du premier prélèvement et de la fréquence.',
-    date: 'Le prochain prélèvement est à la date saisie ; les suivants suivent la fréquence.',
-    kept: 'Le calendrier reste tel quel.',
-    cadence:
-      'Avec une nouvelle fréquence et sans nouvelle date, le calendrier continue depuis le prochain prélèvement, le {{date}}.',
     none: 'Aucun prélèvement à ces conditions avant la fin du budget.',
     atOnce_one: 'L’enregistrement crée aussitôt 1 prélèvement, daté dans le passé, à confirmer.',
     atOnce_other:
@@ -79,7 +73,6 @@ export const subscriptionsFr: Translation['subscriptions'] = {
     atOnceAtLeast_other:
       'L’enregistrement crée aussitôt au moins {{count}} prélèvements, datés dans le passé, à confirmer.',
     cadenceKeepsDay: 'Ne changer que la fréquence garde le jour du prélèvement : {{day}}.',
-    refused: 'Ces conditions ne peuvent pas être enregistrées : {{reason}}',
   },
   day: {
     plain_ordinal_one: 'le {{count}}er',

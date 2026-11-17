@@ -357,7 +357,6 @@ export const importFr: Translation['import'] = {
       label: 'Modifier les lignes sélectionnées',
     },
     showMore: 'Afficher {{count}} lignes de plus',
-    action: 'Ce qui se passe',
     actionChoice: 'Importer ou ignorer',
     choose: { import: 'Importer', skip: 'Ignorer' },
     actions: {
@@ -465,8 +464,6 @@ export const importFr: Translation['import'] = {
       'Elles sont vérifiées dans l’ordre, chacune avec ce que les parties précédentes prennent (doublons, correspondances) et les choix qu’elles envoient : les chiffres ci-dessus sont ceux de tout le relevé.',
     ended:
       'Ce budget a pris fin : les lignes datées après son dernier jour ne peuvent pas être importées.',
-    limit:
-      "Ce budget contient 50'000 transactions au plus. S'il n'y a pas de place pour toutes les lignes, rien de la partie concernée n'est écrit et l'importation indique combien tiendraient.",
     toCategoriseName: 'À catégoriser',
   },
   run: {
@@ -484,7 +481,6 @@ export const importFr: Translation['import'] = {
       'Le budget était occupé et n’a pas répondu à temps : la partie {{part}} a été renvoyée ({{count}} fois). Elle n’est enregistrée qu’une fois.',
     busy_other:
       'Le budget était occupé et n’a pas répondu à temps : la partie {{part}} a été renvoyée ({{count}} fois). Elle n’est enregistrée qu’une fois.',
-    leaveWarning: 'L’importation est encore en cours d’envoi. Quitter quand même ?',
     stopped: {
       title: 'L’importation s’est arrêtée',
       limit_one:
@@ -531,7 +527,6 @@ export const importFr: Translation['import'] = {
     resumed:
       'C’est le relevé de l’importation interrompue : elle continue sous la même importation, et les parties déjà enregistrées ne le sont pas deux fois.',
     forget: 'L’oublier',
-    history: 'Voir l’historique des importations',
   },
   result: {
     title: 'Importation terminée',
@@ -579,10 +574,6 @@ export const importFr: Translation['import'] = {
     title: 'Lignes non importées',
     none: 'Toutes les lignes ont été importées.',
     reasons: {
-      duplicate: 'Déjà dans le budget',
-      flagged: 'Signalée : {{flag}}',
-      matched: 'Déjà saisie',
-      chosen: 'Ignorée par vous',
       invalid: 'Impossible à importer : {{reason}}',
     },
     importedAnyway: 'Importée quand même',
@@ -685,13 +676,11 @@ export const importFr: Translation['import'] = {
     tokenDeleted: ', supprimé depuis',
     when: 'Le {{date}}',
     period: 'Relevé du {{from}} au {{to}}',
-    counts: '{{rows}} lignes : {{imported}} importées, {{skipped}} non importées',
     rows_one: '{{count}} ligne',
     rows_other: '{{count}} lignes',
     toReview_one: '{{count}} encore à passer en revue',
     toReview_other: '{{count}} encore à passer en revue',
     details: 'Lignes non importées et annulation',
-    review: 'Passer en revue',
     more: 'Afficher les importations plus anciennes',
     breakdown: {
       imported: 'Importées',
@@ -708,7 +697,6 @@ export const importFr: Translation['import'] = {
     cardBody_one: '{{count}} transaction importée attend votre revue.',
     cardBody_other: '{{count}} transactions importées attendent votre revue.',
     cardLink: 'Les passer en revue',
-    filter: 'À passer en revue',
     filterChip: 'À passer en revue',
     showOnly_one: 'Afficher seulement celle à passer en revue ({{count}})',
     showOnly_other: 'Afficher seulement les {{count}} à passer en revue',
@@ -757,7 +745,6 @@ export const importFr: Translation['import'] = {
         'Elles restent sélectionnées : choisissez une autre catégorie, ou corrigez celle qui a été refusée, puis réessayez.',
     },
     imported: 'Importée depuis : {{source}}',
-    details: 'Du relevé',
     rule: {
       title: 'Toujours mettre ce commerçant dans cette catégorie ?',
       tooLong:
@@ -781,7 +768,6 @@ export const importFr: Translation['import'] = {
     mark: 'Là où les transactions importées attendent une catégorie',
     restrictions:
       'C’est là que les transactions importées attendent que vous leur donniez une catégorie. Elle peut être renommée, mais ne prend ni montant prévu ni sous-catégorie, et ne peut pas être supprimée tant qu’elle contient des transactions.',
-    noPlan: 'Pas de montant prévu : elle ne contient que des importations en attente de catégorie.',
     noPlanShort: 'Pas de prévu',
     cannotEnd: 'Pas tant qu’elle contient des transactions : donnez-leur d’abord une catégorie.',
     errors: {
@@ -863,7 +849,6 @@ export const importFr: Translation['import'] = {
       'Le budget ne prend pas ce texte comme règle : il doit avoir de 1 à {{max}} caractères une fois mis en forme (minuscules, sans accents ni ponctuation).',
     category: 'Catégorie',
     ended: 'Sa catégorie a pris fin : elle ne s’applique que là où la catégorie est en usage.',
-    edit: 'Modifier',
     editFor: 'Modifier la règle {{fragment}}',
     editTitle: 'Modifier la règle',
     apply:

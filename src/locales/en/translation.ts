@@ -7,7 +7,6 @@ import type { accountsEn, moneyFlowEn, transfersEn } from '@/locales/en/step7'
 const core = {
   app: {
     name: 'Budget Tracker',
-    tagline: 'Your household budget, period by period.',
   },
   common: {
     loading: 'Loading…',
@@ -15,10 +14,6 @@ const core = {
     save: 'Save',
     cancel: 'Cancel',
     actions: 'Actions',
-    comingSoon: {
-      title: 'Coming soon',
-      description: 'This section is on its way. It will appear here once it is ready.',
-    },
   },
   nav: {
     label: 'Menu',
@@ -45,11 +40,6 @@ const core = {
     transactions: { description: 'Everything you spend and receive, period by period.' },
     subscriptions: { description: 'Recurring charges and when the next one is due.' },
     debts: { description: 'What you owe, how it shrinks and when it will be paid off.' },
-    periods: { description: 'Pay day to pay day, newest first.' },
-    compare: {
-      description:
-        'How your periods compare: the trend, each category over time, and any two side by side.',
-    },
     moneyFlow: {
       description:
         'Where the money of a period comes from and where it goes, by the plan or as it happened.',
@@ -60,9 +50,6 @@ const core = {
         'Money that moves between your accounts on a schedule, and this period’s checklist.',
     },
     income: { description: 'The incomes that make up your monthly budget.' },
-    import: {
-      description: 'Bring in a bank statement or a CSV file instead of typing each transaction.',
-    },
     settings: { description: 'The budget, the people who share it, and your account.' },
   },
   userMenu: {
@@ -626,7 +613,6 @@ const core = {
       label: 'Correct an earlier period',
       removeLabel: 'Remove it from an earlier period',
       help: 'Only to fix a mistake: normally a change applies from the current period.',
-      from: 'Apply from',
       removeFrom: 'Remove from',
       warning:
         'This changes past periods: their income totals are recomputed from the period you choose until the next change already recorded.',
@@ -1126,7 +1112,6 @@ const core = {
       more_one: 'And 1 more change, not listed.',
       more_other: 'And {{count}} more changes, not listed.',
       nothing: 'Nothing was recorded in this period: only the dates change.',
-      failed: 'Could not list what this period holds: {{reason}}',
       required: 'Saving waits for this list: what it shows is what you confirm.',
       kinds: {
         income: 'Income “{{name}}”',
@@ -1178,8 +1163,6 @@ const core = {
       reopenUntil:
         'The previous period (from {{start}}) is current again and will end on {{end}}; the salary is then expected on {{date}}. This period disappears.',
       moveStart: 'The previous period will end on {{end}}, and this one starts on {{start}}.',
-      moveSchedule:
-        'The boundary goes back to the day the schedule gives, and its “set by hand” mark is cleared.',
       moveScheduleTo:
         'This period will start on {{start}}, the day the schedule gives, and the previous one end on {{end}}; the “set by hand” mark is cleared.',
     },
