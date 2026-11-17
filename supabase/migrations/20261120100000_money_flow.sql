@@ -1698,6 +1698,15 @@ begin
   order by v.effective_from_seq desc limit 1;
   v_budget_end := private.budget_end_date(v_t.budget_id);
   v_end := v_current.end_date;
+  if v_v.schedule = 'day_of_month' then
+    -- S5, R-ACCOUNT-314: a fixed day's dates do not depend on the boundaries: the first after
+    -- the current period, looked for 13 months ahead (a yearly one always has one)
+    select pg_catalog.min(d) into v_due
+    from private.charge_dates(v_v.anchor_date, v_v.cadence, greatest(v_end + 1, v_t.starts_on),
+                              (v_end + interval '13 months')::date, v_v.day_of_month) as d
+    where v_budget_end is null or d <= v_budget_end;
+    return v_due;
+  end if;
   for k in 1..3 loop
     v_start := v_end + 1;
     exit when v_budget_end is not null and v_start > v_budget_end;

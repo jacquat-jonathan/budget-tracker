@@ -1561,8 +1561,10 @@ income; null: the primary income), `is_automatic`, `category_id`, `category_name
 `parent_category_id`, `parent_category_name` (null: no transaction), `terms_from_seq`;
 `follows_primary` (the chosen income is not in force now, or was deleted: the transfer follows
 the primary income, say so; D-426), `next_due_date` (the first occurrence due today or later:
-in the current period, else in the next periods at their projected boundaries; null once ended,
-when the budget has ended, or after its end date), `starts_on` (its first counted day, D-421),
+in the current period, else, for a pay date, in the next three periods at their projected
+boundaries, for a fixed day the first date of its schedule in the 13 months after the current
+period, so a yearly or quarterly one always has it, R-ACCOUNT-314; null once ended, when the
+budget has ended, after its end date, or for a first date more than 13 months ahead), `starts_on` (its first counted day, D-421),
 `has_history` (something was marked or created for it), `removal_deletes` (ending it now deletes
 it), `transaction_count` (its transactions still linked), `revision`, `created_at`,
 `updated_at`. Terms are versioned like an income's: an edit applies from the current period,

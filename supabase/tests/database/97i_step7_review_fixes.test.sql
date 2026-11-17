@@ -393,6 +393,20 @@ select public.ensure_periods(tests.id('s4b'));
 select is(pg_temp.reopen_check('s4b', '2026-11-17'), '0 announced, 0 removed',
   'R-ACCOUNT-313: with another end the preview follows that end''s due-date cap, as the write does');
 
+-- ===========================================================================
+-- S5: next_due_date of a yearly or a far quarterly transfer (R-ACCOUNT-314; the reviewer's F5)
+-- ===========================================================================
+select pg_temp.day('2026-11-16');
+select pg_temp.budget('s5');
+select tests.remember('s5_y', (select id from public.create_transfer(tests.id('s5'), 'Third pillar', tests.id('s5_main'),
+  tests.id('s5_sav'), 705600, 'day_of_month', p_cadence => 'yearly', p_first_date => '2027-03-15')));
+select tests.remember('s5_q', (select id from public.create_transfer(tests.id('s5'), 'Taxes', tests.id('s5_main'),
+  tests.id('s5_sav'), 300000, 'day_of_month', p_cadence => 'quarterly', p_first_date => '2027-06-30')));
+select is((select next_due_date from public.transfer_overview where id = tests.id('s5_y')), '2027-03-15'::date,
+  'R-ACCOUNT-314: a yearly transfer four months ahead has its next due date');
+select is((select next_due_date from public.transfer_overview where id = tests.id('s5_q')), '2027-06-30'::date,
+  'R-ACCOUNT-314: a quarterly one whose first date is seven months ahead too');
+
 select tests.clear_authentication();
 select * from finish();
 rollback;
