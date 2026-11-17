@@ -90,6 +90,14 @@ export const accountsEn = {
 }
 
 export const transfersEn = {
+  filterChip: 'Transfer: {{name}} ({{from}} to {{to}})',
+  filterGone: {
+    title: 'This transfer is not in this budget',
+    body: 'It was deleted meanwhile, or the address names another budget’s transfer. Nothing is listed for it.',
+    back: 'Show all transactions',
+  },
+  itsTransactions: 'Its transactions',
+  itsTransactionsFor: 'Transactions of {{name}}',
   transaction: {
     badge: 'Transfer',
     of: 'Planned transfer “{{name}}”',
@@ -486,8 +494,6 @@ export const moneyFlowEn = {
     transfer: 'Transfer',
     perMonth: 'Per month',
     totalTransfers: 'Total moved',
-    itsTransactions: 'Its transactions',
-    itsTransactionsFor: 'Transactions of {{name}}',
     accounts: 'Accounts',
     account: 'Account',
     in: 'In',

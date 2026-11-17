@@ -220,10 +220,10 @@ export function MoneyFlowTable({
                 <Link
                   to={transactionsOf({ period: periodId, transfer: transfer.id })}
                   className="mt-0.5 inline-flex items-center gap-1 text-xs font-normal text-primary underline-offset-4 hover:underline"
-                  aria-label={t('moneyFlow.table.itsTransactionsFor', { name: transfer.name })}
+                  aria-label={t('transfers.itsTransactionsFor', { name: transfer.name })}
                 >
                   <ListIcon className="size-3" aria-hidden />
-                  {t('moneyFlow.table.itsTransactions')}
+                  {t('transfers.itsTransactions')}
                 </Link>
               </>
             ),

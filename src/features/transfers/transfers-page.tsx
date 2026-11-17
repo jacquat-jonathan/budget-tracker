@@ -4,6 +4,7 @@ import {
   ChevronDownIcon,
   EllipsisVerticalIcon,
   LandmarkIcon,
+  ListIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
@@ -12,7 +13,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 
-import { paths } from '@/app/paths'
+import { paths, transactionsOf } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -333,6 +334,15 @@ function TransferCard({
                 </dd>
               </div>
             </dl>
+            <Link
+              to={transactionsOf({ transfer: transfer.id })}
+              className="inline-flex items-center gap-1 self-start text-sm text-primary underline-offset-4 hover:underline"
+              aria-label={t('transfers.itsTransactionsFor', { name: transfer.name })}
+              data-testid="transfer-transactions"
+            >
+              <ListIcon className="size-3.5" aria-hidden />
+              {t('transfers.itsTransactions')}
+            </Link>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -9,6 +9,7 @@ import {
   PlusIcon,
   RepeatIcon,
   Trash2Icon,
+  TriangleAlertIcon,
   XIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -66,6 +67,7 @@ import { useAwaitingCharges } from '@/features/subscriptions/subscription-querie
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
 import { isVoid, useCategories, type Category } from '@/features/categories/category-queries'
 import { isUuid } from '@/lib/uuid'
+import { dbErrorCode } from '@/lib/db-errors'
 import {
   ConfirmImportButton,
   ConfirmImportsButton,
@@ -160,6 +162,15 @@ export function TransactionsPage() {
   const debtRow = useRecord('debt_overview', budgetId, isUuid(debtParam) ? debtParam : undefined)
   const subscription = !isUuid(subscriptionParam) ? null : subscriptionRow
   const debt = !isUuid(debtParam) ? null : debtRow
+  // A link from a planned transfer (D-525): its transactions. A transfer that is gone, or not
+  // this budget's, says so with a way back to the full list, rather than dropping the filter.
+  const transferParam = params.get('transfer')
+  const transferRow = useRecord(
+    'transfer_overview',
+    budgetId,
+    isUuid(transferParam) ? transferParam : undefined,
+  )
+  const transfer = transferParam === null || !isUuid(transferParam) ? null : transferRow
   const filters = {
     from: period?.start_date ?? null,
     to: period?.end_date ?? null,
@@ -170,6 +181,7 @@ export function TransactionsPage() {
     awaitingOnly,
     toReviewOnly,
     importBatchId,
+    transferId: transfer?.id ?? null,
   }
   const ready =
     periodList !== undefined &&
@@ -177,9 +189,15 @@ export function TransactionsPage() {
     current.data !== undefined &&
     categoryList !== undefined &&
     subscription !== undefined &&
-    debt !== undefined
+    debt !== undefined &&
+    transfer !== undefined
   // Read once the filters are known, never first for all periods.
-  const list = useTransactions(budgetId, filters, ready)
+  const transferMissing = transferParam !== null && transfer === null
+  const list = useTransactions(budgetId, filters, ready && !transferMissing)
+  // R-TRANSACTION-441: a transfer the budget does not have (deleted, another budget's, not an
+  // id) never lists every transaction instead: the page says so and offers the full list.
+  const transferGone =
+    transferMissing || (transferParam !== null && dbErrorCode(list.error) === 'transfer_not_found')
   useEffect(() => {
     if (categoryList && categoryParam && categoryId === null) {
       const next = new URLSearchParams(params)
@@ -276,7 +294,8 @@ export function TransactionsPage() {
     !!debt ||
     awaitingOnly ||
     toReviewOnly ||
-    importBatchId !== null
+    importBatchId !== null ||
+    !!transfer
   const linkFilters = [
     toReviewOnly && { key: 'review', label: t('import.review.filterChip') },
     importBatchId && { key: 'batch', label: t('import.review.batchChip') },
@@ -286,6 +305,14 @@ export function TransactionsPage() {
     },
     debt && { key: 'debt', label: t('debts.filterChip', { name: debt.name }) },
     awaitingOnly && { key: 'awaiting', label: t('charges.filterChip') },
+    transfer && {
+      key: 'transfer',
+      label: t('transfers.filterChip', {
+        name: transfer.name,
+        from: transfer.from_account_name ?? '–',
+        to: transfer.to_account_name ?? '–',
+      }),
+    },
   ].filter((item): item is { key: string; label: string } => !!item)
 
   return (
@@ -354,7 +381,23 @@ export function TransactionsPage() {
           onClose={() => setRuleOffer(null)}
         />
       )}
-      {!ready || list.isPending ? (
+      {transferGone ? (
+        <Alert data-testid="transfer-gone">
+          <TriangleAlertIcon aria-hidden />
+          <AlertTitle>{t('transfers.filterGone.title')}</AlertTitle>
+          <AlertDescription className="flex flex-col items-start gap-2">
+            <p>{t('transfers.filterGone.body')}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setFilter('transfer', null)}
+            >
+              {t('transfers.filterGone.back')}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : !ready || list.isPending ? (
         <LoadingState rows={5} />
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />
@@ -1032,7 +1075,7 @@ function DeleteTransactionBody({
 
 /** The address's link filters (the chips), as one key: a change re-runs the chip focus. */
 function linkFilterKeys(params: URLSearchParams): string {
-  return ['subscription', 'debt', 'awaiting', 'review', 'batch']
+  return ['subscription', 'debt', 'awaiting', 'review', 'batch', 'transfer']
     .map((key) => `${key}=${params.get(key) ?? ''}`)
     .join('&')
 }

@@ -371,6 +371,14 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
           : null
       const children = (id: unknown) =>
         db.tables.category_overview.filter((row) => row.parent_id === id).map((row) => row.id)
+      // As the database: another budget's (or a deleted) transfer is transfer_not_found.
+      if (
+        typeof args.p_transfer_id === 'string' &&
+        !db.tables.transfer_overview.some(
+          (row) => row.id === args.p_transfer_id && row.budget_id === args.p_budget_id,
+        )
+      )
+        rpcError('transfer_not_found')
       return db.tables.transaction_list
         .filter((row) => row.budget_id === args.p_budget_id)
         .filter((row) => typeof args.p_from_date !== 'string' || row.date >= args.p_from_date)
@@ -381,6 +389,7 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         .filter((row) => !args.p_import_batch_id || row.import_batch_id === args.p_import_batch_id)
         .filter((row) => !args.p_debt_id || row.debt_id === args.p_debt_id)
         .filter((row) => !args.p_subscription_id || row.subscription_id === args.p_subscription_id)
+        .filter((row) => !args.p_transfer_id || row.transfer_id === args.p_transfer_id)
         .filter(
           (row) =>
             !args.p_category_id ||

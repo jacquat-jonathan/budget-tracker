@@ -54,6 +54,8 @@ export interface TransactionFilters {
   toReviewOnly?: boolean
   /** One import batch's transactions. */
   importBatchId?: string | null
+  /** One planned transfer's transactions (D-525). */
+  transferId?: string | null
 }
 
 interface Cursor {
@@ -85,6 +87,7 @@ export function useTransactions(budgetId: string, filters: TransactionFilters, e
           ...(filters.awaitingOnly ? { p_awaiting_only: true } : {}),
           ...(filters.toReviewOnly ? { p_to_review_only: true } : {}),
           ...(filters.importBatchId ? { p_import_batch_id: filters.importBatchId } : {}),
+          ...(filters.transferId ? { p_transfer_id: filters.transferId } : {}),
           ...(pageParam
             ? {
                 p_before_date: pageParam.date,

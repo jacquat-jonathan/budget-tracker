@@ -95,6 +95,14 @@ export const accountsFr = {
 }
 
 export const transfersFr = {
+  filterChip: 'Virement : {{name}} ({{from}} vers {{to}})',
+  filterGone: {
+    title: 'Ce virement n’est pas dans ce budget',
+    body: 'Il a été supprimé entre-temps, ou l’adresse désigne le virement d’un autre budget. Rien n’est listé pour lui.',
+    back: 'Afficher toutes les transactions',
+  },
+  itsTransactions: 'Ses transactions',
+  itsTransactionsFor: 'Transactions de {{name}}',
   transaction: {
     badge: 'Virement',
     of: 'Virement planifié « {{name}} »',
@@ -508,8 +516,6 @@ export const moneyFlowFr = {
     transfer: 'Virement',
     perMonth: 'Par mois',
     totalTransfers: 'Total déplacé',
-    itsTransactions: 'Ses transactions',
-    itsTransactionsFor: 'Transactions de {{name}}',
     accounts: 'Comptes',
     account: 'Compte',
     in: 'Entrées',
