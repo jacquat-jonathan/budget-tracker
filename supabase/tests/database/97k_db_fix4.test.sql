@@ -808,5 +808,149 @@ select tests.clear_authentication();
 create or replace function private.limit_import_answers_kept() returns integer language sql immutable set search_path = '' as $f$ select 50 $f$;
 select pg_temp.day('2026-11-16', 'kit');
 
+
+-- ===========================================================================
+-- This round's own surviving breaks
+-- ===========================================================================
+-- end_transfer leaves the catch-up's marks of fixed days still planned in earlier periods to it
+-- (it looks at each mark's own kind)
+select pg_temp.day('2026-11-26', 'kit');
+select pg_temp.budget('ef');
+select tests.remember('ef_t', (select id from public.create_transfer(tests.id('ef'), 'On the 5th', tests.id('ef_main'), tests.id('ef_sav'),
+  1000, 'day_of_month', p_day_of_month => 5, p_is_automatic => true, p_category_id => tests.id('ef_cat'),
+  p_from_period_id => tests.id('ef_p1'))));
+select is(public.end_transfer(tests.id('ef_t'), pg_temp.rev(tests.id('ef_t')), (pg_temp.cur('ef')).id), 'ended',
+  'R-ACCOUNT-460: (a fixed-day transfer ended from the current period)');
+select results_eq(
+  format($$select occurrence_date, kind::text, by_catch_up from public.transfer_occurrences where transfer_id = %L order by 1$$, tests.id('ef_t')),
+  $$values ('2026-10-05'::date, 'fixed_day'::text, true), ('2026-11-05', 'fixed_day', true)$$,
+  'R-ACCOUNT-460: the catch-up''s marks of fixed days still planned stay its own (not frozen by the end)');
+
+-- a period lists a mark no longer planned beside a planned occurrence of another kind with the
+-- same key: both rows
+select pg_temp.day('2026-11-05', 'kit');
+select pg_temp.budget('ok');
+select tests.remember('ok_t', pg_temp.new_transfer('ok', 'By hand', false, tests.id('ok_p1')));
+select public.record_early_pay_date(tests.id('ok'), (pg_temp.cur('ok')).id, (pg_temp.cur('ok')).revision, '2026-11-05');
+select public.mark_transfer_done(tests.id('ok_t'), (pg_temp.cur('ok')).id, 0, '2026-11-05');
+select pg_temp.day('2026-11-26', 'kit');
+select public.ensure_periods(tests.id('ok'));
+select public.update_transfer(tests.id('ok_t'), pg_temp.rev(tests.id('ok_t')), p_schedule => 'day_of_month', p_day_of_month => 25,
+  p_first_date => '2026-11-25', p_from_period_id => pg_temp.period_at('ok', '2026-11-05'));
+select is((select rows from pg_temp.rows('ok', tests.id('ok_t')) where start_date = '2026-11-25'),
+  '2026-11-25/-/done/unplanned;2026-11-25/2026-11-25/to_do[f]',
+  'R-ACCOUNT-460: the period lists the payday''s mark no longer planned and its own fixed day with the same key, each on its row');
+
+-- rule B: an income's own pay date after an early salary of it keyed that date (13 days early) is
+-- the same salary; another income's pay date on that day is not
+select pg_temp.day('2026-12-01', 'kit');
+select pg_temp.house('eb2', 25, 20);
+select tests.remember('eb2_par', public.add_income(tests.id('eb2'), 'Partner', 200000, 25, 'none', p_from_period_id => tests.id('eb2_p1')));
+select public.set_expected_pay_date(tests.id('eb2'), (pg_temp.cur('eb2')).id, (pg_temp.cur('eb2')).revision, '2026-12-12');
+select pg_temp.day('2026-12-12', 'kit');
+select public.ensure_periods(tests.id('eb2'));
+select public.set_expected_pay_date(tests.id('eb2'), (pg_temp.cur('eb2')).id, (pg_temp.cur('eb2')).revision, '2026-12-20');
+select is((select pay_key || '/' || end_date from public.periods where id = (pg_temp.cur('eb2')).id), '2026-12-25/2026-12-19',
+  'R-ACCOUNT-421: (setup) Ann''s December salary came on 12 Dec, keyed 25 Dec; the period ends 19 Dec');
+select pg_temp.switch('eb2', '_ben');
+select pg_temp.day('2026-12-26', 'kit');
+select public.ensure_periods(tests.id('eb2'));
+select is(pg_temp.since(tests.id('eb2_ta'), '2026-12-01'), '2026-12-12',
+  'R-ACCOUNT-421: Ann''s 25 Dec, now not the primary, is the salary that came on 12 Dec (keyed 25 Dec): not a second transfer');
+select public.update_transfer(tests.id('eb2_tj'), pg_temp.rev(tests.id('eb2_tj')), p_income_id => tests.id('eb2_par'));
+select is(pg_temp.since(tests.id('eb2_tj'), '2026-12-01'), '2026-12-12,2026-12-25',
+  'R-ACCOUNT-421: "Joint" named the partner (25th) from the period after: the partner''s 25 Dec is its own payday, not Ann''s salary keyed 25 Dec');
+select is_empty(format($$select * from tests.household_violations(%L)$$, tests.id('eb2')), 'R-ACCOUNT-461: the household properties hold (eb2)');
+
+-- the old primary's pay date equal to its period's key (13 days early) is that period's own salary,
+-- not a second one after the switch
+select pg_temp.day('2026-12-12', 'kit');
+select pg_temp.house('ek', 25, 10);
+select public.record_early_pay_date(tests.id('ek'), (pg_temp.cur('ek')).id, (pg_temp.cur('ek')).revision, '2026-12-12');
+select pg_temp.day('2026-12-15', 'kit');
+select pg_temp.switch('ek', '_ben');
+select pg_temp.day('2027-01-11', 'kit');
+select public.ensure_periods(tests.id('ek'));
+select is(pg_temp.since(tests.id('ek_ta'), '2026-12-01'), '2026-12-12',
+  'R-ACCOUNT-461: Ann''s salary of 12 Dec (keyed 25 Dec), then the switch: her 25 Dec is that salary, not a second transfer');
+
+-- a switch back in the same period is no switch, also with the period's end set by hand
+select pg_temp.day('2026-12-01', 'kit');
+select pg_temp.house('sx', 25, 10);
+select public.set_expected_pay_date(tests.id('sx'), (pg_temp.cur('sx')).id, (pg_temp.cur('sx')).revision, '2027-01-10');
+select pg_temp.day('2026-12-12', 'kit');
+select pg_temp.switch('sx', '_ben');
+select pg_temp.day('2026-12-15', 'kit');
+select pg_temp.switch('sx', '_inc');
+select pg_temp.day('2027-01-11', 'kit');
+select public.ensure_periods(tests.id('sx'));
+select is(pg_temp.since(tests.id('sx_ta'), '2026-12-01'), '2027-01-10',
+  'R-ACCOUNT-461: Ann stayed the primary: her December salary came on 10 Jan (the end set by hand), one transfer that day');
+
+-- after a switch the new primary's salary comes 21 days early (20 Dec, for 10 Jan): its period is
+-- keyed after the switch day, so it is not taken for Ben's 10 Dec
+select pg_temp.day('2026-12-12', 'kit');
+select pg_temp.house('ef2', 25, 10);
+select pg_temp.switch('ef2', '_ben');
+select pg_temp.day('2026-12-20', 'kit');
+select public.record_early_pay_date(tests.id('ef2'), (pg_temp.cur('ef2')).id, (pg_temp.cur('ef2')).revision, '2026-12-20');
+select is((select pay_key from public.periods where id = (pg_temp.cur('ef2')).id), '2027-01-10'::date,
+  'R-ACCOUNT-463: the new primary''s first period is keyed after the switch day (10 Jan), not 10 Dec');
+select is(pg_temp.since(tests.id('ef2_tb'), '2026-12-01'), '2026-12-10,2026-12-20',
+  'R-ACCOUNT-461: Ben''s 10 Dec and his salary of 20 Dec: two transfers');
+
+-- a salary 18 days late, recorded after a reopen: the next key after the previous one (25 Dec)
+select pg_temp.day('2026-12-27', 'kit');
+select pg_temp.budget('lk2');
+select public.reopen_previous_period(tests.id('lk2'), (pg_temp.cur('lk2')).id, (pg_temp.cur('lk2')).revision, '2027-01-12');
+select pg_temp.day('2027-01-12', 'kit');
+select public.ensure_periods(tests.id('lk2'));
+select is((select pay_key from public.periods where id = (pg_temp.cur('lk2')).id), '2026-12-25'::date,
+  'R-ACCOUNT-463: the December salary recorded 18 days late is keyed 25 Dec (the next after 25 Nov), not 25 Jan');
+
+-- already_recorded (Q-322): a mark from before the change, not one the change makes
+select pg_temp.day('2026-11-26', 'kit');
+select pg_temp.budget('ar');
+select tests.remember('ar_t', pg_temp.new_transfer('ar', 'Standing', true, tests.id('ar_p1')));
+select results_eq(
+  format($$select occurrence_date, already_recorded, occurrence_kind::text from public.preview_update_transfer(%L, p_amount => 120000, p_count => 4)
+           where not projected$$, tests.id('ar_t')),
+  $$values ('2026-11-25'::date, true, 'payday'::text)$$,
+  'R-ACCOUNT-303: the edit''s preview says which occurrences are already recorded (and stay as they are)');
+select results_eq(
+  format($$select occurrence_date, created_at_once, already_recorded from public.preview_create_transfer(%L, %L, %L, 1000, 'pay_date',
+           p_is_automatic => true, p_category_id => %L, p_from_period_id => %L, p_count => 1)$$,
+         tests.id('ar'), tests.id('ar_main'), tests.id('ar_sav'), tests.id('ar_cat'), (pg_temp.cur('ar')).id),
+  $$values ('2026-11-25'::date, true, false)$$,
+  'R-ACCOUNT-303: an occurrence the write creates at once is not already recorded');
+
+-- R-ACCOUNT-427: deleted outright on 20 Nov, the primary's occurrence of that period not yet due
+-- then (offset 28: due 22 Nov) is still planned
+select pg_temp.day('2026-11-20', 'kit');
+select pg_temp.budget('kg');
+select tests.remember('kg_job', public.add_income(tests.id('kg'), 'Side job', 30000, 10, 'none'));
+select tests.remember('kg_t', (select id from public.create_transfer(tests.id('kg'), 'Four weeks on', tests.id('kg_main'), tests.id('kg_sav'),
+  30000, 'pay_date', p_offset_days => 28, p_income_id => tests.id('kg_job'), p_is_automatic => true, p_category_id => tests.id('kg_cat'),
+  p_from_period_id => (pg_temp.cur('kg')).id)));
+select is(public.remove_income(tests.id('kg_job'), (select revision from public.incomes where id = tests.id('kg_job'))), 'deleted',
+  'R-ACCOUNT-427: (the side job is deleted outright on 20 Nov)');
+select is((select rows from pg_temp.rows('kg', tests.id('kg_t')) where start_date = '2026-10-25'), '2026-10-25/2026-11-22/upcoming',
+  'R-ACCOUNT-427: the primary''s occurrence not yet due that day (22 Nov) is planned');
+
+-- R-ACCOUNT-426: a move to the start the period already has changes nothing, the end set by hand
+-- on the scheduled day included
+select pg_temp.day('2026-11-20', 'kit');
+select pg_temp.budget('mz');
+select public.set_expected_pay_date(tests.id('mz'), (pg_temp.cur('mz')).id, (pg_temp.cur('mz')).revision, '2026-11-25');
+select pg_temp.day('2026-11-26', 'kit');
+select public.ensure_periods(tests.id('mz'));
+create temp table mz_before on commit drop as
+  select end_is_manual, revision from public.periods where id = pg_temp.period_at('mz', '2026-11-20');
+grant select on mz_before to authenticated;
+select public.move_period_start((pg_temp.cur('mz')).id, (pg_temp.cur('mz')).revision);
+select results_eq(format($$select end_is_manual, revision from public.periods where id = %L$$, pg_temp.period_at('mz', '2026-11-20')),
+  $$select end_is_manual, revision from mz_before$$,
+  'R-ACCOUNT-426: a move to the start the period has leaves the period before exactly as it was');
+
 select * from finish();
 rollback;

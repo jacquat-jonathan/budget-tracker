@@ -2287,7 +2287,7 @@ that the merge sees the reference and keeps the row void. Step 3 registers `cate
 `merge_order` (referrers re-keyed before what they reference: categories last); after a
 merge, a version at or after its row's end is deleted (D-208). Step 7 registers `accounts`
 (`'account'`, with categories in the last `merge_order`), `transfers` (`'transfer'`) and
-`transfer_versions`; the marks of transfers (`transfer_occurrences`) are keyed by date, not by
+`transfer_versions`; the marks of transfers (`transfer_occurrences`) are keyed by date and kind, not by
 period, so a merge moves none (D-430). A row
 referencing a registered row of another table through a plain foreign key also needs its
 own `budget_id` foreign key to `budgets` with `on delete cascade` (as
@@ -2332,7 +2332,7 @@ and its check:
   inserts under one budget lock with `add_transaction`'s checks
   (`private.transaction_period_seq`, `private.assert_transaction_category`).
 - **Step 7, transfers (done; D-122, D-353, D-380, D-420)**: `transfer_occurrence_id`, a
-  composite foreign key to `transfer_occurrences` (one mark per transfer and occurrence date)
+  composite foreign key to `transfer_occurrences` (one mark per transfer, occurrence date and kind)
   with `on delete set null (transfer_occurrence_id)` (the code removes a mark first, then its
   transaction), unique (one transaction per occurrence), counted in `transactions_one_link` and
   `transactions_link_kind`; a trigger keeps it an expense with no other link (`invalid_link`),
