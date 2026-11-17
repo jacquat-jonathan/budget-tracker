@@ -261,8 +261,12 @@ describe('budget page [R-CATEGORY-050]', () => {
   })
 
   it('without categories, invites to add the first one', async () => {
-    await openBudget(categoriesDb({ category_overview: [] })).catch(() => undefined)
+    // Not openBudget: it waits for a category row, which never comes here (it waited out the
+    // whole find timeout, about 3 s, before this test could look).
+    mock.current = createSupabaseMock(fakeSession(), categoriesDb({ category_overview: [] }))
+    renderRoutes(routes, '/budget')
     expect(await screen.findByText('No categories yet')).toBeInTheDocument()
+    expect(screen.queryByTestId('category-row')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add your first category' })).toBeInTheDocument()
   })
 })
