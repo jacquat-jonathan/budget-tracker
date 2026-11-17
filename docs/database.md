@@ -1301,7 +1301,9 @@ it on. Staged parts are kept a day, at most 100 a budget. The answer is one obje
   the sum in rappen (`expense_count`, `expense_amount`, `refund_count`, `refund_amount`,
   `extra_income_count`, `extra_income_amount`);
 - `parts`: the part numbers `statement` covers; `room`: how many transactions the budget can
-  still take; `fits`: whether the statement's rows to import fit;
+  still take; `fits`: whether the statement's rows to import fit; when no part is staged up to
+  `p_part` (a written part previewed, every earlier part written), **`parts` and `statement` are
+  null**, not an empty list or zero totals;
 - `written`: whether this part was already written (below).
 **A part already written** (D-522, answers Q-290) answers what its chunk recorded: `rows` are
 the write's own answers (with their `transaction_id`, `chunk`), `part` their totals, `written`
@@ -1360,7 +1362,11 @@ Member. Imports one chunk of a batch, exactly as the preview says, all or nothin
 Member. **Ids no longer kept** (D-523, answers Q-291): after the rows imported, each distinct
 id sent that is no longer a skipped row the batch keeps (the oldest go, D-452; or never one of
 this batch) answers one row with `action` `'not_kept'`, `reason` `'not_kept'`, `valid` false
-and every other field null: count them to say "n rows could no longer be imported". Imports skipped rows of a batch anyway (R-IMPORT-073, R-IMPORT-204, R-IMPORT-258): the
+and every other field null: count them to say "n rows could no longer be imported" (also when
+nothing else was imported). **An imported row** answers `action` `'import'`, `valid` true, `kind`
+`'expense'`, `category_source` `'to_categorise'` and `category_id` the id of "to categorise" (its
+original kind and category are dropped: the review decides), with its `transaction_id`, `chunk`
+and `row_no`. Imports skipped rows of a batch anyway (R-IMPORT-073, R-IMPORT-204, R-IMPORT-258): the
 given ones, or all that are not invalid and not already imported (at most 500 a call; call
 again for more). Each is planned again now with action `import`, its original kind and
 category dropped (the review decides), and answers with its original `chunk` and `row_no`. The
@@ -1436,7 +1442,8 @@ same statement still finds. Errors:
 - **`preview_merchant_rule(p_budget_id, p_fragment, p_category_id = null) -> {fragment, covered_by_rule_id, covered_by_fragment, rule_exists, would_move}`**
   (R-IMPORT-347, D-457, answers Q-271) without writing (membership is checked first, then the
   fragment's raw length: over 1000 characters is `invalid_fragment` before any work on it, as
-  for `create_merchant_rule`; R-IMPORT-421): the fragment as it would be stored; the
+  for `create_merchant_rule` and `update_merchant_rule`; R-IMPORT-421; and the fragment as it
+  would be stored, tidied: empty or over 100 characters is `invalid_fragment` too): the fragment as it would be stored; the
   existing rule that already covers it (the one the import would pick for that key: the
   longest fragment it contains; null when none); whether a rule with this very fragment
   exists; and how many transactions waiting in "to categorise" the rule would move to
@@ -2231,6 +2238,18 @@ Step 6 fix round 2 and step 7 messages (D-451 to D-467, D-452 as amended):
 | `import_limit_reached` | the budget's import storage is used up; the detail names the limit (`{"limit": ...}`): `imports_per_day` (the members' 200 new imports within 24 hours; tokens have 50 of their own), `rows_per_day` (20 000 rows within 24 hours, tokens at most 10 000 of them), `imports_kept` (2 000 batches kept that all still hold something); the day's limits free 24 hours after the oldest use, undoing an import does not give them back |
 | `chunk_expired` | that chunk was recorded but its answer is no longer kept: it is not imported again (list the batch's rows instead) |
 | `interest_before_opening` | the period's start cannot move to on or before the opening of a debt that has interest in that period (`move_period_start`, and the preview's `refusal`) |
+
+**Internal, never reaches a client.** These messages are raised only by the database's own
+invariant checks (constraint triggers, SQLSTATE 23514) or by a preview's own rollback, and the
+public calls check what could cause them first and answer a documented code instead; a client
+that ever received one has found a bug in the database, not a state to explain:
+`income_needs_version` (an income always has terms from its first period), `keyed_beyond_latest_period`
+(nothing is keyed to a period that does not exist yet), `owner_must_be_member` (the owner is always
+a member), `periods_invalid` (the periods are contiguous, without gaps or overlaps),
+`primary_income_must_be_active` (the primary income is in force; removing it answers
+`income_is_primary`), `transaction_outside_periods` (a transaction lies in a period; the calls
+answer `date_outside_periods`), and `preview` (SQLSTATE P0050: how a preview rolls back the write
+it ran; always caught inside the preview). The screens map them to their generic message.
 
 ## For later tables
 
