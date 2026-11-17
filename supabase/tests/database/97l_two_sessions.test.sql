@@ -85,14 +85,14 @@ insert into ids values ('budget', pg_temp.q('setup', $$select public.create_budg
 insert into ids values ('inv', pg_temp.q('setup', format($$select public.invite_member(%L, %L)::text$$, pg_temp.id('budget'),
   (select email from auth.users where id = pg_temp.id('member'))))::uuid);
 select pg_temp.act_as('setup', pg_temp.id('member'));
-select pg_temp.q('setup', format($$select 'ok' from (select public.accept_invitation(%L)) as x$$, pg_temp.id('inv')));
+select pg_temp.q('setup', format($$select 'done' from (select public.accept_invitation(%L)) as x$$, pg_temp.id('inv')));
 insert into ids values ('cid', extensions.gen_random_uuid());
 select is(pg_temp.q('setup', format($$select count(*)::text from public.add_transaction(%L, 'extra_income', 4200, private.today(),
   p_client_id => %L)$$, pg_temp.id('budget'), pg_temp.id('cid'))), '1', 'R-APP-340: (setup) the member records a transaction with a client id');
 select pg_temp.act_as('one', pg_temp.id('owner'));
 select pg_temp.act_as('two', pg_temp.id('member'));
 select extensions.dblink_exec('one', 'begin');
-select pg_temp.q('one', format($$select 'ok' from (select public.remove_member(%L, %L)) as x$$, pg_temp.id('budget'), pg_temp.id('member')));
+select pg_temp.q('one', format($$select 'done' from (select public.remove_member(%L, %L)) as x$$, pg_temp.id('budget'), pg_temp.id('member')));
 select is(pg_temp.send_and_wait('two', format($$select count(*)::text from public.add_transaction(%L, 'extra_income', 4200,
   private.today(), p_client_id => %L)$$, pg_temp.id('budget'), pg_temp.id('cid'))), 1,
   'R-APP-340: the member''s replay waits behind the owner''s removal');
