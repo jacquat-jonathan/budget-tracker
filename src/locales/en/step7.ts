@@ -292,6 +292,8 @@ export const transfersEn = {
     unplannedHelp:
       'Its date is no longer planned (the schedule or a payday moved). It stays until you undo it.',
     unplannedEnded: 'The transfer has ended. This tick stays until you undo it.',
+    unplannedTransaction: 'Undo removes it with its transaction.',
+    unplannedTransactionIn: 'Undo removes it with its transaction in {{category}}.',
     heldBackHelp:
       'The budget holds the most transactions it can: it is recorded, dated its due date, once there is room.',
     done: 'Done',
@@ -321,6 +323,7 @@ export const transfersEn = {
       notDoneBy: 'Did not happen (said by {{name}})',
       heldBack: 'Waiting for room in the budget',
       unplanned: 'No longer planned',
+      unplannedWas: '{{state}} · no longer planned',
     },
     changedElsewhere:
       'Someone ticked or changed this transfer meanwhile: the checklist now shows where it stands.',

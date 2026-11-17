@@ -134,13 +134,45 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
   it('a tick whose occurrence is no longer planned is flagged and can only be undone [R-ACCOUNT-301]', async () => {
     await openPage()
     const old = row('Old order')
-    expect(old).toHaveTextContent('No longer planned')
+    expect(within(old).getByTestId('checklist-status')).toHaveTextContent(
+      /^Skipped by Alex · no longer planned$/,
+    )
     expect(old).toHaveTextContent('It stays until you undo it.')
     expect(
       within(old)
         .getAllByRole('button')
         .map((button) => button.textContent),
     ).toEqual(['Undo'])
+  })
+
+  it('a tick no longer planned still says what it was and what Undo removes [R-ACCOUNT-301]', async () => {
+    const db = checklistDb()
+    db.checklist = [
+      checklistRow({
+        transfer_id: 'tr-moved',
+        name: 'Moved order',
+        due_date: null,
+        occurrence_date: '2026-10-28',
+        status: 'done',
+        planned: false,
+        done_on: '2026-10-28',
+        amount: 50_000,
+        amount_moved: 45_000,
+        category_id: 'cat-savings',
+        category_name: 'Savings',
+        transaction_id: 'tx-moved',
+        mark_revision: 2,
+        recorded_by_name: 'Bruno',
+      }),
+    ]
+    await openPage(db)
+    const moved = row('Moved order')
+    expect(within(moved).getByTestId('checklist-status')).toHaveTextContent(
+      /^Done on 28\.10\.2026 by Bruno · no longer planned$/,
+    )
+    expect(moved).toHaveTextContent(money(45_000))
+    expect(moved).toHaveTextContent(`planned ${money(50_000)}`)
+    expect(moved).toHaveTextContent('Undo removes it with its transaction in Savings.')
   })
 
   it('done names the occurrence and the tick read, then undo leads back [R-CONCURRENCY-230]', async () => {

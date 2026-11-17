@@ -45,13 +45,21 @@ interface StatusView {
 
 function useStatus() {
   const { t } = useTranslation()
-  return (row: ChecklistRow): StatusView => {
+  const status = (row: ChecklistRow): StatusView => {
     const by = row.recorded_by_name
     // R-ACCOUNT-004: an automatic occurrence with no transaction counts as done from its due date.
     const doneOn = row.done_on ?? (row.assumed ? row.due_date : null)
     const done = doneOn ? formatCalendarDate(doneOn) : ''
     if (row.planned === false) {
-      return { icon: BanIcon, label: t('transfers.checklist.status.unplanned'), tone: 'warn' }
+      // What the tick was stays said, so the member knows what Undo removes.
+      const was = row.status ? status({ ...row, planned: true, held_back: false }).label : ''
+      return {
+        icon: BanIcon,
+        label: was
+          ? t('transfers.checklist.status.unplannedWas', { state: was })
+          : t('transfers.checklist.status.unplanned'),
+        tone: 'warn',
+      }
     }
     if (row.held_back) {
       return { icon: HourglassIcon, label: t('transfers.checklist.status.heldBack'), tone: 'warn' }
@@ -93,6 +101,7 @@ function useStatus() {
         return { icon: CircleDashedIcon, label: row.status ?? '', tone: 'neutral' }
     }
   }
+  return status
 }
 
 const TONES: Record<StatusView['tone'], string> = {
@@ -322,9 +331,21 @@ function ChecklistItem({
         {row.planned === false && (
           <span className="flex items-start gap-1.5 text-xs text-muted-foreground">
             <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            {row.is_ended
-              ? t('transfers.checklist.unplannedEnded')
-              : t('transfers.checklist.unplannedHelp')}
+            <span>
+              {row.is_ended
+                ? t('transfers.checklist.unplannedEnded')
+                : t('transfers.checklist.unplannedHelp')}
+              {row.transaction_id && (
+                <>
+                  {' '}
+                  {row.category_name
+                    ? t('transfers.checklist.unplannedTransactionIn', {
+                        category: row.category_name,
+                      })
+                    : t('transfers.checklist.unplannedTransaction')}
+                </>
+              )}
+            </span>
           </span>
         )}
         {row.held_back && (
