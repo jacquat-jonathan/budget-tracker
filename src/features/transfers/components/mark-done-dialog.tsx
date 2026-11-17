@@ -3,6 +3,7 @@ import type { UseMutationResult } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { SaveError } from '@/components/changed-elsewhere'
@@ -23,8 +24,15 @@ import { targetOf, type MarkTarget } from '@/features/transfers/transfer-mutatio
 import type { ChecklistRow } from '@/features/transfers/transfer-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
+import { dbErrorCode } from '@/lib/db-errors'
 import { calendarDateSchema, rappenSchema } from '@/lib/form-schemas'
 import { formatMoney } from '@/lib/money'
+
+const STALE = new Set<string>([
+  'record_changed',
+  'transfer_already_marked',
+  'transfer_not_in_force',
+])
 
 type DoneMutation = UseMutationResult<
   unknown,
@@ -132,7 +140,15 @@ function DoneForm({
         { ...targetOf(row), doneOn: values.doneOn, amountMoved: values.amount },
         { onSuccess: onClose },
       )
-      .catch(() => undefined),
+      .catch((error: unknown) => {
+        // Ticked or changed meanwhile: this tick can no longer succeed. The list is read again;
+        // the dialog closes with the message and the focus goes back to the row, as Skip and
+        // Undo do (R-CONCURRENCY-230).
+        if (STALE.has(dbErrorCode(error) ?? '')) {
+          toast.error(errorMessage(error))
+          onClose()
+        }
+      }),
   )
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate data-testid="mark-done-form">

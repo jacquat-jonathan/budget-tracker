@@ -234,6 +234,39 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
     expect(db.rpc.skip_transfer).toHaveBeenCalledTimes(1)
   })
 
+  it('a stale Done closes its dialog with the message, and the focus goes back to the row', async () => {
+    const db = await openPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Mark “Joint account” as done' }))
+    const dialog = await screen.findByRole('dialog')
+    // Another member ticks it while the dialog is open.
+    Object.assign(db.checklist[0]!, {
+      status: 'done',
+      done_on: '2026-11-14',
+      amount_moved: 150_000,
+      mark_revision: 1,
+      recorded_by_name: 'Sam',
+    })
+    const stale = /Someone ticked or changed this transfer meanwhile/
+    const before = screen.queryAllByText(stale).length
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+    // Said once more than before (an earlier test's toast may still be on screen).
+    await waitFor(() => {
+      expect(screen.queryAllByText(stale)).toHaveLength(before + 1)
+    })
+    await waitFor(() => {
+      expect(row('Joint account')).toHaveTextContent('Done on 14.11.2026 by Sam')
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Undo the tick of “Joint account”' }),
+      ).toHaveFocus()
+    })
+    expect(db.rpc.mark_transfer_done).toHaveBeenCalledTimes(1)
+  })
+
   it('a past period is looked at and corrected: done defaults to its due date', async () => {
     const db = await openPage()
     await userEvent.click(screen.getByLabelText('Period'))
