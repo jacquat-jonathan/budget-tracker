@@ -193,6 +193,34 @@ const FORMS: FormCase[] = [
     field: (dialog) => within(dialog).getByLabelText(/Day the salary arrived/),
   },
   {
+    name: 'record an early salary',
+    db: () => householdDb(),
+    path: '/periods',
+    open: async () => {
+      const dialog = await periodAction('The salary arrived early')
+      await retype(within(dialog).getByLabelText(/Day the salary arrived/), '14.11.2026')
+      return dialog
+    },
+    preview: 'preview_record_early_pay_date',
+    write: 'record_early_pay_date',
+    save: 'Save',
+    field: (dialog) => within(dialog).getByLabelText(/Day the salary arrived/),
+  },
+  {
+    name: 'set the expected pay date',
+    db: () => householdDb(),
+    path: '/periods',
+    open: async () => {
+      const dialog = await periodAction('The next salary is expected on another day')
+      await retype(within(dialog).getByLabelText(/Next salary expected on/), '27.11.2026')
+      return dialog
+    },
+    preview: 'preview_set_expected_pay_date',
+    write: 'set_expected_pay_date',
+    save: 'Save',
+    field: (dialog) => within(dialog).getByLabelText(/Next salary expected on/),
+  },
+  {
     name: 'edit an income',
     db: () => householdDb(),
     path: '/income',

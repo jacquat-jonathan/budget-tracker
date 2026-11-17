@@ -124,8 +124,6 @@ export const transfersEn = {
     removed_other: '{{count}} transactions the app recorded for transfers are removed.',
     created_one: '{{count}} transaction of a standing order is recorded.',
     created_other: '{{count}} transactions of standing orders are recorded.',
-    movedNote:
-      'A transaction that moves to a new due date counts once in each: it is removed and recorded again on that date.',
     movedKeeps:
       'Only what the app recorded by itself, and nobody changed since, moves to its new due date. A tick, a transfer made manual and a transaction a member edited stay exactly as they are.',
     movedOnly_one:
@@ -218,11 +216,8 @@ export const transfersEn = {
     mode: 'How it is done',
     when: 'When',
     offset: 'Day',
-    income: 'Whose payday',
-    incomeHelp: 'The main income’s, unless you choose another.',
     namedIncome: 'Which income',
     namedIncomeHelp: 'Its own pay day and weekend rule give the dates.',
-    primaryIncome: 'The main income',
     cadence: 'How often',
     day: 'Day of the month',
     nextDue: 'Next due date',
@@ -246,10 +241,6 @@ export const transfersEn = {
     manualShort: 'Manual',
     automaticHelp: 'The bank does it: it counts as done on its due date, nothing to tick off.',
     manualHelp: 'You make it and tick it off in the checklist.',
-  },
-  schedule: {
-    pay_date: 'After payday',
-    day_of_month: 'On a fixed day',
   },
   cadence: {
     monthly: 'Every month',
@@ -293,8 +284,6 @@ export const transfersEn = {
       'It removes {{count}} transaction the app recorded by itself: its date is no longer planned, or its due date moves.',
     transactionsRemoved_other:
       'It removes {{count}} transactions the app recorded by itself: their dates are no longer planned, or their due dates move.',
-    movedNote:
-      'A transaction whose due date moves is removed and recorded again on its new due date, so it counts once in each: nothing is lost. The preview does not say which ones move.',
     alreadyRecorded: 'already recorded, stays as it is',
     movedOnly_one:
       'It moves {{count}} transaction the app recorded by itself to its new due date: removed on the old date, recorded again on the new one.',
@@ -430,11 +419,6 @@ export const transfersEn = {
       'Someone ticked or changed this transfer meanwhile: the checklist now shows where it stands.',
     listChanged:
       'This period’s checklist changed meanwhile: it is shown again as it now stands. Check the row and try again.',
-    kind: {
-      period: 'on the payday that started the period',
-      income_payday: 'on its chosen income’s payday',
-      fixed_day: 'on its fixed day',
-    },
     nameWithKind: '{{name}}, {{kind}}',
     markedDone: '“{{name}}” done: {{amount}}.',
     markedSkipped: '“{{name}}” skipped for this time.',

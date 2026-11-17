@@ -9273,6 +9273,30 @@
       "source": [
         "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
       ]
+    },
+    {
+      "id": "R-ACCOUNT-560",
+      "area": "account",
+      "statement": "Recording an early salary and setting or resetting the expected next pay date show, before saving, what the write does to the transfers as preview_record_early_pay_date / preview_set_expected_pay_date answer it for the date typed (transactions removed, recorded and moved, members' ticks no longer planned), or its refusal as the reason; the save waits for that preview and stays disabled while it is refused.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-ACCOUNT-516", "D-613", "R-APP-440", "R-ACCOUNT-554"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-561",
+      "area": "account",
+      "statement": "The reopen dialog says that the reopened period follows the terms in force now, so that a change made “from now” in the merged period applies to it (Q-355), lists a transaction moved to its new due date ('transaction_moved') as a move also listed as going and as recorded, and says that a transaction the app recorded goes with its occurrence even when a member edited it (Q-356).",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["Q-355", "Q-356", "R-ACCOUNT-517", "R-PERIOD-053"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
     }
   ],
   "decisions": [

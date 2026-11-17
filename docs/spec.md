@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-646 rules (627 active, 0 planned), 24 conventions, 398 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
+648 rules (629 active, 0 planned), 24 conventions, 398 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2767,6 +2767,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
 - **R-ACCOUNT-559** A planned transfer's next due date is labelled as the next one not yet recorded (transfer_overview.next_due_date names no marked occurrence, D-612), so it is not read as its next occurrence when that one is already ticked or recorded.
   _active · enforced by test · F-MONEYFLOW_
   - Related: R-ACCOUNT-464, D-612
+  - Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
+- **R-ACCOUNT-560** Recording an early salary and setting or resetting the expected next pay date show, before saving, what the write does to the transfers as preview_record_early_pay_date / preview_set_expected_pay_date answer it for the date typed (transactions removed, recorded and moved, members' ticks no longer planned), or its refusal as the reason; the save waits for that preview and stays disabled while it is refused.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-516, D-613, R-APP-440, R-ACCOUNT-554
+  - Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
+- **R-ACCOUNT-561** The reopen dialog says that the reopened period follows the terms in force now, so that a change made “from now” in the merged period applies to it (Q-355), lists a transaction moved to its new due date ('transaction_moved') as a move also listed as going and as recorded, and says that a transaction the app recorded goes with its occurrence even when a member edited it (Q-356).
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: Q-355, Q-356, R-ACCOUNT-517, R-PERIOD-053
   - Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
 
 ### Concurrent edits

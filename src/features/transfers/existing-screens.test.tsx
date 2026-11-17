@@ -39,7 +39,7 @@ async function typeDate(dialog: HTMLElement, label: RegExp, value: string) {
 }
 
 describe('the reopen follows the step 7 contract [R-ACCOUNT-313] [R-ACCOUNT-312] [R-ACCOUNT-306]', () => {
-  it('previews the reopen with the pay date chosen, and says what it does to transfers', async () => {
+  it('previews the reopen with the pay date chosen, and says what it does to transfers, a move included, and that today’s terms apply [R-ACCOUNT-561]', async () => {
     const db = householdDb()
     db.rpc.preview_reopen.mockImplementation((args) =>
       args.p_pay_date
@@ -49,6 +49,13 @@ describe('the reopen follows the step 7 contract [R-ACCOUNT-313] [R-ACCOUNT-312]
               record_id: 'tr-1',
               record_name: 'Savings',
               change: 'transaction_removed',
+              replaces_previous: false,
+            },
+            {
+              record_kind: 'transfer',
+              record_id: 'tr-1',
+              record_name: 'Savings',
+              change: 'transaction_moved',
               replaces_previous: false,
             },
             {
@@ -85,7 +92,14 @@ describe('the reopen follows the step 7 contract [R-ACCOUNT-313] [R-ACCOUNT-312]
     })
     const preview = await within(dialog).findByTestId('reopen-preview')
     expect(preview).toHaveTextContent(
-      'Planned transfer “Savings”: the transaction the app recorded for its payday goes',
+      'Planned transfer “Savings”: a transaction the app recorded for it goes, even one a member edited',
+    )
+    expect(preview).toHaveTextContent(
+      'Planned transfer “Savings”: one of its transactions moves to its new due date (it is also listed as going and as recorded).',
+    )
+    // Q-355: the reopened stretch follows the terms in force now.
+    expect(within(preview).getByTestId('reopen-todays-terms')).toHaveTextContent(
+      'The reopened period follows the terms in force now',
     )
     // One row per occurrence: both of Joint's ticks are listed.
     expect(
@@ -208,6 +222,78 @@ describe('moving a period’s start follows the step 7 contract [R-ACCOUNT-309]'
     await userEvent.click(within(failed).getByRole('button', { name: 'Try again' }))
     await waitFor(() => {
       expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    })
+  })
+})
+
+describe('an early salary and an expected date say what they do to the transfers [R-ACCOUNT-560] [R-ACCOUNT-516]', () => {
+  const answer = (fields: Record<string, unknown>) => [
+    {
+      period_id: 'period-2',
+      accepted: true,
+      refusal: null,
+      transfer_transactions_removed: 0,
+      transfer_transactions_created: 0,
+      transfer_marks_unplanned: 0,
+      transfer_transactions_moved: 0,
+      ...fields,
+    },
+  ]
+
+  it('an early salary previews with the date typed and says a re-dated transaction as one move', async () => {
+    const db = householdDb()
+    db.rpc.preview_record_early_pay_date.mockImplementation(() =>
+      answer({
+        transfer_transactions_removed: 1,
+        transfer_transactions_created: 1,
+        transfer_transactions_moved: 1,
+        transfer_marks_unplanned: 1,
+      }),
+    )
+    const dialog = await periodAction(db, 'The salary arrived early')
+    await typeDate(dialog, /Day the salary arrived/, '14.11.2026')
+    await waitFor(() => {
+      expect(db.rpc.preview_record_early_pay_date).toHaveBeenLastCalledWith({
+        p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+        p_pay_date: '2026-11-14',
+      })
+    })
+    const counts = await within(dialog).findByTestId('transfer-counts')
+    expect(within(counts).getByTestId('transactions-moved')).toHaveTextContent(
+      '1 transaction the app recorded moves to its new due date',
+    )
+    expect(counts).toHaveTextContent('1 tick made by a member is no longer planned')
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    })
+  })
+
+  it('a refused expected date says why, and Save stays disabled', async () => {
+    const db = householdDb()
+    db.rpc.preview_set_expected_pay_date.mockImplementation(() =>
+      answer({ accepted: false, refusal: 'invalid_boundary' }),
+    )
+    const dialog = await periodAction(db, 'The next salary is expected on another day')
+    expect(await within(dialog).findByTestId('pay-date-refused')).toHaveTextContent(
+      'This cannot be saved as it is: This date does not work',
+    )
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(within(dialog).queryByTestId('transfer-counts')).not.toBeInTheDocument()
+  })
+
+  it('resetting the expected date previews the reset itself (no date)', async () => {
+    const db = householdDb()
+    db.tables.period_summaries = db.tables.period_summaries.map((period) =>
+      period.is_current ? { ...period, end_is_manual: true } : period,
+    )
+    const dialog = await periodAction(db, 'Reset the expected date to the projection')
+    await waitFor(() => {
+      expect(db.rpc.preview_set_expected_pay_date).toHaveBeenLastCalledWith({
+        p_budget_id: 'bbbbbbbb-0000-0000-0000-000000000001',
+      })
+    })
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Reset' })).toBeEnabled()
     })
   })
 })

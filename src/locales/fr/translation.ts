@@ -1179,8 +1179,10 @@ const core: Omit<Translation, LazyKey> = {
         interest_removed:
           'les intérêts ajoutés au début de cette période sont retirés ; ils sont ajoutés de nouveau, une fois, quand la période recommence.',
         transaction_removed:
-          'la transaction que l’application avait enregistrée pour son jour de paie est retirée ; elle revient quand ce salaire est de nouveau enregistré.',
+          'une transaction que l’application avait enregistrée pour lui est retirée, même modifiée par un membre : son échéance n’est plus prévue ou se déplace. Celle d’un jour de paie revient quand ce salaire est de nouveau enregistré.',
         transaction_created: 'sa transaction est enregistrée par l’application.',
+        transaction_moved:
+          'une de ses transactions passe à sa nouvelle échéance (elle figure aussi comme retirée et comme enregistrée).',
         mark_unplanned:
           'une coche d’un membre n’est plus prévue : elle reste, signalée, et compte de nouveau quand ce salaire est de nouveau enregistré.',
         mark_planned_again: 'une coche d’un membre est de nouveau prévue.',
@@ -1194,6 +1196,8 @@ const core: Omit<Translation, LazyKey> = {
       },
       item: '{{kind}} : {{change}}',
       replaces: 'Il remplace ce que la période rouverte avait pour lui.',
+      todaysTerms:
+        'La période rouverte suit les conditions en vigueur maintenant : un changement fait « dès maintenant » dans cette période vaut aussi pour la période rouverte, et un virement que l’application y a enregistré peut se déplacer ou partir.',
       datesOnly:
         'Enregistrer de nouveau ce salaire plus tard (« Le salaire est arrivé en avance ») rétablit seulement les dates, pas ces changements.',
       removedKept: {

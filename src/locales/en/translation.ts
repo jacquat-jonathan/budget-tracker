@@ -1134,8 +1134,10 @@ const core = {
         interest_removed:
           'the interest added when this period started goes; it is added again, once, when the period starts again.',
         transaction_removed:
-          'the transaction the app recorded for its payday goes; it comes back when that salary is recorded again.',
+          'a transaction the app recorded for it goes, even one a member edited: its occurrence is no longer planned or moves. A payday’s comes back when that salary is recorded again.',
         transaction_created: 'its transaction is recorded by the app.',
+        transaction_moved:
+          'one of its transactions moves to its new due date (it is also listed as going and as recorded).',
         mark_unplanned:
           'a tick made by a member is no longer planned: it stays, flagged, and counts again when that salary is recorded again.',
         mark_planned_again: 'a tick made by a member is planned again.',
@@ -1149,6 +1151,8 @@ const core = {
       },
       item: '{{kind}}: {{change}}',
       replaces: 'It replaces what the reopened period had for it.',
+      todaysTerms:
+        'The reopened period follows the terms in force now: a change made “from now” in this period applies to the reopened one too, so a transfer the app recorded there can move or go.',
       datesOnly:
         'Recording this salary again later (“The salary arrived early”) restores the dates only, not these changes.',
       removedKept: {

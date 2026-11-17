@@ -134,8 +134,6 @@ export const transfersFr = {
     created_other: '{{count}} transactions d’ordres permanents sont enregistrées.',
     movedKeeps:
       'Seul ce que l’application a enregistré d’elle-même, et que personne n’a modifié depuis, passe à sa nouvelle échéance. Une coche, un virement rendu manuel et une transaction modifiée par un membre restent exactement tels quels.',
-    movedNote:
-      'Une transaction déplacée à une nouvelle échéance compte une fois de chaque côté : elle est retirée puis enregistrée à nouveau à cette date.',
     movedOnly_one:
       '{{count}} transaction enregistrée par l’application passe à sa nouvelle échéance : retirée à l’ancienne date, enregistrée à nouveau à la nouvelle.',
     movedOnly_other:
@@ -230,11 +228,8 @@ export const transfersFr = {
     mode: 'Comment il se fait',
     when: 'Quand',
     offset: 'Jour',
-    income: 'Paie de qui',
-    incomeHelp: 'Celle du revenu principal, sauf si vous en choisissez une autre.',
     namedIncome: 'Quel revenu',
     namedIncomeHelp: 'Son jour de paie et sa règle de week-end donnent les dates.',
-    primaryIncome: 'Le revenu principal',
     cadence: 'Fréquence',
     day: 'Jour du mois',
     nextDue: 'Prochaine échéance',
@@ -259,10 +254,6 @@ export const transfersFr = {
     manualShort: 'Manuel',
     automaticHelp: 'La banque s’en charge : il compte comme fait à son échéance, rien à cocher.',
     manualHelp: 'Vous le faites et le cochez dans la liste.',
-  },
-  schedule: {
-    pay_date: 'Après la paie',
-    day_of_month: 'À jour fixe',
   },
   cadence: {
     monthly: 'Chaque mois',
@@ -309,8 +300,6 @@ export const transfersFr = {
       'Il retire {{count}} transaction que l’application avait enregistrée d’elle-même : sa date n’est plus prévue, ou son échéance change.',
     transactionsRemoved_other:
       'Il retire {{count}} transactions que l’application avait enregistrées d’elle-même : leurs dates ne sont plus prévues, ou leurs échéances changent.',
-    movedNote:
-      'Une transaction dont l’échéance change est retirée puis enregistrée à nouveau à sa nouvelle échéance : elle compte une fois de chaque côté, rien n’est perdu. L’aperçu ne dit pas lesquelles se déplacent.',
     alreadyRecorded: 'déjà enregistré, reste tel quel',
     movedOnly_one:
       'Il déplace {{count}} transaction que l’application avait enregistrée d’elle-même à sa nouvelle échéance : retirée à l’ancienne date, enregistrée à nouveau à la nouvelle.',
@@ -448,11 +437,6 @@ export const transfersFr = {
       'Quelqu’un a coché ou modifié ce virement entre-temps : la liste montre maintenant où il en est.',
     listChanged:
       'La liste de cette période a changé entre-temps : elle est affichée à nouveau telle qu’elle est maintenant. Vérifiez la ligne et réessayez.',
-    kind: {
-      period: 'au jour de paie qui a ouvert la période',
-      income_payday: 'au jour de paie de son revenu choisi',
-      fixed_day: 'à son jour fixe',
-    },
     nameWithKind: '{{name}}, {{kind}}',
     markedDone: '« {{name}} » fait : {{amount}}.',
     markedSkipped: '« {{name}} » ignoré pour cette fois.',

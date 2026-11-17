@@ -881,7 +881,7 @@ function PayDateTransfers({ preview }: { preview: ReturnType<typeof usePayDateTr
       <Alert variant="destructive" data-testid="pay-date-refused">
         <AlertDescription>
           {t('periods.refused', {
-            reason: t(dbErrorKey({ code: 'P0001', message: answer.refusal ?? '' })),
+            reason: t(dbErrorKey({ code: 'P0001', message: answer.refusal })),
           })}
         </AlertDescription>
       </Alert>
@@ -946,6 +946,7 @@ const KNOWN_CHANGES = [
   'interest_removed',
   'transaction_removed',
   'transaction_created',
+  'transaction_moved',
   'mark_unplanned',
   'mark_planned_again',
 ] as const
@@ -1026,6 +1027,10 @@ function ReopenPreview({ preview }: { preview: ReturnType<typeof useReopenPrevie
           )
         })}
       </ul>
+      {/* R-ACCOUNT-561: the reopened stretch follows the terms in force now (Q-355). */}
+      <p className="text-muted-foreground" data-testid="reopen-todays-terms">
+        {t('periods.reopen.todaysTerms')}
+      </p>
       <p className="text-muted-foreground">{t('periods.reopen.datesOnly')}</p>
     </div>
   )
