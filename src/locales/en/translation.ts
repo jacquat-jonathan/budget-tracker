@@ -993,11 +993,22 @@ const core = {
     empty: 'Nothing planned or spent in this period',
     emptyHelp: 'Plan your spending in categories on the Budget page, then record transactions.',
     toBudget: 'Go to the budget',
-    committedExceeds:
-      'Subscriptions alone come to {{committed}}, more than the {{planned}} planned.',
     plannedIncludes: 'Includes {{amount}} for subscriptions',
+    plannedIncludesTransfers: 'Includes {{amount}} for planned transfers',
     rowPlannedIncludes: 'The {{expected}} planned include {{amount}} for subscriptions',
+    rowPlannedIncludesTransfers:
+      'The {{expected}} planned include {{amount}} for planned transfers',
     includes: 'incl. {{amount}} for subscriptions',
+    includesTransfers: 'incl. {{amount}} for planned transfers',
+    committedSubscriptions: '{{amount}} committed for subscriptions',
+    committedTransfers: '{{amount}} committed for planned transfers',
+    overCommitted: 'Committed above plan',
+    overCommittedSubscriptions:
+      'More is committed than planned: {{subscriptions}} for subscriptions, against {{planned}} planned.',
+    overCommittedTransfers:
+      'More is committed than planned: {{transfers}} for planned transfers, against {{planned}} planned.',
+    overCommittedBoth:
+      'More is committed than planned: {{subscriptions}} for subscriptions and {{transfers}} for planned transfers, against {{planned}} planned.',
   },
   periods: {
     older: 'Older periods…',

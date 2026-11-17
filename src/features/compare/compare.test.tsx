@@ -455,6 +455,27 @@ describe('two periods side by side [R-COMPARE-194]', () => {
     expect(within(rows[2]!).getByText('no change')).toBeInTheDocument()
   })
 
+  it('shows the planned transfers’ committed figures apart from the subscriptions’ [R-PROGRESS-530]', async () => {
+    const db = compareDb({
+      side: [
+        totalRow({
+          a_transfer_committed: 130_000,
+          b_transfer_committed: 150_000,
+          transfer_committed_difference: 20_000,
+        }),
+        ...SIDE.slice(1),
+      ],
+    })
+    open(db, '/compare?view=side')
+    const totals = await screen.findByTestId('side-totals')
+    const transfers = within(totals).getByTestId('total-transferCommitted')
+    expect(plain(transfers)).toContain('Planned transfers')
+    expect(plain(transfers)).toContain("CHF 1'300.00")
+    expect(plain(transfers)).toContain("CHF 1'500.00")
+    expect(plain(transfers)).toContain('+CHF 200.00')
+    expect(plain(within(totals).getByTestId('total-committed'))).toContain('CHF 103.90')
+  })
+
   it('sorts by the biggest change and swaps the periods in the address', async () => {
     const db = compareDb()
     open(db, '/compare?view=side&sort=change')

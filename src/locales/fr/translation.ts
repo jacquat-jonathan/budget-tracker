@@ -1035,11 +1035,22 @@ const core: Omit<Translation, LazyKey> = {
     emptyHelp:
       'Prévoyez vos dépenses par catégorie sur la page Budget, puis enregistrez vos transactions.',
     toBudget: 'Aller au budget',
-    committedExceeds:
-      'Les abonnements à eux seuls font {{committed}}, plus que les {{planned}} prévus.',
     plannedIncludes: 'Dont {{amount}} pour des abonnements',
+    plannedIncludesTransfers: 'Dont {{amount}} pour des virements planifiés',
     rowPlannedIncludes: 'Les {{expected}} prévus comprennent {{amount}} d’abonnements',
+    rowPlannedIncludesTransfers:
+      'Les {{expected}} prévus comprennent {{amount}} de virements planifiés',
     includes: 'dont {{amount}} d’abonnements',
+    includesTransfers: 'dont {{amount}} de virements planifiés',
+    committedSubscriptions: '{{amount}} engagés pour des abonnements',
+    committedTransfers: '{{amount}} engagés pour des virements planifiés',
+    overCommitted: 'Engagé au-delà du prévu',
+    overCommittedSubscriptions:
+      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements, pour {{planned}} prévus.',
+    overCommittedTransfers:
+      'Les engagements dépassent le prévu : {{transfers}} de virements planifiés, pour {{planned}} prévus.',
+    overCommittedBoth:
+      'Les engagements dépassent le prévu : {{subscriptions}} d’abonnements et {{transfers}} de virements planifiés, pour {{planned}} prévus.',
   },
   periods: {
     older: 'Périodes plus anciennes…',

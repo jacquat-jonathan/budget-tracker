@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-604 rules (593 active, 0 planned), 24 conventions, 375 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
+606 rules (595 active, 0 planned), 24 conventions, 376 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -1479,6 +1479,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-079, D-173
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/progress/period-progress-card.tsx; code: src/features/budget/budget-page.tsx; owner-request: coordinator, step 4 screens review round 1, 2026-11-16
+- **R-PROGRESS-530** Wherever the subscriptions' committed amount is shown, the planned transfers' committed amount is shown apart from it, from the database's own figures (category_overview.transfer_committed_amount, period_summaries.transfer_committed_total, get_period_progress(...).transfer_committed, the comparison's transfer_committed figures): under the planned figure of the period on the budget page and in the period progress ("Includes CHF x for planned transfers"), under each category's amount on the budget page and in the planned column of the progress view, as a sentence on a narrow progress card, and as its own row in the side-by-side totals of Compare. The two committed figures are never added into one shown figure.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-238, R-PROGRESS-120, D-399, D-630
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/commitments.tsx
+- **R-PROGRESS-531** When the subscriptions' and the planned transfers' committed amounts on a category (or a period) together exceed its planned amount, the screen says so in words, not by colour alone: a "Committed above plan" badge beside the category's name (like "Overspent"), each committed figure named as committed instead of "incl.", and on a period's total or a narrow card one sentence naming each committed figure and the planned amount ("More is committed than planned: CHF 43.82 for subscriptions, against CHF 40.00 planned"). The comparison is the screen's; no sum is shown.
+  _active · enforced by test · F-PROGRESS_
+  - Related: R-PROGRESS-530, R-PROGRESS-120, D-630
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/commitments.tsx
 
 ### Subscriptions
 
@@ -7764,6 +7772,21 @@ On the actual basis the spending table has a third column, Left, with each group
 Related: D-567, D-565, D-545, R-ACCOUNT-502, R-ACCOUNT-465
 
 Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+
+### D-630 A commitment above the plan is found by comparing the two committed figures with the plan on the screen (accepted)
+
+The screen compares the subscriptions' committed amount plus the planned transfers' committed amount with the planned amount of the same category or period, to decide whether to warn (R-PROGRESS-531). The sum is used only for that comparison and is never shown; each committed figure is shown as the database gives it.
+
+**Why:** The reads give the two committed figures apart (D-399) and no flag for a commitment above the plan; the household walk-through found "Media CHF 40.00 incl. CHF 43.82 for subscriptions" with no warning. A comparison of figures the database gives shows no new figure, so C-LOGIC-003 and "no client arithmetic to show a figure" hold; a flag in the reads would be cleaner and can replace it later.
+
+**Rejected:**
+
+- Warning only when one committed figure alone exceeds the plan: CHF 30 of subscriptions and CHF 30 of transfers in a CHF 40 plan would read as inside the plan.
+- Showing the sum of the two committed figures: the page would add figures for display (C-LOGIC-003).
+
+Related: R-PROGRESS-531, R-PROGRESS-530, R-ACCOUNT-238, D-399
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
 ## Open questions
 

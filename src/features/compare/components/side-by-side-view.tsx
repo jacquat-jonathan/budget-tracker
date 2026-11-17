@@ -237,6 +237,13 @@ export function SideBySideView({
                     ['result', total.a_result, total.b_result, total.result_difference],
                     ['planned', total.a_planned, total.b_planned, total.planned_difference],
                     ['committed', total.a_committed, total.b_committed, total.committed_difference],
+                    // R-PROGRESS-530: the transfers' committed figure, apart from the subscriptions'.
+                    [
+                      'transferCommitted',
+                      total.a_transfer_committed,
+                      total.b_transfer_committed,
+                      total.transfer_committed_difference,
+                    ],
                   ] as const
                 ).map(([key, before, after, difference]) => (
                   <tr key={key} className={PHONE_ROW} data-testid={`total-${key}`}>
