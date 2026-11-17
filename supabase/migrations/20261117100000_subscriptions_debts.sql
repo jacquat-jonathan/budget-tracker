@@ -793,33 +793,34 @@ create trigger periods_apply_debt_interest
   after insert on public.periods
   for each row execute function private.apply_debt_interest();
 
--- R-DEBT-131, D-272, D-386: D-272 as a statement about the stored data, whatever changes a
--- period's boundaries (a moved start today; any later boundary operation that updates a
--- start): a period's interest entry exists only for a debt opened before the period's start,
--- so every history starts with the opening. When a start moves to on or before a debt's
--- opening, that debt's entry in the period goes. The other way (a start moved later, so a
--- debt is now opened before the start of a period that has no entry for it) adds nothing:
--- interest is computed once, when the period is created, on the balance before its start;
--- computing it afterwards would charge interest for a period that began, as the member
--- recorded it, before the debt existed, on a balance that already includes later rows.
-create or replace function private.drop_interest_before_opening()
+-- R-DEBT-131, D-272, D-386, D-467 (R-DEBT-340): D-272 as a statement about the stored data,
+-- whatever changes a period's boundaries (a moved start today; any later boundary operation
+-- that updates a start): a period's interest entry exists only for a debt opened before the
+-- period's start, so every history starts with the opening. A start may not move to on or
+-- before the opening of a debt that has an interest entry in that period: the change is
+-- refused (interest_before_opening) and nothing is removed, so moving back loses nothing
+-- (Q-282). The other way (a start moved later, so a debt is now opened before the start of a
+-- period that has no entry for it) adds nothing: interest is computed once, when the period is
+-- created, on the balance before its start.
+create or replace function private.refuse_interest_before_opening()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
 begin
-  delete from public.debt_interest as i
-  using public.debts as d
-  where i.period_id = new.id and d.id = i.debt_id and d.opened_on >= new.start_date;
+  if exists (select 1 from public.debt_interest as i join public.debts as d on d.id = i.debt_id
+             where i.period_id = new.id and d.opened_on >= new.start_date) then
+    raise exception 'interest_before_opening' using errcode = 'P0001';
+  end if;
   return null;
 end;
 $$;
 
-create trigger periods_drop_interest_before_opening
+create trigger periods_refuse_interest_before_opening
   after update of start_date on public.periods
   for each row when (new.start_date < old.start_date)
-  execute function private.drop_interest_before_opening();
+  execute function private.refuse_interest_before_opening();
 
 -- ===========================================================================
 -- Automatic charges (R-SUBSCRIPTION-073, R-SUBSCRIPTION-075, R-SUBSCRIPTION-111, D-171)
@@ -2885,9 +2886,10 @@ $$;
 -- R-PERIOD-133, Q-091: what move_period_start(p_period_id, revision, p_start_date) would do:
 -- the start the schedule gives (the previous period's projected end, the day after), and
 -- whether the move to p_start_date (default: that scheduled start) would be accepted now
--- (refusal: its message code); interest_removed: the debts whose interest entry of the period
--- the move removes (opened on or after the new start: D-386). Computed with the write's own
--- checks; changes nothing (like get_current_period, it first catches up).
+-- (refusal: its message code; interest_before_opening when the new start is on or before the
+-- opening of a debt with an interest entry in the period, D-467); interest_removed: always 0
+-- (a move never removes interest any more; kept for the answer's shape). Computed with the
+-- write's own checks; changes nothing (like get_current_period, it first catches up).
 create or replace function public.preview_move_period_start(p_period_id uuid, p_start_date date default null)
 returns table (period_id uuid, scheduled_start date, accepted boolean, refusal text, interest_removed integer)
 language plpgsql
@@ -2930,13 +2932,18 @@ begin
     end if;
     perform private.assert_length(v_previous.start_date, v_start - 1);
     perform private.assert_length(v_start, v_period.end_date);
+    -- R-DEBT-340: as the write's trigger refuses it
+    if v_start < v_period.start_date
+       and exists (select 1 from public.debt_interest as i join public.debts as d on d.id = i.debt_id
+                   where i.period_id = v_period.id and d.opened_on >= v_start) then
+      raise exception 'interest_before_opening' using errcode = 'P0001';
+    end if;
   exception when sqlstate 'P0001' then
     v_refusal := sqlerrm;
   end;
   return query select v_period.id, v_scheduled, v_refusal is null and v_start <> v_period.start_date, coalesce(v_refusal,
     case when v_start = v_period.start_date then 'already_on_schedule' end),
-    (select pg_catalog.count(*)::integer from public.debt_interest as i join public.debts as d on d.id = i.debt_id
-     where i.period_id = v_period.id and d.opened_on >= v_start and v_refusal is null and v_start < v_period.start_date);
+    0;
 end;
 $$;
 

@@ -68,7 +68,7 @@ insert into arg_values values
   ('p_first_charge_date', '2026-12-01'), ('p_principal', '100'), ('p_monthly_payment', '10'), ('p_balance', '50'),
   ('p_pay_day', '25'), ('p_pay_date', '2026-11-10'), ('p_category_ids', '{' || tests.id('o_cat') || '}'),
   ('p_from_period_id', (select id::text from public.periods where budget_id = tests.id('o') and seq = 1)),
-  ('p_batch_id', tests.id('o_batch')::text), ('p_chunk', '2'), ('p_source', 'csv'),
+  ('p_batch_id', tests.id('o_batch')::text), ('p_chunk', '2'), ('p_part', '2'), ('p_source', 'csv'),
   ('p_rows', '[{"date": "2026-11-16", "amount": 700, "direction": "debit"}]'), ('p_fragment', 'cafe'),
   ('p_rule_id', tests.id('o_rule')::text), ('p_token', (select token from o_token)),
   ('p_account_id', tests.id('o_acc1')::text), ('p_from_account_id', tests.id('o_acc1')::text),

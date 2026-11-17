@@ -1,7 +1,7 @@
 -- The screen review's asks of steps 4 and 5 (a retried add records once, "over the plan" in the
 -- comparison, the budget's first day), and the cases the step 4 and 5 mutants showed untested.
 begin;
-select plan(33);
+select plan(34);
 
 select tests.create_user('ann', 'Ann');
 select tests.create_user('bob', 'Bob');
@@ -155,7 +155,7 @@ select tests.remember('pd_debt', (select id from public.create_debt(tests.id('fd
 select count(*) from public.create_category(tests.id('fd'), 'Car loan', tests.id('pd'), 500, p_other_name => 'Other');
 select is((select c.name from public.debt_versions as v join public.categories as c on c.id = v.category_id where v.debt_id = tests.id('pd_debt')),
   'Other', 'R-CATEGORY-110: the first subcategory moves the parent''s debts to "Other"');
--- a moved start removes only the interest of debts not opened before it (D-386)
+-- a moved start may not go before the opening of a debt with interest in the period (D-467)
 select tests.remember('mv', public.create_budget('Moved', 'Salary', 500000, 25, 'nearest', '2026-09-01'));
 select tests.remember('mv_cat', (select id from public.create_category(tests.id('mv'), 'Loans', p_amount => 1000,
   p_from_period_id => (select id from public.periods where budget_id = tests.id('mv') and seq = 1))));
@@ -167,9 +167,10 @@ select tests.set_today('2026-11-26');
 select tests.authenticate_as('ann');
 select public.ensure_periods(tests.id('mv'));
 select tests.remember('mv_p', (select id from public.periods where budget_id = tests.id('mv') and start_date = '2026-11-25'));
-select public.move_period_start(tests.id('mv_p'), (select revision from public.periods where id = tests.id('mv_p')), '2026-11-10');
+select throws_ok(format('select public.move_period_start(%L, %s, %L)', tests.id('mv_p'), (select revision from public.periods where id = tests.id('mv_p')), '2026-11-10'),
+  'P0001', 'interest_before_opening', 'R-DEBT-340: a debt opened after the new start, with interest in the period, refuses the move');
 select is((select array_agg(d.name order by d.name) from public.debt_interest as i join public.debts as d on d.id = i.debt_id where i.period_id = tests.id('mv_p')),
-          array['Old'], 'R-DEBT-131: the debt opened before the new start keeps its interest; the one opened after loses it');
+          array['New', 'Old'], 'R-DEBT-340: both debts keep their interest');
 
 -- several catch-ups within one statement share one step (here a step of one period)
 select tests.clear_authentication();

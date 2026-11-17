@@ -4,9 +4,22 @@ import { en } from '@/locales/en/translation'
 import { fr } from '@/locales/fr/translation'
 import contract from '../../docs/database.md?raw'
 
-/** The stable messages listed in the "Error messages" table of the contract. */
+/**
+ * The stable messages of the contract: its "Error messages" table, and the table of messages
+ * the step 6 fix round 2 listed apart until the screens knew them (they do now).
+ */
 function contractCodes(): string[] {
-  const table = contract.slice(contract.indexOf('## Error messages'))
+  return [
+    ...tableCodes('## Error messages\n'),
+    ...tableCodes('## Error messages added by the step 6 fix round 2'),
+  ]
+}
+
+/** The codes of the table under one heading of the contract. */
+function tableCodes(heading: string): string[] {
+  const at = contract.indexOf(heading)
+  if (at === -1) return []
+  const table = contract.slice(at)
   const end = table.indexOf('\n## ', 4)
   const rows = (end === -1 ? table : table.slice(0, end))
     .split('\n')

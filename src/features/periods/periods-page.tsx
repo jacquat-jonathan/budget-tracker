@@ -526,7 +526,8 @@ function BoundaryForm({
   const valid = typed && !outside
   const budgetId = budget.id
   const reopenPreview = useReopenPreview(budgetId, action.kind === 'reopen')
-  // R-PERIOD-320: a start on or before a debt's opening removes its interest here (D-386).
+  // R-DEBT-340: a start on or before the opening of a debt with interest in this period is
+  // refused (D-467); the preview says so before the member confirms.
   const moveTo =
     action.kind === 'moveSchedule'
       ? action.start
@@ -545,7 +546,6 @@ function BoundaryForm({
         }),
       )[0] ?? null,
   })
-  const interestRemoved = moveTo !== null ? (movePreview.data?.interest_removed ?? 0) : 0
 
   /** The resulting dates, worded from the user's point of view, and how to undo. */
   const preview: { result: string | null; undo: string } = (() => {
@@ -642,16 +642,17 @@ function BoundaryForm({
           </Alert>
         )}
         {action.kind === 'reopen' && <ReopenPreview preview={reopenPreview} />}
+        {movePreview.data?.accepted === false &&
+          movePreview.data.refusal === 'interest_before_opening' && (
+            <Alert variant="destructive" data-testid="move-refused">
+              <AlertDescription>{t('errors.db.interest_before_opening')}</AlertDescription>
+            </Alert>
+          )}
         {preview.result && (
           <Alert data-testid="boundary-preview">
             <CalendarRangeIcon aria-hidden />
             <AlertDescription>
               <p>{preview.result}</p>
-              {interestRemoved > 0 && (
-                <p data-testid="interest-removed">
-                  {t('periods.preview.interestRemoved', { count: interestRemoved })}
-                </p>
-              )}
               <p className="text-muted-foreground">{preview.undo}</p>
             </AlertDescription>
           </Alert>

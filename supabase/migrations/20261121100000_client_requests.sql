@@ -13,7 +13,9 @@
 -- idempotent by batch and chunk.
 --
 -- Each call keeps its whole implementation, moved to the private schema under the same name;
--- the public function checks the id under the budget lock, calls it and records the ids.
+-- the public function checks membership, then the id under the budget lock, calls it and
+-- records the ids. A replay answers only to a current member of the budget, and only rows of
+-- that budget (M-1).
 
 -- ===========================================================================
 -- The requests seen (one row per client id), kept 7 days
@@ -85,8 +87,11 @@ begin
 end;
 $$;
 
--- Before the id is looked at: a budget far behind answers catching_up without the lock (D-387),
--- then the budget lock, so a retry waits for the first call and finds what it recorded.
+-- Before the id is looked at (M-1, R-APP-340): membership first, so a signed-in outsider or a
+-- removed member gets budget_not_found for every budget and every client id, known or not,
+-- whether the budget is far behind or not; then a budget far behind answers catching_up
+-- without the lock (D-387); then the budget lock, so a retry waits for the first call and finds
+-- what it recorded; then membership again (a member removed while this call waited).
 create function private.client_request_lock(p_budget_id uuid)
 returns void
 language plpgsql
@@ -94,8 +99,10 @@ volatile
 set search_path = ''
 as $$
 begin
+  perform private.assert_member(p_budget_id);
   perform private.catch_up_gate(p_budget_id);
   perform private.lock_budget(p_budget_id);
+  perform private.assert_member(p_budget_id);
 end;
 $$;
 
@@ -143,7 +150,7 @@ begin
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'add_transaction', v_digest);
   if v_ids is not null then
-    return query select t.* from public.transaction_list as t where t.id = any (v_ids);
+    return query select t.* from public.transaction_list as t where t.id = any (v_ids) and t.budget_id = p_budget_id;
     return;
   end if;
   v_ids := '{}';
@@ -186,7 +193,8 @@ begin
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'add_income', v_digest);
   if v_ids is not null then
-    return v_ids[1];
+    -- like the other calls: an income removed since is not answered (null)
+    return (select i.id from public.incomes as i where i.id = v_ids[1] and i.budget_id = p_budget_id);
   end if;
   v_id := private.add_income(p_budget_id, p_name, p_amount, p_pay_day, p_weekend_rule, p_user_id, p_from_period_id, p_account_id);
   perform private.client_request_record(p_client_id, p_budget_id, 'add_income', v_digest, array[v_id]);
@@ -223,7 +231,7 @@ begin
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'create_category', v_digest);
   if v_ids is not null then
-    return query select c.* from public.category_overview as c where c.id = any (v_ids)
+    return query select c.* from public.category_overview as c where c.id = any (v_ids) and c.budget_id = p_budget_id
                  order by pg_catalog.array_position(v_ids, c.id);
     return;
   end if;
@@ -265,7 +273,7 @@ begin
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'create_subscription', v_digest);
   if v_ids is not null then
-    return query select s.* from public.subscription_overview as s where s.id = any (v_ids);
+    return query select s.* from public.subscription_overview as s where s.id = any (v_ids) and s.budget_id = p_budget_id;
     return;
   end if;
   v_ids := '{}';
@@ -306,7 +314,7 @@ begin
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'create_debt', v_digest);
   if v_ids is not null then
-    return query select d.* from public.debt_overview as d where d.id = any (v_ids);
+    return query select d.* from public.debt_overview as d where d.id = any (v_ids) and d.budget_id = p_budget_id;
     return;
   end if;
   v_ids := '{}';
@@ -346,7 +354,7 @@ begin
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'create_account', v_digest);
   if v_ids is not null then
-    return query select a.* from public.account_overview as a where a.id = any (v_ids);
+    return query select a.* from public.account_overview as a where a.id = any (v_ids) and a.budget_id = p_budget_id;
     return;
   end if;
   v_ids := '{}';
@@ -394,7 +402,7 @@ begin
   perform private.client_request_lock(p_budget_id);
   v_ids := private.client_request_replay(p_client_id, p_budget_id, 'create_transfer', v_digest);
   if v_ids is not null then
-    return query select t.* from public.transfer_overview as t where t.id = any (v_ids);
+    return query select t.* from public.transfer_overview as t where t.id = any (v_ids) and t.budget_id = p_budget_id;
     return;
   end if;
   v_ids := '{}';

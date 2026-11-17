@@ -225,6 +225,20 @@ const core = {
     generic: 'Something went wrong. Please try again.',
     db: {
       not_authenticated: 'Your session has ended. Sign in again.',
+      interest_before_opening:
+        'The period’s start cannot move onto or before the opening of a debt that has interest in that period: choose a later start.',
+      import_limit_reached:
+        'This budget has imported as much as it can for now (20’000 rows or 50 imports within 24 hours, or 2’000 imports kept). Nothing of this part was written. Try again tomorrow, or undo an import you no longer need.',
+      chunk_expired:
+        'That part was already recorded, but its answer is no longer kept: it is not imported again. See the import’s rows in the history instead.',
+      token_busy:
+        'The import token is busy with another call: nothing was done. Send the same part again in a moment.',
+      imports_busy:
+        'Imports are busy right now: nothing was done. Send the same part again in a moment.',
+      budget_busy:
+        'The budget is busy with another import: nothing was written. Send the same part again.',
+      call_cancelled:
+        'The import took too long and was cancelled: nothing was written. Send the same part again.',
       budget_not_found: 'This budget no longer exists, or you are no longer one of its members.',
       income_not_found: 'This income no longer exists.',
       period_not_found: 'This period no longer exists.',

@@ -10,6 +10,14 @@ import type { ParseKeys } from 'i18next'
 /** The stable messages of docs/database.md, "Error messages". */
 export const DB_ERROR_CODES = [
   'not_authenticated',
+  // Step 6 fix round 2 (D-451 to D-467): their own section of docs/database.md.
+  'interest_before_opening',
+  'import_limit_reached',
+  'chunk_expired',
+  'token_busy',
+  'imports_busy',
+  'budget_busy',
+  'call_cancelled',
   'budget_not_found',
   'income_not_found',
   'period_not_found',

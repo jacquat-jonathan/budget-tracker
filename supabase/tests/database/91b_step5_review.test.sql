@@ -4,7 +4,7 @@
 -- average, memberships and invitations bounded, the held charge's preview, and the cases the
 -- earlier tests left open.
 begin;
-select plan(62);
+select plan(63);
 
 create extension if not exists dblink with schema extensions;
 select tests.create_user('ann', 'Ann');
@@ -25,19 +25,21 @@ select tests.authenticate_as('ann');
 select public.ensure_periods(tests.id('m1'));
 select tests.remember('m1_p', (select id from public.periods where budget_id = tests.id('m1') and start_date = '2026-11-25'));
 select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 1, 'setup: the new period has the debt''s interest');
-select is((select row(accepted, interest_removed)::text from public.preview_move_period_start(tests.id('m1_p'), '2026-11-10')),
-          row(true, 1)::text, 'R-DEBT-131: the preview of a move to before the opening says one debt''s interest goes');
-select is((select interest_removed from public.preview_move_period_start(tests.id('m1_p'), '2026-11-20')), 0,
-  'R-DEBT-131: a move that stays after the opening removes none');
-select public.move_period_start(tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-10');
-select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 0,
-  'R-DEBT-131: moved to before the opening, the period has no interest for the debt');
+select is((select row(accepted, refusal, interest_removed)::text from public.preview_move_period_start(tests.id('m1_p'), '2026-11-10')),
+          row(false, 'interest_before_opening', 0)::text, 'R-DEBT-340: the preview of a move to before the opening says it is refused');
+select is((select row(accepted, interest_removed)::text from public.preview_move_period_start(tests.id('m1_p'), '2026-11-20')), row(true, 0)::text,
+  'R-DEBT-340: a move that stays after the opening is accepted');
+select throws_ok(format('select public.move_period_start(%L, %s, %L)', tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-10'),
+  'P0001', 'interest_before_opening', 'R-DEBT-340: a move to before the opening of a debt with interest in the period is refused');
+select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 1,
+  'R-DEBT-340: and the period keeps its interest');
 select is((select kind from public.get_debt_history(tests.id('m1_debt'), 1)), 'opened', 'R-DEBT-131: the history starts with the opening');
 select is_empty(format('select * from tests.step4_violations(%L)', tests.id('m1')), 'R-DEBT-131: and the step 4 invariants hold');
--- the other way: moved later again, nothing is added (interest is computed once, at creation)
+-- a move that stays after the opening, and back: nothing is lost
+select public.move_period_start(tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-20');
 select public.move_period_start(tests.id('m1_p'), (select revision from public.periods where id = tests.id('m1_p')), '2026-11-25');
-select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 0,
-  'R-DEBT-131: a start moved back after the opening adds no interest afterwards');
+select is((select count(*)::integer from public.debt_interest where period_id = tests.id('m1_p')), 1,
+  'R-DEBT-340: a start moved and moved back keeps the period''s interest');
 
 -- ===========================================================================
 -- S1: far behind, only ensure_periods and get_current_period work (R-PERIOD-250, D-387)
@@ -69,6 +71,9 @@ select * from extensions.dblink('holder', format('select pg_advisory_xact_lock(h
 select tests.authenticate_as('ann');
 create temp table waited (what text, ms numeric) on commit drop;
 grant insert, select on waited to authenticated;
+-- a regression that waits without bound fails here in seconds instead of hanging the run
+set local lock_timeout = '10s';
+set local statement_timeout = '30s';
 do $$
 declare
   t timestamptz := clock_timestamp();
@@ -76,16 +81,24 @@ begin
   begin
     perform public.ensure_periods(tests.id('far'));
     insert into waited values ('no error', 0);
-  exception when sqlstate 'P0001' then
-    insert into waited values (sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+  exception
+    when sqlstate 'P0001' then
+      insert into waited values (sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+    when lock_not_available or query_canceled then
+      insert into waited values ('waited without bound', extract(epoch from clock_timestamp() - t) * 1000);
   end;
   t := clock_timestamp();
   begin
     perform public.get_period_trend(tests.id('far'));
-  exception when sqlstate 'P0001' then
-    insert into waited values ('read ' || sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+  exception
+    when sqlstate 'P0001' then
+      insert into waited values ('read ' || sqlerrm, extract(epoch from clock_timestamp() - t) * 1000);
+    when lock_not_available or query_canceled then
+      insert into waited values ('read waited without bound', extract(epoch from clock_timestamp() - t) * 1000);
   end;
 end $$;
+set local lock_timeout = 0;
+set local statement_timeout = 0;
 select is((select what from waited where what not like 'read%'), 'catching_up',
   'R-PERIOD-250: ensure_periods waiting for another session''s lock answers catching_up, not the statement timeout');
 select ok((select ms between 1500 and 6000 from waited where what not like 'read%'), 'R-PERIOD-250: after waiting about two seconds');
