@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { dbErrorKey, isNotFoundError, type DbErrorOverrides } from '@/lib/db-errors'
+import { assertOnline } from '@/lib/online'
 
 export interface AppMutationOptions<TData, TVariables> {
   mutationFn: (variables: TVariables) => Promise<TData>
@@ -67,7 +68,12 @@ export function useAppMutation<TData, TVariables = void>({
   const errorMessage = useErrorMessage(errorMessages)
 
   const mutation = useMutation<TData, unknown, TVariables>({
-    mutationFn,
+    // Offline, nothing is sent and nothing waits to go out later (D-634).
+    mutationFn: (variables) => {
+      assertOnline()
+      return mutationFn(variables)
+    },
+    networkMode: 'always',
     onSuccess: async (data, variables) => {
       const message = success?.(data, variables)
       if (message) toast.success(message)

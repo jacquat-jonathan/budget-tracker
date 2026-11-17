@@ -201,6 +201,7 @@ const core = {
       samePassword: 'Choose a password different from your current one.',
       rateLimited: 'Too many attempts. Wait a moment, then try again.',
       network: 'Cannot reach the server. Check your connection and try again.',
+      offline: 'You are offline: nothing was sent. Try again once the connection is back.',
       generic: 'Something went wrong. Please try again.',
     },
     accountSwitched: {
@@ -223,6 +224,16 @@ const core = {
     description: 'An unexpected error occurred. Reloading the page usually helps.',
     reload: 'Reload the page',
   },
+  offline: {
+    notice: 'You are offline.',
+    noticeDetail: 'What is on screen stays; nothing can be saved until the connection is back.',
+  },
+  pageLoad: {
+    title: 'This page could not be loaded',
+    offline: 'You are offline. It loads by itself once the connection is back.',
+    online: 'Its files could not be downloaded. Check your connection and try again.',
+    retry: 'Try again',
+  },
   config: {
     missingTitle: 'The app is not configured',
     missingDescription:
@@ -238,6 +249,8 @@ const core = {
     invalidValue: 'One of the values is not accepted. Check the form and try again.',
     busy: 'The budget is busy and took too long to answer: nothing was changed. Try again in a moment.',
     network: 'Cannot reach the server. Check your connection and try again.',
+    offline:
+      'You are offline: nothing was saved. Try again once the connection is back; what you typed is still here.',
     networkAdd:
       'The connection failed before the answer came back. What you entered is still here: save again once you are connected. It is safe: it will be recorded only once, even if the first save went through.',
     networkSave:

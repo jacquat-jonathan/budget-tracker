@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-609 rules (598 active, 0 planned), 24 conventions, 379 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+612 rules (601 active, 0 planned), 24 conventions, 380 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -302,6 +302,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SHELL_
   - Related: R-APP-440, R-APP-441, R-ACCOUNT-446
   - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
+- **R-APP-530** While the browser is offline, every page (signed in or not) shows a notice "You are offline." saying that what is on screen stays and nothing can be saved until the connection is back, in a polite live region; it goes when the browser is online again.
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-531, R-APP-532, D-634
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/offline-notice.tsx
+- **R-APP-531** A save tried while the browser is offline is refused at once, every form alike: nothing is sent, nothing waits to go out later, the button is free again, what was typed stays, and the form says "You are offline: nothing was saved. Try again once the connection is back" (sign-in and the other account forms: "nothing was sent").
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-530, D-634, R-APP-007
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/lib/online.ts; code: src/hooks/use-app-mutation.ts
+- **R-APP-532** A page whose code (or strings) could not be downloaded says "This page could not be loaded" inside the app's layout, says whether the browser is offline, offers "Try again", and tries again by itself when the browser comes back online; a failed download is never kept, so the retry downloads it again. Any other error still goes to the error page.
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-530, D-634
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/app/lazy-page.ts; code: src/components/page-load-boundary.tsx
 
 ### Accounts and sign-in
 
@@ -7841,6 +7853,20 @@ The row picker and the "one category for several" bar use update_transaction the
 - Continuing after a refusal: the brief asks to stop at the first failure.
 
 Related: R-IMPORT-530, Q-366
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-634 Offline, a save is refused with "nothing was saved"; it never waits to go out later (accepted)
+
+Writes no longer pause while the browser is offline (TanStack Query's default for mutations): every write through the app's one mutation hook, and the review's category calls, first checks navigator.onLine and, offline, is refused before anything is sent, with "You are offline: nothing was saved"; the form keeps what was typed. Reads still wait for the connection and resume by themselves, under an app-wide "You are offline" notice. The import's sending loop keeps its own handling of network failures (it retries a part, then stops and says what was recorded, R-IMPORT-369).
+
+**Why:** In the walk-through a save offline left the button on "Saving…" and the write went out by itself when the connection returned, possibly minutes later and after the household had changed the same record elsewhere; a budget write the user no longer sees happening is more surprising than a clear refusal. navigator.onLine false is reliable (offline for sure); true does not prove a connection, and a failed call then says it could not reach the server, as before.
+
+**Rejected:**
+
+- Holding the write and saying it will go out once the connection is back: the household may close the tab or change the record meanwhile, and a concurrency refusal would then arrive out of context.
+
+Related: R-APP-530, R-APP-531, R-APP-532
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 

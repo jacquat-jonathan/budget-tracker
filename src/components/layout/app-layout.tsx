@@ -1,10 +1,11 @@
 import { Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Outlet, useMatches } from 'react-router'
+import { Link, Outlet, useLocation, useMatches } from 'react-router'
 
 import type { PageHandle } from '@/app/navigation'
 import { paths } from '@/app/paths'
 import { FullPageSpinner } from '@/components/full-page-spinner'
+import { PageLoadBoundary } from '@/components/page-load-boundary'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { useBudgets } from '@/features/budgets/current-budget-context'
 import {
@@ -70,6 +71,7 @@ function AppBreadcrumb() {
 /** Signed-in shell: collapsible sidebar, header with breadcrumb, and the routed page. */
 export function AppLayout() {
   const { current } = useBudgets()
+  const { pathname } = useLocation()
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={readSidebarOpen()}>
@@ -90,12 +92,16 @@ export function AppLayout() {
             <LinkErrorAlert />
             <AccountSwitchedAlert />
             <BudgetLostAlert />
-            <Suspense fallback={<FullPageSpinner inline />}>
-              {/* R-BUDGET-053: a page belongs to one budget. When the current budget changes
-                  (switched, deleted, or I was removed) the page is rebuilt, so no dialog or
-                  form opened for one budget can save into another. */}
-              <Outlet key={current?.id ?? 'none'} />
-            </Suspense>
+            {/* A page whose code could not be downloaded offers to try again, inside the
+                layout; the boundary starts afresh on another page. */}
+            <PageLoadBoundary key={pathname}>
+              <Suspense fallback={<FullPageSpinner inline />}>
+                {/* R-BUDGET-053: a page belongs to one budget. When the current budget changes
+                    (switched, deleted, or I was removed) the page is rebuilt, so no dialog or
+                    form opened for one budget can save into another. */}
+                <Outlet key={current?.id ?? 'none'} />
+              </Suspense>
+            </PageLoadBoundary>
           </div>
         </SidebarInset>
       </SidebarProvider>

@@ -27,6 +27,7 @@ import {
   reviewRowLabel,
 } from '@/features/import/review-categorise-call'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
+import { assertOnline } from '@/lib/online'
 
 /** The rows chosen for one category at once, shared by the rows and the bar above them. */
 interface Selection {
@@ -135,6 +136,19 @@ function BulkBar({
 
   const run = async () => {
     const queue = chosen
+    const first = queue[0]
+    if (!first) return
+    try {
+      assertOnline()
+    } catch (error) {
+      setOutcome({
+        total: queue.length,
+        saved: 0,
+        stopped: { row: first, reason: errorMessage(error), categorySaved: false },
+        notSaved: queue,
+      })
+      return
+    }
     onRunning(true)
     setOutcome(null)
     setDone(0)
@@ -333,6 +347,7 @@ export function RowCategoryPicker({
   const pick = async (categoryId: string) => {
     setPending(true)
     try {
+      assertOnline()
       const after = await categoriseAndConfirm(row, categoryId)
       toast.success(t('import.review.categorisedConfirmed'))
       onSaved?.(row, after)

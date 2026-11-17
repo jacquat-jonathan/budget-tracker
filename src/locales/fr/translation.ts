@@ -207,6 +207,8 @@ const core: Omit<Translation, LazyKey> = {
       samePassword: 'Choisissez un mot de passe différent de l’actuel.',
       rateLimited: 'Trop de tentatives. Patientez un instant, puis réessayez.',
       network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+      offline:
+        'Vous êtes hors ligne : rien n’a été envoyé. Réessayez une fois la connexion revenue.',
       generic: 'Une erreur s’est produite. Veuillez réessayer.',
     },
     accountSwitched: {
@@ -229,6 +231,17 @@ const core: Omit<Translation, LazyKey> = {
     description: 'Une erreur inattendue est survenue. Recharger la page suffit généralement.',
     reload: 'Recharger la page',
   },
+  offline: {
+    notice: 'Vous êtes hors ligne.',
+    noticeDetail:
+      'Ce qui est affiché reste ; rien ne peut être enregistré avant le retour de la connexion.',
+  },
+  pageLoad: {
+    title: 'Cette page n’a pas pu être chargée',
+    offline: 'Vous êtes hors ligne. Elle se charge d’elle-même dès le retour de la connexion.',
+    online: 'Ses fichiers n’ont pas pu être téléchargés. Vérifiez votre connexion et réessayez.',
+    retry: 'Réessayer',
+  },
   config: {
     missingTitle: 'L’application n’est pas configurée',
     missingDescription:
@@ -245,6 +258,8 @@ const core: Omit<Translation, LazyKey> = {
     invalidValue: 'Une des valeurs n’est pas acceptée. Vérifiez le formulaire et réessayez.',
     busy: 'Le budget est occupé et a mis trop de temps à répondre : rien n’a été changé. Réessayez dans un moment.',
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.',
+    offline:
+      'Vous êtes hors ligne : rien n’a été enregistré. Réessayez une fois la connexion revenue ; ce que vous avez saisi est toujours là.',
     networkAdd:
       'La connexion a été coupée avant la réponse. Ce que vous avez saisi est toujours là : enregistrez à nouveau une fois connecté. Sans risque : ce sera enregistré une seule fois, même si le premier enregistrement a abouti.',
     networkSave:
