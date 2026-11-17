@@ -8702,17 +8702,18 @@
       "area": "account",
       "statement": "The screens name a checklist occurrence by its transfer, its period, its key and its kind together: rows, the focus after a mark, the rows kept in place, the folded settled rows and the preview rows are keyed that way, and every mark call sends the row’s period, key and kind, so two rows of one transfer with one key in one period are each marked and undone on their own; a refusal occurrence_required says the list changed and reads it again; a row says its kind in words only where another row of the same transfer would otherwise read the same.",
       "feature": "F-MONEYFLOW",
-      "status": "active",
+      "status": "retired",
       "enforcement": "test",
       "related": ["R-ACCOUNT-446", "R-ACCOUNT-460", "D-560", "D-600"],
       "source": [
         "owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17"
-      ]
+      ],
+      "retiredBecause": "D-610 and D-617 name a period's own occurrence by its number, not a key date: R-ACCOUNT-551 (identity) and R-ACCOUNT-552 (every row says what it is for, D-650) replace it."
     },
     {
       "id": "R-ACCOUNT-501",
       "area": "account",
-      "statement": "The create and edit previews of a transfer say on a row whose occurrence is already recorded (already_recorded) that it stays as it is, and say a transaction removed while one is recorded at once as possibly one moved to its new due date, counted once in each, never as a loss.",
+      "statement": "The create and edit previews of a transfer say on a row whose occurrence is already recorded (already_recorded) that it stays as it is.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
@@ -8848,6 +8849,90 @@
       "source": [
         "owner-request: coordinator addition to database fix round 5 (the money flow and the other pages say different figures), 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-550",
+      "area": "account",
+      "statement": "The transfer form offers when it runs as three plain choices, the occurrence kinds: on the main income's payday (once per period), on a named income's payday (each scheduled pay date of the income named, which must then be chosen) and on a fixed day of the month; the weekend rule (none, the working day before, the next, the nearest) is offered and sent only with a fixed day, never with a payday, and an edit from one kind to another is previewed before it can be saved.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-610", "D-611", "D-652", "R-ACCOUNT-513", "R-APP-440"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-551",
+      "area": "account",
+      "statement": "The screens name an occurrence by its transfer, its period, its kind and its date (a dated occurrence) or its period's number (a period's own): rows, the focus after a mark, the rows kept in place and the preview rows are keyed that way, and every mark call sends the row's kind with its date or its number, so each row is marked, skipped, said not to have happened and undone on its own; a refusal occurrence_required says the list changed and reads it again.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["R-ACCOUNT-510", "R-ACCOUNT-518", "D-617", "D-650", "R-ACCOUNT-460"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-552",
+      "area": "account",
+      "statement": "Every checklist row and every previewed occurrence says what it is for, from what the row carries: a period's own as its period's dates, a named income's payday as that income and its scheduled date, a fixed day as its scheduled date and that the weekend rule moved it when its due date differs; a mark kept with another period's number says it is not this period's; the buttons of a transfer listed more than once in a period say which occurrence they act on.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-650", "R-ACCOUNT-518", "R-ACCOUNT-005"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-553",
+      "area": "account",
+      "statement": "Where the kind is chosen, the transfer form says in a few words how the main income's payday differs from a named income's (the day the main salary really arrives, against that income's own calendar), that a transfer on the main income's payday runs once per period so a stretched period can skip a calendar month (Q-358), and gives the contract's example on request.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-610", "D-652", "Q-358"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-554",
+      "area": "account",
+      "statement": "A preview that counts transfer transactions says a transaction moved to its new due date as one move: when every removal and creation is a move it says only the move; otherwise it says the removals and creations, then how many of them are moves, counted in both; wherever a removal is counted it says that a transaction a member edited goes too when its occurrence itself goes (Q-356). Only the database's counts are shown, compared, never added or subtracted.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-614", "D-654", "R-ACCOUNT-517", "Q-356", "R-ACCOUNT-303"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-555",
+      "area": "account",
+      "statement": "The transfer edit form says that “from now” means from the start of the current period, with its date, not from today: this period's occurrences follow the new terms too (Q-357).",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["Q-357", "R-VERSION-071"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-556",
+      "area": "account",
+      "statement": "The make-primary dialog, when payday transfers are planned, says that only the periods' boundaries change, that a transfer on a named income keeps that income's own paydays and that a transfer on the main income's payday stays once per period; its counts are the preview's.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-610", "D-651", "R-ACCOUNT-512"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
       ]
     }
   ],
@@ -13954,11 +14039,12 @@
         "Naming the income (“on Ben’s payday”): the checklist row does not carry the income of its occurrence, and the transfer’s income now may not be the one an older occurrence had.",
         "Showing the key: keys are identifiers, never dates to show (D-490)."
       ],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["D-560", "R-ACCOUNT-500", "D-504"],
       "source": [
         "owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17"
-      ]
+      ],
+      "supersededBy": "D-650"
     },
     {
       "id": "D-601",
@@ -13968,11 +14054,12 @@
       "rejected": [
         "Wording every removal and creation pair as a move: the counts can be a removal of one occurrence and a creation of another."
       ],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["D-562", "D-563", "D-568", "R-ACCOUNT-501", "Q-350", "D-505"],
       "source": [
         "owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17"
-      ]
+      ],
+      "supersededBy": "D-651"
     },
     {
       "id": "D-602",
@@ -14142,6 +14229,61 @@
       "source": [
         "owner-request: coordinator addition to database fix round 5 (the money flow and the other pages say different figures), 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-650",
+      "title": "Every checklist and preview row says what its occurrence is for (supersedes D-600)",
+      "decision": "With three kinds whose identities are a period's number or a date (D-610, D-617), every row says what it is for, not only twins: “for the period 23.10.2026 to 24.11.2026” (a period's own, its number looked up among the periods the page has), “on the payday of “Ben”, 10.12.2026” (income_name and the scheduled date), “fixed day 01.12.2026, moved off the weekend” (when the due date differs from the scheduled date); in French « pour la période du … au … », « au jour de paie de « Ben », le … », « jour fixe du …, déplacé hors du week-end ». A mark kept with another period's number is listed by the latest period only when its own period no longer exists (a reopen), so it says “kept from the period a reopen merged into this one, not this period’s own”. The buttons of a transfer listed more than once complete its name with the same words. A preview row of a named income's payday names the income the form chose (preview rows carry no income name).",
+      "why": "A 'period' row has no date to show, and two rows of one transfer can share a due date (two pay dates capped at the period's end) or be of two kinds on one date: saying the kind only for twins (D-600) no longer tells them apart, and the period's number is not a thing to show.",
+      "rejected": [
+        "Showing the period's number: an identifier, not something a household reads.",
+        "Saying the kind only where twins read the same (D-600): the kind words no longer name a row once two rows of one kind share a due date."
+      ],
+      "status": "accepted",
+      "related": ["D-600", "D-610", "D-617", "R-ACCOUNT-552"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-651",
+      "title": "The make-primary dialog and the transfer previews say what round 5 does (supersedes D-601)",
+      "decision": "The make-primary dialog says that only the periods' boundaries change and nothing about the transfers is checked again; a transfer on a named income keeps that income's own paydays whichever is the main income; one on the main income's payday stays once per period and follows the new main income only through the periods' starts. It no longer says that nothing recorded changes (the moved end can move what the app recorded; the counts say so). The previews now count moves (D-614), so a move is said as a move (D-654) instead of a possibility.",
+      "why": "D-610 and the round-5 database: a switch changes only the boundaries (contract item 11); the old note's “follows the new primary income from its next payday” and “Nothing already recorded or ticked changes” were no longer exact.",
+      "rejected": [
+        "Keeping the D-601 wording: it describes the round-4 matching that D-610 removed."
+      ],
+      "status": "accepted",
+      "related": ["D-601", "D-610", "D-614", "R-ACCOUNT-556", "D-654"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-652",
+      "title": "The transfer form's choice is the occurrence kind",
+      "decision": "The form holds the kind ('period', 'income_payday', 'fixed_day') rather than the schedule: the schedule sent is 'day_of_month' for a fixed day and 'pay_date' otherwise; a named income's payday needs its income (validation.incomeRequired) and the income list no longer offers “The main income”; the offset is offered for both paydays; the weekend rule (default none) only for a fixed day, sent with it on create and with any edit of a fixed day's schedule. An edit to the main income's payday clears the income. The values typed for another kind are kept while the member switches, and sent only for the kind chosen.",
+      "why": "Three plain options a household understands map one to one onto what the database plans; “The main income” as an item in a list of incomes hid that it is another kind of schedule (once per period).",
+      "rejected": [
+        "A two-way choice (after payday or fixed day) with the main income as the first income: it reads as if the main income were just another income."
+      ],
+      "status": "accepted",
+      "related": ["D-610", "D-611", "R-ACCOUNT-550"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-654",
+      "title": "A moved transaction is said once, as a move",
+      "decision": "Where a preview counts removed, created and moved transfer transactions (the create and edit previews, a moved start, an income's new terms or a new main income, an early or expected salary): when removed and created both equal moved, only “It moves N transactions … to their new due dates” is said; otherwise the removed and created sentences are said and then “Of these, N are transactions moved to their new due dates: each counts once as removed and once as recorded.” The page compares the counts only; it never subtracts moved from removed.",
+      "why": "“1 removed, 1 created, 1 moved” reads as three things; subtracting would put a figure on the page that the database did not answer (C-LOGIC-003).",
+      "rejected": ["Showing removed minus moved: a figure worked out by the page."],
+      "status": "accepted",
+      "related": ["D-614", "R-ACCOUNT-554", "R-ACCOUNT-517"],
+      "source": [
+        "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
       ]
     }
   ],

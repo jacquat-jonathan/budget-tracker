@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { PreviewLoadFailed } from '@/components/preview-state'
 import { previewLoadFailed } from '@/lib/preview'
 import type { TransferPreview, TransferPreviewRow } from '@/features/transfers/transfer-queries'
-import { rowsNeedingKind } from '@/features/transfers/transfer-terms'
+import { useOccurrenceText } from '@/features/transfers/occurrence-text'
+import { TransferMoves } from '@/features/transfers/components/transfer-counts'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -27,6 +28,7 @@ export function TransferPreviewBox({
   firstDateInPast = false,
   fetching = false,
   onRetry,
+  incomeName = null,
 }: {
   preview: TransferPreview | undefined
   pending: boolean
@@ -40,11 +42,24 @@ export function TransferPreviewBox({
   firstDateInPast?: boolean
   fetching?: boolean
   onRetry?: () => void
+  /** The income a named income's payday follows, as the form chose it. */
+  incomeName?: string | null
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage({ category_to_categorise: 'transfers.errors.toCategorise' })
-  // D-600: a row says its kind only where another row would read the same (one due date).
-  const sayKind = rowsNeedingKind(preview?.rows ?? [], previewKey)
+  const occurrenceText = useOccurrenceText()
+  // R-ACCOUNT-552: every row says what it is for; a period's own one by the row's own period.
+  const describe = (row: TransferPreviewRow) =>
+    occurrenceText(
+      {
+        kind: row.occurrence_kind,
+        date: row.occurrence_date,
+        seq: row.occurrence_seq,
+        dueDate: row.due_date,
+        incomeName,
+      },
+      () => ({ start: row.start_date, end: row.end_date, own: true }),
+    )
   return (
     <section
       className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-sm"
@@ -83,12 +98,10 @@ export function TransferPreviewBox({
                 >
                   <span className="tabular-nums">
                     <time dateTime={row.due_date}>{formatCalendarDate(row.due_date)}</time>
-                    {sayKind.has(previewKey(row)) && (
-                      <span className="text-muted-foreground" data-testid="preview-kind">
-                        {' '}
-                        · {t(`transfers.checklist.kind.${row.occurrence_kind}`)}
-                      </span>
-                    )}
+                    <span className="text-muted-foreground" data-testid="preview-occurrence-for">
+                      {' '}
+                      · {describe(row)}
+                    </span>
                     {/* R-ACCOUNT-501: an occurrence already recorded stays as it was recorded. */}
                     {row.already_recorded && (
                       <span className="text-muted-foreground" data-testid="preview-recorded">
@@ -117,31 +130,25 @@ export function TransferPreviewBox({
           {preview.rows.some((row) => row.follows_primary) && (
             <p className="text-muted-foreground">{t('transfers.preview.followsPrimary')}</p>
           )}
-          {preview.createdAtOnce > 0 ? (
-            <p className="font-medium" data-testid="created-at-once">
-              {t('transfers.preview.createdAtOnce', { count: preview.createdAtOnce })}
-            </p>
-          ) : (
-            creating && (
-              <p className="text-muted-foreground" data-testid="nothing-past">
-                {recordsPast
-                  ? t('transfers.preview.nothingAtOnce')
-                  : t('transfers.preview.nothingBeforeToday')}
-              </p>
-            )
-          )}
-          {preview.transactionsRemoved > 0 && (
-            <p data-testid="transactions-removed">
-              {t('transfers.preview.transactionsRemoved', { count: preview.transactionsRemoved })}
-            </p>
-          )}
-          {/* D-601: the preview does not say which removed transaction is made again on a new
-              due date (R-ACCOUNT-462), so a move is said as a possibility, never as a loss. */}
-          {preview.transactionsRemoved > 0 && preview.createdAtOnce > 0 && (
-            <p className="text-muted-foreground" data-testid="preview-moved-note">
-              {t('transfers.preview.movedNote')}
-            </p>
-          )}
+          {preview.createdAtOnce > 0
+            ? !onlyMoves(preview) && (
+                <p className="font-medium" data-testid="created-at-once">
+                  {t('transfers.preview.createdAtOnce', { count: preview.createdAtOnce })}
+                </p>
+              )
+            : creating && (
+                <p className="text-muted-foreground" data-testid="nothing-past">
+                  {recordsPast
+                    ? t('transfers.preview.nothingAtOnce')
+                    : t('transfers.preview.nothingBeforeToday')}
+                </p>
+              )}
+          <TransferMoves
+            removed={preview.transactionsRemoved}
+            created={preview.createdAtOnce}
+            moved={preview.transactionsMoved}
+            words="preview"
+          />
           {preview.marksUnplanned > 0 && (
             <p data-testid="marks-unplanned">
               {t('transfers.preview.marksUnplanned', { count: preview.marksUnplanned })}
@@ -153,7 +160,16 @@ export function TransferPreviewBox({
   )
 }
 
-/** A previewed occurrence: its period (none when projected), key, kind and due date. */
+/** Every transaction removed and recorded is one moved: said once, as a move. */
+function onlyMoves(preview: TransferPreview) {
+  return (
+    preview.transactionsMoved > 0 &&
+    preview.transactionsRemoved === preview.transactionsMoved &&
+    preview.createdAtOnce === preview.transactionsMoved
+  )
+}
+
+/** A previewed occurrence: its period (none when projected), kind, date or number, due date. */
 function previewKey(row: TransferPreviewRow): string {
-  return `${(row.period_id as string | null) ?? row.start_date}|${row.occurrence_date}|${row.occurrence_kind}|${row.due_date}`
+  return `${(row.period_id as string | null) ?? row.start_date}|${row.occurrence_kind}|${(row.occurrence_date as string | null) ?? ''}|${(row.occurrence_seq as number | null) ?? ''}|${row.due_date}`
 }

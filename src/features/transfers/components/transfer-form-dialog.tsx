@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { InfoIcon } from 'lucide-react'
-import { useEffect, useId, useMemo } from 'react'
+import { ChevronDownIcon, InfoIcon } from 'lucide-react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useController, useForm, useWatch, type Control } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -15,6 +15,7 @@ import { NothingToSave } from '@/components/nothing-to-save'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,10 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from '@/components/ui/field'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { inForceIn, type Account } from '@/features/accounts/account-queries'
 import { TextField } from '@/features/auth/components/text-field'
 import { useBudgetEnded } from '@/features/budgets/budget-ended'
@@ -49,6 +53,7 @@ import { TransferPreviewBox } from '@/features/transfers/components/transfer-pre
 import { useCreateTransfer, useUpdateTransfer } from '@/features/transfers/transfer-mutations'
 import {
   TRANSFER_CADENCES,
+  TRANSFER_WEEKEND_RULES,
   usePreviewCreateTransfer,
   usePreviewUpdateTransfer,
   useTransferRecord,
@@ -59,7 +64,9 @@ import {
 import {
   createArgs,
   editArgs,
+  kindOf,
   needsFirstDate,
+  TRANSFER_KINDS,
   type TransferTermsBase,
 } from '@/features/transfers/transfer-terms'
 import { useTransferViews } from '@/features/transfers/transfer-views'
@@ -94,12 +101,13 @@ function transferSchema({
       toAccountId: z.string(),
       amount: rappenSchema({ max: MAX_TRANSFER }),
       mode: z.enum(['automatic', 'manual']),
-      schedule: z.enum(['pay_date', 'day_of_month']),
+      kind: z.enum(['period', 'income_payday', 'fixed_day']),
       incomeId: z.string(),
       offsetDays: z.number().int().min(0).max(31),
       cadence: z.enum(['monthly', 'quarterly', 'yearly']),
       dayOfMonth: z.number().int().min(1).max(31),
       firstDate: z.string(),
+      weekendRule: z.enum(['none', 'previous', 'next', 'nearest']),
       linked: z.boolean(),
       categoryId: z.string(),
       past: z.boolean(),
@@ -121,6 +129,10 @@ function transferSchema({
         })
       } else if (values.toAccountId === values.fromAccountId) {
         ctx.addIssue({ code: 'custom', path: ['toAccountId'], message: 'validation.sameAccount' })
+      }
+      // A named income's payday names its income.
+      if (values.kind === 'income_payday' && values.incomeId === '') {
+        ctx.addIssue({ code: 'custom', path: ['incomeId'], message: 'validation.incomeRequired' })
       }
       if (values.linked && values.categoryId === '') {
         ctx.addIssue({
@@ -194,6 +206,7 @@ function baseOf(transfer: Transfer): TransferTermsBase {
     category_id: transfer.category_id,
     cadence: transfer.cadence,
     first_date: transfer.first_date,
+    weekend_rule: transfer.weekend_rule,
   }
 }
 
@@ -204,12 +217,13 @@ function termsValues(base: TransferTermsBase) {
     toAccountId: base.to_account_id,
     amount: base.amount,
     mode: base.is_automatic ? ('automatic' as const) : ('manual' as const),
-    schedule: base.schedule,
+    kind: kindOf(base),
     incomeId: base.income_id ?? '',
     offsetDays: base.offset_days ?? 0,
     cadence: base.cadence ?? 'monthly',
     dayOfMonth: base.day_of_month ?? 1,
     firstDate: '',
+    weekendRule: base.weekend_rule ?? ('none' as const),
     linked: base.category_id !== null,
     categoryId: base.category_id ?? '',
   }
@@ -262,12 +276,13 @@ function TransferForm({
           toAccountId: '',
           amount: null,
           mode: 'automatic',
-          schedule: 'pay_date',
+          kind: 'period',
           incomeId: '',
           offsetDays: 0,
           cadence: 'monthly',
           dayOfMonth: 1,
           firstDate: '',
+          weekendRule: 'none',
           linked: false,
           categoryId: '',
         }),
@@ -279,7 +294,7 @@ function TransferForm({
     defaultValues: valuesOf(transfer),
   })
   const watched = useWatch({ control: form.control }) as Partial<Input>
-  const schedule = watched.schedule ?? 'pay_date'
+  const kind = watched.kind ?? 'period'
   const cadence = watched.cadence ?? 'monthly'
   const past = watched.past === true
   const fromPeriodId = watched.fromPeriodId ?? ''
@@ -331,6 +346,7 @@ function TransferForm({
           category_id: periodTerms.category_id,
           cadence: periodTerms.cadence as TransferCadence | null,
           first_date: periodTerms.first_date,
+          weekend_rule: periodTerms.weekend_rule,
         }
       : baseOf(transfer)
     : null
@@ -358,12 +374,10 @@ function TransferForm({
     value: account.id,
     label: account.name,
   }))
-  const incomeOptions = [
-    { value: '', label: t('transfers.fields.primaryIncome') },
-    ...incomes
-      .filter((income) => income.is_active || income.id === transfer?.income_id)
-      .map((income) => ({ value: income.id, label: income.name })),
-  ]
+  // A named income: one in force now, or the one the transfer names (D-426).
+  const incomeOptions = incomes
+    .filter((income) => income.is_active || income.id === transfer?.income_id)
+    .map((income) => ({ value: income.id, label: income.name }))
   const choices = useCategoriesForDate(budgetId, linked ? (effective?.start_date ?? '') : '')
   const categoryOptions = useMemo((): CategoryChoice[] => {
     const list: CategoryChoice[] = choices.data ?? []
@@ -405,6 +419,7 @@ function TransferForm({
     current.fromAccountId !== '' &&
     current.toAccountId !== '' &&
     current.fromAccountId !== current.toAccountId &&
+    (current.kind !== 'income_payday' || current.incomeId !== '') &&
     (!linked || current.categoryId !== '')
   const createNow =
     !editing && ready && firstDateOk && !firstDateInPast && (!past || fromPeriodId !== '')
@@ -534,7 +549,7 @@ function TransferForm({
           control={form.control}
           name="amount"
           label={
-            schedule === 'day_of_month' && cadence !== 'monthly'
+            kind === 'fixed_day' && cadence !== 'monthly'
               ? t(`transfers.fields.amountPer.${cadence}`)
               : t('transfers.fields.amountEach')
           }
@@ -553,16 +568,8 @@ function TransferForm({
               : 'transfers.mode.automaticHelp',
           )}
         />
-        <SegmentedField
-          control={form.control}
-          name="schedule"
-          label={t('transfers.fields.when')}
-          options={[
-            { value: 'pay_date', label: t('transfers.schedule.pay_date') },
-            { value: 'day_of_month', label: t('transfers.schedule.day_of_month') },
-          ]}
-        />
-        {schedule === 'pay_date' ? (
+        <KindField control={form.control} />
+        {kind !== 'fixed_day' ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <SelectField
               control={form.control}
@@ -577,47 +584,64 @@ function TransferForm({
                     : t('transfers.when.after', { count: day }),
               }))}
             />
-            <SelectField
-              control={form.control}
-              name="incomeId"
-              label={t('transfers.fields.income')}
-              description={t('transfers.fields.incomeHelp')}
-              options={incomeOptions}
-            />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <SelectField
-              control={form.control}
-              name="cadence"
-              label={t('transfers.fields.cadence')}
-              options={TRANSFER_CADENCES.map((value) => ({
-                value,
-                label: t(`transfers.cadence.${value}`),
-              }))}
-            />
-            {cadence === 'monthly' ? (
+            {kind === 'income_payday' && (
               <SelectField
                 control={form.control}
-                name="dayOfMonth"
-                numeric
-                label={t('transfers.fields.day')}
-                description={
-                  (watched.dayOfMonth ?? 1) > 28 ? dayText(watched.dayOfMonth ?? 29) : undefined
-                }
-                options={DAYS.map((day) => ({ value: String(day), label: String(day) }))}
-              />
-            ) : (
-              <CalendarDateField
-                control={form.control}
-                name="firstDate"
-                label={editing ? t('transfers.fields.newNextDue') : t('transfers.fields.nextDue')}
-                description={
-                  editing ? t('transfers.fields.newNextDueHelp') : t('transfers.fields.nextDueHelp')
-                }
+                name="incomeId"
+                label={t('transfers.fields.namedIncome')}
+                description={t('transfers.fields.namedIncomeHelp')}
+                options={incomeOptions}
               />
             )}
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SelectField
+                control={form.control}
+                name="cadence"
+                label={t('transfers.fields.cadence')}
+                options={TRANSFER_CADENCES.map((value) => ({
+                  value,
+                  label: t(`transfers.cadence.${value}`),
+                }))}
+              />
+              {cadence === 'monthly' ? (
+                <SelectField
+                  control={form.control}
+                  name="dayOfMonth"
+                  numeric
+                  label={t('transfers.fields.day')}
+                  description={
+                    (watched.dayOfMonth ?? 1) > 28 ? dayText(watched.dayOfMonth ?? 29) : undefined
+                  }
+                  options={DAYS.map((day) => ({ value: String(day), label: String(day) }))}
+                />
+              ) : (
+                <CalendarDateField
+                  control={form.control}
+                  name="firstDate"
+                  label={editing ? t('transfers.fields.newNextDue') : t('transfers.fields.nextDue')}
+                  description={
+                    editing
+                      ? t('transfers.fields.newNextDueHelp')
+                      : t('transfers.fields.nextDueHelp')
+                  }
+                />
+              )}
+            </div>
+            {/* R-ACCOUNT-550: the weekend rule belongs to a fixed day only. */}
+            <SelectField
+              control={form.control}
+              name="weekendRule"
+              label={t('transfers.weekendRule.label')}
+              description={t('transfers.weekendRule.help')}
+              options={TRANSFER_WEEKEND_RULES.map((rule) => ({
+                value: rule,
+                label: t(`transfers.weekendRule.${rule}`),
+              }))}
+            />
+          </>
         )}
         <LinkedField control={form.control} />
         {linked && (
@@ -655,6 +679,11 @@ function TransferForm({
             firstDateInPast={firstDateInPast}
             fetching={preview.isFetching}
             onRetry={() => void preview.refetch()}
+            incomeName={
+              kind === 'income_payday'
+                ? (incomes.find((income) => income.id === watched.incomeId)?.name ?? null)
+                : null
+            }
           />
         )}
         <Alert>
@@ -696,6 +725,61 @@ function TransferForm({
         </DialogFooter>
       </FieldGroup>
     </form>
+  )
+}
+
+/**
+ * When it runs: three plain choices (D-610), each with what it means, then the difference
+ * between the main income and a named income in a few words and, on request, its example.
+ */
+// R-ACCOUNT-553: the three kinds, the main-versus-named paragraph and its example (Q-358).
+function KindField({ control }: { control: Control<Input, unknown, Values> }) {
+  const { t } = useTranslation()
+  const id = useId()
+  const { field } = useController({ control, name: 'kind' })
+  const value: unknown = field.value
+  const [open, setOpen] = useState(false)
+  return (
+    <FieldSet data-testid="transfer-kind">
+      <FieldLegend variant="label">{t('transfers.kinds.label')}</FieldLegend>
+      <RadioGroup
+        name={field.name}
+        value={typeof value === 'string' ? value : 'period'}
+        onValueChange={(next) => field.onChange(next)}
+        className="gap-2"
+      >
+        {TRANSFER_KINDS.map((option) => (
+          <FieldLabel key={option} htmlFor={`${id}-${option}`} className="font-normal">
+            <Field orientation="horizontal">
+              <RadioGroupItem value={option} id={`${id}-${option}`} />
+              <FieldContent>
+                <span className="font-medium">{t(`transfers.kinds.${option}`)}</span>
+                <FieldDescription>{t(`transfers.kinds.${option}Help`)}</FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldLabel>
+        ))}
+      </RadioGroup>
+      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+        <p data-testid="transfer-kind-explain">{t('transfers.kinds.explain')}</p>
+        <Collapsible open={open} onOpenChange={setOpen}>
+          <CollapsibleTrigger asChild>
+            <Button type="button" variant="link" size="sm" className="h-auto p-0 text-sm">
+              <ChevronDownIcon
+                className={open ? 'rotate-180 transition-transform' : 'transition-transform'}
+                aria-hidden
+              />
+              {t('transfers.kinds.exampleTitle')}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <p className="mt-1" data-testid="transfer-kind-example">
+              {t('transfers.kinds.example')}
+            </p>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+    </FieldSet>
   )
 }
 

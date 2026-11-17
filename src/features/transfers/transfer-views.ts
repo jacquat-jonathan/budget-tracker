@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useCategoryPath, useChargeDayText } from '@/features/subscriptions/subscription-views'
-import type { Transfer, TransferCadence } from '@/features/transfers/transfer-queries'
+import type { Transfer, TransferCadence, WeekendRule } from '@/features/transfers/transfer-queries'
 import type { FieldView } from '@/hooks/use-edit-base'
 import { calendarMonth, isCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -16,22 +16,15 @@ interface ScheduleTerms {
   follows_primary?: boolean
   /** A yearly schedule says its month: the first date's (its phase). */
   first_date?: string | null
+  /** A fixed day's weekend rule; said unless it is none. */
+  weekend_rule?: WeekendRule | null
 }
 
 /** "On payday", "2 days after payday of “Sam’s salary”", "Every month on the 1st"… */
 export function useScheduleText() {
   const { t, i18n } = useTranslation()
   const dayText = useChargeDayText()
-  return (terms: ScheduleTerms) => {
-    if (terms.schedule === 'pay_date') {
-      const offset = terms.offset_days ?? 0
-      const when =
-        offset === 0 ? t('transfers.when.payday') : t('transfers.when.after', { count: offset })
-      // A chosen income that ended or was deleted: it follows the primary income (D-426).
-      return terms.income_name && !terms.follows_primary
-        ? t('transfers.when.ofIncome', { when, income: terms.income_name })
-        : when
-    }
+  const fixedDay = (terms: ScheduleTerms) => {
     if (terms.cadence === 'yearly' && terms.first_date && isCalendarDate(terms.first_date)) {
       const { year, month } = calendarMonth(terms.first_date)
       const day = Number(terms.first_date.slice(8, 10))
@@ -46,6 +39,20 @@ export function useScheduleText() {
     return t(`transfers.when.${terms.cadence ?? 'monthly'}`, {
       day: dayText(terms.day_of_month ?? 1),
     })
+  }
+  return (terms: ScheduleTerms) => {
+    if (terms.schedule === 'pay_date') {
+      const offset = terms.offset_days ?? 0
+      const when =
+        offset === 0 ? t('transfers.when.payday') : t('transfers.when.after', { count: offset })
+      // A chosen income that ended or was deleted: it follows the primary income (D-426).
+      return terms.income_name && !terms.follows_primary
+        ? t('transfers.when.ofIncome', { when, income: terms.income_name })
+        : t('transfers.when.ofMain', { when })
+    }
+    const when = fixedDay(terms)
+    const rule = terms.weekend_rule ?? 'none'
+    return rule === 'none' ? when : t(`transfers.when.weekend.${rule}`, { when })
   }
 }
 
@@ -91,7 +98,15 @@ export function useTransferViews() {
       key: 'schedule',
       label: t('transfers.fields.when'),
       value: schedule(transfer),
-      fields: ['schedule', 'incomeId', 'offsetDays', 'cadence', 'dayOfMonth', 'firstDate'],
+      fields: [
+        'kind',
+        'incomeId',
+        'offsetDays',
+        'cadence',
+        'dayOfMonth',
+        'firstDate',
+        'weekendRule',
+      ],
     },
     {
       key: 'category',

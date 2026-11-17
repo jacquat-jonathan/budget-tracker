@@ -11,6 +11,14 @@ import { supabase } from '@/lib/supabase'
 
 type Fns = Database['public']['Functions']
 export type TransferSchedule = Database['public']['Enums']['transfer_schedule']
+export type WeekendRule = Database['public']['Enums']['weekend_rule']
+/** A fixed day's weekend rule (D-611): none by default. */
+export const TRANSFER_WEEKEND_RULES: readonly WeekendRule[] = [
+  'none',
+  'previous',
+  'next',
+  'nearest',
+]
 export type TransferCadence = 'monthly' | 'quarterly' | 'yearly'
 export const TRANSFER_CADENCES: readonly TransferCadence[] = ['monthly', 'quarterly', 'yearly']
 
@@ -99,6 +107,7 @@ export interface TransferTermsArgs {
   p_from_period_id?: string
   p_cadence?: TransferCadence
   p_first_date?: string
+  p_weekend_rule?: WeekendRule
 }
 
 export type TransferPreviewRow = Fns['preview_create_transfer']['Returns'][number]
@@ -109,6 +118,8 @@ export interface TransferPreview {
   rows: TransferPreviewRow[]
   createdAtOnce: number
   transactionsRemoved: number
+  /** Of those removed and created, one occurrence's transaction re-dated (D-614). */
+  transactionsMoved: number
   marksUnplanned: number
 }
 
@@ -118,10 +129,12 @@ export const PREVIEW_ROWS = 6
 function readPreview(rows: TransferPreviewRow[]): TransferPreview {
   const first = rows[0]
   return {
-    // A single row without an occurrence carries the counts only (D-428).
-    rows: rows.filter((row) => (row.occurrence_date as string | null) !== null),
+    // A single row without an occurrence carries the counts only (D-428): its kind is null.
+    // A period's own row has no date (only its number), so the kind tells them apart.
+    rows: rows.filter((row) => (row.occurrence_kind as OccurrenceKind | null) !== null),
     createdAtOnce: first?.created_at_once_count ?? 0,
     transactionsRemoved: first?.transactions_removed_count ?? 0,
+    transactionsMoved: first?.transactions_moved_count ?? 0,
     marksUnplanned: first?.marks_unplanned_count ?? 0,
   }
 }

@@ -90,11 +90,14 @@ export function useEndTransfer(budgetId: string) {
   })
 }
 
-/** The occurrence a mark acts on: its period, its key and kind, and the mark's revision read. */
+/** The occurrence a mark acts on: its period, kind, date or number, and the mark's revision. */
 export interface MarkTarget {
   transferId: string
   periodId: string
-  occurrenceDate: string
+  /** A dated occurrence's scheduled date; null for a period's own. */
+  occurrenceDate: string | null
+  /** A period's own occurrence's period number; null for a dated one. */
+  occurrenceSeq: number | null
   /** Null only on a row the database never answers without one (the 'more' row). */
   occurrenceKind: OccurrenceKind | null
   revision: number
@@ -110,7 +113,8 @@ export function targetOf(row: ChecklistRow): MarkTarget {
   return {
     transferId: row.transfer_id ?? '',
     periodId: row.period_id ?? '',
-    occurrenceDate: row.occurrence_date ?? '',
+    occurrenceDate: row.occurrence_date ?? null,
+    occurrenceSeq: row.occurrence_seq ?? null,
     occurrenceKind: row.occurrence_kind ?? null,
     revision: row.mark_revision ?? 0,
     name: row.name ?? '',
@@ -120,12 +124,13 @@ export function targetOf(row: ChecklistRow): MarkTarget {
   }
 }
 
-// R-ACCOUNT-500: every mark names the row's period, key and kind (D-560).
+// R-ACCOUNT-551: every mark names the row's period, kind, and date or number, as the row has them.
 const target = (row: MarkTarget) => ({
   p_transfer_id: row.transferId,
   p_period_id: row.periodId,
-  p_occurrence_date: row.occurrenceDate,
   ...(row.occurrenceKind ? { p_occurrence_kind: row.occurrenceKind } : {}),
+  ...(row.occurrenceDate !== null ? { p_occurrence_date: row.occurrenceDate } : {}),
+  ...(row.occurrenceSeq !== null ? { p_occurrence_seq: row.occurrenceSeq } : {}),
   p_expected_revision: row.revision,
 })
 

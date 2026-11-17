@@ -86,25 +86,44 @@ export function transferRow(
   }
 }
 
+/** The number of a fixture period ('period-2' is number 2), as period_summaries.seq has it. */
+export function seqOfPeriod(periodId: string | null | undefined): number {
+  const match = /^period-(\d+)$/.exec(periodId ?? '')
+  return match ? Number(match[1]) : 2
+}
+
 /**
- * A checklist row. Its kind is what the database derives (D-560) unless a test names it: a
- * fixed-day occurrence ('fixed_day', its row has a cadence), else the period's payday; a row of a
- * chosen income that is not the primary there ('income_payday') is named by the test, or derived
- * from the transfer's terms by occurrenceKindOf.
+ * A checklist row as the database answers it (D-610, D-617). Its kind is the test's, else what
+ * the database derives: a fixed day ('fixed_day', its row has a cadence), a named income's
+ * payday ('income_payday', the row names its income), else the period's own ('period'). The
+ * identity follows the kind, as on a real stack: a 'period' row has no date and its period's
+ * number (the row's own period unless a test names another, a mark kept after a reopen); a dated
+ * row has its scheduled date (by default its due date) and no number. A test that gives a
+ * 'period' row a date, or a dated row a number, describes a row the database never answers.
  */
 export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRow {
   const cadence = overrides.cadence ?? null
+  const kind: OccurrenceKind =
+    overrides.occurrence_kind ??
+    (cadence !== null ? 'fixed_day' : overrides.income_id ? 'income_payday' : 'period')
+  const periodId = overrides.period_id ?? 'period-2'
+  const due = overrides.due_date === undefined ? '2026-10-25' : overrides.due_date
+  if (kind === 'period' && overrides.occurrence_date != null) {
+    throw new Error('checklistRow: a period’s own row has no occurrence_date (D-610)')
+  }
+  if (kind !== 'period' && overrides.occurrence_seq != null) {
+    throw new Error('checklistRow: a dated row has no occurrence_seq (D-617)')
+  }
+  const dated = kind !== 'period'
   return {
     transfer_id: 'tr-joint',
-    period_id: 'period-2',
-    occurrence_date: '2026-10-23',
+    period_id: periodId,
     name: 'Joint account',
     from_account_id: 'acc-salary',
     from_account_name: 'Salary account',
     to_account_id: 'acc-joint',
     to_account_name: 'Joint account',
     amount: 150_000,
-    due_date: '2026-10-25',
     is_automatic: false,
     category_id: null,
     category_name: null,
@@ -123,11 +142,14 @@ export function checklistRow(overrides: Partial<ChecklistRow> = {}): ChecklistRo
     planned: true,
     cadence: null,
     assumed: false,
-    occurrence_kind: cadence === null ? 'period' : 'fixed_day',
-    occurrence_seq: null,
-    income_id: null,
-    income_name: null,
     ...overrides,
+    due_date: due,
+    occurrence_kind: kind,
+    occurrence_date: dated ? (overrides.occurrence_date ?? due ?? '2026-10-25') : null,
+    occurrence_seq: dated ? null : (overrides.occurrence_seq ?? seqOfPeriod(periodId)),
+    // R-ACCOUNT-518: only a named income's payday names its income.
+    income_id: kind === 'income_payday' ? (overrides.income_id ?? 'inc-ben') : null,
+    income_name: kind === 'income_payday' ? (overrides.income_name ?? 'Ben') : null,
   }
 }
 
@@ -182,6 +204,12 @@ const MONEY_FLOW_COLUMNS = [
   'left_amount',
   'created_at',
   'spending_rows_omitted',
+  'summary_income_total',
+  'summary_planned_total',
+  'summary_spent_total',
+  'extra_income_left_out',
+  'set_aside_transfers_planned',
+  'set_aside_transfers_spent',
 ] as const
 
 export function moneyFlowRow(overrides: {
@@ -234,6 +262,8 @@ export interface MoneyFlowPlan {
     /** What the period's transactions spent in it, refunds deducted, the transfers' included. */
     spent?: number
   }[]
+  /** The period's extra income (transactions, not plan): the flow leaves it out (D-618). */
+  extraIncome?: number
 }
 
 /** private.subscription_monthly_cost: the amount over its months, half up. */
@@ -406,6 +436,13 @@ export function moneyFlowRows(plan: MoneyFlowPlan, limit = 1000): MoneyFlowRow[]
       not_planned: income - setAside - planned,
       left_amount: income - setAside - actual,
       spending_rows_omitted: Math.max(top.length - room, 0),
+      // R-ACCOUNT-520: the other pages' figures, and the two differences as their own columns.
+      summary_income_total: income + (plan.extraIncome ?? 0),
+      summary_planned_total: planned + sum(top.map((c) => c.share)),
+      summary_spent_total: actual + sum(top.map((c) => c.transferSpent)),
+      extra_income_left_out: plan.extraIncome ?? 0,
+      set_aside_transfers_planned: sum(top.map((c) => c.share)),
+      set_aside_transfers_spent: sum(top.map((c) => c.transferSpent)),
     }),
   ]
 }
@@ -461,19 +498,21 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
 
   /**
    * The checklist row a mark acts on, as private.lock_occurrence chooses it: the transfer's rows
-   * in that period narrowed by p_occurrence_date and p_occurrence_kind when given; none:
-   * transfer_not_in_force; several (the call named fewer than the period lists):
-   * occurrence_required.
+   * in that period narrowed by p_occurrence_kind, p_occurrence_date and p_occurrence_seq when
+   * given (a date names no 'period' row, a number no dated one); none: transfer_not_in_force;
+   * several (the call named fewer than the period lists): occurrence_required.
    */
   const occurrence = (args: Args) => {
     const date = str(args.p_occurrence_date)
     const kind = str(args.p_occurrence_kind)
+    const seq = typeof args.p_occurrence_seq === 'number' ? args.p_occurrence_seq : null
     const rows = db.checklist.filter(
       (row) =>
         row.transfer_id === args.p_transfer_id &&
         row.period_id === args.p_period_id &&
         row.status !== 'more' &&
         (date === null || row.occurrence_date === date) &&
+        (seq === null || row.occurrence_seq === seq) &&
         (kind === null || row.occurrence_kind === kind),
     )
     if (rows.length === 0) rpcError('transfer_not_in_force')
@@ -560,6 +599,9 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
     },
 
     create_transfer: (args) => {
+      // D-611: a weekend rule belongs to a fixed day; a pay date given one is refused.
+      if (args.p_schedule === 'pay_date' && args.p_weekend_rule !== undefined)
+        rpcError('invalid_schedule')
       if (!args.p_from_account_id || !args.p_to_account_id) rpcError('account_required')
       if (args.p_from_account_id === args.p_to_account_id) rpcError('same_account')
       const from = account(args.p_from_account_id)
@@ -602,6 +644,11 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
         removal_deletes: true,
         next_due_date: null,
         starts_on: today(),
+        starts_seq: current()?.seq ?? 2,
+        weekend_rule:
+          args.p_schedule === 'pay_date'
+            ? null
+            : ((str(args.p_weekend_rule) ?? 'none') as Tables<'transfer_overview'>['weekend_rule']),
       })
       db.tables.transfer_overview = [...transfers(), row]
       return [{ ...row }]
@@ -622,12 +669,23 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
         row.to_account_name = account(args.p_to_account_id).name
       }
       if (args.p_is_automatic !== undefined) row.is_automatic = args.p_is_automatic === true
-      if (args.p_schedule !== undefined) row.schedule = args.p_schedule as typeof row.schedule
+      const schedule = (str(args.p_schedule) ?? row.schedule) as typeof row.schedule
+      if (schedule === 'pay_date' && args.p_weekend_rule !== undefined) rpcError('invalid_schedule')
+      if (args.p_schedule !== undefined) row.schedule = schedule
+      // A fixed day keeps its rule unless one is given; a pay date has none.
+      if (schedule === 'pay_date') row.weekend_rule = null
+      else if (args.p_weekend_rule !== undefined)
+        row.weekend_rule = args.p_weekend_rule as typeof row.weekend_rule
+      else row.weekend_rule ??= 'none'
       if (args.p_offset_days !== undefined) row.offset_days = Number(args.p_offset_days)
       if (args.p_day_of_month !== undefined) row.day_of_month = Number(args.p_day_of_month)
       if (args.p_cadence !== undefined) row.cadence = args.p_cadence as typeof row.cadence
       if (args.p_first_date !== undefined) row.first_date = text(args.p_first_date)
-      if (args.p_income_id !== undefined) row.income_id = text(args.p_income_id)
+      if (args.p_income_id !== undefined) {
+        row.income_id = text(args.p_income_id)
+        row.income_name =
+          db.tables.income_overview.find((income) => income.id === args.p_income_id)?.name ?? null
+      }
       if (args.p_clear_income) Object.assign(row, { income_id: null, income_name: null })
       if (args.p_category_id !== undefined) row.category_id = text(args.p_category_id)
       if (args.p_clear_category) Object.assign(row, { category_id: null, category_name: null })
@@ -654,16 +712,20 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
     // govern one occurrence on the transfer's next due date and nothing is created at once.
     // Each row carries its occurrence's kind as the terms derive it (occurrenceKindOf) and,
     // for an edit, already_recorded when the occurrence had a mark that the change keeps (D-568).
-    preview_create_transfer: (args) => [
-      previewRow({
-        due_date: '2026-11-25',
-        occurrence_date: '2026-11-25',
-        occurrence_kind: occurrenceKindOf(
-          { schedule: str(args.p_schedule), income_id: str(args.p_income_id) },
-          db.tables.income_overview,
-        ),
-      }),
-    ],
+    preview_create_transfer: (args) => {
+      if (args.p_schedule === 'pay_date' && args.p_weekend_rule !== undefined)
+        rpcError('invalid_schedule')
+      return [
+        previewRow({
+          due_date: '2026-11-25',
+          occurrence_kind: occurrenceKindOf(
+            { schedule: str(args.p_schedule), income_id: str(args.p_income_id) },
+            db.tables.income_overview,
+          ),
+          occurrence_date: '2026-11-25',
+        }),
+      ]
+    },
     preview_update_transfer: (args) => {
       const row = transfer(args.p_transfer_id)
       const schedule = str(args.p_schedule) ?? row.schedule
@@ -671,6 +733,7 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
         args.p_clear_income === true || schedule === 'day_of_month'
           ? null
           : (str(args.p_income_id) ?? row.income_id)
+      if (schedule === 'pay_date' && args.p_weekend_rule !== undefined) rpcError('invalid_schedule')
       const kind = occurrenceKindOf({ schedule, income_id: income }, db.tables.income_overview)
       const date = row.next_due_date ?? '2026-11-25'
       // A new schedule can move the due date: the catch-up's own untouched mark then goes and is
@@ -680,11 +743,12 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
         args.p_offset_days !== undefined ||
         args.p_day_of_month !== undefined ||
         args.p_first_date !== undefined
+      const seq = kind === 'period' ? seqOfPeriod(current()?.id) : null
       const recorded = db.checklist.some(
         (item) =>
           item.transfer_id === row.id &&
-          item.occurrence_date === date &&
           item.occurrence_kind === kind &&
+          (kind === 'period' ? item.occurrence_seq === seq : item.occurrence_date === date) &&
           item.planned !== false &&
           (item.mark_revision ?? 0) > 0 &&
           (!moves || item.assumed !== true),
@@ -692,8 +756,9 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
       return [
         previewRow({
           due_date: date,
-          occurrence_date: date,
           occurrence_kind: kind,
+          occurrence_date: date,
+          ...(seq === null ? {} : { occurrence_seq: seq }),
           already_recorded: recorded,
           amount: typeof args.p_amount === 'number' ? args.p_amount : row.amount,
         }),
@@ -741,6 +806,7 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
           until_period_id: null,
           cadence: row.cadence,
           first_date: row.first_date,
+          weekend_rule: row.weekend_rule,
         },
       ]
     },
@@ -858,13 +924,21 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
   }
 }
 
-export function previewRow(overrides: Partial<TransferPreviewRow> = {}): TransferPreviewRow {
+/**
+ * A preview row as the database answers it: a 'period' occurrence has its period's number and
+ * no date (on a projected row the number the catch-up will give it), a dated one its date and no
+ * number; the counts-only row has neither, nor a kind.
+ */
+export function previewRow(
+  overrides: { [K in keyof TransferPreviewRow]?: TransferPreviewRow[K] | null } = {},
+): TransferPreviewRow {
+  const kind = overrides.occurrence_kind === undefined ? 'period' : overrides.occurrence_kind
+  const dated = kind === 'income_payday' || kind === 'fixed_day'
   return {
     period_id: 'period-2',
     start_date: '2026-10-23',
     end_date: '2026-11-24',
     projected: false,
-    occurrence_date: '2026-11-25',
     due_date: '2026-11-25',
     amount: 100_000,
     is_automatic: true,
@@ -874,10 +948,14 @@ export function previewRow(overrides: Partial<TransferPreviewRow> = {}): Transfe
     created_at_once_count: 0,
     transactions_removed_count: 0,
     marks_unplanned_count: 0,
-    occurrence_kind: 'period',
     already_recorded: false,
-    occurrence_seq: null,
     transactions_moved_count: 0,
     ...overrides,
+    occurrence_kind: kind,
+    occurrence_date: dated ? (overrides.occurrence_date ?? '2026-11-25') : null,
+    occurrence_seq:
+      kind === 'period'
+        ? (overrides.occurrence_seq ?? seqOfPeriod(overrides.period_id ?? 'period-2'))
+        : null,
   } as TransferPreviewRow
 }

@@ -282,6 +282,10 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
         end_date: current.end_date,
         expected_pay_date: next.toISOString().slice(0, 10),
         end_is_manual: current.end_is_manual,
+        transfer_transactions_removed: 0,
+        transfer_transactions_created: 0,
+        transfer_marks_unplanned: 0,
+        transfer_transactions_moved: 0,
       },
     ]
   }

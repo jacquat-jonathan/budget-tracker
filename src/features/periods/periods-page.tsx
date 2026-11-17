@@ -689,7 +689,8 @@ function BoundaryForm({
             removed={movePreview.data.transfer_transactions_removed}
             created={movePreview.data.transfer_transactions_created}
             unplanned={movePreview.data.transfer_marks_unplanned}
-            moved
+            moved={movePreview.data.transfer_transactions_moved}
+            startMoved
           />
         )}
         {preview.result && (

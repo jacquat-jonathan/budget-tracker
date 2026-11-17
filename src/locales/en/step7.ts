@@ -127,6 +127,16 @@ export const transfersEn = {
       'A transaction that moves to a new due date counts once in each: it is removed and recorded again on that date.',
     movedKeeps:
       'Only what the app recorded by itself, and nobody changed since, moves to its new due date. A tick, a transfer made manual and a transaction a member edited stay exactly as they are.',
+    movedOnly_one:
+      '{{count}} transaction the app recorded moves to its new due date: removed on the old date, recorded again on the new one.',
+    movedOnly_other:
+      '{{count}} transactions the app recorded move to their new due dates: removed on the old dates, recorded again on the new ones.',
+    movedOf_one:
+      'Of these, {{count}} is one transaction moved to its new due date: it counts once as removed and once as recorded.',
+    movedOf_other:
+      'Of these, {{count}} are transactions moved to their new due dates: each counts once as removed and once as recorded.',
+    editedGoes:
+      'A transaction a member edited goes too when its occurrence itself goes; one whose date only moves stays where the member left it.',
     unplanned_one:
       '{{count}} tick made by a member is no longer planned: it stays, flagged, until undone.',
     unplanned_other:
@@ -161,7 +171,7 @@ export const transfersEn = {
   correctionAppliesFrom:
     'The new terms apply from the period you chose until its next change. The preview says first what changes.',
   editAppliesFrom:
-    'New terms apply from the current period (from {{date}}). Past periods and what was already recorded stay.',
+    '“From now” means from the start of the current period, {{date}}, not from today: this period’s occurrences follow the new terms too. Members’ ticks stay; what the app recorded by itself can move or go, as the preview says. Past periods keep their terms.',
   addFromToday: 'It plans from today: nothing dated before today is recorded.',
   addRecordsPast:
     'It plans from the period you chose: what was due since then is listed, and standing orders linked to a category are recorded at once.',
@@ -179,7 +189,7 @@ export const transfersEn = {
   countsIn: 'Counts as spending in {{category}}',
   noCategory: 'Not counted as spending',
   followsPrimary: 'Its income has ended: it now follows the main income’s payday.',
-  nextDue: 'Next due',
+  nextDue: 'Next due, not yet recorded',
   noNextDue: 'None planned',
   today: 'today',
   monthlyShare: 'Per month',
@@ -209,6 +219,8 @@ export const transfersEn = {
     offset: 'Day',
     income: 'Whose payday',
     incomeHelp: 'The main income’s, unless you choose another.',
+    namedIncome: 'Which income',
+    namedIncomeHelp: 'Its own pay day and weekend rule give the dates.',
     primaryIncome: 'The main income',
     cadence: 'How often',
     day: 'Day of the month',
@@ -248,10 +260,16 @@ export const transfersEn = {
     after_one: '{{count}} day after payday',
     after_other: '{{count}} days after payday',
     ofIncome: '{{when}} (“{{income}}”)',
+    ofMain: '{{when}} (main income)',
     monthly: 'Every month {{day}}',
     quarterly: 'Every three months {{day}}',
     yearly: 'Once a year {{day}}',
     yearlyOn: 'Once a year on {{date}}',
+    weekend: {
+      previous: '{{when}}, the working day before at weekends',
+      next: '{{when}}, the next working day at weekends',
+      nearest: '{{when}}, the nearest working day at weekends',
+    },
   },
   amountPer: {
     quarterly: '{{amount}} every three months',
@@ -277,6 +295,16 @@ export const transfersEn = {
     movedNote:
       'A transaction whose due date moves is removed and recorded again on its new due date, so it counts once in each: nothing is lost. The preview does not say which ones move.',
     alreadyRecorded: 'already recorded, stays as it is',
+    movedOnly_one:
+      'It moves {{count}} transaction the app recorded by itself to its new due date: removed on the old date, recorded again on the new one.',
+    movedOnly_other:
+      'It moves {{count}} transactions the app recorded by itself to their new due dates: removed on the old dates, recorded again on the new ones.',
+    movedOf_one:
+      'Of these, {{count}} is one transaction moved to its new due date: it counts once as removed and once as recorded.',
+    movedOf_other:
+      'Of these, {{count}} are transactions moved to their new due dates: each counts once as removed and once as recorded.',
+    editedGoes:
+      'A transaction a member edited goes too when its occurrence itself goes; one whose date only moves stays where the member left it.',
     marksUnplanned_one:
       '{{count}} tick a member made is no longer planned: it stays in its checklist, flagged, until undone.',
     marksUnplanned_other:
@@ -306,6 +334,38 @@ export const transfersEn = {
   views: {
     label: 'Transfers views',
     planned: 'Planned transfers ({{count}})',
+  },
+  occurrence: {
+    period: 'for the period {{start}} to {{end}}',
+    periodOther: 'kept from the period {{start}} to {{end}}, not this one',
+    periodGone: 'kept from the period a reopen merged into this one, not this period’s own',
+    incomePayday: 'on the payday of “{{income}}”, {{date}}',
+    incomePaydayUnnamed: 'on its income’s payday, {{date}}',
+    fixedDay: 'fixed day {{date}}',
+    fixedDayMoved: 'fixed day {{date}}, moved off the weekend',
+  },
+  kinds: {
+    label: 'When it runs',
+    period: 'On the main income’s payday',
+    periodHelp: 'Once per period, on the day the main salary really arrives.',
+    income_payday: 'On a named income’s payday',
+    income_paydayHelp:
+      'On each scheduled pay date of the income you name, even when it is not the main income and whenever its salary is actually recorded.',
+    fixed_day: 'On a fixed day of the month',
+    fixed_dayHelp: 'On the same day every month, three months or year, with a rule for weekends.',
+    explain:
+      'The main income’s payday follows the day the main salary really arrives, whoever the main income is; a named income’s payday follows that income’s own calendar. On the main income’s payday it runs once per period, so a period stretched by a later salary can skip a calendar month: name the income for a monthly rhythm.',
+    exampleTitle: 'An example',
+    example:
+      'Ann, paid on the 25th, is the main income; Ben is paid on the 10th. On 12 December Ben becomes the main income, so the period that started on 25 November runs to 9 January. On the main income’s payday: 25 Nov, 10 Jan, 10 Feb, none in December. On Ann’s payday: 25 Nov, 25 Dec, 25 Jan. On Ben’s payday: 10 Nov, 10 Dec, 10 Jan, 10 Feb.',
+  },
+  weekendRule: {
+    label: 'On a Saturday or Sunday',
+    none: 'On that day all the same',
+    previous: 'The working day before',
+    next: 'The next working day',
+    nearest: 'The nearest working day',
+    help: 'Nearest: a Saturday goes to the Friday, a Sunday to the Monday. The checklist keeps its date; only when it is due moves.',
   },
   checklist: {
     title: 'Checklist',

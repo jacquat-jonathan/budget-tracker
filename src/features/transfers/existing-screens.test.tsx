@@ -97,7 +97,7 @@ describe('the reopen follows the step 7 contract [R-ACCOUNT-313] [R-ACCOUNT-312]
 })
 
 describe('moving a period’s start follows the step 7 contract [R-ACCOUNT-309]', () => {
-  it('shows the transfer counts, and keeps Save disabled while the preview refuses', async () => {
+  it('shows the transfer counts, a move said once as a move, and keeps Save disabled while the preview refuses [R-ACCOUNT-554]', async () => {
     const db = householdDb()
     db.rpc.preview_move_period_start.mockImplementation((args) => [
       args.p_start_date === '2026-10-20'
@@ -120,14 +120,18 @@ describe('moving a period’s start follows the step 7 contract [R-ACCOUNT-309]'
             transfer_transactions_removed: 1,
             transfer_transactions_created: 1,
             transfer_marks_unplanned: 0,
+            transfer_transactions_moved: 1,
           },
     ])
     const dialog = await periodAction(db, 'This period’s salary actually arrived on another day')
     await typeDate(dialog, /Day the salary arrived/, '27.10.2026')
     const counts = await within(dialog).findByTestId('transfer-counts')
-    expect(counts).toHaveTextContent('1 transaction the app recorded for a transfer is removed.')
-    expect(counts).toHaveTextContent('1 transaction of a standing order is recorded.')
-    expect(counts).toHaveTextContent('counts once in each')
+    // Removed 1, created 1, moved 1 is one transaction moved: said once, never as three.
+    expect(within(counts).getByTestId('transactions-moved')).toHaveTextContent(
+      '1 transaction the app recorded moves to its new due date: removed on the old date, recorded again on the new one.',
+    )
+    expect(within(counts).queryByTestId('transactions-removed')).not.toBeInTheDocument()
+    expect(within(counts).queryByTestId('transactions-created')).not.toBeInTheDocument()
     // R-ACCOUNT-425: what a member touched stays.
     expect(within(counts).getByTestId('moved-keeps')).toHaveTextContent(
       'Only what the app recorded by itself, and nobody changed since, moves to its new due date. A tick, a transfer made manual and a transaction a member edited stay exactly as they are.',
@@ -229,7 +233,7 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     )
   })
 
-  it('[R-ACCOUNT-512] making another income primary says a transfer naming an income keeps its paydays and one on the main income follows the new primary', async () => {
+  it('[R-ACCOUNT-556] making another income primary says only the boundaries change, a named income keeps its schedule, the main income’s stays once per period', async () => {
     const db = householdDb(undefined, {
       income_overview: [
         incomeRow(),
@@ -243,15 +247,15 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Make primary' }))
     const dialog = await screen.findByRole('alertdialog')
     const note = await within(dialog).findByTestId('primary-transfers-note')
+    expect(note).toHaveTextContent('Only the periods’ boundaries change')
     expect(note).toHaveTextContent(
-      'one that names an income keeps happening on each of that income’s paydays, whichever income is the primary',
+      'A transfer on a named income keeps that income’s own paydays, whichever income is the main one.',
     )
-    expect(note).toHaveTextContent(
-      'One on “The main income” follows the new primary income from its next payday, which starts the next period.',
-    )
-    expect(note).toHaveTextContent('Nothing already recorded or ticked changes.')
-    // What D-610 made untrue is no longer said.
+    expect(note).toHaveTextContent('A transfer on the main income’s payday stays once per period')
+    // What D-610 and the round-5 database made untrue is no longer said.
     expect(note).not.toHaveTextContent('In this period nothing about them changes')
+    expect(note).not.toHaveTextContent('Nothing already recorded or ticked changes')
+    expect(note).not.toHaveTextContent('follows the new primary income from its next payday')
     // Its preview answers 0 / 0 / 0, truthfully: no count is shown.
     await within(dialog).findByTestId('pay-date-preview')
     expect(within(dialog).queryByTestId('transfer-counts')).not.toBeInTheDocument()
@@ -299,7 +303,7 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     )
   })
 
-  it('[R-ACCOUNT-462] an income edit that removes and records says a moved transaction counts once in each', async () => {
+  it('[R-ACCOUNT-554] an income edit that removes, records and moves says how many of them are moves', async () => {
     const db = householdDb()
     db.rpc.preview_update_income.mockImplementation(() => [
       {
@@ -307,9 +311,10 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
         end_date: '2026-11-19',
         expected_pay_date: '2026-11-20',
         end_is_manual: false,
-        transfer_transactions_removed: 1,
+        transfer_transactions_removed: 2,
         transfer_transactions_created: 1,
         transfer_marks_unplanned: 0,
+        transfer_transactions_moved: 1,
       },
     ])
     mock.current = createSupabaseMock(fakeSession(), db)
@@ -320,11 +325,13 @@ describe('the income screens say what happens to the transfers [R-ACCOUNT-311] [
     await userEvent.click(within(dialog).getByLabelText('Pay day'))
     await userEvent.click(await screen.findByRole('option', { name: 'Day 20' }))
     const counts = await within(dialog).findByTestId('transfer-counts')
-    expect(counts).toHaveTextContent('1 transaction the app recorded for a transfer is removed.')
+    expect(counts).toHaveTextContent('2 transactions the app recorded for transfers are removed.')
     expect(counts).toHaveTextContent('1 transaction of a standing order is recorded.')
-    expect(counts).toHaveTextContent(
-      'A transaction that moves to a new due date counts once in each: it is removed and recorded again on that date.',
+    expect(within(counts).getByTestId('transactions-moved')).toHaveTextContent(
+      'Of these, 1 is one transaction moved to its new due date: it counts once as removed and once as recorded.',
     )
+    // Q-356: a member's edit goes with its occurrence.
+    expect(within(counts).getByTestId('edited-goes')).toBeInTheDocument()
     // Only a moved start says what stays exactly as it is.
     expect(within(counts).queryByTestId('moved-keeps')).not.toBeInTheDocument()
   })

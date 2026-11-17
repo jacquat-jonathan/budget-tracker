@@ -158,8 +158,11 @@ describe('creating a transfer [R-ACCOUNT-315] [R-ACCOUNT-233]', () => {
         : [previewRow()],
     )
     const dialog = await openAdd()
+    await userEvent.click(
+      within(dialog).getByRole('radio', { name: /^On a named income’s payday/ }),
+    )
     await choose(dialog, 'Day', '2 days after payday')
-    await choose(dialog, 'Whose payday', 'Sam’s salary')
+    await choose(dialog, 'Which income', 'Sam’s salary')
     await userEvent.click(
       within(dialog).getByLabelText('It already ran: record what happened since…'),
     )
@@ -182,7 +185,9 @@ describe('creating a transfer [R-ACCOUNT-315] [R-ACCOUNT-233]', () => {
   it('a yearly transfer takes its next due date, today or later unless it already ran', async () => {
     const db = await openPage()
     const dialog = await openAdd()
-    await userEvent.click(within(dialog).getByRole('radio', { name: 'On a fixed day' }))
+    await userEvent.click(
+      within(dialog).getByRole('radio', { name: /^On a fixed day of the month/ }),
+    )
     await choose(dialog, 'How often', 'Once a year')
     await userEvent.type(within(dialog).getByLabelText('Next due date'), '20.10.2026')
     // Said at the field before Save; nothing previewed that the form will not send.
@@ -216,6 +221,7 @@ describe('creating a transfer [R-ACCOUNT-315] [R-ACCOUNT-233]', () => {
           p_schedule: 'day_of_month',
           p_cadence: 'yearly',
           p_first_date: '2026-12-20',
+          p_weekend_rule: 'none',
           p_is_automatic: false,
           p_category_id: 'cat-groceries',
         }),
@@ -313,7 +319,7 @@ describe('Save waits for the preview of what it sends [D-502] [R-APP-440]', () =
 })
 
 describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => {
-  it('previews exactly what the save sends, with what it does to recorded occurrences', async () => {
+  it('previews exactly what the save sends, with what it does to recorded occurrences [R-ACCOUNT-555]', async () => {
     const db = await openPage()
     db.rpc.preview_update_transfer.mockImplementation((args) => [
       previewRow({
@@ -325,7 +331,10 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
     const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent('New terms apply from the current period (from 23.10.2026)')
+    // R-ACCOUNT-555: “from now” is said as the start of the current period (Q-357).
+    expect(dialog).toHaveTextContent(
+      '“From now” means from the start of the current period, 23.10.2026, not from today',
+    )
     await choose(dialog, 'Day', '3 days after payday')
     const preview = within(dialog).getByTestId('transfer-preview')
     expect(await within(preview).findByTestId('transactions-removed')).toHaveTextContent(
@@ -359,7 +368,6 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
         transfer_id: 'tr-savings',
         name: 'Savings',
         is_automatic: true,
-        occurrence_date: '2026-11-25',
         due_date: '2026-11-25',
         status: 'done',
         assumed: true,
@@ -408,15 +416,19 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
     expect(within(preview).queryByTestId('preview-recorded')).not.toBeInTheDocument()
   })
 
-  it('[R-ACCOUNT-462] removed and recorded at once: says a move counts once in each, nothing lost', async () => {
+  it('[R-ACCOUNT-554] a transaction only moved is said once, as a move, not as removed and recorded', async () => {
     const db = await openPage()
-    db.rpc.preview_update_transfer.mockImplementation((args) => [
-      previewRow({
-        created_at_once: args.p_offset_days !== undefined,
-        created_at_once_count: args.p_offset_days === undefined ? 0 : 1,
-        transactions_removed_count: args.p_offset_days === undefined ? 0 : 1,
-      }),
-    ])
+    db.rpc.preview_update_transfer.mockImplementation((args) => {
+      const moves = args.p_offset_days !== undefined ? 1 : 0
+      return [
+        previewRow({
+          created_at_once: moves > 0,
+          created_at_once_count: moves,
+          transactions_removed_count: moves,
+          transactions_moved_count: moves,
+        }),
+      ]
+    })
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
     const dialog = await screen.findByRole('dialog')
@@ -424,20 +436,46 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
     await waitFor(() => {
       expect(within(preview).getAllByTestId('preview-occurrence')).toHaveLength(1)
     })
-    expect(within(preview).queryByTestId('preview-moved-note')).not.toBeInTheDocument()
+    expect(within(preview).queryByTestId('transactions-moved')).not.toBeInTheDocument()
     await choose(dialog, 'Day', '3 days after payday')
+    expect(await within(preview).findByTestId('transactions-moved')).toHaveTextContent(
+      'It moves 1 transaction the app recorded by itself to its new due date: removed on the old date, recorded again on the new one.',
+    )
+    // One move, never "1 removed, 1 recorded, 1 moved".
+    expect(within(preview).queryByTestId('transactions-removed')).not.toBeInTheDocument()
+    expect(within(preview).queryByTestId('created-at-once')).not.toBeInTheDocument()
+  })
+
+  it('[R-ACCOUNT-554] removals and moves together: the removals, then how many of them are moves', async () => {
+    const db = await openPage()
+    db.rpc.preview_update_transfer.mockImplementation(() => [
+      previewRow({
+        created_at_once: true,
+        created_at_once_count: 1,
+        transactions_removed_count: 2,
+        transactions_moved_count: 1,
+      }),
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    const preview = within(dialog).getByTestId('transfer-preview')
     expect(await within(preview).findByTestId('transactions-removed')).toHaveTextContent(
-      'It removes 1 transaction the app recorded by itself: its date is no longer planned, or its due date moves.',
+      'It removes 2 transactions the app recorded by itself',
     )
     expect(within(preview).getByTestId('created-at-once')).toHaveTextContent(
       'Saving records 1 transaction at once',
     )
-    expect(within(preview).getByTestId('preview-moved-note')).toHaveTextContent(
-      'removed and recorded again on its new due date, so it counts once in each: nothing is lost',
+    expect(within(preview).getByTestId('transactions-moved')).toHaveTextContent(
+      'Of these, 1 is one transaction moved to its new due date: it counts once as removed and once as recorded.',
+    )
+    // Q-356, said where a removal is: a member's edit goes with its occurrence.
+    expect(within(preview).getByTestId('edited-goes')).toHaveTextContent(
+      'A transaction a member edited goes too when its occurrence itself goes',
     )
   })
 
-  it('[R-ACCOUNT-462] removed with nothing recorded at once: the removal is said, no move note', async () => {
+  it('[R-ACCOUNT-462] removed with nothing recorded at once: the removal is said, no move', async () => {
     const db = await openPage()
     // As my stack answered a new offset in the current period: the app's transaction goes and
     // comes back on its new due date once due, so nothing is recorded at once.
@@ -451,15 +489,23 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
     expect(await within(preview).findByTestId('transactions-removed')).toHaveTextContent(
       'or its due date moves',
     )
-    expect(within(preview).queryByTestId('preview-moved-note')).not.toBeInTheDocument()
+    expect(within(preview).queryByTestId('transactions-moved')).not.toBeInTheDocument()
   })
 
-  it('[R-ACCOUNT-500] two previewed occurrences on one due date say their kind; others do not', async () => {
+  it('[R-ACCOUNT-552] every previewed occurrence says what it is for, twins on one due date included', async () => {
     const db = await openPage()
     db.rpc.preview_update_transfer.mockImplementation(() => [
       previewRow({ due_date: '2026-11-25', occurrence_kind: 'period' }),
-      previewRow({ due_date: '2026-11-25', occurrence_kind: 'income_payday' }),
-      previewRow({ due_date: '2026-12-25', occurrence_date: '2026-12-25' }),
+      previewRow({
+        due_date: '2026-11-25',
+        occurrence_kind: 'income_payday',
+        occurrence_date: '2026-11-25',
+      }),
+      previewRow({
+        due_date: '2026-11-30',
+        occurrence_kind: 'fixed_day',
+        occurrence_date: '2026-11-29',
+      }),
     ])
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
@@ -469,21 +515,26 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
       expect(within(preview).getAllByTestId('preview-occurrence')).toHaveLength(3)
     })
     const rows = within(preview).getAllByTestId('preview-occurrence')
-    expect(rows[0]).toHaveTextContent('25.11.2026 · on the payday that started the period')
-    expect(rows[1]).toHaveTextContent('25.11.2026 · on its chosen income’s payday')
-    expect(within(rows[2]!).queryByTestId('preview-kind')).not.toBeInTheDocument()
+    expect(rows[0]).toHaveTextContent('25.11.2026 · for the period 23.10.2026 to 24.11.2026')
+    expect(rows[1]).toHaveTextContent('25.11.2026 · on its income’s payday, 25.11.2026')
+    expect(rows[2]).toHaveTextContent('30.11.2026 · fixed day 29.11.2026, moved off the weekend')
   })
 
-  it('[R-ACCOUNT-500] the mock previews the kind the terms give and whether a mark is kept', () => {
+  it('[R-ACCOUNT-551] the mock previews the kind the terms give, its date or number, and whether a mark is kept', () => {
     const db = transfersDb()
     db.checklist = [
-      checklistRow({ transfer_id: 'tr-savings', occurrence_date: '2026-11-25', mark_revision: 1 }),
+      checklistRow({ transfer_id: 'tr-savings', due_date: '2026-11-25', mark_revision: 1 }),
     ]
     const [kept] = db.rpc.preview_update_transfer({
       p_transfer_id: 'tr-savings',
       p_amount: 120_000,
     }) as { occurrence_kind: string; already_recorded: boolean }[]
-    expect(kept).toMatchObject({ occurrence_kind: 'period', already_recorded: true })
+    expect(kept).toMatchObject({
+      occurrence_kind: 'period',
+      occurrence_date: null,
+      occurrence_seq: 2,
+      already_recorded: true,
+    })
     // As my stack answered (probe2.cjs): a new offset re-dates the catch-up's own transaction
     // (D-563), so its occurrence is not "kept"; a member's tick is.
     db.checklist[0]!.assumed = true
@@ -560,6 +611,135 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
   })
 })
 
+describe('three kinds a household understands [R-ACCOUNT-550] [R-ACCOUNT-553]', () => {
+  const radio = (dialog: HTMLElement, name: RegExp) => within(dialog).getByRole('radio', { name })
+
+  it('offers three plain choices with the main-versus-named paragraph and its example; a weekend rule only for a fixed day', async () => {
+    const db = await openPage()
+    const dialog = await openAdd()
+    expect(radio(dialog, /^On the main income’s payday/)).toBeChecked()
+    expect(radio(dialog, /^On a named income’s payday/)).not.toBeChecked()
+    expect(radio(dialog, /^On a fixed day of the month/)).not.toBeChecked()
+    expect(within(dialog).getByTestId('transfer-kind-explain')).toHaveTextContent(
+      'On the main income’s payday it runs once per period, so a period stretched by a later salary can skip a calendar month',
+    )
+    expect(within(dialog).queryByTestId('transfer-kind-example')).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'An example' }))
+    expect(within(dialog).getByTestId('transfer-kind-example')).toHaveTextContent(
+      'On the main income’s payday: 25 Nov, 10 Jan, 10 Feb, none in December. On Ann’s payday: 25 Nov, 25 Dec, 25 Jan. On Ben’s payday: 10 Nov, 10 Dec, 10 Jan, 10 Feb.',
+    )
+    expect(within(dialog).queryByLabelText('Which income')).not.toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('On a Saturday or Sunday')).not.toBeInTheDocument()
+
+    // A named income's payday: its income must be chosen before anything is previewed.
+    await userEvent.click(radio(dialog, /^On a named income’s payday/))
+    expect(within(dialog).getByTestId('transfer-preview')).toHaveTextContent(
+      'Choose the accounts and an amount to see the due dates.',
+    )
+    await choose(dialog, 'Which income', 'Sam’s salary')
+    await waitFor(() => {
+      expect(db.rpc.preview_create_transfer).toHaveBeenLastCalledWith(
+        expect.objectContaining({ p_schedule: 'pay_date', p_income_id: 'income-2' }),
+      )
+    })
+    expect(db.rpc.preview_create_transfer.mock.lastCall?.[0]).not.toHaveProperty('p_weekend_rule')
+
+    // A fixed day: the weekend rule appears, and goes with it; no income, no offset.
+    await userEvent.click(radio(dialog, /^On a fixed day of the month/))
+    expect(within(dialog).queryByLabelText('Which income')).not.toBeInTheDocument()
+    await choose(dialog, 'On a Saturday or Sunday', 'The working day before')
+    await waitFor(() => {
+      expect(db.rpc.preview_create_transfer).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          p_schedule: 'day_of_month',
+          p_cadence: 'monthly',
+          p_day_of_month: 1,
+          p_weekend_rule: 'previous',
+        }),
+      )
+    })
+    const sent = db.rpc.preview_create_transfer.mock.lastCall?.[0]
+    expect(sent).not.toHaveProperty('p_income_id')
+    expect(sent).not.toHaveProperty('p_offset_days')
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.create_transfer).toHaveBeenCalledWith(
+        expect.objectContaining({ p_schedule: 'day_of_month', p_weekend_rule: 'previous' }),
+      )
+    })
+  })
+
+  it('an edit from one kind to another shows its preview before Save, and Save waits for it [R-APP-440]', async () => {
+    const db = await openPage()
+    let answer: (rows: unknown) => void = () => undefined
+    db.rpc.preview_update_transfer.mockImplementation((args) =>
+      args.p_income_id === 'income-2'
+        ? new Promise((resolve) => (answer = resolve))
+        : [previewRow()],
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(radio(dialog, /^On the main income’s payday/)).toBeChecked()
+    await userEvent.click(radio(dialog, /^On a named income’s payday/))
+    await choose(dialog, 'Which income', 'Sam’s salary')
+    await waitFor(() => {
+      expect(db.rpc.preview_update_transfer).toHaveBeenLastCalledWith({
+        p_transfer_id: 'tr-savings',
+        p_schedule: 'pay_date',
+        p_offset_days: 0,
+        p_income_id: 'income-2',
+        p_count: 6,
+      })
+    })
+    const save = within(dialog).getByRole('button', { name: 'Save' })
+    expect(save).toBeDisabled()
+    answer([
+      previewRow({
+        occurrence_kind: 'income_payday',
+        occurrence_date: '2026-11-20',
+        due_date: '2026-11-20',
+      }),
+    ])
+    const occurrence = await within(dialog).findByTestId('preview-occurrence')
+    expect(occurrence).toHaveTextContent('20.11.2026 · on the payday of “Sam’s salary”, 20.11.2026')
+    await waitFor(() => {
+      expect(save).toBeEnabled()
+    })
+    await userEvent.click(save)
+    await waitFor(() => {
+      expect(db.rpc.update_transfer).toHaveBeenCalledWith({
+        p_transfer_id: 'tr-savings',
+        p_expected_revision: 1,
+        p_schedule: 'pay_date',
+        p_offset_days: 0,
+        p_income_id: 'income-2',
+      })
+    })
+  })
+
+  it('a fixed day says its weekend rule on its card', async () => {
+    const db = transfersDb()
+    db.tables.transfer_overview = [
+      transferRow({
+        name: 'Rent share',
+        schedule: 'day_of_month',
+        offset_days: null,
+        day_of_month: 1,
+        cadence: 'monthly',
+        weekend_rule: 'previous',
+      }),
+    ]
+    await openPage(db)
+    expect(card('Rent share')).toHaveTextContent(
+      /Every month .*1.*, the working day before at weekends/,
+    )
+  })
+})
+
 describe('the arguments of an edit [R-VERSION-071]', () => {
   const base = {
     from_account_id: 'a',
@@ -573,6 +753,7 @@ describe('the arguments of an edit [R-VERSION-071]', () => {
     category_id: 'cat',
     cadence: null,
     first_date: null,
+    weekend_rule: null,
   }
   const values: TransferFormValues = {
     name: 'x',
@@ -580,12 +761,13 @@ describe('the arguments of an edit [R-VERSION-071]', () => {
     toAccountId: 'b',
     amount: 100,
     mode: 'automatic',
-    schedule: 'pay_date',
+    kind: 'income_payday',
     incomeId: 'income-2',
     offsetDays: 2,
     cadence: 'monthly',
     dayOfMonth: 1,
     firstDate: '',
+    weekendRule: 'none',
     linked: true,
     categoryId: 'cat',
     past: false,
@@ -598,7 +780,7 @@ describe('the arguments of an edit [R-VERSION-071]', () => {
       p_schedule: 'pay_date',
       p_offset_days: 3,
     })
-    expect(editArgs(base, { ...values, incomeId: '' }, 'period-1')).toEqual({
+    expect(editArgs(base, { ...values, kind: 'period' }, 'period-1')).toEqual({
       p_schedule: 'pay_date',
       p_offset_days: 2,
       p_clear_income: true,
@@ -609,18 +791,53 @@ describe('the arguments of an edit [R-VERSION-071]', () => {
   it('unlinking clears the category; a fixed day sends its cadence and day or date', () => {
     expect(editArgs(base, { ...values, linked: false }, null)).toEqual({ p_clear_category: true })
     expect(
-      editArgs(
-        base,
-        { ...values, schedule: 'day_of_month', cadence: 'monthly', dayOfMonth: 5 },
-        null,
-      ),
-    ).toEqual({ p_schedule: 'day_of_month', p_cadence: 'monthly', p_day_of_month: 5 })
+      editArgs(base, { ...values, kind: 'fixed_day', cadence: 'monthly', dayOfMonth: 5 }, null),
+    ).toEqual({
+      p_schedule: 'day_of_month',
+      p_cadence: 'monthly',
+      p_day_of_month: 5,
+      p_weekend_rule: 'none',
+    })
     expect(
       editArgs(
         base,
-        { ...values, schedule: 'day_of_month', cadence: 'yearly', firstDate: '2027-03-01' },
+        { ...values, kind: 'fixed_day', cadence: 'yearly', firstDate: '2027-03-01' },
         null,
       ),
-    ).toEqual({ p_schedule: 'day_of_month', p_cadence: 'yearly', p_first_date: '2027-03-01' })
+    ).toEqual({
+      p_schedule: 'day_of_month',
+      p_cadence: 'yearly',
+      p_first_date: '2027-03-01',
+      p_weekend_rule: 'none',
+    })
+  })
+
+  it('[R-ACCOUNT-550] a weekend rule goes with a fixed day only; a new rule alone sends the schedule', () => {
+    const fixedBase = {
+      ...base,
+      schedule: 'day_of_month' as const,
+      offset_days: null,
+      income_id: null,
+      day_of_month: 1,
+      cadence: 'monthly' as const,
+      weekend_rule: 'none' as const,
+    }
+    const fixed = { ...values, kind: 'fixed_day' as const, incomeId: '', dayOfMonth: 1 }
+    expect(editArgs(fixedBase, fixed, null)).toEqual({})
+    expect(editArgs(fixedBase, { ...fixed, weekendRule: 'previous' }, null)).toEqual({
+      p_schedule: 'day_of_month',
+      p_cadence: 'monthly',
+      p_day_of_month: 1,
+      p_weekend_rule: 'previous',
+    })
+    // Back to a payday: no weekend rule is sent (a pay date given one is invalid_schedule).
+    const back = editArgs(fixedBase, { ...fixed, kind: 'period', weekendRule: 'next' }, null)
+    expect(back).toEqual({ p_schedule: 'pay_date', p_offset_days: 2 })
+    // The main income's payday sends no income even when one is still chosen in the form.
+    expect(editArgs(base, { ...values, kind: 'period', incomeId: 'income-2' }, null)).toEqual({
+      p_schedule: 'pay_date',
+      p_offset_days: 2,
+      p_clear_income: true,
+    })
   })
 })

@@ -1,10 +1,20 @@
 import type {
   ChecklistRow,
   CreateArgs,
+  OccurrenceKind,
   TransferCadence,
   TransferSchedule,
   TransferTermsArgs,
+  WeekendRule,
 } from '@/features/transfers/transfer-queries'
+
+/**
+ * The three kinds of schedule a household chooses from (D-610), named as the occurrences they
+ * make: on the main income's payday (once per period), on a named income's payday (each of its
+ * scheduled pay dates), on a fixed day of the month (with its weekend rule).
+ */
+export type TransferKind = OccurrenceKind
+export const TRANSFER_KINDS: readonly TransferKind[] = ['period', 'income_payday', 'fixed_day']
 
 /** What the transfer form holds (the terms and the period choices). */
 export interface TransferFormValues {
@@ -13,8 +23,8 @@ export interface TransferFormValues {
   toAccountId: string
   amount: number
   mode: 'automatic' | 'manual'
-  schedule: TransferSchedule
-  /** "" for the primary income. */
+  kind: TransferKind
+  /** The named income ('income_payday' only). */
   incomeId: string
   offsetDays: number
   cadence: TransferCadence
@@ -22,12 +32,33 @@ export interface TransferFormValues {
   dayOfMonth: number
   /** Quarterly or yearly: the first (create) or a new next (edit, "" keeps it) due date. */
   firstDate: string
+  /** A fixed day's weekend rule. */
+  weekendRule: WeekendRule
   /** Counts as spending in a category. */
   linked: boolean
   categoryId: string
   /** Create: record what already happened since `fromPeriodId`. Edit: a correction from it. */
   past: boolean
   fromPeriodId: string
+}
+
+/** The database's schedule of a kind: a fixed day, else a pay date. */
+export function scheduleOf(kind: TransferKind): TransferSchedule {
+  return kind === 'fixed_day' ? 'day_of_month' : 'pay_date'
+}
+
+/** The kind a transfer's terms make: a fixed day; a pay date naming an income; the main one's. */
+export function kindOf(terms: {
+  schedule: TransferSchedule
+  income_id: string | null
+}): TransferKind {
+  if (terms.schedule === 'day_of_month') return 'fixed_day'
+  return terms.income_id ? 'income_payday' : 'period'
+}
+
+/** The named income the form sends: only for a named income's payday. */
+function incomeOf(values: Pick<TransferFormValues, 'kind' | 'incomeId'>): string | null {
+  return values.kind === 'income_payday' && values.incomeId ? values.incomeId : null
 }
 
 /** The terms an edit compares with: those in force now, or in the corrected period. */
@@ -43,11 +74,13 @@ export interface TransferTermsBase {
   category_id: string | null
   cadence: TransferCadence | null
   first_date: string | null
+  /** A fixed day's weekend rule; null for a pay date. */
+  weekend_rule: WeekendRule | null
 }
 
 /** A monthly fixed day is chosen as a day; a quarterly or yearly one by its date (its phase). */
-export function needsFirstDate(values: Pick<TransferFormValues, 'schedule' | 'cadence'>) {
-  return values.schedule === 'day_of_month' && values.cadence !== 'monthly'
+export function needsFirstDate(values: Pick<TransferFormValues, 'kind' | 'cadence'>) {
+  return values.kind === 'fixed_day' && values.cadence !== 'monthly'
 }
 
 /**
@@ -58,23 +91,26 @@ export function needsFirstDate(values: Pick<TransferFormValues, 'schedule' | 'ca
  */
 // R-ACCOUNT-315: nothing before today unless the member asks for it.
 export function createArgs(values: TransferFormValues): CreateArgs {
+  const income = incomeOf(values)
+  // R-ACCOUNT-550: a pay date never carries a weekend rule; a fixed day always sends its own.
   const schedule =
-    values.schedule === 'pay_date'
+    values.kind !== 'fixed_day'
       ? {
           p_offset_days: values.offsetDays,
-          ...(values.incomeId ? { p_income_id: values.incomeId } : {}),
+          ...(income ? { p_income_id: income } : {}),
         }
       : {
           p_cadence: values.cadence,
           ...(needsFirstDate(values)
             ? { p_first_date: values.firstDate }
             : { p_day_of_month: values.dayOfMonth }),
+          p_weekend_rule: values.weekendRule,
         }
   return {
     p_from_account_id: values.fromAccountId,
     p_to_account_id: values.toAccountId,
     p_amount: values.amount,
-    p_schedule: values.schedule,
+    p_schedule: scheduleOf(values.kind),
     p_is_automatic: values.mode === 'automatic',
     ...schedule,
     ...(values.linked && values.categoryId ? { p_category_id: values.categoryId } : {}),
@@ -84,11 +120,12 @@ export function createArgs(values: TransferFormValues): CreateArgs {
 
 /** Whether the schedule (one group of fields, D-160) differs from the terms it started from. */
 export function scheduleChanged(base: TransferTermsBase, values: TransferFormValues): boolean {
-  if (values.schedule !== base.schedule) return true
-  if (values.schedule === 'pay_date') {
-    return values.offsetDays !== base.offset_days || (values.incomeId || null) !== base.income_id
+  if (scheduleOf(values.kind) !== base.schedule) return true
+  if (values.kind !== 'fixed_day') {
+    return values.offsetDays !== base.offset_days || incomeOf(values) !== base.income_id
   }
   if (values.cadence !== base.cadence) return true
+  if (values.weekendRule !== (base.weekend_rule ?? 'none')) return true
   if (values.cadence === 'monthly') return values.dayOfMonth !== base.day_of_month
   return values.firstDate !== ''
 }
@@ -107,7 +144,7 @@ export function editArgs(
 ): TransferTermsArgs {
   const category = values.linked && values.categoryId ? values.categoryId : null
   const schedule = scheduleChanged(base, values)
-  const switched = values.schedule !== base.schedule
+  const switched = scheduleOf(values.kind) !== base.schedule
   const terms: TransferTermsArgs = {
     ...(values.fromAccountId !== base.from_account_id
       ? { p_from_account_id: values.fromAccountId }
@@ -124,10 +161,10 @@ export function editArgs(
       : {}),
   }
   if (schedule) {
-    terms.p_schedule = values.schedule
-    if (values.schedule === 'pay_date') {
+    terms.p_schedule = scheduleOf(values.kind)
+    if (values.kind !== 'fixed_day') {
       terms.p_offset_days = values.offsetDays
-      const income = values.incomeId || null
+      const income = incomeOf(values)
       if (income !== (switched ? null : base.income_id)) {
         if (income) terms.p_income_id = income
         else terms.p_clear_income = true
@@ -136,6 +173,7 @@ export function editArgs(
       terms.p_cadence = values.cadence
       if (values.cadence === 'monthly') terms.p_day_of_month = values.dayOfMonth
       else if (values.firstDate) terms.p_first_date = values.firstDate
+      terms.p_weekend_rule = values.weekendRule
     }
   }
   if (correction && Object.keys(terms).length > 0) terms.p_from_period_id = correction
@@ -143,34 +181,18 @@ export function editArgs(
 }
 
 /**
- * An occurrence on the page: its transfer, its period, its key and its kind. The same date can
- * be an occurrence of two kinds (R-ACCOUNT-510), and one period can list two occurrences of a
- * transfer with one key that differ by kind (D-560), so the key alone never names one.
+ * An occurrence on the page: its transfer, its period, its kind and its date or number. A
+ * period's own occurrence has no date, only its period's number (R-ACCOUNT-510), and one date
+ * can be an occurrence of two kinds, so neither the date nor the kind alone names one.
  */
-// R-ACCOUNT-500: rows, focus and the rows kept in place are keyed with the period and the kind.
+// R-ACCOUNT-551: rows, focus and the rows kept in place are keyed with kind and date or number.
 export function occurrenceKey(
-  row: Pick<ChecklistRow, 'transfer_id' | 'period_id' | 'occurrence_date' | 'occurrence_kind'>,
+  row: Pick<
+    ChecklistRow,
+    'transfer_id' | 'period_id' | 'occurrence_date' | 'occurrence_kind' | 'occurrence_seq'
+  >,
 ): string {
-  return `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.occurrence_date ?? ''}|${row.occurrence_kind ?? ''}`
-}
-
-/**
- * The rows whose kind is said in words: only where two rows of one transfer in one list would
- * otherwise read the same (the same due date, or both without one); ordinary rows say nothing.
- */
-export function rowsNeedingKind<
-  T extends { transfer_id?: string | null; period_id?: string | null; due_date: string | null },
->(rows: readonly T[], key: (row: T) => string): Set<string> {
-  const groups = new Map<string, T[]>()
-  for (const row of rows) {
-    const twin = `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.due_date ?? ''}`
-    groups.set(twin, [...(groups.get(twin) ?? []), row])
-  }
-  const out = new Set<string>()
-  for (const group of groups.values()) {
-    if (group.length > 1) for (const row of group) out.add(key(row))
-  }
-  return out
+  return `${row.period_id ?? ''}|${row.transfer_id ?? ''}|${row.occurrence_kind ?? ''}|${row.occurrence_date ?? ''}|${row.occurrence_seq ?? ''}`
 }
 
 /**

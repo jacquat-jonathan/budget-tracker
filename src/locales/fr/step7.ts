@@ -135,6 +135,16 @@ export const transfersFr = {
       'Seul ce que l’application a enregistré d’elle-même, et que personne n’a modifié depuis, passe à sa nouvelle échéance. Une coche, un virement rendu manuel et une transaction modifiée par un membre restent exactement tels quels.',
     movedNote:
       'Une transaction déplacée à une nouvelle échéance compte une fois de chaque côté : elle est retirée puis enregistrée à nouveau à cette date.',
+    movedOnly_one:
+      '{{count}} transaction enregistrée par l’application passe à sa nouvelle échéance : retirée à l’ancienne date, enregistrée à nouveau à la nouvelle.',
+    movedOnly_other:
+      '{{count}} transactions enregistrées par l’application passent à leurs nouvelles échéances : retirées aux anciennes dates, enregistrées à nouveau aux nouvelles.',
+    movedOf_one:
+      'Parmi elles, {{count}} est une même transaction déplacée à sa nouvelle échéance : elle compte une fois comme retirée et une fois comme enregistrée.',
+    movedOf_other:
+      'Parmi elles, {{count}} sont des transactions déplacées à leurs nouvelles échéances : chacune compte une fois comme retirée et une fois comme enregistrée.',
+    editedGoes:
+      'Une transaction modifiée par un membre part aussi quand son échéance elle-même disparaît ; celle dont seule la date change reste telle que le membre l’a laissée.',
     unplanned_one:
       '{{count}} coche d’un membre n’est plus prévue : elle reste, signalée, jusqu’à son annulation.',
     unplanned_other:
@@ -171,7 +181,7 @@ export const transfersFr = {
   correctionAppliesFrom:
     'Les nouvelles conditions valent dès la période choisie jusqu’à son prochain changement. L’aperçu dit d’abord ce qui change.',
   editAppliesFrom:
-    'Les nouvelles conditions valent dès la période en cours (dès le {{date}}). Les périodes passées et ce qui a déjà été enregistré restent.',
+    '« Dès maintenant » veut dire dès le début de la période en cours, le {{date}}, et non dès aujourd’hui : les échéances de cette période suivent aussi les nouvelles conditions. Les coches des membres restent ; ce que l’application a enregistré d’elle-même peut se déplacer ou partir, comme le dit l’aperçu. Les périodes passées gardent leurs conditions.',
   addFromToday:
     'Il est planifié dès aujourd’hui : rien d’antérieur à aujourd’hui n’est enregistré.',
   addRecordsPast:
@@ -190,7 +200,7 @@ export const transfersFr = {
   countsIn: 'Compté comme dépense dans {{category}}',
   noCategory: 'Pas compté comme dépense',
   followsPrimary: 'Son revenu a pris fin : il suit désormais le jour de paie du revenu principal.',
-  nextDue: 'Prochaine échéance',
+  nextDue: 'Prochaine échéance non encore enregistrée',
   noNextDue: 'Aucune prévue',
   today: 'aujourd’hui',
   monthlyShare: 'Par mois',
@@ -221,6 +231,8 @@ export const transfersFr = {
     offset: 'Jour',
     income: 'Paie de qui',
     incomeHelp: 'Celle du revenu principal, sauf si vous en choisissez une autre.',
+    namedIncome: 'Quel revenu',
+    namedIncomeHelp: 'Son jour de paie et sa règle de week-end donnent les dates.',
     primaryIncome: 'Le revenu principal',
     cadence: 'Fréquence',
     day: 'Jour du mois',
@@ -261,10 +273,16 @@ export const transfersFr = {
     after_one: '{{count}} jour après la paie',
     after_other: '{{count}} jours après la paie',
     ofIncome: '{{when}} (« {{income}} »)',
+    ofMain: '{{when}} (revenu principal)',
     monthly: 'Chaque mois {{day}}',
     quarterly: 'Tous les trois mois {{day}}',
     yearly: 'Une fois par an {{day}}',
     yearlyOn: 'Une fois par an, le {{date}}',
+    weekend: {
+      previous: '{{when}}, le jour ouvrable précédent les week-ends',
+      next: '{{when}}, le jour ouvrable suivant les week-ends',
+      nearest: '{{when}}, le jour ouvrable le plus proche les week-ends',
+    },
   },
   amountPer: {
     quarterly: '{{amount}} tous les trois mois',
@@ -293,6 +311,16 @@ export const transfersFr = {
     movedNote:
       'Une transaction dont l’échéance change est retirée puis enregistrée à nouveau à sa nouvelle échéance : elle compte une fois de chaque côté, rien n’est perdu. L’aperçu ne dit pas lesquelles se déplacent.',
     alreadyRecorded: 'déjà enregistré, reste tel quel',
+    movedOnly_one:
+      'Il déplace {{count}} transaction que l’application avait enregistrée d’elle-même à sa nouvelle échéance : retirée à l’ancienne date, enregistrée à nouveau à la nouvelle.',
+    movedOnly_other:
+      'Il déplace {{count}} transactions que l’application avait enregistrées d’elle-même à leurs nouvelles échéances : retirées aux anciennes dates, enregistrées à nouveau aux nouvelles.',
+    movedOf_one:
+      'Parmi elles, {{count}} est une même transaction déplacée à sa nouvelle échéance : elle compte une fois comme retirée et une fois comme enregistrée.',
+    movedOf_other:
+      'Parmi elles, {{count}} sont des transactions déplacées à leurs nouvelles échéances : chacune compte une fois comme retirée et une fois comme enregistrée.',
+    editedGoes:
+      'Une transaction modifiée par un membre part aussi quand son échéance elle-même disparaît ; celle dont seule la date change reste telle que le membre l’a laissée.',
     marksUnplanned_one:
       '{{count}} coche d’un membre n’est plus prévue : elle reste dans sa liste, signalée, jusqu’à son annulation.',
     marksUnplanned_other:
@@ -322,6 +350,40 @@ export const transfersFr = {
   views: {
     label: 'Vues des virements',
     planned: 'Virements planifiés ({{count}})',
+  },
+  occurrence: {
+    period: 'pour la période du {{start}} au {{end}}',
+    periodOther: 'gardé de la période du {{start}} au {{end}}, pas de celle-ci',
+    periodGone:
+      'gardé de la période qu’une réouverture a fusionnée avec celle-ci, pas de cette période',
+    incomePayday: 'au jour de paie de « {{income}} », le {{date}}',
+    incomePaydayUnnamed: 'au jour de paie de son revenu, le {{date}}',
+    fixedDay: 'jour fixe du {{date}}',
+    fixedDayMoved: 'jour fixe du {{date}}, déplacé hors du week-end',
+  },
+  kinds: {
+    label: 'Quand il a lieu',
+    period: 'Au jour de paie du revenu principal',
+    periodHelp: 'Une fois par période, le jour où le salaire principal arrive vraiment.',
+    income_payday: 'Au jour de paie d’un revenu choisi',
+    income_paydayHelp:
+      'À chaque jour de paie prévu du revenu choisi, même s’il n’est pas le revenu principal et quel que soit le jour où son salaire est enregistré.',
+    fixed_day: 'À jour fixe du mois',
+    fixed_dayHelp:
+      'Le même jour chaque mois, tous les trois mois ou chaque année, avec une règle pour les week-ends.',
+    explain:
+      'Le jour de paie du revenu principal suit le jour où le salaire principal arrive vraiment, quel que soit le revenu principal ; celui d’un revenu choisi suit le calendrier propre de ce revenu. Au jour de paie du revenu principal, il a lieu une fois par période : une période allongée par un salaire plus tardif peut donc sauter un mois du calendrier. Pour un rythme mensuel, choisissez le revenu.',
+    exampleTitle: 'Un exemple',
+    example:
+      'Ann, payée le 25, est le revenu principal ; Ben est payé le 10. Le 12 décembre, Ben devient le revenu principal : la période commencée le 25 novembre dure alors jusqu’au 9 janvier. Au jour de paie du revenu principal : 25 nov., 10 janv., 10 févr., aucun en décembre. Au jour de paie d’Ann : 25 nov., 25 déc., 25 janv. Au jour de paie de Ben : 10 nov., 10 déc., 10 janv., 10 févr.',
+  },
+  weekendRule: {
+    label: 'Un samedi ou un dimanche',
+    none: 'Ce jour-là quand même',
+    previous: 'Le jour ouvrable précédent',
+    next: 'Le jour ouvrable suivant',
+    nearest: 'Le jour ouvrable le plus proche',
+    help: 'Le plus proche : un samedi passe au vendredi, un dimanche au lundi. La liste à cocher garde sa date ; seule l’échéance se déplace.',
   },
   checklist: {
     title: 'Liste à cocher',

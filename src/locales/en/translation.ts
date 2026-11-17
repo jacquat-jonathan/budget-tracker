@@ -97,6 +97,7 @@ const core = {
     bankLabelTooLong: 'Use at most 100 characters.',
     accountRequired: 'Choose an account.',
     sameAccount: 'Choose two different accounts.',
+    incomeRequired: 'Choose the income whose payday it follows.',
     dueNotBeforeToday: 'Choose today or a later date, or record what already happened.',
     doneAfterToday: 'The date cannot be after today.',
     emailRequired: 'Enter your email address.',
@@ -616,7 +617,7 @@ const core = {
       'This is the primary income: no period that has started moves. Only the current period’s expected end follows the new pay date (unless you set it by hand), never before today.',
     primaryTitle: 'Make “{{name}}” the primary income?',
     primaryTransfersNote:
-      'Planned transfers on payday: one that names an income keeps happening on each of that income’s paydays, whichever income is the primary. One on “The main income” follows the new primary income from its next payday, which starts the next period. Nothing already recorded or ticked changes.',
+      'Only the periods’ boundaries change; nothing about the transfers is checked again. A transfer on a named income keeps that income’s own paydays, whichever income is the main one. A transfer on the main income’s payday stays once per period: it follows this income only through the periods’ starts.',
     primaryDescription:
       'Periods then follow this income’s pay day. Periods that have started do not move.',
     preview: {

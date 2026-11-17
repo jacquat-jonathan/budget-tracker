@@ -100,6 +100,7 @@ const core: Omit<Translation, LazyKey> = {
     bankLabelTooLong: 'Utilisez au plus 100 caractères.',
     accountRequired: 'Choisissez un compte.',
     sameAccount: 'Choisissez deux comptes différents.',
+    incomeRequired: 'Choisissez le revenu dont il suit le jour de paie.',
     dueNotBeforeToday:
       'Choisissez aujourd’hui ou une date plus tardive, ou enregistrez ce qui a déjà eu lieu.',
     doneAfterToday: 'La date ne peut pas être postérieure à aujourd’hui.',
@@ -639,7 +640,7 @@ const core: Omit<Translation, LazyKey> = {
       'C’est le revenu principal : aucune période déjà commencée ne bouge. Seule la fin prévue de la période en cours suit la nouvelle date de paie (sauf si vous l’avez fixée à la main), jamais avant aujourd’hui.',
     primaryTitle: 'Faire de « {{name}} » le revenu principal ?',
     primaryTransfersNote:
-      'Virements planifiés le jour de paie : celui qui indique un revenu continue d’avoir lieu à chaque jour de paie de ce revenu, quel que soit le revenu principal. Celui réglé sur « Le revenu principal » suit le nouveau revenu principal à partir de son prochain jour de paie, qui ouvre la période suivante. Rien de ce qui a déjà été enregistré ou coché ne change.',
+      'Seules les limites des périodes changent ; rien n’est revu pour les virements. Un virement sur un revenu choisi garde les jours de paie propres de ce revenu, quel que soit le revenu principal. Un virement au jour de paie du revenu principal reste une fois par période : il ne suit ce revenu qu’à travers les débuts de période.',
     primaryDescription:
       'Les périodes suivent alors le jour de paie de ce revenu. Les périodes déjà commencées ne bougent pas.',
     preview: {

@@ -90,6 +90,7 @@ export function PayDatePreviewNotice({
         removed={preview.data.transfer_transactions_removed}
         created={preview.data.transfer_transactions_created}
         unplanned={preview.data.transfer_marks_unplanned}
+        moved={preview.data.transfer_transactions_moved}
       />
     </>
   )

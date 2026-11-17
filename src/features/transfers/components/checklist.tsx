@@ -32,7 +32,8 @@ import { OlderPeriodsItem } from '@/features/budgets/older-periods-item'
 import { usePeriodParam } from '@/features/budgets/use-period-param'
 import { MarkDoneDialog } from '@/features/transfers/components/mark-done-dialog'
 import { targetOf, useMarks } from '@/features/transfers/transfer-mutations'
-import { actionsFor, occurrenceKey, rowsNeedingKind } from '@/features/transfers/transfer-terms'
+import { useOccurrenceText, type PeriodOfSeq } from '@/features/transfers/occurrence-text'
+import { actionsFor, occurrenceKey } from '@/features/transfers/transfer-terms'
 import { useChecklist, type ChecklistRow } from '@/features/transfers/transfer-queries'
 import { FromTo } from '@/features/transfers/components/transfer-bits'
 import { formatCalendarDate } from '@/lib/date'
@@ -150,8 +151,29 @@ export function Checklist({
   /** The keys of the open rows when the mark was made: where the row acted on stood. */
   const focusAround = useRef<string[]>([])
   const rows = checklist.data ?? []
-  // D-600: a row says its kind only where a twin of the same transfer would read the same.
-  const sayKind = rowsNeedingKind(rows, occurrenceKey)
+  const occurrenceText = useOccurrenceText()
+  // A period's own row names its period by number: this one, another listed, or one gone.
+  const periodOf = (seq: number): PeriodOfSeq | null => {
+    const found = period?.seq === seq ? period : periods.find((item) => item.seq === seq)
+    return found
+      ? { start: found.start_date, end: found.end_date, own: found.id === period?.id }
+      : null
+  }
+  const describe = (row: ChecklistRow) =>
+    occurrenceText(
+      {
+        kind: row.occurrence_kind,
+        date: row.occurrence_date,
+        seq: row.occurrence_seq,
+        dueDate: row.due_date,
+        incomeName: row.income_name,
+      },
+      periodOf,
+    )
+  // The buttons of a transfer listed more than once say which occurrence they act on.
+  const listed = new Map<string, number>()
+  for (const row of rows)
+    listed.set(row.transfer_id ?? '', (listed.get(row.transfer_id ?? '') ?? 0) + 1)
   const keys = rows.map((row) => `${occurrenceKey(row)}-${row.mark_revision}`)
   const joined = keys.join(',')
   useEffect(() => {
@@ -215,7 +237,8 @@ export function Checklist({
       <ChecklistItem
         key={`${occurrenceKey(row)}-${index}`}
         row={row}
-        sayKind={sayKind.has(occurrenceKey(row))}
+        occurrence={describe(row)}
+        twinned={(listed.get(row.transfer_id ?? '') ?? 0) > 1}
         busy={busy}
         onDone={() => {
           keep(row)
@@ -356,14 +379,17 @@ export function Checklist({
 
 function ChecklistItem({
   row,
-  sayKind,
+  occurrence,
+  twinned,
   busy,
   onDone,
   onAct,
 }: {
   row: ChecklistRow
-  /** Another row of this transfer here would read the same: say which kind of date this is. */
-  sayKind: boolean
+  /** What the occurrence is for, in words (its period, its income's payday, its fixed day). */
+  occurrence: string
+  /** The transfer has another row here: its buttons say which occurrence they act on. */
+  twinned: boolean
   busy: boolean
   onDone: () => void
   onAct: (kind: 'skip' | 'notDone' | 'undo') => void
@@ -371,12 +397,11 @@ function ChecklistItem({
   const { t } = useTranslation()
   const status = useStatus()(row)
   const actions = actionsFor(row)
-  const kind =
-    sayKind && row.occurrence_kind ? t(`transfers.checklist.kind.${row.occurrence_kind}`) : null
-  // The buttons of two twins are told apart by their names too.
-  const name = kind
-    ? t('transfers.checklist.nameWithKind', { name: row.name ?? '', kind })
-    : (row.name ?? '')
+  // The buttons of two rows of one transfer are told apart by their names too.
+  const name =
+    twinned && occurrence
+      ? t('transfers.checklist.nameWithKind', { name: row.name ?? '', kind: occurrence })
+      : (row.name ?? '')
   const Icon = status.icon
   const moved =
     row.amount_moved !== null && row.amount_moved !== row.amount && row.status === 'done'
@@ -407,9 +432,9 @@ function ChecklistItem({
                 ? t('transfers.checklist.due', { date: formatCalendarDate(row.due_date) })
                 : t('transfers.checklist.noDue')}
             </span>,
-            kind && (
-              <span key="kind" data-testid="checklist-kind">
-                {kind}
+            occurrence && (
+              <span key="for" data-testid="checklist-occurrence">
+                {occurrence}
               </span>
             ),
             moved && (
