@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { previewRetry } from '@/lib/preview'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import { unwrap, usePeriodDependentQuery, type PeriodRead } from '@/features/budgets/budget-queries'
 import { useRecord } from '@/features/budgets/record-queries'
@@ -138,6 +139,7 @@ export function usePreviewCreateTransfer(budgetId: string, args: CreateArgs | nu
     queryKey: [...budgetKeys.budget(budgetId), 'preview-create-transfer', args] as const,
     enabled: args !== null,
     staleTime: 0,
+    retry: previewRetry,
     queryFn: async (): Promise<TransferPreview> =>
       readPreview(
         unwrap(
@@ -166,6 +168,7 @@ export function usePreviewUpdateTransfer(
     ] as const,
     enabled: args !== null && transferId !== undefined,
     staleTime: 0,
+    retry: previewRetry,
     queryFn: async (): Promise<TransferPreview> =>
       readPreview(
         unwrap(
@@ -188,7 +191,13 @@ export interface EndPreview {
 }
 
 /** preview_end_transfer from the chosen period (the current one when null). */
-export function useEndPreview(budgetId: string, transferId: string, periodId: string | null) {
+/** `enabled` false once the end is written: the transfer it previewed is then ended or gone. */
+export function useEndPreview(
+  budgetId: string,
+  transferId: string,
+  periodId: string | null,
+  enabled = true,
+) {
   return useQuery({
     queryKey: [
       ...budgetKeys.budget(budgetId),
@@ -197,6 +206,8 @@ export function useEndPreview(budgetId: string, transferId: string, periodId: st
       periodId ?? '',
     ] as const,
     staleTime: 0,
+    retry: previewRetry,
+    enabled,
     queryFn: async (): Promise<EndPreview> => {
       const row = unwrap(
         await supabase.rpc('preview_end_transfer', {

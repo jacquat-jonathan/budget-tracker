@@ -1,6 +1,7 @@
 import { CalendarClockIcon, LoaderIcon, TriangleAlertIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { PreviewLoadFailed } from '@/components/preview-state'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { ExpectedPayDatePreview } from '@/features/income/pay-date-preview'
 import type { ArrivedOffer } from '@/features/periods/boundary-ranges'
@@ -8,6 +9,7 @@ import { nextSalary } from '@/features/periods/next-salary'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { TransferCounts } from '@/features/transfers/components/transfer-counts'
 import { formatCalendarDate } from '@/lib/date'
+import { previewLoadFailed } from '@/lib/preview'
 
 /**
  * The expected next pay date that saving would give (R-INCOME-055), worded as everywhere
@@ -19,12 +21,27 @@ export function PayDatePreviewNotice({
   offer,
   endDateEntered,
 }: {
-  preview: { data: ExpectedPayDatePreview | null | undefined; isError: boolean; error: unknown }
+  preview: {
+    data: ExpectedPayDatePreview | null | undefined
+    isError: boolean
+    error: unknown
+    isFetching: boolean
+    refetch: () => unknown
+  }
   offer: ArrivedOffer | null
   endDateEntered: string | null
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage()
+  if (previewLoadFailed(preview)) {
+    return (
+      <PreviewLoadFailed
+        error={preview.error}
+        fetching={preview.isFetching}
+        onRetry={() => void preview.refetch()}
+      />
+    )
+  }
   if (preview.isError) {
     return (
       <Alert data-testid="pay-date-preview">

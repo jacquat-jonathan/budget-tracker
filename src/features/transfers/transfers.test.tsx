@@ -5,6 +5,7 @@ import { routes } from '@/app/routes'
 import { editArgs, type TransferFormValues } from '@/features/transfers/transfer-terms'
 import { formatMoney } from '@/lib/money'
 import { categoriesDb, incomeRow } from '@/test/budget-fixtures'
+import { rpcError } from '@/test/mock-db'
 import { accountRow, previewRow, transferRow } from '@/test/mock-transfers'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
@@ -184,12 +185,20 @@ describe('creating a transfer [R-ACCOUNT-315] [R-ACCOUNT-233]', () => {
     await userEvent.click(within(dialog).getByRole('radio', { name: 'On a fixed day' }))
     await choose(dialog, 'How often', 'Once a year')
     await userEvent.type(within(dialog).getByLabelText('Next due date'), '20.10.2026')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    // Said at the field before Save; nothing previewed that the form will not send.
     expect(
       await within(dialog).findByText(
         'Choose today or a later date, or record what already happened.',
       ),
     ).toBeInTheDocument()
+    expect(within(dialog).getByTestId('preview-date-in-past')).toBeInTheDocument()
+    expect(within(dialog).queryByTestId('preview-occurrence')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    // Past the preview's debounce: still never asked.
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(db.rpc.preview_create_transfer).not.toHaveBeenCalledWith(
+      expect.objectContaining({ p_first_date: '2026-10-20' }),
+    )
     expect(db.rpc.create_transfer).not.toHaveBeenCalled()
 
     await userEvent.clear(within(dialog).getByLabelText('Next due date'))
@@ -212,6 +221,88 @@ describe('creating a transfer [R-ACCOUNT-315] [R-ACCOUNT-233]', () => {
     const sent = db.rpc.create_transfer.mock.calls[0]![0]
     expect(sent).not.toHaveProperty('p_from_period_id')
     expect(sent).not.toHaveProperty('p_day_of_month')
+  })
+})
+
+describe('Save waits for the preview of what it sends [D-502] [R-APP-440]', () => {
+  it('is disabled while the preview loads, and while it is refused (never retried)', async () => {
+    const db = await openPage()
+    let answer: (rows: unknown) => void = () => undefined
+    db.rpc.preview_create_transfer.mockImplementation(
+      () => new Promise((resolve) => (answer = resolve)),
+    )
+    const dialog = await openAdd()
+    const save = within(dialog).getByRole('button', { name: 'Save' })
+    await waitFor(() => {
+      expect(db.rpc.preview_create_transfer).toHaveBeenCalled()
+    })
+    expect(within(dialog).getByTestId('transfer-preview')).toHaveTextContent('Loading')
+    expect(save).toBeDisabled()
+    answer([previewRow()])
+    await waitFor(() => {
+      expect(save).toBeEnabled()
+    })
+
+    // A refusal is the database's answer: said at once, Save stays disabled, no retry.
+    db.rpc.preview_create_transfer.mockClear()
+    db.rpc.preview_create_transfer.mockImplementation(() => rpcError('transfer_limit_reached'))
+    await userEvent.clear(within(dialog).getByLabelText('Amount each time'))
+    await userEvent.type(within(dialog).getByLabelText('Amount each time'), '1600')
+    expect(await within(dialog).findByTestId('transfer-preview-refused')).toBeInTheDocument()
+    expect(save).toBeDisabled()
+    expect(db.rpc.preview_create_transfer).toHaveBeenCalledTimes(1)
+    await userEvent.click(save)
+    expect(db.rpc.create_transfer).not.toHaveBeenCalled()
+  })
+
+  it('a preview that failed to load says so, offers to try again, and only then allows Save', async () => {
+    const db = await openPage()
+    db.rpc.preview_create_transfer.mockImplementation(() =>
+      rpcError('TypeError: Failed to fetch', ''),
+    )
+    const dialog = await openAdd()
+    const save = within(dialog).getByRole('button', { name: 'Save' })
+    const failed = await within(dialog).findByTestId('preview-failed', {}, { timeout: 4000 })
+    expect(failed).toHaveTextContent('The preview could not be loaded')
+    expect(save).toBeDisabled()
+    db.rpc.preview_create_transfer.mockImplementation(() => [previewRow()])
+    const retry = within(failed).getByRole('button', { name: 'Try again' })
+    await userEvent.click(retry)
+    await within(dialog).findByTestId('preview-occurrence')
+    expect(save).toBeEnabled()
+  })
+
+  it('a create sent again after a lost answer reuses its client id; the next create gets a new one', async () => {
+    const db = await openPage()
+    const real = db.rpc.create_transfer.getMockImplementation()!
+    db.rpc.create_transfer.mockImplementationOnce(() => rpcError('TypeError: Failed to fetch', ''))
+    const dialog = await openAdd()
+    await within(dialog).findByTestId('preview-occurrence')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.create_transfer).toHaveBeenCalledTimes(1)
+    })
+    db.rpc.create_transfer.mockImplementation(real)
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.create_transfer).toHaveBeenCalledTimes(2)
+    })
+    const first = db.rpc.create_transfer.mock.calls[0]![0].p_client_id
+    expect(db.rpc.create_transfer.mock.calls[1]![0].p_client_id).toBe(first)
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    const next = await openAdd()
+    await within(next).findByTestId('preview-occurrence')
+    await userEvent.click(within(next).getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(db.rpc.create_transfer).toHaveBeenCalledTimes(3)
+    })
+    expect(db.rpc.create_transfer.mock.calls[2]![0].p_client_id).not.toBe(first)
   })
 })
 

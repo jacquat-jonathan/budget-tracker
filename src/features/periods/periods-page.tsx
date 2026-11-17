@@ -18,6 +18,7 @@ import { z } from 'zod'
 
 import { useBudgetEnded } from '@/features/budgets/budget-ended'
 import { CalendarDate, CalendarDateField } from '@/components/form/calendar-date-field'
+import { PreviewLoadFailed } from '@/components/preview-state'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -65,6 +66,7 @@ import { calendarDateSchema, optionalCalendarDateSchema } from '@/lib/form-schem
 import type { Database } from '@/lib/database.types'
 import { formatMoney } from '@/lib/money'
 import { supabase } from '@/lib/supabase'
+import { previewHolds, previewLoadFailed, previewRetry } from '@/lib/preview'
 
 /**
  * Periods run from one salary to the day before the next; stored periods are facts and are
@@ -544,6 +546,7 @@ function BoundaryForm({
     queryKey: [...budgetKeys.budget(budgetId), 'move-preview', period.id, moveTo ?? ''] as const,
     enabled: moveTo !== null,
     staleTime: 0,
+    retry: previewRetry,
     queryFn: async () =>
       unwrap(
         await supabase.rpc('preview_move_period_start', {
@@ -648,6 +651,13 @@ function BoundaryForm({
           </Alert>
         )}
         {action.kind === 'reopen' && <ReopenPreview preview={reopenPreview} />}
+        {moveTo !== null && previewLoadFailed(movePreview) && (
+          <PreviewLoadFailed
+            error={movePreview.error}
+            fetching={movePreview.isFetching}
+            onRetry={() => void movePreview.refetch()}
+          />
+        )}
         {movePreview.data?.accepted === false &&
           movePreview.data.refusal !== 'already_on_schedule' && (
             <Alert variant="destructive" data-testid="move-refused">
@@ -685,9 +695,10 @@ function BoundaryForm({
               mutation.isPending ||
               outside ||
               // R-PERIOD-053: a reopen is confirmed only with its list in front of the user.
-              (action.kind === 'reopen' && !reopenPreview.isSuccess) ||
+              (action.kind === 'reopen' && previewHolds(reopenPreview)) ||
               // R-ACCOUNT-309: a move is confirmed only with its preview, never while refused.
-              (moveTo !== null && movePreview.data?.accepted !== true)
+              (moveTo !== null &&
+                (previewHolds(movePreview) || movePreview.data?.accepted !== true))
             }
           >
             {mutation.isPending
@@ -790,6 +801,7 @@ function useReopenPreview(budgetId: string, enabled: boolean, payDate: string | 
     queryKey: [...budgetKeys.budget(budgetId), 'preview-reopen', payDate ?? ''] as const,
     enabled,
     staleTime: 0,
+    retry: previewRetry,
     queryFn: async (): Promise<ReopenChange[]> =>
       unwrap(
         await supabase.rpc('preview_reopen', {

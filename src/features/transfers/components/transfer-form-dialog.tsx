@@ -44,6 +44,7 @@ import {
   CategorySelectField,
   type CategoryChoice,
 } from '@/features/transactions/components/category-select-field'
+import { previewHolds } from '@/lib/preview'
 import { TransferPreviewBox } from '@/features/transfers/components/transfer-preview'
 import { useCreateTransfer, useUpdateTransfer } from '@/features/transfers/transfer-mutations'
 import {
@@ -387,6 +388,18 @@ function TransferForm({
   const typedAmount =
     typeof watched.amount === 'number' && Number.isSafeInteger(watched.amount) && watched.amount > 0
   const firstDateOk = !needsFirstDate(current) || isCalendarDate(current.firstDate)
+  // R-ACCOUNT-315: a date before today is not sent without "It already ran"; said at the field.
+  const firstDateInPast =
+    !editing &&
+    needsFirstDate(current) &&
+    isCalendarDate(current.firstDate) &&
+    !past &&
+    today !== null &&
+    current.firstDate < today
+  const typedFirstDate = needsFirstDate(current) ? current.firstDate : ''
+  useEffect(() => {
+    if (isCalendarDate(typedFirstDate)) void form.trigger('firstDate')
+  }, [typedFirstDate, past, form])
   const ready =
     typedAmount &&
     current.fromAccountId !== '' &&
@@ -394,7 +407,9 @@ function TransferForm({
     current.fromAccountId !== current.toAccountId &&
     (!linked || current.categoryId !== '')
   const createInput = useDebounced(
-    !editing && ready && firstDateOk && (!past || fromPeriodId !== '') ? createArgs(current) : null,
+    !editing && ready && firstDateOk && !firstDateInPast && (!past || fromPeriodId !== '')
+      ? createArgs(current)
+      : null,
   )
   const updateInput = useDebounced(
     editing && base && ready && (current.firstDate === '' || isCalendarDate(current.firstDate))
@@ -409,6 +424,9 @@ function TransferForm({
   )
   const preview = editing ? updatePreview : createPreview
   const previewBehind = (editing ? updateInput.stale : createInput.stale) || preview.isFetching
+  const needsInput = editing ? updateInput.value === null : createInput.value === null
+  // Save waits for the preview of exactly what it will send (D-502).
+  const previewWaits = !needsInput && (previewBehind || previewHolds(preview))
 
   const onSubmit = form.handleSubmit((values) => {
     const typed = values
@@ -630,9 +648,12 @@ function TransferForm({
             preview={preview.data}
             pending={preview.isPending || previewBehind}
             error={preview.error}
-            needsInput={editing ? updateInput.value === null : createInput.value === null}
+            needsInput={needsInput}
             creating={!editing}
             recordsPast={past}
+            firstDateInPast={firstDateInPast}
+            fetching={preview.isFetching}
+            onRetry={() => void preview.refetch()}
           />
         )}
         <Alert>
@@ -665,7 +686,8 @@ function TransferForm({
               !settled ||
               notInForce ||
               (editing && !base) ||
-              preview.isError
+              firstDateInPast ||
+              previewWaits
             }
           >
             {mutation.isPending ? t('common.saving') : t('common.save')}

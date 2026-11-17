@@ -1,6 +1,8 @@
 import { CalendarClockIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { PreviewLoadFailed } from '@/components/preview-state'
+import { previewLoadFailed } from '@/lib/preview'
 import type { TransferPreview } from '@/features/transfers/transfer-queries'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { formatCalendarDate } from '@/lib/date'
@@ -21,6 +23,9 @@ export function TransferPreviewBox({
   needsInput,
   creating,
   recordsPast,
+  firstDateInPast = false,
+  fetching = false,
+  onRetry,
 }: {
   preview: TransferPreview | undefined
   pending: boolean
@@ -30,6 +35,10 @@ export function TransferPreviewBox({
   creating: boolean
   /** Create: the member chose to record what already happened. */
   recordsPast: boolean
+  /** Create: a quarterly or yearly date before today without "It already ran" (not sent). */
+  firstDateInPast?: boolean
+  fetching?: boolean
+  onRetry?: () => void
 }) {
   const { t } = useTranslation()
   const errorMessage = useErrorMessage({ category_to_categorise: 'transfers.errors.toCategorise' })
@@ -43,8 +52,14 @@ export function TransferPreviewBox({
         <CalendarClockIcon className="size-4 text-muted-foreground" aria-hidden />
         {t('transfers.preview.title')}
       </p>
-      {needsInput ? (
+      {firstDateInPast ? (
+        <p className="text-muted-foreground" data-testid="preview-date-in-past">
+          {t('transfers.preview.firstDateInPast')}
+        </p>
+      ) : needsInput ? (
         <p className="text-muted-foreground">{t('transfers.preview.needsInput')}</p>
+      ) : previewLoadFailed({ isError: error !== null && error !== undefined, error }) ? (
+        <PreviewLoadFailed error={error} fetching={fetching} onRetry={() => onRetry?.()} />
       ) : error !== null && error !== undefined ? (
         <p className="text-destructive" data-testid="transfer-preview-refused">
           {errorMessage(error)}

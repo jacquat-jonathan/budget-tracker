@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { routes } from '@/app/routes'
 import { categoriesDb, householdDb, incomeRow, transactionRow } from '@/test/budget-fixtures'
 import { transferRow } from '@/test/mock-transfers'
+import { rpcError } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 import { warmPages } from '@/test/warm'
@@ -132,6 +133,49 @@ describe('moving a period’s start follows the step 7 contract [R-ACCOUNT-309]'
     await typeDate(dialog, /Day the salary arrived/, '20.10.2026')
     await within(dialog).findByTestId('move-refused')
     expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+  })
+
+  it('Save waits while the preview loads, and when it failed offers to try again [R-APP-440]', async () => {
+    const db = householdDb()
+    const accepted = {
+      period_id: 'period-2',
+      scheduled_start: '2026-10-23',
+      accepted: true,
+      refusal: null,
+      interest_removed: 0,
+      transfer_transactions_removed: 0,
+      transfer_transactions_created: 0,
+      transfer_marks_unplanned: 0,
+    }
+    let answer: (rows: unknown) => void = () => undefined
+    db.rpc.preview_move_period_start.mockImplementation((args) =>
+      args.p_start_date === '2026-10-27'
+        ? new Promise((resolve) => (answer = resolve))
+        : args.p_start_date === '2026-10-26'
+          ? rpcError('TypeError: Failed to fetch', '')
+          : [accepted],
+    )
+    const dialog = await periodAction(db, 'This period’s salary actually arrived on another day')
+    await typeDate(dialog, /Day the salary arrived/, '27.10.2026')
+    await waitFor(() => {
+      expect(db.rpc.preview_move_period_start).toHaveBeenCalledWith(
+        expect.objectContaining({ p_start_date: '2026-10-27' }),
+      )
+    })
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    answer([accepted])
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    })
+
+    await typeDate(dialog, /Day the salary arrived/, '26.10.2026')
+    const failed = await within(dialog).findByTestId('preview-failed', {}, { timeout: 4000 })
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled()
+    db.rpc.preview_move_period_start.mockImplementation(() => [accepted])
+    await userEvent.click(within(failed).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled()
+    })
   })
 })
 

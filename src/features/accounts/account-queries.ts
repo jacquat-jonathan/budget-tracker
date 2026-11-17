@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { previewRetry } from '@/lib/preview'
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import {
   unwrap,
@@ -142,6 +143,7 @@ export function useClosePreview(budgetId: string, accountId: string, periodId: s
       periodId ?? '',
     ] as const,
     staleTime: 0,
+    retry: previewRetry,
     queryFn: async (): Promise<CloseOutcome> => {
       const row = unwrap(
         await supabase.rpc('preview_close_account', {

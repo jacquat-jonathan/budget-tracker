@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-564 rules (553 active, 0 planned), 24 conventions, 344 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
+565 rules (554 active, 0 planned), 24 conventions, 347 decisions, 45 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -29,7 +29,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 Sidebar layout and navigation, English and French UI, theme, money and date formatting helpers, error and not-found pages.
 
 - **US-SHELL-001** As a signed-in user, I want to move between the sections of the app from a sidebar, so that I always know where I am and how to get elsewhere.
-  Rules: R-APP-001, R-APP-002
+  Rules: R-APP-001, R-APP-002, R-APP-440
 - **US-SHELL-002** As a signed-in user, I want to use the app in English or in French and have it remember my choice, so that everyone in the household can read it in their language.
   Rules: R-I18N-001, R-I18N-002
 - **US-SHELL-003** As a signed-in user, I want to see amounts in Swiss francs with Swiss formatting and dates as dd.mm.yyyy, so that figures read the way I am used to.
@@ -286,6 +286,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PLATFORM_
   - Related: D-461, R-APP-250
   - Source: owner-request: coordinator brief for the step 6 database fix round 2 (re-review at 747686c), 2026-11-16; code: supabase/migrations/20261121100000_client_requests.sql
+- **R-APP-440** A save or confirmation that shows a preview waits for the database’s preview of exactly the arguments it sends: it stays disabled while that preview loads, is retried or read again, and when it was refused or failed to load. A refusal is the answer and is never retried; a preview that failed to load says so and offers to try again.
+  _active · enforced by test · F-SHELL_
+  - Related: D-502, D-505, D-540
+  - Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
 
 ### Accounts and sign-in
 
@@ -7159,6 +7163,44 @@ The reopen confirmation previews with the pay date the member typed (preview_reo
 Related: R-ACCOUNT-313, R-ACCOUNT-309, R-ACCOUNT-311, R-ACCOUNT-240, R-ACCOUNT-303
 
 Source: owner-request: coordinator brief for the step 7 screens, 2026-11-17
+
+### D-540 Previews hold their save; refusals are not retried (accepted)
+
+Every step 7 form and confirmation (create, edit and end a transfer, close an account) and the earlier screens’ previews (reopen, move start, an income’s new terms, make primary) keep Save disabled while their preview is loading, retried, read again, refused or failed to load (R-APP-440). A preview query retries once only when it failed to load (no named code); a named refusal is shown at once. A preview that failed to load says so with “Try again”, whose button stays in place, and keeps the focus, while the preview is read again. The end and close confirmations stop reading their preview once the write is sent (the transfer or account it previewed is then gone or ended).
+
+**Why:** The review measured a create saved while its preview still said “Loading…” (a past transaction recorded unannounced), and Save enabled for 1.5 s while a refusal was retried before it counted as one.
+
+**Rejected:**
+
+- Showing the preview’s error and letting Save through: the member would save what was never shown.
+
+Related: D-502, D-505, R-APP-440
+
+Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
+
+### D-541 The checklist says what a tick no longer planned was, and a stale Done closes (accepted)
+
+A tick whose occurrence is no longer planned says what it was, as any other row would, followed by “no longer planned” (“Done on 28.10.2026 by Bruno · no longer planned”, skipped, did not happen), with the amount moved beside the planned one when they differ and, when it has a transaction, that Undo removes it with its transaction (in its category). An automatic occurrence assumed done with no transaction (no category, done_on null) says “Done by standing order on” its due date. A Done refused because the occurrence was ticked or changed meanwhile closes its dialog with the message; the list is read again and the focus goes back to the row, as for Skip and Undo.
+
+**Why:** The review found unlinked standing orders reading “Done by standing order on” with no date, a row hiding what the database still holds about a tick (what Undo removes, a transaction included), and a stale Done dialog that could never succeed.
+
+**Rejected:** none recorded.
+
+Related: D-504, R-ACCOUNT-004, R-ACCOUNT-301, R-CONCURRENCY-230
+
+Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
+
+### D-542 A quarterly or yearly date before today is said at the field (accepted)
+
+Creating a quarterly or yearly transfer with a next due date before today and without “It already ran” says the date problem at the field as soon as the date is typed, disables Save and shows no preview (the box says why): the form never previews arguments it will not send.
+
+**Why:** The preview said “Saving records 1 transaction at once” while the note said nothing before today is recorded, and Save then refused.
+
+**Rejected:** none recorded.
+
+Related: D-502, D-493, R-ACCOUNT-315
+
+Source: owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17
 
 ## Open questions
 

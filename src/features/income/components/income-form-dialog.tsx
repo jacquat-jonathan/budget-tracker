@@ -58,6 +58,7 @@ import { isRecordChanged, useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { dbErrorCode } from '@/lib/db-errors'
 import { nameSchema, payDaySchema, rappenSchema, weekendRuleSchema } from '@/lib/form-schemas'
+import { previewHolds } from '@/lib/preview'
 
 const incomeSchema = z.object({
   name: nameSchema,
@@ -411,7 +412,7 @@ function IncomeForm({
               sync.pending !== null ||
               editBase.gone ||
               notInForce ||
-              (primaryTermsChanged && !preview.isSuccess)
+              (primaryTermsChanged && previewHolds(preview))
             }
           >
             {mutation.isPending ? t('common.saving') : t('common.save')}

@@ -229,6 +229,7 @@ const core = {
   states: {
     loadFailed: 'This could not be loaded',
     retry: 'Try again',
+    previewFailed: 'The preview could not be loaded: {{reason}} Saving waits until it is shown.',
   },
   errors: {
     forbidden: 'You are not allowed to do this.',

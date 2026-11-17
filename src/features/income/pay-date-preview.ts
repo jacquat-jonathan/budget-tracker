@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
+import { previewRetry } from '@/lib/preview'
+
 import { budgetKeys } from '@/features/budgets/budget-keys'
 import {
   unwrap,
@@ -36,6 +38,7 @@ export function useExpectedPayDatePreview(budgetId: string, proposal: Proposal, 
   return useQuery({
     queryKey: [...budgetKeys.budget(budgetId), 'preview-pay-date', proposal] as const,
     enabled,
+    retry: previewRetry,
     queryFn: async (): Promise<ExpectedPayDatePreview | null> => {
       const rows =
         proposal.kind === 'terms'

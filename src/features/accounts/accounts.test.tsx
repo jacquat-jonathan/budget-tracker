@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { routes } from '@/app/routes'
 import { householdDb, incomeRow, memberRow, OTHER_USER_ID } from '@/test/budget-fixtures'
 import { accountRow, transferRow } from '@/test/mock-transfers'
+import { rpcError } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
 import { warmPages } from '@/test/warm'
@@ -154,6 +155,27 @@ describe('closing an account [R-ACCOUNT-232]', () => {
     expect(users).toHaveTextContent('Income “Salary”')
     expect(users).toHaveTextContent('Planned transfer “Savings”')
     expect(within(dialog).getByRole('button', { name: 'Close account' })).toBeDisabled()
+    expect(db.rpc.close_account).not.toHaveBeenCalled()
+  })
+
+  it('a preview that failed to load keeps the confirmation disabled until it is shown [R-APP-440]', async () => {
+    const db = await openPage()
+    db.rpc.preview_close_account.mockImplementationOnce(() =>
+      rpcError('TypeError: Failed to fetch', ''),
+    )
+    db.rpc.preview_close_account.mockImplementationOnce(() =>
+      rpcError('TypeError: Failed to fetch', ''),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Actions for Savings' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Close account' }))
+    const dialog = await screen.findByRole('alertdialog')
+    const failed = await within(dialog).findByTestId('preview-failed', {}, { timeout: 4000 })
+    expect(failed).toHaveTextContent('The preview could not be loaded')
+    expect(within(dialog).getByRole('button', { name: 'Close account' })).toBeDisabled()
+    await userEvent.click(within(failed).getByRole('button', { name: 'Try again' }))
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Close account' })).toBeEnabled()
+    })
     expect(db.rpc.close_account).not.toHaveBeenCalled()
   })
 

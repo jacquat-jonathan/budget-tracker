@@ -238,6 +238,8 @@ export const transfersEn = {
   preview: {
     title: 'What saving does',
     needsInput: 'Choose the accounts and an amount to see the due dates.',
+    firstDateInPast:
+      'Nothing to show yet: the next due date is before today. Choose today or a later date, or tick “It already ran” to record what happened.',
     none: 'No occurrence on these terms in the coming periods.',
     atOnceRow: 'recorded now',
     projected: 'estimated',

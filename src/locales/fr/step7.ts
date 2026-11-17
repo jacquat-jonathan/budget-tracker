@@ -250,6 +250,8 @@ export const transfersFr = {
   preview: {
     title: 'Ce que fait l’enregistrement',
     needsInput: 'Choisissez les comptes et un montant pour voir les échéances.',
+    firstDateInPast:
+      'Rien à montrer pour l’instant : la prochaine échéance est avant aujourd’hui. Choisissez aujourd’hui ou une date ultérieure, ou cochez « Il a déjà eu lieu » pour enregistrer ce qui s’est passé.',
     none: 'Aucune échéance à ces conditions dans les périodes à venir.',
     atOnceRow: 'enregistré tout de suite',
     projected: 'estimé',

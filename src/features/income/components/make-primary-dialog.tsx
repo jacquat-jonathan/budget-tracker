@@ -23,6 +23,7 @@ import {
 } from '@/features/income/pay-date-preview'
 import { useErrorMessage } from '@/hooks/use-app-mutation'
 import { useEditBase } from '@/hooks/use-edit-base'
+import { previewHolds } from '@/lib/preview'
 
 /** "Make primary", with the expected next pay date it would give before confirming. */
 export function MakePrimaryDialog({
@@ -142,7 +143,7 @@ function PrimaryBody({
       <AlertDialogFooter>
         <AlertDialogCancel disabled={mutation.isPending}>{t('common.cancel')}</AlertDialogCancel>
         <Button
-          disabled={mutation.isPending || edit.changed || (enabled && !preview.isSuccess)}
+          disabled={mutation.isPending || edit.changed || (enabled && previewHolds(preview))}
           onClick={() =>
             mutation.mutate(
               {

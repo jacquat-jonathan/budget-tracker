@@ -5,6 +5,8 @@ import { Link } from 'react-router'
 import { paths } from '@/app/paths'
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { CorrectionToggle } from '@/components/form/correction-toggle'
+import { PreviewLoadFailed } from '@/components/preview-state'
+import { previewHolds, previewLoadFailed } from '@/lib/preview'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -139,7 +141,7 @@ function CloseBody({
     !settled ||
     outcome === null ||
     refusal !== null ||
-    preview.isFetching
+    (!close.isPending && !close.isSuccess && previewHolds(preview))
   const label = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
       start: formatCalendarDate(period.start_date),
@@ -156,7 +158,13 @@ function CloseBody({
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="close-account-outcome">
-            {preview.isError ? (
+            {previewLoadFailed(preview) ? (
+              <PreviewLoadFailed
+                error={preview.error}
+                fetching={preview.isFetching}
+                onRetry={() => void preview.refetch()}
+              />
+            ) : preview.isError ? (
               <p>{errorMessage(preview.error)}</p>
             ) : refusal ? (
               <p>

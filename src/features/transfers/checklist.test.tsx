@@ -260,9 +260,7 @@ describe('the checklist of a period [R-ACCOUNT-005] [R-ACCOUNT-004]', () => {
       expect(row('Joint account')).toHaveTextContent('Done on 14.11.2026 by Sam')
     })
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: 'Undo the tick of “Joint account”' }),
-      ).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'Undo the tick of “Joint account”' })).toHaveFocus()
     })
     expect(db.rpc.mark_transfer_done).toHaveBeenCalledTimes(1)
   })
@@ -364,9 +362,7 @@ describe('a standing order counts as done from its due date [R-ACCOUNT-004]', ()
     )
     await userEvent.click(screen.getByRole('button', { name: 'Undo the tick of “Kept order”' }))
     await waitFor(() => {
-      expect(within(row('Kept order')).getByTestId('checklist-status')).toHaveTextContent(
-        'Overdue',
-      )
+      expect(within(row('Kept order')).getByTestId('checklist-status')).toHaveTextContent('Overdue')
     })
     expect(db.rpc.undo_transfer_mark).toHaveBeenCalledWith(
       expect.objectContaining({ p_transfer_id: 'tr-kept', p_expected_revision: 1 }),

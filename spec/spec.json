@@ -492,7 +492,7 @@
           "actor": "A-USER",
           "iWant": "to move between the sections of the app from a sidebar",
           "soThat": "I always know where I am and how to get elsewhere",
-          "rules": ["R-APP-001", "R-APP-002"]
+          "rules": ["R-APP-001", "R-APP-002", "R-APP-440"]
         },
         {
           "id": "US-SHELL-002",
@@ -8215,6 +8215,18 @@
       "enforcement": "test",
       "related": ["R-COMPARE-282", "D-485"],
       "source": ["owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17"]
+    },
+    {
+      "id": "R-APP-440",
+      "area": "app",
+      "feature": "F-SHELL",
+      "status": "active",
+      "enforcement": "test",
+      "statement": "A save or confirmation that shows a preview waits for the database’s preview of exactly the arguments it sends: it stays disabled while that preview loads, is retried or read again, and when it was refused or failed to load. A refusal is the answer and is never retried; a preview that failed to load says so and offers to try again.",
+      "related": ["D-502", "D-505", "D-540"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17"
+      ]
     }
   ],
   "decisions": [
@@ -12838,6 +12850,44 @@
         "R-ACCOUNT-303"
       ],
       "source": ["owner-request: coordinator brief for the step 7 screens, 2026-11-17"]
+    },
+    {
+      "id": "D-540",
+      "title": "Previews hold their save; refusals are not retried",
+      "decision": "Every step 7 form and confirmation (create, edit and end a transfer, close an account) and the earlier screens’ previews (reopen, move start, an income’s new terms, make primary) keep Save disabled while their preview is loading, retried, read again, refused or failed to load (R-APP-440). A preview query retries once only when it failed to load (no named code); a named refusal is shown at once. A preview that failed to load says so with “Try again”, whose button stays in place, and keeps the focus, while the preview is read again. The end and close confirmations stop reading their preview once the write is sent (the transfer or account it previewed is then gone or ended).",
+      "why": "The review measured a create saved while its preview still said “Loading…” (a past transaction recorded unannounced), and Save enabled for 1.5 s while a refusal was retried before it counted as one.",
+      "rejected": [
+        "Showing the preview’s error and letting Save through: the member would save what was never shown."
+      ],
+      "status": "accepted",
+      "related": ["D-502", "D-505", "R-APP-440"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-541",
+      "title": "The checklist says what a tick no longer planned was, and a stale Done closes",
+      "decision": "A tick whose occurrence is no longer planned says what it was, as any other row would, followed by “no longer planned” (“Done on 28.10.2026 by Bruno · no longer planned”, skipped, did not happen), with the amount moved beside the planned one when they differ and, when it has a transaction, that Undo removes it with its transaction (in its category). An automatic occurrence assumed done with no transaction (no category, done_on null) says “Done by standing order on” its due date. A Done refused because the occurrence was ticked or changed meanwhile closes its dialog with the message; the list is read again and the focus goes back to the row, as for Skip and Undo.",
+      "why": "The review found unlinked standing orders reading “Done by standing order on” with no date, a row hiding what the database still holds about a tick (what Undo removes, a transaction included), and a stale Done dialog that could never succeed.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["D-504", "R-ACCOUNT-004", "R-ACCOUNT-301", "R-CONCURRENCY-230"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-542",
+      "title": "A quarterly or yearly date before today is said at the field",
+      "decision": "Creating a quarterly or yearly transfer with a next due date before today and without “It already ran” says the date problem at the field as soon as the date is typed, disables Save and shows no preview (the box says why): the form never previews arguments it will not send.",
+      "why": "The preview said “Saving records 1 transaction at once” while the note said nothing before today is recorded, and Save then refused.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["D-502", "D-493", "R-ACCOUNT-315"],
+      "source": [
+        "owner-request: coordinator brief for the step 7 screens fix round (review of b952f93), 2026-11-17"
+      ]
     }
   ],
   "conventions": [

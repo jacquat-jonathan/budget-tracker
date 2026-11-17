@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 
 import { ChangedElsewhere, GoneElsewhere, SaveError } from '@/components/changed-elsewhere'
 import { CorrectionToggle } from '@/components/form/correction-toggle'
+import { PreviewLoadFailed } from '@/components/preview-state'
+import { previewHolds, previewLoadFailed } from '@/lib/preview'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -101,13 +103,23 @@ function EndBody({
   const [correct, setCorrect] = useState(mustCorrect)
   const [fromPeriodId, setFromPeriodId] = useState(correctable[0]?.id ?? '')
   const olderPeriods = useOlderPeriodsOption(budgetId)
-  const preview = useEndPreview(budgetId, transfer.id, correct ? fromPeriodId || null : null)
+  // Not read again once the end is sent: the transfer it previewed is then ended or gone.
+  const preview = useEndPreview(
+    budgetId,
+    transfer.id,
+    correct ? fromPeriodId || null : null,
+    !end.isPending && !end.isSuccess,
+  )
   const answer = preview.data
   const outcome = answer?.outcome ?? null
   const refusal = answer?.refusal ?? null
   const deletes = outcome === 'deleted'
   const blocked =
-    removal.changed || removal.gone || !settled || outcome === null || preview.isFetching
+    removal.changed ||
+    removal.gone ||
+    !settled ||
+    outcome === null ||
+    (!end.isPending && !end.isSuccess && previewHolds(preview))
   const label = (period: PeriodSummary) =>
     t('income.fields.fromPeriod', {
       start: formatCalendarDate(period.start_date),
@@ -124,9 +136,18 @@ function EndBody({
         </AlertDialogTitle>
         <AlertDialogDescription asChild>
           <div className="flex flex-col gap-2" data-testid="end-transfer-outcome">
+            {previewLoadFailed(preview) && (
+              <PreviewLoadFailed
+                error={preview.error}
+                fetching={preview.isFetching}
+                onRetry={() => void preview.refetch()}
+              />
+            )}
             <p>
               {preview.isError
-                ? errorMessage(preview.error)
+                ? previewLoadFailed(preview)
+                  ? null
+                  : errorMessage(preview.error)
                 : refusal
                   ? t('transfers.end.refused', { reason: t(`errors.db.${refusal}`) })
                   : outcome === null

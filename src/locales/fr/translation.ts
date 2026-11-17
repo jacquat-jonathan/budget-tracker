@@ -235,6 +235,8 @@ const core: Omit<Translation, LazyKey> = {
   states: {
     loadFailed: 'Impossible de charger ces données',
     retry: 'Réessayer',
+    previewFailed:
+      'L’aperçu n’a pas pu être chargé : {{reason}} L’enregistrement attend qu’il s’affiche.',
   },
   errors: {
     forbidden: 'Vous n’avez pas le droit de faire cela.',
