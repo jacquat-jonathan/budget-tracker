@@ -34,6 +34,7 @@ import { ReadSummary, type ReadInfo } from '@/features/import/components/read-su
 import { SourceChooser } from '@/features/import/components/source-chooser'
 import type { CsvReady } from '@/features/import/csv/csv-mapper'
 import {
+  CHUNK_SIZE,
   chunksOf,
   dateRange,
   fingerprint as fingerprintOf,
@@ -53,8 +54,10 @@ import {
 } from '@/features/import/pending-import'
 import { refusalText } from '@/features/import/statement-words'
 import type { StatementRefusal } from '@/features/import/statements/types'
+import { PreviewSummary } from '@/features/import/components/preview-summary'
 import {
   partsToSend,
+  PreviewLostError,
   useImportPreview,
   useImportRun,
   type EntryAnswer,
@@ -210,6 +213,11 @@ export function ImportPage() {
                 parts: pending.parts,
               })}
             </p>
+            {pending.stoppedBy && (
+              <p data-testid="pending-stopped-by">
+                {t(`import.pending.stoppedBy.${pending.stoppedBy}`)}
+              </p>
+            )}
             <div>
               <Button
                 type="button"
@@ -337,7 +345,7 @@ function ImportFlow({
   const ended = useBudgetEnded(budgetId)
   const [choices, setChoices] = useState<Choices>({})
   const [leaving, setLeaving] = useState(false)
-  const { draft, batchId, draftId } = stage
+  const { draft, batchId } = stage
   const run = useImportRun(budgetId)
   // Each phase of the run (sending, stopped, done) puts the focus on its heading.
   const phase = run.state.phase
@@ -352,7 +360,15 @@ function ImportFlow({
   }, [phase])
   const sending = run.state.phase === 'sending' || run.state.phase === 'catching-up'
   const started = run.state.phase !== 'idle'
-  const preview = useImportPreview(budgetId, batchId, draftId, draft, choices, started)
+  // The parts the interrupted import recorded are not previewed: each answers what it recorded.
+  const preview = useImportPreview(
+    budgetId,
+    batchId,
+    draft,
+    choices,
+    started,
+    stage.recordedParts + 1,
+  )
   // The rows of the parts the interrupted import recorded, by key, with their part.
   const locked = useMemo(() => {
     const out = new Map<number, number>()
@@ -376,7 +392,13 @@ function ImportFlow({
     [preview.answers],
   )
   const existing = useExistingTransactions(budgetId, ids)
-  const counts = countActions(preview.answers.map((answer) => answer.result))
+  const totals = preview.totals
+  const parts = chunksOf(draft.entries).length
+  // Every part was recorded before the interruption: nothing to preview, the run finishes it.
+  const allRecorded = stage.recordedParts >= parts
+  const toImport = totals ? totals.statement.import + totals.statement.confirm_match : 0
+  const canImport =
+    preview.current && (allRecorded || (totals !== null && totals.fits && toImport > 0))
   // The answers of the preview as they were when the import started, to compare afterwards.
   const [previewed, setPreviewed] = useState<EntryAnswer[] | null>(null)
 
@@ -390,7 +412,7 @@ function ImportFlow({
     return () => window.removeEventListener('beforeunload', warn)
   }, [sending])
 
-  const start = () => {
+  const start = (skipExpired = false) => {
     // A row of a part already recorded is not compared: its part answers as the first time.
     setPreviewed(
       preview.answers.map((answer) =>
@@ -403,9 +425,9 @@ function ImportFlow({
       batchId,
       fingerprint: stage.fingerprint,
       toCategoriseName: t('import.preview.toCategoriseName'),
+      skipExpired,
     })
   }
-  const parts = chunksOf(draft.entries).length
 
   if (started) {
     return (
@@ -469,32 +491,7 @@ function ImportFlow({
               <AlertDescription>{t('import.preview.ended')}</AlertDescription>
             </Alert>
           )}
-          <div
-            className="flex flex-col gap-1.5"
-            data-testid="preview-counts"
-            aria-live="polite"
-            aria-busy={!preview.current}
-          >
-            {!preview.current && (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <LoaderCircleIcon className="size-4 animate-spin" aria-hidden />
-                {t('import.preview.checking')}
-              </p>
-            )}
-            <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-              {COUNTED.filter((action) => action === 'import' || counts[action] > 0).map(
-                (action) => (
-                  <li
-                    key={action}
-                    className={action === 'import' ? 'font-medium' : undefined}
-                    data-testid={`count-${action}`}
-                  >
-                    {t(`import.preview.counts.${action}`, { count: counts[action] })}
-                  </li>
-                ),
-              )}
-            </ul>
-          </div>
+          <PreviewSummary preview={preview} parts={parts} recordedParts={stage.recordedParts} />
           {preview.error !== null && dbErrorIsShown(preview.error) && (
             <Alert variant="destructive">
               <TriangleAlertIcon aria-hidden />
@@ -502,7 +499,9 @@ function ImportFlow({
                 <p>
                   {isBusyError(preview.error)
                     ? t('import.preview.checkBusy')
-                    : t('import.preview.checkFailed', { reason: errorMessage(preview.error) })}
+                    : preview.error instanceof PreviewLostError
+                      ? t('import.preview.checkLost')
+                      : t('import.preview.checkFailed', { reason: errorMessage(preview.error) })}
                 </p>
                 <div>
                   <Button type="button" size="sm" variant="outline" onClick={preview.retry}>
@@ -512,11 +511,6 @@ function ImportFlow({
                 </div>
               </AlertDescription>
             </Alert>
-          )}
-          {parts > 1 && (
-            <p className="text-sm text-muted-foreground">
-              {t('import.preview.parts', { count: parts })} {t('import.preview.partsNote')}
-            </p>
           )}
           <Button
             type="button"
@@ -562,15 +556,19 @@ function ImportFlow({
             <Button
               ref={importButton}
               type="button"
-              disabled={!preview.current || counts.import + counts.confirm_match === 0}
-              onClick={start}
+              disabled={!canImport}
+              onClick={() => start()}
               data-testid="import-button"
             >
               {!preview.current
                 ? t('import.preview.importWait')
-                : counts.import === 0 && counts.confirm_match === 0
-                  ? t('import.preview.importNothing')
-                  : t('import.preview.importButton', { count: counts.import })}
+                : allRecorded
+                  ? t('import.preview.importRecorded')
+                  : totals && !totals.fits
+                    ? t('import.preview.importNoRoom')
+                    : toImport === 0
+                      ? t('import.preview.importNothing')
+                      : t('import.preview.importButton', { count: totals?.statement.import ?? 0 })}
             </Button>
           </div>
         </CardContent>
@@ -583,9 +581,7 @@ function ImportFlow({
 // R-IMPORT-362: the parts an interrupted import recorded are locked and sent unchanged.
 function lockedOut(choices: Choices, locked: ReadonlyMap<number, number>): Choices {
   if (locked.size === 0) return choices
-  return Object.fromEntries(
-    Object.entries(choices).filter(([key]) => !locked.has(Number(key))),
-  )
+  return Object.fromEntries(Object.entries(choices).filter(([key]) => !locked.has(Number(key))))
 }
 
 /** A preview error is shown unless the shared catch-up handles it. */
@@ -608,7 +604,8 @@ function RunView({
   budgetId: string
   batchId: string
   previewed: EntryAnswer[]
-  onContinue: () => void
+  /** Send the parts again from the first; `skipExpired` goes past parts whose answer is gone. */
+  onContinue: (skipExpired?: boolean) => void
   onAnother: () => void
 }) {
   const { t } = useTranslation()
@@ -621,10 +618,13 @@ function RunView({
   const counts = countActions(results)
   // Rows whose answer differs from the preview: matched meanwhile by an earlier part, another
   // import or a change in the budget. Only those not imported are in the list below.
-  const differed = results.filter((result, index) => {
-    const before = previewed[index]?.result
-    return before !== undefined && rowAction(before) !== rowAction(result)
-  })
+  // Compared part by part: a part whose answer is gone (chunk_expired) answers no rows.
+  const differed = state.answers.flatMap((rows, index) =>
+    rows.filter((result, at) => {
+      const before = previewed[index * CHUNK_SIZE + at]?.result
+      return before !== undefined && rowAction(before) !== rowAction(result)
+    }),
+  )
   const differedSkipped = differed.filter((result) => rowAction(result) !== 'import').length
   const differedImported = differed.length - differedSkipped
 
@@ -687,17 +687,31 @@ function RunView({
                 ? t('import.run.stopped.network', { part: stop.part })
                 : stop.kind === 'busy'
                   ? t('import.run.stopped.busy', { part: stop.part })
-                  : t('import.run.stopped.other', {
-                      part: stop.part,
-                      reason: errorMessage(stop.error),
-                    })}
+                  : stop.kind === 'storage'
+                    ? t('import.run.stopped.storage', { part: stop.part })
+                    : stop.kind === 'expired'
+                      ? t('import.run.stopped.expired', { part: stop.part })
+                      : t('import.run.stopped.other', {
+                          part: stop.part,
+                          reason: errorMessage(stop.error),
+                        })}
           </p>
+          {stop.kind === 'storage' && (
+            <p className="text-sm">{t('import.run.stopped.storageWhat')}</p>
+          )}
+          {stop.kind === 'expired' && (
+            <p className="text-sm">{t('import.run.stopped.expiredWhat')}</p>
+          )}
           {state.done > 0 && (
             <p className="text-sm">{t('import.run.stopped.before', { count: state.done })}</p>
           )}
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={onContinue}>
-              {t('import.run.stopped.continue')}
+            <Button type="button" onClick={() => onContinue(stop.kind === 'expired')}>
+              {stop.kind === 'expired'
+                ? t('import.run.stopped.continuePast', { part: stop.part })
+                : stop.kind === 'storage'
+                  ? t('import.run.stopped.tryAgain')
+                  : t('import.run.stopped.continue')}
             </Button>
             {state.done > 0 && (
               <Button type="button" variant="outline" onClick={() => setShowResult(true)}>
@@ -754,6 +768,17 @@ function RunView({
               <li>{t('import.result.charges', { count: counts.confirm_match })}</li>
             )}
           </ul>
+          {state.expired.length > 0 && (
+            <Alert className="mt-2" data-testid="expired-parts">
+              <InfoIcon aria-hidden />
+              <AlertDescription>
+                {t('import.result.expired', {
+                  count: state.expired.length,
+                  parts: state.expired.join(', '),
+                })}
+              </AlertDescription>
+            </Alert>
+          )}
           {differed.length > 0 && (
             <Alert className="mt-2" data-testid="differed">
               <InfoIcon aria-hidden />

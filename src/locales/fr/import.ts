@@ -263,6 +263,31 @@ export const importFr: Translation['import'] = {
     checkBusy:
       'Le budget est occupé et a mis trop de temps à vérifier ces lignes (rien n’a été changé). Il a été redemandé ; vérifiez à nouveau dans un moment.',
     retry: 'Vérifier à nouveau',
+    checkLost:
+      'Les vérifications des parties précédentes n’étaient plus conservées (une vérification est gardée un jour, et celles d’autres relevés de ce budget peuvent la remplacer) ; les parties ont donc été vérifiées à nouveau, plusieurs fois. Vérifiez à nouveau dans un moment.',
+    summary: {
+      checkingPart: 'Vérification de la partie {{part}} sur {{parts}}…',
+      allRecorded:
+        'Toutes les parties ont été enregistrées par l’importation interrompue. Les renvoyer n’enregistre rien et montre ce qu’elles ont enregistré.',
+      kinds: {
+        expense_one: '{{count}} dépense, {{amount}} sortis',
+        expense_other: '{{count}} dépenses, {{amount}} sortis',
+        refund_one: '{{count}} remboursement, {{amount}} entrés',
+        refund_other: '{{count}} remboursements, {{amount}} entrés',
+        extra_income_one: '{{count}} en revenu supplémentaire, {{amount}} entrés',
+        extra_income_other: '{{count}} en revenu supplémentaire, {{amount}} entrés',
+      },
+      room_one: 'Elles tiennent : le budget peut encore recevoir {{count}} transaction.',
+      room_other: 'Elles tiennent : le budget peut encore recevoir {{count}} transactions.',
+      noRoom_one:
+        'Cela ne tient pas : {{count}} ligne est à importer, et le budget ne peut plus recevoir que {{room}} transactions. Ignorez des lignes, ou supprimez des transactions, avant d’importer.',
+      noRoom_other:
+        'Cela ne tient pas : {{count}} lignes sont à importer, et le budget ne peut plus recevoir que {{room}} transactions. Ignorez des lignes, ou supprimez des transactions, avant d’importer.',
+      recordedNote_one:
+        'Ces chiffres sont ceux des parties {{from}} à {{to}}. La partie 1, enregistrée par l’importation interrompue, est renvoyée telle quelle : elle n’enregistre rien, répond ce qu’elle a enregistré, et le résultat la compte.',
+      recordedNote_other:
+        'Ces chiffres sont ceux des parties {{from}} à {{to}}. Les parties 1 à {{count}}, enregistrées par l’importation interrompue, sont renvoyées telles quelles : elles n’enregistrent rien, répondent ce qu’elles ont enregistré, et le résultat les compte.',
+    },
     counts: {
       import_one: '{{count}} à importer',
       import_other: '{{count}} à importer',
@@ -358,6 +383,7 @@ export const importFr: Translation['import'] = {
     categoryFromRule: '{{name}} (d’après une règle de commerçant)',
     categoryChosen: '{{name}} (votre choix)',
     toCategorise: 'À catégoriser',
+    toCategoriseNew: 'À catégoriser (créée par cette importation)',
     noCategory: 'Pas de catégorie (revenu supplémentaire)',
     categoryDialog: {
       title: 'Choisir une catégorie',
@@ -409,6 +435,8 @@ export const importFr: Translation['import'] = {
     importButton_one: 'Importer {{count}} ligne',
     importButton_other: 'Importer {{count}} lignes',
     importNothing: 'Rien à importer',
+    importRecorded: 'Terminer l’importation',
+    importNoRoom: 'Trop de lignes pour la place restante',
     importWait: 'Attendez la fin de la vérification',
     cancel: 'Recommencer',
     cancelConfirm:
@@ -416,7 +444,7 @@ export const importFr: Translation['import'] = {
     parts_one: 'Envoyé en {{count}} partie.',
     parts_other: 'Envoyé en {{count}} parties de 500 lignes au plus.',
     partsNote:
-      'Chaque partie est vérifiée séparément : une ligne d’une partie suivante qui correspond à la même transaction qu’une ligne d’une partie précédente peut aboutir autrement. Le résultat le signale le cas échéant.',
+      'Elles sont vérifiées dans l’ordre, chacune avec ce que les parties précédentes prennent (doublons, correspondances) et les choix qu’elles envoient : les chiffres ci-dessus sont ceux de tout le relevé.',
     ended:
       'Ce budget a pris fin : les lignes datées après son dernier jour ne peuvent pas être importées.',
     limit:
@@ -451,6 +479,16 @@ export const importFr: Translation['import'] = {
         'La partie {{part}} n’a pas pu être envoyée : la connexion échoue sans cesse. Vérifiez-la et continuez : ce qui a déjà été enregistré ne l’est pas deux fois.',
       busy: 'La partie {{part}} n’a pas pu être enregistrée : le budget est resté occupé et n’a pas répondu à temps. Rien de cette partie n’a été écrit. Continuez dans un moment : ce qui a déjà été enregistré ne l’est pas deux fois.',
       other: 'La partie {{part}} a été refusée : {{reason}}',
+      storage:
+        'La partie {{part}} n’a pas été importée : ce budget a importé autant qu’il le peut pour l’instant.',
+      storageWhat:
+        "Un budget reçoit au plus 20'000 lignes et 50 importations en 24 heures, et garde 2'000 importations. Rien de cette partie n’a été écrit ; les parties qui la précèdent sont enregistrées. Réessayez plus tard avec le même fichier, ou ouvrez-le à nouveau à ce moment : ce qui a été enregistré ne l’est pas deux fois.",
+      expired:
+        'La partie {{part}} avait déjà été enregistrée, mais le budget ne garde plus sa réponse (les réponses sont gardées 7 jours, les 50 plus récentes). Elle n’est pas importée à nouveau.',
+      expiredWhat:
+        'Ce qu’elle a importé et ignoré se trouve dans l’historique, sous cette importation. Les parties qui la suivent peuvent encore être envoyées.',
+      continuePast: 'Envoyer les parties après la partie {{part}}',
+      tryAgain: 'Réessayer',
       before_one: 'La partie qui la précède est enregistrée.',
       before_other: 'Les {{count}} parties qui la précèdent sont enregistrées.',
       continue: 'Continuer l’importation',
@@ -460,6 +498,12 @@ export const importFr: Translation['import'] = {
   pending: {
     title: 'Une importation a été interrompue',
     body: 'Une importation ({{source}}) commencée le {{date}} s’est arrêtée après la partie {{confirmed}} sur {{parts}}. Ouvrez à nouveau le même fichier pour la terminer : les parties déjà enregistrées ne le sont pas deux fois.',
+    stoppedBy: {
+      storage:
+        "Elle s’est arrêtée parce que ce budget avait importé autant qu’il le peut pour l’instant (20'000 lignes ou 50 importations en 24 heures). Ouvrez le même fichier plus tard pour la terminer.",
+      expired:
+        'Elle s’est arrêtée à une partie enregistrée il y a si longtemps que sa réponse n’est plus conservée. Ouvrez le même fichier pour envoyer les parties suivantes ; ce que cette partie a importé se trouve dans l’historique.',
+    },
     resumed:
       'C’est le relevé de l’importation interrompue : elle continue sous la même importation, et les parties déjà enregistrées ne le sont pas deux fois.',
     forget: 'L’oublier',
@@ -470,6 +514,10 @@ export const importFr: Translation['import'] = {
     imported_one: '{{count}} transaction importée',
     imported_other: '{{count}} transactions importées',
     importedHelp: 'Elles comptent maintenant dans vos totaux et attendent votre revue.',
+    expired_one:
+      'La partie {{parts}} avait été enregistrée auparavant et sa réponse n’est plus conservée : ses lignes ne sont pas comptées ici. Voyez cette importation dans l’historique.',
+    expired_other:
+      'Les parties {{parts}} avaient été enregistrées auparavant et leurs réponses ne sont plus conservées : leurs lignes ne sont pas comptées ici. Voyez cette importation dans l’historique.',
     anyway_one: 'Dont {{count}} importée quand même ensuite.',
     anyway_other: 'Dont {{count}} importées quand même ensuite.',
     undoneTitle: 'Cette importation a été annulée',

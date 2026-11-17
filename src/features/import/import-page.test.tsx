@@ -7,7 +7,7 @@ import { toImportBatch } from '@/features/import/statements/import-rows'
 import type { StatementReadResult } from '@/features/import/statements/types'
 import type { Tables } from '@/lib/database.types'
 import { BUDGET_ID, categoriesDb, transactionRow } from '@/test/budget-fixtures'
-import { plannedRow, rpcError, type MockDb } from '@/test/mock-db'
+import { plannedRow, rpcError, stagedPart, type MockDb } from '@/test/mock-db'
 import { renderRoutes } from '@/test/render'
 import { FIXTURE_NAMES, loadFixture, type FixtureName } from '@/test/statement-fixtures'
 import { createSupabaseMock, fakeSession } from '@/test/supabase-mock'
@@ -110,7 +110,7 @@ describe('importing a PDF statement, from its text to the rows sent [R-IMPORT-00
       )
       const button = await importButtonReady()
       const expected = toImportBatch(parsed.statement)
-      const [previewArgs] = db.rpc.preview_import.mock.calls[0] ?? []
+      const [previewArgs] = db.rpc.preview_import_part.mock.calls[0] ?? []
       expect(previewArgs?.p_batch_id).toMatch(UUID)
       expect(previewArgs?.p_rows).toEqual(expected.rows.map(({ row }) => row))
       await userEvent.click(button)
@@ -171,7 +171,7 @@ describe('a refused statement [R-IMPORT-085] [R-IMPORT-320]', () => {
       'A line of this Migros Bank account statement could not be read (an unexpected line, page 2).',
     )
     expect(screen.getByText('Paiement Jane Example IBAN CH00')).toBeInTheDocument()
-    expect(db.rpc.preview_import).not.toHaveBeenCalled()
+    expect(db.rpc.preview_import_part).not.toHaveBeenCalled()
     for (const spy of logs) {
       for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain('Jane Example')
       spy.mockRestore()
@@ -202,7 +202,7 @@ describe('the CSV import [R-IMPORT-082] [R-IMPORT-324]', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Check 2 rows' }))
     await importButtonReady()
-    expect(db.rpc.preview_import.mock.calls[0]?.[0].p_rows).toEqual([
+    expect(db.rpc.preview_import_part.mock.calls[0]?.[0].p_rows).toEqual([
       { date: '2026-04-03', amount: 450, direction: 'debit', description: 'Bakery' },
       { date: '2026-05-04', amount: 1200, direction: 'credit', description: 'Refund; shoes' },
     ])
@@ -226,14 +226,18 @@ describe('choices change the preview, asked again and never shown stale [R-IMPOR
   it('sends the member’s choice, marks the rows as being checked meanwhile, and waits before importing', async () => {
     const db = categoriesDb()
     const gate = { release: null as (() => void) | null }
-    db.rpc.preview_import.mockImplementation(async (args) => {
+    db.rpc.preview_import_part.mockImplementation(async (args) => {
       const rows = args.p_rows as Record<string, unknown>[]
       if (rows.some((row) => row.action === 'skip')) {
         await new Promise<void>((resolve) => {
           gate.release = resolve
         })
       }
-      return rows.map((row, index) => plannedRow(row, index + 1))
+      return stagedPart(
+        db,
+        args,
+        rows.map((row, index) => plannedRow(row, index + 1)),
+      )
     })
     open(db)
     await chooseCsv('Date;Text;Amount\n13.04.2026;Bakery;-4.50\n14.04.2026;Shoes;-80.00\n')
@@ -254,7 +258,7 @@ describe('choices change the preview, asked again and never shown stale [R-IMPOR
     await waitFor(() =>
       expect(screen.getByTestId('count-skip_chosen')).toHaveTextContent('1 skipped by you'),
     )
-    const last = db.rpc.preview_import.mock.calls.at(-1)?.[0]
+    const last = db.rpc.preview_import_part.mock.calls.at(-1)?.[0]
     expect((last?.p_rows as Record<string, unknown>[])[1]).toMatchObject({ action: 'skip' })
     await userEvent.click(await importButtonReady())
     await waitFor(() => expect(db.rpc.import_transactions).toHaveBeenCalled())
@@ -283,7 +287,7 @@ describe('a large import in parts [R-IMPORT-208] [R-IMPORT-322]', () => {
       await userEvent.click(screen.getByRole('button', { name: "Check 1'200 rows" }))
       await importButtonReady()
       expect(
-        db.rpc.preview_import.mock.calls.map(([args]) => (args.p_rows as unknown[]).length),
+        db.rpc.preview_import_part.mock.calls.map(([args]) => (args.p_rows as unknown[]).length),
       ).toEqual([500, 500, 200])
       // The resend after the lost answer waits half a second: skipped, not slept.
       vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] })
@@ -360,7 +364,7 @@ describe('an interrupted import [R-IMPORT-323]', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Check 3 rows' }))
       expect(await screen.findByTestId('resumed')).toBeInTheDocument()
       await waitFor(() =>
-        expect(db.rpc.preview_import.mock.calls.at(-1)?.[0].p_batch_id).toBe(batchId),
+        expect(db.rpc.preview_import_part.mock.calls.at(-1)?.[0].p_batch_id).toBe(batchId),
       )
     },
     WHOLE_STATEMENT_MS,

@@ -182,6 +182,37 @@ export function partTotals(rows: readonly ImportRowResult[]): Record<string, num
   return totals
 }
 
+/**
+ * preview_import_part's answer for a part planned as `rows`: staged per batch (previewing a part
+ * again forgets the staged parts from it on), with the totals of the part and of the parts
+ * staged so far, the room and whether the statement fits.
+ */
+export function stagedPart(
+  db: MockDb,
+  args: Record<string, unknown>,
+  rows: ImportRowResult[],
+  room = 50_000 - db.tables.transaction_list.length,
+) {
+  const part = Number(args.p_part)
+  const batch = String(args.p_batch_id)
+  const kept = Object.entries(db.staged[batch] ?? {}).filter(([key]) => Number(key) < part)
+  const staged: Record<number, ImportRowResult[]> = Object.fromEntries([...kept, [part, rows]])
+  db.staged[batch] = staged
+  const parts = Object.keys(staged)
+    .map(Number)
+    .sort((a, b) => a - b)
+  const all = parts.flatMap((key) => staged[key] ?? [])
+  const toImport = all.filter((row) => row.action === 'import').length
+  return {
+    rows,
+    part: partTotals(rows),
+    statement: partTotals(all),
+    parts,
+    room,
+    fits: toImport <= room,
+  }
+}
+
 export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
   const readFailures = new Map<RelationName, MockError>()
   const db: MockDb = {
@@ -454,29 +485,13 @@ export function createMockDb(tables: Partial<MockTables> = {}): MockDb {
     ),
     // A part's rows as preview_import plans them, with the totals of the part and of the parts
     // staged so far in this batch (kept per batch here, forgotten from a part previewed again).
-    preview_import_part: handler((args) => {
-      const part = Number(args.p_part)
-      const batch = String(args.p_batch_id)
-      const rows = rowsOf(args).map((row, index) => plannedRow(row, index + 1))
-      // Previewing a part again forgets the staged parts from it on.
-      const kept = Object.entries(db.staged[batch] ?? {}).filter(([key]) => Number(key) < part)
-      const staged: Record<number, ImportRowResult[]> = Object.fromEntries([...kept, [part, rows]])
-      db.staged[batch] = staged
-      const parts = Object.keys(staged)
-        .map(Number)
-        .sort((a, b) => a - b)
-      const all = parts.flatMap((key) => staged[key] ?? [])
-      const room = 50_000 - db.tables.transaction_list.length
-      const toImport = all.filter((row) => row.action === 'import').length
-      return {
-        rows,
-        part: partTotals(rows),
-        statement: partTotals(all),
-        parts,
-        room,
-        fits: toImport <= room,
-      }
-    }),
+    preview_import_part: handler((args) =>
+      stagedPart(
+        db,
+        args,
+        rowsOf(args).map((row, index) => plannedRow(row, index + 1)),
+      ),
+    ),
     import_skipped_anyway: handler(() => []),
     import_with_token: handler(() => rpcError('not_mocked')),
     confirm_import: handler((args) => {

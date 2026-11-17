@@ -1,8 +1,8 @@
-import { keepPreviousData, useQueries, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { budgetKeys } from '@/features/budgets/budget-keys'
-import { catchUpBudget, unwrap } from '@/features/budgets/budget-queries'
+import { catchUpBudget } from '@/features/budgets/budget-queries'
 import {
   chunksOf,
   rowToSend,
@@ -11,7 +11,11 @@ import {
   type ImportDraft,
 } from '@/features/import/import-model'
 import type { ImportRowResult } from '@/features/import/import-queries'
-import { clearPendingImport, writePendingImport } from '@/features/import/pending-import'
+import {
+  clearPendingImport,
+  writePendingImport,
+  type PendingImport,
+} from '@/features/import/pending-import'
 import { useDebounced } from '@/hooks/use-debounced'
 import { dbErrorCode, dbErrorDetail, dbErrorKey, isBusyError } from '@/lib/db-errors'
 import type { Json } from '@/lib/database.types'
@@ -25,43 +29,103 @@ export interface EntryAnswer {
   stale: boolean
 }
 
+/** preview_import_part's totals of some rows (D-455): one count per action, and by kind. */
+export interface PreviewTotals {
+  rows: number
+  import: number
+  skip_duplicate: number
+  skip_flagged: number
+  skip_matched: number
+  confirm_match: number
+  skip_chosen: number
+  invalid: number
+  expense_count: number
+  expense_amount: number
+  refund_count: number
+  refund_amount: number
+  extra_income_count: number
+  extra_income_amount: number
+}
+
+/** One answer of preview_import_part. */
+export interface PartAnswer {
+  rows: ImportRowResult[]
+  part: PreviewTotals
+  /** The totals of the staged parts the answer covers (`parts`). */
+  statement: PreviewTotals
+  parts: number[]
+  /** How many transactions the budget can still take. */
+  room: number
+  /** Whether the rows to import of the parts covered fit. */
+  fits: boolean
+}
+
+const TOTAL_KEYS: readonly (keyof PreviewTotals)[] = [
+  'rows',
+  'import',
+  'skip_duplicate',
+  'skip_flagged',
+  'skip_matched',
+  'confirm_match',
+  'skip_chosen',
+  'invalid',
+  'expense_count',
+  'expense_amount',
+  'refund_count',
+  'refund_amount',
+  'extra_income_count',
+  'extra_income_amount',
+]
+
+function totalsOf(value: unknown): PreviewTotals {
+  const source = (value ?? {}) as Record<string, unknown>
+  const out = {} as PreviewTotals
+  for (const key of TOTAL_KEYS) {
+    const raw = source[key]
+    // Sums are bigint in the database: a JSON number here, integer rappen.
+    out[key] = typeof raw === 'number' ? raw : Number(raw ?? 0) || 0
+  }
+  return out
+}
+
+/** The answer as the call gives it (one JSON object), read defensively. */
+export function readPartAnswer(value: Json): PartAnswer {
+  const source = (value ?? {}) as Record<string, unknown>
+  if (!Array.isArray(source.rows)) throw new Error('preview_import_part answered no rows')
+  return {
+    rows: source.rows as ImportRowResult[],
+    part: totalsOf(source.part),
+    statement: totalsOf(source.statement),
+    parts: Array.isArray(source.parts) ? source.parts.map(Number) : [],
+    room: typeof source.room === 'number' ? source.room : 0,
+    fits: source.fits === true,
+  }
+}
+
 export interface PreviewState {
   answers: EntryAnswer[]
-  /** Every part has a current answer for the choices made. */
+  /** Every part to preview has a current answer for the choices made. */
   current: boolean
   /** A part is being asked (first time or after a change). */
   checking: boolean
+  /** The totals of every part previewed, from the last part's answer; null before it. */
+  totals: { statement: PreviewTotals; room: number; fits: boolean } | null
+  /** Parts with a current answer, of the parts to preview. */
+  progress: { done: number; of: number }
   error: unknown
   retry: () => void
 }
 
-/** At most this many parts are previewed at once: the duplicate lookup is heavy on a big budget. */
-export const PREVIEW_AT_ONCE = 2
-
-/** A gate letting at most `size` calls run at once; a call whose query was dropped is skipped. */
-function createGate(size: number) {
-  let running = 0
-  const waiting: (() => void)[] = []
-  const release = () => {
-    running -= 1
-    waiting.shift()?.()
-  }
-  return async <T>(signal: AbortSignal, call: () => Promise<T>): Promise<T> => {
-    if (running >= size) await new Promise<void>((resolve) => waiting.push(resolve))
-    running += 1
-    try {
-      // Asked again meanwhile (a newer choice): this answer would not be read.
-      if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-      return await call()
-    } finally {
-      release()
-    }
-  }
-}
-
-/** A busy budget (statement timeout) is asked again, a little later each time. */
+/** A busy budget (statement timeout) or a lost answer is asked again, a little later each time. */
 const BUSY_TRIES = 3
 const busyDelay = (tries: number) => 1_000 * tries
+
+/**
+ * How often the parts are staged again from the first one the database no longer holds (kept
+ * a day, at most 100 a budget: another statement previewed meanwhile can push them out) before
+ * the preview says it could not keep them.
+ */
+const RESTAGE_TRIES = 3
 
 /** The rows of each part as they are sent, from the draft and the choices. */
 export function partsToSend(draft: ImportDraft, choices: Choices): Record<string, unknown>[][] {
@@ -70,89 +134,191 @@ export function partsToSend(draft: ImportDraft, choices: Choices): Record<string
   )
 }
 
+interface Asked {
+  /** The rows sent, as JSON: the answer is current while the part's rows are the same. */
+  sig: string
+  /** The answer number of the part before when this part was asked (0 for the first part). */
+  after: number
+  /** This answer's number: a later part asked after it carries it. */
+  seq: number
+  answer: PartAnswer
+}
+
+/** The database no longer held the staged parts, again and again. */
+export class PreviewLostError extends Error {
+  constructor() {
+    super('preview_parts_lost')
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
+/** The first part of first..part that the answer does not cover, or null. */
+function firstMissing(answer: PartAnswer, first: number, part: number): number | null {
+  const covered = new Set(answer.parts)
+  for (let earlier = first; earlier <= part; earlier += 1) if (!covered.has(earlier)) return earlier
+  return null
+}
+
 /**
- * What the import would do with each row now (preview_import), part by part, under the batch
- * id the import will use: asked again, debounced, after every change of a choice. An answer
- * for earlier choices is kept on screen, marked as being checked, never shown as current.
+ * What the import will do with each row (preview_import_part, D-455), part after part under the
+ * batch id the import will use: part n is asked once part n - 1 has answered, so it takes into
+ * account what the parts before it absorb and the choices they send, and the totals the last
+ * part brings are the whole statement's. A choice changed in part k asks parts k to the last
+ * again (debounced); an answer for earlier choices stays on screen, marked as being checked,
+ * never shown as current. Parts before `firstPart` (recorded by an interrupted import) are not
+ * previewed: the database would plan them as new, and a recorded part answers what it recorded.
+ * Once the import starts nothing is asked any more.
  */
-// R-IMPORT-252: the preview names the batch the rows will be sent in, and the same rows.
+// R-IMPORT-361: one part at a time, in order, never once the import has started.
 export function useImportPreview(
   budgetId: string,
   batchId: string,
-  draftId: string,
   draft: ImportDraft,
   choices: Choices,
   /** The import has started: nothing is previewed any more, now or after it. */
   paused = false,
+  /** The first part to preview: 1, or the part after those an interrupted import recorded. */
+  firstPart = 1,
 ): PreviewState {
+  const queryClient = useQueryClient()
   const settled = useDebounced(choices, 400)
   const parts = useMemo(() => chunksOf(draft.entries), [draft])
-  const [gate] = useState(() => createGate(PREVIEW_AT_ONCE))
-  const queries = useQueries({
-    queries: parts.map((entries, index) => {
-      // The choices of this part only: a change elsewhere does not ask this part again.
-      const own = entries.flatMap((entry) => {
-        const choice = settled.value[entry.key]
-        return choice ? [[entry.key, choice] as const] : []
-      })
-      return {
-        queryKey: [
-          ...budgetKeys.imports(budgetId),
-          'preview',
-          batchId,
-          draftId,
-          index,
-          own,
-        ] as const,
-        placeholderData: keepPreviousData,
-        staleTime: Infinity,
-        // R-IMPORT-361: once the import runs, its answers are the truth; no part is asked again.
-        enabled: !paused,
-        retry: (failures: number, error: unknown) => failures < BUSY_TRIES && isBusyError(error),
-        retryDelay: busyDelay,
-        queryFn: async ({ signal }: { signal: AbortSignal }): Promise<ImportRowResult[]> =>
-          gate(signal, async () =>
-            unwrap(
-              await supabase.rpc('preview_import', {
-                p_budget_id: budgetId,
-                p_batch_id: batchId,
-                p_rows: entries.map((entry) => rowToSend(entry, settled.value[entry.key])) as Json,
-              }),
-            ),
-          ),
+  const sent = useMemo(
+    () =>
+      parts.map((entries) => entries.map((entry) => rowToSend(entry, settled.value[entry.key]))),
+    [parts, settled.value],
+  )
+  const sigs = useMemo(() => sent.map((rows) => JSON.stringify(rows)), [sent])
+  const [asked, setAsked] = useState<Readonly<Record<number, Asked>>>({})
+  const [inFlight, setInFlight] = useState<number | null>(null)
+  // Set at once when a part is asked: the effect may run again before the state says so.
+  const flying = useRef(false)
+  const [error, setError] = useState<unknown>(null)
+  const restaged = useRef(0)
+  const seq = useRef(0)
+  const first = Math.max(1, firstPart)
+  const last = parts.length
+
+  // Part p's answer is current when its rows are the ones now chosen and it was asked after
+  // the current answer of the part before it.
+  let validUpTo = first - 1
+  let previous = 0
+  for (let part = first; part <= last; part += 1) {
+    const answer = asked[part]
+    if (!answer || answer.sig !== sigs[part - 1] || answer.after !== previous) break
+    previous = answer.seq
+    validUpTo = part
+  }
+  const next = validUpTo < last ? validUpTo + 1 : null
+  const after = next === null || next === first ? 0 : (asked[next - 1]?.seq ?? 0)
+
+  useEffect(() => {
+    if (paused || settled.stale || flying.current || error !== null || next === null) return
+    const part = next
+    const rows = sent[part - 1] ?? []
+    const sig = sigs[part - 1] ?? ''
+    flying.current = true
+    void (async () => {
+      setInFlight(part)
+      let failure: unknown = null
+      let answer: PartAnswer | null = null
+      let catchUps = 0
+      let tries = 0
+      for (;;) {
+        try {
+          const result = await supabase.rpc('preview_import_part', {
+            p_budget_id: budgetId,
+            p_batch_id: batchId,
+            p_part: part,
+            p_rows: rows as Json,
+          })
+          if (result.error) throw result.error
+          answer = readPartAnswer(result.data)
+          break
+        } catch (thrown) {
+          if (dbErrorCode(thrown) === 'catching_up' && catchUps < 3) {
+            catchUps += 1
+            try {
+              await catchUpBudget(budgetId)
+            } catch (caught) {
+              failure = caught
+              break
+            }
+            void queryClient.invalidateQueries({ queryKey: budgetKeys.ensurePeriods(budgetId) })
+            continue
+          }
+          // A statement timeout or a lost answer: the same part and rows, a little later.
+          if ((isBusyError(thrown) || isNetworkFailure(thrown)) && tries < BUSY_TRIES) {
+            tries += 1
+            await sleep(busyDelay(tries))
+            continue
+          }
+          failure = thrown
+          break
+        }
       }
-    }),
-  })
-  // The last answer of each part, kept while a new one is asked: a row keeps its controls (and
-  // the focus) through a change, marked as being checked.
-  // (React's pattern for information from earlier renders: kept in state, updated while rendering.)
-  const [kept, setKept] = useState<Readonly<Record<number, ImportRowResult[]>>>({})
-  const fresh: Record<number, ImportRowResult[]> = {}
-  queries.forEach((query, index) => {
-    if (query.data && !query.isPlaceholderData && kept[index] !== query.data)
-      fresh[index] = query.data
-  })
-  if (Object.keys(fresh).length > 0) setKept({ ...kept, ...fresh })
+      if (answer) {
+        seq.current += 1
+        const done: Asked = { sig, after, seq: seq.current, answer }
+        // The answer covers the staged parts first..part; one the database no longer holds is
+        // staged again from there (its answer no longer counts as current).
+        const missing = firstMissing(answer, first, part)
+        setAsked((now) => {
+          const out: Record<number, Asked> = { ...now, [part]: done }
+          const lost = missing === null ? undefined : out[missing]
+          if (missing !== null && lost) out[missing] = { ...lost, after: -1 }
+          return out
+        })
+        if (missing !== null) {
+          restaged.current += 1
+          if (restaged.current > RESTAGE_TRIES) setError(new PreviewLostError())
+        }
+      } else {
+        setError(failure)
+      }
+      flying.current = false
+      setInFlight(null)
+    })()
+  }, [
+    paused,
+    settled.stale,
+    inFlight,
+    error,
+    next,
+    after,
+    sent,
+    sigs,
+    first,
+    budgetId,
+    batchId,
+    queryClient,
+  ])
+
   const answers: EntryAnswer[] = []
   parts.forEach((entries, index) => {
-    const query = queries[index]
-    const data = query?.data ?? kept[index]
-    const stale =
-      settled.stale || query?.data === undefined || query.isPlaceholderData || query.isFetching
+    const part = index + 1
+    const data = part >= first ? asked[part]?.answer.rows : undefined
+    const stale = settled.stale || part > validUpTo
     entries.forEach((entry, at) => {
       answers.push({ entry, result: data?.[at], stale: stale && data !== undefined })
     })
   })
-  const failed = queries.find((query) => query.isError)
+  const lastAnswer = asked[last]?.answer
+  const current = !settled.stale && next === null && inFlight === null
   return {
     answers,
-    current:
-      !settled.stale &&
-      queries.every((query) => query.isSuccess && !query.isPlaceholderData && !query.isFetching),
-    checking: settled.stale || queries.some((query) => query.isFetching),
-    error: failed?.error ?? null,
+    current,
+    checking: !current && error === null,
+    totals:
+      last >= first && lastAnswer
+        ? { statement: lastAnswer.statement, room: lastAnswer.room, fits: lastAnswer.fits }
+        : null,
+    progress: { done: Math.max(0, validUpTo - first + 1), of: Math.max(0, last - first + 1) },
+    error,
     retry: () => {
-      for (const query of queries) if (query.isError) void query.refetch()
+      restaged.current = 0
+      setError(null)
     },
   }
 }
@@ -162,6 +328,10 @@ export type RunStop =
   | { kind: 'network'; part: number }
   | { kind: 'busy'; part: number }
   | { kind: 'refused'; part: number; error: unknown }
+  /** The budget's import storage is used up for the day (import_limit_reached). */
+  | { kind: 'storage'; part: number }
+  /** A recorded part whose answer is no longer kept (chunk_expired): not imported again. */
+  | { kind: 'expired'; part: number }
 
 export interface RunState {
   phase: 'idle' | 'sending' | 'catching-up' | 'done' | 'stopped'
@@ -175,6 +345,8 @@ export interface RunState {
   /** The part last sent again because the budget was busy, and how many times. */
   busy: { part: number; count: number } | null
   stop: RunStop | null
+  /** Recorded parts whose answer was no longer kept (chunk_expired), sent past on request. */
+  expired: number[]
 }
 
 const IDLE: RunState = {
@@ -185,6 +357,7 @@ const IDLE: RunState = {
   resent: 0,
   busy: null,
   stop: null,
+  expired: [],
 }
 
 /** How often a part is sent again after a lost answer before the import stops and says so. */
@@ -200,6 +373,8 @@ export interface RunInput {
   batchId: string
   fingerprint: string
   toCategoriseName: string
+  /** The member was told a recorded part's answer is gone: send the parts after it. */
+  skipExpired?: boolean
 }
 
 /**
@@ -217,10 +392,18 @@ export function useImportRun(budgetId: string) {
   const running = useRef(false)
 
   const run = useCallback(
-    async ({ draft, parts, batchId, fingerprint, toCategoriseName }: RunInput) => {
+    async ({
+      draft,
+      parts,
+      batchId,
+      fingerprint,
+      toCategoriseName,
+      skipExpired = false,
+    }: RunInput) => {
       if (running.current) return
       running.current = true
       const answers: ImportRowResult[][] = []
+      const expired: number[] = []
       let resent = 0
       let busy: RunState['busy'] = null
       const startedAt = new Date().toISOString()
@@ -232,8 +415,9 @@ export function useImportRun(budgetId: string) {
         resent: 0,
         busy: null,
         stop: null,
+        expired: [],
       })
-      const note = (confirmedParts: number) =>
+      const note = (confirmedParts: number, stoppedBy?: PendingImport['stoppedBy']) =>
         writePendingImport(budgetId, {
           batchId,
           fingerprint,
@@ -241,6 +425,7 @@ export function useImportRun(budgetId: string) {
           parts: parts.length,
           confirmedParts,
           startedAt,
+          ...(stoppedBy ? { stoppedBy } : {}),
         })
       note(0)
       const stop = (value: RunStop) => {
@@ -252,6 +437,7 @@ export function useImportRun(budgetId: string) {
           resent,
           busy,
           stop: value,
+          expired: [...expired],
         })
       }
       try {
@@ -290,6 +476,7 @@ export function useImportRun(budgetId: string) {
                 resent,
                 busy,
                 stop: null,
+                expired: [...expired],
               })
               break
             }
@@ -335,6 +522,30 @@ export function useImportRun(budgetId: string) {
               })
               return
             }
+            if (code === 'import_limit_reached') {
+              note(answers.length, 'storage')
+              stop({ kind: 'storage', part })
+              return
+            }
+            if (code === 'chunk_expired') {
+              // Recorded long ago, its answer no longer kept: never imported twice. Once the
+              // member has read why, the parts after it are sent; it counts nothing here.
+              if (skipExpired) {
+                expired.push(part)
+                answers.push([])
+                note(part)
+                setState((now) => ({
+                  ...now,
+                  done: part,
+                  answers: [...answers],
+                  expired: [...expired],
+                }))
+                break
+              }
+              note(answers.length, 'expired')
+              stop({ kind: 'expired', part })
+              return
+            }
             stop({ kind: 'refused', part, error })
             return
           }
@@ -348,6 +559,7 @@ export function useImportRun(budgetId: string) {
           resent,
           busy,
           stop: null,
+          expired,
         })
       } catch (thrown) {
         stop({ kind: 'refused', part: answers.length + 1, error: thrown })

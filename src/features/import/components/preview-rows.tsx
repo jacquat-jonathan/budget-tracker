@@ -470,7 +470,8 @@ function PreviewRow({
 
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-4">
           <div className="flex min-w-0 items-start gap-2 text-sm" data-testid="row-status">
-            {result === undefined || action === null ? (
+            {lockedPart !== null && result === undefined ? null : result === undefined ||
+              action === null ? (
               <>
                 <LoaderCircleIcon
                   className="mt-0.5 size-4 shrink-0 animate-spin text-muted-foreground"
@@ -593,7 +594,11 @@ function categoryLabel(
   if (result.category_source === 'choice') {
     return t('import.preview.categoryChosen', { name: categoryName(result.category_id) ?? '…' })
   }
-  return t('import.preview.toCategorise')
+  // A "to categorise" category that does not exist yet has no id in the preview (D-455):
+  // the first part written makes it.
+  return result.category_id === null
+    ? t('import.preview.toCategoriseNew')
+    : t('import.preview.toCategorise')
 }
 
 function RowNotes({

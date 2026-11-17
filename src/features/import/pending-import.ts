@@ -13,6 +13,8 @@ export interface PendingImport {
   parts: number
   confirmedParts: number
   startedAt: string
+  /** Why it stopped, when the database said so: the import limit, or a part's answer gone. */
+  stoppedBy?: 'storage' | 'expired'
 }
 
 const key = (budgetId: string) => `budget-tracker-import-pending:${budgetId}`
@@ -58,6 +60,9 @@ export function readPendingImport(budgetId: string): PendingImport | null {
       parts: Number(value.parts),
       confirmedParts: Number(value.confirmedParts),
       startedAt: isTimestamp(value.startedAt) ? value.startedAt : '',
+      ...(value.stoppedBy === 'storage' || value.stoppedBy === 'expired'
+        ? { stoppedBy: value.stoppedBy }
+        : {}),
     }
   } catch {
     return null

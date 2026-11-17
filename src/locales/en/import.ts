@@ -250,6 +250,31 @@ export const importEn = {
     checkBusy:
       'The budget is busy and took too long to check these rows (nothing was changed). It was asked again; check again in a moment.',
     retry: 'Check again',
+    checkLost:
+      'The checks of the earlier parts were no longer kept (a check is kept a day, and checks of other statements of this budget can push it out), so the parts were checked again, several times. Check again in a moment.',
+    summary: {
+      checkingPart: 'Checking part {{part}} of {{parts}}…',
+      allRecorded:
+        'Every part was recorded by the interrupted import. Sending them again records nothing and shows what they recorded.',
+      kinds: {
+        expense_one: '{{count}} expense, {{amount}} out',
+        expense_other: '{{count}} expenses, {{amount}} out',
+        refund_one: '{{count}} refund, {{amount}} in',
+        refund_other: '{{count}} refunds, {{amount}} in',
+        extra_income_one: '{{count}} as extra income, {{amount}} in',
+        extra_income_other: '{{count}} as extra income, {{amount}} in',
+      },
+      room_one: 'They fit: the budget can take {{count}} more transaction.',
+      room_other: 'They fit: the budget can take {{count}} more transactions.',
+      noRoom_one:
+        'This does not fit: {{count}} row is set to import, and the budget can take {{room}} more transactions. Skip rows, or delete transactions, before importing.',
+      noRoom_other:
+        'This does not fit: {{count}} rows are set to import, and the budget can take {{room}} more transactions. Skip rows, or delete transactions, before importing.',
+      recordedNote_one:
+        'These counts are those of parts {{from}} to {{to}}. Part 1, recorded by the interrupted import, is sent again unchanged: it records nothing and answers what it recorded, and the result counts it.',
+      recordedNote_other:
+        'These counts are those of parts {{from}} to {{to}}. Parts 1 to {{count}}, recorded by the interrupted import, are sent again unchanged: they record nothing and answer what they recorded, and the result counts them.',
+    },
     counts: {
       import_one: '{{count}} to import',
       import_other: '{{count}} to import',
@@ -344,6 +369,7 @@ export const importEn = {
     categoryFromRule: '{{name}} (from a merchant rule)',
     categoryChosen: '{{name}} (your choice)',
     toCategorise: 'To categorise',
+    toCategoriseNew: 'To categorise (made by this import)',
     noCategory: 'No category (extra income)',
     categoryDialog: {
       title: 'Choose a category',
@@ -395,6 +421,8 @@ export const importEn = {
     importButton_one: 'Import {{count}} row',
     importButton_other: 'Import {{count}} rows',
     importNothing: 'Nothing to import',
+    importRecorded: 'Finish the import',
+    importNoRoom: 'Too many rows for the room left',
     importWait: 'Wait for the check to finish',
     cancel: 'Start again',
     cancelConfirm:
@@ -402,7 +430,7 @@ export const importEn = {
     parts_one: 'Sent in {{count}} part.',
     parts_other: 'Sent in {{count}} parts of at most 500 rows.',
     partsNote:
-      'Each part is checked on its own: a row of a later part that matches the same existing transaction as a row of an earlier part may turn out differently. The result says so if it happens.',
+      'They are checked in order, each with what the parts before it take (duplicates, matches) and the choices they send: the counts above are the whole statement’s.',
     ended: 'This budget has ended: rows dated after its last day cannot be imported.',
     limit:
       "This budget holds 50'000 transactions at most. If there is not room for every row, nothing of that part is written and the import says how many would fit.",
@@ -436,6 +464,16 @@ export const importEn = {
         'Part {{part}} could not be sent: the connection keeps failing. Check it and continue: what was already recorded is not recorded twice.',
       busy: 'Part {{part}} could not be recorded: the budget stayed busy and did not answer in time. Nothing of that part was written. Continue in a moment: what was already recorded is not recorded twice.',
       other: 'Part {{part}} was refused: {{reason}}',
+      storage:
+        'Part {{part}} was not imported: this budget has imported as much as it can for now.',
+      storageWhat:
+        "A budget takes at most 20'000 rows and 50 imports within 24 hours, and keeps 2'000 imports. Nothing of this part was written; the parts before it are recorded. Try again later with the same file, or open it again then: what was recorded is not recorded twice.",
+      expired:
+        'Part {{part}} had already been recorded, but the budget no longer keeps its answer (answers are kept 7 days, the newest 50). It is not imported again.',
+      expiredWhat:
+        'What it imported and skipped is in the history, under this import. The parts after it can still be sent.',
+      continuePast: 'Send the parts after part {{part}}',
+      tryAgain: 'Try again',
       before_one: 'The part before it is recorded.',
       before_other: 'The {{count}} parts before it are recorded.',
       continue: 'Continue the import',
@@ -445,6 +483,12 @@ export const importEn = {
   pending: {
     title: 'An import was interrupted',
     body: 'An import of a {{source}} started on {{date}} stopped after part {{confirmed}} of {{parts}}. Open the same file again to finish it: the parts already recorded are not recorded twice.',
+    stoppedBy: {
+      storage:
+        "It stopped because this budget had imported as much as it can for now (20'000 rows or 50 imports within 24 hours). Open the same file later to finish it.",
+      expired:
+        'It stopped at a part recorded so long ago that its answer is no longer kept. Open the same file to send the parts after it; what that part imported is in the history.',
+    },
     resumed:
       'This is the statement of the interrupted import: it continues under the same import, and the parts already recorded are not recorded twice.',
     forget: 'Forget it',
@@ -455,6 +499,10 @@ export const importEn = {
     imported_one: '{{count}} transaction imported',
     imported_other: '{{count}} transactions imported',
     importedHelp: 'They count in your totals now and wait for your review.',
+    expired_one:
+      'Part {{parts}} had been recorded before and its answer is no longer kept: its rows are not counted here. See this import in the history.',
+    expired_other:
+      'Parts {{parts}} had been recorded before and their answers are no longer kept: their rows are not counted here. See this import in the history.',
     anyway_one: 'Of them, {{count}} imported anyway afterwards.',
     anyway_other: 'Of them, {{count}} imported anyway afterwards.',
     undoneTitle: 'This import was undone',
