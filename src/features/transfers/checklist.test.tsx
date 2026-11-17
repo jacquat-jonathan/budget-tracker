@@ -1153,7 +1153,9 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
       'fixed_day',
     )
     expect(occurrenceKindOf({ schedule: 'pay_date', income_id: null }, incomes)).toBe('period')
-    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ann' }, incomes)).toBe('period')
+    expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ann' }, incomes)).toBe(
+      'income_payday',
+    )
     expect(occurrenceKindOf({ schedule: 'pay_date', income_id: 'inc-ben' }, incomes)).toBe(
       'income_payday',
     )
