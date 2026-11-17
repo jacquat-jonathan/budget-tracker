@@ -17,6 +17,12 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
+/** Choose an option of one of the app's styled selects. */
+async function pick(trigger: HTMLElement, option: string) {
+  await userEvent.click(trigger)
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
+
 // The page and the mapping step are lazy chunks: loaded once here, not in a test's time.
 beforeAll(async () => {
   await Promise.all([
@@ -256,20 +262,14 @@ describe('the preview, the run and a busy budget [R-IMPORT-321] [R-IMPORT-322] [
       await importButtonReady()
       db.rpc.preview_import_part.mockClear()
       await userEvent.click(screen.getByRole('button', { name: 'Skipped' }))
-      await userEvent.selectOptions(
-        screen.getByRole('combobox', { name: /Import or skip: Line 1002/ }),
-        'import',
-      )
+      await pick(screen.getByRole('combobox', { name: /Import or skip: Line 1002/ }), 'Import')
       await waitFor(() => expect(db.rpc.preview_import_part).toHaveBeenCalled(), { timeout: 3000 })
       await importButtonReady()
       expect(db.rpc.preview_import_part.mock.calls.map(([args]) => args.p_part)).toEqual([3])
       // A choice in part 1: parts 1, 2 and 3 again, in order.
       db.rpc.preview_import_part.mockClear()
       await userEvent.click(screen.getByRole('button', { name: 'All rows' }))
-      await userEvent.selectOptions(
-        screen.getByRole('combobox', { name: /Import or skip: Line 2,/ }),
-        'skip',
-      )
+      await pick(screen.getByRole('combobox', { name: /Import or skip: Line 2,/ }), 'Skip')
       await waitFor(() => expect(db.rpc.preview_import_part).toHaveBeenCalled(), { timeout: 3000 })
       await importButtonReady()
       expect(db.rpc.preview_import_part.mock.calls.map(([args]) => args.p_part)).toEqual([1, 2, 3])

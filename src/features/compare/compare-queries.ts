@@ -36,7 +36,7 @@ export interface TrendPeriod {
   average_income: number | null
   average_spent: number | null
   average_result: number | null
-  /** Planned transfers' committed total (step 7): not shown yet. */
+  /** Planned transfers' committed total (step 7): not shown on the trend. */
   transfer_committed_total: number
 }
 
@@ -61,7 +61,7 @@ export interface CategoryLine {
   active_average_spent: number | null
   /** "Over the plan" in each period, as the progress view says it (D-391). */
   is_overspent: boolean[]
-  /** Planned transfers' committed amounts (step 7): not shown yet. */
+  /** Planned transfers' committed amounts (step 7): not shown per category. */
   transfer_committed: number[]
 }
 
@@ -108,7 +108,7 @@ export interface ComparisonRow {
   /** That side's "over the plan" from the progress view; null on the total row. */
   a_is_overspent: boolean | null
   b_is_overspent: boolean | null
-  /** Planned transfers' committed amounts (step 7): not shown yet. */
+  /** Planned transfers' committed amounts (step 7): shown in the side-by-side totals. */
   a_transfer_committed: number | null
   b_transfer_committed: number | null
   transfer_committed_difference: number | null

@@ -5,6 +5,7 @@ import type { Debt } from '@/features/debts/debt-queries'
 import { useMonthYear } from '@/features/debts/use-month-year'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import { MetaLine } from '@/components/meta-line'
 
 /**
  * The projection in words, as debt_overview gives it (R-DEBT-005, R-DEBT-074): paid off, ends
@@ -76,13 +77,21 @@ export function Payoff({
     <p className={cn('flex items-start gap-1.5 text-sm', className)} data-testid="payoff">
       <CalendarClockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
       <span>
-        <span className="font-medium">
-          {debt.expected_end_date
-            ? t('debts.payoff.ends', { month: monthYear(debt.expected_end_date) })
-            : t('debts.payoff.endsNoDate')}
-        </span>
-        {' · '}
-        {t('debts.payoff.paymentsLeft', { count: debt.payments_left ?? 0 })}
+        <MetaLine
+          parts={[
+            {
+              key: 'ends',
+              className: 'font-medium',
+              content: debt.expected_end_date
+                ? t('debts.payoff.ends', { month: monthYear(debt.expected_end_date) })
+                : t('debts.payoff.endsNoDate'),
+            },
+            {
+              key: 'left',
+              content: t('debts.payoff.paymentsLeft', { count: debt.payments_left ?? 0 }),
+            },
+          ]}
+        />
         {debt.expected_end_after_budget_end && (
           <span className="block text-xs font-medium" data-testid="payoff-after-budget-end">
             {t('debts.payoff.afterBudgetEnd')}

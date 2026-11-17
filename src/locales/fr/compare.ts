@@ -44,6 +44,7 @@ export const compareFr: Translation['compare'] = {
     planned: 'Prévu',
     result: 'Résultat',
     committed: 'Abonnements',
+    transferCommitted: 'Virements planifiés',
   },
   trend: {
     title: 'Revenus et dépenses',

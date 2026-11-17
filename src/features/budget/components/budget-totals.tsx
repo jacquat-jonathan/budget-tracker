@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { MoneyStat } from '@/components/money-stat'
 import { Card, CardContent } from '@/components/ui/card'
 import type { PeriodSummary } from '@/features/budgets/budget-queries'
+import { CommittedTotal } from '@/features/progress/commitments'
 import { formatCalendarDate } from '@/lib/date'
-import { formatMoney } from '@/lib/money'
 
 /**
  * The current period's plan: income, total expected and what is left to assign, as the
@@ -35,11 +35,13 @@ export function BudgetTotals({ period }: { period: PeriodSummary }) {
             amount={period.expected_total ?? 0}
             testId="total-expected"
             hint={
-              (period.committed_total ?? 0) > 0
-                ? t('progress.plannedIncludes', {
-                    amount: formatMoney(period.committed_total ?? 0),
-                  })
-                : undefined
+              <CommittedTotal
+                commitment={{
+                  planned: period.expected_total ?? 0,
+                  subscriptions: period.committed_total ?? 0,
+                  transfers: period.transfer_committed_total ?? 0,
+                }}
+              />
             }
           />
           <MoneyStat

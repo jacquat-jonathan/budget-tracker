@@ -4,8 +4,8 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
 
-import { paths } from '@/app/paths'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { paths, type RedirectState } from '@/app/paths'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { authErrorKey, type AuthErrorKey } from '@/features/auth/auth-errors'
@@ -23,6 +23,7 @@ export function SignInPage() {
   const [errorKey, setErrorKey] = useState<AuthErrorKey | null>(null)
   // R-IMPORT-369: an import was being sent when the session ended; what it recorded is kept.
   const [interrupted] = useState(hasAnyPendingImport)
+  const ended = (location.state as RedirectState | null)?.sessionEnded === true
 
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -66,6 +67,12 @@ export function SignInPage() {
     >
       <form onSubmit={(event) => void onSubmit(event)} noValidate>
         <FieldGroup>
+          {ended && (
+            <Alert data-testid="session-ended">
+              <AlertTitle>{t('auth.signIn.sessionEndedTitle')}</AlertTitle>
+              <AlertDescription>{t('auth.signIn.sessionEnded')}</AlertDescription>
+            </Alert>
+          )}
           {interrupted && (
             <Alert data-testid="sign-in-import">
               <AlertDescription>{t('auth.signIn.importInterrupted')}</AlertDescription>

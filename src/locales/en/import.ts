@@ -344,7 +344,6 @@ export const importEn = {
       label: 'Change the selected rows',
     },
     showMore: 'Show {{count}} more rows',
-    action: 'What happens',
     actionChoice: 'Import or skip',
     choose: { import: 'Import', skip: 'Skip' },
     actions: {
@@ -450,8 +449,6 @@ export const importEn = {
     partsNote:
       'They are checked in order, each with what the parts before it take (duplicates, matches) and the choices they send: the counts above are the whole statement’s.',
     ended: 'This budget has ended: rows dated after its last day cannot be imported.',
-    limit:
-      "This budget holds 50'000 transactions at most. If there is not room for every row, nothing of that part is written and the import says how many would fit.",
     toCategoriseName: 'To categorise',
   },
   run: {
@@ -469,7 +466,6 @@ export const importEn = {
       'The budget was busy and did not answer in time: part {{part}} was sent again ({{count}} time). It is recorded once.',
     busy_other:
       'The budget was busy and did not answer in time: part {{part}} was sent again ({{count}} times). It is recorded once.',
-    leaveWarning: 'The import is still being sent. Leave anyway?',
     stopped: {
       title: 'The import stopped',
       limit_one:
@@ -516,7 +512,6 @@ export const importEn = {
     resumed:
       'This is the statement of the interrupted import: it continues under the same import, and the parts already recorded are not recorded twice.',
     forget: 'Forget it',
-    history: 'See the import history',
   },
   result: {
     title: 'Import done',
@@ -561,10 +556,6 @@ export const importEn = {
     title: 'Rows not imported',
     none: 'Every row was imported.',
     reasons: {
-      duplicate: 'Already in the budget',
-      flagged: 'Flagged: {{flag}}',
-      matched: 'Already entered',
-      chosen: 'Skipped by you',
       invalid: 'Cannot be imported: {{reason}}',
     },
     importedAnyway: 'Imported anyway',
@@ -663,13 +654,11 @@ export const importEn = {
     tokenDeleted: ', since deleted',
     when: 'On {{date}}',
     period: 'Statement {{from}} – {{to}}',
-    counts: '{{rows}} rows: {{imported}} imported, {{skipped}} not imported',
     rows_one: '{{count}} row',
     rows_other: '{{count}} rows',
     toReview_one: '{{count}} still to review',
     toReview_other: '{{count}} still to review',
     details: 'Rows not imported and undo',
-    review: 'Review',
     more: 'Show older imports',
     breakdown: {
       imported: 'Imported',
@@ -686,7 +675,6 @@ export const importEn = {
     cardBody_one: '{{count}} imported transaction waits for your review.',
     cardBody_other: '{{count}} imported transactions wait for your review.',
     cardLink: 'Review them',
-    filter: 'To review',
     filterChip: 'To review',
     showOnly_one: 'Show only the {{count}} to review',
     showOnly_other: 'Show only the {{count}} to review',
@@ -703,8 +691,37 @@ export const importEn = {
     leftToCategorise_one: '{{count}} still needs a category and stays to review.',
     leftToCategorise_other: '{{count}} still need a category and stay to review.',
     cannotConfirm: 'Choose a category first, then confirm it.',
+    chooseCategory: 'Choose a category',
+    categoryNow: 'Category: {{name}}',
+    categoryFor: 'Category for {{row}}: choosing one saves it and confirms the transaction',
+    categorisedConfirmed: 'Category saved and transaction confirmed.',
+    categorisedNotConfirmed:
+      'The category was saved, but the transaction was not confirmed: {{reason}} It stays to review.',
+    bulk: {
+      title: 'One category for several',
+      selectAll_one: 'Select the {{count}} shown',
+      selectAll_other: 'Select all {{count}} shown',
+      selected_one: '{{count}} selected',
+      selected_other: '{{count}} selected',
+      selectRow: 'Select {{row}}',
+      category: 'Category for the selected ones',
+      apply_one: 'Set the category and confirm {{count}}',
+      apply_other: 'Set the category and confirm {{count}}',
+      running: 'Saving {{done}} of {{count}}…',
+      help: 'Each selected transaction gets the category and is confirmed, one after another. The first one refused stops the rest: nothing after it is changed.',
+      allDone_one: '{{count}} saved and confirmed.',
+      allDone_other: '{{count}} saved and confirmed.',
+      partial_one: '{{saved}} of {{count}} saved and confirmed',
+      partial_other: '{{saved}} of {{count}} saved and confirmed',
+      stopped: 'It stopped at “{{row}}”: {{reason}}',
+      stoppedConfirm:
+        'It stopped at “{{row}}”: its category was saved, but it was not confirmed: {{reason}}',
+      notSaved_one: '{{count}} not saved and confirmed:',
+      notSaved_other: '{{count}} not saved and confirmed:',
+      stillSelected:
+        'They are still selected: choose another category, or correct the one that was refused, and try again.',
+    },
     imported: 'Imported from {{source}}',
-    details: 'From the statement',
     rule: {
       title: 'Always put this merchant in this category?',
       tooLong:
@@ -725,7 +742,6 @@ export const importEn = {
     mark: 'Where imported transactions wait for a category',
     restrictions:
       'This is where imported transactions wait until you give them a category. It can be renamed, but takes no plan and no subcategory, and cannot be removed while it holds transactions.',
-    noPlan: 'No plan: it only holds imports waiting for a category.',
     noPlanShort: 'No plan',
     cannotEnd: 'Not while it holds transactions: give them a category first.',
     errors: {
@@ -742,7 +758,7 @@ export const importEn = {
   },
   tokens: {
     title: 'Import tokens',
-    help: 'A token lets the import script of this project add transactions to this budget, and nothing else: it cannot read anything. Create one per session, and revoke it when the session is done.',
+    help: 'A token lets a program you trust add transactions to this budget for you, for example an assistant that reads your bank statements. It can only add transactions, which then wait for your review: it cannot read, change or delete anything. Make one for each use and revoke it when you are done.',
     create: 'Create a token',
     createTitle: 'Create an import token',
     name: 'Name',
@@ -753,7 +769,7 @@ export const importEn = {
     secretTitle: 'Your new token',
     secretOnce: 'Copy it now: it is shown only this once and cannot be shown again.',
     secretWhere:
-      'Put it in the environment of the session that runs the import script, as {{name}}: for a cloud session in the environment’s settings, on a computer in the shell that starts it.',
+      'Give it to the program as its instructions say. The import script reads it from {{name}} in the environment it runs in.',
     secretNever: 'Never paste it into a conversation: what is typed there is kept.',
     secretLabel: 'Token',
     copy: 'Copy the token',
@@ -787,7 +803,8 @@ export const importEn = {
     removeBody: 'The token goes from this list; its imports keep its name.',
     removed: 'Token deleted.',
     limit: 'A budget can have 10 tokens that can still be used.',
-    docs: 'How the script uses it: docs/import-script.md in the project.',
+    lifecycle:
+      'A token is shown only once, when you create it. To stop one, choose Revoke beside it below: it stops at once, and what it already added stays.',
   },
   rules: {
     title: 'Merchant rules',
@@ -801,7 +818,6 @@ export const importEn = {
       'The budget does not take this text as a rule: it must have 1 to {{max}} characters once tidied (lower case, without accents or punctuation).',
     category: 'Category',
     ended: 'Its category has ended: it applies only where the category is in use.',
-    edit: 'Edit',
     editFor: 'Edit the rule {{fragment}}',
     editTitle: 'Edit the rule',
     apply: 'Also apply it now to the imported transactions waiting in “To categorise”',

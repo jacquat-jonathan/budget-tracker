@@ -36,6 +36,12 @@ import { dbErrorCode } from '@/lib/db-errors'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
 import { isUuid } from '@/lib/uuid'
+import {
+  PHONE_CELL,
+  PHONE_DIFFERENCE,
+  PHONE_NAME,
+  PHONE_ROW,
+} from '@/features/compare/components/phone-table'
 
 type Sort = 'budget' | 'change'
 
@@ -237,6 +243,13 @@ export function SideBySideView({
                     ['result', total.a_result, total.b_result, total.result_difference],
                     ['planned', total.a_planned, total.b_planned, total.planned_difference],
                     ['committed', total.a_committed, total.b_committed, total.committed_difference],
+                    // R-PROGRESS-530: the transfers' committed figure, apart from the subscriptions'.
+                    [
+                      'transferCommitted',
+                      total.a_transfer_committed,
+                      total.b_transfer_committed,
+                      total.transfer_committed_difference,
+                    ],
                   ] as const
                 ).map(([key, before, after, difference]) => (
                   <tr key={key} className={PHONE_ROW} data-testid={`total-${key}`}>
@@ -423,13 +436,6 @@ export function SideBySideView({
  * a line of its own (room for nine-figure amounts at 320 px: an amount wraps after "CHF").
  */
 // D-298: on a phone the difference is seen without scrolling sideways.
-const PHONE_ROW =
-  'border-b last:border-b-0 max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-3 max-sm:gap-y-1 max-sm:pb-2'
-const PHONE_NAME = 'max-sm:col-span-2 max-sm:pb-0'
-const PHONE_CELL =
-  'max-sm:min-w-0 max-sm:p-0 max-sm:text-left max-sm:before:block max-sm:before:text-xs max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]'
-const PHONE_DIFFERENCE =
-  'max-sm:col-span-2 max-sm:flex max-sm:items-baseline max-sm:gap-2 max-sm:p-0 max-sm:text-left max-sm:before:text-xs max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]'
 
 /** A side's figure; "—" (said in words) when the side has nothing. */
 function Amount({ value }: { value: number | null }) {

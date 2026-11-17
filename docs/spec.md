@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-613 rules (595 active, 0 planned), 24 conventions, 384 decisions, 46 open questions. 0 rules and conventions are marked **TEST PENDING**.
+636 rules (618 active, 0 planned), 24 conventions, 393 decisions, 52 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -64,9 +64,9 @@ Local Supabase stack, row-level security baseline, CI, and the manual deploy to 
 - **US-PLATFORM-001** As a signed-in user, I want my data to be protected by the database itself, so that nobody reaches it by going around the app.
   Rules: R-SECURITY-001, R-SECURITY-005
 
-### Step 2: Budgets and members, incomes, periods (in-progress)
+### Step 2: Budgets and members, incomes, periods (done)
 
-#### F-BUDGET Budgets (in-progress)
+#### F-BUDGET Budgets (done)
 
 Create, rename, end and delete a budget, created atomically with its first income and period.
 
@@ -81,7 +81,7 @@ Create, rename, end and delete a budget, created atomically with its first incom
 - **US-BUDGET-005** As a budget owner, I want to delete a budget with everything in it, so that I can remove one I no longer use.
   Rules: R-BUDGET-001, R-BUDGET-009, R-MEMBER-002, R-BUDGET-052
 
-#### F-MEMBERS Members and invitations (in-progress)
+#### F-MEMBERS Members and invitations (done)
 
 Invite people by email, accept or decline, leave, remove members.
 
@@ -96,7 +96,7 @@ Invite people by email, accept or decline, leave, remove members.
 - **US-MEMBERS-005** As a budget member, I want to see who the other members are, so that I know with whom I share the budget.
   Rules: R-PROFILE-003, R-MEMBER-001
 
-#### F-INCOME Incomes (in-progress)
+#### F-INCOME Incomes (done)
 
 Versioned monthly incomes per member, one of them primary, with a weekend rule.
 
@@ -109,7 +109,7 @@ Versioned monthly incomes per member, one of them primary, with a weekend rule.
 - **US-INCOME-004** As a budget member, I want to remove an income, so that it stops counting without rewriting past periods.
   Rules: R-INCOME-001, R-INCOME-009, R-INCOME-012, R-INCOME-051
 
-#### F-PERIOD Periods (in-progress)
+#### F-PERIOD Periods (done)
 
 Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 
@@ -120,9 +120,9 @@ Pay-day-to-pay-day periods, created on demand, with manual boundaries.
 - **US-PERIOD-003** As a budget member, I want past periods to stay as they were when the primary income's terms change, so that history does not shift under me.
   Rules: R-PERIOD-007, R-PERIOD-011, R-VERSION-007, R-VERSION-008
 
-### Step 3: Categories, transactions, period progress view (in-progress)
+### Step 3: Categories, transactions, period progress view (done)
 
-#### F-CATEGORY Categories and expectations (in-progress)
+#### F-CATEGORY Categories and expectations (done)
 
 Two-level categories with monthly or yearly expectations, and the amount left to assign.
 
@@ -139,7 +139,7 @@ Two-level categories with monthly or yearly expectations, and the amount left to
 - **US-CATEGORY-006** As a budget member, I want my save to be refused, with a message to reload, when another member changed the same thing in the meantime, so that I never silently overwrite their change.
   Rules: R-CONCURRENCY-070, R-CONCURRENCY-090, R-CONCURRENCY-091, R-CONCURRENCY-100
 
-#### F-TRANSACTION Transactions (in-progress)
+#### F-TRANSACTION Transactions (done)
 
 Manual transactions, landing in the period that contains their date.
 
@@ -150,7 +150,7 @@ Manual transactions, landing in the period that contains their date.
 - **US-TRANSACTION-003** As a budget member, I want to record money coming back as a refund, so that it reduces what was spent in its category.
   Rules: R-TRANSACTION-070, R-TRANSACTION-071, R-TRANSACTION-092, R-TRANSACTION-050
 
-#### F-PROGRESS Period progress view (in-progress)
+#### F-PROGRESS Period progress view (done)
 
 Each period, the current one and past ones, tracked against its expectations, with its result.
 
@@ -161,9 +161,9 @@ Each period, the current one and past ones, tracked against its expectations, wi
 - **US-PROGRESS-003** As a budget member, I want to browse past periods and see the progress view of each, so that I can look back at how any period went.
   Rules: R-COMPARE-001, R-PROGRESS-090, R-PROGRESS-050
 
-### Step 4: Subscriptions and debts (in-progress)
+### Step 4: Subscriptions and debts (done)
 
-#### F-SUBSCRIPTION Subscriptions (in-progress)
+#### F-SUBSCRIPTION Subscriptions (done)
 
 Recurring charges and their next charge date.
 
@@ -174,7 +174,7 @@ Recurring charges and their next charge date.
 - **US-SUBSCRIPTION-003** As a budget member, I want to see a subscription's monthly cost as committed within its category's expectation, so that I see how much of the category is already spoken for.
   Rules: R-SUBSCRIPTION-079, R-PROGRESS-120
 
-#### F-DEBT Debts (in-progress)
+#### F-DEBT Debts (done)
 
 Debts with planned payments, their evolution and expected end date.
 
@@ -185,9 +185,9 @@ Debts with planned payments, their evolution and expected end date.
 - **US-DEBT-003** As a budget member, I want to adjust a debt's balance by hand, so that it matches my bank statement.
   Rules: R-DEBT-075, R-DEBT-122
 
-### Step 5: Period comparison charts (in-progress)
+### Step 5: Period comparison charts (done)
 
-#### F-COMPARE Period comparison (in-progress)
+#### F-COMPARE Period comparison (done)
 
 Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).
 
@@ -198,9 +198,9 @@ Comparing periods in charts. Browsing a past period and its progress view is par
 - **US-COMPARE-003** As a budget member, I want to put two periods side by side, so that I see exactly what changed between them.
   Rules: R-COMPARE-071, R-COMPARE-173, R-COMPARE-174, R-COMPARE-194
 
-### Step 6: Import (statements, CSV and Claude) (in-progress)
+### Step 6: Import (statements, CSV and Claude) (done)
 
-#### F-IMPORT Import (in-progress)
+#### F-IMPORT Import (done)
 
 Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.
 
@@ -302,6 +302,43 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SHELL_
   - Related: R-APP-440, R-APP-441, R-ACCOUNT-446
   - Source: owner-request: coordinator brief for the money flow polish round (diagram and test gaps), 2026-11-17
+- **R-APP-530** While the browser is offline, every page (signed in or not) shows a notice "You are offline." saying that what is on screen stays and nothing can be saved until the connection is back, in a polite live region; it goes when the browser is online again.
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-531, R-APP-532, D-634
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/offline-notice.tsx
+- **R-APP-531** A save tried while the browser is offline is refused at once, every form alike: nothing is sent, nothing waits to go out later, the button is free again, what was typed stays, and the form says "You are offline: nothing was saved. Try again once the connection is back" (sign-in and the other account forms: "nothing was sent").
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-530, D-634, R-APP-007
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/lib/online.ts; code: src/hooks/use-app-mutation.ts
+- **R-APP-532** A page whose code (or strings) could not be downloaded says "This page could not be loaded" inside the app's layout, says whether the browser is offline, offers "Try again", and tries again by itself when the browser comes back online; a failed download is never kept by the app, so trying again downloads it again, and when that try fails while the browser is online (Chromium keeps a failed module download and does not ask the server again) the whole page is reloaded. Any other error still goes to the error page.
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-530, D-634
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/app/lazy-page.ts; code: src/components/page-load-boundary.tsx
+- **R-APP-533** Settings is split into four sections, each with its own heading, reached from a list of links at the top of the page: Budget (the current budget's name, end date, deletion), Members, Import (import tokens, merchant rules, remembered choices) and My account (display name, password). The import tokens are worded for a household: what a token is for (a program you trust adds transactions, which wait for review; it can read nothing), that it is shown only once, and how to stop it (Revoke); no project file is named.
+  _active · enforced by test · F-SHELL_
+  - Related: R-AUTH-531, R-IMPORT-006
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/settings/settings-page.tsx
+- **R-APP-534** Adding an income or a category says "unless you choose an earlier one" only when the form offers an earlier period; with only the current period it says it counts from the current period, and nothing about a choice that is not there.
+  _active · enforced by test · F-CATEGORY_
+  - Related: R-PERIOD-051
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/budget/components/category-form-dialog.tsx; code: src/features/income/components/income-form-dialog.tsx
+- **R-APP-535** A metadata line ("Refund · Groceries · Recorded by Ann", an account's kind and holder, a token's dates, a debt's payoff) joins its parts with a dot glued to the part before it, so a wrapped line never starts with a dot, and a part hidden on some widths takes its own dot with it.
+  _active · enforced by test · F-SHELL_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/meta-line.tsx
+- **R-APP-536** A debt's own page names the debt in the browser tab ("Car loan · Debts · Budget Tracker") and in the breadcrumb, after a link back to Debts.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-122
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/layout/page-detail.ts
+- **R-APP-537** When the system asks for reduced motion, nothing animates: dialogs, menus, sheets and toasts appear and go at once (one global CSS rule).
+  _active · enforced by review · F-SHELL_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/index.css
+- **R-APP-538** The signed-in app's first keyboard stop is a "Skip to content" link, shown when it has the focus, that moves the focus to the page past the sidebar's links.
+  _active · enforced by test · F-SHELL_
+  - Related: R-APP-001
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/layout/app-layout.tsx
+- **R-APP-539** A name already used (another category of the budget, another of my budgets; compared trimmed, ignoring case and accents) is warned about at the name field, in words, while typing ("both will look the same in lists"); it is never refused.
+  _active · enforced by test · F-CATEGORY_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/lib/same-name.ts
 
 ### Accounts and sign-in
 
@@ -392,6 +429,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-AUTH_
   - Related: R-AUTH-017
   - Source: code: src/features/auth/pages/reset-password-page.tsx
+- **R-AUTH-530** When the session ends without the user signing out (it expired or was revoked while a page was open, or a stored session no longer restores when the app opens), the sign-in page says "Your session ended", that what had been typed and not saved was not kept and must be entered again, and that signing in returns to the page the user was on (which it does, R-AUTH-001). A sign-out the user asked for, in any tab of the browser, and a visitor who was never signed in, get no such notice. What was typed is not kept.
+  _active · enforced by test · F-AUTH_
+  - Related: R-AUTH-001, R-AUTH-003, D-635
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/auth/auth-provider.tsx; code: src/features/auth/session-ended.ts
+- **R-AUTH-531** A signed-in user can change their password in Settings, My account: the new password twice, at least as long as at sign-up (8 characters, R-AUTH-005), checked before anything is sent, saved with Supabase Auth's updateUser; a refusal is said in words (the same password, too weak, a recent sign-in needed, offline), and the fields are emptied once it is saved.
+  _active · enforced by test · F-AUTH_
+  - Related: R-AUTH-005, R-AUTH-011, R-APP-533
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/settings/password-settings.tsx
 
 ### Profiles
 
@@ -1083,6 +1128,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-PERIOD_
   - Related: D-427, R-PERIOD-180
   - Source: owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-PERIOD-530** "This period's salary has not arrived yet" asks for the day the salary is now expected and never leaves it empty: the field is required, filled in with the next pay day the app announces (the current period's end plus one, R-INCOME-056), says that a salary that is only late needs the day it is now expected, and the dialog's preview says until when the reopened period will run and on which day the salary is then expected. The date is always sent (reopen_previous_period and preview_reopen), so the database's projection, which can lie a month later, is never used from the screen.
+  _active · enforced by test · F-PERIOD_
+  - Related: R-PERIOD-025, R-ACCOUNT-313, R-INCOME-056, D-082, D-632
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/periods/periods-page.tsx
 
 ### Versioning: edits never rewrite the past
 
@@ -1479,6 +1528,18 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-SUBSCRIPTION_
   - Related: R-SUBSCRIPTION-079, D-173
   - Source: owner-request: coordinator brief for the step 4 screens, 2026-11-16; code: src/features/progress/period-progress-card.tsx; code: src/features/budget/budget-page.tsx; owner-request: coordinator, step 4 screens review round 1, 2026-11-16
+- **R-PROGRESS-530** Wherever the subscriptions' committed amount is shown, the planned transfers' committed amount is shown apart from it, from the database's own figures (category_overview.transfer_committed_amount, period_summaries.transfer_committed_total, get_period_progress(...).transfer_committed, the comparison's transfer_committed figures): under the planned figure of the period on the budget page and in the period progress ("Includes CHF x for planned transfers"), under each category's amount on the budget page and in the planned column of the progress view, as a sentence on a narrow progress card, and as its own row in the side-by-side totals of Compare. The two committed figures are never added into one shown figure.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-238, R-PROGRESS-120, D-399, D-630
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/commitments.tsx
+- **R-PROGRESS-531** When the subscriptions' and the planned transfers' committed amounts on a category (or a period) together exceed its planned amount, the screen says so in words, not by colour alone: a "Committed above plan" badge beside the category's name (like "Overspent"), each committed figure named as committed instead of "incl.", and on a period's total or a narrow card one sentence naming each committed figure and the planned amount ("More is committed than planned: CHF 43.82 for subscriptions, against CHF 40.00 planned"). The comparison is the screen's; no sum is shown.
+  _active · enforced by test · F-PROGRESS_
+  - Related: R-PROGRESS-530, R-PROGRESS-120, D-630
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/commitments.tsx
+- **R-PROGRESS-532** A period's progress leaves out the "To categorise" row when nothing is in it in that period (no transaction, nothing spent, nothing planned); it is listed as soon as something is. The read gives what is in it now, so a period it was emptied in looks the same (D-637).
+  _active · enforced by test · F-PROGRESS_
+  - Related: R-CATEGORY-250, D-637
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/progress/period-progress-card.tsx
 
 ### Subscriptions
 
@@ -1786,6 +1847,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-DEBT_
   - Related: D-467, R-DEBT-131
   - Source: owner-request: coordinator follow-up to the step 6 database fix round 2 (5f57c5a), 2026-11-16; code: supabase/migrations/20261117100000_subscriptions_debts.sql
+- **R-DEBT-530** "Adjust balance" says before saving what each field does (R-DEBT-075): the amount is "What you owe now" and becomes the remaining amount now, whatever the date; the date ("Record the adjustment on") only places the adjustment in the history and in its period and does not set the balance on that day, so payments and interest recorded after it still count and the history may show another figure on that date; and the dialog names the remaining amount the difference is taken from.
+  _active · enforced by test · F-DEBT_
+  - Related: R-DEBT-075
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/debts/components/adjust-balance-dialog.tsx
 
 ### Browsing and comparing periods
 
@@ -1882,6 +1947,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-COMPARE_
   - Related: R-COMPARE-282, D-485
   - Source: owner-request: coordinator brief for the step 6 screens fix round 2, 2026-11-17
+- **R-COMPARE-530** On a phone, Compare's tables (the trend, the categories over time, side by side) show each row as a block, every figure under its column's name, so nothing is cut and nothing scrolls sideways; from the small breakpoint up they are tables. Every label of Compare's view and range choices meets 4.5:1 contrast in both themes.
+  _active · enforced by review · F-COMPARE_
+  - Related: R-COMPARE-190
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/compare/components/phone-table.ts
 
 ### Import
 
@@ -2327,6 +2396,21 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-IMPORT_
   - Related: R-IMPORT-422
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
+- **R-IMPORT-530** In the review, a transaction to review that can take a category (an expense or a refund linked to nothing and not frozen) has a category picker on the row itself: one choice saves the category (update_transaction with every other field as it is) and confirms the row (confirm_import with the revision that answered). Several such rows can be selected and given one category: the rows are sent one after another with the same two calls, with a visible count ("Saving 3 of 12…"); the first refusal stops the run, and the screen says how many were saved and confirmed, at which row it stopped and why (also when only the confirmation was refused), and lists the rows not saved, which stay selected.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-209, R-IMPORT-081, D-633
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/import/components/review-categorise.tsx
+- **R-IMPORT-531** Undoing an import is confirmed by a toast with what the database did (deleted, kept as confirmed, kept as linked, charges that stay confirmed), as well as in place.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-206
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/import/components/batch-actions.tsx
+- **R-IMPORT-532** The import's preview rows, the CSV mapper and the merchant rules use the app's styled selects, like every other page; no native select is left.
+  _active · enforced by review · F-IMPORT_
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/components/choice-select.tsx
+- **R-IMPORT-533** The CSV mapper fills in the columns from obvious header names (Date, Datum, Amount, Betrag, Montant, Description, Text, Libellé and the like) for the member to check and change; nothing is sent unseen.
+  _active · enforced by test · F-IMPORT_
+  - Related: R-IMPORT-082
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/import/csv/csv-map.ts
 
 ### Accounts and planned transfers (money flow)
 
@@ -2603,6 +2687,10 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-567, R-ACCOUNT-447, C-LOGIC-003, D-602
   - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+- **R-ACCOUNT-530** No account kind is chosen for the user: a new account's Kind field starts empty and is required ("Choose what kind of account it is."), the first account included, and one line under it says what the kind changes: in the money flow what stays on an everyday kind (current, cash, credit card, other) is spendable, what stays on a savings kind (savings, third pillar, tax reserve, investment) is set aside.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: R-ACCOUNT-001, R-ACCOUNT-423, D-631
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: src/features/accounts/components/account-form-dialog.tsx
 - **R-ACCOUNT-510** An occurrence is identified by its transfer, its kind ('period', 'income_payday', 'fixed_day') and its period's number or its date; occurrences of two kinds are never merged, replaced or compared, and a mark, and a transaction the app recorded, stay with their occurrence through any correction, edit, reopen, moved start, primary switch and catch-up; one undo built from a checklist row leads out of every mark.
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-610, D-617, R-ACCOUNT-305
@@ -7808,6 +7896,136 @@ Related: D-567, D-565, D-545, R-ACCOUNT-502, R-ACCOUNT-465
 
 Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
 
+### D-630 A commitment above the plan is found by comparing the two committed figures with the plan on the screen (accepted)
+
+The screen compares the subscriptions' committed amount plus the planned transfers' committed amount with the planned amount of the same category or period, to decide whether to warn (R-PROGRESS-531). The sum is used only for that comparison and is never shown; each committed figure is shown as the database gives it.
+
+**Why:** The reads give the two committed figures apart (D-399) and no flag for a commitment above the plan; the household walk-through found "Media CHF 40.00 incl. CHF 43.82 for subscriptions" with no warning. A comparison of figures the database gives shows no new figure, so C-LOGIC-003 and "no client arithmetic to show a figure" hold; a flag in the reads would be cleaner and can replace it later.
+
+**Rejected:**
+
+- Warning only when one committed figure alone exceeds the plan: CHF 30 of subscriptions and CHF 30 of transfers in a CHF 40 plan would read as inside the plan.
+- Showing the sum of the two committed figures: the page would add figures for display (C-LOGIC-003).
+
+Related: R-PROGRESS-531, R-PROGRESS-530, R-ACCOUNT-238, D-399
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-631 A new account's kind starts empty, even for the first account (accepted)
+
+The account form no longer preselects a kind (it used to start the first account as "Current or salary account" and the second as "Savings"). The field is required and explains the money flow's split (R-ACCOUNT-423) under it.
+
+**Why:** The household walk-through's second account silently became "Savings", and the money flow then treated its money as set aside. A kind decides spendable versus set aside, so it must be the user's choice.
+
+**Rejected:**
+
+- Keeping "Current" for the first account only: still a choice made for the user, and the brief asks for none.
+
+Related: R-ACCOUNT-530, R-ACCOUNT-423
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-632 The reopen dialog requires the expected pay day; the database's projection stays as it is (accepted)
+
+The screen sent no date when the field was empty, and reopen_previous_period then ends the reopened period at its projection (contract: "or at its projection when omitted"); in the walk-through that made the period run to 24.02.2027 with the next pay day 25.02.2027, a month after the salary that had not arrived. The rule is the database's and is left alone; the screen now always names the day (required, filled in with the next pay day the app announces, editable), and its preview says what the period will then run to.
+
+**Why:** A person who says the salary has not arrived yet expects it soon; an empty field silently meant "next month". Changing what the projection means is a database decision for the owner (Q-365).
+
+**Rejected:**
+
+- Working around the projection on the client (computing a nearer date from the schedule): pay-date logic lives in the database (C-LOGIC-001, C-LOGIC-003).
+- Keeping the field optional with a warning: the surprising default would still be one click away.
+
+Related: R-PERIOD-530, D-082, Q-365
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-633 The review's categories are set with the existing per-row calls, one row after another (accepted)
+
+The row picker and the "one category for several" bar use update_transaction then confirm_import per row, sequentially, never in parallel, stopping at the first refusal. The bulk bar offers the leaves in force now; a row dated where the chosen category is not in force is refused by the database and the run stops there and says so.
+
+**Why:** The household walk-through had 75 rows to categorise through Actions, Edit, Save, Confirm. No call sets a category and confirms in one step, or does so for several rows; inventing one is a database decision (Q-366). Sequential calls keep the count truthful and the stop exact.
+
+**Rejected:**
+
+- Parallel calls: a failure would leave an unknown set saved and the count would not say which.
+- Continuing after a refusal: the brief asks to stop at the first failure.
+
+Related: R-IMPORT-530, Q-366
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-634 Offline, a save is refused with "nothing was saved"; it never waits to go out later (accepted)
+
+Writes no longer pause while the browser is offline (TanStack Query's default for mutations): every write through the app's one mutation hook, and the review's category calls, first checks navigator.onLine and, offline, is refused before anything is sent, with "You are offline: nothing was saved"; the form keeps what was typed. Reads still wait for the connection and resume by themselves, under an app-wide "You are offline" notice. The import's sending loop keeps its own handling of network failures (it retries a part, then stops and says what was recorded, R-IMPORT-369).
+
+**Why:** In the walk-through a save offline left the button on "Saving…" and the write went out by itself when the connection returned, possibly minutes later and after the household had changed the same record elsewhere; a budget write the user no longer sees happening is more surprising than a clear refusal. navigator.onLine false is reliable (offline for sure); true does not prove a connection, and a failed call then says it could not reach the server, as before.
+
+**Rejected:**
+
+- Holding the write and saying it will go out once the connection is back: the household may close the tab or change the record meanwhile, and a concurrency refusal would then arrive out of context.
+
+Related: R-APP-530, R-APP-531, R-APP-532
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-635 An ended session is told apart from a sign-out by a short-lived mark in local storage (accepted)
+
+Signing out writes the time to local storage (shared by the browser's tabs); a session that disappears (any auth event with no session after one, or a stored Supabase session that does not restore at start) more than a minute after the last sign-out is reported as ended on the sign-in page. Typed values are not kept: keeping them would mean storing a form's content in the browser across users and budgets, which is neither trivial nor safe.
+
+**Why:** The walk-through's session died mid-form and the user landed on sign-in with no word. Supabase reports an expired and a requested sign-out with the same event.
+
+**Rejected:**
+
+- Keeping what was typed in session storage and restoring it after sign-in: another user may sign in on the same tab, and a restored form may belong to a budget the user no longer has.
+
+Related: R-AUTH-530, R-AUTH-025
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-636 The hosted migrations are checked by hand before a deploy, not by the Deploy workflow (accepted)
+
+docs/deployment.md makes "npx supabase migration list --remote" and "npx supabase db push --remote --dry-run" a numbered manual step before every deployment (and before the first one), because the Deploy workflow builds and uploads the app without knowing whether the hosted database has the release's migrations. No database credential or access token is added to CI. Backups are the owner's own data-only dumps (auth, public and private schemas, without the migration-filled private.period_keyed_tables), restored onto a project whose migrations were pushed first, as rehearsed on the local stack.
+
+**Why:** The final review found the guide silent on backups and on the migration check. A CI check would need the database password or a Supabase access token as a repository secret, which the owner has not asked for; the free plan's own backups could not be verified from the repository or the CLI.
+
+**Rejected:**
+
+- A CI job that pushes or checks migrations: it needs secrets in CI (brief: none).
+- A full dump of every schema: the restore is refused on the storage tables and collides on the migration-filled registry table (seen locally).
+
+Related: D-450, Q-280, Q-281
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17; code: docs/deployment.md
+
+### D-637 An empty "To categorise" row is left out of a period's progress (accepted)
+
+The progress view drops the "To categorise" row of a period when it has no transaction, nothing spent and nothing planned there. get_period_progress gives what is in the category now, not whether anything ever was, so a period whose waiting transactions were all given a category later looks the same and is also left out.
+
+**Why:** After the first import every past period showed a zero "To categorise" row (household walk-through). A row with only zeros says nothing; whether something waited there once is not something the household needs in the progress view.
+
+**Rejected:**
+
+- Asking the database for a history flag: no read has it, and the row would still be zeros.
+
+Related: R-PROGRESS-532
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
+### D-638 The features of build steps 1 to 6 are done; step 7 stays in progress (accepted)
+
+F-BUDGET, F-MEMBERS, F-INCOME, F-PERIOD (step 2), F-CATEGORY, F-TRANSACTION, F-PROGRESS (step 3), F-SUBSCRIPTION, F-DEBT (step 4), F-COMPARE (step 5) and F-IMPORT (step 6) are marked done: their screens (src/features/) and their database (supabase/migrations/) are in the repository, every active test-enforced rule of theirs is named by a test (spec:check), and the final household walk-through used them end to end. F-MONEYFLOW (step 7: accounts, planned transfers, money flow) stays in progress while the database round on planned transfers and the money flow read runs. A done feature's rules stay active (scripts/spec: active when done or in progress), so nothing changes for the checker.
+
+**Why:** Every product feature was still "in-progress" after the final review; the bookkeeping should say what is finished.
+
+**Rejected:**
+
+- Marking step 7 done as well: its contract is being changed in parallel and a later round follows.
+
+Related: D-450
+
+Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+
 ### D-610 Three kinds of schedule, each with an identity nothing else can disturb (supersedes D-520, D-527, D-561, D-562 and D-566; amends D-420, D-421, D-422, D-430, D-490 and D-560) (accepted)
 
 The owner's decision after five fix rounds: a pay-date transfer is no longer matched against the salary that started a period. Three kinds, never merged, replaced or compared: (1) 'On the main income's payday' (a transfer naming no income, or one whose income is not in force there or was deleted): one occurrence for every period from the transfer's first counted period on, due on the period's start (the day its salary came, whatever started it) plus the offset, never after its last day; identified by the period's number (transfer_occurrences.occurrence_seq), which a reopen and the salary recorded again, a moved start, an early or late salary and a primary switch leave as it is. (2) 'On <income>'s payday' (a transfer naming an income in force in the period): one occurrence for every scheduled pay date of that income (its pay day and weekend rule in force in the period containing the date), due that day plus the offset, never after the period's last day, whether or not that income is the primary and whenever its salary is recorded; identified by that date. An income that ends, is added later or is deleted bounds the dates as before (D-492, D-564). (3) 'On a fixed day': one occurrence per calendar date, identified by the scheduled date, due on it moved by the weekend rule (D-611). Periods carry no key any more (periods.pay_key, private.primary_incomes and its trigger, the switch day and the same-payday comparison are removed); the budget's primary_since_seq stays for the reopen's 'made_primary' row. A transfer counts from starts_on (its first counted day, for dates) and starts_seq (its first counted period, for its own occurrence: the period it was made in, or the next one when made after that period's first day with no period named). A period stretched by a switch (25 Nov to 9 Jan) has one occurrence of a main-income transfer and, for one naming Ann (25th), her 25 Nov and 25 Dec. A household that wants a transfer to follow the day the main salary really arrives names no income; one that wants it to follow a particular income's calendar names that income.
@@ -8405,6 +8623,30 @@ Source: owner-request: coordinator addition to database fix round 5 (the money f
   - Context: D-563 re-dates the app’s own untouched transactions when a due date moves; the previews count that as one removed and one created. created_at_once names the occurrence created, but nothing names the one removed, and already_recorded is false for a re-dated mark (its id changes), so the screen cannot tell a move from a loss and a new transaction. It says both counts and that a move counts once in each (D-601).
   - Related: D-563, D-568, R-ACCOUNT-462, R-ACCOUNT-501, D-601
   - Source: owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17
+- **Q-365** When reopen_previous_period is called without p_pay_date, should the reopened period end the day before the pay day that did not arrive is next expected (for example a few days after today), rather than at its projection, the day before the next scheduled pay date after today (a month later)?
+  - Context: Household walk-through: today 26.01.2027, pay day 25 (nearest), period 4 started 25.01; reopen without a date merged it into period 3, which then ran from 28.12.2026 to 24.02.2027 with "Next pay day 25.02.2027". The contract says the reopened period ends "at its projection when omitted". The screen no longer omits the date (D-632, R-PERIOD-530), so only other clients (or a later screen) meet this; the database side decides whether the default should change or the parameter become required.
+  - Related: D-632, R-PERIOD-530, D-082
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+- **Q-366** Should the database offer one call that gives a category to several imported transactions to review and confirms them (for example categorise_imports(p_budget_id, p_category_id, p_transactions: {id, expected_revision}[]) -> {confirmed, refused[]}), all or nothing or per row?
+  - Context: The review's bulk category (R-IMPORT-530) makes two calls per row, one row after another: 75 rows are 150 requests, each taking the budget lock and catching up, and a session that ends half-way leaves a part done (said truthfully on the screen). One call would be faster, atomic or per-row by choice, and could check every row's date against the category once.
+  - Related: R-IMPORT-530, D-633, R-IMPORT-209
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+- **Q-367** Should a member be able to change their email address in the app?
+  - Context: Not built (owner brief, final fix round). It would take: a form calling supabase.auth.updateUser({ email }), with double_confirm_changes on (as in supabase/config.toml) both the old and the new address confirming by mail; a redirect URL for the confirmation link in the hosted project's settings; deciding what happens to pending invitations matched by email (invitations are matched to accounts by verified email); the profile and members list showing the new address; tests for both confirmations and a link that fails.
+  - Related: R-AUTH-531, R-APP-533
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+- **Q-368** Should a member be able to delete their own account from the app, and what happens to the budgets they own and the records they made?
+  - Context: Not built (owner brief, final fix round). The database already copes with a deleted account in places (recorded_by null, "a former member", tokens ending with their creator). It would take: a database function (security definer, with the service role never in the browser) or an Edge Function to delete the auth user; a rule for budgets the user owns (delete them, or require an owner hand-over first, Q-369); a confirmation that names what goes; and tests that another member's view of shared budgets stays whole.
+  - Related: Q-369, R-APP-533
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+- **Q-369** Should a budget's owner be able to hand the budget over to another member (and then leave it)?
+  - Context: Not built (owner brief, final fix round). Today the owner cannot leave or hand over; the walk-through noted it. It would take: a database function moving budgets.owner_id to a current member under the budget lock, with the owner-only rights (end date, deletion, removing members) following; deciding whether the new owner must accept; the members list and Settings saying who owns; pgTAP tests for access before and after.
+  - Related: Q-368, Q-370, R-APP-533
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
+- **Q-370** Should budgets have roles beyond owner and member (for example a member who can only read, or one who can record transactions but not change the plan)?
+  - Context: Not built (owner brief, final fix round). Every member can do everything but the owner-only actions. Roles would take: a role column and checks in every write function and row-level security policy (C-RLS-003's shared helpers), screens that hide or explain what a role cannot do, an owner screen to set roles, and tests per role and table (C-DBTEST-002).
+  - Related: Q-369, R-APP-533
+  - Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 - **Q-355** Should a reopen replay the reopened stretch with the terms in force now, so that an edit made "from now" reaches the reopened period?
   - Context: Left as it is by the owner (round 5). Example: a transfer's offset is edited from now on 30 Nov (from 2 to 0 days) in the period 25 Nov..; the period is reopened: the reopened period 25 Oct.. takes the merged period's terms (R-VERSION-011), so October's transaction of 27 Oct is removed and made again on 25 Oct. preview_reopen announces it (transaction_removed, transaction_created, transaction_moved). Options: (1) leave it; (2) keep the reopened period's own terms for transfers; (3) ask in the reopen dialog.
   - Related: R-VERSION-011, D-430, R-ACCOUNT-303

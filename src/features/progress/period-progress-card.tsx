@@ -12,8 +12,16 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { budgetKeys } from '@/features/budgets/budget-keys'
+import {
+  CommittedCell,
+  CommittedSentence,
+  CommittedTotal,
+  OverCommittedBadge,
+} from '@/features/progress/commitments'
+import { isOverCommitted } from '@/features/progress/commitment'
 import { unwrap, usePeriods, type PeriodSummary } from '@/features/budgets/budget-queries'
 import { useCurrentBudget } from '@/features/budgets/current-budget-context'
+import { useToCategoriseIds } from '@/features/categories/category-queries'
 import type { Database } from '@/lib/database.types'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
@@ -43,6 +51,8 @@ interface ProgressRow {
   display_order: number
   /** The subscriptions' monthly costs inside `expected` (never added to it). */
   committed: number
+  /** The planned transfers' committed amount inside `expected`, apart from `committed`. */
+  transfer_committed: number
 }
 
 function readRow(row: ProgressRowRead): ProgressRow {
@@ -61,6 +71,7 @@ function readRow(row: ProgressRowRead): ProgressRow {
     transaction_count: row.transaction_count ?? 0,
     display_order: row.display_order ?? 0,
     committed: row.committed ?? 0,
+    transfer_committed: row.transfer_committed ?? 0,
   }
 }
 
@@ -214,19 +225,13 @@ function Totals({ period }: { period: PeriodSummary }) {
         hint={
           <>
             {/* R-PROGRESS-120: right under the planned figure it is part of, saying so. */}
-            {(period.committed_total ?? 0) > 0 && (
-              <span className="block" data-testid="progress-committed">
-                {/* More committed than planned: said so, not "includes". */}
-                {(period.committed_total ?? 0) > (period.expected_total ?? 0)
-                  ? t('progress.committedExceeds', {
-                      committed: formatMoney(period.committed_total ?? 0),
-                      planned: formatMoney(period.expected_total ?? 0),
-                    })
-                  : t('progress.plannedIncludes', {
-                      amount: formatMoney(period.committed_total ?? 0),
-                    })}
-              </span>
-            )}
+            <CommittedTotal
+              commitment={{
+                planned: period.expected_total ?? 0,
+                subscriptions: period.committed_total ?? 0,
+                transfers: period.transfer_committed_total ?? 0,
+              }}
+            />
             <span className="block">
               {left < 0
                 ? t('progress.overAssigned', { amount: formatMoney(-left) })
@@ -253,6 +258,19 @@ function Totals({ period }: { period: PeriodSummary }) {
  */
 function ProgressTable({ rows, period }: { rows: ProgressRow[]; period: PeriodSummary }) {
   const { t } = useTranslation()
+  const { budgetId } = useCurrentBudget()
+  const toCategorise = useToCategoriseIds(budgetId)
+  // R-PROGRESS-532: "To categorise" with nothing in it in this period says nothing: not listed.
+  // (The read gives what is in it now; a period it was emptied in looks the same.)
+  const shown = rows.filter(
+    (row) =>
+      !(
+        toCategorise?.has(row.category_id) === true &&
+        row.transaction_count === 0 &&
+        row.spent === 0 &&
+        row.expected === 0
+      ),
+  )
   return (
     <div role="table" aria-label={t('progress.listLabel')} className="flex flex-col">
       <div role="rowgroup">
@@ -273,7 +291,7 @@ function ProgressTable({ rows, period }: { rows: ProgressRow[]; period: PeriodSu
         </div>
       </div>
       <div role="rowgroup" className="divide-y">
-        {rows.map((row) => (
+        {shown.map((row) => (
           <ProgressLine key={row.category_id} row={row} period={period} />
         ))}
       </div>
@@ -326,6 +344,11 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
   const over = row.is_overspent && row.in_force
   const weight = row.is_group ? 'font-semibold' : sub ? '' : 'font-medium'
   const transactionsLink = `${paths.transactions}?period=${period.id}&category=${row.category_id}`
+  const commitment = {
+    planned: row.expected,
+    subscriptions: row.committed,
+    transfers: row.transfer_committed,
+  }
   return (
     <div
       role="row"
@@ -358,6 +381,7 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
               {t('progress.overspent')}
             </Badge>
           )}
+          {row.in_force && isOverCommitted(commitment) && <OverCommittedBadge />}
           {!row.in_force && (
             <Badge variant="outline" title={t('progress.notInForceHint')}>
               {t('progress.notInForce')}
@@ -376,30 +400,23 @@ function ProgressLine({ row, period }: { row: ProgressRow; period: PeriodSummary
             expected: formatMoney(row.expected),
           })}
         </span>
-        {row.committed > 0 && (
-          // On a narrow card: a sentence that names the planned amount it is part of.
-          <span
-            className="text-xs text-muted-foreground tabular-nums @2xl/progress:hidden"
-            data-testid="row-committed"
-          >
-            {t('progress.rowPlannedIncludes', {
-              expected: formatMoney(row.expected),
-              amount: formatMoney(row.committed),
-            })}
-          </span>
-        )}
+        {/* On a narrow card: sentences that name the planned amount they are part of. */}
+        <CommittedSentence
+          commitment={commitment}
+          className="text-xs text-muted-foreground @2xl/progress:hidden"
+          testId="row-committed"
+        />
       </div>
       <span
         role="cell"
         className={cn('sr-only text-right text-sm tabular-nums @2xl/progress:not-sr-only', weight)}
       >
         {formatMoney(row.expected)}
-        {row.committed > 0 && (
-          // Wide: under the planned figure, in its column.
-          <span className="block text-[11px] font-normal text-muted-foreground">
-            {t('progress.includes', { amount: formatMoney(row.committed) })}
-          </span>
-        )}
+        {/* Wide: under the planned figure, in its column. */}
+        <CommittedCell
+          commitment={commitment}
+          className="text-[11px] font-normal text-muted-foreground"
+        />
       </span>
       <span
         role="cell"

@@ -68,6 +68,8 @@ export function moneyFlowOf(periodId?: string | null): string {
 /** Location state carried to the sign-in page so the user lands where they wanted to go. */
 export interface RedirectState {
   from?: string
+  /** The session ended by itself: sign-in says so (R-AUTH-530). */
+  sessionEnded?: boolean
 }
 
 /** The path to return to after sign-in, read from location state; never an auth page. */

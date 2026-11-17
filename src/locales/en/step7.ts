@@ -35,11 +35,13 @@ export const accountsEn = {
   edit: 'Edit',
   closeAction: 'Close account',
   deleteAction: 'Delete account',
-  seeTransfers: 'Planned transfers',
   fields: {
     name: 'Name',
     namePlaceholder: 'Salary account, savings, joint account…',
     kind: 'Kind',
+    kindPlaceholder: 'Choose a kind',
+    kindHelp:
+      'In the money flow, what stays on an everyday account (current, cash, credit card, other) is spendable; what stays on a savings, third pillar, tax reserve or investment account is set aside.',
     bankLabel: 'Bank',
     bankLabelOptional: 'Bank (optional)',
     bankLabelPlaceholder: 'The bank or a short note',
@@ -83,8 +85,6 @@ export const accountsEn = {
     field: 'Paid into',
     fieldHelp: 'The account this income arrives on: it is where the money flow starts.',
     none: 'Not assigned',
-    noAccounts: 'Add accounts to say where this income arrives.',
-    paidInto: 'Paid into {{name}}',
     viewLabel: 'Paid into',
   },
 }

@@ -23,6 +23,12 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
+/** Choose an option of one of the app's styled selects. */
+async function pick(trigger: HTMLElement, option: string) {
+  await userEvent.click(trigger)
+  await userEvent.click(await screen.findByRole('option', { name: option }))
+}
+
 // The PDF reader itself is proven by the parser tests; here it gives a fixture's parse.
 vi.mock('@/features/import/statements', async (original) => ({
   ...(await original<typeof import('@/features/import/statements')>()),
@@ -195,7 +201,7 @@ describe('the CSV import [R-IMPORT-082] [R-IMPORT-324]', () => {
     expect(screen.getByTestId('date-format-note')).toHaveTextContent(
       'could be read in more than one way',
     )
-    await userEvent.selectOptions(screen.getByLabelText('Date format'), 'DD.MM.YYYY')
+    await pick(screen.getByLabelText('Date format'), 'DD.MM.YYYY')
     expect(within(screen.getByTestId('csv-sample')).getByText('Refund; shoes')).toBeInTheDocument()
     expect(screen.getByTestId('csv-problems')).toHaveTextContent(
       'Line 4: the date cannot be read in the chosen format',
@@ -208,17 +214,36 @@ describe('the CSV import [R-IMPORT-082] [R-IMPORT-324]', () => {
     ])
   })
 
+  it.each([
+    ['Date;Description;Amount', ['Column 1: Date', 'Column 3: Amount', 'Column 2: Description']],
+    ['Datum;Text;Betrag', ['Column 1: Datum', 'Column 3: Betrag', 'Column 2: Text']],
+    ['Date;Libellé;Montant', ['Column 1: Date', 'Column 3: Montant', 'Column 2: Libellé']],
+  ])(
+    'prefills the columns from obvious header names (%s), and lets the member change them [R-IMPORT-533]',
+    async (header, [date, amount, description]) => {
+      open(categoriesDb())
+      await chooseCsv(`${header}\n03.11.2026;Bakery;-4.50\n04.11.2026;Pharmacy;-12.00\n`)
+      expect(screen.getByLabelText('Date', { selector: 'button' })).toHaveTextContent(date!)
+      expect(screen.getByLabelText('Amount', { selector: 'button' })).toHaveTextContent(amount!)
+      expect(screen.getByLabelText('Description', { selector: 'button' })).toHaveTextContent(
+        description!,
+      )
+      await pick(screen.getByLabelText('Description', { selector: 'button' }), 'None')
+      expect(screen.getByLabelText('Description', { selector: 'button' })).toHaveTextContent('None')
+    },
+  )
+
   it('remembers the mapping for this budget on this device', async () => {
     open(categoriesDb())
     await chooseCsv('Date;Text;Amount\n03.04.2026;Bakery;-4.50\n')
-    await userEvent.selectOptions(screen.getByLabelText('Date format'), 'MM.DD.YYYY')
+    await pick(screen.getByLabelText('Date format'), 'MM.DD.YYYY')
     await userEvent.click(screen.getByRole('button', { name: 'Check 1 row' }))
     await importButtonReady()
     await userEvent.click(screen.getByRole('button', { name: 'Start again' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Start again' }))
     await chooseCsv('Date;Text;Amount\n03.04.2026;Other;-1.00\n')
     expect(screen.getByText(/The mapping used last time/)).toBeInTheDocument()
-    expect(screen.getByLabelText('Date format')).toHaveValue('mm.dd.yyyy')
+    expect(screen.getByLabelText('Date format')).toHaveTextContent('MM.DD.YYYY')
   })
 })
 
@@ -244,10 +269,7 @@ describe('choices change the preview, asked again and never shown stale [R-IMPOR
     await userEvent.click(screen.getByRole('button', { name: 'Check 2 rows' }))
     await importButtonReady()
     expect(screen.getByTestId('count-import')).toHaveTextContent('2 to import')
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: /Import or skip: Line 3/ }),
-      'skip',
-    )
+    await pick(screen.getByRole('combobox', { name: /Import or skip: Line 3/ }), 'Skip')
     await waitFor(() =>
       expect(screen.getByTestId('import-button')).toHaveTextContent('Wait for the check to finish'),
     )
@@ -615,7 +637,7 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
     )
   })
 
-  it('[R-IMPORT-363] follows what happens after it: counts after "import anyway", the undo’s numbers, the undo itself', async () => {
+  it('[R-IMPORT-363] [R-IMPORT-531] follows what happens after it: counts after "import anyway", the undo’s numbers, the undo itself, and its toast', async () => {
     const db = afterDb()
     open(db)
     await chooseCsv(csvOf(4))
@@ -655,6 +677,12 @@ describe('after the import [R-IMPORT-072] [R-IMPORT-204] [R-IMPORT-206] [R-IMPOR
     )
     expect(result).toHaveTextContent('This import was undone')
     expect(result).not.toHaveTextContent('They count in your totals now')
+    // A toast confirms it too, like every other write.
+    await waitFor(() =>
+      expect(document.querySelector('[data-sonner-toast]')).toHaveTextContent(
+        'Import undone: 4 deleted',
+      ),
+    )
     expect(screen.queryByRole('button', { name: /Import anyway/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /Review the imported/ })).not.toBeInTheDocument()
   })

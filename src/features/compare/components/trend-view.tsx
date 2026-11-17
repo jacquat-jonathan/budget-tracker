@@ -25,6 +25,13 @@ import { progressPath } from '@/features/progress/progress-path'
 import { formatCalendarDate } from '@/lib/date'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
+import {
+  PHONE_CELL,
+  PHONE_HEAD,
+  PHONE_NAME,
+  PHONE_ROW,
+  PHONE_WIDE,
+} from '@/features/compare/components/phone-table'
 
 /**
  * The trend of the last periods (get_period_trend): the three averages over the completed
@@ -257,9 +264,9 @@ function TrendTable({
         <Table
           aria-label={t('compare.trend.tableLabel')}
           data-testid="trend-table"
-          className="min-w-[38rem]"
+          className="sm:min-w-[38rem]"
         >
-          <TableHeader>
+          <TableHeader className={PHONE_HEAD}>
             <TableRow>
               <TableHead scope="col" className="sticky left-0 z-10 bg-card">
                 {t('compare.periodHeader')}
@@ -287,11 +294,16 @@ function TrendTable({
                 key={period.period_id}
                 data-testid="trend-row"
                 data-state={period.period_id === selected ? 'selected' : undefined}
+                className={PHONE_ROW}
               >
                 {/* The row's header: its period, so each figure is read with it. */}
                 <th
                   scope="row"
-                  className="sticky left-0 z-10 bg-card p-2 text-left align-middle font-normal whitespace-nowrap"
+                  className={cn(
+                    'left-0 z-10 bg-card p-2 text-left align-middle font-normal whitespace-nowrap sm:sticky',
+                    PHONE_NAME,
+                    'max-sm:p-0 max-sm:pt-2',
+                  )}
                 >
                   <button
                     type="button"
@@ -306,28 +318,39 @@ function TrendTable({
                     {period.is_current && <Badge variant="secondary">{t('compare.running')}</Badge>}
                   </div>
                 </th>
-                <TableCell className="text-right tabular-nums">
+                <TableCell
+                  className={cn('text-right tabular-nums', PHONE_CELL)}
+                  data-label={t('compare.series.income')}
+                >
                   {formatMoney(period.income_total)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell
+                  className={cn('text-right tabular-nums', PHONE_CELL)}
+                  data-label={t('compare.series.spent')}
+                >
                   {formatMoney(period.spent_total)}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
+                <TableCell
+                  className={cn('text-right tabular-nums', PHONE_CELL)}
+                  data-label={t('compare.series.planned')}
+                >
                   {formatMoney(period.expected_total)}
                 </TableCell>
                 <TableCell
                   className={cn(
                     'text-right font-medium tabular-nums',
+                    PHONE_CELL,
                     period.result < 0 && 'text-destructive',
                   )}
+                  data-label={t('compare.series.result')}
                 >
                   {formatMoney(period.result)}
                   <span className="block text-xs font-normal text-muted-foreground">
                     {t(`compare.trend.${resultWord(period.result)}`)}
                   </span>
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
+                <TableCell className={cn('text-right', PHONE_WIDE)}>
+                  <div className="flex justify-end gap-1 max-sm:justify-start">
                     <PeriodActions period={period} label={label(period)} compact />
                   </div>
                 </TableCell>

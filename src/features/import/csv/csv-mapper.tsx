@@ -3,7 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'rea
 import { useTranslation } from 'react-i18next'
 
 import { ExternalText } from '@/components/external-text'
-import { NativeSelect } from '@/components/native-select'
+import { ChoiceSelect } from '@/components/choice-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -166,11 +166,10 @@ export function CsvMapper({
       ? t('import.csv.columnNamed', { n: index + 1, name })
       : t('import.csv.column', { n: index + 1 })
   }
-  const columnOptions = Array.from({ length: columns }, (_, index) => (
-    <option key={index} value={index}>
-      {columnName(index)}
-    </option>
-  ))
+  const columnOptions = Array.from({ length: columns }, (_, index) => ({
+    value: String(index),
+    label: columnName(index),
+  }))
   const columnField = (
     label: string,
     key: 'date' | 'amount' | 'debit' | 'credit' | 'description' | 'merchant' | 'bankId',
@@ -178,19 +177,18 @@ export function CsvMapper({
   ) => (
     <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={`${id}-${key}`}>{label}</Label>
-      <NativeSelect
+      <ChoiceSelect
         id={`${id}-${key}`}
-        value={mapping[key] ?? ''}
-        onChange={(event) => {
-          const value = event.target.value === '' ? null : Number(event.target.value)
+        value={mapping[key] === null ? '' : String(mapping[key])}
+        onValueChange={(next) => {
+          const value = next === '' ? null : Number(next)
           set(key === 'date' ? { date: value, dateFormat: null } : { [key]: value })
         }}
-      >
-        <option value="">
-          {optional ? t('import.csv.none') : t('import.csv.dateFormatChoose')}
-        </option>
-        {columnOptions}
-      </NativeSelect>
+        options={[
+          { value: '', label: optional ? t('import.csv.none') : t('import.csv.dateFormatChoose') },
+          ...columnOptions,
+        ]}
+      />
     </div>
   )
   const ambiguous = mapping.date !== null && formats.length > 1
@@ -254,17 +252,15 @@ export function CsvMapper({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${id}-separator`}>{t('import.csv.separator')}</Label>
-            <NativeSelect
+            <ChoiceSelect
               id={`${id}-separator`}
               value={separator}
-              onChange={(event) => setSeparator(event.target.value as CsvSeparator)}
-            >
-              {CSV_SEPARATORS.map((value) => (
-                <option key={value} value={value}>
-                  {t(`import.csv.separators.${value}`)}
-                </option>
-              ))}
-            </NativeSelect>
+              onValueChange={(next) => setSeparator(next as CsvSeparator)}
+              options={CSV_SEPARATORS.map((value) => ({
+                value,
+                label: t(`import.csv.separators.${value}`),
+              }))}
+            />
             {detected === null && (
               <p className="text-xs text-muted-foreground">{t('import.csv.separatorUnknown')}</p>
             )}
@@ -288,23 +284,21 @@ export function CsvMapper({
           {columnField(t('import.csv.date'), 'date', false)}
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor={`${id}-format`}>{t('import.csv.dateFormat')}</Label>
-            <NativeSelect
+            <ChoiceSelect
               id={`${id}-format`}
               value={mapping.dateFormat ?? ''}
-              aria-describedby={ambiguous || noFormat ? `${id}-format-note` : undefined}
-              onChange={(event) =>
-                set({
-                  dateFormat: event.target.value === '' ? null : (event.target.value as DateFormat),
-                })
+              describedBy={ambiguous || noFormat ? `${id}-format-note` : undefined}
+              onValueChange={(next) =>
+                set({ dateFormat: next === '' ? null : (next as DateFormat) })
               }
-            >
-              <option value="">{t('import.csv.dateFormatChoose')}</option>
-              {DATE_FORMATS.map((format) => (
-                <option key={format} value={format}>
-                  {t(`import.csv.dateFormats.${DATE_FORMAT_KEYS[format]}`)}
-                </option>
-              ))}
-            </NativeSelect>
+              options={[
+                { value: '', label: t('import.csv.dateFormatChoose') },
+                ...DATE_FORMATS.map((format) => ({
+                  value: format,
+                  label: t(`import.csv.dateFormats.${DATE_FORMAT_KEYS[format]}`),
+                })),
+              ]}
+            />
             {(ambiguous || noFormat) && (
               <p
                 id={`${id}-format-note`}

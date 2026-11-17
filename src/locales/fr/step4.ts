@@ -63,13 +63,7 @@ export const subscriptionsFr: Translation['subscriptions'] = {
   preview: {
     title: 'Prochains prélèvements',
     needsDate: 'Saisissez une date pour voir les dates de prélèvement.',
-    failed: 'Les dates de prélèvement n’ont pas pu être calculées pour cette date.',
     due: 'enregistré aussitôt, à confirmer',
-    new: 'Calculées par le budget à partir de la date du premier prélèvement et de la fréquence.',
-    date: 'Le prochain prélèvement est à la date saisie ; les suivants suivent la fréquence.',
-    kept: 'Le calendrier reste tel quel.',
-    cadence:
-      'Avec une nouvelle fréquence et sans nouvelle date, le calendrier continue depuis le prochain prélèvement, le {{date}}.',
     none: 'Aucun prélèvement à ces conditions avant la fin du budget.',
     atOnce_one: 'L’enregistrement crée aussitôt 1 prélèvement, daté dans le passé, à confirmer.',
     atOnce_other:
@@ -79,7 +73,6 @@ export const subscriptionsFr: Translation['subscriptions'] = {
     atOnceAtLeast_other:
       'L’enregistrement crée aussitôt au moins {{count}} prélèvements, datés dans le passé, à confirmer.',
     cadenceKeepsDay: 'Ne changer que la fréquence garde le jour du prélèvement : {{day}}.',
-    refused: 'Ces conditions ne peuvent pas être enregistrées : {{reason}}',
   },
   day: {
     plain_ordinal_one: 'le {{count}}er',
@@ -257,13 +250,16 @@ export const debtsFr: Translation['debts'] = {
     title: 'Ajuster le solde',
     description: 'Faites correspondre le montant restant à votre relevé bancaire.',
     now: '« {{name}} » : {{amount}} restant actuellement.',
-    balance: 'Solde sur votre relevé',
-    balanceHelp: 'Ce que la banque indique que vous devez encore.',
-    date: 'Date du relevé',
+    balance: 'Ce que vous devez maintenant',
+    balanceHelp:
+      'Le montant encore dû aujourd’hui, selon votre banque. Il devient le montant restant actuel, quelle que soit la date indiquée ci-dessous.',
+    date: 'Enregistrer l’ajustement le',
+    dateHelp:
+      'Cette date place seulement l’ajustement dans l’historique et dans sa période. Elle ne fixe pas le solde à ce jour-là : les remboursements et les intérêts enregistrés après elle restent comptés, et l’historique peut donc montrer un autre montant à cette date.',
     note: 'Note (facultatif)',
     notePlaceholder: 'Relevé du 30 novembre',
     difference:
-      'Le budget enregistre la différence entre ce solde et le montant restant comme un ajustement : les remboursements enregistrés entre-temps restent comptés.',
+      'Le budget enregistre la différence entre ce montant et les {{amount}} restant actuellement comme un seul ajustement à cette date.',
     save: 'Ajuster',
     done: 'Solde ajusté à {{amount}}.',
     deleted: 'Ajustement supprimé.',

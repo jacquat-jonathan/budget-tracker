@@ -17,6 +17,7 @@ import { paths, transactionsOf } from '@/app/paths'
 import { CalendarDate } from '@/components/form/calendar-date-field'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { MoneyStat } from '@/components/money-stat'
+import { usePageDetail } from '@/components/layout/page-detail'
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -118,6 +119,7 @@ export function DebtDetailPage() {
     </Button>
   )
   const debt = read.data ?? (dialog.kind !== 'closed' ? lastSeen : read.data)
+  usePageDetail(debt?.name)
   if (read.isError && !debt) {
     return (
       <div className="flex flex-col gap-6">

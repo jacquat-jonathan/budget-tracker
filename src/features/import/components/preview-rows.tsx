@@ -10,7 +10,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ExternalText } from '@/components/external-text'
-import { NativeSelect } from '@/components/native-select'
+import { ChoiceSelect } from '@/components/choice-select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Category } from '@/features/categories/category-queries'
@@ -504,27 +504,29 @@ function PreviewRow({
           )}
           {lockedPart === null && result !== undefined && action !== 'invalid' && (
             <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
-              <NativeSelect
-                aria-label={`${t('import.preview.actionChoice')}: ${rowName}`}
+              <ChoiceSelect
+                label={`${t('import.preview.actionChoice')}: ${rowName}`}
                 value={effective}
-                onChange={(event) => onAction(event.target.value === 'import' ? 'import' : 'skip')}
+                onValueChange={(next) => onAction(next === 'import' ? 'import' : 'skip')}
                 className="w-32"
-              >
-                <option value="import">{t('import.preview.choose.import')}</option>
-                <option value="skip">{t('import.preview.choose.skip')}</option>
-              </NativeSelect>
+                options={[
+                  { value: 'import', label: t('import.preview.choose.import') },
+                  { value: 'skip', label: t('import.preview.choose.skip') },
+                ]}
+              />
               {row.direction === 'credit' ? (
-                <NativeSelect
-                  aria-label={`${t('import.preview.kind')}: ${rowName}`}
+                <ChoiceSelect
+                  label={`${t('import.preview.kind')}: ${rowName}`}
                   value={shownKind}
-                  onChange={(event) =>
-                    onKind(event.target.value === 'extra_income' ? 'extra_income' : 'refund')
+                  onValueChange={(next) =>
+                    onKind(next === 'extra_income' ? 'extra_income' : 'refund')
                   }
                   className="w-auto max-w-full"
-                >
-                  <option value="refund">{t('import.preview.kinds.refund')}</option>
-                  <option value="extra_income">{t('import.preview.kinds.extra_income')}</option>
-                </NativeSelect>
+                  options={[
+                    { value: 'refund', label: t('import.preview.kinds.refund') },
+                    { value: 'extra_income', label: t('import.preview.kinds.extra_income') },
+                  ]}
+                />
               ) : (
                 <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
                   {t('import.preview.kinds.expense')}

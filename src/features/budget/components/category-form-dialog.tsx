@@ -44,6 +44,8 @@ import { isRecordChanged, useEditBase } from '@/hooks/use-edit-base'
 import { formatCalendarDate } from '@/lib/date'
 import { MIN_EXPECTATION_RAPPEN, nameSchema, rappenSchema } from '@/lib/form-schemas'
 import { formatMoney } from '@/lib/money'
+import { isSameName } from '@/lib/same-name'
+import { useCategories } from '@/features/categories/category-queries'
 
 const categorySchema = z.object({
   name: nameSchema,
@@ -139,7 +141,16 @@ function CategoryForm({
     resolver: zodResolver(categorySchema),
     defaultValues: valuesOf(category),
   })
-  const [correct, cadence] = useWatch({ control: form.control, name: ['correct', 'cadence'] })
+  const [correct, cadence, typedName] = useWatch({
+    control: form.control,
+    name: ['correct', 'cadence', 'name'],
+  })
+  const allCategories = useCategories(budgetId).data
+  const nameTaken =
+    typeof typedName === 'string' &&
+    (allCategories ?? []).some(
+      (other) => other.id !== category?.id && isSameName(other.name, typedName),
+    )
 
   const create = useCreateCategory(budgetId, { onDone: close })
   const request = useClientId()
@@ -257,6 +268,7 @@ function CategoryForm({
           }
           autoComplete="off"
           autoFocus
+          warning={nameTaken ? t('categories.nameTaken', { name: typedName.trim() }) : null}
         />
         {category && !isGroup && correctable.length > 0 && (
           <CorrectionFields
@@ -343,7 +355,10 @@ function CategoryForm({
                         date: formatCalendarDate(currentPeriod.start_date),
                       })
                     : t('income.editAppliesFromNoPeriod')
-                  : t('categories.addAppliesFrom')}
+                  : // R-APP-534: the earlier-period choice is mentioned only when it is offered.
+                    earlier.length > 0
+                    ? t('categories.addAppliesFrom')
+                    : t('categories.addAppliesFromCurrent')}
             </AlertDescription>
           </Alert>
         )}

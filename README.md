@@ -13,7 +13,8 @@ no custom server: the build output is plain files that any static host can serve
 - Product rules, decisions and conventions: [`spec/spec.json`](spec/spec.json), the source of
   truth, rendered for reading as [`docs/spec.md`](docs/spec.md)
 - Running Supabase locally: [`docs/local-supabase.md`](docs/local-supabase.md)
-- Building and deploying: [`docs/deployment.md`](docs/deployment.md)
+- Building and deploying, backups, email templates: [`docs/deployment.md`](docs/deployment.md)
+- The import script and its tokens: [`docs/import-script.md`](docs/import-script.md)
 - Conventions for contributors (and Claude): [`CLAUDE.md`](CLAUDE.md)
 
 ## Prerequisites
@@ -51,22 +52,23 @@ and deep links work under a subfolder.
 
 ## Scripts
 
-| Script                | What it does                                                                    |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `npm run dev`         | Start the dev server with hot reload.                                           |
-| `npm run build`       | Type-check and build the static site into `dist/`.                              |
-| `npm run preview`     | Serve the built `dist/` locally.                                                |
-| `npm run lint`        | ESLint (type-aware).                                                            |
-| `npm run typecheck`   | TypeScript, no output.                                                          |
-| `npm test`            | Unit and component tests (Vitest, Testing Library). No backend needed.          |
-| `npm run format`      | Format the code with Prettier.                                                  |
-| `npm run db:start`    | Start the local Supabase stack.                                                 |
-| `npm run db:stop`     | Stop it.                                                                        |
-| `npm run db:reset`    | Recreate the local database from `supabase/migrations` and `supabase/seed.sql`. |
-| `npm run db:test`     | Run the database tests in `supabase/tests`.                                     |
-| `npm run db:types`    | Regenerate `src/lib/database.types.ts` from the local database schema.          |
-| `npm run spec:check`  | Check `spec/spec.json`: schema, ids, tests naming each rule, generated views.   |
-| `npm run spec:render` | Regenerate `docs/spec.md` and the Rules section of `CLAUDE.md` from the spec.   |
+| Script                | What it does                                                                                                                                                                                                                          |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`         | Start the dev server with hot reload.                                                                                                                                                                                                 |
+| `npm run build`       | Type-check and build the static site into `dist/`.                                                                                                                                                                                    |
+| `npm run preview`     | Serve the built `dist/` locally.                                                                                                                                                                                                      |
+| `npm run lint`        | ESLint (type-aware).                                                                                                                                                                                                                  |
+| `npm run typecheck`   | TypeScript, no output.                                                                                                                                                                                                                |
+| `npm test`            | Unit and component tests (Vitest, Testing Library). No backend needed.                                                                                                                                                                |
+| `npm run format`      | Format the code with Prettier.                                                                                                                                                                                                        |
+| `npm run db:start`    | Start the local Supabase stack.                                                                                                                                                                                                       |
+| `npm run db:stop`     | Stop it.                                                                                                                                                                                                                              |
+| `npm run db:reset`    | Recreate the local database from `supabase/migrations` and `supabase/seed.sql`.                                                                                                                                                       |
+| `npm run db:test`     | Run the database tests in `supabase/tests`.                                                                                                                                                                                           |
+| `npm run db:types`    | Regenerate `src/lib/database.types.ts` from the local database schema.                                                                                                                                                                |
+| `npm run db:smoke`    | Call the main database functions as the browser does (Auth and PostgREST): needs the whole local stack running (`npm run db:start`, not `supabase db start`) with email confirmation off, as committed. See `docs/local-supabase.md`. |
+| `npm run spec:check`  | Check `spec/spec.json`: schema, ids, tests naming each rule, generated views.                                                                                                                                                         |
+| `npm run spec:render` | Regenerate `docs/spec.md` and the Rules section of `CLAUDE.md` from the spec.                                                                                                                                                         |
 
 Before considering a change done, run `npm run lint`, `npm run typecheck`, `npm test`,
 `npm run build` and `npm run spec:check`.

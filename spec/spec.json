@@ -620,7 +620,7 @@
       "id": "F-BUDGET",
       "step": 2,
       "title": "Budgets",
-      "status": "in-progress",
+      "status": "done",
       "description": "Create, rename, end and delete a budget, created atomically with its first income and period.",
       "userStories": [
         {
@@ -691,7 +691,7 @@
       "id": "F-MEMBERS",
       "step": 2,
       "title": "Members and invitations",
-      "status": "in-progress",
+      "status": "done",
       "description": "Invite people by email, accept or decline, leave, remove members.",
       "userStories": [
         {
@@ -743,7 +743,7 @@
       "id": "F-INCOME",
       "step": 2,
       "title": "Incomes",
-      "status": "in-progress",
+      "status": "done",
       "description": "Versioned monthly incomes per member, one of them primary, with a weekend rule.",
       "userStories": [
         {
@@ -806,7 +806,7 @@
       "id": "F-PERIOD",
       "step": 2,
       "title": "Periods",
-      "status": "in-progress",
+      "status": "done",
       "description": "Pay-day-to-pay-day periods, created on demand, with manual boundaries.",
       "userStories": [
         {
@@ -860,7 +860,7 @@
       "id": "F-CATEGORY",
       "step": 3,
       "title": "Categories and expectations",
-      "status": "in-progress",
+      "status": "done",
       "description": "Two-level categories with monthly or yearly expectations, and the amount left to assign.",
       "userStories": [
         {
@@ -951,7 +951,7 @@
       "id": "F-TRANSACTION",
       "step": 3,
       "title": "Transactions",
-      "status": "in-progress",
+      "status": "done",
       "description": "Manual transactions, landing in the period that contains their date.",
       "userStories": [
         {
@@ -1005,7 +1005,7 @@
       "id": "F-PROGRESS",
       "step": 3,
       "title": "Period progress view",
-      "status": "in-progress",
+      "status": "done",
       "description": "Each period, the current one and past ones, tracked against its expectations, with its result.",
       "userStories": [
         {
@@ -1035,7 +1035,7 @@
       "id": "F-SUBSCRIPTION",
       "step": 4,
       "title": "Subscriptions",
-      "status": "in-progress",
+      "status": "done",
       "description": "Recurring charges and their next charge date.",
       "userStories": [
         {
@@ -1095,7 +1095,7 @@
       "id": "F-DEBT",
       "step": 4,
       "title": "Debts",
-      "status": "in-progress",
+      "status": "done",
       "description": "Debts with planned payments, their evolution and expected end date.",
       "userStories": [
         {
@@ -1149,7 +1149,7 @@
       "id": "F-COMPARE",
       "step": 5,
       "title": "Period comparison",
-      "status": "in-progress",
+      "status": "done",
       "description": "Comparing periods in charts. Browsing a past period and its progress view is part of step 3 (F-PROGRESS).",
       "userStories": [
         {
@@ -1193,7 +1193,7 @@
       "id": "F-IMPORT",
       "step": 6,
       "title": "Import",
-      "status": "in-progress",
+      "status": "done",
       "description": "Bulk import of transactions from PDF bank and card statements, from CSV, or by a Claude session, through one database function.",
       "userStories": [
         {
@@ -8734,6 +8734,309 @@
       ]
     },
     {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PROGRESS-530",
+      "area": "progress",
+      "feature": "F-MONEYFLOW",
+      "statement": "Wherever the subscriptions' committed amount is shown, the planned transfers' committed amount is shown apart from it, from the database's own figures (category_overview.transfer_committed_amount, period_summaries.transfer_committed_total, get_period_progress(...).transfer_committed, the comparison's transfer_committed figures): under the planned figure of the period on the budget page and in the period progress (\"Includes CHF x for planned transfers\"), under each category's amount on the budget page and in the planned column of the progress view, as a sentence on a narrow progress card, and as its own row in the side-by-side totals of Compare. The two committed figures are never added into one shown figure.",
+      "related": ["R-ACCOUNT-238", "R-PROGRESS-120", "D-399", "D-630"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/progress/commitments.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PROGRESS-531",
+      "area": "progress",
+      "feature": "F-PROGRESS",
+      "statement": "When the subscriptions' and the planned transfers' committed amounts on a category (or a period) together exceed its planned amount, the screen says so in words, not by colour alone: a \"Committed above plan\" badge beside the category's name (like \"Overspent\"), each committed figure named as committed instead of \"incl.\", and on a period's total or a narrow card one sentence naming each committed figure and the planned amount (\"More is committed than planned: CHF 43.82 for subscriptions, against CHF 40.00 planned\"). The comparison is the screen's; no sum is shown.",
+      "related": ["R-PROGRESS-530", "R-PROGRESS-120", "D-630"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/progress/commitments.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-ACCOUNT-530",
+      "area": "account",
+      "feature": "F-MONEYFLOW",
+      "statement": "No account kind is chosen for the user: a new account's Kind field starts empty and is required (\"Choose what kind of account it is.\"), the first account included, and one line under it says what the kind changes: in the money flow what stays on an everyday kind (current, cash, credit card, other) is spendable, what stays on a savings kind (savings, third pillar, tax reserve, investment) is set aside.",
+      "related": ["R-ACCOUNT-001", "R-ACCOUNT-423", "D-631"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/accounts/components/account-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PERIOD-530",
+      "area": "period",
+      "feature": "F-PERIOD",
+      "statement": "\"This period's salary has not arrived yet\" asks for the day the salary is now expected and never leaves it empty: the field is required, filled in with the next pay day the app announces (the current period's end plus one, R-INCOME-056), says that a salary that is only late needs the day it is now expected, and the dialog's preview says until when the reopened period will run and on which day the salary is then expected. The date is always sent (reopen_previous_period and preview_reopen), so the database's projection, which can lie a month later, is never used from the screen.",
+      "related": ["R-PERIOD-025", "R-ACCOUNT-313", "R-INCOME-056", "D-082", "D-632"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/periods/periods-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-IMPORT-530",
+      "area": "import",
+      "feature": "F-IMPORT",
+      "statement": "In the review, a transaction to review that can take a category (an expense or a refund linked to nothing and not frozen) has a category picker on the row itself: one choice saves the category (update_transaction with every other field as it is) and confirms the row (confirm_import with the revision that answered). Several such rows can be selected and given one category: the rows are sent one after another with the same two calls, with a visible count (\"Saving 3 of 12…\"); the first refusal stops the run, and the screen says how many were saved and confirmed, at which row it stopped and why (also when only the confirmation was refused), and lists the rows not saved, which stay selected.",
+      "related": ["R-IMPORT-209", "R-IMPORT-081", "D-633"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/import/components/review-categorise.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-530",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "While the browser is offline, every page (signed in or not) shows a notice \"You are offline.\" saying that what is on screen stays and nothing can be saved until the connection is back, in a polite live region; it goes when the browser is online again.",
+      "related": ["R-APP-531", "R-APP-532", "D-634"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/offline-notice.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-531",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "A save tried while the browser is offline is refused at once, every form alike: nothing is sent, nothing waits to go out later, the button is free again, what was typed stays, and the form says \"You are offline: nothing was saved. Try again once the connection is back\" (sign-in and the other account forms: \"nothing was sent\").",
+      "related": ["R-APP-530", "D-634", "R-APP-007"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/lib/online.ts",
+        "code: src/hooks/use-app-mutation.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-532",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "A page whose code (or strings) could not be downloaded says \"This page could not be loaded\" inside the app's layout, says whether the browser is offline, offers \"Try again\", and tries again by itself when the browser comes back online; a failed download is never kept by the app, so trying again downloads it again, and when that try fails while the browser is online (Chromium keeps a failed module download and does not ask the server again) the whole page is reloaded. Any other error still goes to the error page.",
+      "related": ["R-APP-530", "D-634"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/app/lazy-page.ts",
+        "code: src/components/page-load-boundary.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-AUTH-530",
+      "area": "auth",
+      "feature": "F-AUTH",
+      "statement": "When the session ends without the user signing out (it expired or was revoked while a page was open, or a stored session no longer restores when the app opens), the sign-in page says \"Your session ended\", that what had been typed and not saved was not kept and must be entered again, and that signing in returns to the page the user was on (which it does, R-AUTH-001). A sign-out the user asked for, in any tab of the browser, and a visitor who was never signed in, get no such notice. What was typed is not kept.",
+      "related": ["R-AUTH-001", "R-AUTH-003", "D-635"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/auth/auth-provider.tsx",
+        "code: src/features/auth/session-ended.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-DEBT-530",
+      "area": "debt",
+      "feature": "F-DEBT",
+      "statement": "\"Adjust balance\" says before saving what each field does (R-DEBT-075): the amount is \"What you owe now\" and becomes the remaining amount now, whatever the date; the date (\"Record the adjustment on\") only places the adjustment in the history and in its period and does not set the balance on that day, so payments and interest recorded after it still count and the history may show another figure on that date; and the dialog names the remaining amount the difference is taken from.",
+      "related": ["R-DEBT-075"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/debts/components/adjust-balance-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-533",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "Settings is split into four sections, each with its own heading, reached from a list of links at the top of the page: Budget (the current budget's name, end date, deletion), Members, Import (import tokens, merchant rules, remembered choices) and My account (display name, password). The import tokens are worded for a household: what a token is for (a program you trust adds transactions, which wait for review; it can read nothing), that it is shown only once, and how to stop it (Revoke); no project file is named.",
+      "related": ["R-AUTH-531", "R-IMPORT-006"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/settings/settings-page.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-AUTH-531",
+      "area": "auth",
+      "feature": "F-AUTH",
+      "statement": "A signed-in user can change their password in Settings, My account: the new password twice, at least as long as at sign-up (8 characters, R-AUTH-005), checked before anything is sent, saved with Supabase Auth's updateUser; a refusal is said in words (the same password, too weak, a recent sign-in needed, offline), and the fields are emptied once it is saved.",
+      "related": ["R-AUTH-005", "R-AUTH-011", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/settings/password-settings.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-534",
+      "area": "app",
+      "feature": "F-CATEGORY",
+      "statement": "Adding an income or a category says \"unless you choose an earlier one\" only when the form offers an earlier period; with only the current period it says it counts from the current period, and nothing about a choice that is not there.",
+      "related": ["R-PERIOD-051"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/budget/components/category-form-dialog.tsx",
+        "code: src/features/income/components/income-form-dialog.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-535",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "A metadata line (\"Refund · Groceries · Recorded by Ann\", an account's kind and holder, a token's dates, a debt's payoff) joins its parts with a dot glued to the part before it, so a wrapped line never starts with a dot, and a part hidden on some widths takes its own dot with it.",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/meta-line.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-536",
+      "area": "app",
+      "feature": "F-DEBT",
+      "statement": "A debt's own page names the debt in the browser tab (\"Car loan · Debts · Budget Tracker\") and in the breadcrumb, after a link back to Debts.",
+      "related": ["R-DEBT-122"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/layout/page-detail.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "review",
+      "id": "R-APP-537",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "When the system asks for reduced motion, nothing animates: dialogs, menus, sheets and toasts appear and go at once (one global CSS rule).",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/index.css"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-538",
+      "area": "app",
+      "feature": "F-SHELL",
+      "statement": "The signed-in app's first keyboard stop is a \"Skip to content\" link, shown when it has the focus, that moves the focus to the page past the sidebar's links.",
+      "related": ["R-APP-001"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/layout/app-layout.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-APP-539",
+      "area": "app",
+      "feature": "F-CATEGORY",
+      "statement": "A name already used (another category of the budget, another of my budgets; compared trimmed, ignoring case and accents) is warned about at the name field, in words, while typing (\"both will look the same in lists\"); it is never refused.",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/lib/same-name.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-IMPORT-531",
+      "area": "import",
+      "feature": "F-IMPORT",
+      "statement": "Undoing an import is confirmed by a toast with what the database did (deleted, kept as confirmed, kept as linked, charges that stay confirmed), as well as in place.",
+      "related": ["R-IMPORT-206"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/import/components/batch-actions.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "review",
+      "id": "R-IMPORT-532",
+      "area": "import",
+      "feature": "F-IMPORT",
+      "statement": "The import's preview rows, the CSV mapper and the merchant rules use the app's styled selects, like every other page; no native select is left.",
+      "related": [],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/components/choice-select.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-IMPORT-533",
+      "area": "import",
+      "feature": "F-IMPORT",
+      "statement": "The CSV mapper fills in the columns from obvious header names (Date, Datum, Amount, Betrag, Montant, Description, Text, Libellé and the like) for the member to check and change; nothing is sent unseen.",
+      "related": ["R-IMPORT-082"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/import/csv/csv-map.ts"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "test",
+      "id": "R-PROGRESS-532",
+      "area": "progress",
+      "feature": "F-PROGRESS",
+      "statement": "A period's progress leaves out the \"To categorise\" row when nothing is in it in that period (no transaction, nothing spent, nothing planned); it is listed as soon as something is. The read gives what is in it now, so a period it was emptied in looks the same (D-637).",
+      "related": ["R-CATEGORY-250", "D-637"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/progress/period-progress-card.tsx"
+      ]
+    },
+    {
+      "status": "active",
+      "enforcement": "review",
+      "id": "R-COMPARE-530",
+      "area": "compare",
+      "feature": "F-COMPARE",
+      "statement": "On a phone, Compare's tables (the trend, the categories over time, side by side) show each row as a block, every figure under its column's name, so nothing is cut and nothing scrolls sideways; from the small breakpoint up they are tables. Every label of Compare's view and range choices meets 4.5:1 contrast in both themes.",
+      "related": ["R-COMPARE-190"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: src/features/compare/components/phone-table.ts"
+      ]
+    },
+    {
       "id": "R-ACCOUNT-510",
       "area": "account",
       "statement": "An occurrence is identified by its transfer, its kind ('period', 'income_payday', 'fixed_day') and its period's number or its date; occurrences of two kinds are never merged, replaced or compared, and a mark, and a transaction the app recorded, stay with their occurrence through any correction, edit, reopen, moved start, primary switch and catch-up; one undo built from a checklist row leads out of every mark.",
@@ -13990,6 +14293,137 @@
       ]
     },
     {
+      "id": "D-630",
+      "title": "A commitment above the plan is found by comparing the two committed figures with the plan on the screen",
+      "decision": "The screen compares the subscriptions' committed amount plus the planned transfers' committed amount with the planned amount of the same category or period, to decide whether to warn (R-PROGRESS-531). The sum is used only for that comparison and is never shown; each committed figure is shown as the database gives it.",
+      "why": "The reads give the two committed figures apart (D-399) and no flag for a commitment above the plan; the household walk-through found \"Media CHF 40.00 incl. CHF 43.82 for subscriptions\" with no warning. A comparison of figures the database gives shows no new figure, so C-LOGIC-003 and \"no client arithmetic to show a figure\" hold; a flag in the reads would be cleaner and can replace it later.",
+      "rejected": [
+        "Warning only when one committed figure alone exceeds the plan: CHF 30 of subscriptions and CHF 30 of transfers in a CHF 40 plan would read as inside the plan.",
+        "Showing the sum of the two committed figures: the page would add figures for display (C-LOGIC-003)."
+      ],
+      "status": "accepted",
+      "related": ["R-PROGRESS-531", "R-PROGRESS-530", "R-ACCOUNT-238", "D-399"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-631",
+      "title": "A new account's kind starts empty, even for the first account",
+      "decision": "The account form no longer preselects a kind (it used to start the first account as \"Current or salary account\" and the second as \"Savings\"). The field is required and explains the money flow's split (R-ACCOUNT-423) under it.",
+      "why": "The household walk-through's second account silently became \"Savings\", and the money flow then treated its money as set aside. A kind decides spendable versus set aside, so it must be the user's choice.",
+      "rejected": [
+        "Keeping \"Current\" for the first account only: still a choice made for the user, and the brief asks for none."
+      ],
+      "status": "accepted",
+      "related": ["R-ACCOUNT-530", "R-ACCOUNT-423"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-632",
+      "title": "The reopen dialog requires the expected pay day; the database's projection stays as it is",
+      "decision": "The screen sent no date when the field was empty, and reopen_previous_period then ends the reopened period at its projection (contract: \"or at its projection when omitted\"); in the walk-through that made the period run to 24.02.2027 with the next pay day 25.02.2027, a month after the salary that had not arrived. The rule is the database's and is left alone; the screen now always names the day (required, filled in with the next pay day the app announces, editable), and its preview says what the period will then run to.",
+      "why": "A person who says the salary has not arrived yet expects it soon; an empty field silently meant \"next month\". Changing what the projection means is a database decision for the owner (Q-365).",
+      "rejected": [
+        "Working around the projection on the client (computing a nearer date from the schedule): pay-date logic lives in the database (C-LOGIC-001, C-LOGIC-003).",
+        "Keeping the field optional with a warning: the surprising default would still be one click away."
+      ],
+      "status": "accepted",
+      "related": ["R-PERIOD-530", "D-082", "Q-365"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-633",
+      "title": "The review's categories are set with the existing per-row calls, one row after another",
+      "decision": "The row picker and the \"one category for several\" bar use update_transaction then confirm_import per row, sequentially, never in parallel, stopping at the first refusal. The bulk bar offers the leaves in force now; a row dated where the chosen category is not in force is refused by the database and the run stops there and says so.",
+      "why": "The household walk-through had 75 rows to categorise through Actions, Edit, Save, Confirm. No call sets a category and confirms in one step, or does so for several rows; inventing one is a database decision (Q-366). Sequential calls keep the count truthful and the stop exact.",
+      "rejected": [
+        "Parallel calls: a failure would leave an unknown set saved and the count would not say which.",
+        "Continuing after a refusal: the brief asks to stop at the first failure."
+      ],
+      "status": "accepted",
+      "related": ["R-IMPORT-530", "Q-366"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-634",
+      "title": "Offline, a save is refused with \"nothing was saved\"; it never waits to go out later",
+      "decision": "Writes no longer pause while the browser is offline (TanStack Query's default for mutations): every write through the app's one mutation hook, and the review's category calls, first checks navigator.onLine and, offline, is refused before anything is sent, with \"You are offline: nothing was saved\"; the form keeps what was typed. Reads still wait for the connection and resume by themselves, under an app-wide \"You are offline\" notice. The import's sending loop keeps its own handling of network failures (it retries a part, then stops and says what was recorded, R-IMPORT-369).",
+      "why": "In the walk-through a save offline left the button on \"Saving…\" and the write went out by itself when the connection returned, possibly minutes later and after the household had changed the same record elsewhere; a budget write the user no longer sees happening is more surprising than a clear refusal. navigator.onLine false is reliable (offline for sure); true does not prove a connection, and a failed call then says it could not reach the server, as before.",
+      "rejected": [
+        "Holding the write and saying it will go out once the connection is back: the household may close the tab or change the record meanwhile, and a concurrency refusal would then arrive out of context."
+      ],
+      "status": "accepted",
+      "related": ["R-APP-530", "R-APP-531", "R-APP-532"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-635",
+      "title": "An ended session is told apart from a sign-out by a short-lived mark in local storage",
+      "decision": "Signing out writes the time to local storage (shared by the browser's tabs); a session that disappears (any auth event with no session after one, or a stored Supabase session that does not restore at start) more than a minute after the last sign-out is reported as ended on the sign-in page. Typed values are not kept: keeping them would mean storing a form's content in the browser across users and budgets, which is neither trivial nor safe.",
+      "why": "The walk-through's session died mid-form and the user landed on sign-in with no word. Supabase reports an expired and a requested sign-out with the same event.",
+      "rejected": [
+        "Keeping what was typed in session storage and restoring it after sign-in: another user may sign in on the same tab, and a restored form may belong to a budget the user no longer has."
+      ],
+      "status": "accepted",
+      "related": ["R-AUTH-530", "R-AUTH-025"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-636",
+      "title": "The hosted migrations are checked by hand before a deploy, not by the Deploy workflow",
+      "decision": "docs/deployment.md makes \"npx supabase migration list --remote\" and \"npx supabase db push --remote --dry-run\" a numbered manual step before every deployment (and before the first one), because the Deploy workflow builds and uploads the app without knowing whether the hosted database has the release's migrations. No database credential or access token is added to CI. Backups are the owner's own data-only dumps (auth, public and private schemas, without the migration-filled private.period_keyed_tables), restored onto a project whose migrations were pushed first, as rehearsed on the local stack.",
+      "why": "The final review found the guide silent on backups and on the migration check. A CI check would need the database password or a Supabase access token as a repository secret, which the owner has not asked for; the free plan's own backups could not be verified from the repository or the CLI.",
+      "rejected": [
+        "A CI job that pushes or checks migrations: it needs secrets in CI (brief: none).",
+        "A full dump of every schema: the restore is refused on the storage tables and collides on the migration-filled registry table (seen locally)."
+      ],
+      "status": "accepted",
+      "related": ["D-450", "Q-280", "Q-281"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17",
+        "code: docs/deployment.md"
+      ]
+    },
+    {
+      "id": "D-637",
+      "title": "An empty \"To categorise\" row is left out of a period's progress",
+      "decision": "The progress view drops the \"To categorise\" row of a period when it has no transaction, nothing spent and nothing planned there. get_period_progress gives what is in the category now, not whether anything ever was, so a period whose waiting transactions were all given a category later looks the same and is also left out.",
+      "why": "After the first import every past period showed a zero \"To categorise\" row (household walk-through). A row with only zeros says nothing; whether something waited there once is not something the household needs in the progress view.",
+      "rejected": [
+        "Asking the database for a history flag: no read has it, and the row would still be zeros."
+      ],
+      "status": "accepted",
+      "related": ["R-PROGRESS-532"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-638",
+      "title": "The features of build steps 1 to 6 are done; step 7 stays in progress",
+      "decision": "F-BUDGET, F-MEMBERS, F-INCOME, F-PERIOD (step 2), F-CATEGORY, F-TRANSACTION, F-PROGRESS (step 3), F-SUBSCRIPTION, F-DEBT (step 4), F-COMPARE (step 5) and F-IMPORT (step 6) are marked done: their screens (src/features/) and their database (supabase/migrations/) are in the repository, every active test-enforced rule of theirs is named by a test (spec:check), and the final household walk-through used them end to end. F-MONEYFLOW (step 7: accounts, planned transfers, money flow) stays in progress while the database round on planned transfers and the money flow read runs. A done feature's rules stay active (scripts/spec: active when done or in progress), so nothing changes for the checker.",
+      "why": "Every product feature was still \"in-progress\" after the final review; the bookkeeping should say what is finished.",
+      "rejected": [
+        "Marking step 7 done as well: its contract is being changed in parallel and a later round follows."
+      ],
+      "status": "accepted",
+      "related": ["D-450"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
       "id": "D-610",
       "title": "Three kinds of schedule, each with an identity nothing else can disturb (supersedes D-520, D-527, D-561, D-562 and D-566; amends D-420, D-421, D-422, D-430, D-490 and D-560)",
       "decision": "The owner's decision after five fix rounds: a pay-date transfer is no longer matched against the salary that started a period. Three kinds, never merged, replaced or compared: (1) 'On the main income's payday' (a transfer naming no income, or one whose income is not in force there or was deleted): one occurrence for every period from the transfer's first counted period on, due on the period's start (the day its salary came, whatever started it) plus the offset, never after its last day; identified by the period's number (transfer_occurrences.occurrence_seq), which a reopen and the salary recorded again, a moved start, an early or late salary and a primary switch leave as it is. (2) 'On <income>'s payday' (a transfer naming an income in force in the period): one occurrence for every scheduled pay date of that income (its pay day and weekend rule in force in the period containing the date), due that day plus the offset, never after the period's last day, whether or not that income is the primary and whenever its salary is recorded; identified by that date. An income that ends, is added later or is deleted bounds the dates as before (D-492, D-564). (3) 'On a fixed day': one occurrence per calendar date, identified by the scheduled date, due on it moved by the weekend rule (D-611). Periods carry no key any more (periods.pay_key, private.primary_incomes and its trigger, the switch day and the same-payday comparison are removed); the budget's primary_since_seq stays for the reopen's 'made_primary' row. A transfer counts from starts_on (its first counted day, for dates) and starts_seq (its first counted period, for its own occurrence: the period it was made in, or the next one when made after that period's first day with no period named). A period stretched by a switch (25 Nov to 9 Jan) has one occurrence of a main-income transfer and, for one naming Ann (25th), her 25 Nov and 25 Dec. A household that wants a transfer to follow the day the main salary really arrives names no income; one that wants it to follow a particular income's calendar names that income.",
@@ -15505,6 +15939,66 @@
         "owner-request: coordinator brief for the screens follow-up of database fix round 4, 2026-11-17"
       ],
       "resolvedBy": "D-614"
+    },
+    {
+      "id": "Q-365",
+      "question": "When reopen_previous_period is called without p_pay_date, should the reopened period end the day before the pay day that did not arrive is next expected (for example a few days after today), rather than at its projection, the day before the next scheduled pay date after today (a month later)?",
+      "context": "Household walk-through: today 26.01.2027, pay day 25 (nearest), period 4 started 25.01; reopen without a date merged it into period 3, which then ran from 28.12.2026 to 24.02.2027 with \"Next pay day 25.02.2027\". The contract says the reopened period ends \"at its projection when omitted\". The screen no longer omits the date (D-632, R-PERIOD-530), so only other clients (or a later screen) meet this; the database side decides whether the default should change or the parameter become required.",
+      "status": "open",
+      "related": ["D-632", "R-PERIOD-530", "D-082"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-366",
+      "question": "Should the database offer one call that gives a category to several imported transactions to review and confirms them (for example categorise_imports(p_budget_id, p_category_id, p_transactions: {id, expected_revision}[]) -> {confirmed, refused[]}), all or nothing or per row?",
+      "context": "The review's bulk category (R-IMPORT-530) makes two calls per row, one row after another: 75 rows are 150 requests, each taking the budget lock and catching up, and a session that ends half-way leaves a part done (said truthfully on the screen). One call would be faster, atomic or per-row by choice, and could check every row's date against the category once.",
+      "status": "open",
+      "related": ["R-IMPORT-530", "D-633", "R-IMPORT-209"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-367",
+      "question": "Should a member be able to change their email address in the app?",
+      "context": "Not built (owner brief, final fix round). It would take: a form calling supabase.auth.updateUser({ email }), with double_confirm_changes on (as in supabase/config.toml) both the old and the new address confirming by mail; a redirect URL for the confirmation link in the hosted project's settings; deciding what happens to pending invitations matched by email (invitations are matched to accounts by verified email); the profile and members list showing the new address; tests for both confirmations and a link that fails.",
+      "status": "open",
+      "related": ["R-AUTH-531", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-368",
+      "question": "Should a member be able to delete their own account from the app, and what happens to the budgets they own and the records they made?",
+      "context": "Not built (owner brief, final fix round). The database already copes with a deleted account in places (recorded_by null, \"a former member\", tokens ending with their creator). It would take: a database function (security definer, with the service role never in the browser) or an Edge Function to delete the auth user; a rule for budgets the user owns (delete them, or require an owner hand-over first, Q-369); a confirmation that names what goes; and tests that another member's view of shared budgets stays whole.",
+      "status": "open",
+      "related": ["Q-369", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-369",
+      "question": "Should a budget's owner be able to hand the budget over to another member (and then leave it)?",
+      "context": "Not built (owner brief, final fix round). Today the owner cannot leave or hand over; the walk-through noted it. It would take: a database function moving budgets.owner_id to a current member under the budget lock, with the owner-only rights (end date, deletion, removing members) following; deciding whether the new owner must accept; the members list and Settings saying who owns; pgTAP tests for access before and after.",
+      "status": "open",
+      "related": ["Q-368", "Q-370", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
+    },
+    {
+      "id": "Q-370",
+      "question": "Should budgets have roles beyond owner and member (for example a member who can only read, or one who can record transactions but not change the plan)?",
+      "context": "Not built (owner brief, final fix round). Every member can do everything but the owner-only actions. Roles would take: a role column and checks in every write function and row-level security policy (C-RLS-003's shared helpers), screens that hide or explain what a role cannot do, an owner screen to set roles, and tests per role and table (C-DBTEST-002).",
+      "status": "open",
+      "related": ["Q-369", "R-APP-533"],
+      "source": [
+        "owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17"
+      ]
     },
     {
       "id": "Q-355",
