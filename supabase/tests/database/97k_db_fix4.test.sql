@@ -386,7 +386,7 @@ select is((select rows from pg_temp.rows('i2', tests.id('i2_t')) where start_dat
 select results_eq(format($$select transfers_to_do, transfers_overdue from public.get_transfers_to_do(%L)$$, tests.id('i2')),
   $$values (1, 1)$$, 'R-ACCOUNT-511: the December transfer is not to do again (only November''s, never marked)');
 
--- after a change of pay day from the 25th to the 26th the next salary is keyed 26 Dec, not 26 Nov
+-- after a change of pay day from the 25th to the 26th the next salary is scheduled 26 Dec, not 26 Nov
 select pg_temp.day('2026-11-27', 'kim');
 select pg_temp.budget('k26');
 select public.update_income(tests.id('k26_inc'), (select revision from public.incomes where id = tests.id('k26_inc')), p_pay_day => 26,
@@ -638,9 +638,9 @@ select tests.model_made_from_today(tests.id('ea_t'));
 select is(public.remove_income(tests.id('ea_par'), (select revision from public.incomes where id = tests.id('ea_par'))), 'ended',
   'R-ACCOUNT-511: (the partner''s income ends today, in the period it was chosen in)');
 select is((select rows from pg_temp.rows('ea', tests.id('ea_t')) where start_date = '2026-11-20'), '',
-  'R-ACCOUNT-511: the salary came on 20 Nov (keyed 25 Nov), before the transfer was made on 22 Nov: no occurrence, also where its chosen income ended');
+  'R-ACCOUNT-511: the salary came on 20 Nov (scheduled 25 Nov), before the transfer was made on 22 Nov: no occurrence, also where its chosen income ended');
 select is_empty(format($$select * from tests.moneyflow_violations(%L)$$, tests.id('ea')), 'R-ACCOUNT-511: the model agrees (ended, A)');
--- made from its period while the salary was late (keyed 25 Nov, came 28 Nov), the income ended,
+-- made from its period while the salary was late (scheduled 25 Nov, came 28 Nov), the income ended,
 -- then the salary recorded earlier (23 Nov): it is the salary the transfer was made from
 select pg_temp.day('2026-11-28', 'kit');
 select pg_temp.budget('eb');
@@ -663,10 +663,10 @@ select pg_temp.day('2026-12-30', 'kit');
 select public.ensure_periods(tests.id('lt'));
 select public.move_period_start((pg_temp.cur('lt')).id, (pg_temp.cur('lt')).revision, '2026-12-30');
 select is(pg_temp.since(tests.id('lt_tb'), '2026-11-01'), '2026-11-10,2026-12-10',
-  'R-ACCOUNT-510: Ben''s December salary came 20 days late (30 Dec, keyed 10 Dec): one transfer, on his 10 Dec, not two');
+  'R-ACCOUNT-510: Ben''s December salary came 20 days late (30 Dec, scheduled 10 Dec): one transfer, on his 10 Dec, not two');
 select is_empty(format($$select * from tests.household_violations(%L)$$, tests.id('lt')), 'R-ACCOUNT-512: the household properties hold (late)');
 
--- marks on the later of two rows with one key: an early salary (5 Nov, keyed 25 Nov) and a fixed
+-- marks on the later of two rows with one date: an early salary (5 Nov, scheduled 25 Nov) and a fixed
 -- day 25 from the next period (R-ACCOUNT-460)
 select pg_temp.day('2026-11-05', 'kit');
 select pg_temp.budget('lm');

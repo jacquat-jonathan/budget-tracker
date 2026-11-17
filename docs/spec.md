@@ -2647,7 +2647,7 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Retired: D-610: periods carry no key.
   - Related: D-561, D-490, R-ACCOUNT-307
   - Source: owner-request: coordinator brief for database fix round 4 (re-check 4), decision on Q-311 (option 1), 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
-- **R-ACCOUNT-464** transfer_overview.next_due_date is the due date of the first occurrence, due today or later, with no mark of any kind, that the plan will then record or list as to do; moving the clock to that day produces exactly that occurrence.
+- **R-ACCOUNT-464** transfer_overview.next_due_date is the due date of the first occurrence, due today or later, with no mark of any kind, that the plan will then record or list as to do; moving the clock to that day produces exactly that occurrence, except that a fixed day whose weekend rule puts its due date before the start of a period that does not exist yet is recorded or listed once that period exists, the day it starts, dated its due date.
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-562, D-610, R-ACCOUNT-314
   - Source: owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 2 (the owner's amendment of D-527), 2026-11-17; owner-request: coordinator brief for database fix round 4 (re-check 4), properties for the walk, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql; owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17
@@ -7281,7 +7281,7 @@ Source: owner-request: coordinator decisions on the independent review of the st
 
 ### D-493 Creating a transfer records nothing dated before today unless the member asks (accepted)
 
-create_transfer with neither p_from_period_id nor p_first_date plans nothing before today: a fixed day's first date is the first date with that day on or after today, and a pay-date transfer counts from today (starts_on), so a payday of the current period already past has no occurrence. Naming a period (the current one included) or giving a first date asks for the earlier occurrences: they are planned, the automatic linked ones already due are created at once, and preview_create_transfer counts them (created_at_once). The payday compared is the day the salary came, never the period's key (amended by D-520).
+create_transfer with neither p_from_period_id nor p_first_date plans nothing before today: a fixed day's first date is the first date with that day on or after today whose due date (moved by its weekend rule) is not before today, and a pay-date transfer counts from today (starts_on), so a payday of the current period already past has no occurrence. Naming a period (the current one included) or giving a first date asks for the earlier occurrences: they are planned, the automatic linked ones already due are created at once, and preview_create_transfer counts them (created_at_once). The payday compared is the day the salary came, never the period's key (amended by D-520).
 
 **Why:** A fixed-day transfer created on 20 November for the 5th recorded a transaction dated 5 November that never happened.
 
@@ -8108,7 +8108,7 @@ Source: owner-request: coordinator brief for database fix round 5 (re-check 5, t
 
 ### D-612 next_due_date is the first occurrence due today or later with no mark (amends R-ACCOUNT-464) (accepted)
 
-transfer_overview.next_due_date is the due date of the first occurrence, due today or later, that has no mark of any kind (done, skipped or not done, a member's or the catch-up's): among the existing periods from the one before the current, else the next periods at their projected boundaries with the number the catch-up will give them (so a mark kept for a period's own occurrence after a reopen counts), looked for up to 15 periods ahead, never after the budget's end. Moving the clock to that day produces exactly that occurrence; the walk checks it that way.
+transfer_overview.next_due_date is the due date of the first occurrence, due today or later, that has no mark of any kind (done, skipped or not done, a member's or the catch-up's): among the existing periods from the one before the current, else the next periods at their projected boundaries with the number the catch-up will give them (so a mark kept for a period's own occurrence after a reopen counts), looked for up to 15 periods ahead, never after the budget's end. Moving the clock to that day produces exactly that occurrence, except for a fixed day whose weekend rule puts its due date before the start of a period that does not exist yet (its transaction or its to-do row comes once the period exists, the day it starts, dated its due date); the walk checks it that way.
 
 **Why:** Re-check 5, S2: it could name a day on which nothing is recorded (an occurrence already marked not done; after a switch and a reopen).
 
@@ -8777,7 +8777,7 @@ Source: owner-request: coordinator brief for the screens round after database ro
   - Related: D-563, R-ACCOUNT-462, R-ACCOUNT-425
   - Source: owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17
 - **Q-357** Should "from now" for an income's pay day or a transfer's schedule mean from today rather than from the start of the current period?
-  - Context: Left as it is (round 5). Example: on 16 Dec Ben's pay day changes from 10 to 12 "from now": the current period started 25 Nov, so his 10 Dec, already recorded, becomes 12 Dec (preview: 1 removed, 1 created, 1 moved); changed to 20 instead, the 10 Dec transaction is removed and the transfer runs on 20 Dec. Options: (1) leave it (terms are versioned per period); (2) date-versioned terms; (3) warn in the edit dialog when a recorded occurrence of the current period moves.
+  - Context: Left as it is (round 5). Example: on 16 Dec Ben's pay day changes from 10 to 12 "from now": the current period started 25 Nov, so his 10 Dec, already recorded, becomes 12 Dec (preview: 1 removed, 1 created, 0 moved: the 12 Dec is another occurrence than the 10 Dec); changed to 20 instead, the 10 Dec transaction is removed and the transfer runs on 20 Dec. Options: (1) leave it (terms are versioned per period); (2) date-versioned terms; (3) warn in the edit dialog when a recorded occurrence of the current period moves.
   - Related: R-VERSION-005, D-121, R-ACCOUNT-512
   - Source: owner-request: coordinator brief for database fix round 5 (re-check 5, the three kinds of schedule), 2026-11-17
 - **Q-358** Should a transfer on the main income's payday run in a calendar month that a stretched period skips?

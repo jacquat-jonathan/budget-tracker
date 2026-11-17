@@ -25,7 +25,10 @@ needs. Delete this file (and `docs/handover/`) once everything under "Open work"
 ### 1. Database: three defects in planned transfers (found by an independent review)
 
 Reproduction scripts are in `docs/handover/scenarios/` (see `run.sh` there). Each is a
-rolled-back scenario against the local database. None of the three is fixed.
+rolled-back scenario against the local database. **FIXED** (migration corrected in place, tests in
+`supabase/tests/database/97n_planned_transfer_fixes.test.sql`, contract wording corrected): the
+text below is kept as the record of what was found. After the fix the scenarios show M1's
+transaction made, S-A's next payday kept (`starts_seq` 3), and S-B's first date 25 Nov.
 
 **M1, must fix. A fixed-day transfer with weekend rule `previous` or `nearest` can lose its
 transaction for good.** Script `w2_weekend_lost.sql`; controls `w1_weekend_boundary.sql` and

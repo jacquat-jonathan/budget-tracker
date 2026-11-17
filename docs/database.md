@@ -1628,7 +1628,9 @@ first occurrence, due today or later, that has **no mark of any kind** (done, sk
 a member's or the app's) and that the plan will then record or list as to do: in the existing
 periods, else in the next periods at their projected boundaries, up to 15 periods ahead, so a
 yearly or quarterly fixed day always has one, R-ACCOUNT-314; moving the clock to that day produces
-exactly that occurrence; null once ended, when the budget has ended, or after its end date),
+exactly that occurrence, except that a fixed day whose weekend rule puts its due date before the
+start of a period that does not exist yet is recorded or listed once that period exists, the day
+it starts, dated its due date; null once ended, when the budget has ended, or after its end date),
 `starts_on` (its first counted day, D-421), `starts_seq` (its first counted period, for its
 own occurrence when it names no income, D-610), `weekend_rule` (a fixed day's weekend rule, enum
 `weekend_rule`; null for a pay date, D-611),
@@ -1685,8 +1687,10 @@ and the next one starts 10 Jan. "Joint" (no income): 25 Nov, 10 Jan, 10 Feb (non
   period it was created in or corrected from; the day it was created when it was created with no
   period and no first date after the period's start, D-493; it stays a date through a reopen) for
   a dated occurrence, and nothing before its **first counted period** (`starts_seq`: that period,
-  or the next one when it was created after that period's first day with no period named) for a
-  period's own occurrence. A named income that **ends in the current period** (`remove_income`,
+  or the next one when it was created after that period's first day with no period named; a reopen
+  that merges the period it was made in gives it that merged period's number again, so the
+  period coming back after the salary is recorded has its occurrence) for a period's own
+  occurrence. A named income that **ends in the current period** (`remove_income`,
   `remove_member`, `leave_budget`; D-492, R-ACCOUNT-311): its dates already due on the day it ended
   stay, with their marks and transactions; the period's own occurrence only if it was not due yet
   that day; from the next period the transfer follows the main income (`follows_primary`). Ended
@@ -1732,7 +1736,11 @@ and number or date); one transaction per mark at most.
   leaf) must be in force in every period from then on. **Nothing dated before today unless the
   member asks** (D-493, R-ACCOUNT-315): with neither `p_from_period_id` nor `p_first_date`, the
   first occurrence is the next one on or after today, for a fixed day and for a pay date (a
-  payday of this period already past is not planned; `starts_on` is today). Naming a period
+  payday of this period already past is not planned; `starts_on` is today). For a fixed day it is
+  the first date whose **due date** (moved by the weekend rule) is not before today: made on a
+  Saturday for the Sunday of the same weekend with the rule `previous`, the first date is the
+  next month's, nothing dated the Friday before is recorded, and `preview_create_transfer` says
+  the same. Naming a period
   (even the current one) or a first date asks for the earlier occurrences: they are planned and
   the automatic linked ones already due are created with it (within the catch-up's bound,
   below), and `preview_create_transfer` says so (`created_at_once`). The form should send
@@ -1772,7 +1780,7 @@ and number or date); one transaction per mark at most.
   `invalid_revision`, `transfer_ended`, `period_not_found`, `budget_ended`, `transfer_held_back`
   (an automatic linked occurrence from then on is due and waits for room: ending would drop it;
   free room first, D-397).
-- **`get_transfer_terms(p_transfer_id, p_period_id) -> {period_id, in_force, from_account_id, to_account_id, amount, schedule, offset_days, day_of_month, income_id, is_automatic, category_id, terms_from_period_id, until_period_id, cadence, first_date}[]`**
+- **`get_transfer_terms(p_transfer_id, p_period_id) -> {period_id, in_force, from_account_id, to_account_id, amount, schedule, offset_days, day_of_month, income_id, is_automatic, category_id, terms_from_period_id, until_period_id, cadence, first_date, weekend_rule}[]`**
   (one row) See "Terms in a chosen period".
 
 #### Previews (R-ACCOUNT-233, R-ACCOUNT-303, D-428)
@@ -1857,7 +1865,7 @@ for a screen:
 
 **`get_transfer_checklist(p_period_id) -> transfer_checklist_row[]`** Member; any period,
 current or past; catches up first. **One row per occurrence** planned in the period, plus one per
-mark whose occurrence is **no longer planned** and whose key lies in the period (the first
+mark whose occurrence is **no longer planned** and whose date (or period number) lies in the period (the first
 period lists earlier dates, the latest later ones; a period's own mark is listed by its period,
 and by the latest period when its period does not exist, after a reopen), ordered by due date
 (the date or the period's start for a row with none), then name: `transfer_id`, `period_id`,
@@ -2156,7 +2164,8 @@ previews announce each:
 - **"From now" means from the start of the current period** (Q-357), for an income's pay day and
   a transfer's schedule alike. Example: on 16 Dec Ben's pay day is changed from now from 10 to 12:
   the current period started 25 Nov, so his 10 Dec transfer, already recorded, becomes 12 Dec
-  (preview: 1 removed, 1 created, 1 moved); changed to 20 instead, the 10 Dec transaction goes and
+  (preview: 1 removed, 1 created: its identity is its pay date, so the 12 Dec is another occurrence
+  than the 10 Dec, and moved is 0); changed to 20 instead, the 10 Dec transaction goes and
   the transfer runs on 20 Dec.
 - **A transfer on the main income's payday has one occurrence per period** (Q-358), so none in a
   calendar month that a stretched period skips. Example: Ben is made the main income on 12 Dec
