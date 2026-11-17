@@ -332,13 +332,12 @@ export const transfersEn = {
 }
 
 export const moneyFlowEn = {
+  scrollFrame: 'Money flow diagram, scrolls sideways',
   period: 'Period',
   currentPeriod: '{{label}} (current)',
   notAssigned: 'Not assigned',
   notAssignedHelp:
     '“Not assigned”: incomes that name no account yet. Say in the income where it arrives.',
-  short: '{{amount}} short',
-  staysShort: '{{amount}} stays',
   nodeTitle: 'in {{in}}, out {{out}}, stays {{stays}}',
   bandIncome: '{{name}}: {{amount}}',
   bandTransfer: '{{name}}: {{amount}} a month',
@@ -349,7 +348,7 @@ export const moneyFlowEn = {
   incomesTotal: 'Incomes this period',
   transfersTotal: 'Moved by transfers (per month)',
   howToRead:
-    'Read it from left to right: each income into its account, then the transfers. The bands are as wide as the amounts; what is left on an account shows to its right. A quarterly or yearly transfer counts its monthly share.',
+    'Read it from left to right: each income into its account, then the transfers. The bands are as wide as the amounts. Under an income, its amount; under an account, what the plan leaves on it this period (with a warning sign when more is planned out than in). A quarterly or yearly transfer counts its monthly share.',
   spendingNote:
     'The plan only: what was actually spent is in the budget and the transactions. No account balance is kept.',
   next: {

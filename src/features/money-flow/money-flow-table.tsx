@@ -18,9 +18,9 @@ export function MoneyFlowTable({
   accountName: (id: string | null) => string
 }) {
   const { t } = useTranslation()
-  const th = 'px-3 py-2 text-left font-medium text-muted-foreground'
-  const num = 'px-3 py-2 text-right tabular-nums whitespace-nowrap'
-  const cell = 'px-3 py-2'
+  const th = 'px-2 py-2 text-left font-medium text-muted-foreground sm:px-3'
+  const num = 'px-2 py-2 text-right tabular-nums whitespace-nowrap sm:px-3'
+  const cell = 'px-2 py-2 sm:px-3'
   return (
     <div className="flex flex-col gap-6" data-testid="money-flow-table">
       <Frame label={t('moneyFlow.table.incomes')}>
@@ -73,7 +73,7 @@ export function MoneyFlowTable({
                 <th scope="col" className={th}>
                   {t('moneyFlow.table.transfer')}
                 </th>
-                <th scope="col" className={th}>
+                <th scope="col" className={`${th} hidden sm:table-cell`}>
                   {t('moneyFlow.table.fromTo')}
                 </th>
                 <th scope="col" className={`${th} text-right`}>
@@ -93,8 +93,15 @@ export function MoneyFlowTable({
                           : 'transfers.mode.manualShort',
                       )}
                     </span>
+                    {/* On a phone the accounts go under the name: three columns do not fit. */}
+                    <span className="block text-xs font-normal text-muted-foreground sm:hidden">
+                      {t('transfers.fromTo', {
+                        from: accountName(transfer.source),
+                        to: accountName(transfer.target),
+                      })}
+                    </span>
                   </th>
-                  <td className={cell}>
+                  <td className={`${cell} hidden sm:table-cell`}>
                     {t('transfers.fromTo', {
                       from: accountName(transfer.source),
                       to: accountName(transfer.target),
@@ -103,7 +110,7 @@ export function MoneyFlowTable({
                   <td className={num}>
                     {formatMoney(transfer.amount)}
                     {(transfer.cadence === 'quarterly' || transfer.cadence === 'yearly') && (
-                      <span className="block text-xs text-muted-foreground">
+                      <span className="block text-xs whitespace-normal text-muted-foreground">
                         {t(`transfers.amountPer.${transfer.cadence}`, {
                           amount: formatMoney(transfer.planned),
                         })}
@@ -130,7 +137,7 @@ export function MoneyFlowTable({
       )}
       {(flow.accounts.length > 0 || flow.notAssigned) && (
         <Frame label={t('moneyFlow.table.accounts')}>
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <caption className="sr-only">{t('moneyFlow.table.accounts')}</caption>
             <thead>
               <tr className="border-b">
@@ -157,7 +164,7 @@ export function MoneyFlowTable({
                 >
                   <th scope="row" className={`${cell} text-left font-medium`}>
                     {account.name}
-                    <span className="block text-xs font-normal text-muted-foreground">
+                    <span className="hidden text-xs font-normal text-muted-foreground sm:block">
                       {t(`accounts.kinds.${account.kind}`)}
                     </span>
                   </th>

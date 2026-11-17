@@ -140,6 +140,8 @@ export interface Layout {
   links: LayoutLink[]
   columns: number
   nodeWidth: number
+  /** The width of a column, its labels' room included. */
+  span: number
   /** Accounts in force with no planned flow: listed, not drawn. */
   idle: string[]
 }
@@ -156,7 +158,11 @@ const PAD = 2
  */
 export function layoutMoneyFlow(
   flow: MoneyFlow,
-  { width, barHeight }: { width: number; barHeight: number },
+  {
+    width: room,
+    barHeight,
+    minColumn = 96,
+  }: { width: number; barHeight: number; minColumn?: number },
 ): Layout {
   const accountIds = new Set(flow.accounts.map((account) => account.id))
   // Bands that make sense on the diagram: between nodes it has, with an amount.
@@ -310,8 +316,12 @@ export function layoutMoneyFlow(
   )
   const fullest = Math.max(1, ...byColumn.map((list) => list.reduce((sum, n) => sum + n.value, 0)))
   const scale = barHeight / fullest
-  const nodeWidth = width < 480 ? 10 : 14
-  const span = Math.max(1, width - nodeWidth - PAD * 2)
+  const nodeWidth = room < 480 ? 10 : 14
+  // Every column, the last included, keeps room to the right of its bars for their labels;
+  // narrower than `minColumn` a column would cut its labels short: the diagram is wider then,
+  // and scrolls in its frame.
+  const span = Math.max(minColumn, (room - nodeWidth - PAD * 2) / columns)
+  const width = Math.round(span * columns + nodeWidth + PAD * 2)
   // Order within a column: by where their money comes from (fewer crossings), then size.
   const position = new Map<string, number>()
   let height = 0
@@ -328,7 +338,7 @@ export function layoutMoneyFlow(
     if (column > 0) list.sort((a, b) => weight(a) - weight(b) || b.value - a.value)
     let y = 0
     for (const node of list) {
-      node.x = PAD + (span * column) / (columns - 1)
+      node.x = PAD + span * column
       node.height = Math.max(MIN_BAR, node.value * scale)
       node.y = y + LABEL_BAND
       position.set(node.id, node.y + node.height / 2)
@@ -377,6 +387,7 @@ export function layoutMoneyFlow(
     links,
     columns,
     nodeWidth,
+    span,
     idle,
   }
 }

@@ -347,13 +347,12 @@ export const transfersFr = {
 }
 
 export const moneyFlowFr = {
+  scrollFrame: 'Diagramme des flux financiers, défile horizontalement',
   period: 'Période',
   currentPeriod: '{{label}} (en cours)',
   notAssigned: 'Non attribué',
   notAssignedHelp:
     '« Non attribué » : les revenus qui n’indiquent pas encore de compte. Précisez dans le revenu où il arrive.',
-  short: 'il manque {{amount}}',
-  staysShort: '{{amount}} restent',
   nodeTitle: 'entrées {{in}}, sorties {{out}}, reste {{stays}}',
   bandIncome: '{{name}} : {{amount}}',
   bandTransfer: '{{name}} : {{amount}} par mois',
@@ -364,7 +363,7 @@ export const moneyFlowFr = {
   incomesTotal: 'Revenus de la période',
   transfersTotal: 'Déplacé par les virements (par mois)',
   howToRead:
-    'Lisez de gauche à droite : chaque revenu vers son compte, puis les virements. Les bandes sont aussi larges que les montants ; ce qui reste sur un compte figure à sa droite. Un virement trimestriel ou annuel compte sa part mensuelle.',
+    'Lisez de gauche à droite : chaque revenu vers son compte, puis les virements. Les bandes sont aussi larges que les montants. Sous un revenu, son montant ; sous un compte, ce que le plan y laisse pendant la période (avec un signe d’alerte quand plus sort qu’il n’entre). Un virement trimestriel ou annuel compte sa part mensuelle.',
   spendingNote:
     'Seulement le plan : ce qui a réellement été dépensé figure dans le budget et les transactions. Aucun solde n’est tenu.',
   next: {

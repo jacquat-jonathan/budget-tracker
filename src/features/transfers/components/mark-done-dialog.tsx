@@ -58,7 +58,11 @@ export function MarkDoneDialog({
         if (!open) onClose()
       }}
     >
-      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
+      <DialogContent
+        className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md"
+        // The checklist puts the focus on the row once it is read again (its button changed).
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
         {row && (
           <>
             <DialogHeader>

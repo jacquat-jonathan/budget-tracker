@@ -240,6 +240,12 @@ export function Checklist({
         onClose={() => {
           setDoneRow(null)
           marks.done.reset()
+          // Back on the row (cancelled); after a save the row is focused again once re-read.
+          const key = focusKey.current
+          window.requestAnimationFrame(() => {
+            const item = listRef.current?.querySelector<HTMLElement>(`[data-key="${key}"]`)
+            ;(item?.querySelector<HTMLElement>('button') ?? item)?.focus()
+          })
         }}
       />
     </section>
