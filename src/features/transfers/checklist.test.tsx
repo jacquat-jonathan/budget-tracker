@@ -1022,6 +1022,89 @@ describe('two rows of one transfer with one key in one period [R-ACCOUNT-500] [R
     ).not.toThrow()
   })
 
+  it.each([
+    [
+      'two ticks no longer planned (97k_db_fix4 “two”)',
+      [
+        { kind: 'payday', due: null, status: 'done', planned: false, revision: 1 },
+        { kind: 'fixed_day', due: null, status: 'done', planned: false, revision: 1 },
+      ],
+      {
+        undoNoKey: 'occurrence_required',
+        undoKeyOnly: 'occurrence_required',
+        undoWrongKind: 'transfer_not_in_force',
+        undoStale: 'record_changed',
+        skipUnplanned: 'transfer_not_in_force',
+        notDoneManual: 'record_changed',
+      },
+    ],
+    [
+      'a tick no longer planned and a fixed day to do (97k_db_fix4 “ok”)',
+      [
+        { kind: 'payday', due: null, status: 'done', planned: false, revision: 1 },
+        { kind: 'fixed_day', due: '2026-11-25', status: 'to_do', planned: true, revision: 0 },
+      ],
+      {
+        undoNoKey: 'occurrence_required',
+        undoKeyOnly: 'occurrence_required',
+        undoWrongKind: 'transfer_not_in_force',
+        undoStale: 'record_changed',
+        skipUnplanned: 'transfer_not_in_force',
+        notDoneManual: 'transfer_is_manual',
+      },
+    ],
+  ] as const)('the mock refuses what the real stack refused for %s', (_name, real, refusals) => {
+    // Rows and refusals as my stack answered them (seed2.cjs d1105..d1126, probe.cjs).
+    const db = checklistDb()
+    db.checklist = real.map((item) =>
+      checklistRow({
+        transfer_id: 'tr-hand',
+        name: 'By hand',
+        occurrence_date: '2026-11-25',
+        occurrence_kind: item.kind,
+        due_date: item.due,
+        status: item.status,
+        planned: item.planned,
+        mark_revision: item.revision,
+        is_overdue: false,
+      }),
+    )
+    const base = { p_transfer_id: 'tr-hand', p_period_id: 'period-2' }
+    const key = { ...base, p_occurrence_date: '2026-11-25' }
+    const refusal = (call: () => unknown) => {
+      try {
+        call()
+        return 'accepted'
+      } catch (error) {
+        return (error as Error).message
+      }
+    }
+    expect({
+      undoNoKey: refusal(() => db.rpc.undo_transfer_mark({ ...base, p_expected_revision: 1 })),
+      undoKeyOnly: refusal(() => db.rpc.undo_transfer_mark({ ...key, p_expected_revision: 1 })),
+      undoWrongKind: refusal(() =>
+        db.rpc.undo_transfer_mark({
+          ...key,
+          p_expected_revision: 1,
+          p_occurrence_kind: 'income_payday',
+        }),
+      ),
+      undoStale: refusal(() =>
+        db.rpc.undo_transfer_mark({ ...key, p_expected_revision: 7, p_occurrence_kind: 'payday' }),
+      ),
+      skipUnplanned: refusal(() =>
+        db.rpc.skip_transfer({ ...key, p_expected_revision: 1, p_occurrence_kind: 'payday' }),
+      ),
+      notDoneManual: refusal(() =>
+        db.rpc.mark_transfer_not_done({
+          ...key,
+          p_expected_revision: 0,
+          p_occurrence_kind: 'fixed_day',
+        }),
+      ),
+    }).toEqual(refusals)
+  })
+
   it('the mock derives a row’s kind as the database does, not a constant payday', () => {
     expect(checklistRow().occurrence_kind).toBe('payday')
     expect(checklistRow({ cadence: 'yearly' }).occurrence_kind).toBe('fixed_day')

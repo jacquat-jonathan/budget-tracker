@@ -668,13 +668,21 @@ export function step7Handlers(db: MockDb): Record<string, Handler> {
           : (str(args.p_income_id) ?? row.income_id)
       const kind = occurrenceKindOf({ schedule, income_id: income }, db.tables.income_overview)
       const date = row.next_due_date ?? '2026-11-25'
+      // A new schedule can move the due date: the catch-up's own untouched mark then goes and is
+      // made again (D-563), so it is not "kept"; a member's mark always is (as the database).
+      const moves =
+        args.p_schedule !== undefined ||
+        args.p_offset_days !== undefined ||
+        args.p_day_of_month !== undefined ||
+        args.p_first_date !== undefined
       const recorded = db.checklist.some(
         (item) =>
           item.transfer_id === row.id &&
           item.occurrence_date === date &&
           item.occurrence_kind === kind &&
           item.planned !== false &&
-          (item.mark_revision ?? 0) > 0,
+          (item.mark_revision ?? 0) > 0 &&
+          (!moves || item.assumed !== true),
       )
       return [
         previewRow({

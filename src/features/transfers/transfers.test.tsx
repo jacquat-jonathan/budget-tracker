@@ -467,6 +467,22 @@ describe('editing and ending a transfer [R-VERSION-071] [R-ACCOUNT-303]', () => 
       p_amount: 120_000,
     }) as { occurrence_kind: string; already_recorded: boolean }[]
     expect(kept).toMatchObject({ occurrence_kind: 'payday', already_recorded: true })
+    // As my stack answered (probe2.cjs): a new offset re-dates the catch-up's own transaction
+    // (D-563), so its occurrence is not "kept"; a member's tick is.
+    db.checklist[0]!.assumed = true
+    const [redated] = db.rpc.preview_update_transfer({
+      p_transfer_id: 'tr-savings',
+      p_schedule: 'pay_date',
+      p_offset_days: 3,
+    }) as { already_recorded: boolean }[]
+    expect(redated?.already_recorded).toBe(false)
+    db.checklist[0]!.assumed = false
+    const [member] = db.rpc.preview_update_transfer({
+      p_transfer_id: 'tr-savings',
+      p_schedule: 'pay_date',
+      p_offset_days: 3,
+    }) as { already_recorded: boolean }[]
+    expect(member?.already_recorded).toBe(true)
     // Moved to Sam's payday (not the primary): another kind, so not the occurrence recorded.
     const [moved] = db.rpc.preview_update_transfer({
       p_transfer_id: 'tr-savings',
