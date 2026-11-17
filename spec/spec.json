@@ -8029,11 +8029,11 @@
     {
       "id": "R-ACCOUNT-307",
       "area": "account",
-      "statement": "A real payday never goes without its pay-date transfer: every period has a scheduled pay date of its own as its key, the next one no period has when the projected one is taken, so several salaries in one month give as many occurrences, the same keys through a reopen and the salary recorded again, and each occurrence is listed once, in the period that plans it, whatever its key.",
+      "statement": "A real payday never goes without its pay-date transfer: every period has a scheduled pay date of its own as its key, the next one after the previous period's key, so several salaries in one month give as many occurrences, the same keys through a reopen and the salary recorded again, and each occurrence is listed once, in the period that plans it, whatever its key.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-420", "D-490", "R-ACCOUNT-301", "R-ACCOUNT-302"],
+      "related": ["D-420", "D-490", "R-ACCOUNT-301", "R-ACCOUNT-302", "D-561"],
       "source": [
         "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M1 with C1, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql"
@@ -8159,24 +8159,25 @@
     {
       "id": "R-ACCOUNT-421",
       "area": "account",
-      "statement": "When two periods give a transfer the same key, it is one occurrence of the earlier period only when both are the same payday (a chosen income's pay date and a period's scheduled pay date as the projection gave it); when one of them is a fixed day, or the scheduled pay date was shifted to the next one no period had, they are two transfers, both planned, marked and recorded on their own.",
+      "statement": "When two periods give a transfer the same key, it is one occurrence of the earlier period only when it is the same payday: one income's salary that started a period, keyed by that date, and that same income's own pay date in the other period, the salary having come late, or early by less than the projection's 15 days; otherwise (a fixed day, two incomes, or a salary that came earlier or later than that) they are two occurrences of different kinds, both planned, marked and recorded on their own.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-521", "D-420", "D-490", "R-ACCOUNT-301"],
+      "related": ["D-521", "D-420", "D-490", "R-ACCOUNT-301", "D-560"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), must-fix 1, 2026-11-17",
-        "code: supabase/migrations/20261120100000_money_flow.sql"
+        "code: supabase/migrations/20261120100000_money_flow.sql",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17"
       ]
     },
     {
       "id": "R-ACCOUNT-422",
       "area": "account",
-      "statement": "The money flow of a period ends at spending: one row per top-level category with its planned spending at the monthly share less the share of planned transfers linked to it (given as its own figure), the real yearly amount beside it, and what was actually spent less the transactions of those transfers; a total row answers income, set aside, spendable, planned and actual spending, not planned and left, so that income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; every row answered with no aggregate row, at most 1000 rows (beyond them, only after many corrections into the past, the last spending rows are left out and counted on the total row).",
+      "statement": "The money flow of a period ends at spending: one row per top-level category planned or spent, with its planned spending at the monthly share less the share of planned transfers linked to it that go to a set-aside account (given as its own figure), the real yearly amount beside it, what was actually spent less the transactions of those transfers, and its own remainder; a total row answers income, set aside, spendable, planned and actual spending, not planned and left, so that income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; every row answered with no aggregate row, at most 1000 rows (beyond them, only after many corrections into the past, the last spending rows are left out and counted on the total row).",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-524", "R-ACCOUNT-006", "R-ACCOUNT-304"],
+      "related": ["D-524", "R-ACCOUNT-006", "R-ACCOUNT-304", "D-565", "D-567"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
@@ -8185,11 +8186,11 @@
     {
       "id": "R-ACCOUNT-423",
       "area": "account",
-      "statement": "In the money flow, what the plan leaves on an everyday account (current, cash, credit card, other) is spendable, and on a savings, third pillar, tax reserve or investment account it is set aside.",
+      "statement": "In the money flow, what the plan leaves on an everyday account (current, cash, credit card, other) is spendable, and on a savings, third pillar, tax reserve or investment account it is set aside; only a transfer into a set-aside account takes its francs out of the spendable pool.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-524", "R-ACCOUNT-001"],
+      "related": ["D-524", "R-ACCOUNT-001", "D-565"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
@@ -8237,27 +8238,29 @@
     {
       "id": "R-ACCOUNT-427",
       "area": "account",
-      "statement": "An income a pay-date transfer chose, added and removed in the current period (deleted outright), never rewrites what is already recorded: what the catch-up recorded for it in that period stays, and the primary's occurrence of that period is planned only if it was not due yet that day, so nothing dated in the past appears.",
+      "statement": "An income a pay-date transfer chose, added and removed in the current period (deleted outright), never rewrites what is already recorded: what the catch-up recorded for it in that period stays, and the primary's occurrence of that period is planned only if it was not due yet that day, whatever terms later edits or a reopen put in that period and wherever that day lies once a salary is recorded, so nothing dated in the past appears.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-492", "D-426", "R-ACCOUNT-311"],
+      "related": ["D-492", "D-426", "R-ACCOUNT-311", "D-564"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17",
-        "code: supabase/migrations/20261120100000_money_flow.sql"
+        "code: supabase/migrations/20261120100000_money_flow.sql",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fixes, 2026-11-17"
       ]
     },
     {
       "id": "R-ACCOUNT-428",
       "area": "account",
-      "statement": "Which income is the primary one is answered per period from its history: a primary switch counts for the transfers from the period after the one it is made in, so it never re-plans or removes what any period already planned or recorded, and its preview says so.",
+      "statement": "Which income is the primary one is answered per period from its history: a primary switch counts for the transfers from the period after the one it is made in and never re-plans or removes what any period already planned or recorded; the old primary's pay dates after the switch day in that period are planned as a non-primary income's, and the switch's preview says what is true.",
       "feature": "F-MONEYFLOW",
       "status": "active",
       "enforcement": "test",
-      "related": ["D-527", "R-ACCOUNT-310"],
+      "related": ["D-527", "R-ACCOUNT-310", "D-562"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17",
-        "code: supabase/migrations/20261120100000_money_flow.sql"
+        "code: supabase/migrations/20261120100000_money_flow.sql",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 2 (the owner's amendment of D-527), 2026-11-17"
       ]
     },
     {
@@ -8502,6 +8505,99 @@
       "related": ["D-540"],
       "source": [
         "owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-460",
+      "area": "account",
+      "statement": "An occurrence is identified by its key and its kind (the period's payday, a chosen income's pay date, a fixed day), properties of the occurrence itself: a mark, and a transaction the app recorded, stay with the occurrence they were made for through any correction, edit, reopen, moved start, primary switch and catch-up, whatever other occurrence comes or goes; a checklist row names its occurrence by key and kind, and one undo built from what a row shows leads out of every mark, two marks no longer planned with one key included.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-560", "R-ACCOUNT-301", "R-ACCOUNT-305", "R-ACCOUNT-421"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-461",
+      "area": "account",
+      "statement": "A pay-date transfer naming an income happens once for every pay date of that income from the transfer's first counted day, whichever income is the primary and however often the primary changes: never zero times and never twice; after a switch the old primary's pay dates after the switch day are planned in the switch period, and the new primary's first period after the switch has its own occurrence.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-562", "D-527", "R-ACCOUNT-428", "R-ACCOUNT-310"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 2 (the owner's amendment of D-527), 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-462",
+      "area": "account",
+      "statement": "A transaction the app recorded by itself for an occurrence, untouched since, is dated on that occurrence's due date, and no two such transactions of one transfer share a due date; an occurrence a member marked, made manual or unlinked since, or whose transaction a member edited, stays as the member left it.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-563", "D-491", "R-ACCOUNT-425"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), properties for the walk, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-463",
+      "area": "account",
+      "statement": "A period's key is derived from the previous period's key: a salary early or late, a moved start, and a reopen with the salary recorded again on another day never change a key, and after a change of pay day each period is keyed by its own payday.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-561", "D-490", "R-ACCOUNT-307"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), decision on Q-311 (option 1), 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-464",
+      "area": "account",
+      "statement": "transfer_overview.next_due_date is the due date of the next occurrence the plan will record: the first of the current period due today or later, else the first of the next periods at their projected boundaries; what the catch-up then records agrees with it.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-562", "R-ACCOUNT-314"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 2 (the owner's amendment of D-527), 2026-11-17",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), properties for the walk, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-465",
+      "area": "account",
+      "statement": "In the money flow a linked transfer's share and its transactions are left out of a category group's spending only when the transfer goes to a set-aside account (savings, third pillar, tax reserve, investment); one into an everyday account counts as planned spending and as spent, so the flow's planned and spent agree with the period's summary.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-565", "R-ACCOUNT-422", "R-ACCOUNT-423"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "R-ACCOUNT-466",
+      "area": "account",
+      "statement": "Each spending row of the money flow answers its own remainder, planned spending less spent, negative when overspent; the screens never compute it.",
+      "feature": "F-MONEYFLOW",
+      "status": "active",
+      "enforcement": "test",
+      "related": ["D-567", "R-ACCOUNT-422"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
     },
     {
@@ -12818,18 +12914,27 @@
     {
       "id": "D-424",
       "title": "What the catch-up removes and what stays",
-      "decision": "After a change of the plan the catch-up removes its own marks (and their transactions) whose occurrence is no longer planned or no longer due, and creates the transactions of the automatic linked occurrences due without a mark. It keeps its own mark of an occurrence still planned whatever the new terms: made manual, unlinked, another amount or category (what was recorded on the due date stays; undo leads out). A moved period start is the exception: the catch-up's own marks whose due date the move changed are made again on the new due date (D-491). Ending a transfer turns the catch-up's marks of occurrences it removes into kept marks (by_catch_up false), so nothing recorded goes. A member's mark never goes with a change of the plan: one whose occurrence is no longer planned is listed in the checklist of the period containing its date, flagged (planned false; is_ended when the transfer is not in force there), until undone or until its occurrence is planned again (the salary recorded again).",
+      "decision": "After a change of the plan the catch-up removes its own marks (and their transactions) whose occurrence is no longer planned or no longer due, and creates the transactions of the automatic linked occurrences due without a mark. It keeps its own mark of an occurrence still planned whatever the new terms: made manual, unlinked, another amount or category (what was recorded on the due date stays; undo leads out). A moved period start is the exception: the catch-up's own marks whose due date the move changed are made again on the new due date (D-491). Ending a transfer turns the catch-up's marks of occurrences it removes into kept marks (by_catch_up false), so nothing recorded goes. A member's mark never goes with a change of the plan: one whose occurrence is no longer planned is listed in the checklist of the period containing its date, flagged (planned false; is_ended when the transfer is not in force there), until undone or until its occurrence is planned again (the salary recorded again). Amended by D-563: the catch-up's own transaction, untouched, follows its occurrence's due date whatever moved it; one made manual or unlinked since stays.",
       "why": "The brief's reconcile step, read together with its rule that an occurrence keeps its mark or transaction when the transfer is made manual, corrected or ended: only an occurrence that is gone or not yet due loses the catch-up's transaction.",
       "rejected": [
         "Removing the catch-up's transaction when the transfer is made manual from the current period: the bank did the transfer on its due date.",
         "Removing a member's mark whose occurrence is gone: it would go silently."
       ],
       "status": "accepted",
-      "related": ["R-ACCOUNT-301", "R-ACCOUNT-302", "R-ACCOUNT-305", "D-380", "D-423", "D-491"],
+      "related": [
+        "R-ACCOUNT-301",
+        "R-ACCOUNT-302",
+        "R-ACCOUNT-305",
+        "D-380",
+        "D-423",
+        "D-491",
+        "D-563"
+      ],
       "source": [
         "owner-request: coordinator brief for the step 7 occurrence model redesign, after the independent review of 747686c, 2026-11-16",
         "owner-request: database developer decision for the step 7 occurrence model, within the coordinator's brief, 2026-11-16",
-        "code: supabase/migrations/20261120100000_money_flow.sql"
+        "code: supabase/migrations/20261120100000_money_flow.sql",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17"
       ]
     },
     {
@@ -12964,7 +13069,7 @@
     {
       "id": "D-490",
       "title": "A period is never without a key; occurrences are found by their key",
-      "decision": "Every period has a scheduled pay date as its key (periods.pay_key). When the date the projection gives (the previous period's projected end plus one) is already another period's key (a salary recorded 15 or more days early, then the next one; several salaries in one month), the period takes the next scheduled pay date of the primary income's terms no period has. The key depends only on the earlier periods, so a reopen and the salary recorded again give the same key, and the backfill of existing budgets follows the same rule in order. Because a key can then lie a month or more from its period, every lookup of an occurrence goes by the stored key: the periods that can plan a key are the one whose pay_key it is and the one containing the date, wherever they lie (private.transfer_plan_keys). This covers transfer_planned, the checklist's marks planned elsewhere, the catch-up's check of its own marks, the previews' snapshot of marks, deleting a transaction (not done, not deleted) and end_transfer (a mark still planned is not frozen). When both periods give a transfer the same key, it belongs to the earlier one when both are paydays, and is two occurrences when one is a fixed day (amended by D-521). Answers Q-260.",
+      "decision": "Every period has a scheduled pay date as its key (periods.pay_key), derived from the previous period's key (amended by D-561; it was the previous period's projected end plus one, or the next date no period had): keys strictly increase, so several salaries in one month give as many keys, and a reopen and the salary recorded again give the same key. Because a key can then lie a month or more from its period, every lookup of an occurrence goes by the stored key: the periods that can plan a key are the one whose pay_key it is and the one containing the date, wherever they lie (private.transfer_plan_keys). This covers transfer_planned, the checklist's marks planned elsewhere, the catch-up's check of its own marks, the previews' snapshot of marks, deleting a transaction (not done, not deleted) and end_transfer (a mark still planned is not frozen). When both periods give a transfer the same key, it belongs to the earlier one when both are paydays, and is two occurrences when one is a fixed day (amended by D-521, superseded by D-560: an occurrence is told apart by its kind). Answers Q-260.",
       "why": "With the earlier rule a real payday lost its pay-date transfer after a salary that came 15 or more days early (one transfer for three salaries recorded in one month), and lookups that searched only the neighbouring periods missed keys two periods away: a mark listed twice, deleting its transaction deleted the mark so the catch-up created the transaction again, and ending a transfer froze a mark still planned.",
       "rejected": [
         "Keying such a period by its actual start: a key is then not stable across a reopen and the salary recorded on another day.",
@@ -12980,40 +13085,44 @@
         "R-ACCOUNT-307",
         "R-ACCOUNT-240",
         "Q-260",
-        "D-521"
+        "D-521",
+        "D-561",
+        "D-560"
       ],
       "source": [
         "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M1 with C1, 2026-11-16",
-        "code: supabase/migrations/20261120100000_money_flow.sql"
+        "code: supabase/migrations/20261120100000_money_flow.sql",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), decision on Q-311 (option 1), 2026-11-17"
       ]
     },
     {
       "id": "D-491",
       "title": "Moving a period's start moves what the app recorded by itself and nobody touched (reworded)",
-      "decision": "After move_period_start, an automatic transaction the catch-up made for an occurrence of the two periods whose boundary moved, and that nobody changed since, sits on the occurrence's new due date, in the right period, exactly as after a reopen and the salary recorded on that day: the catch-up's own mark (by_catch_up) whose done date is not the new due date goes with its transaction and the catch-up makes it again (on the new due date, at the terms in force there; when that date is still ahead, once it is due). What a member touched stays exactly as the member left it: a mark of their own (done or skipped by hand, with its date), an occurrence made manual since, and a transaction edited by a member (amount, description, date or category). A move to the start the period already has changes nothing. preview_move_period_start counts each moved transaction once removed and once created. The move's refusal for a debt's interest (interest_before_opening, D-467) is answered by the preview as by the write, with every count 0. Reworded in the last database fix round (the owner's decision: a moved start leaves what a member touched).",
+      "decision": "After move_period_start, an automatic transaction the catch-up made for an occurrence of the two periods whose boundary moved, and that nobody changed since, sits on the occurrence's new due date, in the right period, exactly as after a reopen and the salary recorded on that day: the catch-up's own mark (by_catch_up) whose done date is not the new due date goes with its transaction and the catch-up makes it again (on the new due date, at the terms in force there; when that date is still ahead, once it is due). What a member touched stays exactly as the member left it: a mark of their own (done or skipped by hand, with its date), an occurrence made manual since, and a transaction edited by a member (amount, description, date or category). A move to the start the period already has changes nothing. preview_move_period_start counts each moved transaction once removed and once created. The move's refusal for a debt's interest (interest_before_opening, D-467) is answered by the preview as by the write, with every count 0. Reworded in the last database fix round (the owner's decision: a moved start leaves what a member touched). Amended by D-563: the catch-up's own transaction, untouched, follows its occurrence's due date whatever moved it; one made manual or unlinked since stays.",
       "why": "The member says when the salary really came; the standing order the app recorded on the old day then showed two transfers in the period before and none in the moved one, with a checklist row done before the period started, while saying the same thing another way (reopen, then record the salary) dated it on the new day.",
       "rejected": [
         "Keeping the transaction on its old date (D-424 as first written): the two ways to say when the salary came gave different budgets.",
         "Re-dating the transaction in place: a move would then keep an amount the terms no longer give, unlike a reopen and the salary recorded again."
       ],
       "status": "accepted",
-      "related": ["D-424", "D-430", "D-467", "R-ACCOUNT-309", "R-PERIOD-100"],
+      "related": ["D-424", "D-430", "D-467", "R-ACCOUNT-309", "R-PERIOD-100", "D-563"],
       "source": [
         "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), M3, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql",
-        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17"
+        "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17"
       ]
     },
     {
       "id": "D-492",
       "title": "Ending a chosen income never rewrites what is already recorded",
-      "decision": "When the income a pay-date transfer chose ends from the current period (remove_income, remove_member, leave_budget), the day it ended is kept (incomes.ended_on). In that period the transfer keeps the income's occurrences due on or before that day, with their marks and transactions, and has the primary's occurrence only if it was not due yet that day; from the next period it follows the primary income. Ended from an earlier period (a correction) or deleted outright (D-426), the transfer follows the primary income in those periods as before. Deleted outright in the current period (added and removed in it), the same holds: what the catch-up recorded for it in that period up to that day stays (kept like a member's mark), and the primary's occurrence of that period is planned only if it was not due yet that day (transfer_versions.income_gone_on; extended in the last database fix round).",
+      "decision": "When the income a pay-date transfer chose ends from the current period (remove_income, remove_member, leave_budget), the day it ended is kept (incomes.ended_on). In that period the transfer keeps the income's occurrences due on or before that day, with their marks and transactions, and has the primary's occurrence only if it was not due yet that day; from the next period it follows the primary income. Ended from an earlier period (a correction) or deleted outright (D-426), the transfer follows the primary income in those periods as before. Deleted outright in the current period (added and removed in it), the same holds: what the catch-up recorded for it in that period up to that day stays (kept like a member's mark), and the primary's occurrence of that period is planned only if it was not due yet that day (transfer_versions.income_gone_on; extended in the last database fix round). Amended by D-564: the guard of an income deleted outright is kept on the transfer by period, not on its terms by date.",
       "why": "Ending the income after its transfer was made removed that transaction and recorded one dated weeks earlier for the primary salary, with no preview for these calls.",
       "rejected": [
         "A preview for remove_income, remove_member and leave_budget: with nothing rewritten there is nothing for it to announce about the transfers."
       ],
       "status": "accepted",
-      "related": ["D-426", "D-424", "R-ACCOUNT-311"],
+      "related": ["D-426", "D-424", "R-ACCOUNT-311", "D-564"],
       "source": [
         "owner-request: coordinator decisions on the independent review of the step 7 redesign (2264e82), S2, 2026-11-16",
         "code: supabase/migrations/20261120100000_money_flow.sql",
@@ -13245,12 +13354,13 @@
         "Re-keying the earlier period's occurrence: its mark and transaction were already recorded under that key.",
         "Separate key spaces for pay-date and fixed-day occurrences everywhere: an edit from a payday to a fixed day on the same date would then lose its mark (R-ACCOUNT-305)."
       ],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["D-420", "D-490", "D-424", "R-ACCOUNT-421"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), must-fix 1, 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
-      ]
+      ],
+      "supersededBy": "D-560"
     },
     {
       "id": "D-522",
@@ -13286,18 +13396,19 @@
     {
       "id": "D-524",
       "title": "The money flow ends at spending, not at the accounts (answers Q-301)",
-      "decision": "get_money_flow keeps its rows and columns and adds: per account `spendable` (current, cash, credit_card and other are everyday accounts whose remainder is spendable; savings, third_pillar, tax_reserve and investment are set aside); rows of kind 'spending', one per top-level category planned or spent in the period (id, name, expected at the monthly share, transfer_share = the monthly share of planned transfers linked to it, at most expected, amount = expected - transfer_share, yearly_amount, spent = the period's net spending less transfer_spent, the transactions of those transfers, display_order, is_negative when spent exceeds amount); and on the total row set_aside, spendable_amount, planned_spending, not_planned, actual_spending and left_amount. Expenses are not tied to accounts: the screens draw spending out of the pooled spendable remainder. Every row is answered, with no aggregate row (the owner: the page draws the largest and points to the tables); account rows carry created_at and transfer rows the transfer id, spending rows the category id and display order, so the screens order colours by creation. Left is one pooled figure for the spendable accounts, planned and actual. At most 1000 rows: only a past period filled by corrections can pass it; then the last spending rows are left out and the total row counts them (spending_rows_omitted), its totals still covering them.",
+      "decision": "get_money_flow keeps its rows and columns and adds: per account `spendable` (current, cash, credit_card and other are everyday accounts whose remainder is spendable; savings, third_pillar, tax_reserve and investment are set aside); rows of kind 'spending', one per top-level category planned or spent in the period (id, name, expected at the monthly share, transfer_share = the monthly share of planned transfers linked to it, at most expected, amount = expected - transfer_share, yearly_amount, spent = the period's net spending less transfer_spent, the transactions of those transfers, display_order, is_negative when spent exceeds amount); and on the total row set_aside, spendable_amount, planned_spending, not_planned, actual_spending and left_amount. Expenses are not tied to accounts: the screens draw spending out of the pooled spendable remainder. Every row is answered, with no aggregate row (the owner: the page draws the largest and points to the tables); account rows carry created_at and transfer rows the transfer id, spending rows the category id and display order, so the screens order colours by creation. Left is one pooled figure for the spendable accounts, planned and actual. At most 1000 rows: only a past period filled by corrections can pass it; then the last spending rows are left out and the total row counts them (spending_rows_omitted), its totals still covering them. Amended by D-565: the share and the transactions of a linked transfer are left out of a group's spending only when the transfer's destination is a set-aside account; and by D-567: a spending row answers its own left_amount.",
       "why": "The owner's brief asks the diagram to show where the money goes and what is left; the read stopped at the accounts (Q-301). Leaving out the transfers' category share and their transactions keeps the same francs from showing twice, once as a transfer and once as spending. Every figure is the database's (C-LOGIC-003).",
       "rejected": [
         "Tying expenses to an account: transactions carry no account and will not.",
         "Leaving 'other' accounts out of spendable: an unknown kind is more likely an everyday one, and the screens can still show it."
       ],
       "status": "accepted",
-      "related": ["Q-301", "R-ACCOUNT-422", "R-ACCOUNT-423", "D-356", "D-503"],
+      "related": ["Q-301", "R-ACCOUNT-422", "R-ACCOUNT-423", "D-356", "D-503", "D-565", "D-567"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql",
-        "owner-request: coordinator follow-up for the money flow screens (no aggregate row, pooled left, stable order), 2026-11-17"
+        "owner-request: coordinator follow-up for the money flow screens (no aggregate row, pooled left, stable order), 2026-11-17",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17"
       ]
     },
     {
@@ -13331,16 +13442,17 @@
     {
       "id": "D-527",
       "title": "A primary switch counts for the transfers from the next period (amends D-490 and R-ACCOUNT-310)",
-      "decision": "The primary income's history is kept per period (private.primary_incomes, by the budgets row's trigger; a reopen of the period a switch was made in moves it with primary_since_seq). For the transfers, a switch made in a period counts from the next period: in the period it is made in, a transfer naming the old primary keeps its scheduled-pay-date occurrence and one naming the new primary its own pay dates, so nothing that period planned or recorded changes; from the next period a transfer naming the old primary follows that income's own pay dates, one naming the new primary the scheduled pay dates. The periods' boundaries follow the switch at once, as before (D-396).",
+      "decision": "The primary income's history is kept per period (private.primary_incomes, by the budgets row's trigger; a reopen of the period a switch was made in moves it with primary_since_seq). For the transfers, a switch made in a period counts from the next period: in the period it is made in, a transfer naming the old primary keeps its scheduled-pay-date occurrence and one naming the new primary its own pay dates, so nothing that period planned or recorded changes; from the next period a transfer naming the old primary follows that income's own pay dates, one naming the new primary the scheduled pay dates. The periods' boundaries follow the switch at once, as before (D-396). Amended by D-562 (the owner): pay dates of either income after the switch day are all planned, the old primary's in the switch period as a non-primary income's, and the new primary's first period after the switch has its own occurrence.",
       "why": "\"Is the primary\" was answered from today's primary for every period: a switch re-planned the past of a transfer that named the old primary (removed the 25 Nov transaction, a past period lost its row, marks went stale) while the preview said 0 / 0 / 0 (re-check 3, step 7 should-fix 2). Counting it from the switch's own period would still rewrite that period's recorded occurrences.",
       "rejected": [
         "Counting the switch from its own period with a history: the current period, whose occurrences are already due and recorded, would still be re-planned."
       ],
       "status": "accepted",
-      "related": ["R-ACCOUNT-428", "R-ACCOUNT-310", "D-490"],
+      "related": ["R-ACCOUNT-428", "R-ACCOUNT-310", "D-490", "D-562"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17",
-        "code: supabase/migrations/20261120100000_money_flow.sql"
+        "code: supabase/migrations/20261120100000_money_flow.sql",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 2 (the owner's amendment of D-527), 2026-11-17"
       ]
     },
     {
@@ -13349,12 +13461,13 @@
       "decision": "A period whose scheduled pay date was taken gets the next one no period has (D-490); it records so (periods.pay_key_shifted). Such a key is not that period's payday, so when a chosen income's pay date in another period equals it, the two are different transfers (both planned, the later told apart by key_shared), not the same payday.",
       "why": "After a primary switch, a transfer naming the old primary followed its pay date of 25 Dec in a period while the period before was keyed 25 Dec by a shift: the 25 Dec transfer was dropped as the same payday.",
       "rejected": [],
-      "status": "accepted",
+      "status": "superseded",
       "related": ["D-521", "D-490", "R-ACCOUNT-421"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17",
         "code: supabase/migrations/20261120100000_money_flow.sql"
-      ]
+      ],
+      "supersededBy": "D-560"
     },
     {
       "id": "D-540",
@@ -13488,6 +13601,158 @@
       "related": ["D-525", "R-TRANSACTION-441"],
       "source": [
         "owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17"
+      ]
+    },
+    {
+      "id": "D-560",
+      "title": "An occurrence is told apart by the kind of date that produced its key (supersedes D-521 and D-528)",
+      "decision": "An occurrence of a planned transfer is identified by its transfer, its key and its kind (transfer_occurrences.kind), a property of the occurrence itself: 'payday' (the salary that started a period, keyed by the period's scheduled pay date), 'income_payday' (a chosen income's pay date in a period where it is not the primary, keyed by that date) or 'fixed_day' (a fixed-day date). A mark stores the kind of the occurrence it was made for, so no other occurrence appearing or going away changes which mark is whose. Keys of one kind are unique to a transfer (period keys are unique, a date lies in one period). Two periods give a transfer the same payday only as one income's salary that started a period ('payday', keyed d) and that same income's own pay date d in another period ('income_payday': the income became or stopped being the primary): that is one occurrence, listed by the earlier period, when the salary came late (its key lies before its period's start: that scheduled pay date came late), or early by less than the projection's 15 days; a salary 15 days or more before its key is another salary, an extra one in a month (two paydays, two occurrences). Two different incomes paid the same day are two paydays (a transfer moved from one to the other can run on each; it was one occurrence before, D-420); and in the period a switch is made in, the old primary's own pay date equal to that period's key is left out only under the same 15 days. A payday and a fixed day with one key are always two occurrences. An edit that changes the kind of an occurrence on the same date in the same period (a payday made a fixed day on that date, a chosen income's pay date made the period's own payday, or back) carries its mark, and so its transaction, over to the new kind, when the old occurrence is planned nowhere else and the new one has no mark of its own (R-ACCOUNT-305 kept). Checklist rows carry occurrence_kind, and mark_transfer_done, skip_transfer, mark_transfer_not_done and undo_transfer_mark take an optional p_occurrence_kind: a period lists at most one row per key and kind, so key and kind name every row, two marks no longer planned with one key included; occurrence_required answers only when a period lists several rows of the transfer and the call names fewer.",
+      "why": "key_shared was worked out from the plan each time it was read but stored on a mark as a fact: when the earlier of two occurrences with one key went away, or appeared later, the other one took the wrong mark. A correction from the period 5 Feb removed the 5 Mar transaction and listed the 5 Feb one as the 5 Mar occurrence, a reopen did the same, the other way round two transactions were dated 5 Mar and none 5 Feb, and by hand two marks were left that no call could undo (re-check 4, must-fix 1).",
+      "rejected": [
+        "The later of two occurrences with one key (key_shared): not a property of the occurrence, it changes when the other one comes or goes.",
+        "The period an occurrence belongs to: a reopen deletes periods, and a moved start or a salary recorded on another day moves the period containing a date.",
+        "Two kinds only (payday and fixed day): after an early salary a period's key can equal a later pay date of the same income once it is no longer the primary (the D-528 case), and two real paydays would share one identity.",
+        "Separate kinds without carrying a mark over on an edit: an edit from payday to a fixed day on the same date in the same period would lose its mark (R-ACCOUNT-305).",
+        "Merging the pay dates of two different incomes that share a date (D-420 as first written): the household counts each income's paydays (D-562), so a pay date of the income a transfer names would be dropped for another income's salary."
+      ],
+      "status": "accepted",
+      "related": [
+        "D-420",
+        "D-490",
+        "D-521",
+        "D-528",
+        "R-ACCOUNT-460",
+        "R-ACCOUNT-421",
+        "R-ACCOUNT-305",
+        "R-ACCOUNT-301"
+      ],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-561",
+      "title": "A period's key is derived from the previous period's key (answers Q-311; amends D-490)",
+      "decision": "Every period's key (periods.pay_key) is the scheduled pay date of the salary that started it, derived when the period is created from the previous period's key, never from its start. While the primary income and its pay dates stay the same (the previous key is a pay date of the terms in force for the new period), it is the next scheduled pay date after the previous key. When they changed (a new pay day, another income made the primary), it is the first pay date of the new terms after the previous key that is no more than the projection's 15 days before the new period's start and, after a primary switch, after the switch day (D-562). The first period's key is its start. Keys strictly increase with the periods, so they are unique without a search for a free date and none is shifted (periods.pay_key_shifted is dropped). A salary early or late, a moved start, a reopen and the salary recorded again on another day never change a key. Nothing is deployed (D-450), so every existing key may have changed once.",
+      "why": "The owner's decision on Q-311 (option 1): keys stay the same when a start moved later and the next period is reopened and its salary recorded again (scen7c I2: the mark made by hand stays planned, the December transfer is not to do again), and after a change of pay day the keys return to their own periods instead of naming the next payday for good, the standing condition behind must-fix 1.",
+      "rejected": [
+        "Deriving from the previous period's start (D-490 as first written): a moved start or a salary recorded again on another day changes the key, and after a change of pay day every key names the next payday for good.",
+        "The next pay date after the previous key also at a change of pay day: a change from the 25th to the 26th would key the December salary 26 Nov, a month early for good.",
+        "Remembering the keys of a reopened period's successors (Q-311 option 2): more state for the same result."
+      ],
+      "status": "accepted",
+      "related": ["Q-311", "D-490", "D-420", "D-562", "R-ACCOUNT-463", "R-ACCOUNT-307"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), decision on Q-311 (option 1), 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-562",
+      "title": "A pay-date transfer happens once per pay date of its income, whatever the primary does (amends D-527)",
+      "decision": "The owner's rule: a transfer on payday of an income happens once for every pay date of that income from the transfer's first date on, whichever income is the primary and however often the primary changes; never zero times and never twice. How the occurrence is keyed and which period lists it is an implementation matter. A switch still counts for the transfers from the period after the one it is made in and never rewrites what is already recorded or marked (D-527 kept for that). Pay dates of either income after the switch day are all planned: in the switch period a transfer naming the old primary keeps that period's own payday and also has the old primary's pay dates after the switch day, as a non-primary income's are; the new primary's first period after the switch is keyed by its first pay date after the switch day (D-561), so a pay date the switch period planned as the new primary's own is never taken for it. private.primary_incomes keeps the switch day (switched_on). A transfer naming no income follows the primary: one occurrence per period. transfer_overview.next_due_date and what the catch-up then records come from the same plan (R-ACCOUNT-464). preview_set_primary_income runs the switch and answers what is true, something due at once included.",
+      "why": "Re-check 4, must-fix 2: after a switch on 12 Dec from Ann (paid on the 25th) to Ben (the 10th), Ann's 25 Dec and Ben's 10 Jan were never recorded although both were paid, and next_due_date said 10 Jan.",
+      "rejected": [
+        "Counting the switch from its own period: the current period's occurrences, already due and recorded, would be re-planned (D-527).",
+        "Leaving the old primary's later pay dates to the next period: the stretched switch period contains them, and the next period starts after them."
+      ],
+      "status": "accepted",
+      "related": ["D-527", "D-561", "R-ACCOUNT-428", "R-ACCOUNT-461", "R-ACCOUNT-464"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 2 (the owner's amendment of D-527), 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-563",
+      "title": "What the app recorded by itself sits on its occurrence's due date (amends D-424 and D-491)",
+      "decision": "A transaction the catch-up made for an automatic linked occurrence, which nobody touched since, is dated on that occurrence's due date, always. When the due date moves for any reason (a moved start, a salary early or late that moved a period's end and so capped an offset, another offset, the same payday now listed by another period, a kind carried over by an edit), the catch-up's own mark goes with its transaction and is made again on the new due date at the terms in force there (once due, when that date is still ahead). Left exactly as the member left it: a mark of their own, an occurrence made manual or unlinked from its category since (should-fix 5), a transaction a member edited (its revision moved). One rule, in the catch-up; move_period_start relies on it. D-424's 'keeps its own mark of an occurrence still planned whatever the new terms' now holds for everything but the date.",
+      "why": "The owner's requirement in re-check 4: an untouched app transaction is always on its occurrence's due date; the reviewer noted an offset transaction left on its old date after an early salary shortened its period, and a start moved after the transfer was unlinked removed the transaction and did not make it again.",
+      "rejected": [
+        "Re-dating in place: the amount and category would then not be the terms in force on the new date, unlike a reopen and the salary recorded again (as D-491).",
+        "Re-dating only at a moved start (D-491 as worded): every other change of a due date left transactions off their dates."
+      ],
+      "status": "accepted",
+      "related": ["D-424", "D-491", "R-ACCOUNT-462", "R-ACCOUNT-425"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17",
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fixes, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-564",
+      "title": "The guard of an income deleted outright belongs to its period (amends D-492)",
+      "decision": "When an income a pay-date transfer chose is deleted outright in the current period (added and removed in it), the transfer remembers the day and the period (transfers.income_gone_on and income_gone_seq, moved from transfer_versions.income_gone_on): the primary's occurrence of that period is planned only if it was not due yet that day, whatever terms are in force there later (an edit made in the next period, moved into it by a reopen) and wherever that day lies once a salary is recorded (a salary recorded on an earlier day moves the day into the new period, not the guard).",
+      "why": "Re-check 4 (sc/k2_edge): after an edit in the next period and a reopen of it, a transaction dated a month back appeared at the new amount; and after the salary was recorded the day before the removal, the old period planned its payday again (a transaction dated 25 Oct) while the new period had no row.",
+      "rejected": [
+        "Copying the day into each later version: a reopen deletes the earlier version, and the day would still be compared with the new period's boundaries."
+      ],
+      "status": "accepted",
+      "related": ["D-492", "D-426", "R-ACCOUNT-427"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fixes, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-566",
+      "title": "The primary's history is read by members, through functions that run as the caller",
+      "decision": "private.income_is_primary_at, private.primary_income_at and private.primary_switch_day run with the caller's rights (security invoker), and private.primary_incomes has row-level security with one policy: a member reads their budgets' rows (the shared membership helper); nobody writes it but the budgets row's trigger. The plan reads the history through the security-invoker views (transfer_overview and the others) and the definer functions alike, with the same answers; another user reads no row of a budget they are not a member of, and an anonymous visitor cannot read it.",
+      "why": "The reviewer (re-check 4): private.income_is_primary_at was security definer and executable by any signed-in role, so it answered for any income id. The views that plan transfers run as the caller and need the history, so execute could not simply be revoked.",
+      "rejected": [
+        "Revoking execute: the security-invoker views read through it as the member.",
+        "A membership check inside a definer function: the catch-up and the tests also run it with no signed-in user."
+      ],
+      "status": "accepted",
+      "related": ["D-527", "C-RLS-001", "C-RLS-003", "R-ACCOUNT-428"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), contract and small things, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-568",
+      "title": "The create and edit previews say which occurrences are already recorded (answers Q-322)",
+      "decision": "preview_create_transfer and preview_update_transfer answer, on every row, occurrence_kind (as a checklist row) and already_recorded: the occurrence had a mark (done, skipped or not done, a member's or the catch-up's) before the change and the change keeps it, so what was recorded stays as it is (an amount edit does not change a transaction already made). False on projected rows and on the row with the counts only.",
+      "why": "Q-322: after an amount edit the preview listed this period's recorded occurrence at the new amount with nothing saying it was already recorded. The previews already compare the marks before and after the write (D-428), so the flag costs one lookup per row and is exact.",
+      "rejected": [],
+      "status": "accepted",
+      "related": ["Q-322", "D-428", "R-ACCOUNT-303"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), contract and small things, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-565",
+      "title": "Only a transfer into a set-aside account leaves the spendable pool (amends D-524)",
+      "decision": "In get_money_flow a linked transfer's monthly share (transfer_share) and its transactions (transfer_spent) are left out of a category group's spending only when the transfer's destination account (its terms in the period) is a set-aside kind: savings, third_pillar, tax_reserve or investment. A linked transfer into an everyday account (current, cash, credit_card, other: a cash wallet) never leaves the spendable pool: its share is planned spending and its transactions are spent, like any other. The three balances stay exact: income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; planned and spent then agree with period_summaries.",
+      "why": "Re-check 4 (sc/f1_flow F2): Main to Cash 500.00 'Pocket money', linked to the category Pocket money: the flow said planned 800.00 and spent 300.00 while the period summary said 1 300.00 and 800.00; the 500.00 was in neither set aside nor spending.",
+      "rejected": [
+        "Leaving out every linked transfer (D-524 as first worded): a transfer that stays in the pool then disappears from both sides."
+      ],
+      "status": "accepted",
+      "related": ["D-524", "R-ACCOUNT-422", "R-ACCOUNT-423", "R-ACCOUNT-465"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
+      ]
+    },
+    {
+      "id": "D-567",
+      "title": "A spending row answers its own remainder (answers Q-321)",
+      "decision": "get_money_flow's 'spending' rows answer left_amount = amount - spent (the planned spending less what was spent, on the actual basis): negative when overspent (is_negative), 0 when exactly spent. The column already exists on the total row (the pooled left); no new column. The screens show it as the database's figure and never subtract (C-LOGIC-003).",
+      "why": "Q-321: the design's actual table had a 'Left' column per group, which the page may not compute itself; one column the read already has costs nothing.",
+      "rejected": [
+        "A floor at 0: an overspent group would look exactly spent, while is_negative says otherwise."
+      ],
+      "status": "accepted",
+      "related": ["Q-321", "D-524", "R-ACCOUNT-422", "R-ACCOUNT-466"],
+      "source": [
+        "owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17",
+        "code: supabase/migrations/20261120100000_money_flow.sql"
       ]
     },
     {
@@ -14816,11 +15081,12 @@
       "id": "Q-311",
       "question": "Should a period's key be derived from the previous period's key (the next scheduled pay date after it) rather than from the previous period's start, so that keys stay the same when a start moved later and the period after it is reopened and its salary recorded again?",
       "context": "A key is derived from the earlier periods (D-490): the previous period's projected end from its start. After a start moved more than 15 days later (the November salary on 12 Dec), the December period keyed 25 Dec, reopened and recorded again on 28 Dec, is keyed 25 Jan: a mark made by hand is no longer planned and the December transfer is to do again (re-check 3, scen7c I2). The same derivation keys every period with the next payday for good after a change of pay day. Options: (1) derive the key from the previous period's key (stable across moved starts and ends the shift after a pay-day change; every existing key may change once, nothing is deployed); (2) remember the keys of a reopened period's successors and give them back when the salary is recorded again; (3) leave it (a rare sequence; the mark stays listed and can be undone).",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-490", "D-420", "R-ACCOUNT-307"],
       "source": [
         "owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), step 7 should-fixes, 2026-11-17"
-      ]
+      ],
+      "resolvedBy": "D-561"
     },
     {
       "id": "Q-320",
@@ -14836,21 +15102,23 @@
       "id": "Q-321",
       "question": "Should get_money_flow answer a per-group remainder (\"left\" of a group: planned less spent) for the actual view's spending table?",
       "context": "The design's spending table had a \"Left\" column per group on the actual basis. The read gives each group's amount and spent but no remainder per group, and the page must not subtract (C-LOGIC-003), so the table shows Planned and Spent with the over-plan warning (is_negative) only. A column would need a field from the read.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-524", "R-ACCOUNT-422", "D-545"],
       "source": [
         "owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17"
-      ]
+      ],
+      "resolvedBy": "D-567"
     },
     {
       "id": "Q-322",
       "question": "Should preview_update_transfer say, per occurrence, that it is already recorded (a transaction or a mark kept at the old terms), so the edit preview can say so?",
       "context": "The review's can-wait: after an amount edit the preview lists this period's already-recorded occurrence at the new amount with no mark, while its transaction keeps the old amount. The preview rows carry created_at_once, transactions_removed_count and marks_unplanned_count but nothing that says an occurrence is already recorded and stays as it is.",
-      "status": "open",
+      "status": "resolved",
       "related": ["D-502", "R-ACCOUNT-303"],
       "source": [
         "owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17"
-      ]
+      ],
+      "resolvedBy": "D-568"
     }
   ]
 }

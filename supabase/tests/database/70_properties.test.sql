@@ -53,6 +53,13 @@
 --     runs before its change). The previews of creating, editing and ending a transfer equal
 --     what the write then does, counts included. The budget is caught up (ensure_periods until
 --     0) after every operation before the checks.
+--   * fix round 4, properties stated from the household's side, computed without the plan
+--     functions (tests.household_violations): every income a pay-date transfer names gets one
+--     occurrence per payday, none missing, none twice (R-ACCOUNT-461); every untouched transaction
+--     the app recorded sits on its occurrence's due date, never two on one date (R-ACCOUNT-462);
+--     next_due_date is the next occurrence the plan records (R-ACCOUNT-464); and every 6th step,
+--     every mark a checklist shows is undone by one call built from its row (pg_temp.undo_probe,
+--     R-ACCOUNT-460).
 -- Closed totals now include the committed total. Before each step the budget is opened (its
 -- catch-up runs), so the charges a long absence left due count as what the budget held.
 begin;
@@ -210,18 +217,56 @@ begin
   return a;
 end;
 $$;
+-- Fix round 4, property 3 (R-ACCOUNT-301, R-ACCOUNT-460): every mark a checklist shows (a member's,
+-- not the catch-up's transaction, which is the unmarked state) is undone by one call built only
+-- from what its row shows (transfer, period, mark revision, key, kind); afterwards that row is
+-- unmarked (a manual one to do, an automatic one upcoming or assumed done), or gone when it was no
+-- longer planned. Each undo is rolled back. Call it as the member.
+create or replace function pg_temp.undo_probe(b uuid) returns setof text language plpgsql as $$
+declare
+  r record;
+  v_rows integer;
+  v_left integer;
+  v_status text;
+begin
+  for r in select p.id as pid, c.transfer_id, c.occurrence_date, c.occurrence_kind, c.mark_revision, c.planned, c.is_automatic
+           from public.periods as p cross join lateral public.get_transfer_checklist(p.id) as c
+           where p.budget_id = b and c.mark_revision > 0 and not c.assumed
+           order by p.seq, c.transfer_id, c.occurrence_date, c.occurrence_kind loop
+    begin
+      perform public.undo_transfer_mark(r.transfer_id, r.pid, r.mark_revision, r.occurrence_date, r.occurrence_kind);
+      select count(*)::integer, count(*) filter (where c.mark_revision > 0 and not c.assumed)::integer, min(c.status)
+      into v_rows, v_left, v_status
+      from public.get_transfer_checklist(r.pid) as c
+      where c.transfer_id = r.transfer_id and c.occurrence_date = r.occurrence_date and c.occurrence_kind = r.occurrence_kind;
+      if not r.planned and v_rows <> 0 then
+        return next format('undo of an unplanned mark (transfer %s, key %s, %s): the row is still listed', r.transfer_id,
+                           r.occurrence_date, r.occurrence_kind);
+      elsif r.planned and (v_rows <> 1 or v_left <> 0 or (not r.is_automatic and v_status <> 'to_do')) then
+        return next format('undo of a mark (transfer %s, key %s, %s): afterwards %s rows, %s marked, status %s', r.transfer_id,
+                           r.occurrence_date, r.occurrence_kind, v_rows, v_left, v_status);
+      end if;
+      raise exception 'probe' using errcode = 'P0050';
+    exception
+      when sqlstate 'P0050' then null;  -- rolled back
+      when others then
+        return next format('undo of a mark (transfer %s, key %s, %s, revision %s, planned %s) refused: %s', r.transfer_id,
+                           r.occurrence_date, r.occurrence_kind, r.mark_revision, r.planned, sqlerrm);
+    end;
+  end loop;
+end $$;
 -- Step 7 model: every transaction of a transfer the run has not seen yet; one the catch-up
 -- made is checked once, when first seen, against a naive occurrence (tests.naive_occurrences: its
 -- key, due date and the amount and category of the terms in force in its period), as the model
 -- gave it before the step's operation (naive_snap) or gives it now; then all are recorded (as
 -- transactions the run may pick), by key, then by when the run made the transfer.
 create temp table naive_snap (transfer_id uuid, occurrence_date date, due_date date, amount bigint, category_id uuid,
-                              is_automatic boolean, key_shared boolean) on commit drop;
+                              is_automatic boolean, kind public.transfer_occurrence_kind) on commit drop;
 grant select, insert, delete on naive_snap to authenticated;
 create or replace function pg_temp.snap_naive(b uuid) returns void language sql as $$
   delete from naive_snap;
   insert into naive_snap select n.transfer_id, n.occurrence_date, n.due_date, n.amount, n.category_id, n.is_automatic,
-                                n.key_shared
+                                n.kind
   from tests.naive_occurrences(b) as n;
 $$;
 create or replace function pg_temp.transfer_oracle(b uuid) returns setof text language plpgsql as $$
@@ -236,9 +281,9 @@ begin
     join public.transfer_occurrences as o on o.id = x.transfer_occurrence_id
     join public.transfers as t on t.id = o.transfer_id
     left join tests.naive_occurrences(b) as n
-      on n.transfer_id = o.transfer_id and n.occurrence_date = o.occurrence_date and n.key_shared = o.key_shared
+      on n.transfer_id = o.transfer_id and n.occurrence_date = o.occurrence_date and n.kind = o.kind
     left join naive_snap as s
-      on s.transfer_id = o.transfer_id and s.occurrence_date = o.occurrence_date and s.key_shared = o.key_shared
+      on s.transfer_id = o.transfer_id and s.occurrence_date = o.occurrence_date and s.kind = o.kind
     where x.budget_id = b and o.by_catch_up and not exists (select 1 from made as m where m.id = x.id)
   loop
     if not ((r.date = r.due and r.amount = r.planned and r.category_id is not distinct from r.planned_category and r.is_automatic)
@@ -1514,9 +1559,18 @@ begin
         insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
       end loop;
       perform tests.clear_authentication();
-      for v_problem in select tests.moneyflow_violations(v_budget) union all select pg_temp.transfer_oracle(v_budget) loop
+      for v_problem in select tests.moneyflow_violations(v_budget) union all select pg_temp.transfer_oracle(v_budget)
+                       union all select tests.household_violations(v_budget) loop
         insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
       end loop;
+      -- fix round 4, property 3: every 6th step and the last, every mark is undone from its row
+      if v_step % 6 = 0 or v_step = v_steps then
+        perform tests.authenticate_as(v_user);
+        for v_problem in select pg_temp.undo_probe(v_budget) loop
+          insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
+        end loop;
+        perform tests.clear_authentication();
+      end if;
       for v_problem in select pg_temp.charge_oracle(v_budget) union all select pg_temp.interest_oracle(v_budget)
                        union all select pg_temp.projection_oracle(v_budget) loop
         insert into failures values (v_seed, v_step, v_name, v_op, v_problem);
@@ -1558,7 +1612,7 @@ $prop$;
 
 select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
-  'R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130 R-COMPARE-002 R-COMPARE-070 R-COMPARE-071 R-COMPARE-170: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
+  'R-ACCOUNT-460 R-ACCOUNT-461 R-ACCOUNT-462 R-ACCOUNT-464 R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130 R-COMPARE-002 R-COMPARE-070 R-COMPARE-071 R-COMPARE-170: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
 );
 select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
   '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');

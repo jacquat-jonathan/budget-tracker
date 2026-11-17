@@ -599,14 +599,14 @@ isOneToOne: false
                   ]
                 },"periods": {
                   Row: {
-                    "budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"pay_key": string | null,"pay_key_shifted": boolean,"revision": number,"seq": number,"start_date": string,"updated_at": string
+                    "budget_id": string,"created_at": string,"end_date": string,"end_is_manual": boolean,"id": string,"pay_key": string | null,"revision": number,"seq": number,"start_date": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"pay_key"?: string | null,"pay_key_shifted"?: boolean,"revision"?: number,"seq": number,"start_date": string,"updated_at"?: string
+                    "budget_id": string,"created_at"?: string,"end_date": string,"end_is_manual"?: boolean,"id"?: string,"pay_key"?: string | null,"revision"?: number,"seq": number,"start_date": string,"updated_at"?: string
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"pay_key"?: string | null,"pay_key_shifted"?: boolean,"revision"?: number,"seq"?: number,"start_date"?: string,"updated_at"?: string
+                    "budget_id"?: string,"created_at"?: string,"end_date"?: string,"end_is_manual"?: boolean,"id"?: string,"pay_key"?: string | null,"revision"?: number,"seq"?: number,"start_date"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -795,14 +795,14 @@ isOneToOne: false
                   ]
                 },"transfer_occurrences": {
                   Row: {
-                    "amount": number | null,"budget_id": string,"by_catch_up": boolean,"created_at": string,"done_on": string | null,"id": string,"key_shared": boolean,"mark": Database["public"]['Enums']["transfer_mark"],"occurrence_date": string,"recorded_by": string | null,"revision": number,"transfer_id": string,"updated_at": string
+                    "amount": number | null,"budget_id": string,"by_catch_up": boolean,"created_at": string,"done_on": string | null,"id": string,"kind": Database["public"]['Enums']["transfer_occurrence_kind"],"mark": Database["public"]['Enums']["transfer_mark"],"occurrence_date": string,"recorded_by": string | null,"revision": number,"transfer_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount"?: number | null,"budget_id": string,"by_catch_up"?: boolean,"created_at"?: string,"done_on"?: string | null,"id"?: string,"key_shared"?: boolean,"mark": Database["public"]['Enums']["transfer_mark"],"occurrence_date": string,"recorded_by"?: string | null,"revision"?: number,"transfer_id": string,"updated_at"?: string
+                    "amount"?: number | null,"budget_id": string,"by_catch_up"?: boolean,"created_at"?: string,"done_on"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["transfer_occurrence_kind"],"mark": Database["public"]['Enums']["transfer_mark"],"occurrence_date": string,"recorded_by"?: string | null,"revision"?: number,"transfer_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "amount"?: number | null,"budget_id"?: string,"by_catch_up"?: boolean,"created_at"?: string,"done_on"?: string | null,"id"?: string,"key_shared"?: boolean,"mark"?: Database["public"]['Enums']["transfer_mark"],"occurrence_date"?: string,"recorded_by"?: string | null,"revision"?: number,"transfer_id"?: string,"updated_at"?: string
+                    "amount"?: number | null,"budget_id"?: string,"by_catch_up"?: boolean,"created_at"?: string,"done_on"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["transfer_occurrence_kind"],"mark"?: Database["public"]['Enums']["transfer_mark"],"occurrence_date"?: string,"recorded_by"?: string | null,"revision"?: number,"transfer_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -833,14 +833,14 @@ isOneToOne: false
                   ]
                 },"transfer_versions": {
                   Row: {
-                    "amount": number,"anchor_date": string | null,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"] | null,"category_id": string | null,"created_at": string,"day_of_month": number | null,"effective_from_seq": number,"from_account_id": string,"id": string,"income_gone": boolean,"income_gone_on": string | null,"income_id": string | null,"is_automatic": boolean,"offset_days": number | null,"schedule": Database["public"]['Enums']["transfer_schedule"],"to_account_id": string,"transfer_id": string,"updated_at": string
+                    "amount": number,"anchor_date": string | null,"budget_id": string,"cadence": Database["public"]['Enums']["subscription_cadence"] | null,"category_id": string | null,"created_at": string,"day_of_month": number | null,"effective_from_seq": number,"from_account_id": string,"id": string,"income_gone": boolean,"income_id": string | null,"is_automatic": boolean,"offset_days": number | null,"schedule": Database["public"]['Enums']["transfer_schedule"],"to_account_id": string,"transfer_id": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"anchor_date"?: string | null,"budget_id": string,"cadence"?: Database["public"]['Enums']["subscription_cadence"] | null,"category_id"?: string | null,"created_at"?: string,"day_of_month"?: number | null,"effective_from_seq": number,"from_account_id": string,"id"?: string,"income_gone"?: boolean,"income_gone_on"?: string | null,"income_id"?: string | null,"is_automatic": boolean,"offset_days"?: number | null,"schedule": Database["public"]['Enums']["transfer_schedule"],"to_account_id": string,"transfer_id": string,"updated_at"?: string
+                    "amount": number,"anchor_date"?: string | null,"budget_id": string,"cadence"?: Database["public"]['Enums']["subscription_cadence"] | null,"category_id"?: string | null,"created_at"?: string,"day_of_month"?: number | null,"effective_from_seq": number,"from_account_id": string,"id"?: string,"income_gone"?: boolean,"income_id"?: string | null,"is_automatic": boolean,"offset_days"?: number | null,"schedule": Database["public"]['Enums']["transfer_schedule"],"to_account_id": string,"transfer_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "amount"?: number,"anchor_date"?: string | null,"budget_id"?: string,"cadence"?: Database["public"]['Enums']["subscription_cadence"] | null,"category_id"?: string | null,"created_at"?: string,"day_of_month"?: number | null,"effective_from_seq"?: number,"from_account_id"?: string,"id"?: string,"income_gone"?: boolean,"income_gone_on"?: string | null,"income_id"?: string | null,"is_automatic"?: boolean,"offset_days"?: number | null,"schedule"?: Database["public"]['Enums']["transfer_schedule"],"to_account_id"?: string,"transfer_id"?: string,"updated_at"?: string
+                    "amount"?: number,"anchor_date"?: string | null,"budget_id"?: string,"cadence"?: Database["public"]['Enums']["subscription_cadence"] | null,"category_id"?: string | null,"created_at"?: string,"day_of_month"?: number | null,"effective_from_seq"?: number,"from_account_id"?: string,"id"?: string,"income_gone"?: boolean,"income_id"?: string | null,"is_automatic"?: boolean,"offset_days"?: number | null,"schedule"?: Database["public"]['Enums']["transfer_schedule"],"to_account_id"?: string,"transfer_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -919,14 +919,14 @@ isOneToOne: false
                   ]
                 },"transfers": {
                   Row: {
-                    "budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"name": string,"needs_check": boolean,"next_due": string | null,"revision": number,"settled_through": string,"starts_key": string | null,"starts_on": string,"updated_at": string
+                    "budget_id": string,"created_at": string,"end_seq": number | null,"first_seq": number,"id": string,"income_gone_on": string | null,"income_gone_seq": number | null,"name": string,"needs_check": boolean,"next_due": string | null,"revision": number,"settled_through": string,"starts_key": string | null,"starts_on": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"name": string,"needs_check"?: boolean,"next_due"?: string | null,"revision"?: number,"settled_through": string,"starts_key"?: string | null,"starts_on": string,"updated_at"?: string
+                    "budget_id": string,"created_at"?: string,"end_seq"?: number | null,"first_seq": number,"id"?: string,"income_gone_on"?: string | null,"income_gone_seq"?: number | null,"name": string,"needs_check"?: boolean,"next_due"?: string | null,"revision"?: number,"settled_through": string,"starts_key"?: string | null,"starts_on": string,"updated_at"?: string
                   }
                   Update: {
-                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"name"?: string,"needs_check"?: boolean,"next_due"?: string | null,"revision"?: number,"settled_through"?: string,"starts_key"?: string | null,"starts_on"?: string,"updated_at"?: string
+                    "budget_id"?: string,"created_at"?: string,"end_seq"?: number | null,"first_seq"?: number,"id"?: string,"income_gone_on"?: string | null,"income_gone_seq"?: number | null,"name"?: string,"needs_check"?: boolean,"next_due"?: string | null,"revision"?: number,"settled_through"?: string,"starts_key"?: string | null,"starts_on"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -2205,7 +2205,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "mark_transfer_done":
-{ Args: { "p_amount"?: number,"p_done_on"?: string,"p_expected_revision": number,"p_occurrence_date"?: string,"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
+{ Args: { "p_amount"?: number,"p_done_on"?: string,"p_expected_revision": number,"p_occurrence_date"?: string,"p_occurrence_kind"?: Database["public"]['Enums']["transfer_occurrence_kind"],"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
                           SetofOptions: {
         from: "*"
         to: "transfer_checklist_row"
@@ -2213,7 +2213,7 @@ isOneToOne: false
         isSetofReturn: true
       } },
 "mark_transfer_not_done":
-{ Args: { "p_expected_revision": number,"p_occurrence_date"?: string,"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
+{ Args: { "p_expected_revision": number,"p_occurrence_date"?: string,"p_occurrence_kind"?: Database["public"]['Enums']["transfer_occurrence_kind"],"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
                           SetofOptions: {
         from: "*"
         to: "transfer_checklist_row"
@@ -2238,7 +2238,7 @@ isOneToOne: false
                            },
 "preview_create_transfer":
 { Args: { "p_amount": number,"p_budget_id": string,"p_cadence"?: Database["public"]['Enums']["subscription_cadence"],"p_category_id"?: string,"p_count"?: number,"p_day_of_month"?: number,"p_first_date"?: string,"p_from_account_id": string,"p_from_period_id"?: string,"p_income_id"?: string,"p_is_automatic"?: boolean,"p_offset_days"?: number,"p_schedule": Database["public"]['Enums']["transfer_schedule"],"p_to_account_id": string }; Returns: {
-              "amount": number,"category_id": string,"created_at_once": boolean,"created_at_once_count": number,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"marks_unplanned_count": number,"occurrence_date": string,"period_id": string,"projected": boolean,"start_date": string,"transactions_removed_count": number
+              "already_recorded": boolean,"amount": number,"category_id": string,"created_at_once": boolean,"created_at_once_count": number,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"marks_unplanned_count": number,"occurrence_date": string,"occurrence_kind": Database["public"]['Enums']["transfer_occurrence_kind"],"period_id": string,"projected": boolean,"start_date": string,"transactions_removed_count": number
             }[]
                            },
 "preview_end_subscription":
@@ -2297,7 +2297,7 @@ isOneToOne: false
                            },
 "preview_update_transfer":
 { Args: { "p_amount"?: number,"p_cadence"?: Database["public"]['Enums']["subscription_cadence"],"p_category_id"?: string,"p_clear_category"?: boolean,"p_clear_income"?: boolean,"p_count"?: number,"p_day_of_month"?: number,"p_first_date"?: string,"p_from_account_id"?: string,"p_from_period_id"?: string,"p_income_id"?: string,"p_is_automatic"?: boolean,"p_offset_days"?: number,"p_schedule"?: Database["public"]['Enums']["transfer_schedule"],"p_to_account_id"?: string,"p_transfer_id": string }; Returns: {
-              "amount": number,"category_id": string,"created_at_once": boolean,"created_at_once_count": number,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"marks_unplanned_count": number,"occurrence_date": string,"period_id": string,"projected": boolean,"start_date": string,"transactions_removed_count": number
+              "already_recorded": boolean,"amount": number,"category_id": string,"created_at_once": boolean,"created_at_once_count": number,"due_date": string,"end_date": string,"follows_primary": boolean,"is_automatic": boolean,"marks_unplanned_count": number,"occurrence_date": string,"occurrence_kind": Database["public"]['Enums']["transfer_occurrence_kind"],"period_id": string,"projected": boolean,"start_date": string,"transactions_removed_count": number
             }[]
                            },
 "record_early_pay_date":
@@ -2458,7 +2458,7 @@ isOneToOne: false
 { Args: { "p_expected_revision": number,"p_income_id": string,"p_previewed_end_date"?: string }; Returns: undefined
                            },
 "skip_transfer":
-{ Args: { "p_expected_revision": number,"p_occurrence_date"?: string,"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
+{ Args: { "p_expected_revision": number,"p_occurrence_date"?: string,"p_occurrence_kind"?: Database["public"]['Enums']["transfer_occurrence_kind"],"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
                           SetofOptions: {
         from: "*"
         to: "transfer_checklist_row"
@@ -2474,7 +2474,7 @@ isOneToOne: false
             }[]
                            },
 "undo_transfer_mark":
-{ Args: { "p_expected_revision": number,"p_occurrence_date"?: string,"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
+{ Args: { "p_expected_revision": number,"p_occurrence_date"?: string,"p_occurrence_kind"?: Database["public"]['Enums']["transfer_occurrence_kind"],"p_period_id": string,"p_transfer_id": string }; Returns: Database["public"]['CompositeTypes']["transfer_checklist_row"][]
                           SetofOptions: {
         from: "*"
         to: "transfer_checklist_row"
@@ -2704,7 +2704,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "account_kind": "current"|"savings"|"third_pillar"|"tax_reserve"|"investment"|"cash"|"credit_card"|"other","debt_payoff": "paid_off"|"ends"|"never","expectation_cadence": "monthly"|"yearly","review_state": "confirmed"|"awaiting_confirmation"|"to_review","subscription_cadence": "monthly"|"quarterly"|"half_yearly"|"yearly","transaction_kind": "expense"|"refund"|"extra_income","transfer_mark": "done"|"skipped"|"not_done","transfer_schedule": "pay_date"|"day_of_month","weekend_rule": "nearest"|"previous"|"next"|"none"
+            "account_kind": "current"|"savings"|"third_pillar"|"tax_reserve"|"investment"|"cash"|"credit_card"|"other","debt_payoff": "paid_off"|"ends"|"never","expectation_cadence": "monthly"|"yearly","review_state": "confirmed"|"awaiting_confirmation"|"to_review","subscription_cadence": "monthly"|"quarterly"|"half_yearly"|"yearly","transaction_kind": "expense"|"refund"|"extra_income","transfer_mark": "done"|"skipped"|"not_done","transfer_occurrence_kind": "payday"|"income_payday"|"fixed_day","transfer_schedule": "pay_date"|"day_of_month","weekend_rule": "nearest"|"previous"|"next"|"none"
           }
           CompositeTypes: {
             "category_choice": {
@@ -2716,7 +2716,7 @@ isOneToOne: false
                       },"import_row_result": {
                         "row_no": number | null,"valid": boolean | null,"reason": string | null,"action": string | null,"kind": Database["public"]['Enums']["transaction_kind"] | null,"category_id": string | null,"category_source": string | null,"rule_id": string | null,"date": string | null,"amount": number | null,"direction": string | null,"description": string | null,"merchant_key": string | null,"flag": string | null,"remembered_choice": string | null,"duplicate_of": string | null,"match_of": string | null,"match_is_charge": boolean | null,"salary_income_id": string | null,"salary_income_amount": number | null,"transaction_id": string | null,"chunk": number | null,"choice_key": string | null
                       },"transfer_checklist_row": {
-                        "transfer_id": string | null,"period_id": string | null,"occurrence_date": string | null,"name": string | null,"from_account_id": string | null,"from_account_name": string | null,"to_account_id": string | null,"to_account_name": string | null,"amount": number | null,"due_date": string | null,"is_automatic": boolean | null,"category_id": string | null,"category_name": string | null,"status": string | null,"is_overdue": boolean | null,"held_back": boolean | null,"follows_primary": boolean | null,"done_on": string | null,"amount_moved": number | null,"transaction_id": string | null,"transaction_revision": number | null,"mark_revision": number | null,"recorded_by": string | null,"recorded_by_name": string | null,"is_ended": boolean | null,"planned": boolean | null,"cadence": Database["public"]['Enums']["subscription_cadence"] | null,"assumed": boolean | null
+                        "transfer_id": string | null,"period_id": string | null,"occurrence_date": string | null,"name": string | null,"from_account_id": string | null,"from_account_name": string | null,"to_account_id": string | null,"to_account_name": string | null,"amount": number | null,"due_date": string | null,"is_automatic": boolean | null,"category_id": string | null,"category_name": string | null,"status": string | null,"is_overdue": boolean | null,"held_back": boolean | null,"follows_primary": boolean | null,"done_on": string | null,"amount_moved": number | null,"transaction_id": string | null,"transaction_revision": number | null,"mark_revision": number | null,"recorded_by": string | null,"recorded_by_name": string | null,"is_ended": boolean | null,"planned": boolean | null,"cadence": Database["public"]['Enums']["subscription_cadence"] | null,"assumed": boolean | null,"occurrence_kind": Database["public"]['Enums']["transfer_occurrence_kind"] | null
                       }
           }
         }
@@ -2834,7 +2834,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "account_kind": ["current", "savings", "third_pillar", "tax_reserve", "investment", "cash", "credit_card", "other"],"debt_payoff": ["paid_off", "ends", "never"],"expectation_cadence": ["monthly", "yearly"],"review_state": ["confirmed", "awaiting_confirmation", "to_review"],"subscription_cadence": ["monthly", "quarterly", "half_yearly", "yearly"],"transaction_kind": ["expense", "refund", "extra_income"],"transfer_mark": ["done", "skipped", "not_done"],"transfer_schedule": ["pay_date", "day_of_month"],"weekend_rule": ["nearest", "previous", "next", "none"]
+            "account_kind": ["current", "savings", "third_pillar", "tax_reserve", "investment", "cash", "credit_card", "other"],"debt_payoff": ["paid_off", "ends", "never"],"expectation_cadence": ["monthly", "yearly"],"review_state": ["confirmed", "awaiting_confirmation", "to_review"],"subscription_cadence": ["monthly", "quarterly", "half_yearly", "yearly"],"transaction_kind": ["expense", "refund", "extra_income"],"transfer_mark": ["done", "skipped", "not_done"],"transfer_occurrence_kind": ["payday", "income_payday", "fixed_day"],"transfer_schedule": ["pay_date", "day_of_month"],"weekend_rule": ["nearest", "previous", "next", "none"]
           }
         }
 } as const
