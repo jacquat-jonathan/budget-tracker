@@ -1959,7 +1959,7 @@ nothing. Rows, in this order (the columns a row does not use are null):
 | `'not_assigned'` | at most one, only when an income names no account | `inflow` = `stays` (those incomes), `outflow` 0, `spendable` true |
 | `'account'` | account in force in the period, flows or not | `id`, `name`, `account_kind`, `user_id`, `inflow` (incomes and transfers in), `outflow` (transfers out), `stays` (= inflow - outflow: what the plan leaves there this period; **not a balance**), `is_negative` (more planned out than in: show a warning), **`spendable`** (R-ACCOUNT-423: true for the everyday kinds `'current'`, `'cash'`, `'credit_card'` and `'other'`; false for `'savings'`, `'third_pillar'`, `'tax_reserve'` and `'investment'`, whose `stays` is **set aside**), `created_at` (with `id`: a stable order, e.g. for colours by creation) |
 | `'transfer'` | transfer in force in the period | `id`, `name`, `source_id` (from account) -> `target_id` (to account), `amount` (**its monthly share**: what the plan moves per period), `planned_amount` and `cadence` (its real amount and cadence: "CHF 7'056.00 once a year"; `cadence` null for a pay date), `is_automatic` |
-| `'spending'` | top-level category (a group, or a category without a group) with something planned or spent in the period, in the categories' display order (`display_order`) | `id` (the category: a **stable key for its colour**), `name`, `expected` (its plan at the monthly share: a yearly expectation counts one twelfth, half up), `transfer_share` (the monthly share of planned transfers linked to it, at most `expected`: **those francs are drawn as transfers**, so they are left out here), **`amount` = `expected` - `transfer_share`** (planned spending), `yearly_amount` (the real amount of its yearly expectations, "CHF 2'400.00 a year"; null when none), **`spent`** (what the period's transactions spent in it, refunds deducted, **less** `transfer_spent`, the transactions of transfers linked to it), `is_negative` (spent more than planned) |
+| `'spending'` | top-level category (a group, or a category without a group) with something planned or spent in the period, in the categories' display order (`display_order`) | `id` (the category: a **stable key for its colour**), `name`, `expected` (its plan at the monthly share: a yearly expectation counts one twelfth, half up), `transfer_share` (the monthly share of planned transfers linked to it **whose destination is a set-aside account** (savings, third pillar, tax reserve, investment), at most `expected`: **those francs leave the spendable pool as transfers**, so they are left out here; a linked transfer into an everyday account, a cash wallet, stays in the pool and counts as planned spending like any other, R-ACCOUNT-465, D-565), **`amount` = `expected` - `transfer_share`** (planned spending), `yearly_amount` (the real amount of its yearly expectations, "CHF 2'400.00 a year"; null when none), **`spent`** (what the period's transactions spent in it, refunds deducted, **less** `transfer_spent`, the transactions of those set-aside transfers), **`left_amount`** (= `amount` - `spent`: the group's own remainder on the actual basis, **negative when overspent**, the database's figure: the page never subtracts; Q-321, D-567), `is_negative` (spent more than planned) |
 | `'total'` | one, always last | `amount` = `inflow` = the incomes added up (**= `period_summaries.salary_total`**: salaries only; extra incomes are actual transactions, not plan), `outflow` = the transfers' monthly shares added up, `set_aside` (the `stays` of the set-aside accounts), `spendable_amount` (= `amount` - `set_aside`), `planned_spending` (the spending rows' `amount`), `not_planned` (= `spendable_amount` - `planned_spending`; **may be negative**: `is_negative`), `actual_spending` (the spending rows' `spent`), `left_amount` (= `spendable_amount` - `actual_spending`; may be negative; one pooled figure for the spendable accounts together, no account has a "left" of its own), `spending_rows_omitted` (0; see below) |
 
 Everything adds up, and each sum is a field: the `stays` of the accounts and "not assigned"
@@ -2012,15 +2012,34 @@ transfer's 1 000.00). The read (amounts in francs; the API answers rappen):
 | account Savings | inflow 1 000.00, outflow 0, stays 1 000.00, spendable false |
 | transfer Pillar 3a | Main -> Pillar 3a, amount 588.00, planned_amount 7 056.00, cadence yearly |
 | transfer Savings | Main -> Savings, amount 1 000.00, planned_amount 1 000.00, cadence null |
-| spending Home | expected 2 150.00, transfer_share 0, amount 2 150.00, spent 2 000.00 |
-| spending Food | expected 1 100.00, transfer_share 0, amount 1 100.00, spent 725.50 |
-| spending Transport | expected 300.00, transfer_share 0, amount 300.00, spent 120.00 |
-| spending Leisure | expected 350.00, transfer_share 0, amount 350.00, yearly_amount 2 400.00, spent 60.00 |
-| spending Saving and pension | expected 1 588.00, transfer_share 1 588.00, amount 0, yearly_amount 7 056.00, spent 0, transfer_spent 1 000.00 |
+| spending Home | expected 2 150.00, transfer_share 0, amount 2 150.00, spent 2 000.00, left_amount 150.00 |
+| spending Food | expected 1 100.00, transfer_share 0, amount 1 100.00, spent 725.50, left_amount 374.50 |
+| spending Transport | expected 300.00, transfer_share 0, amount 300.00, spent 120.00, left_amount 180.00 |
+| spending Leisure | expected 350.00, transfer_share 0, amount 350.00, yearly_amount 2 400.00, spent 60.00, left_amount 290.00 |
+| spending Saving and pension | expected 1 588.00, transfer_share 1 588.00, amount 0, yearly_amount 7 056.00, spent 0, transfer_spent 1 000.00, left_amount 0 |
 | total | amount 10 000.00, outflow 1 588.00, set_aside 1 588.00, spendable_amount 8 412.00, planned_spending 3 900.00, not_planned 4 512.00, actual_spending 2 905.50, left_amount 5 506.50 |
 
 10 000.00 = 1 588.00 set aside + 8 412.00 spendable; 8 412.00 = 3 900.00 planned + 4 512.00 not
 planned = 2 905.50 spent + 5 506.50 left. (This example is a test: `97j_db_fix3`.)
+
+**Second example: a linked transfer into an everyday account** (R-ACCOUNT-465). Income
+6 000.00 into Main; accounts Main (current), Cash (cash), Savings (savings). Transfer "Pocket
+money" 500.00 on payday, Main -> Cash, automatic, linked to the category Pocket money (planned
+500.00; its transaction was made). Food planned 800.00, 300.00 spent. The 500.00 never leaves
+the spendable pool (Cash is an everyday account), so it is planned spending and spent:
+
+| row | figures |
+| --- | --- |
+| account Cash | inflow 500.00, outflow 0, stays 500.00, spendable true |
+| account Main | inflow 6 000.00, outflow 500.00, stays 5 500.00, spendable true |
+| account Savings | inflow 0, outflow 0, stays 0, spendable false |
+| spending Pocket money | expected 500.00, transfer_share 0, amount 500.00, spent 500.00, transfer_spent 0, left_amount 0 |
+| spending Food | expected 800.00, transfer_share 0, amount 800.00, spent 300.00, left_amount 500.00 |
+| total | amount 6 000.00, set_aside 0, spendable_amount 6 000.00, planned_spending 1 300.00, not_planned 4 700.00, actual_spending 800.00, left_amount 5 200.00 |
+
+6 000.00 = 0 set aside + 6 000.00 spendable = 1 300.00 planned + 4 700.00 not planned = 800.00
+spent + 5 200.00 left, as `period_summaries` (1 300.00 planned, 800.00 spent). (A test:
+`97k_db_fix4`.)
 
 Errors: `budget_not_found`, `period_not_found`, `budget_ended`, `catching_up`.
 

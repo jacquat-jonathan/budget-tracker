@@ -541,5 +541,102 @@ select lives_ok(format($$select * from public.undo_transfer_mark(%L, %L, 1, '202
 select is(pg_temp.marks(tests.id('two_t')), '', 'R-ACCOUNT-301: no mark is left');
 select is(pg_temp.txs(tests.id('two_t')), '', 'R-ACCOUNT-301: and no transaction');
 
+
+-- ===========================================================================
+-- Should-fix 1 (R-ACCOUNT-465, R-ACCOUNT-422, R-ACCOUNT-423): the money flow. A linked transfer
+-- into an everyday account never leaves the spendable pool
+-- ===========================================================================
+-- the budget's income paid into Main, its category Saving planned 0
+create function pg_temp.flow_setup(n text) returns void language plpgsql as $$
+declare
+  v_inc uuid := tests.id(n || '_inc');
+  v_cat uuid := tests.id(n || '_cat');
+  v_rev integer;
+begin
+  select i.revision into v_rev from public.income_overview as i where i.id = v_inc;
+  perform public.update_income(v_inc, v_rev, p_account_id => tests.id(n || '_main'), p_from_period_id => tests.id(n || '_p1'));
+  select c.revision into v_rev from public.category_overview as c where c.id = v_cat;
+  perform public.update_category(v_cat, v_rev, p_amount => 0, p_from_period_id => tests.id(n || '_p1'));
+end $$;
+create function pg_temp.flow(n text) returns table (row_kind text, name text, amount bigint, stays bigint, spendable boolean,
+  expected bigint, transfer_share bigint, spent bigint, transfer_spent bigint, left_amount bigint, is_negative boolean,
+  display_order integer)
+language sql as $$
+  select f.row_kind, f.name, f.amount, f.stays, f.spendable, f.expected, f.transfer_share, f.spent, f.transfer_spent, f.left_amount,
+         f.is_negative, f.display_order
+  from public.get_money_flow(tests.id(n)) as f $$;
+create function pg_temp.flow_total(n text) returns text language sql as $$
+  select f.amount || ' = ' || f.set_aside || ' + ' || f.spendable_amount || ' = ' || f.set_aside || ' + ' || f.planned_spending || ' + '
+         || f.not_planned || ' = ' || f.set_aside || ' + ' || f.actual_spending || ' + ' || f.left_amount
+         || case when f.is_negative then ' (negative)' else '' end
+  from public.get_money_flow(tests.id(n)) as f where f.row_kind = 'total' $$;
+
+select pg_temp.day('2026-11-20', 'kit');
+select pg_temp.budget('f2');
+select pg_temp.flow_setup('f2');
+select tests.remember('f2_cash', (select id from public.create_account(tests.id('f2'), 'Cash', 'cash', p_from_period_id => tests.id('f2_p1'))));
+select tests.remember('f2_pm', (select id from public.create_category(tests.id('f2'), 'Pocket money', p_amount => 50000, p_from_period_id => tests.id('f2_p1'))));
+select tests.remember('f2_food', (select id from public.create_category(tests.id('f2'), 'Food', p_amount => 80000, p_from_period_id => tests.id('f2_p1'))));
+select public.create_transfer(tests.id('f2'), 'Pocket money', tests.id('f2_main'), tests.id('f2_cash'), 50000, 'pay_date',
+  p_is_automatic => true, p_category_id => tests.id('f2_pm'), p_from_period_id => (pg_temp.cur('f2')).id);
+select public.add_transaction(tests.id('f2'), 'expense', 30000, '2026-11-05', tests.id('f2_food'));
+select results_eq(
+  $$select name, amount, transfer_share, spent, transfer_spent, left_amount from pg_temp.flow('f2') where row_kind = 'spending' order by name$$,
+  $$values ('Food'::text, 80000::bigint, 0::bigint, 30000::bigint, 0::bigint, 50000::bigint),
+           ('Pocket money', 50000, 0, 50000, 0, 0)$$,
+  'R-ACCOUNT-465 R-ACCOUNT-466: a transfer into the cash wallet: its share is planned spending and its transaction is spent; each row''s own left');
+select is(pg_temp.flow_total('f2'), '600000 = 0 + 600000 = 0 + 130000 + 470000 = 0 + 80000 + 520000',
+  'R-ACCOUNT-422: income = set aside + spendable = planned + not planned = spent + left');
+select results_eq(
+  format($$select planned_spending, actual_spending from public.get_money_flow(%L) where row_kind = 'total'$$, tests.id('f2')),
+  format($$select expected_total, spent_total from public.period_summaries where id = %L$$, (pg_temp.cur('f2')).id),
+  'R-ACCOUNT-465: the flow''s planned and spent agree with the period summary');
+
+-- all eight account kinds; a set-aside transfer's share capped at what its category expects
+select pg_temp.budget('f8');
+select pg_temp.flow_setup('f8');
+select tests.remember('f8_' || k, (select id from public.create_account(tests.id('f8'), 'Acc ' || k, k::public.account_kind,
+                                                                         p_from_period_id => tests.id('f8_p1'))))
+from unnest(array['cash', 'credit_card', 'other', 'third_pillar', 'tax_reserve', 'investment']) as k;
+select public.create_transfer(tests.id('f8'), 'To ' || k, tests.id('f8_main'), tests.id('f8_' || k), 10000, 'pay_date',
+  p_from_period_id => tests.id('f8_p1'))
+from unnest(array['cash', 'credit_card', 'other', 'third_pillar', 'tax_reserve', 'investment']) as k;
+select public.create_transfer(tests.id('f8'), 'To savings', tests.id('f8_main'), tests.id('f8_sav'), 100000, 'pay_date',
+  p_category_id => tests.id('f8_cat'), p_from_period_id => tests.id('f8_p1'));
+select public.update_category(tests.id('f8_cat'), (select revision from public.categories where id = tests.id('f8_cat')),
+  p_amount => 60000, p_from_period_id => tests.id('f8_p1'));
+select results_eq(
+  $$select name, spendable from pg_temp.flow('f8') where row_kind = 'account' order by name$$,
+  $$values ('Acc cash'::text, true), ('Acc credit_card', true), ('Acc investment', false), ('Acc other', true),
+           ('Acc tax_reserve', false), ('Acc third_pillar', false), ('Main', true), ('Savings', false)$$,
+  'R-ACCOUNT-423: current, cash, credit card and other are spendable; savings, third pillar, tax reserve and investment are set aside');
+select is(pg_temp.flow_total('f8'), '600000 = 130000 + 470000 = 130000 + 0 + 470000 = 130000 + 0 + 470000',
+  'R-ACCOUNT-423: set aside = what stays on the four set-aside accounts (1 000 + 3 x 100)');
+select results_eq(
+  $$select expected, transfer_share, amount, left_amount from pg_temp.flow('f8') where row_kind = 'spending'$$,
+  $$values (60000::bigint, 60000::bigint, 0::bigint, 0::bigint)$$,
+  'R-ACCOUNT-422: a set-aside transfer''s share is at most what its category expects (1 000 against 600)');
+
+-- rows: a category neither planned nor spent has none; one spent but not planned has one (left
+-- negative); the display order, not the name; not_planned exactly 0 is not negative; "not
+-- assigned" is spendable
+select pg_temp.budget('fr');
+select public.update_category(tests.id('fr_cat'), (select revision from public.categories where id = tests.id('fr_cat')),
+  p_amount => 0, p_from_period_id => tests.id('fr_p1'));
+select tests.remember('fr_z', (select id from public.create_category(tests.id('fr'), 'Z first by order', p_amount => 0, p_from_period_id => tests.id('fr_p1'))));
+select tests.remember('fr_b', (select id from public.create_category(tests.id('fr'), 'B plan', p_amount => 600000, p_from_period_id => tests.id('fr_p1'))));
+select public.add_transaction(tests.id('fr'), 'expense', 2500, '2026-11-05', tests.id('fr_z'));
+select results_eq(
+  $$select name, amount, spent, left_amount, is_negative from pg_temp.flow('fr') where row_kind = 'spending' order by name$$,
+  $$values ('B plan'::text, 600000::bigint, 0::bigint, 600000::bigint, false), ('Z first by order', 0, 2500, -2500, true)$$,
+  'R-ACCOUNT-422 R-ACCOUNT-466: no row for a category neither planned nor spent; one spent but not planned, its own left negative');
+select is((select string_agg(x.name, ',' order by x.o) from (select f.name, row_number() over () as o from pg_temp.flow('fr') as f) as x
+           where x.name in ('B plan', 'Z first by order')),
+  'Z first by order,B plan', 'R-ACCOUNT-422: spending rows in the categories'' display order, not by name');
+select is((select f.not_planned::text || '/' || f.is_negative from public.get_money_flow(tests.id('fr')) as f where f.row_kind = 'total'),
+  '0/false', 'R-ACCOUNT-422: not planned exactly 0 is not negative');
+select results_eq($$select stays, spendable from pg_temp.flow('fr') where row_kind = 'not_assigned'$$,
+  $$values (600000::bigint, true)$$, 'R-ACCOUNT-423: the incomes paid into no account are spendable');
+
 select * from finish();
 rollback;

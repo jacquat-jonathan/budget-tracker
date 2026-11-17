@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-592 rules (581 active, 0 planned), 24 conventions, 369 decisions, 44 open questions. 0 rules and conventions are marked **TEST PENDING**.
+594 rules (583 active, 0 planned), 24 conventions, 371 decisions, 43 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2488,13 +2488,13 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-521, D-420, D-490, R-ACCOUNT-301, D-560
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), must-fix 1, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql; owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 1, 2026-11-17
-- **R-ACCOUNT-422** The money flow of a period ends at spending: one row per top-level category with its planned spending at the monthly share less the share of planned transfers linked to it (given as its own figure), the real yearly amount beside it, and what was actually spent less the transactions of those transfers; a total row answers income, set aside, spendable, planned and actual spending, not planned and left, so that income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; every row answered with no aggregate row, at most 1000 rows (beyond them, only after many corrections into the past, the last spending rows are left out and counted on the total row).
+- **R-ACCOUNT-422** The money flow of a period ends at spending: one row per top-level category planned or spent, with its planned spending at the monthly share less the share of planned transfers linked to it that go to a set-aside account (given as its own figure), the real yearly amount beside it, what was actually spent less the transactions of those transfers, and its own remainder; a total row answers income, set aside, spendable, planned and actual spending, not planned and left, so that income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; every row answered with no aggregate row, at most 1000 rows (beyond them, only after many corrections into the past, the last spending rows are left out and counted on the total row).
   _active · enforced by test · F-MONEYFLOW_
-  - Related: D-524, R-ACCOUNT-006, R-ACCOUNT-304
+  - Related: D-524, R-ACCOUNT-006, R-ACCOUNT-304, D-565, D-567
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
-- **R-ACCOUNT-423** In the money flow, what the plan leaves on an everyday account (current, cash, credit card, other) is spendable, and on a savings, third pillar, tax reserve or investment account it is set aside.
+- **R-ACCOUNT-423** In the money flow, what the plan leaves on an everyday account (current, cash, credit card, other) is spendable, and on a savings, third pillar, tax reserve or investment account it is set aside; only a transfer into a set-aside account takes its francs out of the spendable pool.
   _active · enforced by test · F-MONEYFLOW_
-  - Related: D-524, R-ACCOUNT-001
+  - Related: D-524, R-ACCOUNT-001, D-565
   - Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 - **R-ACCOUNT-424** A reopen that moves a transfer's end one period earlier keeps what the catch-up recorded for the occurrences that end removes: the marks and their transactions stay, listed as ended, as end_transfer keeps them.
   _active · enforced by test · F-MONEYFLOW_
@@ -2548,6 +2548,14 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   _active · enforced by test · F-MONEYFLOW_
   - Related: D-562, R-ACCOUNT-314
   - Source: owner-request: coordinator brief for database fix round 4 (re-check 4), must-fix 2 (the owner's amendment of D-527), 2026-11-17; owner-request: coordinator brief for database fix round 4 (re-check 4), properties for the walk, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-465** In the money flow a linked transfer's share and its transactions are left out of a category group's spending only when the transfer goes to a set-aside account (savings, third pillar, tax reserve, investment); one into an everyday account counts as planned spending and as spent, so the flow's planned and spent agree with the period's summary.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-565, R-ACCOUNT-422, R-ACCOUNT-423
+  - Source: owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+- **R-ACCOUNT-466** Each spending row of the money flow answers its own remainder, planned spending less spent, negative when overspent; the screens never compute it.
+  _active · enforced by test · F-MONEYFLOW_
+  - Related: D-567, R-ACCOUNT-422
+  - Source: owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 
 ### Concurrent edits
 
@@ -7335,7 +7343,7 @@ Source: owner-request: coordinator brief for the last database fix round (re-che
 
 ### D-524 The money flow ends at spending, not at the accounts (answers Q-301) (accepted)
 
-get_money_flow keeps its rows and columns and adds: per account `spendable` (current, cash, credit_card and other are everyday accounts whose remainder is spendable; savings, third_pillar, tax_reserve and investment are set aside); rows of kind 'spending', one per top-level category planned or spent in the period (id, name, expected at the monthly share, transfer_share = the monthly share of planned transfers linked to it, at most expected, amount = expected - transfer_share, yearly_amount, spent = the period's net spending less transfer_spent, the transactions of those transfers, display_order, is_negative when spent exceeds amount); and on the total row set_aside, spendable_amount, planned_spending, not_planned, actual_spending and left_amount. Expenses are not tied to accounts: the screens draw spending out of the pooled spendable remainder. Every row is answered, with no aggregate row (the owner: the page draws the largest and points to the tables); account rows carry created_at and transfer rows the transfer id, spending rows the category id and display order, so the screens order colours by creation. Left is one pooled figure for the spendable accounts, planned and actual. At most 1000 rows: only a past period filled by corrections can pass it; then the last spending rows are left out and the total row counts them (spending_rows_omitted), its totals still covering them.
+get_money_flow keeps its rows and columns and adds: per account `spendable` (current, cash, credit_card and other are everyday accounts whose remainder is spendable; savings, third_pillar, tax_reserve and investment are set aside); rows of kind 'spending', one per top-level category planned or spent in the period (id, name, expected at the monthly share, transfer_share = the monthly share of planned transfers linked to it, at most expected, amount = expected - transfer_share, yearly_amount, spent = the period's net spending less transfer_spent, the transactions of those transfers, display_order, is_negative when spent exceeds amount); and on the total row set_aside, spendable_amount, planned_spending, not_planned, actual_spending and left_amount. Expenses are not tied to accounts: the screens draw spending out of the pooled spendable remainder. Every row is answered, with no aggregate row (the owner: the page draws the largest and points to the tables); account rows carry created_at and transfer rows the transfer id, spending rows the category id and display order, so the screens order colours by creation. Left is one pooled figure for the spendable accounts, planned and actual. At most 1000 rows: only a past period filled by corrections can pass it; then the last spending rows are left out and the total row counts them (spending_rows_omitted), its totals still covering them. Amended by D-565: the share and the transactions of a linked transfer are left out of a group's spending only when the transfer's destination is a set-aside account; and by D-567: a spending row answers its own left_amount.
 
 **Why:** The owner's brief asks the diagram to show where the money goes and what is left; the read stopped at the accounts (Q-301). Leaving out the transfers' category share and their transactions keeps the same francs from showing twice, once as a transfer and once as spending. Every figure is the database's (C-LOGIC-003).
 
@@ -7344,9 +7352,9 @@ get_money_flow keeps its rows and columns and adds: per account `spendable` (cur
 - Tying expenses to an account: transactions carry no account and will not.
 - Leaving 'other' accounts out of spendable: an unknown kind is more likely an everyday one, and the screens can still show it.
 
-Related: Q-301, R-ACCOUNT-422, R-ACCOUNT-423, D-356, D-503
+Related: Q-301, R-ACCOUNT-422, R-ACCOUNT-423, D-356, D-503, D-565, D-567
 
-Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql; owner-request: coordinator follow-up for the money flow screens (no aggregate row, pooled left, stable order), 2026-11-17
+Source: owner-request: coordinator brief for the last database fix round (re-check 3 at a8db050), Q-301 decision and the screens reviewer's needs, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql; owner-request: coordinator follow-up for the money flow screens (no aggregate row, pooled left, stable order), 2026-11-17; owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17
 
 ### D-525 The transactions of one planned transfer (answers Q-300) (accepted)
 
@@ -7626,6 +7634,34 @@ preview_create_transfer and preview_update_transfer answer, on every row, occurr
 Related: Q-322, D-428, R-ACCOUNT-303
 
 Source: owner-request: coordinator brief for database fix round 4 (re-check 4), contract and small things, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-565 Only a transfer into a set-aside account leaves the spendable pool (amends D-524) (accepted)
+
+In get_money_flow a linked transfer's monthly share (transfer_share) and its transactions (transfer_spent) are left out of a category group's spending only when the transfer's destination account (its terms in the period) is a set-aside kind: savings, third_pillar, tax_reserve or investment. A linked transfer into an everyday account (current, cash, credit_card, other: a cash wallet) never leaves the spendable pool: its share is planned spending and its transactions are spent, like any other. The three balances stay exact: income = set aside + spendable = set aside + planned + not planned = set aside + spent + left; planned and spent then agree with period_summaries.
+
+**Why:** Re-check 4 (sc/f1_flow F2): Main to Cash 500.00 'Pocket money', linked to the category Pocket money: the flow said planned 800.00 and spent 300.00 while the period summary said 1 300.00 and 800.00; the 500.00 was in neither set aside nor spending.
+
+**Rejected:**
+
+- Leaving out every linked transfer (D-524 as first worded): a transfer that stays in the pool then disappears from both sides.
+
+Related: D-524, R-ACCOUNT-422, R-ACCOUNT-423, R-ACCOUNT-465
+
+Source: owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
+
+### D-567 A spending row answers its own remainder (answers Q-321) (accepted)
+
+get_money_flow's 'spending' rows answer left_amount = amount - spent (the planned spending less what was spent, on the actual basis): negative when overspent (is_negative), 0 when exactly spent. The column already exists on the total row (the pooled left); no new column. The screens show it as the database's figure and never subtract (C-LOGIC-003).
+
+**Why:** Q-321: the design's actual table had a 'Left' column per group, which the page may not compute itself; one column the read already has costs nothing.
+
+**Rejected:**
+
+- A floor at 0: an overspent group would look exactly spent, while is_negative says otherwise.
+
+Related: Q-321, D-524, R-ACCOUNT-422, R-ACCOUNT-466
+
+Source: owner-request: coordinator brief for database fix round 4 (re-check 4), should-fix 1 (money flow) and Q-321, 2026-11-17; code: supabase/migrations/20261120100000_money_flow.sql
 
 ## Open questions
 
@@ -8081,7 +8117,7 @@ Source: owner-request: coordinator brief for database fix round 4 (re-check 4), 
   - Context: D-546 gives groups colours on the money flow only. The design proposed one helper for the budget page's group headers, Compare's default slots and the money flow; Compare colours by the member's chosen lines today, and the budget page uses none.
   - Related: D-546, D-405, R-ACCOUNT-448
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17
-- **Q-321** Should get_money_flow answer a per-group remainder ("left" of a group: planned less spent) for the actual view's spending table?
+- **Q-321** (resolved by D-567) Should get_money_flow answer a per-group remainder ("left" of a group: planned less spent) for the actual view's spending table?
   - Context: The design's spending table had a "Left" column per group on the actual basis. The read gives each group's amount and spent but no remainder per group, and the page must not subtract (C-LOGIC-003), so the table shows Planned and Spent with the over-plan warning (is_negative) only. A column would need a field from the read.
   - Related: D-524, R-ACCOUNT-422, D-545
   - Source: owner-request: coordinator brief for the money flow screens round (income to spending, the transfer filter, the import contract), 2026-11-17

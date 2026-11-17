@@ -3596,13 +3596,16 @@ $$;
 --   spendable, on a savings, third_pillar, tax_reserve or investment account it is set aside;
 -- * 'transfer': a transfer in force, source_id -> target_id, amount its monthly share then,
 --   planned_amount and cadence its real amount and cadence;
--- * 'spending' (R-ACCOUNT-422, D-524): one per top-level category (a group, or a category
---   without a group) planned or spent in the period, in the categories' display order: amount =
---   what is planned for spending at the monthly share (expected) less the share of planned
---   transfers linked to it (transfer_share, at most expected: those francs are drawn as
---   transfers), spent = the period's spending less the transactions of transfers
---   (transfer_spent), yearly_amount = the real amount of its yearly expectations (null: none),
---   is_negative = spent more than planned. Every row is answered (no aggregate row); only past
+-- * 'spending' (R-ACCOUNT-422, D-524, D-565): one per top-level category (a group, or a
+--   category without a group) planned or spent in the period, in the categories' display order:
+--   amount = what is planned for spending at the monthly share (expected) less the share of
+--   planned transfers linked to it that go to a set-aside account (transfer_share, at most
+--   expected: those francs leave the spendable pool as transfers), spent = the period's spending
+--   less the transactions of those transfers (transfer_spent), left_amount = amount - spent
+--   (Q-321, D-567; negative when overspent), yearly_amount = the real amount of its yearly
+--   expectations (null: none), is_negative = spent more than planned. A linked transfer into an
+--   everyday account (a cash wallet) never leaves the pool: its share is planned spending and its
+--   transactions are spent, like any other. Every row is answered (no aggregate row); only past
 --   limit_money_flow_rows() rows in all (a past period after many corrections; never in a
 --   budget built forwards) the last spending rows are left out, the total row says how many
 --   (spending_rows_omitted) and its totals still cover them;
@@ -3672,6 +3675,17 @@ begin
     where e.cadence = 'yearly'
     group by 1
   ),
+  -- R-ACCOUNT-465 (D-565): only a linked transfer into a set-aside account takes its francs out of
+  -- the spendable pool; one into an everyday account (a cash wallet) is planned and spent as the
+  -- category's spending like any other
+  tr_set_aside as (
+    select coalesce(c.parent_id, c.id) as top_id, pg_catalog.sum(tr.monthly_amount) as share
+    from tr
+    join public.accounts as a on a.id = tr.to_account_id
+    join public.categories as c on c.id = tr.category_id
+    where not private.account_is_spendable(a.kind)
+    group by 1
+  ),
   tr_spent as (
     select coalesce(c.parent_id, c.id) as top_id,
            pg_catalog.sum(case x.kind when 'expense' then x.amount else -x.amount end) as spent
@@ -3679,16 +3693,27 @@ begin
     join public.transactions as x
       on x.budget_id = p_budget_id and x.date between per.start_date and per.end_date
      and x.transfer_occurrence_id is not null and x.kind <> 'extra_income'
+    join public.transfer_occurrences as o on o.id = x.transfer_occurrence_id
+    cross join lateral (
+      select y.to_account_id from public.transfer_versions as y
+      where y.transfer_id = o.transfer_id
+      order by (y.effective_from_seq <= p_seq) desc,
+               case when y.effective_from_seq <= p_seq then -y.effective_from_seq else y.effective_from_seq end
+      limit 1
+    ) as v
+    join public.accounts as a on a.id = v.to_account_id
     join public.categories as c on c.id = x.category_id
+    where not private.account_is_spendable(a.kind)
     group by 1
   ),
   top as (
     select g.category_id as id, g.name, g.display_order, g.expected,
-           least(coalesce(g.transfer_committed, 0), g.expected) as transfer_share,
+           least(coalesce(sa.share, 0), g.expected)::bigint as transfer_share,
            (g.spent - coalesce(ts.spent, 0))::bigint as spent, coalesce(ts.spent, 0)::bigint as transfer_spent,
            ly.yearly_amount::bigint as yearly_amount,
            pg_catalog.row_number() over (order by g.display_order) as n
     from prog as g
+    left join tr_set_aside as sa on sa.top_id = g.category_id
     left join tr_spent as ts on ts.top_id = g.category_id
     left join leaf_yearly as ly on ly.top_id = g.category_id
     where g.parent_id is null and (g.expected <> 0 or g.spent <> 0 or coalesce(g.transfer_committed, 0) <> 0)
@@ -3754,7 +3779,9 @@ begin
          case when r.row_kind = 'total' then sums.planned end,
          case when r.row_kind = 'total' then sums.actual end,
          case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.planned end,
-         case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.actual end,
+         case when r.row_kind = 'total' then sums.income - sums.set_aside - sums.actual
+              -- Q-321 (D-567): a group's own remainder on the actual basis, negative when overspent
+              when r.row_kind = 'spending' then r.amount - r.spent end,
          r.created_at,
          case when r.row_kind = 'total' then sums.omitted end
   from rows as r cross join sums
