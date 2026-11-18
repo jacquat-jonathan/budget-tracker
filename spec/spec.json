@@ -134,6 +134,10 @@
     {
       "id": "spec",
       "title": "This specification"
+    },
+    {
+      "id": "ci",
+      "title": "Continuous integration"
     }
   ],
   "glossary": [
@@ -14843,6 +14847,21 @@
       "source": [
         "owner-request: coordinator brief for the screens round after database round 5, 2026-11-17"
       ]
+    },
+    {
+      "id": "D-656",
+      "title": "Pull request CI runs every check split in parallel; main runs it unsplit, plus the slow checks",
+      "decision": "Pull requests run every check, every pgTAP file included, in parallel jobs: the frontend checks, the unit tests in three shards, the database checks with every pgTAP file but the property walk, and the property walk in four jobs of two seeds each (the setting `budget_tests.prop_shard`). Every invariant of the walk is checked on every seed; its coverage thresholds, which count the walks of all seeds together, are skipped on a split run. After a merge into `main` and every night, `main.yml` runs the same checks unsplit, so the coverage thresholds run there, plus the HTTP smoke test and a production-style build. The `CI passed` job is the one required check.",
+      "why": "Pull request CI took about seven minutes, five of them one pgTAP file (the property walk, eight independent seeds of 320 steps). The owner wants a fast pull request CI that still runs every test, and allows a longer one after the merge.",
+      "rejected": [
+        "Running the concurrency and property tests only on main: faster, but a broken race guard or invariant would reach main before anything noticed (the owner chose the split instead).",
+        "Fewer steps or seeds on pull requests: a weaker walk than the one main runs, for every pull request.",
+        "Coverage thresholds scaled to each split run's share of the seeds: each seed exercises different operations, so a share can fall below its part of a threshold while the whole walk meets it.",
+        "Adding up the split runs' counts in a later job: the thresholds would be written twice, in SQL and in the job."
+      ],
+      "status": "accepted",
+      "related": ["C-CI-001", "C-CI-002", "C-LOGIC-002"],
+      "source": ["owner-request: CI on pull requests and on main, 2026-11-18"]
     }
   ],
   "conventions": [
@@ -15038,7 +15057,7 @@
         {
           "kind": "ci-step",
           "workflow": ".github/workflows/ci.yml",
-          "job": "frontend",
+          "job": "checks",
           "step": "npm run spec:check"
         }
       ],
@@ -15059,7 +15078,7 @@
         {
           "kind": "ci-step",
           "workflow": ".github/workflows/ci.yml",
-          "job": "frontend",
+          "job": "checks",
           "step": "npm run spec:check"
         }
       ],
@@ -15074,6 +15093,46 @@
       "status": "active",
       "enforcement": "review",
       "source": ["owner-request"]
+    },
+    {
+      "id": "C-CI-001",
+      "area": "ci",
+      "statement": "A pull request into `main` merges only when the `CI passed` job of `.github/workflows/ci.yml` succeeds. That workflow runs every check, every pgTAP file and every seed of the property walk included, split over parallel jobs so it finishes in about three minutes, and `CI passed` depends on every other job in it.",
+      "rationale": "One required check that depends on the others: adding or renaming a job needs no change to the branch rule. The rule itself is a repository setting, which `docs/ci.md` describes.",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-656", "C-CI-002"],
+      "source": ["owner-request: CI on pull requests and on main, 2026-11-18"]
+    },
+    {
+      "id": "C-CI-002",
+      "area": "ci",
+      "statement": "Every push to `main`, and a nightly schedule, runs `.github/workflows/main.yml`: the checks of `ci.yml` unsplit (the property walk's coverage thresholds included), the HTTP smoke test on the full local stack and a production-style build checked as a deploy checks it. A run on `main` is never cancelled. A check added to `ci.yml` is added to `main.yml` too.",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-656", "C-CI-001"],
+      "source": ["owner-request: CI on pull requests and on main, 2026-11-18"]
+    },
+    {
+      "id": "C-CI-003",
+      "area": "ci",
+      "statement": "Code is formatted with Prettier (`npm run format:check` passes).",
+      "status": "active",
+      "enforcement": "lint",
+      "checks": [
+        {
+          "kind": "npm-script",
+          "name": "format:check"
+        },
+        {
+          "kind": "ci-step",
+          "workflow": ".github/workflows/ci.yml",
+          "job": "checks",
+          "step": "npm run format:check"
+        }
+      ],
+      "related": ["C-CI-001"],
+      "source": ["owner-request: CI on pull requests and on main, 2026-11-18"]
     }
   ],
   "openQuestions": [
@@ -16312,9 +16371,7 @@
       "context": "Left as it is: R-AUTH-531 asks for the new password twice and nothing else, as the session is already signed in. Asking for the current password would stop someone at an unlocked device from changing it. Seen by the browser re-check and the screens review; an owner decision, not changed.",
       "status": "open",
       "related": ["R-AUTH-531"],
-      "source": [
-        "owner-request: handover of the step 7 build session, closed 2026-11-17"
-      ]
+      "source": ["owner-request: handover of the step 7 build session, closed 2026-11-17"]
     },
     {
       "id": "Q-372",
@@ -16322,9 +16379,7 @@
       "context": "Left as it is: it says \"the other pages\" without naming them. Naming them (Budget, Progress, Dashboard) would be more exact but is longer and goes stale when a page moves. Left by the developer as an open wording choice.",
       "status": "open",
       "related": ["R-ACCOUNT-304"],
-      "source": [
-        "owner-request: handover of the step 7 build session, closed 2026-11-17"
-      ]
+      "source": ["owner-request: handover of the step 7 build session, closed 2026-11-17"]
     },
     {
       "id": "Q-373",
@@ -16332,9 +16387,7 @@
       "context": "Left as it is: a kept mark whose occurrence is no longer planned says \"Its date is no longer planned (the schedule or a payday moved). It stays until you undo it.\" after every cause, a reopen included. A sentence per cause would be more exact but needs the database to say which cause. Left by the developer as an open wording choice.",
       "status": "open",
       "related": ["R-ACCOUNT-301", "R-ACCOUNT-306"],
-      "source": [
-        "owner-request: handover of the step 7 build session, closed 2026-11-17"
-      ]
+      "source": ["owner-request: handover of the step 7 build session, closed 2026-11-17"]
     },
     {
       "id": "Q-374",
@@ -16342,9 +16395,7 @@
       "context": "Found by the independent review of planned transfers, not planned: the mark becomes unplanned (\"no longer planned\") and the same payday is to do again, because marks carry over only in update_transfer. Options: (1) leave it, the member undoes the unplanned mark and ticks again; (2) carry the marks over when an income's end changes.",
       "status": "open",
       "related": ["R-ACCOUNT-301"],
-      "source": [
-        "owner-request: handover of the step 7 build session, closed 2026-11-17"
-      ]
+      "source": ["owner-request: handover of the step 7 build session, closed 2026-11-17"]
     },
     {
       "id": "Q-375",
@@ -16352,9 +16403,7 @@
       "context": "Found by the independent review, not planned: moving a start back can give an automatic transfer a transaction dated before the transfer existed (R-ACCOUNT-309 moves it with the start). Options: (1) leave it, the date follows the period; (2) keep the date on or after the day the transfer was made.",
       "status": "open",
       "related": ["R-ACCOUNT-309", "R-ACCOUNT-315"],
-      "source": [
-        "owner-request: handover of the step 7 build session, closed 2026-11-17"
-      ]
+      "source": ["owner-request: handover of the step 7 build session, closed 2026-11-17"]
     },
     {
       "id": "Q-376",
@@ -16362,9 +16411,7 @@
       "context": "Found by the independent review, not planned: the table is filled by the migrations, so a plain data dump does not restore (duplicate key). docs/deployment.md documents the dump flag that excludes it (--exclude private.period_keyed_tables); the reviewer would move the table so that nothing has to be remembered. Only matters when a dump is restored into a migrated database.",
       "status": "open",
       "related": [],
-      "source": [
-        "owner-request: handover of the step 7 build session, closed 2026-11-17"
-      ]
+      "source": ["owner-request: handover of the step 7 build session, closed 2026-11-17"]
     },
     {
       "id": "Q-377",
@@ -16372,9 +16419,7 @@
       "context": "The owner was offered it; the default is to leave it (a rewrite of a pushed branch with an open pull request). The string is a short amount, not a statement line or a name.",
       "status": "open",
       "related": [],
-      "source": [
-        "owner-request: handover of the step 7 build session, closed 2026-11-17"
-      ]
+      "source": ["owner-request: handover of the step 7 build session, closed 2026-11-17"]
     }
   ]
 }

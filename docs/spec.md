@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-651 rules (632 active, 0 planned), 24 conventions, 399 decisions, 59 open questions. 0 rules and conventions are marked **TEST PENDING**.
+651 rules (632 active, 0 planned), 27 conventions, 400 decisions, 59 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -2952,18 +2952,35 @@ Accounts, planned transfers after payday, a per-period checklist and the money f
   - Source: owner-request
 - **C-SPEC-002** Generated files (`docs/spec.md` and the generated block of `CLAUDE.md`) are never edited by hand: change `spec/spec.json` and run `npm run spec:render`.
   _active · enforced by lint_
-  - Checked by: npm script `spec:check`; CI step `npm run spec:check` (.github/workflows/ci.yml, job frontend)
+  - Checked by: npm script `spec:check`; CI step `npm run spec:check` (.github/workflows/ci.yml, job checks)
   - Related: D-001
   - Source: owner-request
 - **C-SPEC-003** Every active rule or convention with enforcement `test` has a test whose description names its id, and no test names an id that is unknown or not active.
   _active · enforced by lint_
-  - Checked by: npm script `spec:check`; CI step `npm run spec:check` (.github/workflows/ci.yml, job frontend)
+  - Checked by: npm script `spec:check`; CI step `npm run spec:check` (.github/workflows/ci.yml, job checks)
   - Related: D-001, D-042
   - Source: owner-request
 - **C-SPEC-004** Ids are stable: never renumber or reuse one; retire a rule or supersede a decision instead of deleting it.
   _active · enforced by review_
   - Why: spec:check only notices an id that disappeared since the base commit (HEAD by default); it cannot tell a reused id from the original.
   - Source: owner-request
+
+### Continuous integration
+
+- **C-CI-001** A pull request into `main` merges only when the `CI passed` job of `.github/workflows/ci.yml` succeeds. That workflow runs every check, every pgTAP file and every seed of the property walk included, split over parallel jobs so it finishes in about three minutes, and `CI passed` depends on every other job in it.
+  _active · enforced by review_
+  - Why: One required check that depends on the others: adding or renaming a job needs no change to the branch rule. The rule itself is a repository setting, which `docs/ci.md` describes.
+  - Related: D-656, C-CI-002
+  - Source: owner-request: CI on pull requests and on main, 2026-11-18
+- **C-CI-002** Every push to `main`, and a nightly schedule, runs `.github/workflows/main.yml`: the checks of `ci.yml` unsplit (the property walk's coverage thresholds included), the HTTP smoke test on the full local stack and a production-style build checked as a deploy checks it. A run on `main` is never cancelled. A check added to `ci.yml` is added to `main.yml` too.
+  _active · enforced by review_
+  - Related: D-656, C-CI-001
+  - Source: owner-request: CI on pull requests and on main, 2026-11-18
+- **C-CI-003** Code is formatted with Prettier (`npm run format:check` passes).
+  _active · enforced by lint_
+  - Checked by: npm script `format:check`; CI step `npm run format:check` (.github/workflows/ci.yml, job checks)
+  - Related: C-CI-001
+  - Source: owner-request: CI on pull requests and on main, 2026-11-18
 
 ## Decisions
 
@@ -8304,6 +8321,23 @@ Under the four tiles, in small muted text with a scale icon, one sentence per di
 Related: D-618, R-ACCOUNT-557, R-ACCOUNT-520
 
 Source: owner-request: coordinator brief for the screens round after database round 5, 2026-11-17
+
+### D-656 Pull request CI runs every check split in parallel; main runs it unsplit, plus the slow checks (accepted)
+
+Pull requests run every check, every pgTAP file included, in parallel jobs: the frontend checks, the unit tests in three shards, the database checks with every pgTAP file but the property walk, and the property walk in four jobs of two seeds each (the setting `budget_tests.prop_shard`). Every invariant of the walk is checked on every seed; its coverage thresholds, which count the walks of all seeds together, are skipped on a split run. After a merge into `main` and every night, `main.yml` runs the same checks unsplit, so the coverage thresholds run there, plus the HTTP smoke test and a production-style build. The `CI passed` job is the one required check.
+
+**Why:** Pull request CI took about seven minutes, five of them one pgTAP file (the property walk, eight independent seeds of 320 steps). The owner wants a fast pull request CI that still runs every test, and allows a longer one after the merge.
+
+**Rejected:**
+
+- Running the concurrency and property tests only on main: faster, but a broken race guard or invariant would reach main before anything noticed (the owner chose the split instead).
+- Fewer steps or seeds on pull requests: a weaker walk than the one main runs, for every pull request.
+- Coverage thresholds scaled to each split run's share of the seeds: each seed exercises different operations, so a share can fall below its part of a threshold while the whole walk meets it.
+- Adding up the split runs' counts in a later job: the thresholds would be written twice, in SQL and in the job.
+
+Related: C-CI-001, C-CI-002, C-LOGIC-002
+
+Source: owner-request: CI on pull requests and on main, 2026-11-18
 
 ## Open questions
 

@@ -1,0 +1,120 @@
+name: Main
+
+# After a merge into main, and every night. The same checks as ci.yml, unsplit, plus the slow
+# ones a pull request does not wait for: the property walk's coverage thresholds (they count
+# every seed's walk, so only an unsplit run can check them), the HTTP smoke test on the full
+# local stack, and a production-style build checked like a deploy. See docs/ci.md.
+on:
+  push:
+    branches: [main]
+  # The database tests use today's date, so a night with no merge can still find a failure.
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# No concurrency group: a run on main is never cancelled, so every merge commit is checked.
+
+jobs:
+  frontend:
+    name: Frontend (spec, format, lint, typecheck, tests, production build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run spec:check
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Content-Security-Policy allows a Supabase project
+        run: node .github/scripts/check-csp.mjs public/.htaccess https://example.supabase.co
+
+      # As deploy.yml builds it, with placeholder values for the repository variables.
+      - name: Production-style build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: placeholder-publishable-key
+        run: npm run build
+
+      - name: Check build output
+        run: |
+          test -f dist/index.html || { echo "::error::dist/index.html is missing"; exit 1; }
+          test -f dist/.htaccess || { echo "::error::dist/.htaccess is missing"; exit 1; }
+          node .github/scripts/check-csp.mjs dist/.htaccess https://example.supabase.co
+
+  database:
+    name: Database (migrations, lint, advisors, types, every pgTAP test unsplit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+
+      - name: Start database and apply migrations
+        run: supabase db start
+
+      - name: Check schema for typing errors
+        run: supabase db lint --fail-on error
+
+      - name: Security and performance advisors
+        run: supabase db advisors --fail-on warn
+
+      - name: Check generated types are up to date
+        run: |
+          supabase gen types typescript > "$RUNNER_TEMP/database.types.ts"
+          if ! diff -u src/lib/database.types.ts "$RUNNER_TEMP/database.types.ts"; then
+            echo "::error file=src/lib/database.types.ts::Generated types are out of date. Run 'npm run db:types' with the local stack running and commit the result."
+            exit 1
+          fi
+
+      # Every file in one database, the property walk unsplit: its coverage thresholds run.
+      - name: Run pgTAP tests
+        run: supabase test db
+
+      - name: Stop database
+        if: always()
+        run: supabase stop --no-backup
+
+  smoke:
+    name: HTTP smoke test (full local stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+
+      # The whole stack (PostgREST and Auth included), as the browser reaches it.
+      - name: Start Supabase
+        run: supabase start
+
+      - run: npm run db:smoke
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup

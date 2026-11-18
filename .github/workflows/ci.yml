@@ -1,23 +1,29 @@
 name: CI
 
+# Pull requests. The "CI passed" job is the one required status check for merging into main
+# (Settings > Rules > Rulesets > main > Require status checks to pass). It depends on every
+# other job, so adding or renaming a job never needs a settings change, as long as the job is
+# listed under its `needs`.
+#
+# Every check runs here, split over parallel jobs to finish in about three minutes. After the
+# merge, main.yml runs the same checks unsplit, plus the slower ones. See docs/ci.md.
 on:
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# A new push to the same pull request cancels the run it makes stale.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  frontend:
-    name: Frontend (lint, typecheck, test, build)
+  checks:
+    name: Checks (spec, format, lint, typecheck, build, CSP)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -30,15 +36,38 @@ jobs:
 
       - run: npm ci
       - run: npm run spec:check
+      - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
       - run: npm run build
+      - name: Content-Security-Policy allows a Supabase project
+        run: node .github/scripts/check-csp.mjs public/.htaccess https://example.supabase.co
+
+  unit:
+    name: Unit tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx vitest run --shard=${{ matrix.shard }}/3
 
   database:
-    name: Database (migrations, pgTAP, generated types)
+    name: Database (migrations, lint, advisors, types, pgTAP)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,9 +88,6 @@ jobs:
       - name: Security and performance advisors
         run: supabase db advisors --fail-on warn
 
-      - name: Run pgTAP tests
-        run: supabase test db
-
       - name: Check generated types are up to date
         run: |
           supabase gen types typescript > "$RUNNER_TEMP/database.types.ts"
@@ -70,6 +96,65 @@ jobs:
             exit 1
           fi
 
+      # Every file but the property walk, which the `property` jobs run split by seed.
+      - name: Run pgTAP tests (all but the property walk)
+        run: |
+          files=$(ls supabase/tests/database/*.test.sql | grep -v '/70_properties\.test\.sql$')
+          # shellcheck disable=SC2086
+          supabase test db $files
+
       - name: Stop database
         if: always()
         run: supabase stop --no-backup
+
+  property:
+    name: Property walk (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+
+      - name: Start database and apply migrations
+        run: supabase db start
+
+      # pg_prove connects as postgres; 70_properties.test.sql reads this setting and walks
+      # only this job's seeds. The four jobs together walk every seed once.
+      - name: Select this job's seeds
+        run: >-
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1
+          -c "alter role postgres set budget_tests.prop_shard = '${{ matrix.shard }}/4'"
+
+      # The grep fails the job if the setting did not reach the test (it would then walk every
+      # seed: still correct, but this job would take as long as the whole walk).
+      - name: Run the property walk (seeds ${{ matrix.shard }}/4)
+        shell: bash
+        run: |
+          supabase test db supabase/tests/database/00_helpers.test.sql \
+            supabase/tests/database/70_properties.test.sql | tee "$RUNNER_TEMP/prop.tap"
+          grep -q "(split ${{ matrix.shard }}/4)" "$RUNNER_TEMP/prop.tap"
+
+      - name: Stop database
+        if: always()
+        run: supabase stop --no-backup
+
+  passed:
+    name: CI passed
+    if: always()
+    needs: [checks, unit, database, property]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null

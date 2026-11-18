@@ -54,8 +54,8 @@ without saying so.
   editing an applied one.
 - `spec/` the specification (`spec.json`) and its schema.
 - `scripts/spec/` the spec checker and renderer (`npm run spec:check`, `npm run spec:render`).
-- `docs/` generated spec view (`spec.md`), database API contract, local Supabase and
-  deployment notes.
+- `docs/` generated spec view (`spec.md`), database API contract, local Supabase, CI
+  (`ci.md`) and deployment notes.
 
 ## Rules
 
@@ -95,12 +95,22 @@ without saying so.
   its id, and no test names an id that is unknown or not active. (`C-SPEC-003`, lint)
 - Ids are stable: never renumber or reuse one; retire a rule or supersede a decision instead
   of deleting it. (`C-SPEC-004`, review)
+- A pull request into `main` merges only when the `CI passed` job of
+  `.github/workflows/ci.yml` succeeds. That workflow runs every check, every pgTAP file and
+  every seed of the property walk included, split over parallel jobs so it finishes in about
+  three minutes, and `CI passed` depends on every other job in it. (`C-CI-001`, review)
+- Every push to `main`, and a nightly schedule, runs `.github/workflows/main.yml`: the
+  checks of `ci.yml` unsplit (the property walk's coverage thresholds included), the HTTP
+  smoke test on the full local stack and a production-style build checked as a deploy checks
+  it. A run on `main` is never cancelled. A check added to `ci.yml` is added to `main.yml`
+  too. (`C-CI-002`, review)
+- Code is formatted with Prettier (`npm run format:check` passes). (`C-CI-003`, lint)
 <!-- END GENERATED: conventions -->
 
 ## Checks
 
-Run before reporting work as done: `npm run lint`, `npm run typecheck`, `npm test`,
-`npm run build`, `npm run spec:check`, and, as its own command,
+Run before reporting work as done: `npm run format:check`, `npm run lint`,
+`npm run typecheck`, `npm test`, `npm run build`, `npm run spec:check`, and, as its own command,
 `node .github/scripts/check-csp.mjs public/.htaccess https://example.supabase.co`.
 
 - Database tests: `npx supabase test db` (pg_prove, as CI). A helper statement in a test file
