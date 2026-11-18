@@ -14,6 +14,12 @@ on:
 permissions:
   contents: read
 
+# Pull the Supabase images from GitHub's registry. The CLI tries Amazon's public registry
+# first, whose anonymous limit ("Data limit exceeded") added two minutes or more to a start
+# when several database jobs pulled at once.
+env:
+  SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+
 # A new push to the same pull request cancels the run it makes stale.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}

@@ -15,6 +15,12 @@ on:
 permissions:
   contents: read
 
+# Pull the Supabase images from GitHub's registry. The CLI tries Amazon's public registry
+# first, whose anonymous limit ("Data limit exceeded") added two minutes or more to a start
+# when several database jobs pulled at once.
+env:
+  SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
+
 # No concurrency group: a run on main is never cancelled, so every merge commit is checked.
 
 jobs:
