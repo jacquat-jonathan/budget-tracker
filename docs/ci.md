@@ -17,8 +17,8 @@ minutes instead of seven:
 
 The property walk took about five of the six pgTAP minutes. Its seeds are independent, so each
 job walks two of them: the job sets `budget_tests.prop_shard` to `k/4` for the `postgres` role
-before the run, and the test keeps only the seeds at positions k and k + 4. Every invariant is
-checked on every seed. Only the 23 coverage thresholds (for example "the runs exercised at least
+(as the superuser `supabase_admin`) before the run, and the test keeps only the seeds at
+positions k and k + 4. Every invariant is checked on every seed. Only the 23 coverage thresholds (for example "the runs exercised at least
 150 accepted boundary operations") are skipped on a split run, because each one counts the
 walks of all eight seeds together. `main.yml` checks them.
 
@@ -51,7 +51,7 @@ npx vitest run --shard=2/3 --maxWorkers=2
 ```
 
 ```bash
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "alter role postgres set budget_tests.prop_shard = '2/4'"
+docker exec supabase_db_budget-tracker psql -U supabase_admin -d postgres -c "alter role postgres set budget_tests.prop_shard = '2/4'"
 ```
 
 ```bash
@@ -59,7 +59,7 @@ npx supabase test db supabase/tests/database/00_helpers.test.sql supabase/tests/
 ```
 
 ```bash
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "alter role postgres reset budget_tests.prop_shard"
+docker exec supabase_db_budget-tracker psql -U supabase_admin -d postgres -c "alter role postgres reset budget_tests.prop_shard"
 ```
 
 `supabase db reset` does not clear a role setting; reset it as above when done.

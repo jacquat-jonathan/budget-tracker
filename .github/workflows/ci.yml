@@ -126,10 +126,11 @@ jobs:
         run: supabase db start
 
       # pg_prove connects as postgres; 70_properties.test.sql reads this setting and walks
-      # only this job's seeds. The four jobs together walk every seed once.
+      # only this job's seeds. The four jobs together walk every seed once. Set by the
+      # superuser: postgres may not store a custom setting on its own role.
       - name: Select this job's seeds
         run: >-
-          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1
+          docker exec supabase_db_budget-tracker psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1
           -c "alter role postgres set budget_tests.prop_shard = '${{ matrix.shard }}/4'"
 
       # The grep fails the job if the setting did not reach the test (it would then walk every

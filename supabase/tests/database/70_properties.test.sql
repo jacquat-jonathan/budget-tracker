@@ -13,8 +13,8 @@
 -- To run it longer locally, raise the seed list or tests.prop_steps below and run
 --   npx supabase test db supabase/tests/database/00_helpers.test.sql supabase/tests/database/70_properties.test.sql
 -- Split runs: with budget_tests.prop_shard set to 'k/n' for the session (CI sets it per job with
--- ALTER ROLE postgres SET, see .github/workflows/ci.yml), only the seeds at positions k, k + n,
--- ... in seed order walk, so n jobs together walk every seed once. Every invariant is checked on
+-- ALTER ROLE postgres SET as supabase_admin, see .github/workflows/ci.yml), only the seeds at
+-- positions k, k + n, ... in seed order walk, so n jobs together walk every seed once. Every invariant is checked on
 -- each seed that walks; the coverage thresholds (pg_temp.coverage) count the walks of all seeds,
 -- so a split run skips them and the unsplit run (.github/workflows/main.yml) checks them. Unset,
 -- every seed walks and every threshold is checked.
