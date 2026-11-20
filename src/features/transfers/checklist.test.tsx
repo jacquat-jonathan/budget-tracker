@@ -1005,7 +1005,9 @@ describe('every row says what it is for, and a mark acts on exactly its row [R-A
     await waitFor(() => {
       expect(status('Savings', 'payday of')).toBe('Did not happen (said by Alex)')
     })
-    expect(status('Savings', forPeriod)).toBe('Standing order: will be assumed done on its due date')
+    expect(status('Savings', forPeriod)).toBe(
+      'Standing order: will be assumed done on its due date',
+    )
   })
 
   it('a mark kept with another period’s number says it is not this period’s; its Undo sends that number', async () => {

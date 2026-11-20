@@ -259,8 +259,9 @@ and a non-member get, and two members racing the same reopen and the same subscr
 charge. It needs the whole
 stack (`npm run db:start`, not `supabase db start`) and reads the URL and publishable key
 from `npx supabase status`, or from `SUPABASE_URL` and `SUPABASE_ANON_KEY`. It creates
-throwaway users (`@smoke.test`) that `npm run db:reset` removes. CI does not run it (its
-database job starts the database only); run it before handing over a contract change.
+throwaway users (`@smoke.test`) that `npm run db:reset` removes. Pull request CI does not run
+it (its database jobs start the database only); `main.yml` runs it after every merge and every
+night (see `docs/ci.md`). Run it before handing over a contract change.
 
 ## Regenerate TypeScript types
 

@@ -12,6 +12,12 @@
 -- diagnostic at the end changes when, and only when, a walk changes.
 -- To run it longer locally, raise the seed list or tests.prop_steps below and run
 --   npx supabase test db supabase/tests/database/00_helpers.test.sql supabase/tests/database/70_properties.test.sql
+-- Split runs: with budget_tests.prop_shard set to 'k/n' for the session (CI sets it per job with
+-- ALTER ROLE postgres SET as supabase_admin, see .github/workflows/ci.yml), only the seeds at
+-- positions k, k + n, ... in seed order walk, so n jobs together walk every seed once. Every invariant is checked on
+-- each seed that walks; the coverage thresholds (pg_temp.coverage) count the walks of all seeds,
+-- so a split run skips them and the unsplit run (.github/workflows/main.yml) checks them. Unset,
+-- every seed walks and every threshold is checked.
 --
 -- After every step it checks:
 --   * the operation succeeded or was refused with a documented P0001 code;
@@ -71,6 +77,31 @@ create temp table seeds (seed double precision) on commit drop;
 insert into seeds values (0.11), (0.23), (0.37), (0.41), (0.53), (0.67), (0.79), (0.83);
 create temp table prop_config (steps integer) on commit drop;
 insert into prop_config values (320);
+
+create temp table prop_shard (k integer, n integer) on commit drop;
+insert into prop_shard
+select split_part(x.s, '/', 1)::integer, split_part(x.s, '/', 2)::integer
+from (select coalesce(nullif(current_setting('budget_tests.prop_shard', true), ''), '1/1') as s) as x;
+delete from seeds as d
+where d.seed not in (
+  select p.seed
+  from (select seed, row_number() over (order by seed) as pos from seeds) as p, prop_shard as sh
+  where (p.pos - sh.k) % sh.n = 0);
+do $shard$
+begin
+  if (select k < 1 or k > n from prop_shard) or not exists (select 1 from seeds) then
+    raise exception 'budget_tests.prop_shard = % selects no seed', current_setting('budget_tests.prop_shard', true);
+  end if;
+end;
+$shard$;
+
+-- A coverage threshold counts the walks of all seeds: checked on an unsplit run, skipped on a
+-- split one (see the header).
+create function pg_temp.coverage(have integer, op text, want integer, description text)
+returns text language sql as $$
+  select case when (select n from prop_shard) = 1 then cmp_ok(have, op, want, description)
+         else skip(description || ' (coverage threshold: checked by the unsplit run)') end
+$$;
 
 create temp table runs (seed double precision, step integer, budget text, op text, outcome text) on commit drop;
 create temp table failures (seed double precision, step integer, budget text, op text, problem text) on commit drop;
@@ -1743,59 +1774,61 @@ select is_empty(
   'select seed, step, budget, op, problem from failures order by seed, step',
   'R-ACCOUNT-460 R-ACCOUNT-510 R-ACCOUNT-511 R-ACCOUNT-512 R-ACCOUNT-513 R-ACCOUNT-462 R-ACCOUNT-464 R-PERIOD-031 R-PERIOD-032 R-PERIOD-029 R-PERIOD-005 R-PERIOD-020 R-PERIOD-022 R-VERSION-011 R-VERSION-013 R-SECURITY-007 R-PROGRESS-092 R-TRANSACTION-093 R-CATEGORY-092 R-VERSION-014 R-CONCURRENCY-070 R-SUBSCRIPTION-111 R-DEBT-003 R-DEBT-111 R-SUBSCRIPTION-079 R-VERSION-110 R-SUBSCRIPTION-073 R-SUBSCRIPTION-130 R-DEBT-073 R-DEBT-005 R-CATEGORY-130 R-COMPARE-002 R-COMPARE-070 R-COMPARE-071 R-COMPARE-170: across all seeds, every step kept the invariants (no transaction outside every period or on a group, no charge twice, no interest without its period or twice in one), nothing got stuck, only documented errors reached the client, every period''s totals and committed total equalled a naive recomputation and its progress rows, every debt''s remaining amount equalled one from its rows, closed income, expected, spent and committed totals changed only where named, edits were in force at once, a reopen kept the terms in force, and no stale edit was accepted'
 );
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('add_transaction', 'update_transaction', 'delete_transaction')),
   '>=', 150, 'R-TRANSACTION-008: the runs recorded, edited and deleted many transactions, in past periods too');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_subcategory', 'correct_expectation', 'end_category', 'end_category_from', 'create_category_backdated')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('create_subcategory', 'correct_expectation', 'end_category', 'end_category_from', 'create_category_backdated')),
   '>=', 60, 'R-VERSION-070 R-CATEGORY-092: and changed categories in every way, corrections included');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('extend_category', 'restore_category')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('extend_category', 'restore_category')),
   '>=', 20, 'R-CATEGORY-100 R-CATEGORY-101: including extending and restoring categories');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'preview_then_correct_primary'),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op = 'preview_then_correct_primary'),
   '>=', 5, 'R-PERIOD-036: and the previews of corrections always matched the write');
-select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_edit'),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_edit'),
   '>=', 10, 'R-CONCURRENCY-070: and refused every stale edit it tried');
-select cmp_ok(
+select pg_temp.coverage(
   (select count(*)::integer from runs where outcome = 'ok'
      and op in ('set_expected_pay_date', 'reset_expected_pay_date', 'record_early_pay_date',
                 'reopen_previous_period', 'move_period_start')),
   '>=', 150, 'R-PERIOD-025: the runs exercised many accepted boundary operations'
 );
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op = 'reopen_previous_period'),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op = 'reopen_previous_period'),
   '>=', 20, 'R-PERIOD-023: including reopened periods');
-select cmp_ok((select count(*)::integer from runs where outcome like 'refused: invalid_boundary%'),
+select pg_temp.coverage((select count(*)::integer from runs where outcome like 'refused: invalid_boundary%'),
   '>=', 30, 'R-PERIOD-020: and many refused ones');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('correct_terms', 'add_income_backdated', 'remove_income_from')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('correct_terms', 'add_income_backdated', 'remove_income_from')),
   '>=', 40, 'R-VERSION-012: and many explicit corrections');
-select cmp_ok((select count(*)::integer from runs where op = 'preview_then_update_primary' and outcome = 'ok'),
+select pg_temp.coverage((select count(*)::integer from runs where op = 'preview_then_update_primary' and outcome = 'ok'),
   '>=', 15, 'R-PERIOD-036: the previews of the expected pay date always matched the write');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op like '%subscription%'),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op like '%subscription%'),
   '>=', 40, 'R-VERSION-003: the runs created, edited, corrected and ended many subscriptions');
-select cmp_ok((select count(*)::integer from made where kind = 'charge'), '>=', 45,
+select pg_temp.coverage((select count(*)::integer from made where kind = 'charge'), '>=', 45,
   'R-SUBSCRIPTION-073 Q-054: which were charged automatically, many times, also after long absences');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('confirm_charge', 'dismiss_charge')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('confirm_charge', 'dismiss_charge')),
   '>=', 10, 'R-SUBSCRIPTION-075 R-SUBSCRIPTION-077: and charges were confirmed or dismissed');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('import_rows', 'import_chunks')), '>=', 30,
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('import_rows', 'import_chunks')), '>=', 30,
   'R-IMPORT-001 R-IMPORT-003: the runs imported statement rows many times, in one chunk or several in any order, each preview (with the batch id, and with none for a first chunk) equal to the write, the second import empty');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_rule', 'import_anyway', 'undo_import')), '>=', 20,
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('create_rule', 'import_anyway', 'undo_import')), '>=', 20,
   'R-IMPORT-202 R-IMPORT-204 R-IMPORT-206: and created rules, imported skipped rows anyway and undid batches');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_debt', 'create_debt_backdated', 'update_debt', 'correct_debt', 'add_payment', 'adjust_debt', 'delete_adjustment', 'remove_debt')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('create_debt', 'create_debt_backdated', 'update_debt', 'correct_debt', 'add_payment', 'adjust_debt', 'delete_adjustment', 'remove_debt')),
   '>=', 60, 'R-VERSION-004 R-DEBT-075: the runs recorded, paid, adjusted and removed many debts');
-select cmp_ok((select count(*)::integer from public.debt_interest as i join made as m on m.id = i.debt_id),
+select pg_temp.coverage((select count(*)::integer from public.debt_interest as i join made as m on m.id = i.debt_id),
   '>=', 15, 'R-DEBT-073: and interest was added to them');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('create_transfer', 'create_transfer_backdated', 'update_transfer', 'correct_transfer', 'end_transfer')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('create_transfer', 'create_transfer_backdated', 'update_transfer', 'correct_transfer', 'end_transfer')),
   '>=', 45, 'R-ACCOUNT-002 R-VERSION-071 R-ACCOUNT-233 R-ACCOUNT-234: the runs created, edited, corrected and ended many transfers, each as its preview said');
-select cmp_ok((select count(*)::integer from catch_up_seen), '>=', 30,
+select pg_temp.coverage((select count(*)::integer from catch_up_seen), '>=', 30,
   'R-ACCOUNT-074 R-ACCOUNT-302: the catch-up created many transfer transactions, each once, each equal to the naive model');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('mark_done', 'skip_transfer', 'mark_not_done', 'undo_mark')),
   '>=', 20, 'R-ACCOUNT-005 R-ACCOUNT-073 R-ACCOUNT-240: and marked transfers done, skipped, not done, and undid marks');
-select cmp_ok((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_mark'),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'refused: record_changed' and op = 'stale_mark'),
   '>=', 3, 'R-CONCURRENCY-230: and refused every stale mark it tried');
-select cmp_ok((select count(*)::integer from unmark_seen),
+select pg_temp.coverage((select count(*)::integer from unmark_seen),
   '>=', 5, 'R-ACCOUNT-074 R-ACCOUNT-240: and undid not-done marks of automatic transfers after the catch-up had run');
-select cmp_ok((select count(*)::integer from runs where outcome = 'ok' and op in ('transfer_kind_same_day', 'switch_twice', 'late_salary')),
+select pg_temp.coverage((select count(*)::integer from runs where outcome = 'ok' and op in ('transfer_kind_same_day', 'switch_twice', 'late_salary')),
   '>=', 20, 'R-ACCOUNT-510 R-ACCOUNT-511 R-ACCOUNT-512: and switched transfers between kinds on a day they had, made several primary switches in one period and salaries up to 40 days late');
-select cmp_ok((select count(*)::integer from runs), '=', 8 * (select steps from prop_config),
+select cmp_ok((select count(*)::integer from runs), '=', (select count(*)::integer from seeds) * (select steps from prop_config),
   'R-PERIOD-009: every step ran');
 
+select diag('property walk: seeds ' || (select string_agg(seed::text, ', ' order by seed) from seeds)
+  || ' (split ' || (select k || '/' || n from prop_shard) || ')');
 select diag('automatic charges created: ' || (select count(*) from made where kind = 'charge'));
 select diag('step 7 counts (threshold): transfer transactions seen by the oracle ' || (select count(*) from catch_up_seen) || ' (30), transfer writes '
   || (select count(*) from runs where outcome = 'ok' and op in ('create_transfer', 'create_transfer_backdated', 'update_transfer', 'correct_transfer', 'end_transfer'))

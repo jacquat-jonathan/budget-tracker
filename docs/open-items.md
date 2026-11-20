@@ -72,5 +72,7 @@ Also in `CLAUDE.md`. Kept here:
 - The owner's real bank statements never enter the repository, the network or a report; only
   the anonymised fixtures under `test-fixtures/` are approved. Statements are parsed in the
   browser and the file never leaves the device.
-- Push only to `claude/keen-fermi-0uttfr` unless the owner says otherwise; the pull request
+- Push only to the branch the session names unless the owner says otherwise; a pull request
   stays unmerged until the owner says so.
+- `CI passed` must be set by the owner as the required status check on `main` (repository
+  settings; see `docs/ci.md`). Until then a red pull request can still be merged.
