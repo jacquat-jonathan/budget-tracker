@@ -18,7 +18,7 @@ A personal / household budget tracker. A budget starts from the monthly total of
 - [Actors](#actors)
 - [How to read this](#how-to-read-this)
 
-651 rules (632 active, 0 planned), 27 conventions, 400 decisions, 59 open questions. 0 rules and conventions are marked **TEST PENDING**.
+651 rules (632 active, 0 planned), 27 conventions, 403 decisions, 59 open questions. 0 rules and conventions are marked **TEST PENDING**.
 
 ## Build steps and features
 
@@ -3036,7 +3036,7 @@ dist/ is served as static files by Infomaniak Apache web hosting. public/.htacce
 
 Source: CLAUDE.md: Stack; code: public/.htaccess
 
-### D-005 Manual deploy workflow, gated by the CI checks (accepted)
+### D-005 Manual deploy workflow, gated by the CI checks (superseded by D-657)
 
 The Deploy GitHub workflow runs only when started by hand. It checks the variables and the CSP, runs lint, typecheck and tests, builds, and syncs dist/ to the site folder with rsync over SSH. A rollback is a deploy of an earlier ref.
 
@@ -8061,7 +8061,7 @@ Related: R-AUTH-530, R-AUTH-025
 
 Source: owner-request: coordinator brief for the final fix round after the household walk-through, 2026-11-17
 
-### D-636 The hosted migrations are checked by hand before a deploy, not by the Deploy workflow (accepted)
+### D-636 The hosted migrations are checked by hand before a deploy, not by the Deploy workflow (superseded by D-658)
 
 docs/deployment.md makes "npx supabase migration list --remote" and "npx supabase db push --remote --dry-run" a numbered manual step before every deployment (and before the first one), because the Deploy workflow builds and uploads the app without knowing whether the hosted database has the release's migrations. No database credential or access token is added to CI. Backups are the owner's own data-only dumps (auth, public and private schemas, without the migration-filled private.period_keyed_tables), restored onto a project whose migrations were pushed first, as rehearsed on the local stack.
 
@@ -8338,6 +8338,50 @@ Pull requests run every check, every pgTAP file included, in parallel jobs: the 
 Related: C-CI-001, C-CI-002, C-LOGIC-002
 
 Source: owner-request: CI on pull requests and on main, 2026-11-18
+
+### D-657 Deploy on every green push to main, over FTPS with an FTP-only user (accepted)
+
+The Deploy workflow runs by itself once the Main workflow succeeds for a push to main (never for its nightly or manual runs), and by hand with a ref (an earlier commit of main is the rollback path) and a dry-run option. Only a commit on main is uploaded; any other run is a dry run, and an automatic run whose commit is no longer main's tip leaves the upload to the newer commit's run. It keeps the checks of D-005 (variables, CSP before and after the build, lint, typecheck, tests, build output, one deploy at a time) and uploads dist/ with lftp over FTPS (TLS forced, certificate verified) as an FTP-only user locked to the site folder: new files of assets/ only, the other files written over in place, index.html, then version.json, then a delete pass that keeps .well-known/, .user.ini and .infomaniak-maintenance.html. Secrets and variables are repository-level; there is no production environment.
+
+**Why:** The owner wants every Infomaniak site to release on push to main the same way (race-tracker). A user that only reaches this site's folder limits what a leaked secret can touch; the upload order means a visitor never gets a page whose assets are missing.
+
+**Rejected:**
+
+- rsync over SSH (D-005): an SSH user reaches the whole hosting, and the workflow never ran.
+- A production environment restricted to main: dry runs from another branch could not read the server.
+
+Related: D-005, D-022, D-658
+
+Source: owner-request: automatic FTPS deploys for every Infomaniak site, like race-tracker, 2026-11-22; code: .github/workflows/deploy.yml
+
+### D-658 The Deploy workflow refuses a release whose migrations differ from the live one (accepted)
+
+Each deploy writes /version.json (the commit it was built from) after index.html. Before building, the workflow reads the live /version.json and compares supabase/migrations/ between that commit and the one it deploys; when they differ, or the live commit is unknown, a real deploy stops unless the run is started by hand with "Schema pushed" ticked, after the hosted migrations were checked (docs/deployment.md, step 10). No database credential or access token is in CI. Backups stay the owner's own data-only dumps (auth, public and private schemas, without the migration-filled private.period_keyed_tables), restored onto a project whose migrations were pushed first.
+
+**Why:** An automatic deploy would otherwise ship a frontend ahead of its schema (D-006) with nobody running the manual check of D-636; comparing commits needs no secret.
+
+**Rejected:**
+
+- A CI job that pushes or checks the hosted migrations: it needs the database password or a Supabase access token in CI.
+- Keeping the check manual only (D-636): automatic deploys skip it.
+
+Related: D-006, D-636, D-657
+
+Source: owner-request: automatic FTPS deploys for every Infomaniak site, like race-tracker, 2026-11-22; code: .github/workflows/deploy.yml
+
+### D-659 http:// is redirected to https:// in .htaccess (accepted)
+
+public/.htaccess sends every plain http:// request to the same address over https:// (301), before every other rewrite rule. A request counts as insecure only when Apache saw no TLS (%{HTTPS} off) and the proxy did not report https (X-Forwarded-Proto). /version.json is served with Cache-Control: no-cache.
+
+**Why:** The Infomaniak Manager no longer has a "force HTTPS" switch, and http://budget.jacquatjonathan.ch answered 200. Infomaniak may terminate TLS in a proxy, so checking only %{HTTPS} could loop.
+
+**Rejected:**
+
+- Checking %{HTTPS} alone: may redirect forever behind a TLS proxy.
+
+Related: D-004
+
+Source: owner-request: automatic FTPS deploys for every Infomaniak site, like race-tracker, 2026-11-22; code: public/.htaccess
 
 ## Open questions
 

@@ -16,6 +16,13 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Send plain http:// visits to https://, before any other rule. The hosting may terminate TLS
+  # in a proxy in front of Apache, so a request only counts as insecure when Apache did not see
+  # TLS and the proxy did not report https either (otherwise the redirect would loop).
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
   # Work out the URL path of the folder holding this file, without hard-coding it:
   # for /budget/settings in a site under /budget/, BASE becomes "/budget"; at the domain
   # root it stays empty.
@@ -45,7 +52,7 @@
 # ---------------------------------------------------------------------------
 # Caching
 #   assets/*  Vite puts a content hash in every file name there: cache for a year.
-#   *.html    Always revalidate, so a new deploy is picked up on the next load.
+#   *.html    Always revalidate, so a new deploy is picked up on the next load (version.json too).
 #   others    (favicon and other files copied from public/) one hour.
 # ---------------------------------------------------------------------------
 <IfModule mod_headers.c>
@@ -54,6 +61,11 @@
   <FilesMatch "\.html$">
     Header set Cache-Control "no-cache"
     Header unset Expires
+  </FilesMatch>
+
+  # version.json says which commit is live; the next deploy reads it.
+  <FilesMatch "^version\.json$">
+    Header set Cache-Control "no-cache"
   </FilesMatch>
 
   <If "%{REQUEST_URI} =~ m#/assets/[^/]+$#">
@@ -92,6 +104,6 @@
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
   Header always set Cross-Origin-Opener-Policy "same-origin"
-  # Only sent over HTTPS. Enable "force HTTPS" for the site in the Infomaniak Manager.
+  # Only sent over HTTPS; the rewrite rules above send http:// visits there.
   Header always set Strict-Transport-Security "max-age=31536000" "expr=%{HTTPS} == 'on'"
 </IfModule>

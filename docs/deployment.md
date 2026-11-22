@@ -5,7 +5,7 @@ hosted Supabase project. Nothing runs on the web server but Apache: the browser 
 app's files from Infomaniak and talks to Supabase directly.
 
 ```
-GitHub Actions: npm ci -> lint, typecheck, tests -> npm run build (VITE_* variables) -> rsync dist/ over SSH -> Infomaniak
+push to main -> Main workflow green -> Deploy: migration check, lint, typecheck, tests, npm run build (VITE_* variables) -> lftp over FTPS -> Infomaniak
 Browser -> Infomaniak (HTML, JS, CSS)    Browser -> Supabase (data, auth; row-level security enforces access)
 ```
 
@@ -35,9 +35,9 @@ Contents:
   `npx supabase db dump` (backups), which runs `pg_dump` in a container. Run `npm install` in
   the repository once; the Supabase CLI is a dev dependency (`npx supabase --version` prints
   the pinned version, 3.1.0 when this was written).
-- A Supabase account (https://supabase.com) and an Infomaniak web hosting with SSH access.
+- A Supabase account (https://supabase.com) and an Infomaniak web hosting.
 - Admin rights on the GitHub repository (for the deploy workflow's secrets).
-- A password manager for: the database password, the SSH deploy key, the publishable key.
+- A password manager for: the database password, the FTP deploy user's password.
 - `psql` (PostgreSQL client) only if you will ever restore a backup.
 
 ## First deployment, step by step
@@ -189,77 +189,62 @@ seq 300 | xargs -P 20 -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 
 **Check:** you have both answers written down, and Q-280 and Q-281 say what was found.
 
-### 7. Infomaniak: site folder, HTTPS and SSH access
+### 7. Infomaniak: site folder, HTTPS and an FTP-only deploy user
 
 In the Infomaniak Manager (manager.infomaniak.com), Web Hosting > your hosting:
 
 1. **Site folder.** Under Sites, open (or create) the site for your domain and note its
-   folder, for example `sites/budget.example.ch`. If the app lives in a subfolder of an
-   existing site (for example `https://example.ch/budget/`), the folder is that site's folder
-   plus `/budget`, and `VITE_BASE_PATH` is `/budget/`.
-2. **HTTPS.** Install the free Let's Encrypt certificate for the site and enable the option
-   that forces HTTPS.
-3. **SSH user.** Under FTP / SSH, create a user with SSH access (or enable SSH on an existing
-   one). Note the **server** (host name shown there, for example `xxxx.ftp.infomaniak.com`),
-   the **user name** and the **port** (22 unless shown otherwise).
-4. **Deploy key.** On your computer, make a key used only for deploys, without a passphrase:
+   folder, for example `/sites/budget.jacquatjonathan.ch`. If the app lives in a subfolder of
+   an existing site (for example `https://example.ch/budget/`), the folder is that site's
+   folder plus `/budget`, and `VITE_BASE_PATH` is `/budget/`.
+2. **HTTPS.** Install the free Let's Encrypt certificate for the site. The Manager no longer
+   has a "force HTTPS" switch: `public/.htaccess` redirects every `http://` address to
+   `https://` itself (D-659).
+3. **Deploy user.** Under FTP / SSH, Add a user: type Apache/PHP, access **FTP** (not
+   "FTP + SSH"), folder: the site folder of 7.1. Choose a long random password and keep it in
+   your password manager. The Manager shows the full user name with the hosting's prefix (for
+   this site: `qm73ov_budget_deploy`) and the server (`qm73ov.ftp.infomaniak.com`). An FTP
+   user only sees its folder, so a leaked GitHub secret reaches this site and nothing else.
 
-   ```
-   ssh-keygen -t ed25519 -N "" -C "budget-tracker deploy" -f ./budget_deploy_key
-   ```
+**Check:** `lftp -e 'set ftp:ssl-force true; open -u <user> <server>; ls; bye'` (it asks for
+the password) lists the site folder's files, `index.html` and `.user.ini` among them, and nothing
+outside it; and the site's address opens over https (an empty folder may show an Infomaniak
+page or an error: fine).
 
-   Log in once with the SSH user's password and add the public key:
+### 8. GitHub: secrets and variables
 
-   ```
-   ssh -p 22 <user>@<server>
-   mkdir -p ~/.ssh && chmod 700 ~/.ssh
-   echo "<contents of budget_deploy_key.pub>" >> ~/.ssh/authorized_keys
-   chmod 600 ~/.ssh/authorized_keys
-   ```
+Under Settings > Secrets and variables > Actions (repository level; there is no
+`production` environment, D-657):
 
-5. **Host key** (so the workflow can tell it is talking to the real server):
+| Kind     | Name                            | Value                                                 |
+| -------- | ------------------------------- | ----------------------------------------------------- |
+| Secret   | `FTP_HOST`                      | `qm73ov.ftp.infomaniak.com` (the server of step 7.3)  |
+| Secret   | `FTP_USER`                      | The full FTP user name of step 7.3                    |
+| Secret   | `FTP_PASSWORD`                  | Its password                                          |
+| Variable | `REMOTE_DIR`                    | `/`: the site folder, as the folder-locked user sees it |
+| Variable | `VITE_SUPABASE_URL`             | Project URL from step 1                               |
+| Variable | `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable key from step 1                           |
+| Variable | `VITE_BASE_PATH`                | `/` at the domain root, or `/budget/` for a subfolder |
+| Variable | `DEPLOY_WEB`                    | `true` turns the deploys on (a manual dry run works without it) |
 
-   ```
-   ssh-keyscan -p 22 <server>
-   ```
+`gh` can set them all; type the password yourself so it is never in a file or your shell
+history:
 
-   Keep the output lines. Cross-check: `ssh-keyscan -p 22 <server> | ssh-keygen -lf -` must
-   show the same fingerprint your own `ssh` printed (or stored in your `~/.ssh/known_hosts`)
-   when you first logged in.
+```sh
+gh secret set FTP_HOST -b qm73ov.ftp.infomaniak.com
+gh secret set FTP_USER -b qm73ov_budget_deploy
+gh secret set FTP_PASSWORD          # asks for the value
+gh variable set REMOTE_DIR -b /
+gh variable set VITE_SUPABASE_URL -b https://<ref>.supabase.co
+gh variable set VITE_SUPABASE_PUBLISHABLE_KEY -b <publishable key>
+gh variable set VITE_BASE_PATH -b /
+gh variable set DEPLOY_WEB -b true
+```
 
-**Check:** `ssh -i ./budget_deploy_key -p 22 <user>@<server> 'rsync --version'` logs in without
-a password and prints a version (the deploy needs rsync on the server), and the site's
-address opens over https (an empty folder may show an Infomaniak page or an error: fine).
+Only the two `VITE_SUPABASE_*` values (and the base path) reach the browser.
 
-### 8. GitHub: environment, secrets and variables
-
-In the repository, Settings > Environments > New environment, name it `production`.
-Optionally add yourself as required reviewer and restrict deployment branches to `main`.
-
-Add in the `production` environment:
-
-| Kind     | Name              | Value                                                      |
-| -------- | ----------------- | ---------------------------------------------------------- |
-| Secret   | `SSH_PRIVATE_KEY` | Full contents of `budget_deploy_key` (the private key)     |
-| Variable | `SSH_HOST`        | The Infomaniak SSH server                                  |
-| Variable | `SSH_USER`        | The SSH user name                                          |
-| Variable | `SSH_PORT`        | Optional; defaults to 22                                   |
-| Variable | `SSH_KNOWN_HOSTS` | The `ssh-keyscan` output lines from step 7.5               |
-| Variable | `DEPLOY_PATH`     | The site folder from step 7.1, relative to the SSH user's home (for example `sites/budget.example.ch`) or absolute |
-
-Add under Settings > Secrets and variables > Actions > Variables (repository variables):
-
-| Name                            | Value                                                 |
-| ------------------------------- | ----------------------------------------------------- |
-| `VITE_SUPABASE_URL`             | Project URL from step 1                               |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable key from step 1                           |
-| `VITE_BASE_PATH`                | `/` at the domain root, or `/budget/` for a subfolder |
-
-Only these two `VITE_SUPABASE_*` values (and the base path) reach the browser. Then delete
-the local `budget_deploy_key` files, or keep the private key only in your password manager.
-
-**Check:** the environment lists one secret and five variables (four without `SSH_PORT`), and
-the repository lists the three variables.
+**Check:** `gh secret list` shows the three secrets and `gh variable list` the five
+variables.
 
 ### 9. Narrow the Content-Security-Policy to your project (recommended)
 
@@ -285,9 +270,12 @@ prints nothing and exits 0 (`echo $?` prints 0).
 
 ### 10. Check, once more, that the migrations are on the project
 
-The Deploy workflow **does not check that the migrations were pushed**: it only builds and
-uploads the app, and a new app on an old schema fails at run time. Before every deployment
-that comes with migrations, and before this first one:
+The Deploy workflow holds no database credential, so it cannot see the hosted migrations.
+What it does (D-658): every deploy writes `/version.json` with the commit it was built from,
+and before building, the next deploy compares `supabase/migrations/` between that live
+commit and the one it deploys. If they differ, or the live site has no `version.json` yet
+(the first deploy), a real deploy stops until you have checked the hosted project and start
+the workflow by hand with **Schema pushed** ticked. The check itself:
 
 ```sh
 npx supabase migration list --remote       # every line has the same Local and Remote version
@@ -298,30 +286,56 @@ npx supabase db push --remote --dry-run    # nothing to apply
 
 ### 11. Build and upload
 
-**With the Deploy workflow** (the usual way): GitHub > Actions > **Deploy** > Run workflow,
-choose `main`, Run. The job checks the variables and that the CSP allows `VITE_SUPABASE_URL`,
-runs the same checks as CI (`npm run lint`, `npm run typecheck`, `npm test`), builds with the
-variables of step 8, checks the built `dist/.htaccess` again and syncs `dist/` to the site
-folder: changed files are replaced, files no longer in the build are deleted (the server's
-`.well-known/` folder is kept). Its log lists every file it changed.
+The **Deploy** workflow (`.github/workflows/deploy.yml`) runs by itself when the **Main**
+workflow succeeds for a push to `main` (D-657), and by hand: GitHub > Actions > **Deploy** >
+Run workflow, or `gh workflow run Deploy` with `-f dry_run=true`, `-f schema_pushed=true`,
+`-f ref=<commit>`. A run for a commit that is not on `main` is always a dry run.
 
-**By hand** (if you do not use GitHub Actions):
+It checks the variables and secrets and that the CSP allows `VITE_SUPABASE_URL`, compares the
+migrations with the live release (step 10), runs `npm run lint`, `npm run typecheck` and
+`npm test`, builds with the variables of step 8, writes `dist/version.json`, checks the built
+`dist/.htaccess` again and uploads `dist/` with lftp over FTPS (TLS forced, certificate
+verified), in this order, so a visitor never gets a page whose files are missing:
+
+1. new files of `assets/` only (their names carry a content hash);
+2. the other files except `index.html` and `version.json`, written over in place;
+3. `index.html`, then `version.json`;
+4. a delete pass removing what is no longer in the build (old assets). It keeps
+   `.well-known/`, `.user.ini` and `.infomaniak-maintenance.html` (Infomaniak's own files).
+
+Its log lists every file it uploaded or deleted. A dry run lists the same without changing
+anything.
+
+**The first deploy** (the site was uploaded by hand before, with no `version.json`):
+
+1. Run the workflow with **Dry run** ticked (`gh workflow run Deploy -f dry_run=true`). It
+   must log in, and its log's `rm` lines (files to delete) must name only old files under
+   `assets/` or other files that are not in the build; if it lists anything else that must
+   stay, add it to the `keep` list of the workflow first.
+2. Do step 10, then run it again with **Schema pushed** ticked
+   (`gh workflow run Deploy -f schema_pushed=true`).
+3. Do step 12. From then on every green push to `main` deploys by itself.
+4. Delete the old FTP user that uploaded the site by hand (`qm73ov_budget`) in the Manager
+   under FTP / SSH, once this deploy has worked.
+
+**By hand** (only if GitHub Actions is not available):
 
 ```sh
 VITE_SUPABASE_URL=https://<ref>.supabase.co \
 VITE_SUPABASE_PUBLISHABLE_KEY=<publishable key> \
 VITE_BASE_PATH=/ \
 npm run build
-ls -a dist        # must list .htaccess, index.html, theme-init.js, favicon.svg and assets/
+printf '{ "commit": "%s" }\n' "$(git rev-parse HEAD)" > dist/version.json
+ls -a dist        # must list .htaccess, index.html, version.json, theme-init.js, favicon.svg and assets/
 ```
 
-Upload the **contents** of `dist/` (not the folder itself) to the site folder, including the
-hidden file `.htaccess` (some FTP programs hide files starting with a dot: turn that off), for
-example `rsync -rlt --delete-after --filter='P .well-known/' -e "ssh -p 22" dist/ <user>@<server>:<site folder>/`
-(the filter keeps the server's certificate folder).
+Upload the **contents** of `dist/` (not the folder itself) to the site folder, `assets/`
+first and `index.html` last, including the hidden file `.htaccess` (some FTP programs hide
+files starting with a dot: turn that off). Never delete `.well-known/`, `.user.ini` or
+`.infomaniak-maintenance.html` on the server.
 
 **Check:** the workflow run is green (or your upload finished), and the site folder holds
-`index.html`, `.htaccess`, `theme-init.js`, `favicon.svg` and `assets/`.
+`index.html`, `version.json`, `.htaccess`, `theme-init.js`, `favicon.svg` and `assets/`.
 
 ### 12. Check the site from outside
 
@@ -329,6 +343,11 @@ Replace `https://budget.example.ch` with your address (add the subfolder if any)
 
 ```sh
 SITE=https://budget.example.ch
+# http:// goes to https:// with the same path and query, and lands on the app in one hop.
+curl -sSI "${SITE/https:/http:}/transactions?x=1" | grep -iE '^HTTP|^location'
+curl -sSL -o /dev/null -w '%{http_code} after %{num_redirects}\n' "${SITE/https:/http:}/"
+# The live commit.
+curl -s "$SITE/version.json"
 # Every app address answers with the app (deep links and reloads, links from emails).
 for p in / /transactions /settings /reset-password; do
   curl -s -o /dev/null -w "$p %{http_code} %{content_type}\n" "$SITE$p"; done
@@ -342,6 +361,8 @@ curl -sI "$SITE/$ASSET" | grep -iE 'cache-control|content-type'
 
 **Check:**
 
+- the `http://` address answers `301` with `location: https://…/transactions?x=1`, and the
+  second line says `200 after 1`; `version.json` names the commit just deployed;
 - the four app addresses answer `200 text/html`, and the missing file `404`;
 - the page has `Content-Security-Policy: ... script-src 'self' ...` with your `connect-src`,
   `Cache-Control: no-cache`, `Strict-Transport-Security` and `X-Frame-Options: DENY`;
@@ -398,13 +419,13 @@ subfolder's (Apache reads both); check step 12's addresses under the subfolder.
 
 ## Every later deployment
 
-1. Merge to `main` with CI green.
-2. **If the release adds migrations**, push them first, so the new app never runs on an old
+1. **If the release adds migrations**, push them first, so the new app never runs on an old
    schema: `npx supabase db push --remote --dry-run`, then `npx supabase db push --remote`.
    Never edit a migration that was pushed; add a new one.
-3. **Check the migrations by hand** (step 10): the Deploy workflow does not.
-4. Run the Deploy workflow (step 11) and repeat the checks of step 12.
-5. Optionally tag the deploy: `git tag deploy-2026-11-15 && git push --tags`.
+2. Merge to `main` with CI green. Once the Main workflow is green, Deploy runs by itself.
+3. If the release changed `supabase/migrations/`, that run stops at "Check migrations against
+   the live release": check step 10, then run Deploy by hand with **Schema pushed** ticked.
+4. Repeat the checks of step 12 when the release touched `.htaccess` or the build.
 
 ## Backups
 
@@ -537,10 +558,12 @@ least once a week avoids it.
 
 ## Roll back
 
-Run the Deploy workflow again with the **ref** input set to the last good tag or commit SHA
-(find it in the commit history or a previous Deploy run). It rebuilds that version and
-replaces the site. Tagging each deploy (`git tag deploy-2026-11-15 && git push --tags`)
-makes this easier.
+Run the Deploy workflow by hand with the **ref** input set to the last good commit of `main`
+(find it in the commit history or a previous Deploy run's log): `gh workflow run Deploy -f
+ref=<commit>`. It rebuilds that version and replaces the site. A commit that is not on
+`main` is only ever a dry run. If the migrations differ between the live release and that
+commit, the run stops until you tick **Schema pushed**: a rollback does not undo migrations,
+so check first that the older app works on the newer schema.
 
 A rollback does not undo database migrations. Keep migrations backwards compatible with the
 previous release (add columns and tables first, remove them in a later release), or fix
@@ -562,12 +585,14 @@ the way back for the data.
 
 ## Troubleshooting
 
-- `Host key verification failed`: `SSH_KNOWN_HOSTS` does not match `SSH_HOST`/`SSH_PORT`
-  (with a port other than 22 the lines must start with `[server]:port`, which `ssh-keyscan
-  -p` produces), or Infomaniak changed the key. Re-run step 7.5 and verify the fingerprint
-  before updating the variable.
-- `Permission denied (publickey)`: the public key is not in `~/.ssh/authorized_keys` of that
-  SSH user, or `SSH_PRIVATE_KEY` is incomplete (it must include the `BEGIN` and `END` lines).
+- `Login incorrect` or `530`: `FTP_USER` must be the full name with the hosting's prefix
+  (`qm73ov_…`), and `FTP_PASSWORD` that user's password; reset it in the Manager and run
+  `gh secret set FTP_PASSWORD` again.
+- `Certificate verification` errors: `FTP_HOST` must be the hosting's FTP server name
+  (`qm73ov.ftp.infomaniak.com`), which the certificate covers, not the site's domain.
+- "Check migrations against the live release" fails: see step 10; tick **Schema pushed** only
+  once the hosted project has the migrations.
+- A run says "main has moved on": a newer commit was pushed; its own run deploys it.
 - Blank page after deploy: `VITE_BASE_PATH` does not match where the site is served.
 - Reloading a page gives 404: `.htaccess` is missing in the site folder (hidden files not
   uploaded) or `mod_rewrite` is off.
