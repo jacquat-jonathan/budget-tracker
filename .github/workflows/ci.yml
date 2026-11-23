@@ -1,14 +1,19 @@
 name: CI
 
-# Pull requests. The "CI passed" job is the one required status check for merging into main
-# (Settings > Rules > Rulesets > main > Require status checks to pass). It depends on every
-# other job, so adding or renaming a job never needs a settings change, as long as the job is
-# listed under its `needs`.
+# Pull requests (into dev or main) and pushes to dev. The "CI passed" job is the one required
+# status check for merging (Settings > Rules > Rulesets > Require status checks to pass). It
+# depends on every other job, so adding or renaming a job never needs a settings change, as long
+# as the job is listed under its `needs`.
+#
+# The push to dev gives the release pull request (dev -> main) its checks: that pull request is
+# opened by release-pr.yml with the workflow token, which starts no pull_request run of its own.
 #
 # Every check runs here, split over parallel jobs to finish in about three minutes. After the
-# merge, main.yml runs the same checks unsplit, plus the slower ones. See docs/ci.md.
+# merge into main, main.yml runs the same checks unsplit, plus the slower ones. See docs/ci.md.
 on:
   pull_request:
+  push:
+    branches: [dev]
   workflow_dispatch:
 
 permissions:

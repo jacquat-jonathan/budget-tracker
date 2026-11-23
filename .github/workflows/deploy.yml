@@ -8,6 +8,10 @@ name: Deploy
 # by hand from the Actions tab: "Deploy" > "Run workflow". Off until the repository variable
 # DEPLOY_WEB is "true" (a manual dry run works without it).
 #
+# After a successful upload, the "Tag the release" job tags the deployed commit vX.Y.Z, so the
+# highest version tag is always what is live. A dry run, a skipped run or a failed upload tags
+# nothing. Releases are merges of the dev -> main pull request (release-pr.yml).
+#
 # Settings > Secrets and variables > Actions:
 #   Variables: DEPLOY_WEB                     true
 #              REMOTE_DIR                     /  (the folder as the FTP user sees it)
@@ -60,6 +64,9 @@ jobs:
             github.event.workflow_run.event == 'push')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.plan.outputs.sha }}
+      released: ${{ steps.released.outputs.released }}
     env:
       TARGET_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.ref || github.sha }}
     steps:
@@ -244,3 +251,73 @@ jobs:
                    $put_index; \
                    $put_version; \
                    $m --delete --ignore-time $keep dist/ '$remote'"
+
+      # Reached only when every step above succeeded: a failed upload tags nothing.
+      - name: Mark the upload as released
+        id: released
+        if: steps.plan.outputs.skip != 'true' && steps.plan.outputs.dry_run != 'true'
+        run: echo "released=true" >> "$GITHUB_OUTPUT"
+
+  tag:
+    name: Tag the release
+    needs: deploy
+    if: needs.deploy.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only this job can write to the repository (to push the tag); the build above stays read-only.
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.deploy.outputs.sha }}
+          # Every tag, and main's history since the last one.
+          fetch-depth: 0
+
+      # Patch bump from the highest vX.Y.Z tag, or minor/major when a pull request merged into
+      # main since the last released commit has that label. v0.1.0 when there is no tag yet. A
+      # rollback (an older commit of main) gets a new patch tag, so the highest tag stays the one
+      # that is live.
+      - name: Tag the deployed commit vX.Y.Z
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ needs.deploy.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse "$SHA^{commit}")
+          tags=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V || true)
+          last=$(tail -n 1 <<< "$tags")
+          if [ -z "$last" ]; then
+            next=v0.1.0
+            why="first version tag"
+          elif [ "$(git rev-parse "$last^{commit}")" = "$sha" ]; then
+            echo "$last already names $sha: nothing to tag."
+            exit 0
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            bump="patch"
+            # shellcheck disable=SC2086 # one argument per tag
+            for commit in $(git rev-list --first-parent "$sha" --not $tags); do
+              labels=$(gh api "repos/$REPO/commits/$commit/pulls" \
+                --jq '.[] | select(.base.ref == "main" and .merged_at != null) | .labels[].name')
+              if grep -qx major <<< "$labels"; then
+                bump="major"
+              elif grep -qx minor <<< "$labels" && [ "$bump" = patch ]; then
+                bump="minor"
+              fi
+            done
+            case "$bump" in
+              major) next="v$((major + 1)).0.0" ;;
+              minor) next="v$major.$((minor + 1)).0" ;;
+              *) next="v$major.$minor.$((patch + 1))" ;;
+            esac
+            why="$bump bump from $last"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$next" -m "Deployed to $SITE_URL by $RUN_URL ($why)" "$sha"
+          git push origin "refs/tags/$next"
+          echo "Tagged $sha as $next ($why)." | tee -a "$GITHUB_STEP_SUMMARY"

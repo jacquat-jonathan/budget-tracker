@@ -2,7 +2,12 @@
 
 Two workflows run the checks (`C-CI-001`, `C-CI-002`; decision `D-656`). Hand-written.
 
-## Pull requests: `.github/workflows/ci.yml`
+## Pull requests and `dev`: `.github/workflows/ci.yml`
+
+Runs on every pull request (into `dev` or `main`) and on every push to `dev`. The push run is
+the one the **Release** pull request (`dev` → `main`, opened by `release-pr.yml` with the
+workflow token, which starts no pull_request run) shows as its checks; see
+`docs/deployment.md`, "Releasing".
 
 Required to merge. It runs every check, split over parallel jobs so the run takes about three
 minutes instead of seven:
@@ -26,9 +31,10 @@ A new push to a pull request cancels the run it makes stale.
 
 ### Making it required (owner, once)
 
-Settings > Rules > Rulesets > New branch ruleset, target `main`, "Require a pull request before
-merging" and "Require status checks to pass", add the check **CI passed** (it must have run once
-to be listed). Only that check needs to be named: it depends on all the others, so jobs can be
+Settings > Rules > Rulesets > New branch ruleset, target `main` and `dev`, "Require a pull
+request before merging" and "Require status checks to pass", add the check **CI passed** (it
+must have run once to be listed). For `main`, allow merge commits: the Release pull request is
+merged with one. Only that check needs to be named: it depends on all the others, so jobs can be
 added or renamed without changing the rule, as long as they are listed in its `needs`.
 
 ## After a merge, and every night: `.github/workflows/main.yml`

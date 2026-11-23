@@ -57,6 +57,16 @@ without saying so.
 - `docs/` generated spec view (`spec.md`), database API contract, local Supabase, CI
   (`ci.md`) and deployment notes.
 
+## Branches and releases
+
+- Feature pull requests target **`dev`**, never `main` (`gh pr create --base dev`). Branch from
+  an up-to-date `origin/dev`.
+- `main` is what is live: every push to it deploys to Infomaniak. Releasing means merging the
+  open `dev` → `main` pull request ("Release", kept up to date by `release-pr.yml`) with a merge
+  commit, never squash or rebase. Only the owner releases.
+- After a successful deploy the Deploy workflow tags the commit `vX.Y.Z` (D-660). Never create,
+  move or delete `v*` tags by hand. See `docs/deployment.md`, "Releasing".
+
 ## Rules
 
 <!-- BEGIN GENERATED: conventions from spec/spec.json. Do not edit by hand: change the spec, then run `npm run spec:render`. -->
@@ -95,7 +105,7 @@ without saying so.
   its id, and no test names an id that is unknown or not active. (`C-SPEC-003`, lint)
 - Ids are stable: never renumber or reuse one; retire a rule or supersede a decision instead
   of deleting it. (`C-SPEC-004`, review)
-- A pull request into `main` merges only when the `CI passed` job of
+- A pull request into `dev` or `main` merges only when the `CI passed` job of
   `.github/workflows/ci.yml` succeeds. That workflow runs every check, every pgTAP file and
   every seed of the property walk included, split over parallel jobs so it finishes in about
   three minutes, and `CI passed` depends on every other job in it. (`C-CI-001`, review)
@@ -105,6 +115,10 @@ without saying so.
   it. A run on `main` is never cancelled. A check added to `ci.yml` is added to `main.yml`
   too. (`C-CI-002`, review)
 - Code is formatted with Prettier (`npm run format:check` passes). (`C-CI-003`, lint)
+- Feature pull requests target `dev`, never `main`. A release is the merge of the one `dev`
+  → `main` pull request that `.github/workflows/release-pr.yml` keeps open, with a merge
+  commit (not squash or rebase). A fix that had to go straight to `main` is merged back into
+  `dev` right after. (`C-CI-004`, review)
 <!-- END GENERATED: conventions -->
 
 ## Checks

@@ -5,7 +5,7 @@ hosted Supabase project. Nothing runs on the web server but Apache: the browser 
 app's files from Infomaniak and talks to Supabase directly.
 
 ```
-push to main -> Main workflow green -> Deploy: migration check, lint, typecheck, tests, npm run build (VITE_* variables) -> lftp over FTPS -> Infomaniak
+feature PR -> dev -> "Release" PR (dev -> main) merged -> push to main -> Main workflow green -> Deploy: migration check, lint, typecheck, tests, npm run build (VITE_* variables) -> lftp over FTPS -> Infomaniak -> tag vX.Y.Z
 Browser -> Infomaniak (HTML, JS, CSS)    Browser -> Supabase (data, auth; row-level security enforces access)
 ```
 
@@ -20,6 +20,7 @@ Contents:
 - [What you need](#what-you-need)
 - [First deployment, step by step](#first-deployment-step-by-step) (steps 1 to 14)
 - [Serving the app from a subfolder](#serving-the-app-from-a-subfolder)
+- [Releasing: dev, the release pull request and version tags](#releasing-dev-the-release-pull-request-and-version-tags)
 - [Every later deployment](#every-later-deployment)
 - [Backups](#backups)
 - [Email templates](#email-templates)
@@ -417,12 +418,66 @@ A subfolder (for example `https://example.ch/budget/`) is supported:
 If the parent site has its own `.htaccess` with rewrite rules, they apply before the
 subfolder's (Apache reads both); check step 12's addresses under the subfolder.
 
+## Releasing: dev, the release pull request and version tags
+
+Work does not go to `main` directly any more (D-660, C-CI-004):
+
+1. **Feature pull requests target `dev`.** CI (`ci.yml`) runs on them as it does on any pull
+   request. Merging one changes nothing on the live site.
+2. **Every push to `dev`** runs `.github/workflows/release-pr.yml`. It opens the pull request
+   `dev` → `main` titled **Release** if none is open, or rewrites its description: the pull
+   requests merged into `dev` that `main` does not have yet, other commits on `dev`, and the
+   version the release will get. `ci.yml` also runs on the push to `dev`; that run gives the
+   release pull request its checks (a pull request opened with the workflow token starts no
+   pull_request run of its own).
+3. **Releasing is merging the Release pull request**, with **Create a merge commit** (not squash
+   or rebase: `dev` and `main` must keep one history, or `dev` looks unreleased forever). The
+   push to `main` deploys as before: Main, then Deploy.
+4. **After a successful upload** the Deploy workflow's last job, **Tag the release**, tags the
+   deployed commit with an annotated tag `vX.Y.Z` and pushes it. No GitHub Release is made. The
+   highest `v*` tag is therefore always the version that is live:
+   - patch bump from the highest `v*` tag (`v0.3.1` → `v0.3.2`);
+   - **minor** or **major** bump instead when a pull request merged into `main` since the last
+     released commit (normally the Release pull request) has the label `minor` or `major`.
+     Set the label before merging;
+   - `v0.1.0` for the first tag;
+   - a rollback to an older commit of `main` gets a new patch tag (`v0.3.2` live, roll back to
+     `v0.3.1`'s commit: it is tagged `v0.3.3`), so the highest tag still names what is live;
+   - a dry run, a run skipped because `main` moved on, and a failed run (a check, the build or
+     the upload) tag nothing. A run that redeploys the commit the highest tag already names
+     adds no tag.
+
+```sh
+git tag -l 'v*' --sort=-v:refname | head -3   # live version first
+```
+
+**A fix that cannot wait** may go straight to `main` through a pull request into `main`; merge
+`main` back into `dev` right after (`git switch dev && git pull && git merge origin/main && git
+push`), or the next Release pull request conflicts.
+
+**One-time setup (owner):**
+
+1. Once this is merged into `main`, create `dev` from it:
+   `gh api repos/jacquat-jonathan/budget-tracker/git/refs -f ref=refs/heads/dev -f sha=$(gh api repos/jacquat-jonathan/budget-tracker/commits/main --jq .sha)`.
+2. Settings > Actions > General > Workflow permissions: tick **Allow GitHub Actions to create
+   and approve pull requests** (release-pr.yml opens the Release pull request with the workflow
+   token).
+3. The labels: `gh label create minor -R jacquat-jonathan/budget-tracker -c 1D76DB -d "Release: bump the minor version"`
+   and `gh label create major -R jacquat-jonathan/budget-tracker -c B60205 -d "Release: bump the major version"`.
+4. Keep `main` the default branch. `workflow_run` (Deploy) and `schedule` (Main's nightly run)
+   use the default branch's workflow files and commit, and GitHub only links a merged pull
+   request (its labels) to a commit of the default branch. Feature pull requests then need
+   `--base dev`, which CLAUDE.md says.
+5. Rulesets (Settings > Rules > Rulesets): the one for `main` (docs/ci.md), and the same for
+   `dev`: require a pull request and the check **CI passed**.
+
 ## Every later deployment
 
 1. **If the release adds migrations**, push them first, so the new app never runs on an old
    schema: `npx supabase db push --remote --dry-run`, then `npx supabase db push --remote`.
    Never edit a migration that was pushed; add a new one.
-2. Merge to `main` with CI green. Once the Main workflow is green, Deploy runs by itself.
+2. Merge the **Release** pull request (`dev` → `main`) with CI green, with a merge commit.
+   Once the Main workflow is green, Deploy runs by itself and tags the release.
 3. If the release changed `supabase/migrations/`, that run stops at "Check migrations against
    the live release": check step 10, then run Deploy by hand with **Schema pushed** ticked.
 4. Repeat the checks of step 12 when the release touched `.htaccess` or the build.
@@ -559,8 +614,9 @@ least once a week avoids it.
 ## Roll back
 
 Run the Deploy workflow by hand with the **ref** input set to the last good commit of `main`
-(find it in the commit history or a previous Deploy run's log): `gh workflow run Deploy -f
-ref=<commit>`. It rebuilds that version and replaces the site. A commit that is not on
+or its version tag (`git tag -l 'v*' --sort=-v:refname`, or a previous Deploy run's log):
+`gh workflow run Deploy -f ref=v0.3.1`. It rebuilds that version, replaces the site and tags
+it with the next patch version, so the highest tag still names what is live. A commit that is not on
 `main` is only ever a dry run. If the migrations differ between the live release and that
 commit, the run stops until you tick **Schema pushed**: a rollback does not undo migrations,
 so check first that the older app works on the newer schema.
@@ -593,6 +649,11 @@ the way back for the data.
 - "Check migrations against the live release" fails: see step 10; tick **Schema pushed** only
   once the hosted project has the migrations.
 - A run says "main has moved on": a newer commit was pushed; its own run deploys it.
+- No Release pull request appears after a push to `dev`: the Release PR run's log says why.
+  "GitHub Actions is not permitted to create or approve pull requests" means the setting of
+  [Releasing](#releasing-dev-the-release-pull-request-and-version-tags), step 2, is off.
+- "Tag the release" fails at `git push`: the tag already exists on GitHub (made by hand?).
+  The site is deployed; delete the stray tag or leave it, and the next deploy tags from it.
 - Blank page after deploy: `VITE_BASE_PATH` does not match where the site is served.
 - Reloading a page gives 404: `.htaccess` is missing in the site folder (hidden files not
   uploaded) or `mod_rewrite` is off.
