@@ -14909,6 +14909,24 @@
         "owner-request: automatic FTPS deploys for every Infomaniak site, like race-tracker, 2026-11-22",
         "code: public/.htaccess"
       ]
+    },
+    {
+      "id": "D-660",
+      "title": "Work collects on a dev branch; every successful deploy tags the live commit vX.Y.Z",
+      "decision": "Feature pull requests merge into a long-lived `dev` branch (C-CI-004). On every push to `dev`, `release-pr.yml` opens the `dev` → `main` pull request titled \"Release\", or updates its description, listing the pull requests merged into `dev` that `main` lacks. Merging it is the release: the push to `main` deploys as before (D-657). The Deploy workflow's last job, which runs only when the upload succeeded, tags the deployed commit with an annotated tag `vX.Y.Z`: a patch bump from the highest `v*` tag, a minor or major bump when a pull request merged into `main` since the last released commit has the label `minor` or `major`, and `v0.1.0` when there is no tag yet. A rollback to an older commit gets a new patch tag. Dry runs, skipped runs and failed uploads tag nothing. No GitHub Release is made. `ci.yml` also runs on pushes to `dev`, so the release pull request, opened with the workflow token (which starts no pull_request run), has its checks.",
+      "why": "The owner's repository dashboard reads which version is live from the highest version tag, and counts what is not released yet from the open release pull request. Pushing to `main` still deploys, so nothing changes on the hosting side.",
+      "rejected": [
+        "release-please: it makes GitHub Releases and release commits; only a tag that names what is live is wanted.",
+        "Tagging before or during the upload: a failed upload would leave a tag for a version that is not live.",
+        "Tagging in the deploy job itself: its build and tests would run with a token that can write to the repository."
+      ],
+      "status": "accepted",
+      "related": ["D-657", "C-CI-004", "C-CI-001"],
+      "source": [
+        "owner-request: dev branch, release pull request and a version tag on every deploy, 2026-11-23",
+        "code: .github/workflows/release-pr.yml",
+        "code: .github/workflows/deploy.yml"
+      ]
     }
   ],
   "conventions": [
@@ -15144,7 +15162,7 @@
     {
       "id": "C-CI-001",
       "area": "ci",
-      "statement": "A pull request into `main` merges only when the `CI passed` job of `.github/workflows/ci.yml` succeeds. That workflow runs every check, every pgTAP file and every seed of the property walk included, split over parallel jobs so it finishes in about three minutes, and `CI passed` depends on every other job in it.",
+      "statement": "A pull request into `dev` or `main` merges only when the `CI passed` job of `.github/workflows/ci.yml` succeeds. That workflow runs every check, every pgTAP file and every seed of the property walk included, split over parallel jobs so it finishes in about three minutes, and `CI passed` depends on every other job in it.",
       "rationale": "One required check that depends on the others: adding or renaming a job needs no change to the branch rule. The rule itself is a repository setting, which `docs/ci.md` describes.",
       "status": "active",
       "enforcement": "review",
@@ -15180,6 +15198,18 @@
       ],
       "related": ["C-CI-001"],
       "source": ["owner-request: CI on pull requests and on main, 2026-11-18"]
+    },
+    {
+      "id": "C-CI-004",
+      "area": "ci",
+      "statement": "Feature pull requests target `dev`, never `main`. A release is the merge of the one `dev` → `main` pull request that `.github/workflows/release-pr.yml` keeps open, with a merge commit (not squash or rebase). A fix that had to go straight to `main` is merged back into `dev` right after.",
+      "rationale": "`main` is what is live: every push to it deploys (D-657). Work waits on `dev` until it is released, and the release pull request lists it. A squash or rebase merge of `dev` into `main` would leave the two branches with different histories, so `dev` would look unreleased forever.",
+      "status": "active",
+      "enforcement": "review",
+      "related": ["D-660", "D-657", "C-CI-001"],
+      "source": [
+        "owner-request: dev branch, release pull request and a version tag on every deploy, 2026-11-23"
+      ]
     }
   ],
   "openQuestions": [

@@ -1,0 +1,103 @@
+name: Release PR
+
+# Keeps one pull request from dev into main open while dev has work main lacks, and lists that
+# work: the pull requests merged into dev since the last release. Merging it is the release: the
+# push to main deploys to Infomaniak, and the Deploy workflow tags the deployed commit vX.Y.Z.
+# No GitHub Release is made. See docs/deployment.md, "Releasing".
+#
+# Opening a pull request with the workflow token needs Settings > Actions > General > Workflow
+# permissions > "Allow GitHub Actions to create and approve pull requests".
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Only the newest push to dev matters: it describes everything waiting.
+concurrency:
+  group: release-pr
+  cancel-in-progress: true
+
+jobs:
+  release-pr:
+    name: Open or update the dev to main pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history and tags: what dev has that main lacks, and the last version tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Open or update the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          range="origin/main..origin/dev"
+          ahead=$(git rev-list --count "$range")
+          pr=$(gh api "repos/$REPO/pulls?state=open&base=main&head=$OWNER:dev" --jq '.[0].number // empty')
+          if [ "$ahead" -eq 0 ] && [ -z "$pr" ]; then
+            echo "dev has no commit that main lacks: no release pull request needed."
+            exit 0
+          fi
+
+          # The version the deploy will tag, as far as labels go.
+          last=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+          if [ -z "$last" ]; then
+            version_line="No version tag yet: the deploy of this release tags it \`v0.1.0\`."
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            version_line="Live now: \`$last\`. This release will be tagged \`v$major.$minor.$((patch + 1))\`. Add the label \`minor\` to this pull request for \`v$major.$((minor + 1)).0\`, or \`major\` for \`v$((major + 1)).0.0\`."
+          fi
+
+          # Pull requests merged into dev whose merge commit main does not have yet.
+          in_range=$(git rev-list "$range" | jq -R . | jq -s .)
+          prs=$(gh api --paginate "repos/$REPO/pulls?state=closed&base=dev&per_page=100" \
+                  --jq '.[] | select(.merged_at != null) | {number, title, merge_commit_sha, merged_at}' \
+                | jq -s --argjson in "$in_range" \
+                  '[.[] | select(.merge_commit_sha as $c | $in | index($c))] | sort_by(.merged_at)')
+          pr_count=$(jq length <<< "$prs")
+          pr_lines=$(jq -r '.[] | "- #\(.number) \(.title)"' <<< "$prs")
+          pr_commits=$(jq -r '.[].merge_commit_sha' <<< "$prs")
+          # Commits on dev that no merged pull request accounts for (pushed directly, merges of main).
+          other_lines=$(git log --reverse --first-parent --format='%H %h %s' "$range" \
+            | while read -r full short subject; do
+                grep -qxF "$full" <<< "$pr_commits" || printf -- '- %s %s\n' "$short" "$subject"
+              done)
+
+          body="$RUNNER_TEMP/release-pr.md"
+          {
+            echo "Merging this pull request releases \`dev\`: the push to \`main\` runs the deploy to Infomaniak, and a successful upload tags the deployed commit."
+            echo
+            echo "$version_line"
+            echo
+            echo "Merge with **Create a merge commit**, not squash or rebase, so \`main\` and \`dev\` keep one history."
+            echo
+            echo "### Waiting to be released: $pr_count pull request(s)"
+            echo
+            if [ -n "$pr_lines" ]; then echo "$pr_lines"; else echo "None."; fi
+            if [ -n "$other_lines" ]; then
+              echo
+              echo "### Other commits on \`dev\`"
+              echo
+              echo "$other_lines"
+            fi
+            echo
+            echo "<sub>Written by \`.github/workflows/release-pr.yml\` on every push to \`dev\`; edits to this text are overwritten.</sub>"
+          } > "$body"
+          cat "$body"
+
+          if [ -n "$pr" ]; then
+            gh api -X PATCH "repos/$REPO/pulls/$pr" -F "body=@$body" --jq '"Updated " + .html_url'
+          elif ! gh api "repos/$REPO/pulls" -f title=Release -f head=dev -f base=main -F "body=@$body" \
+                 --jq '"Opened " + .html_url'; then
+            echo "::error::Could not open the release pull request. If GitHub says Actions may not create pull requests, turn on Settings > Actions > General > Workflow permissions > \"Allow GitHub Actions to create and approve pull requests\"."
+            exit 1
+          fi
